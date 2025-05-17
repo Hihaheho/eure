@@ -12,6 +12,7 @@ keywords = ["swon", "formatter", "pretty-print", "code-style"]
 [features]
 default = []
 unformat = ["dep:rand", "dep:rand_chacha"]
+test = ["unformat"]
 
 [dependencies]
 rand = { version = "0.9.1", optional = true }
@@ -20,3 +21,4 @@ swon-tree = { workspace = true }
 
 [dev-dependencies]
 rand = { version = "0.9.1" }
+swon-parol = { workspace = true }
