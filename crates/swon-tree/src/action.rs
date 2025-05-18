@@ -173,3 +173,244 @@ pub enum Command {
         data: String,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tree::{ConcreteSyntaxTree, CstNodeId, CstNodeData, NonTerminalData, TerminalData, DynamicTokenId};
+    use crate::node_kind::{NonTerminalKind, TerminalKind};
+    use petgraph::graph::{DiGraph, NodeIndex};
+    
+    fn create_test_tree() -> ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
+        ConcreteSyntaxTree::new(
+            CstNodeId(NodeIndex::new(0)),
+            DiGraph::new(),
+        )
+    }
+    
+    #[test]
+    fn test_delete_node() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        // Add a child node
+        let node_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let child = tree.add_node_with_parent(node_data, root);
+        
+        let mut commands = CstCommands::default();
+        commands.delete_node(child);
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        assert!(tree.has_no_children(root));
+    }
+    
+    #[test]
+    fn test_delete_recursive() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        // Add a child node
+        let node_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let child = tree.add_node_with_parent(node_data, root);
+        
+        // Add a grandchild node
+        let grandchild_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Swon,
+            NonTerminalData::Dynamic,
+        );
+        let _grandchild = tree.add_node_with_parent(grandchild_data, child);
+        
+        let mut commands = CstCommands::default();
+        commands.delete_node(child);
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        let root_children: Vec<_> = tree.children(root).collect();
+        assert!(!root_children.contains(&child));
+        
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        // Add a child node again
+        let node_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let child = tree.add_node_with_parent(node_data, root);
+        
+        let mut commands = CstCommands::default();
+        commands.delete_recursive(child);
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        let root_children: Vec<_> = tree.children(root).collect();
+        assert!(!root_children.contains(&child));
+    }
+    
+    #[test]
+    fn test_change_parent() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        let node_data1 = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let child1 = tree.add_node_with_parent(node_data1, root);
+        
+        let node_data2 = CstNodeData::new_non_terminal(
+            NonTerminalKind::Swon,
+            NonTerminalData::Dynamic,
+        );
+        let child2 = tree.add_node_with_parent(node_data2, root);
+        
+        let grandchild_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let grandchild = tree.add_node_with_parent(grandchild_data, child1);
+        
+        let mut commands = CstCommands::default();
+        commands.commands.push(Command::ChangeParent {
+            id: grandchild.into(),
+            parent: child2.into(),
+        });
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        let child2_children: Vec<_> = tree.children(child2).collect();
+        assert!(child2_children.contains(&grandchild));
+        
+    }
+    
+    #[test]
+    fn test_insert() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        let node_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        
+        let mut commands = CstCommands::default();
+        let child_id = commands.insert_node(root, node_data);
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        let children: Vec<_> = tree.children(root).collect();
+        assert_eq!(children.len(), 1);
+        
+        let child_data = tree.node_data(children[0]).unwrap();
+        assert!(matches!(child_data, CstNodeData::NonTerminal { kind: NonTerminalKind::Root, .. }));
+    }
+    
+    #[test]
+    fn test_update() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        // Add a child node
+        let node_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let child = tree.add_node_with_parent(node_data, root);
+        
+        let new_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Swon,
+            NonTerminalData::Dynamic,
+        );
+        
+        let mut commands = CstCommands::default();
+        commands.update_node(child, new_data);
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        let updated_data = tree.node_data(child).unwrap();
+        assert!(matches!(updated_data, CstNodeData::NonTerminal { kind: NonTerminalKind::Swon, .. }));
+    }
+    
+    #[test]
+    fn test_add_nodes_before() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        let node_data1 = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let child1 = tree.add_node_with_parent(node_data1, root);
+        
+        let node_data2 = CstNodeData::new_non_terminal(
+            NonTerminalKind::Swon,
+            NonTerminalData::Dynamic,
+        );
+        let child2 = tree.add_node_with_parent(node_data2, root);
+        
+        let node_data3 = CstNodeData::new_non_terminal(
+            NonTerminalKind::Section,
+            NonTerminalData::Dynamic,
+        );
+        let child3 = tree.add_node(node_data3);
+        
+        let mut commands = CstCommands::default();
+        commands.add_nodes_before(root, child2, vec![child3]);
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        let children: Vec<_> = tree.children(root).collect();
+        
+        assert_eq!(children.len(), 3);
+        
+        assert!(children.contains(&child1));
+        assert!(children.contains(&child2));
+        assert!(children.contains(&child3));
+        
+        assert!(tree.children(root).any(|id| id == child3));
+    }
+    
+    #[test]
+    fn test_insert_dynamic_terminal() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        let mut commands = CstCommands::default();
+        let token_id = commands.insert_dynamic_terminal(TerminalKind::Text, "test_text");
+        
+        commands.apply_to(&mut tree).unwrap();
+        
+        assert_eq!(tree.dynamic_token(DynamicTokenId(0)), Some("test_text"));
+    }
+    
+    #[test]
+    fn test_commands_with_errors() {
+        let mut tree = create_test_tree();
+        let root = tree.root();
+        
+        let invalid_node = CstNodeId(NodeIndex::new(999));
+        
+        let mut commands = CstCommands::default();
+        commands.delete_node(invalid_node);
+        
+        assert!(commands.apply_to(&mut tree).is_ok());
+        
+        let mut commands = CstCommands::default();
+        let node_data = CstNodeData::new_non_terminal(
+            NonTerminalKind::Root,
+            NonTerminalData::Dynamic,
+        );
+        let child = tree.add_node(node_data);
+        commands.add_nodes_before(root, invalid_node, vec![child]);
+        
+        let result = commands.apply_to(&mut tree);
+        assert!(result.is_err());
+    }
+}
