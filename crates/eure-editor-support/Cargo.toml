@@ -1,0 +1,15 @@
+[package]
+name = "eure-editor-support"
+version = "0.1.0"
+edition = "2024"
+description = "Editor support utilities for EURE format"
+license = "MIT OR Apache-2.0"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+readme = "README.md"
+keywords = ["eure", "editor", "ide", "language-support"]
+
+[dependencies]
+eure-parol = { workspace = true }
+eure-tree = { workspace = true }
+lsp-types = { workspace = true }

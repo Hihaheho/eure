@@ -42,7 +42,7 @@ Notation as type: `url"string"`
 
 Notation as value:
 
-````swon
+````eure
 key = ```rust
 fn main() {
     println!("Hello, world!");

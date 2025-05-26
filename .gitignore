@@ -11,9 +11,9 @@
 !Cargo.toml
 !Cargo.lock
 
-!crates/swon-parol/swon.par
+!crates/eure-parol/eure.par
 
-!example.swon
+!example.eure
 
 !playground/**/*.json
 !playground/**/*.js

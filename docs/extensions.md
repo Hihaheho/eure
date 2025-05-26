@@ -6,7 +6,7 @@ Extensions are used to provide additional information without affecting the data
 
 For third-party extensions, you should have namespace with the extension name. Also, don't put `$` in the following keys of the namespace.
 
-```swon
+```eure
 # bad
 key1.$is-awesome = true
 key2.$is-awesome = false
@@ -22,25 +22,25 @@ key3.$my-extension.is-awesome = true
 
 You can nest extensions.
 
-```swon
+```eure
 $my-extension {
-	$swon.schema = "" # the schema url of the extension namespace.
+	$eure.schema = "" # the schema url of the extension namespace.
 	$comment: This is a comment to this extension.
 }
 ```
 
-## $swon
+## $eure
 
-```swon
-@ $swon
-# version of the SWON specification
-version: https://swon.dev/v1
-# schema of this SWON file
-schema: https://swon.dev/schemas/swon-schema/v1
+```eure
+@ $eure
+# version of the EURE specification
+version: https://eure.dev/v1
+# schema of this EURE file
+schema: https://eure.dev/schemas/eure-schema/v1
 ```
 
-- `$swon-lint.config = url"https://swon.dev/default-configs/swon-lint/v1"`
-- `$swon-fmt.config = url"https://swon.dev/default-configs/swon-fmt/v1"`
+- `$eure-lint.config = url"https://eure.dev/default-configs/eure-lint/v1"`
+- `$eure-fmt.config = url"https://eure.dev/default-configs/eure-fmt/v1"`
 - `$root = "script"` to indicate the root key of this section
 - `$data-model = "json"` to limit the data types that can be used in a data model, like path data in JSON.
 

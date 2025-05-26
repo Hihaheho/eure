@@ -4,18 +4,18 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-serde-swon = { path = "crates/serde-swon", version = "0.1.0" }
-swon = { path = "crates/swon", version = "0.1.0" }
-swon-parol = { path = "crates/swon-parol", version = "0.1.0" }
-swon-fmt = { path = "crates/swon-fmt", version = "0.1.0" }
-swon-json-schema = { path = "crates/swon-json-schema", version = "0.1.0" }
-swon-toml = { path = "crates/swon-toml", version = "0.1.0" }
-swon-schema = { path = "crates/swon-schema", version = "0.1.0" }
-swon-lint = { path = "crates/swon-lint", version = "0.1.0" }
-swon-template = { path = "crates/swon-template", version = "0.1.0" }
-swon-value = { path = "crates/swon-value", version = "0.1.0" }
-swon-tree = { path = "crates/swon-tree", version = "0.1.0" }
-swon-editor-support = { path = "crates/swon-editor-support", version = "0.1.0" }
+serde-eure = { path = "crates/serde-eure", version = "0.1.0" }
+eure = { path = "crates/eure", version = "0.1.0" }
+eure-parol = { path = "crates/eure-parol", version = "0.1.0" }
+eure-fmt = { path = "crates/eure-fmt", version = "0.1.0" }
+eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.0" }
+eure-toml = { path = "crates/eure-toml", version = "0.1.0" }
+eure-schema = { path = "crates/eure-schema", version = "0.1.0" }
+eure-lint = { path = "crates/eure-lint", version = "0.1.0" }
+eure-template = { path = "crates/eure-template", version = "0.1.0" }
+eure-value = { path = "crates/eure-value", version = "0.1.0" }
+eure-tree = { path = "crates/eure-tree", version = "0.1.0" }
+eure-editor-support = { path = "crates/eure-editor-support", version = "0.1.0" }
 
 parol_runtime = { git = "https://github.com/ryo33/parol.git", package = "parol_runtime", branch = "parse2" }
 parol = { git = "https://github.com/ryo33/parol.git", package = "parol", branch = "parse2" }

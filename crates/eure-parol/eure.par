@@ -1,0 +1,78 @@
+%start Eure
+%title "EURE"
+%grammar_type 'LL(k)'
+%line_comment "#"
+
+%on Quote, TypedQuote %enter Str
+%on TextStart %enter Text
+
+%scanner Str {
+  %auto_newline_off
+  %auto_ws_off
+  %on Quote %enter INITIAL
+}
+
+%scanner Text {
+  %auto_newline_off
+  %auto_ws_off
+  %on Newline %enter INITIAL
+}
+
+%%
+
+Eure: { Binding } { Section } ;
+
+Binding: Keys BindingRhs ;
+  BindingRhs: ValueBinding | SectionBinding | TextBinding ;
+  ValueBinding: Bind Value ;
+  SectionBinding: Begin Eure End ;
+  TextBinding: TextStart [Ws^] Text Newline ;
+
+Section: At Keys SectionBody ;
+  SectionBody: { Binding } | SectionBinding ;
+  Keys: Key { Dot Key } ;
+  Key: KeyBase [ ArrayMarker ] ;
+  ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
+  KeyBase: Ident | ExtensionNameSpace | Str | Integer ;
+  // extension name must always be valid ident, not quoted ident
+  ExtensionNameSpace: Ext Ident ;
+
+Value: Object | Array | Integer | Boolean | Null | StrContinues | TypedStr | Hole | CodeBlock | NamedCode | Code ;
+  Object: Begin { Key Bind Value [ Comma ] } End ;
+  Array: ArrayBegin { Value [ Comma ] } ArrayEnd ;
+  Integer: /\d[\d_]*/ ;
+  Boolean: True | False ;
+  True: 'true' ;
+  False: 'false';
+  Null: 'null' ;
+  Hole: '!' ;
+
+StrContinues: Str { Continue Str } ;
+Str: Quote InStr Quote ;
+TypedStr: TypedQuote InStr Quote ;
+  Quote: <INITIAL, Str>'"' ;
+  TypedQuote: <INITIAL>/[a-zA-Z0-9-_]+"/ ;
+
+InStr: <Str>/(\\[nrt\\"0]|[^\\"\r\n])*/ ;
+// No escape character in text
+Text: <Text>/[^\r\n]*/ ;
+
+CodeBlock: /```[a-zA-Z0-9-_]*(\r\n|\r|\n)([^`]|[`]{1,2})*```/;
+
+NamedCode: /[a-zA-Z0-9-_]+`([^`\r\n]|\\`)*`/ ;
+Code: /`([^`\r\n]|\\`)*`/ ;
+
+Newline: <Text>/\r\n|\r|\n/ ;
+Ws: <Str, Text>/[\s--\r\n]+/ ;
+At: '@' ;
+Ext: '$' ;
+Dot: '.' ;
+Begin: '{' ;
+End: '}' ;
+ArrayBegin: '[' ;
+ArrayEnd: ']' ;
+Bind: '=' ;
+Comma: ',' ;
+Continue: '\\' ;
+TextStart: ":" ;
+Ident: /\p{XID_Start}[\p{XID_Continue}-]*/ ;

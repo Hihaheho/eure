@@ -1,0 +1,22 @@
+[package]
+name = "eure-parol"
+version = "0.1.0"
+edition = "2024"
+description = "EURE parser implementation using Parol"
+license = "MIT OR Apache-2.0"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+readme = "README.md"
+keywords = ["eure", "parser", "serialization", "grammar"]
+
+[dependencies]
+eure-tree = { workspace = true }
+
+parol_runtime.workspace = true
+thiserror = { workspace = true }
+thisisplural = { workspace = true }
+petgraph = { workspace = true }
+
+[dev-dependencies]
+syntree_layout = "0.4"
+pretty_assertions = "1.3"

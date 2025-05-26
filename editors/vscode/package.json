@@ -1,27 +1,27 @@
 {
-  "name": "swon-ls",
+  "name": "eure-ls",
   "version": "1.0.0",
   "main": "out/main.js",
-  "publisher": "swon",
+  "publisher": "eure",
   "scripts": {
-    "package": "npm run build && vsce package -o swon-ls.vsix",
+    "package": "npm run build && vsce package -o eure-ls.vsix",
     "build-base": "esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --target=node16",
     "build": "npm run build-base -- --sourcemap",
     "watch": "npm run build-base -- --sourcemap --watch"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Hihaheho/swon.git"
+    "url": "git+https://github.com/Hihaheho/eure.git"
   },
   "keywords": [
-    "swon"
+    "eure"
   ],
   "author": "Ryo Hirayama",
   "license": "MIT OR Apache-2.0",
   "bugs": {
-    "url": "https://github.com/Hihaheho/swon/issues"
+    "url": "https://github.com/Hihaheho/eure/issues"
   },
-  "homepage": "https://github.com/Hihaheho/swon#readme",
+  "homepage": "https://github.com/Hihaheho/eure#readme",
   "description": "",
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
@@ -40,33 +40,33 @@
   "contributes": {
     "commands": [
       {
-        "command": "swon-ls.start",
-        "title": "Start swon-ls"
+        "command": "eure-ls.start",
+        "title": "Start eure-ls"
       },
       {
-        "command": "swon-ls.stop",
-        "title": "Stop swon-ls"
+        "command": "eure-ls.stop",
+        "title": "Stop eure-ls"
       },
       {
-        "command": "swon-ls.restart",
-        "title": "Restart swon-ls"
+        "command": "eure-ls.restart",
+        "title": "Restart eure-ls"
       }
     ],
     "languages": [
       {
-        "id": "swon",
+        "id": "eure",
         "extensions": [
-          ".swon"
+          ".eure"
         ],
         "aliases": [
-          "Swon",
-          "swon"
+          "Eure",
+          "eure"
         ],
         "filenames": [],
         "configuration": "language-configuration.json",
         "icon": {
-          "light": "../../assets/swon.png",
-          "dark": "../../assets/swon.png"
+          "light": "../../assets/eure.png",
+          "dark": "../../assets/eure.png"
         }
       }
     ]

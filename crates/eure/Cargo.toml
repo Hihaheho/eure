@@ -1,0 +1,12 @@
+[package]
+name = "eure"
+version = "0.1.0"
+edition = "2024"
+description = "EURE core library"
+license = "MIT OR Apache-2.0"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+readme = "README.md"
+keywords = ["eure", "serialization", "data-format", "configuration"]
+
+[dependencies]

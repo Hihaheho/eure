@@ -1,0 +1,18 @@
+[package]
+name = "eure-tree"
+version = "0.1.0"
+edition = "2024"
+description = "EURE tree data structure"
+license = "MIT OR Apache-2.0"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+readme = "README.md"
+keywords = ["eure", "ast", "tree", "data-structure"]
+
+[dependencies]
+eure-value = { workspace = true }
+
+petgraph = { workspace = true }
+thiserror = { workspace = true }
+thisisplural = { workspace = true }
+ahash = { workspace = true }

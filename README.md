@@ -1,6 +1,6 @@
-# SWON
+# EURE
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Hihaheho/swon)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Hihaheho/eure)
 
 > [!WARNING]
 > Under Construction!
@@ -19,8 +19,8 @@
 
 ## Example
 
-```swon
-$swon.version: https://swon.dev/versions/v0.1.0
+```eure
+$eure.version: https://eure.dev/versions/v0.1.0
 title: test
 language: en
 target_window: Main
@@ -55,21 +55,21 @@ scene: scenes/room_a.scn.ron
 
 ## TODO
 
-- [ ] swon-parol: Complete the grammar and parser
-- [ ] swon-ls: Syntax highlighting
-- [ ] swon-schema: SWON Schema specification
-- [ ] serde-swon: Serde support
-- [ ] swon-dev: Making the landing page on <https://swon.dev>
-- [ ] swon-fmt: Make the formatter
-- [ ] swon-cli: command to convert SWON to other formats
-- [ ] swon-check: SWON files validator
-- [ ] swon-lint: Some lint rules
-- [ ] swon-template: Templating extension for SWON files
-- [ ] swon-editor-support: Editor support for SWON files
-- [ ] swon-toml: TOML conversion support
-- [ ] swon-json: JSON conversion support
-- [ ] swon-yaml: YAML conversion support
-- [ ] swon-value: Type-safe data-type of SWON data-model
+- [ ] eure-parol: Complete the grammar and parser
+- [ ] eure-ls: Syntax highlighting
+- [ ] eure-schema: EURE Schema specification
+- [ ] serde-eure: Serde support
+- [ ] eure-dev: Making the landing page on <https://eure.dev>
+- [ ] eure-fmt: Make the formatter
+- [ ] eure-cli: command to convert EURE to other formats
+- [ ] eure-check: EURE files validator
+- [ ] eure-lint: Some lint rules
+- [ ] eure-template: Templating extension for EURE files
+- [ ] eure-editor-support: Editor support for EURE files
+- [ ] eure-toml: TOML conversion support
+- [ ] eure-json: JSON conversion support
+- [ ] eure-yaml: YAML conversion support
+- [ ] eure-value: Type-safe data-type of EURE data-model
 
 ## Credits
 

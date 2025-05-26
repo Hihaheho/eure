@@ -2,30 +2,30 @@
 
 ## Example
 
-### input.swon
+### input.eure
 
-```swon
+```eure
 @ values.for.documentA
-$template-input.of = ./documentA.swon
+$template-input.of = ./documentA.eure
 key1 = "value1"
 key2 = "value2"
 
 @ values.for.documentB
-$template-input.of = ./documentB.swon
+$template-input.of = ./documentB.eure
 key1 = "value3"
 key2 = "value4"
 ```
 
-### documentA.swon
+### documentA.eure
 
-```swon
+```eure
 key1.$template.include.path = .key1
 key2.$template.include.path = .key2
 ```
 
-### documentB.swon
+### documentB.eure
 
-```swon
+```eure
 key1.$template.include.path = .key1
 key2.$template.include.path = .key2
 ```

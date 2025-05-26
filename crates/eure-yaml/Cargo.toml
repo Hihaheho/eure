@@ -1,0 +1,12 @@
+[package]
+name = "eure-yaml"
+version = "0.1.0"
+edition = "2024"
+description = "YAML conversion support for EURE format"
+license = "MIT OR Apache-2.0"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+readme = "README.md"
+keywords = ["eure", "yaml", "conversion", "serialization"]
+
+[dependencies]

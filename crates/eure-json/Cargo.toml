@@ -1,0 +1,13 @@
+[package]
+name = "eure-json"
+version = "0.1.0"
+edition = "2024"
+description = "JSON conversion support for EURE format"
+license = "MIT OR Apache-2.0"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+readme = "README.md"
+keywords = ["eure", "json", "conversion", "serialization"]
+
+[dependencies]
+eure-parol = { workspace = true }

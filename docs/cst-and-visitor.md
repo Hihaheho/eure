@@ -2,20 +2,20 @@
 
 ## Overview
 
-The `swon-tree` crate provides a Concrete Syntax Tree (CST) representation for Swon documents, along with a powerful Visitor pattern API for traversing and analyzing the tree. This structure is generated automatically from the Swon grammar definition (`swon.parol`) using the `swon-parol-gen` tool, ensuring that the API always stays synchronized with the language grammar.
+The `eure-tree` crate provides a Concrete Syntax Tree (CST) representation for Eure documents, along with a powerful Visitor pattern API for traversing and analyzing the tree. This structure is generated automatically from the Eure grammar definition (`eure.parol`) using the `eure-parol-gen` tool, ensuring that the API always stays synchronized with the language grammar.
 
 This document focuses on the design of the visitor API, the generated code structure, and what you can achieve using these tools.
 
-## Generated Code (`swon-tree`)
+## Generated Code (`eure-tree`)
 
-The `swon-parol-gen` crate generates two key files within `swon-tree/src`:
+The `eure-parol-gen` crate generates two key files within `eure-tree/src`:
 
 1. `nodes.rs`: Defines the structural representation of the CST nodes.
 2. `visitor.rs`: Defines the `CstVisitor` trait and related components.
 
 ### Node Handles and Views (`nodes.rs`)
 
-For each element defined in the Swon grammar (`swon.parol`), `swon-parol-gen` generates corresponding types in `nodes.rs`:
+For each element defined in the Eure grammar (`eure.parol`), `eure-parol-gen` generates corresponding types in `nodes.rs`:
 
 * **Terminal Nodes:** For each terminal symbol (like `Ident`, `Integer`, `LBrace`), a simple struct wrapping a `CstNodeId` is generated (e.g., `struct Ident(CstNodeId)`). These structs implement the `TerminalHandle` trait, providing access to the node's ID and `TerminalKind`. The actual text content associated with the terminal can be retrieved using the `CstFacade` (like the `Cst` itself) and the node ID.
 * **Non-Terminal Nodes:** For each non-terminal rule (like `Array`, `Binding`, `Value`), two types are generated:
@@ -26,11 +26,11 @@ For each element defined in the Swon grammar (`swon.parol`), `swon-parol-gen` ge
     * **Repetitions/Lists (Recursion):** The View is often a struct containing a handle to the item and a handle to the next element in the list (e.g., `ArrayListView { value: ValueHandle, array_opt: ArrayOptHandle, array_list: ArrayListHandle }`). These views often implement the `RecursiveView` trait, providing helper methods like `get_all_with_visit` for easy iteration over list items.
     * **Options:** The corresponding `Handle`'s associated `View` type is an `Option` wrapping the handle of the optional child (e.g., `ArrayOptHandle` has `type View = Option<CommaHandle>`).
 
-This generation ensures that the Rust types accurately represent the Swon grammar structure.
+This generation ensures that the Rust types accurately represent the Eure grammar structure.
 
 ### Visitor Traits (`visitor.rs`)
 
-The `swon-parol-gen` tool also generates the core visitor traits:
+The `eure-parol-gen` tool also generates the core visitor traits:
 
 * **`CstVisitor<F: CstFacade>`:** This is the main trait users implement to traverse the CST. It contains methods for visiting each node type:
   * `visit_<RuleName>(&mut self, handle: <RuleName>Handle, view: <RuleName>View, tree: &F)`: Called when entering a non-terminal node. Receives the node's `Handle` and its `View` (providing access to children).
@@ -132,7 +132,7 @@ This allows fine-grained control over how syntactically-present but often semant
 
 ## API Design and Capabilities
 
-The visitor pattern implemented in `swon-tree` allows for robust and type-safe traversal of the Swon CST.
+The visitor pattern implemented in `eure-tree` allows for robust and type-safe traversal of the Eure CST.
 
 ### How to Use
 
@@ -142,7 +142,7 @@ The visitor pattern implemented in `swon-tree` allows for robust and type-safe t
 4. **Run the visitor:** Instantiate your visitor and call the appropriate traversal method on the `Cst` object (e.g., using methods provided by `Cst` or helper functions that take a visitor).
 
 ```rust, ignore
-use swon_tree::{Cst, CstVisitor, CstVisitorSuper, nodes::*, tree::{CstFacade, TerminalData, NonTerminalData, CstNodeId}, node_kind::{TerminalKind, NonTerminalKind}, CstConstructError};
+use eure_tree::{Cst, CstVisitor, CstVisitorSuper, nodes::*, tree::{CstFacade, TerminalData, NonTerminalData, CstNodeId}, node_kind::{TerminalKind, NonTerminalKind}, CstConstructError};
 
 struct MyVisitor {
     // Visitor state, e.g., collected data
@@ -193,12 +193,12 @@ fn visit(cst: &Cst) -> Result<(), CstConstructError> {
 ### What Can Be Achieved?
 
 * **Code Analysis:** Count occurrences of specific nodes, check for specific patterns, validate semantic rules.
-* **Data Extraction:** Extract all key-value pairs, string literals, or specific sections from a Swon document.
+* **Data Extraction:** Extract all key-value pairs, string literals, or specific sections from a Eure document.
 * **Transformation:** Convert the CST into an Abstract Syntax Tree (AST), JSON, or any other format.
-* **Code Generation:** Generate code or configuration based on the Swon input.
+* **Code Generation:** Generate code or configuration based on the Eure input.
 * **Linting/Formatting:** Implement custom linting rules or code formatting logic by analyzing node positions and content.
 
-The combination of auto-generated, type-safe node access (`Handle` and `View`) and the flexible `CstVisitor` trait provides a powerful foundation for interacting with Swon CSTs.
+The combination of auto-generated, type-safe node access (`Handle` and `View`) and the flexible `CstVisitor` trait provides a powerful foundation for interacting with Eure CSTs.
 
 ### Advanced Use Case: Custom Facade and Dependency Graphs
 
@@ -208,7 +208,7 @@ Since visitor methods receive `&F` (immutable) but the visitor is `&mut self`, d
 
 ## Modifying the CST with the Action Module
 
-The `action` module in `swon-tree` provides a command pattern for modifying the Concrete Syntax Tree. This allows you to collect a series of modifications and apply them all at once, which can be useful for complex transformations or when you need to track and potentially revert changes.
+The `action` module in `eure-tree` provides a command pattern for modifying the Concrete Syntax Tree. This allows you to collect a series of modifications and apply them all at once, which can be useful for complex transformations or when you need to track and potentially revert changes.
 
 ### Key Components
 
@@ -224,30 +224,30 @@ The `action` module in `swon-tree` provides a command pattern for modifying the 
 3. **Apply the commands:** Call `apply_to` with a mutable reference to your CST to apply all the collected commands at once.
 
 ```rust, ignore
-use swon_tree::prelude::*;
-use swon_tree::action::{CstCommands, Command};
-use swon_tree::{Cst, CstNode};
+use eure_tree::prelude::*;
+use eure_tree::action::{CstCommands, Command};
+use eure_tree::{Cst, CstNode};
 
 fn modify_cst(cst: &mut Cst) {
     // Create a new CstCommands instance
     let mut commands = CstCommands::new();
-    
+
     // Get a node ID to modify (e.g., from a visitor)
     let node_id = /* ... */;
-    
+
     // Delete a node
     commands.delete_node(node_id);
-    
+
     // Insert a new node under a parent
     let parent_id = /* ... */;
     let new_node_data = /* ... */;
     let new_node_id = commands.insert_node(parent_id, new_node_data);
-    
+
     // Update a node's data
     let node_to_update = /* ... */;
     let updated_data = /* ... */;
     commands.update_node(node_to_update, updated_data);
-    
+
     // Apply all commands to the CST
     commands.apply_to(cst);
 }

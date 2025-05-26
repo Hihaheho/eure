@@ -1657,6 +1657,136 @@ dependencies = [
 ]
 
 [[package]]
+name = "eure"
+version = "0.1.0"
+
+[[package]]
+name = "eure-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "eure-fmt",
+ "eure-parol",
+ "eure-tree",
+ "petgraph 0.8.1",
+]
+
+[[package]]
+name = "eure-dev"
+version = "0.1.0"
+dependencies = [
+ "dioxus",
+]
+
+[[package]]
+name = "eure-editor-support"
+version = "0.1.0"
+dependencies = [
+ "eure-parol",
+ "eure-tree",
+ "lsp-types",
+]
+
+[[package]]
+name = "eure-fmt"
+version = "0.1.0"
+dependencies = [
+ "eure-tree",
+ "rand 0.9.1",
+ "rand_chacha 0.3.1",
+]
+
+[[package]]
+name = "eure-json"
+version = "0.1.0"
+dependencies = [
+ "eure-parol",
+]
+
+[[package]]
+name = "eure-json-schema"
+version = "0.1.0"
+
+[[package]]
+name = "eure-lint"
+version = "0.1.0"
+
+[[package]]
+name = "eure-ls"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "eure-editor-support",
+ "eure-tree",
+ "lsp-server",
+ "lsp-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "eure-parol"
+version = "0.1.0"
+dependencies = [
+ "eure-tree",
+ "parol_runtime",
+ "petgraph 0.8.1",
+ "pretty_assertions",
+ "syntree_layout",
+ "thiserror 2.0.12",
+ "thisisplural",
+]
+
+[[package]]
+name = "eure-parol-gen"
+version = "0.1.0"
+dependencies = [
+ "convert_case 0.8.0",
+ "parol",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "eure-schema"
+version = "0.1.0"
+
+[[package]]
+name = "eure-template"
+version = "0.1.0"
+
+[[package]]
+name = "eure-toml"
+version = "0.1.0"
+
+[[package]]
+name = "eure-tree"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "eure-value",
+ "petgraph 0.8.1",
+ "thiserror 2.0.12",
+ "thisisplural",
+]
+
+[[package]]
+name = "eure-value"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "regex",
+ "thiserror 2.0.12",
+ "thisisplural",
+]
+
+[[package]]
+name = "eure-yaml"
+version = "0.1.0"
+
+[[package]]
 name = "event-listener"
 version = "5.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4340,7 +4470,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-swon"
+name = "serde-eure"
 version = "0.1.0"
 
 [[package]]
@@ -4698,136 +4828,6 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "swon"
-version = "0.1.0"
-
-[[package]]
-name = "swon-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "petgraph 0.8.1",
- "swon-fmt",
- "swon-parol",
- "swon-tree",
-]
-
-[[package]]
-name = "swon-dev"
-version = "0.1.0"
-dependencies = [
- "dioxus",
-]
-
-[[package]]
-name = "swon-editor-support"
-version = "0.1.0"
-dependencies = [
- "lsp-types",
- "swon-parol",
- "swon-tree",
-]
-
-[[package]]
-name = "swon-fmt"
-version = "0.1.0"
-dependencies = [
- "rand 0.9.1",
- "rand_chacha 0.3.1",
- "swon-tree",
-]
-
-[[package]]
-name = "swon-json"
-version = "0.1.0"
-dependencies = [
- "swon-parol",
-]
-
-[[package]]
-name = "swon-json-schema"
-version = "0.1.0"
-
-[[package]]
-name = "swon-lint"
-version = "0.1.0"
-
-[[package]]
-name = "swon-ls"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "lsp-server",
- "lsp-types",
- "serde",
- "serde_json",
- "swon-editor-support",
- "swon-tree",
-]
-
-[[package]]
-name = "swon-parol"
-version = "0.1.0"
-dependencies = [
- "parol_runtime",
- "petgraph 0.8.1",
- "pretty_assertions",
- "swon-tree",
- "syntree_layout",
- "thiserror 2.0.12",
- "thisisplural",
-]
-
-[[package]]
-name = "swon-parol-gen"
-version = "0.1.0"
-dependencies = [
- "convert_case 0.8.0",
- "parol",
- "prettyplease",
- "proc-macro2",
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "swon-schema"
-version = "0.1.0"
-
-[[package]]
-name = "swon-template"
-version = "0.1.0"
-
-[[package]]
-name = "swon-toml"
-version = "0.1.0"
-
-[[package]]
-name = "swon-tree"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "petgraph 0.8.1",
- "swon-value",
- "thiserror 2.0.12",
- "thisisplural",
-]
-
-[[package]]
-name = "swon-value"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "regex",
- "thiserror 2.0.12",
- "thisisplural",
-]
-
-[[package]]
-name = "swon-yaml"
-version = "0.1.0"
 
 [[package]]
 name = "syn"
