@@ -7,21 +7,21 @@ pub mod tree;
 
 use std::convert::Infallible;
 
-pub use parol_runtime;
-use parol_runtime::ParolError;
 use eure_tree::{
     Cst, CstNode,
     tree::{CstNodeData, CstNodeId, TerminalData},
 };
+pub use parol_runtime;
+use parol_runtime::ParolError;
 
-pub use parol_runtime::parser::parse_tree_type::TreeConstruct;
 use eure_tree::visitor::{NodeVisitor, NodeVisitorSuper as _};
+pub use parol_runtime::parser::parse_tree_type::TreeConstruct;
 use tree::CstBuilder;
 
 pub fn parse(input: &str) -> Result<Cst, ParolError> {
     let mut actions = grammar::Grammar::new();
     let mut tree_builder = CstBuilder::new();
-    parser::parse_into(input, &mut tree_builder, "test.eure", &mut actions).unwrap();
+    parser::parse_into(input, &mut tree_builder, "test.eure", &mut actions)?;
     Ok(tree_builder.build_tree())
 }
 

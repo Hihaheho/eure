@@ -1427,49 +1427,6 @@ pub struct IdentView {
 }
 impl IdentView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct InStrHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for InStrHandle {
-    type View = InStrView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::InStr)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::InStr
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::InStr)],
-            |[in_str], visit_ignored| Ok(
-                visit(InStrView { in_str: InStr(in_str) }, visit_ignored),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InStrView {
-    pub in_str: InStr,
-}
-impl InStrView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IntegerHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for IntegerHandle {
     type View = IntegerView;
@@ -2174,49 +2131,6 @@ impl NonTerminalHandle for ObjectOptHandle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct QuoteHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for QuoteHandle {
-    type View = QuoteView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::Quote)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::Quote
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::Quote)],
-            |[quote], visit_ignored| Ok(
-                visit(QuoteView { quote: Quote(quote) }, visit_ignored),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QuoteView {
-    pub quote: Quote,
-}
-impl QuoteView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SectionHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for SectionHandle {
     type View = SectionView;
@@ -2507,36 +2421,21 @@ impl NonTerminalHandle for StrHandle {
     ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [
-                NodeKind::NonTerminal(NonTerminalKind::Quote),
-                NodeKind::NonTerminal(NonTerminalKind::InStr),
-                NodeKind::NonTerminal(NonTerminalKind::Quote),
-            ],
-            |[quote, in_str, quote2], visit_ignored| Ok(
-                visit(
-                    StrView {
-                        quote: QuoteHandle(quote),
-                        in_str: InStrHandle(in_str),
-                        quote2: QuoteHandle(quote2),
-                    },
-                    visit_ignored,
-                ),
-            ),
+            [NodeKind::Terminal(TerminalKind::Str)],
+            |[str], visit_ignored| Ok(visit(StrView { str: Str(str) }, visit_ignored)),
             visit_ignored,
         )
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StrView {
-    pub quote: QuoteHandle,
-    pub in_str: InStrHandle,
-    pub quote2: QuoteHandle,
+    pub str: Str,
 }
 impl StrView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StrContinuesHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for StrContinuesHandle {
-    type View = StrContinuesView;
+pub struct StringsHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for StringsHandle {
+    type View = StringsView;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -2547,13 +2446,13 @@ impl NonTerminalHandle for StrContinuesHandle {
     ) -> Result<Self, CstConstructError<E>> {
         tree.collect_nodes(
             index,
-            [NodeKind::NonTerminal(NonTerminalKind::StrContinues)],
+            [NodeKind::NonTerminal(NonTerminalKind::Strings)],
             |[index], visit| Ok((Self(index), visit)),
             visit_ignored,
         )
     }
     fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::StrContinues
+        NonTerminalKind::Strings
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
@@ -2565,13 +2464,13 @@ impl NonTerminalHandle for StrContinuesHandle {
             self.0,
             [
                 NodeKind::NonTerminal(NonTerminalKind::Str),
-                NodeKind::NonTerminal(NonTerminalKind::StrContinuesList),
+                NodeKind::NonTerminal(NonTerminalKind::StringsList),
             ],
-            |[str, str_continues_list], visit_ignored| Ok(
+            |[str, strings_list], visit_ignored| Ok(
                 visit(
-                    StrContinuesView {
+                    StringsView {
                         str: StrHandle(str),
-                        str_continues_list: StrContinuesListHandle(str_continues_list),
+                        strings_list: StringsListHandle(strings_list),
                     },
                     visit_ignored,
                 ),
@@ -2581,15 +2480,15 @@ impl NonTerminalHandle for StrContinuesHandle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StrContinuesView {
+pub struct StringsView {
     pub str: StrHandle,
-    pub str_continues_list: StrContinuesListHandle,
+    pub strings_list: StringsListHandle,
 }
-impl StrContinuesView {}
+impl StringsView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StrContinuesListHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for StrContinuesListHandle {
-    type View = Option<StrContinuesListView>;
+pub struct StringsListHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for StringsListHandle {
+    type View = Option<StringsListView>;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -2600,13 +2499,13 @@ impl NonTerminalHandle for StrContinuesListHandle {
     ) -> Result<Self, CstConstructError<E>> {
         tree.collect_nodes(
             index,
-            [NodeKind::NonTerminal(NonTerminalKind::StrContinuesList)],
+            [NodeKind::NonTerminal(NonTerminalKind::StringsList)],
             |[index], visit| Ok((Self(index), visit)),
             visit_ignored,
         )
     }
     fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::StrContinuesList
+        NonTerminalKind::StringsList
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
@@ -2622,14 +2521,14 @@ impl NonTerminalHandle for StrContinuesListHandle {
             [
                 NodeKind::NonTerminal(NonTerminalKind::Continue),
                 NodeKind::NonTerminal(NonTerminalKind::Str),
-                NodeKind::NonTerminal(NonTerminalKind::StrContinuesList),
+                NodeKind::NonTerminal(NonTerminalKind::StringsList),
             ],
-            |[r#continue, str, str_continues_list], visit_ignored| Ok(
+            |[r#continue, str, strings_list], visit_ignored| Ok(
                 visit(
-                    Some(StrContinuesListView {
+                    Some(StringsListView {
                         r#continue: ContinueHandle(r#continue),
                         str: StrHandle(str),
-                        str_continues_list: StrContinuesListHandle(str_continues_list),
+                        strings_list: StringsListHandle(strings_list),
                     }),
                     visit_ignored,
                 ),
@@ -2639,13 +2538,13 @@ impl NonTerminalHandle for StrContinuesListHandle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StrContinuesListView {
+pub struct StringsListView {
     pub r#continue: ContinueHandle,
     pub str: StrHandle,
-    pub str_continues_list: StrContinuesListHandle,
+    pub strings_list: StringsListHandle,
 }
-impl<F: CstFacade> RecursiveView<F> for StrContinuesListView {
-    type Item = StrContinuesListItem;
+impl<F: CstFacade> RecursiveView<F> for StringsListView {
+    type Item = StringsListItem;
     fn get_all_with_visit<E>(
         &self,
         tree: &F,
@@ -2655,12 +2554,8 @@ impl<F: CstFacade> RecursiveView<F> for StrContinuesListView {
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
             let Self { r#continue, str, .. } = item;
-            items
-                .push(StrContinuesListItem {
-                    r#continue,
-                    str,
-                });
-            item.str_continues_list
+            items.push(StringsListItem { r#continue, str });
+            item.strings_list
                 .get_view_with_visit(
                     tree,
                     |view, visit_ignored| {
@@ -2674,7 +2569,7 @@ impl<F: CstFacade> RecursiveView<F> for StrContinuesListView {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StrContinuesListItem {
+pub struct StringsListItem {
     pub r#continue: ContinueHandle,
     pub str: StrHandle,
 }
@@ -2916,110 +2811,6 @@ pub struct TrueView {
 }
 impl TrueView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypedQuoteHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for TypedQuoteHandle {
-    type View = TypedQuoteView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::TypedQuote)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::TypedQuote
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::TypedQuote)],
-            |[typed_quote], visit_ignored| Ok(
-                visit(
-                    TypedQuoteView {
-                        typed_quote: TypedQuote(typed_quote),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TypedQuoteView {
-    pub typed_quote: TypedQuote,
-}
-impl TypedQuoteView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypedStrHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for TypedStrHandle {
-    type View = TypedStrView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::TypedStr)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::TypedStr
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [
-                NodeKind::NonTerminal(NonTerminalKind::TypedQuote),
-                NodeKind::NonTerminal(NonTerminalKind::InStr),
-                NodeKind::NonTerminal(NonTerminalKind::Quote),
-            ],
-            |[typed_quote, in_str, quote], visit_ignored| Ok(
-                visit(
-                    TypedStrView {
-                        typed_quote: TypedQuoteHandle(typed_quote),
-                        in_str: InStrHandle(in_str),
-                        quote: QuoteHandle(quote),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TypedStrView {
-    pub typed_quote: TypedQuoteHandle,
-    pub in_str: InStrHandle,
-    pub quote: QuoteHandle,
-}
-impl TypedStrView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ValueHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for ValueHandle {
     type View = ValueView;
@@ -3074,11 +2865,8 @@ impl NonTerminalHandle for ValueHandle {
             NodeKind::NonTerminal(NonTerminalKind::Null) => {
                 ValueView::Null(NullHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::StrContinues) => {
-                ValueView::StrContinues(StrContinuesHandle(child))
-            }
-            NodeKind::NonTerminal(NonTerminalKind::TypedStr) => {
-                ValueView::TypedStr(TypedStrHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::Strings) => {
+                ValueView::Strings(StringsHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::Hole) => {
                 ValueView::Hole(HoleHandle(child))
@@ -3116,8 +2904,7 @@ pub enum ValueView {
     Integer(IntegerHandle),
     Boolean(BooleanHandle),
     Null(NullHandle),
-    StrContinues(StrContinuesHandle),
-    TypedStr(TypedStrHandle),
+    Strings(StringsHandle),
     Hole(HoleHandle),
     CodeBlock(CodeBlockHandle),
     NamedCode(NamedCodeHandle),
@@ -3352,33 +3139,13 @@ impl TerminalHandle for Hole {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Quote(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for Quote {
+pub struct Str(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Str {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::Quote
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TypedQuote(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for TypedQuote {
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn kind(&self) -> TerminalKind {
-        TerminalKind::TypedQuote
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct InStr(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for InStr {
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn kind(&self) -> TerminalKind {
-        TerminalKind::InStr
+        TerminalKind::Str
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

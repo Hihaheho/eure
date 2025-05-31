@@ -12,7 +12,6 @@ keywords = ["eure", "ast", "tree", "data-structure"]
 [dependencies]
 eure-value = { workspace = true }
 
-petgraph = { workspace = true }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
 ahash = { workspace = true }

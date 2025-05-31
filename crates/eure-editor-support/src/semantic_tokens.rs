@@ -126,10 +126,7 @@ fn process_terminal(
     let token_type = match kind {
         TerminalKind::True | TerminalKind::False | TerminalKind::Null => SemanticTokenType::KEYWORD,
         TerminalKind::Integer => SemanticTokenType::NUMBER,
-        TerminalKind::Quote
-        | TerminalKind::TypedQuote
-        | TerminalKind::InStr
-        | TerminalKind::Text => SemanticTokenType::STRING,
+        TerminalKind::Str | TerminalKind::Text => SemanticTokenType::STRING,
         TerminalKind::NamedCode => {
             let code_pos = text[span.start as usize..span.end as usize]
                 .find('`')

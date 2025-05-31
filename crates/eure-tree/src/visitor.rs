@@ -224,14 +224,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_ident_super(handle, view, tree)
     }
-    fn visit_in_str(
-        &mut self,
-        handle: InStrHandle,
-        view: InStrView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_in_str_super(handle, view, tree)
-    }
     fn visit_integer(
         &mut self,
         handle: IntegerHandle,
@@ -328,14 +320,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_object_opt_super(handle, view, tree)
     }
-    fn visit_quote(
-        &mut self,
-        handle: QuoteHandle,
-        view: QuoteView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_quote_super(handle, view, tree)
-    }
     fn visit_section(
         &mut self,
         handle: SectionHandle,
@@ -376,21 +360,21 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_str_super(handle, view, tree)
     }
-    fn visit_str_continues(
+    fn visit_strings(
         &mut self,
-        handle: StrContinuesHandle,
-        view: StrContinuesView,
+        handle: StringsHandle,
+        view: StringsView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_str_continues_super(handle, view, tree)
+        self.visit_strings_super(handle, view, tree)
     }
-    fn visit_str_continues_list(
+    fn visit_strings_list(
         &mut self,
-        handle: StrContinuesListHandle,
-        view: StrContinuesListView,
+        handle: StringsListHandle,
+        view: StringsListView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_str_continues_list_super(handle, view, tree)
+        self.visit_strings_list_super(handle, view, tree)
     }
     fn visit_text(
         &mut self,
@@ -431,22 +415,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_true_super(handle, view, tree)
-    }
-    fn visit_typed_quote(
-        &mut self,
-        handle: TypedQuoteHandle,
-        view: TypedQuoteView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_typed_quote_super(handle, view, tree)
-    }
-    fn visit_typed_str(
-        &mut self,
-        handle: TypedStrHandle,
-        view: TypedStrView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_typed_str_super(handle, view, tree)
     }
     fn visit_value(
         &mut self,
@@ -552,29 +520,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_hole_terminal_super(terminal, data, tree)
     }
-    fn visit_quote_terminal(
+    fn visit_str_terminal(
         &mut self,
-        terminal: Quote,
+        terminal: Str,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_quote_terminal_super(terminal, data, tree)
-    }
-    fn visit_typed_quote_terminal(
-        &mut self,
-        terminal: TypedQuote,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_typed_quote_terminal_super(terminal, data, tree)
-    }
-    fn visit_in_str_terminal(
-        &mut self,
-        terminal: InStr,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_in_str_terminal_super(terminal, data, tree)
+        self.visit_str_terminal_super(terminal, data, tree)
     }
     fn visit_text_terminal(
         &mut self,
@@ -1002,13 +954,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: IdentView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_in_str_handle(&mut self, handle: InStrHandle, tree: &F) -> Result<(), E>;
-    fn visit_in_str_super(
-        &mut self,
-        handle: InStrHandle,
-        view: InStrView,
-        tree: &F,
-    ) -> Result<(), E>;
     fn visit_integer_handle(&mut self, handle: IntegerHandle, tree: &F) -> Result<(), E>;
     fn visit_integer_super(
         &mut self,
@@ -1113,13 +1058,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: CommaHandle,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_quote_handle(&mut self, handle: QuoteHandle, tree: &F) -> Result<(), E>;
-    fn visit_quote_super(
-        &mut self,
-        handle: QuoteHandle,
-        view: QuoteView,
-        tree: &F,
-    ) -> Result<(), E>;
     fn visit_section_handle(&mut self, handle: SectionHandle, tree: &F) -> Result<(), E>;
     fn visit_section_super(
         &mut self,
@@ -1167,26 +1105,22 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: StrView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_str_continues_handle(
+    fn visit_strings_handle(&mut self, handle: StringsHandle, tree: &F) -> Result<(), E>;
+    fn visit_strings_super(
         &mut self,
-        handle: StrContinuesHandle,
+        handle: StringsHandle,
+        view: StringsView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_str_continues_super(
+    fn visit_strings_list_handle(
         &mut self,
-        handle: StrContinuesHandle,
-        view: StrContinuesView,
+        handle: StringsListHandle,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_str_continues_list_handle(
+    fn visit_strings_list_super(
         &mut self,
-        handle: StrContinuesListHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_str_continues_list_super(
-        &mut self,
-        handle: StrContinuesListHandle,
-        view: StrContinuesListView,
+        handle: StringsListHandle,
+        view: StringsListView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_text_handle(&mut self, handle: TextHandle, tree: &F) -> Result<(), E>;
@@ -1234,28 +1168,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: TrueHandle,
         view: TrueView,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_typed_quote_handle(
-        &mut self,
-        handle: TypedQuoteHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_typed_quote_super(
-        &mut self,
-        handle: TypedQuoteHandle,
-        view: TypedQuoteView,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_typed_str_handle(
-        &mut self,
-        handle: TypedStrHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_typed_str_super(
-        &mut self,
-        handle: TypedStrHandle,
-        view: TypedStrView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_value_handle(&mut self, handle: ValueHandle, tree: &F) -> Result<(), E>;
@@ -1344,21 +1256,9 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_quote_terminal_super(
+    fn visit_str_terminal_super(
         &mut self,
-        terminal: Quote,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_typed_quote_terminal_super(
-        &mut self,
-        terminal: TypedQuote,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_in_str_terminal_super(
-        &mut self,
-        terminal: InStr,
+        terminal: Str,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -2710,49 +2610,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_in_str_handle(
-        &mut self,
-        handle: InStrHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_in_str(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
     fn visit_integer_handle(
         &mut self,
         handle: IntegerHandle,
@@ -3305,49 +3162,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_quote_handle(
-        &mut self,
-        handle: QuoteHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_quote(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
     fn visit_section_handle(
         &mut self,
         handle: SectionHandle,
@@ -3575,9 +3389,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_str_continues_handle(
+    fn visit_strings_handle(
         &mut self,
-        handle: StrContinuesHandle,
+        handle: StringsHandle,
         tree: &F,
     ) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
@@ -3598,7 +3412,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (
-                    visit.visit_str_continues(handle, view, tree),
+                    visit.visit_strings(handle, view, tree),
                     visit,
                 ),
                 self,
@@ -3621,9 +3435,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_str_continues_list_handle(
+    fn visit_strings_list_handle(
         &mut self,
-        handle: StrContinuesListHandle,
+        handle: StringsListHandle,
         tree: &F,
     ) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
@@ -3645,7 +3459,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 tree,
                 |view, visit: &mut Self| (
                     if let Some(view) = view {
-                        visit.visit_str_continues_list(handle, view, tree)
+                        visit.visit_strings_list(handle, view, tree)
                     } else {
                         Ok(())
                     },
@@ -3879,98 +3693,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_true(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_typed_quote_handle(
-        &mut self,
-        handle: TypedQuoteHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (
-                    visit.visit_typed_quote(handle, view, tree),
-                    visit,
-                ),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_typed_str_handle(
-        &mut self,
-        handle: TypedStrHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (
-                    visit.visit_typed_str(handle, view, tree),
-                    visit,
-                ),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -4678,30 +4400,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_ident_terminal(ident, data, tree)?;
         Ok(())
     }
-    fn visit_in_str_super(
-        &mut self,
-        handle: InStrHandle,
-        view_param: InStrView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let InStrView { in_str } = view_param;
-        let data = match in_str.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        in_str.0,
-                        NodeKind::Terminal(in_str.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_in_str_terminal(in_str, data, tree)?;
-        Ok(())
-    }
     fn visit_integer_super(
         &mut self,
         handle: IntegerHandle,
@@ -4906,30 +4604,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_comma_handle(view_param, tree)?;
         Ok(())
     }
-    fn visit_quote_super(
-        &mut self,
-        handle: QuoteHandle,
-        view_param: QuoteView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let QuoteView { quote } = view_param;
-        let data = match quote.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        quote.0,
-                        NodeKind::Terminal(quote.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_quote_terminal(quote, data, tree)?;
-        Ok(())
-    }
     fn visit_section_super(
         &mut self,
         handle: SectionHandle,
@@ -4992,35 +4666,46 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let StrView { quote, in_str, quote2 } = view_param;
-        self.visit_quote_handle(quote, tree)?;
-        self.visit_in_str_handle(in_str, tree)?;
-        self.visit_quote_handle(quote2, tree)?;
+        let StrView { str } = view_param;
+        let data = match str.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        str.0,
+                        NodeKind::Terminal(str.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_str_terminal(str, data, tree)?;
         Ok(())
     }
-    fn visit_str_continues_super(
+    fn visit_strings_super(
         &mut self,
-        handle: StrContinuesHandle,
-        view_param: StrContinuesView,
+        handle: StringsHandle,
+        view_param: StringsView,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let StrContinuesView { str, str_continues_list } = view_param;
+        let StringsView { str, strings_list } = view_param;
         self.visit_str_handle(str, tree)?;
-        self.visit_str_continues_list_handle(str_continues_list, tree)?;
+        self.visit_strings_list_handle(strings_list, tree)?;
         Ok(())
     }
-    fn visit_str_continues_list_super(
+    fn visit_strings_list_super(
         &mut self,
-        handle: StrContinuesListHandle,
-        view_param: StrContinuesListView,
+        handle: StringsListHandle,
+        view_param: StringsListView,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let StrContinuesListView { r#continue, str, str_continues_list } = view_param;
+        let StringsListView { r#continue, str, strings_list } = view_param;
         self.visit_continue_handle(r#continue, tree)?;
         self.visit_str_handle(str, tree)?;
-        self.visit_str_continues_list_handle(str_continues_list, tree)?;
+        self.visit_strings_list_handle(strings_list, tree)?;
         Ok(())
     }
     fn visit_text_super(
@@ -5119,43 +4804,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_true_terminal(r#true, data, tree)?;
         Ok(())
     }
-    fn visit_typed_quote_super(
-        &mut self,
-        handle: TypedQuoteHandle,
-        view_param: TypedQuoteView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let TypedQuoteView { typed_quote } = view_param;
-        let data = match typed_quote.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        typed_quote.0,
-                        NodeKind::Terminal(typed_quote.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_typed_quote_terminal(typed_quote, data, tree)?;
-        Ok(())
-    }
-    fn visit_typed_str_super(
-        &mut self,
-        handle: TypedStrHandle,
-        view_param: TypedStrView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let TypedStrView { typed_quote, in_str, quote } = view_param;
-        self.visit_typed_quote_handle(typed_quote, tree)?;
-        self.visit_in_str_handle(in_str, tree)?;
-        self.visit_quote_handle(quote, tree)?;
-        Ok(())
-    }
     fn visit_value_super(
         &mut self,
         handle: ValueHandle,
@@ -5179,11 +4827,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             ValueView::Null(item) => {
                 self.visit_null_handle(item, tree)?;
             }
-            ValueView::StrContinues(item) => {
-                self.visit_str_continues_handle(item, tree)?;
-            }
-            ValueView::TypedStr(item) => {
-                self.visit_typed_str_handle(item, tree)?;
+            ValueView::Strings(item) => {
+                self.visit_strings_handle(item, tree)?;
             }
             ValueView::Hole(item) => {
                 self.visit_hole_handle(item, tree)?;
@@ -5328,27 +4973,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_quote_terminal_super(
+    fn visit_str_terminal_super(
         &mut self,
-        terminal: Quote,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
-        Ok(())
-    }
-    fn visit_typed_quote_terminal_super(
-        &mut self,
-        terminal: TypedQuote,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
-        Ok(())
-    }
-    fn visit_in_str_terminal_super(
-        &mut self,
-        terminal: InStr,
+        terminal: Str,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -5682,10 +5309,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = IdentHandle(id);
                         self.visit_ident_handle(handle, tree)?;
                     }
-                    NonTerminalKind::InStr => {
-                        let handle = InStrHandle(id);
-                        self.visit_in_str_handle(handle, tree)?;
-                    }
                     NonTerminalKind::Integer => {
                         let handle = IntegerHandle(id);
                         self.visit_integer_handle(handle, tree)?;
@@ -5734,10 +5357,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = ObjectOptHandle(id);
                         self.visit_object_opt_handle(handle, tree)?;
                     }
-                    NonTerminalKind::Quote => {
-                        let handle = QuoteHandle(id);
-                        self.visit_quote_handle(handle, tree)?;
-                    }
                     NonTerminalKind::Section => {
                         let handle = SectionHandle(id);
                         self.visit_section_handle(handle, tree)?;
@@ -5758,13 +5377,13 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = StrHandle(id);
                         self.visit_str_handle(handle, tree)?;
                     }
-                    NonTerminalKind::StrContinues => {
-                        let handle = StrContinuesHandle(id);
-                        self.visit_str_continues_handle(handle, tree)?;
+                    NonTerminalKind::Strings => {
+                        let handle = StringsHandle(id);
+                        self.visit_strings_handle(handle, tree)?;
                     }
-                    NonTerminalKind::StrContinuesList => {
-                        let handle = StrContinuesListHandle(id);
-                        self.visit_str_continues_list_handle(handle, tree)?;
+                    NonTerminalKind::StringsList => {
+                        let handle = StringsListHandle(id);
+                        self.visit_strings_list_handle(handle, tree)?;
                     }
                     NonTerminalKind::Text => {
                         let handle = TextHandle(id);
@@ -5785,14 +5404,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::True => {
                         let handle = TrueHandle(id);
                         self.visit_true_handle(handle, tree)?;
-                    }
-                    NonTerminalKind::TypedQuote => {
-                        let handle = TypedQuoteHandle(id);
-                        self.visit_typed_quote_handle(handle, tree)?;
-                    }
-                    NonTerminalKind::TypedStr => {
-                        let handle = TypedStrHandle(id);
-                        self.visit_typed_str_handle(handle, tree)?;
                     }
                     NonTerminalKind::Value => {
                         let handle = ValueHandle(id);
@@ -5850,17 +5461,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let terminal = Hole(id);
                         self.visit_hole_terminal(terminal, data, tree)?;
                     }
-                    TerminalKind::Quote => {
-                        let terminal = Quote(id);
-                        self.visit_quote_terminal(terminal, data, tree)?;
-                    }
-                    TerminalKind::TypedQuote => {
-                        let terminal = TypedQuote(id);
-                        self.visit_typed_quote_terminal(terminal, data, tree)?;
-                    }
-                    TerminalKind::InStr => {
-                        let terminal = InStr(id);
-                        self.visit_in_str_terminal(terminal, data, tree)?;
+                    TerminalKind::Str => {
+                        let terminal = Str(id);
+                        self.visit_str_terminal(terminal, data, tree)?;
                     }
                     TerminalKind::Text => {
                         let terminal = Text(id);

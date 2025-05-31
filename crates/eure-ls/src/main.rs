@@ -3,14 +3,14 @@
 
 use std::collections::HashMap;
 
+use eure_editor_support::{diagnostics, parser, semantic_tokens};
+use eure_tree::Cst;
 use lsp_types::notification::{Notification as _, PublishDiagnostics};
 use lsp_types::request::SemanticTokensFullRequest;
 use lsp_types::{
     Diagnostic, InitializeParams, PublishDiagnosticsParams, SemanticTokensFullOptions,
     SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult, ServerCapabilities, Uri,
 };
-use eure_editor_support::{diagnostics, parser, semantic_tokens};
-use eure_tree::Cst;
 
 use lsp_server::{
     Connection, ErrorCode, ExtractError, Message, Notification, Request, Response, ResponseError,

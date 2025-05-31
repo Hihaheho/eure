@@ -4,13 +4,13 @@ use thisisplural::Plural;
 
 /// A data structure for representing a Eure document without any span information.
 pub struct EureDocument {
-    sections: Vec<EureSection>,
-    bindings: Vec<EureBinding>,
+    pub sections: Vec<EureSection>,
+    pub bindings: Vec<EureBinding>,
 }
 
 pub struct EureSection {
-    keys: EureKeys,
-    body: SectionBody,
+    pub keys: EureKeys,
+    pub body: SectionBody,
 }
 
 pub enum SectionBody {
@@ -19,8 +19,8 @@ pub enum SectionBody {
 }
 
 pub struct EureBinding {
-    keys: Vec<EureKey>,
-    rhs: BindingRhs,
+    pub keys: Vec<EureKey>,
+    pub rhs: BindingRhs,
 }
 
 pub enum BindingRhs {

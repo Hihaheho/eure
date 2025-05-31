@@ -3,14 +3,7 @@
 %grammar_type 'LL(k)'
 %line_comment "#"
 
-%on Quote, TypedQuote %enter Str
 %on TextStart %enter Text
-
-%scanner Str {
-  %auto_newline_off
-  %auto_ws_off
-  %on Quote %enter INITIAL
-}
 
 %scanner Text {
   %auto_newline_off
@@ -37,7 +30,7 @@ Section: At Keys SectionBody ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext Ident ;
 
-Value: Object | Array | Integer | Boolean | Null | StrContinues | TypedStr | Hole | CodeBlock | NamedCode | Code ;
+Value: Object | Array | Integer | Boolean | Null | Strings | Hole | CodeBlock | NamedCode | Code ;
   Object: Begin { Key Bind Value [ Comma ] } End ;
   Array: ArrayBegin { Value [ Comma ] } ArrayEnd ;
   Integer: /\d[\d_]*/ ;
@@ -47,13 +40,9 @@ Value: Object | Array | Integer | Boolean | Null | StrContinues | TypedStr | Hol
   Null: 'null' ;
   Hole: '!' ;
 
-StrContinues: Str { Continue Str } ;
-Str: Quote InStr Quote ;
-TypedStr: TypedQuote InStr Quote ;
-  Quote: <INITIAL, Str>'"' ;
-  TypedQuote: <INITIAL>/[a-zA-Z0-9-_]+"/ ;
+Strings: Str { Continue Str } ;
+Str: /([a-zA-Z0-9-_]+)?"([^"]|\\")*"/ ;
 
-InStr: <Str>/(\\[nrt\\"0]|[^\\"\r\n])*/ ;
 // No escape character in text
 Text: <Text>/[^\r\n]*/ ;
 
@@ -63,7 +52,7 @@ NamedCode: /[a-zA-Z0-9-_]+`([^`\r\n]|\\`)*`/ ;
 Code: /`([^`\r\n]|\\`)*`/ ;
 
 Newline: <Text>/\r\n|\r|\n/ ;
-Ws: <Str, Text>/[\s--\r\n]+/ ;
+Ws: <Text>/[\s--\r\n]+/ ;
 At: '@' ;
 Ext: '$' ;
 Dot: '.' ;

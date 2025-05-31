@@ -1,3 +1,4 @@
+#![expect(unused)]
 use ahash::AHashMap;
 use eure_value::{identifier::Identifier, value::PathSegment};
 use thiserror::Error;
@@ -22,7 +23,7 @@ pub enum ValueVisitorError {
     CstError(#[from] CstConstructError),
 }
 
-impl<'a, F: CstFacade> CstVisitor<F> for ValueVisitor<'a> {
+impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     type Error = ValueVisitorError;
 
     fn visit_keys(

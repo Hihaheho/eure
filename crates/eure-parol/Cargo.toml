@@ -15,8 +15,6 @@ eure-tree = { workspace = true }
 parol_runtime.workspace = true
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
-petgraph = { workspace = true }
 
 [dev-dependencies]
-syntree_layout = "0.4"
 pretty_assertions = "1.3"

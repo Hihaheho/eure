@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 
-use rand::prelude::*;
 use eure_tree::prelude::*;
+use rand::prelude::*;
 
 pub fn unformat(tree: &mut Cst) {
     let mut unformatter = Unformatter::new();
@@ -80,18 +80,6 @@ impl<F: CstFacade> CstVisitor<F> for Unformatter {
     ) -> Result<(), Self::Error> {
         self.no_white_space_here = true;
         self.visit_code_block_super(handle, view, tree)?;
-        self.no_white_space_here = false;
-        Ok(())
-    }
-
-    fn visit_typed_str(
-        &mut self,
-        handle: TypedStrHandle,
-        view: TypedStrView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.no_white_space_here = true;
-        self.visit_typed_str_super(handle, view, tree)?;
         self.no_white_space_here = false;
         Ok(())
     }

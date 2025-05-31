@@ -1691,6 +1691,7 @@ dependencies = [
 name = "eure-fmt"
 version = "0.1.0"
 dependencies = [
+ "eure-parol",
  "eure-tree",
  "rand 0.9.1",
  "rand_chacha 0.3.1",
@@ -1730,9 +1731,7 @@ version = "0.1.0"
 dependencies = [
  "eure-tree",
  "parol_runtime",
- "petgraph 0.8.1",
  "pretty_assertions",
- "syntree_layout",
  "thiserror 2.0.12",
  "thisisplural",
 ]
@@ -1767,7 +1766,6 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "eure-value",
- "petgraph 0.8.1",
  "thiserror 2.0.12",
  "thisisplural",
 ]

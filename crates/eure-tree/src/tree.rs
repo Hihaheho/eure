@@ -1,10 +1,6 @@
 mod span;
 
-use petgraph::{
-    Direction,
-    graph::{DiGraph, NodeIndex},
-    visit::EdgeRef,
-};
+use ahash::HashMap;
 use std::{collections::BTreeMap, convert::Infallible};
 use thiserror::Error;
 
@@ -108,31 +104,45 @@ where
         }
     }
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub struct CstNodeId(pub NodeIndex);
+pub struct CstNodeId(pub usize);
 
 impl std::fmt::Display for CstNodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0.index())
+        write!(f, "{}", self.0)
     }
 }
 
-/// A generic concrete syntax tree that doesn't know about EURE-specific ordering issues
+/// A generic concrete syntax tree with stable child ordering
 #[derive(Debug, Clone)]
 pub struct ConcreteSyntaxTree<T, Nt> {
-    graph: DiGraph<Option<CstNodeData<T, Nt>>, ()>,
+    nodes: Vec<Option<CstNodeData<T, Nt>>>,
+    children: HashMap<CstNodeId, Vec<CstNodeId>>,
+    parent: HashMap<CstNodeId, CstNodeId>,
     dynamic_tokens: BTreeMap<DynamicTokenId, String>,
+    next_node_id: usize,
     next_dynamic_token_id: u32,
     root: CstNodeId,
 }
 
-impl<T, Nt> ConcreteSyntaxTree<T, Nt> {
-    pub fn new(root: CstNodeId, graph: DiGraph<Option<CstNodeData<T, Nt>>, ()>) -> Self {
+impl<T, Nt> ConcreteSyntaxTree<T, Nt>
+where
+    T: Clone,
+    Nt: Clone,
+{
+    pub fn new(root_data: CstNodeData<T, Nt>) -> Self {
+        let nodes = vec![Some(root_data)];
+        let root = CstNodeId(0);
+
         Self {
-            graph,
-            root,
+            nodes,
+            children: HashMap::default(),
+            parent: HashMap::default(),
             dynamic_tokens: BTreeMap::new(),
+            next_node_id: 1,
             next_dynamic_token_id: 0,
+            root,
         }
     }
 
@@ -140,21 +150,34 @@ impl<T, Nt> ConcreteSyntaxTree<T, Nt> {
         self.root
     }
 
-    pub fn change_parent(&mut self, id: CstNodeId, parent: CstNodeId) {
-        if let Some(edge) = self
-            .graph
-            .edges_directed(id.0, Direction::Incoming)
-            .next()
-            .map(|edge| edge.id())
-        {
-            self.graph.remove_edge(edge);
+    pub fn set_root(&mut self, new_root: CstNodeId) {
+        self.root = new_root;
+    }
+
+    pub fn change_parent(&mut self, id: CstNodeId, new_parent: CstNodeId) {
+        // Remove from old parent's children
+        if let Some(old_parent) = self.parent.get(&id).copied() {
+            if let Some(children) = self.children.get_mut(&old_parent) {
+                children.retain(|&child| child != id);
+            }
         }
-        self.graph.add_edge(parent.0, id.0, ());
+
+        // Add to new parent's children
+        self.children.entry(new_parent).or_default().push(id);
+        self.parent.insert(id, new_parent);
     }
 
     pub fn add_node(&mut self, data: CstNodeData<T, Nt>) -> CstNodeId {
-        let node = self.graph.add_node(Some(data));
-        CstNodeId(node)
+        let id = CstNodeId(self.next_node_id);
+        self.next_node_id += 1;
+
+        // Extend the nodes vector if necessary
+        if id.0 >= self.nodes.len() {
+            self.nodes.resize(id.0 + 1, None);
+        }
+
+        self.nodes[id.0] = Some(data);
+        id
     }
 
     pub fn add_node_with_parent(
@@ -163,32 +186,30 @@ impl<T, Nt> ConcreteSyntaxTree<T, Nt> {
         parent: CstNodeId,
     ) -> CstNodeId {
         let node = self.add_node(data);
-        self.graph.add_edge(parent.0, node.0, ());
+        self.add_edge(parent, node);
         node
     }
 
     pub fn add_edge(&mut self, from: CstNodeId, to: CstNodeId) {
-        self.graph.add_edge(from.0, to.0, ());
+        self.children.entry(from).or_default().push(to);
+        self.parent.insert(to, from);
     }
 
     pub fn has_no_children(&self, node: CstNodeId) -> bool {
-        self.graph
-            .edges_directed(node.0, Direction::Outgoing)
-            .next()
-            .is_none()
+        self.children
+            .get(&node)
+            .is_none_or(|children| children.is_empty())
     }
 
-    pub fn children(&self, node: CstNodeId) -> impl Iterator<Item = CstNodeId> {
-        self.graph
-            .edges_directed(node.0, Direction::Outgoing)
-            .map(|edge| CstNodeId(edge.target()))
+    pub fn children(&self, node: CstNodeId) -> impl Iterator<Item = CstNodeId> + '_ {
+        self.children
+            .get(&node)
+            .into_iter()
+            .flat_map(|children| children.iter().copied())
     }
 
     pub fn parent(&self, node: CstNodeId) -> Option<CstNodeId> {
-        self.graph
-            .edges_directed(node.0, Direction::Incoming)
-            .next()
-            .map(|edge| CstNodeId(edge.source()))
+        self.parent.get(&node).copied()
     }
 
     pub fn get_str<'a: 'c, 'b: 'c, 'c>(
@@ -211,8 +232,10 @@ impl<T, Nt> ConcreteSyntaxTree<T, Nt> {
         id: CstNodeId,
         data: CstNodeData<T, Nt>,
     ) -> Option<CstNodeData<T, Nt>> {
-        if let Some(Some(node_data)) = self.graph.node_weight_mut(id.0) {
-            Some(std::mem::replace(node_data, data))
+        if id.0 < self.nodes.len() {
+            self.nodes[id.0]
+                .as_mut()
+                .map(|node_data| std::mem::replace(node_data, data))
         } else {
             None
         }
@@ -221,18 +244,27 @@ impl<T, Nt> ConcreteSyntaxTree<T, Nt> {
     pub fn update_children(
         &mut self,
         id: CstNodeId,
-        children: impl IntoIterator<Item = CstNodeId>,
+        new_children: impl IntoIterator<Item = CstNodeId>,
     ) {
-        for edge in self
-            .graph
-            .edges_directed(id.0, Direction::Outgoing)
-            .map(|edge| edge.id())
-            .collect::<Vec<_>>()
-        {
-            self.graph.remove_edge(edge);
+        let new_children: Vec<_> = new_children.into_iter().collect();
+
+        // Update parent pointers for old children (remove this parent)
+        if let Some(old_children) = self.children.get(&id) {
+            for &child in old_children {
+                self.parent.remove(&child);
+            }
         }
-        for child in children {
-            self.add_edge(id, child);
+
+        // Update parent pointers for new children
+        for &child in &new_children {
+            self.parent.insert(child, id);
+        }
+
+        // Set new children
+        if new_children.is_empty() {
+            self.children.remove(&id);
+        } else {
+            self.children.insert(id, new_children);
         }
     }
 
@@ -250,36 +282,33 @@ where
     Nt: Copy,
 {
     pub fn node_data(&self, node: CstNodeId) -> Option<CstNodeData<T, Nt>> {
-        self.graph.node_weight(node.0).copied().flatten()
+        self.nodes.get(node.0).and_then(|opt| *opt)
     }
 
     /// Delete a node but keep its children
     pub fn delete_node(&mut self, id: CstNodeId) {
-        // This does not remove the node from the graph, because it causes CstNodeId inconsistent.
-        let edges = self
-            .graph
-            .edges_directed(id.0, Direction::Incoming)
-            .map(|edge| edge.id())
-            .collect::<Vec<_>>();
-        for edge in edges {
-            self.graph.remove_edge(edge);
+        // Remove the node data
+        if id.0 < self.nodes.len() {
+            self.nodes[id.0] = None;
         }
+
+        // Remove from parent's children list
+        if let Some(parent_id) = self.parent.remove(&id) {
+            if let Some(parent_children) = self.children.get_mut(&parent_id) {
+                parent_children.retain(|&child| child != id);
+            }
+        }
+
+        // Remove children mapping (but don't delete child nodes recursively)
+        self.children.remove(&id);
     }
 }
 
 impl TerminalKind {
-    fn auto_ws_is_off(&self, index: usize) -> bool {
-        // TODO: support CodeBlockDelimitor it's also used for beginning of CodeBlock and it's non-terminal so need more analysis to handle this case
+    fn auto_ws_is_off(&self, _index: usize) -> bool {
         matches!(
-            (self, index),
-            (
-                TerminalKind::Ws
-                    | TerminalKind::Newline
-                    | TerminalKind::InStr
-                    | TerminalKind::Text
-                    | TerminalKind::Code,
-                _
-            ) | (TerminalKind::Quote, 2)
+            self,
+            TerminalKind::Ws | TerminalKind::Newline | TerminalKind::Text | TerminalKind::Code
         )
     }
 }
@@ -296,6 +325,7 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
         let (_, data) = node_data.expected_non_terminal_or_error(id, kind)?;
         Ok(data)
     }
+
     pub fn get_terminal(
         &self,
         id: CstNodeId,
@@ -317,7 +347,6 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
         F: CstFacade,
     >(
         &self,
-        // This is important to pass a wrapper of Cst field
         facade: &F,
         parent: CstNodeId,
         nodes: [NodeKind<TerminalKind, NonTerminalKind>; N],
@@ -330,7 +359,7 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
         let children = self.children(parent).collect::<Vec<_>>();
         let mut children = children.into_iter();
         let mut result = Vec::with_capacity(N);
-        let mut ignored = Vec::with_capacity(N); // This N is just heuristic, we can have more than N ignored nodes
+        let mut ignored = Vec::with_capacity(N);
         'outer: for expected_kind in nodes {
             'inner: for (idx, child) in children.by_ref().enumerate() {
                 let child_data = self
@@ -521,6 +550,8 @@ pub trait CstFacade: Sized {
     ) -> Result<O, CstConstructError<E>>;
 
     fn dynamic_token(&self, id: DynamicTokenId) -> Option<&str>;
+
+    fn parent(&self, node: CstNodeId) -> Option<CstNodeId>;
 }
 
 impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
@@ -572,6 +603,10 @@ impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
 
     fn dynamic_token(&self, id: DynamicTokenId) -> Option<&str> {
         ConcreteSyntaxTree::dynamic_token(self, id)
+    }
+
+    fn parent(&self, node: CstNodeId) -> Option<CstNodeId> {
+        ConcreteSyntaxTree::parent(self, node)
     }
 }
 
@@ -673,6 +708,7 @@ impl<T, Nt> ViewConstructionError<T, Nt, Infallible> {
         }
     }
 }
+
 impl<T, Nt> ViewConstructionError<T, Nt, Infallible>
 where
     T: Copy,
@@ -693,6 +729,7 @@ where
         }
     }
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UnexpectedNode<T, Nt> {
     node: CstNodeId,
