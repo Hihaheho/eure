@@ -117,11 +117,10 @@ impl std::fmt::Display for CstNodeId {
 /// A generic concrete syntax tree with stable child ordering
 #[derive(Debug, Clone)]
 pub struct ConcreteSyntaxTree<T, Nt> {
-    nodes: Vec<Option<CstNodeData<T, Nt>>>,
+    nodes: Vec<CstNodeData<T, Nt>>,
     children: HashMap<CstNodeId, Vec<CstNodeId>>,
     parent: HashMap<CstNodeId, CstNodeId>,
     dynamic_tokens: BTreeMap<DynamicTokenId, String>,
-    next_node_id: usize,
     next_dynamic_token_id: u32,
     root: CstNodeId,
 }
@@ -132,7 +131,7 @@ where
     Nt: Clone,
 {
     pub fn new(root_data: CstNodeData<T, Nt>) -> Self {
-        let nodes = vec![Some(root_data)];
+        let nodes = vec![root_data];
         let root = CstNodeId(0);
 
         Self {
@@ -140,7 +139,6 @@ where
             children: HashMap::default(),
             parent: HashMap::default(),
             dynamic_tokens: BTreeMap::new(),
-            next_node_id: 1,
             next_dynamic_token_id: 0,
             root,
         }
@@ -168,15 +166,8 @@ where
     }
 
     pub fn add_node(&mut self, data: CstNodeData<T, Nt>) -> CstNodeId {
-        let id = CstNodeId(self.next_node_id);
-        self.next_node_id += 1;
-
-        // Extend the nodes vector if necessary
-        if id.0 >= self.nodes.len() {
-            self.nodes.resize(id.0 + 1, None);
-        }
-
-        self.nodes[id.0] = Some(data);
+        let id = CstNodeId(self.nodes.len());
+        self.nodes.push(data);
         id
     }
 
@@ -186,13 +177,13 @@ where
         parent: CstNodeId,
     ) -> CstNodeId {
         let node = self.add_node(data);
-        self.add_edge(parent, node);
+        self.add_child(parent, node);
         node
     }
 
-    pub fn add_edge(&mut self, from: CstNodeId, to: CstNodeId) {
-        self.children.entry(from).or_default().push(to);
-        self.parent.insert(to, from);
+    pub fn add_child(&mut self, parent: CstNodeId, child: CstNodeId) {
+        self.children.entry(parent).or_default().push(child);
+        self.parent.insert(child, parent);
     }
 
     pub fn has_no_children(&self, node: CstNodeId) -> bool {
@@ -233,9 +224,7 @@ where
         data: CstNodeData<T, Nt>,
     ) -> Option<CstNodeData<T, Nt>> {
         if id.0 < self.nodes.len() {
-            self.nodes[id.0]
-                .as_mut()
-                .map(|node_data| std::mem::replace(node_data, data))
+            Some(std::mem::replace(&mut self.nodes[id.0], data))
         } else {
             None
         }
@@ -282,16 +271,12 @@ where
     Nt: Copy,
 {
     pub fn node_data(&self, node: CstNodeId) -> Option<CstNodeData<T, Nt>> {
-        self.nodes.get(node.0).and_then(|opt| *opt)
+        self.nodes.get(node.0).copied()
     }
 
-    /// Delete a node but keep its children
-    pub fn delete_node(&mut self, id: CstNodeId) {
-        // Remove the node data
-        if id.0 < self.nodes.len() {
-            self.nodes[id.0] = None;
-        }
-
+    /// Remove a node from the tree by removing it from all parent-child relationships.
+    /// The node data remains in the vector but becomes unreachable through tree traversal.
+    pub fn remove_node(&mut self, id: CstNodeId) {
         // Remove from parent's children list
         if let Some(parent_id) = self.parent.remove(&id) {
             if let Some(parent_children) = self.children.get_mut(&parent_id) {

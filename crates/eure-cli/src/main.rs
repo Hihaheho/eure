@@ -1,9 +1,5 @@
 use clap::{Args, Parser, Subcommand};
 use eure_fmt::unformat::{unformat, unformat_with_seed};
-use eure_parol::TreeConstruct;
-use eure_parol::grammar::Grammar;
-use eure_parol::parser::parse_into;
-use eure_parol::tree::CstBuilder;
 use std::fs;
 
 #[derive(Parser)]
@@ -49,7 +45,7 @@ fn main() {
                 }
             };
 
-            let mut tree = eure_parol::parse(&contents).unwrap();
+            let tree = eure_parol::parse(&contents).unwrap();
             let mut out = String::new();
             tree.inspect(&contents, &mut out).unwrap();
             println!("{}", out);

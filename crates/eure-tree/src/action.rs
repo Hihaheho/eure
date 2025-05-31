@@ -130,10 +130,10 @@ impl CstCommands {
                     inserted.push(id);
                 }
                 Command::DeleteNode(node_target) => {
-                    tree.delete_node(to_id(&inserted, node_target));
+                    tree.remove_node(to_id(&inserted, node_target));
                 }
                 Command::DeleteRecursive(node_target) => {
-                    tree.delete_node(to_id(&inserted, node_target));
+                    tree.remove_node(to_id(&inserted, node_target));
                 }
                 Command::ChangeParent { id, parent } => {
                     tree.change_parent(to_id(&inserted, id), to_id(&inserted, parent));
@@ -236,7 +236,8 @@ mod tests {
         ConcreteSyntaxTree, CstNodeData, CstNodeId, DynamicTokenId, NonTerminalData,
     };
     fn create_test_tree() -> ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
-        let root_data = CstNodeData::new_non_terminal(NonTerminalKind::Root, NonTerminalData::Dynamic);
+        let root_data =
+            CstNodeData::new_non_terminal(NonTerminalKind::Root, NonTerminalData::Dynamic);
         ConcreteSyntaxTree::new(root_data)
     }
 
