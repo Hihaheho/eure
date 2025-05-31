@@ -293,7 +293,10 @@ impl TerminalKind {
     fn auto_ws_is_off(&self, _index: usize) -> bool {
         matches!(
             self,
-            TerminalKind::Ws | TerminalKind::Newline | TerminalKind::Text | TerminalKind::Code
+            TerminalKind::Ws
+                | TerminalKind::GrammarNewline
+                | TerminalKind::Text
+                | TerminalKind::Code
         )
     }
 }

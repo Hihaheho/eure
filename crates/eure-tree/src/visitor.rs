@@ -200,6 +200,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_false_super(handle, view, tree)
     }
+    fn visit_grammar_newline(
+        &mut self,
+        handle: GrammarNewlineHandle,
+        view: GrammarNewlineView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_grammar_newline_super(handle, view, tree)
+    }
     fn visit_hole(
         &mut self,
         handle: HoleHandle,
@@ -287,14 +295,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_named_code_super(handle, view, tree)
-    }
-    fn visit_newline(
-        &mut self,
-        handle: NewlineHandle,
-        view: NewlineView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_newline_super(handle, view, tree)
     }
     fn visit_null(
         &mut self,
@@ -576,13 +576,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_code_terminal_super(terminal, data, tree)
     }
-    fn visit_newline_terminal(
+    fn visit_grammar_newline_terminal(
         &mut self,
-        terminal: Newline,
+        terminal: GrammarNewline,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_newline_terminal_super(terminal, data, tree)
+        self.visit_grammar_newline_terminal_super(terminal, data, tree)
     }
     fn visit_ws_terminal(
         &mut self,
@@ -945,6 +945,17 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: FalseView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_grammar_newline_handle(
+        &mut self,
+        handle: GrammarNewlineHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_grammar_newline_super(
+        &mut self,
+        handle: GrammarNewlineHandle,
+        view: GrammarNewlineView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_hole_handle(&mut self, handle: HoleHandle, tree: &F) -> Result<(), E>;
     fn visit_hole_super(
         &mut self,
@@ -1040,13 +1051,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: NamedCodeHandle,
         view: NamedCodeView,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_newline_handle(&mut self, handle: NewlineHandle, tree: &F) -> Result<(), E>;
-    fn visit_newline_super(
-        &mut self,
-        handle: NewlineHandle,
-        view: NewlineView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_null_handle(&mut self, handle: NullHandle, tree: &F) -> Result<(), E>;
@@ -1324,9 +1328,9 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_newline_terminal_super(
+    fn visit_grammar_newline_terminal_super(
         &mut self,
-        terminal: Newline,
+        terminal: GrammarNewline,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -2512,6 +2516,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_grammar_newline_handle(
+        &mut self,
+        handle: GrammarNewlineHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_grammar_newline(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_hole_handle(
         &mut self,
         handle: HoleHandle,
@@ -2992,52 +3042,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 tree,
                 |view, visit: &mut Self| (
                     visit.visit_named_code(handle, view, tree),
-                    visit,
-                ),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_newline_handle(
-        &mut self,
-        handle: NewlineHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (
-                    visit.visit_newline(handle, view, tree),
                     visit,
                 ),
                 self,
@@ -4471,6 +4475,30 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_false_terminal(r#false, data, tree)?;
         Ok(())
     }
+    fn visit_grammar_newline_super(
+        &mut self,
+        handle: GrammarNewlineHandle,
+        view_param: GrammarNewlineView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let GrammarNewlineView { grammar_newline } = view_param;
+        let data = match grammar_newline.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        grammar_newline.0,
+                        NodeKind::Terminal(grammar_newline.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_grammar_newline_terminal(grammar_newline, data, tree)?;
+        Ok(())
+    }
     fn visit_hole_super(
         &mut self,
         handle: HoleHandle,
@@ -4657,30 +4685,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
         };
         self.visit_named_code_terminal(named_code, data, tree)?;
-        Ok(())
-    }
-    fn visit_newline_super(
-        &mut self,
-        handle: NewlineHandle,
-        view_param: NewlineView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let NewlineView { newline } = view_param;
-        let data = match newline.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        newline.0,
-                        NodeKind::Terminal(newline.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_newline_terminal(newline, data, tree)?;
         Ok(())
     }
     fn visit_null_super(
@@ -4892,11 +4896,11 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let TextBindingView { text_start, text_binding_opt, text, newline } = view_param;
+        let TextBindingView { text_start, text_binding_opt, text, grammar_newline } = view_param;
         self.visit_text_start_handle(text_start, tree)?;
         self.visit_text_binding_opt_handle(text_binding_opt, tree)?;
         self.visit_text_handle(text, tree)?;
-        self.visit_newline_handle(newline, tree)?;
+        self.visit_grammar_newline_handle(grammar_newline, tree)?;
         Ok(())
     }
     fn visit_text_binding_opt_super(
@@ -5171,9 +5175,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_newline_terminal_super(
+    fn visit_grammar_newline_terminal_super(
         &mut self,
-        terminal: Newline,
+        terminal: GrammarNewline,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -5450,6 +5454,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = FalseHandle(id);
                         self.visit_false_handle(handle, tree)?;
                     }
+                    NonTerminalKind::GrammarNewline => {
+                        let handle = GrammarNewlineHandle(id);
+                        self.visit_grammar_newline_handle(handle, tree)?;
+                    }
                     NonTerminalKind::Hole => {
                         let handle = HoleHandle(id);
                         self.visit_hole_handle(handle, tree)?;
@@ -5493,10 +5501,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::NamedCode => {
                         let handle = NamedCodeHandle(id);
                         self.visit_named_code_handle(handle, tree)?;
-                    }
-                    NonTerminalKind::Newline => {
-                        let handle = NewlineHandle(id);
-                        self.visit_newline_handle(handle, tree)?;
                     }
                     NonTerminalKind::Null => {
                         let handle = NullHandle(id);
@@ -5642,9 +5646,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let terminal = Code(id);
                         self.visit_code_terminal(terminal, data, tree)?;
                     }
-                    TerminalKind::Newline => {
-                        let terminal = Newline(id);
-                        self.visit_newline_terminal(terminal, data, tree)?;
+                    TerminalKind::GrammarNewline => {
+                        let terminal = GrammarNewline(id);
+                        self.visit_grammar_newline_terminal(terminal, data, tree)?;
                     }
                     TerminalKind::Ws => {
                         let terminal = Ws(id);

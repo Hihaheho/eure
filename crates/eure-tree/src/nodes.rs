@@ -1264,6 +1264,54 @@ pub struct FalseView {
 }
 impl FalseView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GrammarNewlineHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for GrammarNewlineHandle {
+    type View = GrammarNewlineView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::GrammarNewline)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::GrammarNewline
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::GrammarNewline)],
+            |[grammar_newline], visit_ignored| Ok(
+                visit(
+                    GrammarNewlineView {
+                        grammar_newline: GrammarNewline(grammar_newline),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GrammarNewlineView {
+    pub grammar_newline: GrammarNewline,
+}
+impl GrammarNewlineView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HoleHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for HoleHandle {
     type View = HoleView;
@@ -1857,54 +1905,6 @@ pub struct NamedCodeView {
     pub named_code: NamedCode,
 }
 impl NamedCodeView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NewlineHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for NewlineHandle {
-    type View = NewlineView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::Newline)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::Newline
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::Newline)],
-            |[newline], visit_ignored| Ok(
-                visit(
-                    NewlineView {
-                        newline: Newline(newline),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NewlineView {
-    pub newline: Newline,
-}
-impl NewlineView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NullHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for NullHandle {
@@ -2723,15 +2723,15 @@ impl NonTerminalHandle for TextBindingHandle {
                 NodeKind::NonTerminal(NonTerminalKind::TextStart),
                 NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt),
                 NodeKind::NonTerminal(NonTerminalKind::Text),
-                NodeKind::NonTerminal(NonTerminalKind::Newline),
+                NodeKind::NonTerminal(NonTerminalKind::GrammarNewline),
             ],
-            |[text_start, text_binding_opt, text, newline], visit_ignored| Ok(
+            |[text_start, text_binding_opt, text, grammar_newline], visit_ignored| Ok(
                 visit(
                     TextBindingView {
                         text_start: TextStartHandle(text_start),
                         text_binding_opt: TextBindingOptHandle(text_binding_opt),
                         text: TextHandle(text),
-                        newline: NewlineHandle(newline),
+                        grammar_newline: GrammarNewlineHandle(grammar_newline),
                     },
                     visit_ignored,
                 ),
@@ -2745,7 +2745,7 @@ pub struct TextBindingView {
     pub text_start: TextStartHandle,
     pub text_binding_opt: TextBindingOptHandle,
     pub text: TextHandle,
-    pub newline: NewlineHandle,
+    pub grammar_newline: GrammarNewlineHandle,
 }
 impl TextBindingView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3262,13 +3262,13 @@ impl TerminalHandle for Code {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Newline(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for Newline {
+pub struct GrammarNewline(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for GrammarNewline {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::Newline
+        TerminalKind::GrammarNewline
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -176,7 +176,7 @@ fn process_terminal(
         TerminalKind::Dollar => SemanticTokenType::OPERATOR,
         TerminalKind::NewLine
         | TerminalKind::Whitespace
-        | TerminalKind::Newline
+        | TerminalKind::GrammarNewline
         | TerminalKind::Ws
         | TerminalKind::Esc => return,
     };

@@ -169,8 +169,8 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'Newline'
-    fn newline(&mut self, _arg: &Newline<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'GrammarNewline'
+    fn grammar_newline(&mut self, _arg: &GrammarNewline<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -1012,6 +1012,21 @@ impl ToSpan for False<'_> {
 }
 
 ///
+/// Type derived for non-terminal GrammarNewline
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct GrammarNewline<'t> {
+    pub grammar_newline: Token<'t>, /* \r\n|\r|\n */
+}
+
+impl ToSpan for GrammarNewline<'_> {
+    fn span(&self) -> Span {
+        self.grammar_newline.span()
+    }
+}
+
+///
 /// Type derived for non-terminal Hole
 ///
 #[allow(dead_code)]
@@ -1191,21 +1206,6 @@ pub struct NamedCode<'t> {
 impl ToSpan for NamedCode<'_> {
     fn span(&self) -> Span {
         self.named_code.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Newline
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Newline<'t> {
-    pub newline: Token<'t>, /* \r\n|\r|\n */
-}
-
-impl ToSpan for Newline<'_> {
-    fn span(&self) -> Span {
-        self.newline.span()
     }
 }
 
@@ -1452,7 +1452,7 @@ pub struct TextBinding<'t> {
     pub text_start: TextStart<'t>,
     pub text_binding_opt: Option<TextBindingOpt>,
     pub text: Text<'t>,
-    pub newline: Newline<'t>,
+    pub grammar_newline: GrammarNewline<'t>,
 }
 
 impl ToSpan for TextBinding<'_> {
@@ -1463,7 +1463,7 @@ impl ToSpan for TextBinding<'_> {
                 .as_ref()
                 .map_or(Span::default(), |o| o.span())
             + self.text.span()
-            + self.newline.span()
+            + self.grammar_newline.span()
     }
 }
 
@@ -1608,6 +1608,7 @@ pub enum ASTType<'t> {
     Ext(Ext<'t>),
     ExtensionNameSpace(ExtensionNameSpace<'t>),
     False(False<'t>),
+    GrammarNewline(GrammarNewline<'t>),
     Hole(Hole<'t>),
     Ident(Ident<'t>),
     Integer(Integer<'t>),
@@ -1619,7 +1620,6 @@ pub enum ASTType<'t> {
     MoreItems(MoreItems<'t>),
     MoreItemsOpt(Option<MoreItemsOpt<'t>>),
     NamedCode(NamedCode<'t>),
-    Newline(Newline<'t>),
     Null(Null<'t>),
     Object(Object<'t>),
     ObjectList(Vec<ObjectList<'t>>),
@@ -1674,6 +1674,7 @@ impl ToSpan for ASTType<'_> {
             ASTType::Ext(v) => v.span(),
             ASTType::ExtensionNameSpace(v) => v.span(),
             ASTType::False(v) => v.span(),
+            ASTType::GrammarNewline(v) => v.span(),
             ASTType::Hole(v) => v.span(),
             ASTType::Ident(v) => v.span(),
             ASTType::Integer(v) => v.span(),
@@ -1688,7 +1689,6 @@ impl ToSpan for ASTType<'_> {
             ASTType::MoreItems(v) => v.span(),
             ASTType::MoreItemsOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::NamedCode(v) => v.span(),
-            ASTType::Newline(v) => v.span(),
             ASTType::Null(v) => v.span(),
             ASTType::Object(v) => v.span(),
             ASTType::ObjectList(v) => {
@@ -1993,7 +1993,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 11:
     ///
-    /// `TextBinding: TextStart TextBindingOpt /* Option */ Text Newline;`
+    /// `TextBinding: TextStart TextBindingOpt /* Option */ Text GrammarNewline;`
     ///
     #[parol_runtime::function_name::named]
     fn text_binding(
@@ -2001,11 +2001,11 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         _text_start: &ParseTreeType<'t>,
         _text_binding_opt: &ParseTreeType<'t>,
         _text: &ParseTreeType<'t>,
-        _newline: &ParseTreeType<'t>,
+        _grammar_newline: &ParseTreeType<'t>,
     ) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let newline = pop_item!(self, newline, Newline, context);
+        let grammar_newline = pop_item!(self, grammar_newline, GrammarNewline, context);
         let text = pop_item!(self, text, Text, context);
         let text_binding_opt = pop_item!(self, text_binding_opt, TextBindingOpt, context);
         let text_start = pop_item!(self, text_start, TextStart, context);
@@ -2013,7 +2013,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
             text_start,
             text_binding_opt,
             text,
-            newline,
+            grammar_newline,
         };
         // Calling user action here
         self.user_grammar.text_binding(&text_binding_built)?;
@@ -3046,17 +3046,17 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 70:
     ///
-    /// `Newline: <Text>/\r\n|\r|\n/;`
+    /// `GrammarNewline: <Text>/\r\n|\r|\n/;`
     ///
     #[parol_runtime::function_name::named]
-    fn newline(&mut self, newline: &ParseTreeType<'t>) -> Result<()> {
+    fn grammar_newline(&mut self, grammar_newline: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let newline = newline.token()?.clone();
-        let newline_built = Newline { newline };
+        let grammar_newline = grammar_newline.token()?.clone();
+        let grammar_newline_built = GrammarNewline { grammar_newline };
         // Calling user action here
-        self.user_grammar.newline(&newline_built)?;
-        self.push(ASTType::Newline(newline_built), context);
+        self.user_grammar.grammar_newline(&grammar_newline_built)?;
+        self.push(ASTType::GrammarNewline(grammar_newline_built), context);
         Ok(())
     }
 
@@ -3355,7 +3355,7 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             67 => self.code_block(&children[0]),
             68 => self.named_code(&children[0]),
             69 => self.code(&children[0]),
-            70 => self.newline(&children[0]),
+            70 => self.grammar_newline(&children[0]),
             71 => self.ws(&children[0]),
             72 => self.at(&children[0]),
             73 => self.ext(&children[0]),

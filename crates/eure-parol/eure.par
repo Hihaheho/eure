@@ -8,7 +8,7 @@
 %scanner Text {
   %auto_newline_off
   %auto_ws_off
-  %on Newline %enter INITIAL
+  %on GrammarNewline %enter INITIAL
 }
 
 %%
@@ -19,7 +19,7 @@ Binding: Keys BindingRhs ;
   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
   ValueBinding: Bind Value ;
   SectionBinding: Begin Eure End ;
-  TextBinding: TextStart [Ws^] Text Newline ;
+  TextBinding: TextStart [Ws^] Text GrammarNewline ;
 
 Section: At Keys SectionBody ;
   SectionBody: { Binding } | SectionBinding ;
@@ -53,7 +53,7 @@ CodeBlock: /```[a-zA-Z0-9-_]*(\r\n|\r|\n)([^`]|[`]{1,2})*```/;
 NamedCode: /[a-zA-Z0-9-_]+`([^`\r\n]|\\`)*`/ ;
 Code: /`([^`\r\n]|\\`)*`/ ;
 
-Newline: <Text>/\r\n|\r|\n/ ;
+GrammarNewline: <Text>/\r\n|\r|\n/ ;
 Ws: <Text>/[\s--\r\n]+/ ;
 At: '@' ;
 Ext: '$' ;
