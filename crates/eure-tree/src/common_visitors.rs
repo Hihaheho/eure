@@ -2,9 +2,60 @@ use thiserror::Error;
 
 use crate::{prelude::*, tree::LineNumbers};
 
+/// Extract position information from error context
+fn get_error_position(
+    line_numbers: &LineNumbers,
+    node_data: &Option<CstNode>,
+    error: &CstConstructError,
+) -> Option<(u32, u32)> {
+    // Try to get position from the error itself
+    if let CstConstructError::UnexpectedNode { data, .. } = error {
+        match data {
+            CstNode::Terminal {
+                data: TerminalData::Input(span),
+                ..
+            } => {
+                let char_info = line_numbers.get_char_info(span.start);
+                return Some((char_info.line_number + 1, char_info.column_number + 1)); // Convert to 1-indexed
+            }
+            CstNode::NonTerminal {
+                data: NonTerminalData::Input(span),
+                ..
+            } => {
+                let char_info = line_numbers.get_char_info(span.start);
+                return Some((char_info.line_number + 1, char_info.column_number + 1)); // Convert to 1-indexed
+            }
+            _ => {}
+        }
+    }
+
+    // Fall back to node_data if available
+    if let Some(node) = node_data {
+        match node {
+            CstNode::Terminal {
+                data: TerminalData::Input(span),
+                ..
+            } => {
+                let char_info = line_numbers.get_char_info(span.start);
+                return Some((char_info.line_number + 1, char_info.column_number + 1)); // Convert to 1-indexed
+            }
+            CstNode::NonTerminal {
+                data: NonTerminalData::Input(span),
+                ..
+            } => {
+                let char_info = line_numbers.get_char_info(span.start);
+                return Some((char_info.line_number + 1, char_info.column_number + 1)); // Convert to 1-indexed
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
 pub struct FormatVisitor<'f, 't> {
     input: &'t str,
-    _line_numbers: LineNumbers<'t>,
+    line_numbers: LineNumbers<'t>,
     f: &'f mut dyn std::fmt::Write,
 }
 
@@ -12,7 +63,7 @@ impl<'f, 't> FormatVisitor<'f, 't> {
     pub fn new(input: &'t str, f: &'f mut dyn std::fmt::Write) -> Self {
         Self {
             input,
-            _line_numbers: LineNumbers::new(input),
+            line_numbers: LineNumbers::new(input),
             f,
         }
     }
@@ -39,7 +90,14 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_, '_> {
         error: CstConstructError,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        eprintln!("Syntax error: {} expected {:?}", error, kind);
+        if let Some((line, column)) = get_error_position(&self.line_numbers, &node_data, &error) {
+            eprintln!(
+                "Syntax error at line {}, column {}: {} expected {:?}",
+                line, column, error, kind
+            );
+        } else {
+            eprintln!("Syntax error: {} expected {:?}", error, kind);
+        }
         self.recover_error(node_data, parent, kind, tree)
     }
 
@@ -71,6 +129,7 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_, '_> {
 
 pub struct InspectVisitor<'f, 't> {
     input: &'t str,
+    line_numbers: LineNumbers<'t>,
     indent: usize,
     f: &'f mut dyn std::fmt::Write,
 }
@@ -79,6 +138,7 @@ impl<'f, 't> InspectVisitor<'f, 't> {
     pub fn new(input: &'t str, f: &'f mut dyn std::fmt::Write) -> Self {
         Self {
             input,
+            line_numbers: LineNumbers::new(input),
             f,
             indent: 0,
         }
@@ -95,7 +155,14 @@ impl<F: CstFacade> CstVisitor<F> for InspectVisitor<'_, '_> {
         error: CstConstructError,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        eprintln!("Syntax error: {}", error);
+        if let Some((line, column)) = get_error_position(&self.line_numbers, &node_data, &error) {
+            eprintln!(
+                "Syntax error at line {}, column {}: {}",
+                line, column, error
+            );
+        } else {
+            eprintln!("Syntax error: {}", error);
+        }
         self.recover_error(node_data, parent, kind, tree)
     }
     fn visit_terminal(

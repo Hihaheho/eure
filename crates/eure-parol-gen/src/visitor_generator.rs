@@ -76,15 +76,19 @@ impl VisitorGenerator {
                 quote!(#view_name_ident)
             }
             ChildrenType::Option => {
-                let child_node_name = &nt_info.children[0].name;
-                match child_node_name {
-                    NodeName::Terminal(name) => {
-                        let terminal_ident = format_ident!("{}", name.0);
-                        quote!(#terminal_ident)
-                    }
-                    NodeName::NonTerminal(name) => {
-                        let child_handle_ident = format_ident!("{}Handle", name.0);
-                        quote!(#child_handle_ident)
+                if nt_info.children.len() > 1 {
+                    quote!(#view_name_ident)
+                } else {
+                    let child_node_name = &nt_info.children[0].name;
+                    match child_node_name {
+                        NodeName::Terminal(name) => {
+                            let terminal_ident = format_ident!("{}", name.0);
+                            quote!(#terminal_ident)
+                        }
+                        NodeName::NonTerminal(name) => {
+                            let child_handle_ident = format_ident!("{}Handle", name.0);
+                            quote!(#child_handle_ident)
+                        }
                     }
                 }
             }
@@ -374,8 +378,33 @@ impl VisitorGenerator {
         let actual_view_type_name = format_ident!("{}View", nt_info.name);
         let handle_type_ident = format_ident!("{}Handle", nt_info.name);
 
-        let body = match nt_info.kind {
-            ChildrenType::Sequence | ChildrenType::Recursion => {
+        let body = match (&nt_info.kind, nt_info.children.len()) {
+            (ChildrenType::Option, 1) => {
+                let child_info = &nt_info.children[0];
+                let visit_call = match &child_info.name {
+                    NodeName::NonTerminal(name) => {
+                        let visit_child_handle_method =
+                            crate::format_snake_case(&format!("visit_{}_handle", name.0));
+                        quote! {
+                            self.#visit_child_handle_method(#view_ident, tree)?;
+                        }
+                    }
+                    NodeName::Terminal(name) => {
+                        let visit_terminal_method =
+                            crate::format_snake_case(&format!("visit_{}_terminal", name.0));
+                        quote! {
+                            self.#visit_terminal_method(#view_ident, data, tree)?;
+                        }
+                    }
+                };
+                quote! {
+                    #visit_call
+                    Ok(())
+                }
+            }
+            (ChildrenType::Sequence, _)
+            | (ChildrenType::Recursion, _)
+            | (ChildrenType::Option, _) => {
                 let view_fields = self.get_fields_for_view(nt_info);
                 let (field_names, visit_calls) = view_fields
                     .iter()
@@ -411,7 +440,7 @@ impl VisitorGenerator {
                     Ok(())
                 }
             }
-            ChildrenType::OneOf => {
+            (ChildrenType::OneOf, _) => {
                 let variants_handling = nt_info.children.iter().map(|child_prod_info| {
                     let (child_name_str, is_child_nt) = match &child_prod_info.name {
                         NodeName::Terminal(name) => (name.0.as_str(), false),
@@ -432,7 +461,7 @@ impl VisitorGenerator {
                             crate::format_snake_case(&format!("visit_{}_terminal", child_name_str));
                         quote! {
                             #actual_view_type_name::#variant_name_ident(item) => {
-                                self.#visit_terminal_method(item, tree)?;
+                                self.#visit_terminal_method(item, data, tree)?;
                             }
                         }
                     }
@@ -441,30 +470,6 @@ impl VisitorGenerator {
                     match #view_ident {
                         #(#variants_handling)*
                     }
-                    Ok(())
-                }
-            }
-            ChildrenType::Option => {
-                let child_info = &nt_info.children[0];
-                let visit_call = match &child_info.name {
-                    NodeName::NonTerminal(name) => {
-                        // name is NonTerminalName(String)
-                        let visit_child_handle_method =
-                            crate::format_snake_case(&format!("visit_{}_handle", name.0));
-                        quote! {
-                            self.#visit_child_handle_method(#view_ident, tree)?;
-                        }
-                    }
-                    NodeName::Terminal(name) => {
-                        let visit_terminal_method =
-                            crate::format_snake_case(&format!("visit_{}_terminal", name.0));
-                        quote! {
-                            self.#visit_terminal_method(#view_ident, tree)?;
-                        }
-                    }
-                };
-                quote! {
-                    #visit_call
                     Ok(())
                 }
             }

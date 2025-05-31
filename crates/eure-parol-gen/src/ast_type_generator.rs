@@ -462,6 +462,64 @@ impl AstTypeGenerator {
         let handle_name = format_ident!("{}Handle", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
 
+        // If there are multiple children, treat it as a sequence
+        if nt.children.len() > 1 {
+            let view_name = format_ident!("{}View", nt.name);
+            let fields = self.fields(info, nt);
+            let field_names = fields.iter().map(|f| &f.field_name).collect::<Vec<_>>();
+            let field_types = fields.iter().map(|f| &f.field_type).collect::<Vec<_>>();
+            let node_kinds = fields.iter().map(|f| &f.node_kind).collect::<Vec<_>>();
+
+            let item_struct: syn::ItemStruct = parse_quote! {
+                #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+                pub struct #handle_name(pub(crate) super::tree::CstNodeId);
+            };
+
+            let view_struct: syn::ItemStruct = parse_quote! {
+                #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+                pub struct #view_name {
+                    #(pub #field_names: #field_types),*
+                }
+            };
+
+            let new_method = self.generate_handle_new_method(
+                quote!(NodeKind::NonTerminal(NonTerminalKind::#variant_name)),
+            );
+            let kind_method =
+                self.generate_handle_kind_method(quote!(NonTerminalKind::#variant_name));
+
+            let item_impl: syn::ItemImpl = parse_quote! {
+                impl NonTerminalHandle for #handle_name {
+                    type View = Option<#view_name>;
+                    fn node_id(&self) -> CstNodeId {
+                        self.0
+                    }
+                    #new_method
+                    #kind_method
+                    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+                        &self,
+                        tree: &F,
+                        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+                        visit_ignored: &'v mut V,
+                    ) -> Result<O, CstConstructError<E>> {
+                        if tree.has_no_children(self.0) {
+                            return Ok(visit(None, visit_ignored).0);
+                        }
+                        tree.collect_nodes(self.0, [#(#node_kinds),*], |[#(#field_names),*], visit_ignored| Ok(visit(Some(#view_name {
+                            #(#field_names: #field_types(#field_names),)*
+                        }), visit_ignored)), visit_ignored)
+                    }
+                }
+            };
+
+            return NonTerminalOption {
+                handle: item_struct,
+                handle_impl: item_impl,
+                view_struct: Some(view_struct),
+            };
+        }
+
+        // Handle single child case (existing logic)
         if nt.children.len() != 1 {
             panic!(
                 "Option non-terminal {} should have exactly one child, found {}",
@@ -528,6 +586,7 @@ impl AstTypeGenerator {
         NonTerminalOption {
             handle: item_struct,
             handle_impl: item_impl,
+            view_struct: None,
         }
     }
 
@@ -608,11 +667,13 @@ impl ToTokens for NonTerminalRecursion {
 struct NonTerminalOption {
     handle: syn::ItemStruct,
     handle_impl: syn::ItemImpl,
+    view_struct: Option<syn::ItemStruct>,
 }
 
 impl ToTokens for NonTerminalOption {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.handle.to_tokens(tokens);
         self.handle_impl.to_tokens(tokens);
+        self.view_struct.to_tokens(tokens);
     }
 }

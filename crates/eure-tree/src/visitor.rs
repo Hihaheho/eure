@@ -32,14 +32,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_array_end_super(handle, view, tree)
     }
-    fn visit_array_list(
-        &mut self,
-        handle: ArrayListHandle,
-        view: ArrayListView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_array_list_super(handle, view, tree)
-    }
     fn visit_array_marker(
         &mut self,
         handle: ArrayMarkerHandle,
@@ -59,7 +51,7 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     fn visit_array_opt(
         &mut self,
         handle: ArrayOptHandle,
-        view: CommaHandle,
+        view: ArrayOptView,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_array_opt_super(handle, view, tree)
@@ -272,6 +264,22 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_keys_list_super(handle, view, tree)
     }
+    fn visit_more_items(
+        &mut self,
+        handle: MoreItemsHandle,
+        view: MoreItemsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_more_items_super(handle, view, tree)
+    }
+    fn visit_more_items_opt(
+        &mut self,
+        handle: MoreItemsOptHandle,
+        view: RestTailHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_more_items_opt_super(handle, view, tree)
+    }
     fn visit_named_code(
         &mut self,
         handle: NamedCodeHandle,
@@ -319,6 +327,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_object_opt_super(handle, view, tree)
+    }
+    fn visit_rest_tail(
+        &mut self,
+        handle: RestTailHandle,
+        view: RestTailView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_rest_tail_super(handle, view, tree)
     }
     fn visit_section(
         &mut self,
@@ -746,17 +762,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: ArrayEndView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_array_list_handle(
-        &mut self,
-        handle: ArrayListHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_array_list_super(
-        &mut self,
-        handle: ArrayListHandle,
-        view: ArrayListView,
-        tree: &F,
-    ) -> Result<(), E>;
     fn visit_array_marker_handle(
         &mut self,
         handle: ArrayMarkerHandle,
@@ -787,7 +792,7 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_array_opt_super(
         &mut self,
         handle: ArrayOptHandle,
-        view: CommaHandle,
+        view: ArrayOptView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_at_handle(&mut self, handle: AtHandle, tree: &F) -> Result<(), E>;
@@ -1004,6 +1009,28 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: KeysListView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_more_items_handle(
+        &mut self,
+        handle: MoreItemsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_more_items_super(
+        &mut self,
+        handle: MoreItemsHandle,
+        view: MoreItemsView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_more_items_opt_handle(
+        &mut self,
+        handle: MoreItemsOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_more_items_opt_super(
+        &mut self,
+        handle: MoreItemsOptHandle,
+        view: RestTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_named_code_handle(
         &mut self,
         handle: NamedCodeHandle,
@@ -1056,6 +1083,17 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: ObjectOptHandle,
         view: CommaHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_rest_tail_handle(
+        &mut self,
+        handle: RestTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_rest_tail_super(
+        &mut self,
+        handle: RestTailHandle,
+        view: RestTailView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_section_handle(&mut self, handle: SectionHandle, tree: &F) -> Result<(), E>;
@@ -1516,56 +1554,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 tree,
                 |view, visit: &mut Self| (
                     visit.visit_array_end(handle, view, tree),
-                    visit,
-                ),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_array_list_handle(
-        &mut self,
-        handle: ArrayListHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (
-                    if let Some(view) = view {
-                        visit.visit_array_list(handle, view, tree)
-                    } else {
-                        Ok(())
-                    },
                     visit,
                 ),
                 self,
@@ -2884,6 +2872,102 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_more_items_handle(
+        &mut self,
+        handle: MoreItemsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_more_items(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_more_items_opt_handle(
+        &mut self,
+        handle: MoreItemsOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_more_items_opt(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_named_code_handle(
         &mut self,
         handle: NamedCodeHandle,
@@ -3140,6 +3224,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     } else {
                         Ok(())
                     },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_rest_tail_handle(
+        &mut self,
+        handle: RestTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_rest_tail(handle, view, tree),
                     visit,
                 ),
                 self,
@@ -3891,9 +4021,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let ArrayView { array_begin, array_list, array_end } = view_param;
+        let ArrayView { array_begin, array_opt, array_end } = view_param;
         self.visit_array_begin_handle(array_begin, tree)?;
-        self.visit_array_list_handle(array_list, tree)?;
+        self.visit_array_opt_handle(array_opt, tree)?;
         self.visit_array_end_handle(array_end, tree)?;
         Ok(())
     }
@@ -3945,19 +4075,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_r_bracket_terminal(r_bracket, data, tree)?;
         Ok(())
     }
-    fn visit_array_list_super(
-        &mut self,
-        handle: ArrayListHandle,
-        view_param: ArrayListView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let ArrayListView { value, array_opt, array_list } = view_param;
-        self.visit_value_handle(value, tree)?;
-        self.visit_array_opt_handle(array_opt, tree)?;
-        self.visit_array_list_handle(array_list, tree)?;
-        Ok(())
-    }
     fn visit_array_marker_super(
         &mut self,
         handle: ArrayMarkerHandle,
@@ -3984,11 +4101,13 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     fn visit_array_opt_super(
         &mut self,
         handle: ArrayOptHandle,
-        view_param: CommaHandle,
+        view_param: ArrayOptView,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        self.visit_comma_handle(view_param, tree)?;
+        let ArrayOptView { value, more_items } = view_param;
+        self.visit_value_handle(value, tree)?;
+        self.visit_more_items_handle(more_items, tree)?;
         Ok(())
     }
     fn visit_at_super(
@@ -4494,6 +4613,28 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_keys_list_handle(keys_list, tree)?;
         Ok(())
     }
+    fn visit_more_items_super(
+        &mut self,
+        handle: MoreItemsHandle,
+        view_param: MoreItemsView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let MoreItemsView { comma, more_items_opt } = view_param;
+        self.visit_comma_handle(comma, tree)?;
+        self.visit_more_items_opt_handle(more_items_opt, tree)?;
+        Ok(())
+    }
+    fn visit_more_items_opt_super(
+        &mut self,
+        handle: MoreItemsOptHandle,
+        view_param: RestTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_rest_tail_handle(view_param, tree)?;
+        Ok(())
+    }
     fn visit_named_code_super(
         &mut self,
         handle: NamedCodeHandle,
@@ -4602,6 +4743,18 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     ) -> Result<(), V::Error> {
         let _handle = handle;
         self.visit_comma_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_rest_tail_super(
+        &mut self,
+        handle: RestTailHandle,
+        view_param: RestTailView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let RestTailView { value, more_items } = view_param;
+        self.visit_value_handle(value, tree)?;
+        self.visit_more_items_handle(more_items, tree)?;
         Ok(())
     }
     fn visit_section_super(
@@ -5213,10 +5366,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = ArrayEndHandle(id);
                         self.visit_array_end_handle(handle, tree)?;
                     }
-                    NonTerminalKind::ArrayList => {
-                        let handle = ArrayListHandle(id);
-                        self.visit_array_list_handle(handle, tree)?;
-                    }
                     NonTerminalKind::ArrayMarker => {
                         let handle = ArrayMarkerHandle(id);
                         self.visit_array_marker_handle(handle, tree)?;
@@ -5333,6 +5482,14 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = KeysListHandle(id);
                         self.visit_keys_list_handle(handle, tree)?;
                     }
+                    NonTerminalKind::MoreItems => {
+                        let handle = MoreItemsHandle(id);
+                        self.visit_more_items_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::MoreItemsOpt => {
+                        let handle = MoreItemsOptHandle(id);
+                        self.visit_more_items_opt_handle(handle, tree)?;
+                    }
                     NonTerminalKind::NamedCode => {
                         let handle = NamedCodeHandle(id);
                         self.visit_named_code_handle(handle, tree)?;
@@ -5356,6 +5513,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::ObjectOpt => {
                         let handle = ObjectOptHandle(id);
                         self.visit_object_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::RestTail => {
+                        let handle = RestTailHandle(id);
+                        self.visit_rest_tail_handle(handle, tree)?;
                     }
                     NonTerminalKind::Section => {
                         let handle = SectionHandle(id);
