@@ -450,6 +450,15 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
                         self.remove_indent();
                         (1, self.current_desired_indent)
                     }
+                    TerminalKind::RBracket => {
+                        // RBracket for multiline arrays should be at the correct indentation
+                        if self.is_current_multiline() && self.in_array() {
+                            // Already handled by visit_array_end
+                            (1, self.current_desired_indent)
+                        } else {
+                            (1, self.current_desired_indent)
+                        }
+                    }
                     _ => {
                         // For any token at the beginning of a line, if we're at root level (indent 0),
                         // don't add any indentation - this covers both root bindings and section bindings
@@ -671,6 +680,10 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         }
         // Process the ] terminal by calling super
         self.visit_array_end_super(handle, _view, tree)?;
+        
+        // After closing bracket, don't require space before next token
+        // This allows newlines to properly mark the next token as starting a new line
+        self.need_space_before_next = false;
         Ok(())
     }
 
@@ -1450,6 +1463,19 @@ echo "Hello"
         let mut output = String::new();
         cst.write(input, &mut output).expect("Write should succeed");
         assert_eq!(output, "arr = [\n  \"item1\",\n  \"item2\",\n]\n");
+    }
+
+    #[test]
+    fn test_multiline_array_with_following_key() {
+        // Test that keys after multiline arrays are on new lines
+        let input = "arr = [\n  \"item1\",\n  \"item2\",\n]\nkey = \"value\"";
+        let mut cst = parse(input).expect("Parse should succeed");
+        let result = fmt(input, &mut cst);
+        assert!(result.is_ok(), "Formatting should succeed");
+
+        let mut output = String::new();
+        cst.write(input, &mut output).expect("Write should succeed");
+        assert_eq!(output, "arr = [\n  \"item1\",\n  \"item2\",\n]\nkey = \"value\"\n");
     }
 
     #[test]
