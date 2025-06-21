@@ -1765,6 +1765,7 @@ name = "eure-tree"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "eure-parol",
  "eure-value",
  "thiserror 2.0.12",
  "thisisplural",
