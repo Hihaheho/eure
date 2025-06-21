@@ -91,6 +91,8 @@ pub struct Formatter<'a> {
     config: FmtConfig,
     /// Stack to track array/object nesting
     context_stack: Vec<FormatContext>,
+    /// Track if current array/object should be multi-line
+    is_multiline_context: Vec<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,16 +115,19 @@ impl<'a> Formatter<'a> {
             in_section: false,
             config,
             context_stack: vec![FormatContext::Root],
+            is_multiline_context: vec![false],
         }
     }
 
     fn push_context(&mut self, context: FormatContext) {
         self.context_stack.push(context);
+        self.is_multiline_context.push(false);
     }
 
     fn pop_context(&mut self) {
         if self.context_stack.len() > 1 {
             self.context_stack.pop();
+            self.is_multiline_context.pop();
         }
     }
 
@@ -134,6 +139,20 @@ impl<'a> Formatter<'a> {
         self.current_desired_indent = self
             .current_desired_indent
             .saturating_sub(self.config.indent_width);
+    }
+
+    fn set_current_multiline(&mut self, is_multiline: bool) {
+        if let Some(last) = self.is_multiline_context.last_mut() {
+            *last = is_multiline;
+        }
+    }
+
+    fn is_current_multiline(&self) -> bool {
+        self.is_multiline_context.last().copied().unwrap_or(false)
+    }
+
+    fn in_array(&self) -> bool {
+        matches!(self.context_stack.last(), Some(FormatContext::Array))
     }
 
     fn ensure_no_whitespace(&mut self, _parent: CstNodeId, id: CstNodeId) {
@@ -411,8 +430,10 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             // Skip newline processing for tokens that should be inline
             if (kind == TerminalKind::Ident || kind == TerminalKind::Str)
                 && self.need_space_before_next
+                && !(self.is_current_multiline() && self.in_array())
             {
                 // Section names after @ and values after = should not be treated as new line starters
+                // But array elements in multiline arrays should still get newlines
                 self.is_first_token_of_new_line = false;
                 // Continue to normal processing without adding newlines
             } else {
@@ -420,8 +441,9 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
                     TerminalKind::At => {
                         self.in_section = true; // Mark that we're starting a new section
                         self.need_space_before_next = true; // @ token should be followed by a space
-                        (2, 0)
-                    } // Sections should be at root level
+                        // Preserve current indentation for nested sections
+                        (2, self.current_desired_indent)
+                    }
                     TerminalKind::RBrace => {
                         // RBrace should be at the same level as its opening LBrace
                         // Remove indent first to get the correct level
@@ -469,6 +491,12 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             }
             TerminalKind::NewLine => {
                 self.pending_whitespaces.push((WhitespaceKind::Newline, id));
+                
+                // If we just entered an array and see a newline, mark it as multiline
+                if self.in_array() && !self.is_current_multiline() {
+                    self.set_current_multiline(true);
+                    self.add_indent(); // Increase indent for array items
+                }
             }
             TerminalKind::LBrace => {
                 if self.need_space_before_next {
@@ -492,7 +520,7 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
                 // Clear any pending whitespace since @ should be at the start of a line
                 self.pending_whitespaces.clear();
                 self.need_space_before_next = true;
-                self.current_desired_indent = 0; // Reset indentation after section marker
+                // Don't reset indentation - let section visitor handle it
             }
             TerminalKind::Dot => {
                 if self.in_key_non_terminal {
@@ -523,12 +551,24 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             }
             // String literals and other values should have correct spacing
             TerminalKind::Str => {
+                // Skip special handling for array element indentation if already processed
+                if self.is_first_token_of_new_line && self.is_current_multiline() && self.in_array() {
+                    // Already handled by is_first_non_whitespace_token_of_new_line
+                    return Ok(());
+                }
+                
                 if self.need_space_before_next {
                     self.ensure_single_whitespace(parent, id, tree);
                     self.need_space_before_next = false;
                 } else if !self.pending_whitespaces.is_empty() {
-                    // For string literals, convert any problematic whitespace to single space
-                    self.ensure_inline_spacing(parent, id, tree);
+                    // For string literals in multiline arrays, preserve newlines
+                    if self.is_current_multiline() && self.in_array() {
+                        // Don't convert newlines to spaces in multiline arrays
+                        self.pending_whitespaces.clear();
+                    } else {
+                        // For inline contexts, convert any problematic whitespace to single space
+                        self.ensure_inline_spacing(parent, id, tree);
+                    }
                 }
             }
             // Values that need space handling
@@ -539,12 +579,24 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             | TerminalKind::False
             | TerminalKind::Null
             | TerminalKind::Hole => {
+                // Skip special handling for array element indentation if already processed
+                if self.is_first_token_of_new_line && self.is_current_multiline() && self.in_array() {
+                    // Already handled by is_first_non_whitespace_token_of_new_line
+                    return Ok(());
+                }
+                
                 if self.need_space_before_next {
                     self.ensure_single_whitespace(parent, id, tree);
                     self.need_space_before_next = false;
                 } else if !self.pending_whitespaces.is_empty() {
-                    // For values, convert any problematic whitespace to single space
-                    self.ensure_inline_spacing(parent, id, tree);
+                    // For values in multiline arrays, preserve newlines
+                    if self.is_current_multiline() && self.in_array() {
+                        // Don't convert newlines to spaces in multiline arrays
+                        self.pending_whitespaces.clear();
+                    } else {
+                        // For inline contexts, convert any problematic whitespace to single space
+                        self.ensure_inline_spacing(parent, id, tree);
+                    }
                 }
             }
             _ => {
@@ -596,8 +648,10 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
     ) -> Result<(), Self::Error> {
         // Process the [ terminal by calling super
         self.visit_array_begin_super(handle, _view, tree)?;
-        // No space after opening bracket
-        self.need_space_before_next = false;
+        
+        // After the [, we need to look ahead to see if there's a newline
+        // We'll check this when we process the next whitespace or value
+        self.need_space_before_next = false; // No space after [ in inline arrays
         Ok(())
     }
 
@@ -607,8 +661,11 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         _view: ArrayEndView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Before closing bracket, we don't want extra space
-        if self.need_space_before_next && !self.pending_whitespaces.is_empty() {
+        // For multiline arrays, ] should be on its own line with proper indentation
+        if self.is_current_multiline() {
+            self.remove_indent(); // Decrease indent before ]
+            self.is_first_token_of_new_line = true; // ] should be on new line
+        } else if self.need_space_before_next && !self.pending_whitespaces.is_empty() {
             // If we have pending whitespace and need_space_before_next is true,
             // it means a comma was just processed. Keep the space for now.
         }
@@ -625,8 +682,25 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
     ) -> Result<(), Self::Error> {
         // Process the comma and ensure space after it
         self.visit_comma_super(handle, _view, tree)?;
-        // Ensure space after comma for next element
-        self.need_space_before_next = true;
+        
+        // Check for newlines after comma to update multiline status
+        if self.in_array() && !self.is_current_multiline() {
+            // Check if we have newlines in pending whitespace
+            let has_newline = self.pending_whitespaces.iter()
+                .any(|(kind, _)| matches!(kind, WhitespaceKind::Newline));
+            if has_newline {
+                self.set_current_multiline(true);
+                self.add_indent(); // Increase indent for remaining array items
+            }
+        }
+        
+        // In multiline arrays, elements after comma should be on new line
+        if self.is_current_multiline() && self.in_array() {
+            self.is_first_token_of_new_line = true;
+        } else {
+            // Ensure space after comma for inline arrays
+            self.need_space_before_next = true;
+        }
         Ok(())
     }
 
@@ -650,11 +724,8 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         view: SectionView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Sections reset indentation to root level
-        let previous_indent = self.current_desired_indent;
-        self.current_desired_indent = 0;
+        // Sections should preserve current indentation level
         self.visit_section_super(handle, view, tree)?;
-        self.current_desired_indent = previous_indent;
         Ok(())
     }
 
@@ -688,6 +759,7 @@ mod tests {
         assert!(!formatter.need_space_before_next);
         assert!(!formatter.in_section);
         assert_eq!(formatter.context_stack, vec![FormatContext::Root]);
+        assert_eq!(formatter.is_multiline_context, vec![false]);
     }
 
     #[test]
@@ -1365,6 +1437,19 @@ echo "Hello"
         let mut output = String::new();
         cst.write(input, &mut output).expect("Write should succeed");
         assert_eq!(output, "title = \"Main\"\n\n@ section {\n  key = \"value\"\n}\n");
+    }
+
+    #[test]
+    fn test_multiline_array_formatting() {
+        // Test multiline arrays
+        let input = "arr = [\n  \"item1\",\n  \"item2\",\n]";
+        let mut cst = parse(input).expect("Parse should succeed");
+        let result = fmt(input, &mut cst);
+        assert!(result.is_ok(), "Formatting should succeed");
+
+        let mut output = String::new();
+        cst.write(input, &mut output).expect("Write should succeed");
+        assert_eq!(output, "arr = [\n  \"item1\",\n  \"item2\",\n]\n");
     }
 
     #[test]
