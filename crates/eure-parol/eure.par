@@ -32,9 +32,9 @@ Section: At Keys SectionBody ;
 
 Value: Object | Array | Integer | Boolean | Null | Strings | Hole | CodeBlock | NamedCode | Code ;
   Object: Begin { Key Bind Value [ Comma ] } End ;
-  Array: ArrayBegin [ Value MoreItems ] ArrayEnd ;
-  MoreItems: Comma [ RestTail ];
-  RestTail: Value MoreItems ;
+  Array: ArrayBegin [ ArrayElements ] ArrayEnd ;
+  ArrayElements: Value [ ArrayElementsTail ] ;
+  ArrayElementsTail: Comma [ ArrayElements ] ;
   Integer: /\d[\d_]*/ ;
   Boolean: True | False ;
   True: 'true' ;

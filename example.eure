@@ -10,10 +10,7 @@ description = "aaa"
 @ script.actions[]
 $variant: set-text
 speaker = "ryo"
-lines = [
-  "aaa",
-  "bbb",
-]
+lines = ["aaa", "bbb"]
 code1 = rust`let a = 1;`
 code2 = ```rust
 fn main() {
@@ -47,3 +44,11 @@ script.actions[] {
   text = "aaa"
   value = "aaa"
 }
+
+@ script.actions[]
+$variant: set-text
+speaker = "ryo"
+lines = [
+  "long string item in array",
+  "with trailing comma",
+]
