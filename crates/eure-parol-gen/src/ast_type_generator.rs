@@ -529,26 +529,16 @@ impl AstTypeGenerator {
         }
         let child_info = &nt.children[0];
 
-        let (child_handle_name, node_kind, constructor) = match &child_info.name {
+        let child_handle_name = match &child_info.name {
             NodeName::Terminal(name) => {
                 let terminal = self.get_terminal_by_name(info, &name.0);
                 let name = format_ident!("{}", terminal.name);
-                let kind_variant = format_ident!("{}", terminal.variant);
-                (
-                    quote!(#name),
-                    quote!(NodeKind::Terminal(TerminalKind::#kind_variant)),
-                    quote!(#name(child)),
-                )
+                quote!(#name)
             }
             NodeName::NonTerminal(name) => {
                 let non_terminal = self.get_non_terminal_by_name(info, &name.0);
                 let handle_name = format_ident!("{}Handle", non_terminal.name);
-                let kind_variant = format_ident!("{}", non_terminal.variant);
-                (
-                    quote!(#handle_name),
-                    quote!(NodeKind::NonTerminal(NonTerminalKind::#kind_variant)),
-                    quote!(#handle_name::new_with_visit(child, tree, visit_ignored)?),
-                )
+                quote!(#handle_name)
             }
         };
 
@@ -578,7 +568,15 @@ impl AstTypeGenerator {
                     if tree.has_no_children(self.0) {
                         return Ok(visit(None, visit_ignored).0);
                     }
-                    tree.collect_nodes(self.0, [#node_kind], |[child], visit_ignored| Ok(visit(Some(#constructor), visit_ignored)), visit_ignored)
+                    Ok(visit(
+                        Some(#child_handle_name::new_with_visit(
+                            self.0,
+                            tree,
+                            visit_ignored,
+                        )?),
+                        visit_ignored,
+                    )
+                    .0)
                 }
             }
         };

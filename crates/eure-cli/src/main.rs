@@ -77,17 +77,15 @@ fn main() {
                     }
                     buffer
                 }
-                Some(path) => {
-                    match fs::read_to_string(path) {
-                        Ok(contents) => contents,
-                        Err(e) => {
-                            eprintln!("Error reading file: {}", e);
-                            std::process::exit(1);
-                        }
+                Some(path) => match fs::read_to_string(path) {
+                    Ok(contents) => contents,
+                    Err(e) => {
+                        eprintln!("Error reading file: {}", e);
+                        std::process::exit(1);
                     }
-                }
+                },
             };
-            
+
             let mut tree = match eure_parol::parse(&contents) {
                 Ok(tree) => tree,
                 Err(e) => {
@@ -95,13 +93,13 @@ fn main() {
                     std::process::exit(1);
                 }
             };
-            
+
             if let Some(seed) = seed {
                 unformat_with_seed(&mut tree, seed);
             } else {
                 unformat(&mut tree);
             }
-            
+
             let mut out = String::new();
             if let Err(e) = tree.write(&contents, &mut out) {
                 eprintln!("Error writing output: {}", e);
@@ -109,7 +107,11 @@ fn main() {
             }
             print!("{}", out);
         }
-        Commands::Fmt(Fmt { file, check, indent_width }) => {
+        Commands::Fmt(Fmt {
+            file,
+            check,
+            indent_width,
+        }) => {
             // Read input from file or stdin
             let contents = match file.as_deref() {
                 None | Some("-") => {
@@ -121,15 +123,13 @@ fn main() {
                     }
                     buffer
                 }
-                Some(path) => {
-                    match fs::read_to_string(path) {
-                        Ok(contents) => contents,
-                        Err(e) => {
-                            eprintln!("Error reading file: {}", e);
-                            std::process::exit(1);
-                        }
+                Some(path) => match fs::read_to_string(path) {
+                    Ok(contents) => contents,
+                    Err(e) => {
+                        eprintln!("Error reading file: {}", e);
+                        std::process::exit(1);
                     }
-                }
+                },
             };
 
             // Parse the input

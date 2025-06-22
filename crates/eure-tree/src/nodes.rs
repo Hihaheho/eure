@@ -194,22 +194,18 @@ impl NonTerminalHandle for ArrayElementsOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::ArrayElementsTail)],
-            |[child], visit_ignored| Ok(
-                visit(
+        Ok(
+            visit(
                     Some(
                         ArrayElementsTailHandle::new_with_visit(
-                            child,
+                            self.0,
                             tree,
                             visit_ignored,
                         )?,
                     ),
                     visit_ignored,
-                ),
-            ),
-            visit_ignored,
+                )
+                .0,
         )
     }
 }
@@ -299,18 +295,14 @@ impl NonTerminalHandle for ArrayElementsTailOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::ArrayElements)],
-            |[child], visit_ignored| Ok(
-                visit(
+        Ok(
+            visit(
                     Some(
-                        ArrayElementsHandle::new_with_visit(child, tree, visit_ignored)?,
+                        ArrayElementsHandle::new_with_visit(self.0, tree, visit_ignored)?,
                     ),
                     visit_ignored,
-                ),
-            ),
-            visit_ignored,
+                )
+                .0,
         )
     }
 }
@@ -449,16 +441,12 @@ impl NonTerminalHandle for ArrayMarkerOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::Integer)],
-            |[child], visit_ignored| Ok(
-                visit(
-                    Some(IntegerHandle::new_with_visit(child, tree, visit_ignored)?),
+        Ok(
+            visit(
+                    Some(IntegerHandle::new_with_visit(self.0, tree, visit_ignored)?),
                     visit_ignored,
-                ),
-            ),
-            visit_ignored,
+                )
+                .0,
         )
     }
 }
@@ -493,18 +481,14 @@ impl NonTerminalHandle for ArrayOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::ArrayElements)],
-            |[child], visit_ignored| Ok(
-                visit(
+        Ok(
+            visit(
                     Some(
-                        ArrayElementsHandle::new_with_visit(child, tree, visit_ignored)?,
+                        ArrayElementsHandle::new_with_visit(self.0, tree, visit_ignored)?,
                     ),
                     visit_ignored,
-                ),
-            ),
-            visit_ignored,
+                )
+                .0,
         )
     }
 }
@@ -1801,16 +1785,14 @@ impl NonTerminalHandle for KeyOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::ArrayMarker)],
-            |[child], visit_ignored| Ok(
-                visit(
-                    Some(ArrayMarkerHandle::new_with_visit(child, tree, visit_ignored)?),
+        Ok(
+            visit(
+                    Some(
+                        ArrayMarkerHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
                     visit_ignored,
-                ),
-            ),
-            visit_ignored,
+                )
+                .0,
         )
     }
 }
@@ -2235,16 +2217,12 @@ impl NonTerminalHandle for ObjectOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::Comma)],
-            |[child], visit_ignored| Ok(
-                visit(
-                    Some(CommaHandle::new_with_visit(child, tree, visit_ignored)?),
+        Ok(
+            visit(
+                    Some(CommaHandle::new_with_visit(self.0, tree, visit_ignored)?),
                     visit_ignored,
-                ),
-            ),
-            visit_ignored,
+                )
+                .0,
         )
     }
 }
@@ -2824,16 +2802,12 @@ impl NonTerminalHandle for TextBindingOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::Ws)],
-            |[child], visit_ignored| Ok(
-                visit(
-                    Some(WsHandle::new_with_visit(child, tree, visit_ignored)?),
+        Ok(
+            visit(
+                    Some(WsHandle::new_with_visit(self.0, tree, visit_ignored)?),
                     visit_ignored,
-                ),
-            ),
-            visit_ignored,
+                )
+                .0,
         )
     }
 }

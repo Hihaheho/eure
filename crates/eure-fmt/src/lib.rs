@@ -500,7 +500,7 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             }
             TerminalKind::NewLine => {
                 self.pending_whitespaces.push((WhitespaceKind::Newline, id));
-                
+
                 // If we just entered an array and see a newline, mark it as multiline
                 if self.in_array() && !self.is_current_multiline() {
                     self.set_current_multiline(true);
@@ -561,11 +561,12 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             // String literals and other values should have correct spacing
             TerminalKind::Str => {
                 // Skip special handling for array element indentation if already processed
-                if self.is_first_token_of_new_line && self.is_current_multiline() && self.in_array() {
+                if self.is_first_token_of_new_line && self.is_current_multiline() && self.in_array()
+                {
                     // Already handled by is_first_non_whitespace_token_of_new_line
                     return Ok(());
                 }
-                
+
                 if self.need_space_before_next {
                     self.ensure_single_whitespace(parent, id, tree);
                     self.need_space_before_next = false;
@@ -589,11 +590,12 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             | TerminalKind::Null
             | TerminalKind::Hole => {
                 // Skip special handling for array element indentation if already processed
-                if self.is_first_token_of_new_line && self.is_current_multiline() && self.in_array() {
+                if self.is_first_token_of_new_line && self.is_current_multiline() && self.in_array()
+                {
                     // Already handled by is_first_non_whitespace_token_of_new_line
                     return Ok(());
                 }
-                
+
                 if self.need_space_before_next {
                     self.ensure_single_whitespace(parent, id, tree);
                     self.need_space_before_next = false;
@@ -634,6 +636,23 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         Ok(())
     }
 
+    fn visit_key(&mut self, handle: KeyHandle, view: KeyView, tree: &F) -> Result<(), Self::Error> {
+        // The Key non-terminal contains KeyBase and optional ArrayMarker
+        // We need to handle spacing around array markers correctly
+        self.visit_key_super(handle, view, tree)
+    }
+
+    fn visit_array_marker(
+        &mut self,
+        handle: ArrayMarkerHandle,
+        view: ArrayMarkerView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Array markers should have no spaces: key[0] not key [0] or key[ 0 ]
+        // We're already in a key context, so ensure no whitespace
+        self.visit_array_marker_super(handle, view, tree)
+    }
+
     fn visit_array(
         &mut self,
         handle: ArrayHandle,
@@ -657,7 +676,7 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
     ) -> Result<(), Self::Error> {
         // Process the [ terminal by calling super
         self.visit_array_begin_super(handle, _view, tree)?;
-        
+
         // After the [, we need to look ahead to see if there's a newline
         // We'll check this when we process the next whitespace or value
         self.need_space_before_next = false; // No space after [ in inline arrays
@@ -695,18 +714,20 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
     ) -> Result<(), Self::Error> {
         // Process the comma and ensure space after it
         self.visit_comma_super(handle, _view, tree)?;
-        
+
         // Check for newlines after comma to update multiline status
         if self.in_array() && !self.is_current_multiline() {
             // Check if we have newlines in pending whitespace
-            let has_newline = self.pending_whitespaces.iter()
+            let has_newline = self
+                .pending_whitespaces
+                .iter()
                 .any(|(kind, _)| matches!(kind, WhitespaceKind::Newline));
             if has_newline {
                 self.set_current_multiline(true);
                 self.add_indent(); // Increase indent for remaining array items
             }
         }
-        
+
         // In multiline arrays, elements after comma should be on new line
         if self.is_current_multiline() && self.in_array() {
             self.is_first_token_of_new_line = true;
@@ -742,18 +763,12 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         Ok(())
     }
 
-    fn visit_at(
-        &mut self,
-        handle: AtHandle,
-        _view: AtView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
+    fn visit_at(&mut self, handle: AtHandle, _view: AtView, tree: &F) -> Result<(), Self::Error> {
         // @ token for sections - call super
         self.visit_at_super(handle, _view, tree)?;
         self.need_space_before_next = true;
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -1344,19 +1359,19 @@ key = {
     fn test_context_stack() {
         let mut formatter = Formatter::new("", FmtConfig::default());
         assert_eq!(formatter.context_stack.last(), Some(&FormatContext::Root));
-        
+
         formatter.push_context(FormatContext::Array);
         assert_eq!(formatter.context_stack.last(), Some(&FormatContext::Array));
-        
+
         formatter.push_context(FormatContext::Object);
         assert_eq!(formatter.context_stack.last(), Some(&FormatContext::Object));
-        
+
         formatter.pop_context();
         assert_eq!(formatter.context_stack.last(), Some(&FormatContext::Array));
-        
+
         formatter.pop_context();
         assert_eq!(formatter.context_stack.last(), Some(&FormatContext::Root));
-        
+
         // Should not pop past root
         formatter.pop_context();
         assert_eq!(formatter.context_stack.last(), Some(&FormatContext::Root));
@@ -1449,7 +1464,10 @@ echo "Hello"
 
         let mut output = String::new();
         cst.write(input, &mut output).expect("Write should succeed");
-        assert_eq!(output, "title = \"Main\"\n\n@ section {\n  key = \"value\"\n}\n");
+        assert_eq!(
+            output,
+            "title = \"Main\"\n\n@ section {\n  key = \"value\"\n}\n"
+        );
     }
 
     #[test]
@@ -1493,15 +1511,43 @@ echo "Hello"
             let mut cst1 = parse(input).expect("Parse should succeed");
             fmt(input, &mut cst1).expect("First format should succeed");
             let mut output1 = String::new();
-            cst1.write(input, &mut output1).expect("Write should succeed");
+            cst1.write(input, &mut output1)
+                .expect("Write should succeed");
 
             // Second format
             let mut cst2 = parse(&output1).expect("Parse formatted output should succeed");
             fmt(&output1, &mut cst2).expect("Second format should succeed");
             let mut output2 = String::new();
-            cst2.write(&output1, &mut output2).expect("Write should succeed");
+            cst2.write(&output1, &mut output2)
+                .expect("Write should succeed");
 
-            assert_eq!(output1, output2, "Formatting should be idempotent for: {}", input);
+            assert_eq!(
+                output1, output2,
+                "Formatting should be idempotent for: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_array_marker_formatting() {
+        // Test array markers (array indices in keys)
+        let test_cases = vec![
+            ("key[0] = \"value\"", "key[0] = \"value\"\n"),
+            ("key[1] = \"value\"", "key[1] = \"value\"\n"),
+            ("nested.key[0] = \"value\"", "nested.key[0] = \"value\"\n"),
+            ("$ext.key[5] = \"extended\"", "$ext.key[5] = \"extended\"\n"),
+            ("arr[0].sub = \"test\"", "arr[0].sub = \"test\"\n"),
+        ];
+
+        for (input, expected) in test_cases {
+            let mut cst = parse(input).expect("Parse should succeed");
+            let result = fmt(input, &mut cst);
+            assert!(result.is_ok(), "Formatting should succeed for: {}", input);
+
+            let mut output = String::new();
+            cst.write(input, &mut output).expect("Write should succeed");
+            assert_eq!(output, expected, "Failed for input: {}", input);
         }
     }
 }
