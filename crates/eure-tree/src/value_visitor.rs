@@ -13,6 +13,7 @@ pub struct Values {
     key_handles: AHashMap<KeyHandle, PathSegment>,
     keys_handles: AHashMap<KeysHandle, Vec<KeyHandle>>,
     value_handles: AHashMap<ValueHandle, Value>,
+    eure_handles: AHashMap<EureHandle, Value>,
 }
 
 impl Default for Values {
@@ -22,6 +23,7 @@ impl Default for Values {
             key_handles: AHashMap::new(),
             keys_handles: AHashMap::new(),
             value_handles: AHashMap::new(),
+            eure_handles: AHashMap::new(),
         }
     }
 }
@@ -41,6 +43,10 @@ impl Values {
 
     pub fn get_keys(&self, handle: &KeysHandle) -> Option<&Vec<KeyHandle>> {
         self.keys_handles.get(handle)
+    }
+
+    pub fn get_eure(&self, handle: &EureHandle) -> Option<&Value> {
+        self.eure_handles.get(handle)
     }
 
     #[cfg(test)]
@@ -68,6 +74,8 @@ pub struct ValueVisitor<'a> {
     input: &'a str,
     values: &'a mut Values,
     current_keys: Vec<KeyHandle>,
+    document_map: AHashMap<KeyCmpValue, Value>,
+    current_section_stack: Vec<AHashMap<KeyCmpValue, Value>>,
 }
 
 impl<'a> ValueVisitor<'a> {
@@ -76,6 +84,8 @@ impl<'a> ValueVisitor<'a> {
             input,
             values,
             current_keys: Vec::new(),
+            document_map: AHashMap::new(),
+            current_section_stack: Vec::new(),
         }
     }
 }
@@ -95,35 +105,13 @@ pub enum ValueVisitorError {
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     type Error = ValueVisitorError;
 
-    fn visit_null(
-        &mut self,
-        _handle: NullHandle,
-        _view: NullView,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        // For null, we don't need to process anything special
-        // Just return Ok since the actual Value::Null will be created in visit_value
-        Ok(())
-    }
-
-    fn visit_hole(
-        &mut self,
-        _handle: HoleHandle,
-        _view: HoleView,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        // For hole, we don't need to process anything special
-        // Just return Ok since the actual Value::Unit will be created in visit_value
-        Ok(())
-    }
-
     fn visit_keys(
         &mut self,
         handle: KeysHandle,
         view: KeysView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        assert_eq!(self.current_keys.len(), 0);
+        self.current_keys.clear();
         self.visit_keys_super(handle, view, tree)?;
         self.values
             .keys_handles
@@ -139,7 +127,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         let path_segment = match view.key_base.get_view(tree)? {
             KeyBaseView::Ident(ident_handle) => {
                 if let Some(identifier) = self.values.ident_handles.get(&ident_handle) {
-                    PathSegment::Extension(identifier.clone())
+                    PathSegment::Ident(identifier.clone())
                 } else {
                     return Ok(());
                 }
@@ -211,6 +199,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
             // Convert the base path segment to a value for the key
             let key_value = match &path_segment {
+                PathSegment::Ident(ident) => Value::String(ident.to_string()),
                 PathSegment::Extension(ident) => Value::String(ident.to_string()),
                 PathSegment::Value(val) => val.clone(),
                 PathSegment::Array { .. } => {
@@ -234,16 +223,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
-    fn visit_key_base(
-        &mut self,
-        handle: KeyBaseHandle,
-        view: KeyBaseView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_key_base_super(handle, view, tree)?;
-        Ok(())
-    }
-
     fn visit_ident(
         &mut self,
         handle: IdentHandle,
@@ -255,16 +234,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         let identifier = Identifier::from_str(text)
             .map_err(|_| ValueVisitorError::InvalidIdentifier(text.to_string()))?;
         self.values.ident_handles.insert(handle, identifier);
-        Ok(())
-    }
-
-    fn visit_key_opt(
-        &mut self,
-        handle: KeyOptHandle,
-        view: ArrayMarkerHandle,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_key_opt_super(handle, view, tree)?;
         Ok(())
     }
 
@@ -343,17 +312,26 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
                 // Collect all array elements
                 let mut elements = Vec::new();
-                if let Some(array_opt_view) = array_view.array_opt.get_view(tree)? {
-                    // Get the first element
-                    let first_value_handle = array_opt_view.value;
-                    self.visit_value_handle(first_value_handle, tree)?;
-                    if let Some(value) = self.values.value_handles.get(&first_value_handle) {
+                if let Some(array_elements_handle) = array_view.array_opt.get_view(tree)? {
+                    // Get the ArrayElementsView
+                    let array_elements_view = array_elements_handle.get_view(tree)?;
+
+                    // Visit and collect the first element
+                    self.visit_value_handle(array_elements_view.value, tree)?;
+                    if let Some(value) = self.values.value_handles.get(&array_elements_view.value) {
                         elements.push(value.clone());
                     }
 
-                    // Collect remaining elements
-                    let more_items_view = array_opt_view.more_items.get_view(tree)?;
-                    self.collect_array_elements(&mut elements, more_items_view, tree)?;
+                    // Collect remaining elements if they exist
+                    if let Some(array_elements_tail_handle) =
+                        array_elements_view.array_elements_opt.get_view(tree)?
+                    {
+                        self.collect_array_elements_tail(
+                            &mut elements,
+                            array_elements_tail_handle,
+                            tree,
+                        )?;
+                    }
                 }
 
                 Value::Array(Array(elements))
@@ -413,6 +391,176 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         // Store the constructed value with its handle
         self.values.value_handles.insert(handle, value);
+        Ok(())
+    }
+
+    fn visit_eure(
+        &mut self,
+        handle: EureHandle,
+        view: EureView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Clear the document map for this eure
+        self.document_map.clear();
+
+        // Visit the eure structure
+        self.visit_eure_super(handle, view, tree)?;
+
+        // Transform variants and store the final document value
+        let document_value = transform_variants(Value::Map(Map(self.document_map.clone())));
+        self.values.eure_handles.insert(handle, document_value);
+
+        Ok(())
+    }
+
+    fn visit_eure_bindings(
+        &mut self,
+        _handle: EureBindingsHandle,
+        view: EureBindingsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Visit the binding
+        if let Ok(binding_view) = view.binding.get_view(tree) {
+            self.visit_binding(view.binding, binding_view, tree)?;
+        }
+
+        // Visit remaining bindings recursively
+        if let Ok(Some(more_bindings)) = view.eure_bindings.get_view(tree) {
+            self.visit_eure_bindings(_handle, more_bindings, tree)?;
+        }
+
+        Ok(())
+    }
+
+    fn visit_binding(
+        &mut self,
+        handle: BindingHandle,
+        view: BindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // First visit the binding using the default implementation to process keys
+        self.visit_binding_super(handle, view, tree)?;
+
+        // Get the key path
+        if let Some(key_handles) = self.values.get_keys(&view.keys).cloned()
+            && !key_handles.is_empty()
+            && should_include_field(&key_handles, self.values)
+        {
+            // Get the value to bind
+            let binding_value = match view.binding_rhs.get_view(tree) {
+                Ok(BindingRhsView::ValueBinding(value_binding_handle)) => {
+                    if let Ok(value_binding_view) = value_binding_handle.get_view(tree) {
+                        self.values.get_value(&value_binding_view.value).cloned()
+                    } else {
+                        None
+                    }
+                }
+                Ok(BindingRhsView::TextBinding(text_binding_handle)) => {
+                    if let Ok(text_binding_view) = text_binding_handle.get_view(tree) {
+                        if let Ok(text_view) = text_binding_view.text.get_view(tree) {
+                            if let Ok(data) = text_view.text.get_data(tree) {
+                                let text = tree.get_str(data, self.input).unwrap_or("").trim();
+                                Some(Value::String(text.to_string()))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                Ok(BindingRhsView::SectionBinding(section_binding_handle)) => {
+                    // Create a new section map
+                    let section_map = AHashMap::new();
+                    self.current_section_stack.push(section_map);
+
+                    // Process section binding
+                    if let Ok(section_binding_view) = section_binding_handle.get_view(tree)
+                        && let Ok(eure_view) = section_binding_view.eure.get_view(tree)
+                    {
+                        // Visit the eure within the section
+                        self.visit_eure(section_binding_view.eure, eure_view, tree)?;
+                    }
+
+                    // Pop the section map and use it as the value
+                    self.current_section_stack
+                        .pop()
+                        .map(|section_map| Value::Map(Map(section_map)))
+                }
+                _ => None,
+            };
+
+            // Process the path and bind the value
+            if let Some(value) = binding_value {
+                let target_map = self
+                    .current_section_stack
+                    .last_mut()
+                    .unwrap_or(&mut self.document_map);
+                process_path_recursive(target_map, &key_handles, value, self.values);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn visit_eure_sections(
+        &mut self,
+        _handle: EureSectionsHandle,
+        view: EureSectionsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Visit the section
+        if let Ok(section_view) = view.section.get_view(tree) {
+            self.visit_section(view.section, section_view, tree)?;
+        }
+
+        // Visit remaining sections recursively
+        if let Ok(Some(more_sections)) = view.eure_sections.get_view(tree) {
+            self.visit_eure_sections(_handle, more_sections, tree)?;
+        }
+
+        Ok(())
+    }
+
+    fn visit_section(
+        &mut self,
+        handle: SectionHandle,
+        view: SectionView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Get keys from the section before visiting
+        let key_handles = self.values.get_keys(&view.keys).cloned();
+
+        // Visit the section using the default implementation
+        self.visit_section_super(handle, view, tree)?;
+
+        // Process the section if we have valid keys
+        if let Some(key_handles) = key_handles
+            && !key_handles.is_empty()
+            && should_include_field(&key_handles, self.values)
+        {
+            // The section content will be processed via visit_section_body_list or visit_section_binding
+            // For now, we'll handle this in the visit_eure method when transforming the document
+        }
+
+        Ok(())
+    }
+
+    fn visit_section_body_list(
+        &mut self,
+        handle: SectionBodyListHandle,
+        view: SectionBodyListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Create a new map for this section body
+        let section_map = AHashMap::new();
+        self.current_section_stack.push(section_map);
+
+        // Visit the section body list
+        self.visit_section_body_list_super(handle, view, tree)?;
+
         Ok(())
     }
 }
@@ -487,27 +635,36 @@ impl<'a> ValueVisitor<'a> {
         Ok(())
     }
 
-    /// Collect array elements from a MoreItemsView
-    fn collect_array_elements<F: CstFacade>(
+    /// Collect array elements from the tail (after the first element)
+    fn collect_array_elements_tail<F: CstFacade>(
         &mut self,
         elements: &mut Vec<Value>,
-        more_items_view: MoreItemsView,
+        array_elements_tail_handle: ArrayElementsTailHandle,
         tree: &F,
     ) -> Result<(), ValueVisitorError> {
-        // Check if there are more items
-        if let Some(rest_tail_handle) = more_items_view.more_items_opt.get_view(tree)? {
-            let rest_tail_view = rest_tail_handle.get_view(tree)?;
+        // Get the tail view which contains comma and optional next elements
+        let array_elements_tail_view = array_elements_tail_handle.get_view(tree)?;
 
-            // Visit and collect the next value
-            self.visit_value_handle(rest_tail_view.value, tree)?;
-            if let Some(value) = self.values.value_handles.get(&rest_tail_view.value) {
+        // Check if there are more elements after the comma
+        if let Some(array_elements_handle) = array_elements_tail_view
+            .array_elements_tail_opt
+            .get_view(tree)?
+        {
+            // Get the ArrayElementsView for the next element
+            let array_elements_view = array_elements_handle.get_view(tree)?;
+
+            // Visit and collect the value
+            self.visit_value_handle(array_elements_view.value, tree)?;
+            if let Some(value) = self.values.value_handles.get(&array_elements_view.value) {
                 elements.push(value.clone());
             }
 
-            // Continue collecting if there are more items
-            let next_more_items = rest_tail_view.more_items.get_view(tree)?;
-            self.collect_array_elements(elements, next_more_items, tree)?;
+            // Recursively collect more elements if they exist
+            if let Some(next_tail_handle) = array_elements_view.array_elements_opt.get_view(tree)? {
+                self.collect_array_elements_tail(elements, next_tail_handle, tree)?;
+            }
         }
+        // If array_elements_tail_opt is None, we just have a trailing comma
 
         Ok(())
     }
@@ -524,10 +681,10 @@ impl<'a> ValueVisitor<'a> {
         self.visit_value_handle(object_list_view.value, tree)?;
 
         // Convert the key to KeyCmpValue
-        if let Some(key_cmp_value) = self.key_handle_to_key_cmp_value(object_list_view.key, tree)? {
-            if let Some(value) = self.values.value_handles.get(&object_list_view.value) {
-                map.insert(key_cmp_value, value.clone());
-            }
+        if let Some(key_cmp_value) = self.key_handle_to_key_cmp_value(object_list_view.key, tree)?
+            && let Some(value) = self.values.value_handles.get(&object_list_view.value)
+        {
+            map.insert(key_cmp_value, value.clone());
         }
 
         // Continue with the rest of the object if present
@@ -578,11 +735,164 @@ impl<'a> ValueVisitor<'a> {
                 let ext_ns_view = ext_ns_handle.get_view(tree)?;
                 // Extension namespace uses $ prefix, e.g., $eure, $variant
                 if let Some(identifier) = self.values.ident_handles.get(&ext_ns_view.ident) {
-                    Ok(Some(KeyCmpValue::String(identifier.to_string())))
+                    // Preserve the $ prefix when converting to a string key
+                    Ok(Some(KeyCmpValue::String(format!("${identifier}"))))
                 } else {
                     Ok(None)
                 }
             }
+        }
+    }
+}
+
+// Helper functions for document-level processing
+
+fn should_include_field(key_handles: &[KeyHandle], values: &Values) -> bool {
+    // Check all segments in the path
+    for handle in key_handles {
+        if let Some(PathSegment::Extension(ident)) = values.get_path_segment(handle) {
+            let ident_str = ident.to_string();
+            // Allow $variant fields temporarily (they'll be transformed later)
+            if ident_str == "variant" {
+                return true;
+            }
+            // Exclude other extension namespace fields
+            return false;
+        }
+    }
+
+    true // Include if no exclusion conditions met
+}
+
+fn transform_variants(value: Value) -> Value {
+    match value {
+        Value::Map(Map(mut map)) => {
+            // Check if this map has a $variant field
+            let variant_name = map
+                .get(&KeyCmpValue::String("$variant".to_string()))
+                .and_then(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                });
+
+            if let Some(name) = variant_name {
+                // Remove $variant field
+                map.remove(&KeyCmpValue::String("$variant".to_string()));
+
+                // Remove the representation field if present
+                map.remove(&KeyCmpValue::String("$variant.repr".to_string()));
+
+                // Transform remaining values in the map
+                let mut transformed_map = AHashMap::new();
+                for (k, v) in map {
+                    transformed_map.insert(k, transform_variants(v));
+                }
+
+                // Convert variants to a map with the variant name as key
+                // This matches the External representation
+                let mut variant_map = AHashMap::new();
+                variant_map.insert(KeyCmpValue::String(name), Value::Map(Map(transformed_map)));
+                Value::Map(Map(variant_map))
+            } else {
+                // Not a variant, but transform nested values
+                let mut transformed_map = AHashMap::new();
+                for (k, v) in map {
+                    transformed_map.insert(k, transform_variants(v));
+                }
+                Value::Map(Map(transformed_map))
+            }
+        }
+        Value::Array(Array(elements)) => {
+            // Transform each element in the array
+            Value::Array(Array(
+                elements.into_iter().map(transform_variants).collect(),
+            ))
+        }
+        // Other values pass through unchanged
+        other => other,
+    }
+}
+
+fn process_path_recursive(
+    map: &mut AHashMap<KeyCmpValue, Value>,
+    key_handles: &[KeyHandle],
+    value: Value,
+    values: &Values,
+) {
+    if key_handles.is_empty() {
+        return;
+    }
+
+    // Convert the first key handle to a key
+    let first_segment = values.get_path_segment(&key_handles[0]);
+    let (key, is_array_access) = match first_segment {
+        Some(PathSegment::Ident(ident)) => (KeyCmpValue::String(ident.to_string()), false),
+        Some(PathSegment::Value(Value::String(s))) => (KeyCmpValue::String(s.clone()), false),
+        Some(PathSegment::Value(Value::I64(i))) => (KeyCmpValue::I64(*i), false),
+        Some(PathSegment::Value(Value::U64(u))) => (KeyCmpValue::U64(*u), false),
+        Some(PathSegment::Extension(ident)) => {
+            // For extension namespace, preserve the $ prefix
+            (KeyCmpValue::String(format!("${ident}")), false)
+        }
+        Some(PathSegment::Array { key, index: _ }) => {
+            // Handle array access
+            let base_key = match key {
+                Value::String(s) => KeyCmpValue::String(s.clone()),
+                Value::I64(i) => KeyCmpValue::I64(*i),
+                Value::U64(u) => KeyCmpValue::U64(*u),
+                _ => return,
+            };
+            (base_key, true)
+        }
+        _ => return,
+    };
+
+    if key_handles.len() == 1 && !is_array_access {
+        // Simple assignment
+        map.insert(key, value);
+    } else if is_array_access {
+        // Handle array access
+        if let Some(PathSegment::Array { index, .. }) = first_segment {
+            let array = map
+                .entry(key)
+                .or_insert_with(|| Value::Array(Array(Vec::new())));
+
+            if let Value::Array(Array(elements)) = array {
+                // Ensure the array is large enough
+                let idx = match index {
+                    Some(Value::I64(i)) => *i as usize,
+                    Some(Value::U64(u)) => *u as usize,
+                    _ => elements.len(), // Append to end
+                };
+
+                if idx >= elements.len() {
+                    elements.resize(idx + 1, Value::Null);
+                }
+
+                if key_handles.len() == 1 {
+                    // Direct array element assignment
+                    elements[idx] = value;
+                } else {
+                    // Nested path within array element
+                    if let Value::Map(Map(nested_map)) = &mut elements[idx] {
+                        process_path_recursive(nested_map, &key_handles[1..], value, values);
+                    } else {
+                        // Create a new map for nested assignment
+                        let mut nested_map = AHashMap::new();
+                        process_path_recursive(&mut nested_map, &key_handles[1..], value, values);
+                        elements[idx] = Value::Map(Map(nested_map));
+                    }
+                }
+            }
+        }
+    } else {
+        // Nested object path
+        let nested = map
+            .entry(key)
+            .or_insert_with(|| Value::Map(Map(AHashMap::new())));
+
+        if let Value::Map(Map(nested_map)) = nested {
+            process_path_recursive(nested_map, &key_handles[1..], value, values);
         }
     }
 }

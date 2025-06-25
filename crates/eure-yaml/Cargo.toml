@@ -10,3 +10,12 @@ readme = "README.md"
 keywords = ["eure", "yaml", "conversion", "serialization"]
 
 [dependencies]
+eure-value = { workspace = true }
+serde = { workspace = true }
+serde_yaml = "0.9"
+thiserror = { workspace = true }
+ahash = { workspace = true }
+
+[dev-dependencies]
+eure-parol = { workspace = true }
+eure-tree = { workspace = true }

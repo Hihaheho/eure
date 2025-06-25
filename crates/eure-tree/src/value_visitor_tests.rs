@@ -172,7 +172,7 @@ mod visitor_tests {
             self.terminals
                 .get(&(node, kind))
                 .copied()
-                .ok_or_else(|| crate::CstConstructError::NodeIdNotFound { node })
+                .ok_or(crate::CstConstructError::NodeIdNotFound { node })
         }
         
         fn get_non_terminal(&self, _node: CstNodeId, _kind: NonTerminalKind) -> Result<NonTerminalData, crate::CstConstructError> {
@@ -597,10 +597,11 @@ mod visitor_tests {
     #[test]
     fn test_collect_array_elements() {
         // Test array element collection
-        let mut elements = Vec::new();
-        elements.push(Value::String("first".to_string()));
-        elements.push(Value::I64(42));
-        elements.push(Value::Bool(true));
+        let elements = vec![
+            Value::String("first".to_string()),
+            Value::I64(42),
+            Value::Bool(true),
+        ];
         
         let array = Value::Array(Array(elements.clone()));
         

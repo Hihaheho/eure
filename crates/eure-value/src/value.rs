@@ -1,5 +1,5 @@
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::identifier::Identifier;
@@ -40,9 +40,21 @@ pub struct Path(pub Vec<PathSegment>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathSegment {
-    Extension(Identifier),
+    Ident(Identifier),      // Regular identifiers like id, description
+    Extension(Identifier),  // Extension namespace fields starting with $ like $eure, $variant
     Value(Value),
     Array { key: Value, index: Option<Value> },
+}
+
+// A simplified path representation that can be used as a HashMap key
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PathKey(pub Vec<PathKeySegment>);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PathKeySegment {
+    Ident(String),
+    Extension(String),
+    Array { key: String, index: Option<usize> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -74,4 +86,48 @@ pub struct Map(pub crate::Map<KeyCmpValue, Value>);
 pub struct Variant {
     pub tag: String,
     pub content: Box<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VariantRepr {
+    /// Default representation: {"variant-name": {...}}
+    External,
+    
+    /// Internal tagging: {"type": "variant-name", ...fields...}
+    Internal { tag: String },
+    
+    /// Adjacent tagging: {"type": "variant-name", "content": {...}}
+    Adjacent { tag: String, content: String },
+    
+    /// Untagged: just the content without variant information
+    Untagged,
+}
+
+impl VariantRepr {
+    /// Create a VariantRepr from $variant.repr annotation value
+    pub fn from_annotation(value: &Value) -> Option<Self> {
+        match value {
+            Value::String(s) if s == "untagged" => Some(VariantRepr::Untagged),
+            Value::Map(Map(map)) => {
+                let tag = map.get(&KeyCmpValue::String("tag".to_string()))
+                    .and_then(|v| match v {
+                        Value::String(s) => Some(s.clone()),
+                        _ => None,
+                    });
+                    
+                let content = map.get(&KeyCmpValue::String("content".to_string()))
+                    .and_then(|v| match v {
+                        Value::String(s) => Some(s.clone()),
+                        _ => None,
+                    });
+                    
+                match (tag, content) {
+                    (Some(tag), Some(content)) => Some(VariantRepr::Adjacent { tag, content }),
+                    (Some(tag), None) => Some(VariantRepr::Internal { tag }),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
 }

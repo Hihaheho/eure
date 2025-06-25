@@ -16,7 +16,13 @@ path = "src/main.rs"
 [dependencies]
 eure-tree = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }
+eure-json = { workspace = true }
+eure-yaml = { workspace = true }
+eure-value = { workspace = true }
 
 clap = { version = "4.0", features = ["derive"] }
 eure-parol = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = "0.9"
+ahash = { workspace = true }
 petgraph = "0.8.1"

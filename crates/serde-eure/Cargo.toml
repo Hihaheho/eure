@@ -10,3 +10,14 @@ readme = "README.md"
 keywords = ["eure", "serde", "serialization", "deserialization"]
 
 [dependencies]
+serde = { workspace = true }
+eure-value = { workspace = true }
+eure-parol = { workspace = true }
+eure-tree = { workspace = true }
+eure-json = { workspace = true }
+thiserror = { workspace = true }
+ahash = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true

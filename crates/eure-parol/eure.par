@@ -8,7 +8,7 @@
 %scanner Text {
   %auto_newline_off
   %auto_ws_off
-  %on GrammarNewline %enter INITIAL
+  %on Text %enter INITIAL
 }
 
 %%
@@ -19,7 +19,7 @@ Binding: Keys BindingRhs ;
   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
   ValueBinding: Bind Value ;
   SectionBinding: Begin Eure End ;
-  TextBinding: TextStart [Ws^] Text GrammarNewline ;
+  TextBinding: TextStart [Ws^] Text [GrammarNewline] ;
 
 Section: At Keys SectionBody ;
   SectionBody: { Binding } | SectionBinding ;

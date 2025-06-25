@@ -110,7 +110,7 @@ impl ServerContext {
                     }
 
                     // Placeholder for other request handlers
-                    eprintln!("unhandled request: {:?}", req);
+                    eprintln!("unhandled request: {req:?}");
                     let resp = Response {
                         id: req.id,
                         result: None,
@@ -139,8 +139,8 @@ impl ServerContext {
 
                             self.process_document(uri, text, Some(version))?;
                         }
-                    } else if not.method == "textDocument/didChange" {
-                        if let Ok(params) = serde_json::from_value::<
+                    } else if not.method == "textDocument/didChange"
+                        && let Ok(params) = serde_json::from_value::<
                             lsp_types::DidChangeTextDocumentParams,
                         >(not.params)
                         {
@@ -153,7 +153,6 @@ impl ServerContext {
                                 self.process_document(uri, text, Some(version))?;
                             }
                         }
-                    }
                 }
             }
         }
@@ -222,7 +221,7 @@ impl ServerContext {
     ) -> anyhow::Result<Option<Option<SemanticTokensResult>>> {
         let uri = params.text_document.uri.to_string();
 
-        eprintln!("Handling semantic tokens full request for: {}", uri);
+        eprintln!("Handling semantic tokens full request for: {uri}");
 
         // Lookup document in our store
         if let Some((cst_opt, text)) = self.documents.get(&uri) {
@@ -233,11 +232,11 @@ impl ServerContext {
                     None => Ok(Some(None)),
                 }
             } else {
-                eprintln!("Document has no valid CST for {}", uri);
+                eprintln!("Document has no valid CST for {uri}");
                 Ok(Some(None))
             }
         } else {
-            eprintln!("Document not found in store: {}", uri);
+            eprintln!("Document not found in store: {uri}");
             Ok(Some(None))
         }
     }

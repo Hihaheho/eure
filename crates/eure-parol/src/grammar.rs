@@ -20,14 +20,14 @@ impl Grammar<'_> {
 
 impl Display for Eure<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), Error> {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
 impl Display for Grammar<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), Error> {
         match &self.eure {
-            Some(eure) => writeln!(f, "{}", eure),
+            Some(eure) => writeln!(f, "{eure}"),
             None => write!(f, "No parse result"),
         }
     }
