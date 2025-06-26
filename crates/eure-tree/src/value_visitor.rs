@@ -1,7 +1,7 @@
 use ahash::AHashMap;
 use eure_value::{
     identifier::Identifier, value::Array, value::Code, value::KeyCmpValue, value::Map,
-    value::PathSegment, value::TypedString, value::Value,
+    value::PathSegment, value::Tuple, value::TypedString, value::Value,
 };
 use std::str::FromStr;
 use thiserror::Error;
@@ -137,7 +137,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let data = str_view.str.get_data(tree)?;
                 let text = tree.get_str(data, self.input).unwrap();
                 let string_value = self.parse_string_literal(text);
-                PathSegment::Value(Value::String(string_value))
+                PathSegment::Value(KeyCmpValue::String(string_value))
             }
             KeyBaseView::Integer(integer_handle) => {
                 let integer_view = integer_handle.get_view(tree)?;
@@ -145,9 +145,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let text = tree.get_str(data, self.input).unwrap();
 
                 let value = if let Ok(i) = text.parse::<i64>() {
-                    Value::I64(i)
+                    KeyCmpValue::I64(i)
                 } else if let Ok(u) = text.parse::<u64>() {
-                    Value::U64(u)
+                    KeyCmpValue::U64(u)
                 } else {
                     return Err(ValueVisitorError::InvalidInteger(text.to_string()));
                 };
@@ -201,7 +201,23 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let key_value = match &path_segment {
                 PathSegment::Ident(ident) => Value::String(ident.to_string()),
                 PathSegment::Extension(ident) => Value::String(ident.to_string()),
-                PathSegment::Value(val) => val.clone(),
+                PathSegment::Value(val) => match val {
+                    KeyCmpValue::Null => Value::Null,
+                    KeyCmpValue::Bool(b) => Value::Bool(*b),
+                    KeyCmpValue::I64(i) => Value::I64(*i),
+                    KeyCmpValue::U64(u) => Value::U64(*u),
+                    KeyCmpValue::String(s) => Value::String(s.clone()),
+                    KeyCmpValue::Tuple(t) => Value::Tuple(Tuple(t.0.iter().map(|v| match v {
+                        KeyCmpValue::Null => Value::Null,
+                        KeyCmpValue::Bool(b) => Value::Bool(*b),
+                        KeyCmpValue::I64(i) => Value::I64(*i),
+                        KeyCmpValue::U64(u) => Value::U64(*u),
+                        KeyCmpValue::String(s) => Value::String(s.clone()),
+                        KeyCmpValue::Tuple(_) => Value::Null, // Nested tuples not supported
+                        KeyCmpValue::Unit => Value::Unit,
+                    }).collect())),
+                    KeyCmpValue::Unit => Value::Unit,
+                },
                 PathSegment::Array { .. } => {
                     // Nested array syntax not expected here
                     return Ok(());
@@ -444,7 +460,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // Get the key path
         if let Some(key_handles) = self.values.get_keys(&view.keys).cloned()
             && !key_handles.is_empty()
-            && should_include_field(&key_handles, self.values)
         {
             // Get the value to bind
             let binding_value = match view.binding_rhs.get_view(tree) {
@@ -539,7 +554,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // Process the section if we have valid keys
         if let Some(key_handles) = key_handles
             && !key_handles.is_empty()
-            && should_include_field(&key_handles, self.values)
         {
             // The section content will be processed via visit_section_body_list or visit_section_binding
             // For now, we'll handle this in the visit_eure method when transforming the document
@@ -747,23 +761,6 @@ impl<'a> ValueVisitor<'a> {
 
 // Helper functions for document-level processing
 
-fn should_include_field(key_handles: &[KeyHandle], values: &Values) -> bool {
-    // Check all segments in the path
-    for handle in key_handles {
-        if let Some(PathSegment::Extension(ident)) = values.get_path_segment(handle) {
-            let ident_str = ident.to_string();
-            // Allow $variant fields temporarily (they'll be transformed later)
-            if ident_str == "variant" {
-                return true;
-            }
-            // Exclude other extension namespace fields
-            return false;
-        }
-    }
-
-    true // Include if no exclusion conditions met
-}
-
 fn transform_variants(value: Value) -> Value {
     match value {
         Value::Map(Map(mut map)) => {
@@ -827,9 +824,7 @@ fn process_path_recursive(
     let first_segment = values.get_path_segment(&key_handles[0]);
     let (key, is_array_access) = match first_segment {
         Some(PathSegment::Ident(ident)) => (KeyCmpValue::String(ident.to_string()), false),
-        Some(PathSegment::Value(Value::String(s))) => (KeyCmpValue::String(s.clone()), false),
-        Some(PathSegment::Value(Value::I64(i))) => (KeyCmpValue::I64(*i), false),
-        Some(PathSegment::Value(Value::U64(u))) => (KeyCmpValue::U64(*u), false),
+        Some(PathSegment::Value(val)) => (val.clone(), false),
         Some(PathSegment::Extension(ident)) => {
             // For extension namespace, preserve the $ prefix
             (KeyCmpValue::String(format!("${ident}")), false)

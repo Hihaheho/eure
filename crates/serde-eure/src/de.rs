@@ -131,8 +131,7 @@ fn collect_bindings<F: eure_tree::prelude::CstFacade>(
                     _ => None,
                 };
                 
-                if let Some(value) = binding_value
-                    && should_include_field(key_handles, values) {
+                if let Some(value) = binding_value {
                         process_path_recursive(map, key_handles, value, values);
                     }
             }
@@ -172,9 +171,7 @@ fn process_sections<F: eure_tree::prelude::CstFacade>(
                     }
                 }
                 
-                if should_include_field(path_handles, values) {
-                    process_section_path(map, path_handles, Value::Map(Map(section_map)), values);
-                }
+                process_section_path(map, path_handles, Value::Map(Map(section_map)), values);
             }
     
     if let Ok(Some(more_sections)) = sections_view.eure_sections.get_view(tree) {
@@ -200,14 +197,11 @@ fn process_section_body_list<F: eure_tree::prelude::CstFacade>(
                         let key = match path_seg {
                             PathSegment::Ident(ident) => KeyCmpValue::String(ident.to_string()),
                             PathSegment::Extension(ident) => KeyCmpValue::String(format!("${ident}")),
-                            PathSegment::Value(Value::String(s)) => KeyCmpValue::String(s.clone()),
-                            PathSegment::Value(Value::I64(i)) => KeyCmpValue::I64(*i),
-                            PathSegment::Value(Value::U64(u)) => KeyCmpValue::U64(*u),
+                            PathSegment::Value(val) => val.clone(),
                             _ => KeyCmpValue::String("unknown".to_string()),
                         };
                         
-                        if should_include_field(key_handles, values)
-                            && let Ok(binding_rhs_view) = binding_view.binding_rhs.get_view(tree) {
+                        if let Ok(binding_rhs_view) = binding_view.binding_rhs.get_view(tree) {
                                 match binding_rhs_view {
                                     BindingRhsView::ValueBinding(value_binding_handle) => {
                                         if let Ok(value_binding_view) = value_binding_handle.get_view(tree)
@@ -232,27 +226,6 @@ fn process_section_body_list<F: eure_tree::prelude::CstFacade>(
             process_section_body_list(map, body_list_view.section_body_list, values, tree, input);
         }
     }
-}
-
-fn should_include_field(
-    key_handles: &[eure_tree::nodes::KeyHandle],
-    values: &eure_tree::value_visitor::Values,
-) -> bool {
-    use eure_value::value::PathSegment;
-    
-    for handle in key_handles {
-        if let Some(path_seg) = values.get_path_segment(handle)
-            && let PathSegment::Extension(ident) = path_seg {
-                let ident_str = ident.to_string();
-                // Allow specific extension namespace identifiers
-                if ident_str == "variant" || ident_str == "tag" {
-                    return true;
-                }
-                return false;
-            }
-    }
-    
-    true
 }
 
 fn process_section_path(
@@ -357,9 +330,7 @@ fn process_path_recursive(
                 let key = match path_seg {
                     PathSegment::Ident(ident) => KeyCmpValue::String(ident.to_string()),
                     PathSegment::Extension(ident) => KeyCmpValue::String(format!("${ident}")),
-                    PathSegment::Value(Value::String(s)) => KeyCmpValue::String(s.clone()),
-                    PathSegment::Value(Value::I64(i)) => KeyCmpValue::I64(*i),
-                    PathSegment::Value(Value::U64(u)) => KeyCmpValue::U64(*u),
+                    PathSegment::Value(val) => val.clone(),
                     _ => KeyCmpValue::String("key".to_string()),
                 };
                 
@@ -450,14 +421,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::Code(Code { content, .. }) => visitor.visit_string(content.clone()),
             Value::Array(_) => self.deserialize_seq(visitor),
             Value::Tuple(_) => self.deserialize_tuple(0, visitor),
-            Value::Map(Map(map)) => {
-                // Check if this is a map-based enum representation
-                if map.contains_key(&KeyCmpValue::String("$tag".to_string())) {
-                    self.deserialize_enum("", &[], visitor)
-                } else {
-                    self.deserialize_map(visitor)
-                }
-            }
+            Value::Map(_) => self.deserialize_map(visitor),
             Value::Variant(_) => self.deserialize_enum("", &[], visitor),
             Value::Unit => visitor.visit_unit(),
         }
@@ -725,19 +689,9 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
     where
         V: Visitor<'de>,
     {
-        match &self.value {
+        match std::mem::replace(&mut self.value, Value::Null) {
             Value::Map(Map(map)) => {
-                // Check if this is actually an internally tagged enum
-                if map.contains_key(&KeyCmpValue::String("$tag".to_string())) {
-                    self.deserialize_enum("", &[], visitor)
-                } else {
-                    match std::mem::replace(&mut self.value, Value::Null) {
-                        Value::Map(Map(map)) => {
-                            visitor.visit_map(MapDeserializer::new(map))
-                        }
-                        _ => unreachable!(),
-                    }
-                }
+                visitor.visit_map(MapDeserializer::new(map))
             }
             _ => Err(Error::InvalidType("expected map".to_string())),
         }
@@ -746,18 +700,14 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
-        fields: &'static [&'static str],
+        _fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        // Check if this might be an internally tagged enum by looking for $tag in fields
-        if fields.contains(&"$tag")
-            && let Value::Map(Map(map)) = &self.value
-                && map.contains_key(&KeyCmpValue::String("$tag".to_string())) {
-                    return self.deserialize_enum("", &[], visitor);
-                }
+        // For internally tagged enums, serde handles the tag extraction
+        // Just treat it as a regular map
         self.deserialize_map(visitor)
     }
 
@@ -774,8 +724,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::Variant(variant) => {
                 visitor.visit_enum(EnumDeserializer::new(variant))
             }
-            Value::Map(Map(map)) if map.contains_key(&KeyCmpValue::String("$tag".to_string())) => {
-                // Handle map-based enum representation
+            Value::Map(Map(map)) if map.contains_key(&KeyCmpValue::String("$variant".to_string())) => {
+                // Handle map-based enum representation (external tagging)
                 // Put the value back for the enum access to use
                 self.value = Value::Map(Map(map));
                 visitor.visit_enum(self)
@@ -912,9 +862,9 @@ impl<'de> de::EnumAccess<'de> for &mut Deserializer {
     where
         V: DeserializeSeed<'de>,
     {
-        // For map-based enums with $tag, extract the tag for variant matching
+        // For map-based enums with $variant, extract the tag for variant matching
         if let Value::Map(Map(map)) = &self.value
-            && let Some(Value::String(tag)) = map.get(&KeyCmpValue::String("$tag".to_string())) {
+            && let Some(Value::String(tag)) = map.get(&KeyCmpValue::String("$variant".to_string())) {
                 let tag_value = Value::String(tag.clone());
                 let mut tag_deserializer = Deserializer::new(tag_value);
                 let variant_index = seed.deserialize(&mut tag_deserializer)?;
@@ -974,9 +924,9 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
-        // For map-based enums, the map should only contain $tag for unit variants
+        // For map-based enums, the map should only contain $variant for unit variants
         if let Value::Map(Map(map)) = &self.value
-            && map.len() == 1 && map.contains_key(&KeyCmpValue::String("$tag".to_string())) {
+            && map.len() == 1 && map.contains_key(&KeyCmpValue::String("$variant".to_string())) {
                 return Ok(());
             }
         Ok(())
@@ -1004,11 +954,11 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
     where
         V: Visitor<'de>,
     {
-        // For map-based enums, we need to remove the $tag field and deserialize the rest
+        // For map-based enums, we need to remove the $variant field and deserialize the rest
         if let Value::Map(Map(map)) = &mut self.value
-            && map.contains_key(&KeyCmpValue::String("$tag".to_string())) {
+            && map.contains_key(&KeyCmpValue::String("$variant".to_string())) {
                 let mut content_map = map.clone();
-                content_map.remove(&KeyCmpValue::String("$tag".to_string()));
+                content_map.remove(&KeyCmpValue::String("$variant".to_string()));
                 self.value = Value::Map(Map(content_map));
             }
         de::Deserializer::deserialize_struct(self, "", fields, visitor)
