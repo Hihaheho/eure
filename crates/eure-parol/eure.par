@@ -66,4 +66,4 @@ Bind: '=' ;
 Comma: ',' ;
 Continue: '\\' ;
 TextStart: ":" ;
-Ident: /\p{XID_Start}[\p{XID_Continue}-]*/ ;
+Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/ ;

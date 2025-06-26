@@ -1116,7 +1116,7 @@ impl ToSpan for Hole<'_> {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Ident<'t> {
-    pub ident: Token<'t>, /* \p{XID_Start}[\p{XID_Continue}-]* */
+    pub ident: Token<'t>, /* [\p{XID_Start}_][\p{XID_Continue}-]* */
 }
 
 impl ToSpan for Ident<'_> {
@@ -1794,7 +1794,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     #[allow(dead_code)]
     fn push(&mut self, item: ASTType<'t>, context: &str) {
-        trace!("push    {context}: {item:?}");
+        trace!("push    {}: {:?}", context, item);
         self.item_stack.push(item)
     }
 
@@ -1802,7 +1802,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
     fn pop(&mut self, context: &str) -> Option<ASTType<'t>> {
         let item = self.item_stack.pop();
         if let Some(ref item) = item {
-            trace!("pop     {context}: {item:?}");
+            trace!("pop     {}: {:?}", context, item);
         }
         item
     }
@@ -1817,7 +1817,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
             self.item_stack
                 .iter()
                 .rev()
-                .map(|s| format!("  {s:?}"))
+                .map(|s| format!("  {:?}", s))
                 .collect::<Vec<std::string::String>>()
                 .join("\n")
         )
@@ -3360,7 +3360,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 87:
     ///
-    /// `Ident: /\p{XID_Start}[\p{XID_Continue}-]*/;`
+    /// `Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;`
     ///
     #[parol_runtime::function_name::named]
     fn ident(&mut self, ident: &ParseTreeType<'t>) -> Result<()> {
@@ -3480,7 +3480,8 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             86 => self.text_start(&children[0]),
             87 => self.ident(&children[0]),
             _ => Err(ParserError::InternalError(format!(
-                "Unhandled production number: {prod_num}"
+                "Unhandled production number: {}",
+                prod_num
             ))
             .into()),
         }

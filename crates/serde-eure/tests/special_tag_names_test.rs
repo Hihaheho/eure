@@ -40,7 +40,6 @@ enum AdjacentEnum {
 }
 
 #[test]
-#[ignore = "Underscore prefix in tag names is not currently supported by serde-eure deserializer"]
 fn test_underscore_tag() {
     // Test unit variant
     let unit = UnderscoreTagEnum::Unit;
@@ -112,7 +111,6 @@ fn test_at_tag() {
 }
 
 #[test]
-#[ignore = "Dollar prefix in tag names is not currently supported by serde-eure deserializer"]
 fn test_dollar_tag() {
     // Test unit variant
     let unit = DollarTagEnum::Unit;
@@ -139,7 +137,6 @@ fn test_dollar_tag() {
 }
 
 #[test]
-#[ignore = "Special characters in field names are not currently supported by serde-eure deserializer"]
 fn test_mixed_special_chars_in_field_names() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct SpecialFields {
@@ -203,7 +200,6 @@ fn test_adjacent_tagging() {
 }
 
 #[test]
-#[ignore = "Dollar prefix in tag names is not currently supported by serde-eure deserializer in arrays"]
 fn test_special_chars_in_array() {
     // Test that special tag names work correctly in arrays
     let array = vec![

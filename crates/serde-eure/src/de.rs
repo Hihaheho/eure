@@ -936,6 +936,12 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
     where
         T: DeserializeSeed<'de>,
     {
+        // For map-based enums with $content, extract it
+        if let Value::Map(Map(map)) = &self.value
+            && let Some(content) = map.get(&KeyCmpValue::String("$content".to_string())) {
+                let content_value = content.clone();
+                self.value = content_value;
+            }
         seed.deserialize(self)
     }
 
