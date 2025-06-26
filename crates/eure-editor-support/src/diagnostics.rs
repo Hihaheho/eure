@@ -19,7 +19,7 @@ pub fn error_to_diagnostic(error: &ParolError) -> Vec<Diagnostic> {
             ParserError::UnprocessedInput { .. } => {}
             ParserError::PopOnEmptyScannerStateStack { .. } => {}
             ParserError::TooManyErrors { count } => {
-                message = format!("Too many errors: {}", count);
+                message = format!("Too many errors: {count}");
             }
             ParserError::RecoveryFailed => {}
             ParserError::InternalError(_) => {}

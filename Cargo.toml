@@ -8,6 +8,8 @@ serde-eure = { path = "crates/serde-eure", version = "0.1.0" }
 eure = { path = "crates/eure", version = "0.1.0" }
 eure-parol = { path = "crates/eure-parol", version = "0.1.0" }
 eure-fmt = { path = "crates/eure-fmt", version = "0.1.0" }
+eure-json = { path = "crates/eure-json", version = "0.1.0" }
+eure-yaml = { path = "crates/eure-yaml", version = "0.1.0" }
 eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.0" }
 eure-toml = { path = "crates/eure-toml", version = "0.1.0" }
 eure-schema = { path = "crates/eure-schema", version = "0.1.0" }

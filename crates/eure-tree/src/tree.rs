@@ -154,11 +154,10 @@ where
 
     pub fn change_parent(&mut self, id: CstNodeId, new_parent: CstNodeId) {
         // Remove from old parent's children
-        if let Some(old_parent) = self.parent.get(&id).copied() {
-            if let Some(children) = self.children.get_mut(&old_parent) {
+        if let Some(old_parent) = self.parent.get(&id).copied()
+            && let Some(children) = self.children.get_mut(&old_parent) {
                 children.retain(|&child| child != id);
             }
-        }
 
         // Add to new parent's children
         self.children.entry(new_parent).or_default().push(id);
@@ -278,11 +277,10 @@ where
     /// The node data remains in the vector but becomes unreachable through tree traversal.
     pub fn remove_node(&mut self, id: CstNodeId) {
         // Remove from parent's children list
-        if let Some(parent_id) = self.parent.remove(&id) {
-            if let Some(parent_children) = self.children.get_mut(&parent_id) {
+        if let Some(parent_id) = self.parent.remove(&id)
+            && let Some(parent_children) = self.children.get_mut(&parent_id) {
                 parent_children.retain(|&child| child != id);
             }
-        }
 
         // Remove children mapping (but don't delete child nodes recursively)
         self.children.remove(&id);

@@ -1077,7 +1077,7 @@ seconds = 2
         let mut unformatted_output = String::new();
         cst.write(input, &mut unformatted_output)
             .expect("Write should succeed");
-        println!("Unformatted output: {:?}", unformatted_output);
+        println!("Unformatted output: {unformatted_output:?}");
 
         // Check for errors first
         let _errors = check_formatting_with_config(input, &cst, FmtConfig::default())
@@ -1090,7 +1090,7 @@ seconds = 2
         let mut reformatted_output = String::new();
         cst.write(input, &mut reformatted_output)
             .expect("Write should succeed");
-        println!("Reformatted output: {:?}", reformatted_output);
+        println!("Reformatted output: {reformatted_output:?}");
 
         // The reformatted output should be properly formatted
         // Note: After unformat and reformat, the structure should be preserved
@@ -1236,24 +1236,21 @@ key = {
             let result = fmt(input, &mut cst);
             assert!(
                 result.is_ok(),
-                "Formatting should succeed for input: {:?}",
-                input
+                "Formatting should succeed for input: {input:?}"
             );
 
             let mut output = String::new();
             cst.write(input, &mut output).expect("Write should succeed");
-            assert_eq!(output, expected, "Failed for input: {:?}", input);
+            assert_eq!(output, expected, "Failed for input: {input:?}");
 
             // Verify exactly one trailing newline
             assert!(
                 output.ends_with('\n'),
-                "Output should end with newline for input: {:?}",
-                input
+                "Output should end with newline for input: {input:?}"
             );
             assert!(
                 !output.ends_with("\n\n"),
-                "Output should not have multiple trailing newlines for input: {:?}",
-                input
+                "Output should not have multiple trailing newlines for input: {input:?}"
             );
         }
     }
@@ -1523,8 +1520,7 @@ echo "Hello"
 
             assert_eq!(
                 output1, output2,
-                "Formatting should be idempotent for: {}",
-                input
+                "Formatting should be idempotent for: {input}"
             );
         }
     }
@@ -1543,11 +1539,52 @@ echo "Hello"
         for (input, expected) in test_cases {
             let mut cst = parse(input).expect("Parse should succeed");
             let result = fmt(input, &mut cst);
-            assert!(result.is_ok(), "Formatting should succeed for: {}", input);
+            assert!(result.is_ok(), "Formatting should succeed for: {input}");
 
             let mut output = String::new();
             cst.write(input, &mut output).expect("Write should succeed");
-            assert_eq!(output, expected, "Failed for input: {}", input);
+            assert_eq!(output, expected, "Failed for input: {input}");
+        }
+    }
+
+    #[test]
+    fn test_missing_trailing_newline_after_binding() {
+        // Test that files without trailing newline after a binding can be parsed
+        let test_cases = vec![
+            // Simple key-value binding without trailing newline
+            "key = \"value\"",
+            // Multiple bindings without trailing newline
+            "key1 = \"value1\"\nkey2 = \"value2\"",
+            // Section with binding without trailing newline
+            "@ section\nkey = \"value\"",
+            // Object binding without trailing newline
+            "obj {\n  key = \"value\"\n}",
+            // Text binding without trailing newline - this may be problematic
+            "key: text content",
+        ];
+
+        for input in test_cases {
+            let parse_result = parse(input);
+            assert!(
+                parse_result.is_ok(),
+                "Parse should succeed for input without trailing newline: '{input}'"
+            );
+
+            if let Ok(mut cst) = parse_result {
+                let fmt_result = fmt(input, &mut cst);
+                assert!(
+                    fmt_result.is_ok(),
+                    "Formatting should succeed for input: '{input}'"
+                );
+
+                let mut output = String::new();
+                cst.write(input, &mut output).expect("Write should succeed");
+                // Formatter should add trailing newline
+                assert!(
+                    output.ends_with('\n'),
+                    "Output should have trailing newline for input: '{input}'"
+                );
+            }
         }
     }
 }

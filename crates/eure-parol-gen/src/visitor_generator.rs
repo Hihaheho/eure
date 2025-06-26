@@ -20,7 +20,7 @@ fn get_terminal_by_name<'a>(info: &'a NodeTypesInfo, name: &str) -> &'a Terminal
     info.terminals
         .iter()
         .find(|t| t.name == name)
-        .unwrap_or_else(|| panic!("Terminal {} not found", name))
+        .unwrap_or_else(|| panic!("Terminal {name} not found"))
 }
 
 pub struct VisitorGenerator {
@@ -450,7 +450,7 @@ impl VisitorGenerator {
 
                     if is_child_nt {
                         let visit_child_handle_method =
-                            crate::format_snake_case(&format!("visit_{}_handle", child_name_str));
+                            crate::format_snake_case(&format!("visit_{child_name_str}_handle"));
                         quote! {
                             #actual_view_type_name::#variant_name_ident(item) => {
                                 self.#visit_child_handle_method(item, tree)?;
@@ -458,7 +458,7 @@ impl VisitorGenerator {
                         }
                     } else {
                         let visit_terminal_method =
-                            crate::format_snake_case(&format!("visit_{}_terminal", child_name_str));
+                            crate::format_snake_case(&format!("visit_{child_name_str}_terminal"));
                         quote! {
                             #actual_view_type_name::#variant_name_ident(item) => {
                                 self.#visit_terminal_method(item, data, tree)?;

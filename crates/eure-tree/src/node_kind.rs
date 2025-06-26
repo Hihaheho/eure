@@ -53,6 +53,7 @@ pub enum NonTerminalKind {
     Text,
     TextBinding,
     TextBindingOpt,
+    TextBindingOpt0,
     TextStart,
     True,
     Value,
@@ -124,7 +125,7 @@ impl TerminalKind {
             26 => Self::Esc,
             27 => Self::TextStart,
             28 => Self::Ident,
-            _ => panic!("Invalid terminal index: {}", index),
+            _ => panic!("Invalid terminal index: {index}"),
         }
     }
     pub fn is_builtin_terminal(&self) -> bool {
@@ -206,13 +207,14 @@ impl NonTerminalKind {
             "Text" => Self::Text,
             "TextBinding" => Self::TextBinding,
             "TextBindingOpt" => Self::TextBindingOpt,
+            "TextBindingOpt0" => Self::TextBindingOpt0,
             "TextStart" => Self::TextStart,
             "True" => Self::True,
             "Value" => Self::Value,
             "ValueBinding" => Self::ValueBinding,
             "Ws" => Self::Ws,
             "" => Self::Root,
-            _ => panic!("Invalid non-terminal name: {}", name),
+            _ => panic!("Invalid non-terminal name: {name}"),
         }
     }
 }
@@ -306,6 +308,7 @@ impl std::fmt::Display for NonTerminalKind {
             Self::Text => write!(f, stringify!(Text)),
             Self::TextBinding => write!(f, stringify!(TextBinding)),
             Self::TextBindingOpt => write!(f, stringify!(TextBindingOpt)),
+            Self::TextBindingOpt0 => write!(f, stringify!(TextBindingOpt0)),
             Self::TextStart => write!(f, stringify!(TextStart)),
             Self::True => write!(f, stringify!(True)),
             Self::Value => write!(f, stringify!(Value)),

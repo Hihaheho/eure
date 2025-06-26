@@ -92,11 +92,10 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_, '_> {
     ) -> Result<(), Self::Error> {
         if let Some((line, column)) = get_error_position(&self.line_numbers, &node_data, &error) {
             eprintln!(
-                "Syntax error at line {}, column {}: {} expected {:?}",
-                line, column, error, kind
+                "Syntax error at line {line}, column {column}: {error} expected {kind:?}"
             );
         } else {
-            eprintln!("Syntax error: {} expected {:?}", error, kind);
+            eprintln!("Syntax error: {error} expected {kind:?}");
         }
         self.recover_error(node_data, parent, kind, tree)
     }
@@ -120,7 +119,7 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_, '_> {
                 let str = tree
                     .dynamic_token(id)
                     .ok_or(FormatVisitorError::DynamicTokenNotFound { id })?;
-                write!(self.f, "{}", str)?;
+                write!(self.f, "{str}")?;
             }
         }
         Ok(())
@@ -157,11 +156,10 @@ impl<F: CstFacade> CstVisitor<F> for InspectVisitor<'_, '_> {
     ) -> Result<(), Self::Error> {
         if let Some((line, column)) = get_error_position(&self.line_numbers, &node_data, &error) {
             eprintln!(
-                "Syntax error at line {}, column {}: {}",
-                line, column, error
+                "Syntax error at line {line}, column {column}: {error}"
             );
         } else {
-            eprintln!("Syntax error: {}", error);
+            eprintln!("Syntax error: {error}");
         }
         self.recover_error(node_data, parent, kind, tree)
     }

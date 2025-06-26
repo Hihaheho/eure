@@ -172,7 +172,7 @@ mod visitor_tests {
             self.terminals
                 .get(&(node, kind))
                 .copied()
-                .ok_or_else(|| crate::CstConstructError::NodeIdNotFound { node })
+                .ok_or(crate::CstConstructError::NodeIdNotFound { node })
         }
         
         fn get_non_terminal(&self, _node: CstNodeId, _kind: NonTerminalKind) -> Result<NonTerminalData, crate::CstConstructError> {
@@ -597,10 +597,11 @@ mod visitor_tests {
     #[test]
     fn test_collect_array_elements() {
         // Test array element collection
-        let mut elements = Vec::new();
-        elements.push(Value::String("first".to_string()));
-        elements.push(Value::I64(42));
-        elements.push(Value::Bool(true));
+        let elements = vec![
+            Value::String("first".to_string()),
+            Value::I64(42),
+            Value::Bool(true),
+        ];
         
         let array = Value::Array(Array(elements.clone()));
         
@@ -640,10 +641,10 @@ mod visitor_tests {
         let ident_segment = PathSegment::Extension(ident);
         
         // Test string key
-        let string_segment = PathSegment::Value(Value::String("quoted key".to_string()));
+        let string_segment = PathSegment::Value(KeyCmpValue::String("quoted key".to_string()));
         
         // Test integer key
-        let int_segment = PathSegment::Value(Value::I64(123));
+        let int_segment = PathSegment::Value(KeyCmpValue::I64(123));
         
         // Test array key with index
         let array_segment = PathSegment::Array {
@@ -659,8 +660,8 @@ mod visitor_tests {
         
         // Verify all path segments are constructed correctly
         assert!(matches!(ident_segment, PathSegment::Extension(_)));
-        assert!(matches!(string_segment, PathSegment::Value(Value::String(_))));
-        assert!(matches!(int_segment, PathSegment::Value(Value::I64(_))));
+        assert!(matches!(string_segment, PathSegment::Value(KeyCmpValue::String(_))));
+        assert!(matches!(int_segment, PathSegment::Value(KeyCmpValue::I64(_))));
         assert!(matches!(array_segment, PathSegment::Array { .. }));
         assert!(matches!(array_no_index, PathSegment::Array { index: None, .. }));
     }

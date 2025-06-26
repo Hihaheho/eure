@@ -15,7 +15,7 @@ pub struct AstTypeGenerator {
 
 impl AstTypeGenerator {
     pub fn new(path: PathBuf) -> Self {
-        println!("path: {:?}", path);
+        println!("path: {path:?}");
         Self { path }
     }
 
@@ -103,7 +103,7 @@ impl AstTypeGenerator {
         info.terminals
             .iter()
             .find(|t| t.name == name)
-            .unwrap_or_else(|| panic!("Terminal {} not found", name))
+            .unwrap_or_else(|| panic!("Terminal {name} not found"))
     }
 
     pub fn get_non_terminal_by_name<'a>(
@@ -114,7 +114,7 @@ impl AstTypeGenerator {
         info.non_terminals
             .iter()
             .find(|nt| nt.name == name)
-            .unwrap_or_else(|| panic!("Non-terminal {} not found", name))
+            .unwrap_or_else(|| panic!("Non-terminal {name} not found"))
     }
 
     fn generate_non_terminal_sequence(
