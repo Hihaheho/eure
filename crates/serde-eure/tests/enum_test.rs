@@ -18,7 +18,6 @@ fn test_unit_variant() {
 }
 
 #[test]
-#[ignore = "Newtype enum variants have a known serialization/deserialization incompatibility in serde-eure"]
 fn test_newtype_variant() {
     // The serializer produces format: {$tag = "Newtype", $content = "hello"}
     // But the deserializer expects the newtype content directly, not wrapped in a map
@@ -52,7 +51,6 @@ fn test_array_of_enums() {
 }
 
 #[test]
-#[ignore = "Array containing newtype variants fails due to serialization/deserialization incompatibility"]
 fn test_array_with_newtype_variant() {
     let array = vec![
         SimpleEnum::Unit,

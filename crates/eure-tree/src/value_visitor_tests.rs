@@ -641,10 +641,10 @@ mod visitor_tests {
         let ident_segment = PathSegment::Extension(ident);
         
         // Test string key
-        let string_segment = PathSegment::Value(Value::String("quoted key".to_string()));
+        let string_segment = PathSegment::Value(KeyCmpValue::String("quoted key".to_string()));
         
         // Test integer key
-        let int_segment = PathSegment::Value(Value::I64(123));
+        let int_segment = PathSegment::Value(KeyCmpValue::I64(123));
         
         // Test array key with index
         let array_segment = PathSegment::Array {
@@ -660,8 +660,8 @@ mod visitor_tests {
         
         // Verify all path segments are constructed correctly
         assert!(matches!(ident_segment, PathSegment::Extension(_)));
-        assert!(matches!(string_segment, PathSegment::Value(Value::String(_))));
-        assert!(matches!(int_segment, PathSegment::Value(Value::I64(_))));
+        assert!(matches!(string_segment, PathSegment::Value(KeyCmpValue::String(_))));
+        assert!(matches!(int_segment, PathSegment::Value(KeyCmpValue::I64(_))));
         assert!(matches!(array_segment, PathSegment::Array { .. }));
         assert!(matches!(array_no_index, PathSegment::Array { index: None, .. }));
     }

@@ -42,7 +42,7 @@ pub struct Path(pub Vec<PathSegment>);
 pub enum PathSegment {
     Ident(Identifier),      // Regular identifiers like id, description
     Extension(Identifier),  // Extension namespace fields starting with $ like $eure, $variant
-    Value(Value),
+    Value(KeyCmpValue),
     Array { key: Value, index: Option<Value> },
 }
 

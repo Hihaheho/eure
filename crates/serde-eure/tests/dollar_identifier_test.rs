@@ -27,7 +27,6 @@ struct Metadata {
 }
 
 #[test]
-#[ignore = "Dollar prefix in tag names is not currently supported by serde-eure deserializer"]
 fn test_dollar_in_tag_name() {
     // Test serialization
     let unit = DollarTagEnum::Unit;
@@ -56,7 +55,6 @@ fn test_dollar_in_tag_name() {
 }
 
 #[test]
-#[ignore = "Dollar prefix in field names is not currently supported by serde-eure deserializer"]
 fn test_dollar_in_field_names() {
     let data = DollarFields {
         id: 123,
@@ -77,7 +75,6 @@ fn test_dollar_in_field_names() {
 }
 
 #[test]
-#[ignore = "Dollar prefix in tag names is not currently supported by serde-eure deserializer"]
 fn test_dollar_tag_direct_value_creation() {
     // Test creating Value directly with $ in key
     let mut map = AHashMap::new();
@@ -108,7 +105,6 @@ fn test_dollar_tag_direct_value_creation() {
 }
 
 #[test]
-#[ignore = "Dollar prefix in tag names is not currently supported by serde-eure deserializer"]
 fn test_dollar_fields_in_arrays() {
     let array = vec![
         DollarTagEnum::Unit,
@@ -123,7 +119,6 @@ fn test_dollar_fields_in_arrays() {
 }
 
 #[test]
-#[ignore = "Dollar prefix in field names is not currently supported by serde-eure deserializer"]
 fn test_multiple_dollar_prefixed_fields() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct MultiDollar {
@@ -154,7 +149,6 @@ fn test_multiple_dollar_prefixed_fields() {
 }
 
 #[test]
-#[ignore = "Dollar prefix in field names is not currently supported by serde-eure deserializer"]
 fn test_nested_dollar_fields() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct Outer {

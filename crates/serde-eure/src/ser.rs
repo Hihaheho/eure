@@ -131,9 +131,10 @@ impl ser::Serializer for &mut Serializer {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Value> {
-        // Serialize as a map with a single tag field for inline compatibility
+        // For externally tagged enums, serialize with our own format
+        // For internally tagged enums, serde will call serialize_struct instead
         let mut map = ahash::AHashMap::new();
-        map.insert(KeyCmpValue::String("$tag".to_string()), Value::String(variant.to_string()));
+        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(variant.to_string()));
         Ok(Value::Map(Map(map)))
     }
 
@@ -160,7 +161,7 @@ impl ser::Serializer for &mut Serializer {
     {
         let content = value.serialize(&mut *self)?;
         let mut map = ahash::AHashMap::new();
-        map.insert(KeyCmpValue::String("$tag".to_string()), Value::String(variant.to_string()));
+        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(variant.to_string()));
         map.insert(KeyCmpValue::String("$content".to_string()), content);
         Ok(Value::Map(Map(map)))
     }
@@ -318,7 +319,7 @@ impl ser::SerializeTupleVariant for SerializeTupleVariant {
     fn end(self) -> Result<Value> {
         // Create a map with tag and values for inline compatibility
         let mut map = ahash::AHashMap::new();
-        map.insert(KeyCmpValue::String("$tag".to_string()), Value::String(self.tag));
+        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(self.tag));
         map.insert(KeyCmpValue::String("$values".to_string()), Value::Tuple(Tuple(self.values)));
         Ok(Value::Map(Map(map)))
     }
@@ -403,9 +404,9 @@ impl ser::SerializeStructVariant for SerializeStructVariant {
     }
 
     fn end(self) -> Result<Value> {
-        // Add the tag to the map for inline compatibility
+        // Add the variant tag
         let mut map = self.map;
-        map.insert(KeyCmpValue::String("$tag".to_string()), Value::String(self.tag));
+        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(self.tag));
         Ok(Value::Map(Map(map)))
     }
 }
