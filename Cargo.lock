@@ -371,6 +371,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "bon"
+version = "3.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f61138465baf186c63e8d9b6b613b508cd832cba4ce93cf37ce5f096f91ac1a6"
+dependencies = [
+ "bon-macros",
+ "rustversion",
+]
+
+[[package]]
+name = "bon-macros"
+version = "3.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40d1dad34aa19bf02295382f08d9bc40651585bd497266831d40ee6296fb49ca"
+dependencies = [
+ "darling",
+ "ident_case",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.104",
+]
+
+[[package]]
 name = "bstr"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1707,9 +1732,11 @@ name = "eure-json"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "eure-fmt",
  "eure-parol",
  "eure-tree",
  "eure-value",
+ "indexmap 2.9.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -1776,6 +1803,7 @@ name = "eure-tree"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "bon",
  "eure-parol",
  "eure-value",
  "thiserror 2.0.12",
