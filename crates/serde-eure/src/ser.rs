@@ -134,15 +134,14 @@ impl ser::Serializer for &mut Serializer {
         // For externally tagged enums, serialize with our own format
         // For internally tagged enums, serde will call serialize_struct instead
         let mut map = ahash::AHashMap::new();
-        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(variant.to_string()));
+        map.insert(
+            KeyCmpValue::String("$variant".to_string()),
+            Value::String(variant.to_string()),
+        );
         Ok(Value::Map(Map(map)))
     }
 
-    fn serialize_newtype_struct<T>(
-        self,
-        _name: &'static str,
-        value: &T,
-    ) -> Result<Value>
+    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Value>
     where
         T: ?Sized + Serialize,
     {
@@ -161,15 +160,16 @@ impl ser::Serializer for &mut Serializer {
     {
         let content = value.serialize(&mut *self)?;
         let mut map = ahash::AHashMap::new();
-        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(variant.to_string()));
+        map.insert(
+            KeyCmpValue::String("$variant".to_string()),
+            Value::String(variant.to_string()),
+        );
         map.insert(KeyCmpValue::String("$content".to_string()), content);
         Ok(Value::Map(Map(map)))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        Ok(SerializeSeq {
-            values: Vec::new(),
-        })
+        Ok(SerializeSeq { values: Vec::new() })
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
@@ -208,11 +208,7 @@ impl ser::Serializer for &mut Serializer {
         })
     }
 
-    fn serialize_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(SerializeStruct {
             map: ahash::AHashMap::new(),
         })
@@ -319,8 +315,14 @@ impl ser::SerializeTupleVariant for SerializeTupleVariant {
     fn end(self) -> Result<Value> {
         // Create a map with tag and values for inline compatibility
         let mut map = ahash::AHashMap::new();
-        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(self.tag));
-        map.insert(KeyCmpValue::String("$values".to_string()), Value::Tuple(Tuple(self.values)));
+        map.insert(
+            KeyCmpValue::String("$variant".to_string()),
+            Value::String(self.tag),
+        );
+        map.insert(
+            KeyCmpValue::String("$values".to_string()),
+            Value::Tuple(Tuple(self.values)),
+        );
         Ok(Value::Map(Map(map)))
     }
 }
@@ -350,8 +352,9 @@ impl ser::SerializeMap for SerializeMap {
     {
         let mut serializer = Serializer::new();
         let value = value.serialize(&mut serializer)?;
-        let key = self.next_key.take()
-            .ok_or_else(|| Error::Message("serialize_value called before serialize_key".to_string()))?;
+        let key = self.next_key.take().ok_or_else(|| {
+            Error::Message("serialize_value called before serialize_key".to_string())
+        })?;
         self.map.insert(key, value);
         Ok(())
     }
@@ -406,7 +409,10 @@ impl ser::SerializeStructVariant for SerializeStructVariant {
     fn end(self) -> Result<Value> {
         // Add the variant tag
         let mut map = self.map;
-        map.insert(KeyCmpValue::String("$variant".to_string()), Value::String(self.tag));
+        map.insert(
+            KeyCmpValue::String("$variant".to_string()),
+            Value::String(self.tag),
+        );
         Ok(Value::Map(Map(map)))
     }
 }
@@ -419,12 +425,15 @@ fn value_to_key_cmp(value: Value) -> Result<KeyCmpValue> {
         Value::U64(u) => Ok(KeyCmpValue::U64(u)),
         Value::String(s) => Ok(KeyCmpValue::String(s)),
         Value::Tuple(Tuple(values)) => {
-            let keys = values.into_iter()
+            let keys = values
+                .into_iter()
                 .map(value_to_key_cmp)
                 .collect::<Result<Vec<_>>>()?;
             Ok(KeyCmpValue::Tuple(eure_value::value::Tuple(keys)))
         }
         Value::Unit => Ok(KeyCmpValue::Unit),
-        _ => Err(Error::InvalidType(format!("cannot use {value:?} as map key"))),
+        _ => Err(Error::InvalidType(format!(
+            "cannot use {value:?} as map key"
+        ))),
     }
 }

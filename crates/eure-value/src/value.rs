@@ -40,8 +40,8 @@ pub struct Path(pub Vec<PathSegment>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathSegment {
-    Ident(Identifier),      // Regular identifiers like id, description
-    Extension(Identifier),  // Extension namespace fields starting with $ like $eure, $variant
+    Ident(Identifier),     // Regular identifiers like id, description
+    Extension(Identifier), // Extension namespace fields starting with $ like $eure, $variant
     Value(KeyCmpValue),
     Array { key: Value, index: Option<Value> },
 }
@@ -92,13 +92,13 @@ pub struct Variant {
 pub enum VariantRepr {
     /// Default representation: {"variant-name": {...}}
     External,
-    
+
     /// Internal tagging: {"type": "variant-name", ...fields...}
     Internal { tag: String },
-    
+
     /// Adjacent tagging: {"type": "variant-name", "content": {...}}
     Adjacent { tag: String, content: String },
-    
+
     /// Untagged: just the content without variant information
     Untagged,
 }
@@ -109,18 +109,20 @@ impl VariantRepr {
         match value {
             Value::String(s) if s == "untagged" => Some(VariantRepr::Untagged),
             Value::Map(Map(map)) => {
-                let tag = map.get(&KeyCmpValue::String("tag".to_string()))
+                let tag = map
+                    .get(&KeyCmpValue::String("tag".to_string()))
                     .and_then(|v| match v {
                         Value::String(s) => Some(s.clone()),
                         _ => None,
                     });
-                    
-                let content = map.get(&KeyCmpValue::String("content".to_string()))
+
+                let content = map
+                    .get(&KeyCmpValue::String("content".to_string()))
                     .and_then(|v| match v {
                         Value::String(s) => Some(s.clone()),
                         _ => None,
                     });
-                    
+
                 match (tag, content) {
                     (Some(tag), Some(content)) => Some(VariantRepr::Adjacent { tag, content }),
                     (Some(tag), None) => Some(VariantRepr::Internal { tag }),

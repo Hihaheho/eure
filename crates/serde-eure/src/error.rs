@@ -13,15 +13,10 @@ pub enum Error {
     Eof,
 
     #[error("syntax error at position {position}: {message}")]
-    Syntax {
-        position: usize,
-        message: String,
-    },
+    Syntax { position: usize, message: String },
 
     #[error("expected {expected}")]
-    Expected {
-        expected: &'static str,
-    },
+    Expected { expected: &'static str },
 
     #[error("trailing characters")]
     TrailingCharacters,

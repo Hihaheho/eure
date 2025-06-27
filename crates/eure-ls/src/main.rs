@@ -143,16 +143,16 @@ impl ServerContext {
                         && let Ok(params) = serde_json::from_value::<
                             lsp_types::DidChangeTextDocumentParams,
                         >(not.params)
-                        {
-                            let uri = params.text_document.uri.clone();
-                            let version = params.text_document.version;
+                    {
+                        let uri = params.text_document.uri.clone();
+                        let version = params.text_document.version;
 
-                            // For FULL sync, we just get the full content from the last change
-                            if let Some(last_change) = params.content_changes.last() {
-                                let text = last_change.text.clone();
-                                self.process_document(uri, text, Some(version))?;
-                            }
+                        // For FULL sync, we just get the full content from the last change
+                        if let Some(last_change) = params.content_changes.last() {
+                            let text = last_change.text.clone();
+                            self.process_document(uri, text, Some(version))?;
                         }
+                    }
                 }
             }
         }

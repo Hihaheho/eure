@@ -207,15 +207,19 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     KeyCmpValue::I64(i) => Value::I64(*i),
                     KeyCmpValue::U64(u) => Value::U64(*u),
                     KeyCmpValue::String(s) => Value::String(s.clone()),
-                    KeyCmpValue::Tuple(t) => Value::Tuple(Tuple(t.0.iter().map(|v| match v {
-                        KeyCmpValue::Null => Value::Null,
-                        KeyCmpValue::Bool(b) => Value::Bool(*b),
-                        KeyCmpValue::I64(i) => Value::I64(*i),
-                        KeyCmpValue::U64(u) => Value::U64(*u),
-                        KeyCmpValue::String(s) => Value::String(s.clone()),
-                        KeyCmpValue::Tuple(_) => Value::Null, // Nested tuples not supported
-                        KeyCmpValue::Unit => Value::Unit,
-                    }).collect())),
+                    KeyCmpValue::Tuple(t) => Value::Tuple(Tuple(
+                        t.0.iter()
+                            .map(|v| match v {
+                                KeyCmpValue::Null => Value::Null,
+                                KeyCmpValue::Bool(b) => Value::Bool(*b),
+                                KeyCmpValue::I64(i) => Value::I64(*i),
+                                KeyCmpValue::U64(u) => Value::U64(*u),
+                                KeyCmpValue::String(s) => Value::String(s.clone()),
+                                KeyCmpValue::Tuple(_) => Value::Null, // Nested tuples not supported
+                                KeyCmpValue::Unit => Value::Unit,
+                            })
+                            .collect(),
+                    )),
                     KeyCmpValue::Unit => Value::Unit,
                 },
                 PathSegment::Array { .. } => {

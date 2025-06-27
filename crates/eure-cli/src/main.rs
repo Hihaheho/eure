@@ -1,8 +1,11 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use eure_fmt::unformat::{unformat, unformat_with_seed};
-use eure_json::{json_to_value_with_config, value_to_json_with_config, format_eure_bindings, Config as JsonConfig, VariantRepr};
-use eure_yaml::{yaml_to_value_with_config, value_to_yaml_with_config, Config as YamlConfig};
+use eure_json::{
+    Config as JsonConfig, VariantRepr, format_eure_bindings, json_to_value_with_config,
+    value_to_json_with_config,
+};
 use eure_tree::tree::NonTerminalHandle;
+use eure_yaml::{Config as YamlConfig, value_to_yaml_with_config, yaml_to_value_with_config};
 use std::fs;
 use std::io::{self, Read};
 
@@ -267,7 +270,7 @@ fn main() {
 
 fn handle_to_json(args: ToJson) {
     use eure_tree::value_visitor::{ValueVisitor, Values};
-    
+
     // Read input
     let contents = if args.file == "-" {
         let mut buffer = String::new();
@@ -298,7 +301,7 @@ fn handle_to_json(args: ToJson) {
     // Extract values using ValueVisitor
     let mut values = Values::default();
     let mut visitor = ValueVisitor::new(&contents, &mut values);
-    
+
     // Visit the tree
     if let Err(e) = tree.visit_from_root(&mut visitor) {
         eprintln!("Error visiting EURE tree: {e:?}");
@@ -307,24 +310,25 @@ fn handle_to_json(args: ToJson) {
 
     // Extract the main value from the document
     let value = if let Ok(root_view) = tree.root_handle().get_view(&tree)
-        && let Some(eure_value) = values.get_eure(&root_view.eure) {
-            eure_value.clone()
-        } else {
-            eprintln!("Error: Could not extract document value");
-            return;
-        };
+        && let Some(eure_value) = values.get_eure(&root_view.eure)
+    {
+        eure_value.clone()
+    } else {
+        eprintln!("Error: Could not extract document value");
+        return;
+    };
 
     // Configure variant representation
     let variant_repr = match args.variant {
         VariantFormat::External => VariantRepr::External,
         VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent { 
-            tag: args.tag, 
-            content: args.content 
+        VariantFormat::Adjacent => VariantRepr::Adjacent {
+            tag: args.tag,
+            content: args.content,
         },
         VariantFormat::Untagged => VariantRepr::Untagged,
     };
-    
+
     let config = JsonConfig { variant_repr };
 
     // Convert to JSON
@@ -390,13 +394,13 @@ fn handle_from_json(args: FromJson) {
     let variant_repr = match args.variant {
         VariantFormat::External => VariantRepr::External,
         VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent { 
-            tag: args.tag, 
-            content: args.content 
+        VariantFormat::Adjacent => VariantRepr::Adjacent {
+            tag: args.tag,
+            content: args.content,
         },
         VariantFormat::Untagged => VariantRepr::Untagged,
     };
-    
+
     let config = JsonConfig { variant_repr };
 
     // Convert to EURE Value
@@ -415,7 +419,7 @@ fn handle_from_json(args: FromJson) {
 
 fn handle_to_yaml(args: ToYaml) {
     use eure_tree::value_visitor::{ValueVisitor, Values};
-    
+
     // Read input
     let contents = if args.file == "-" {
         let mut buffer = String::new();
@@ -446,7 +450,7 @@ fn handle_to_yaml(args: ToYaml) {
     // Extract values using ValueVisitor
     let mut values = Values::default();
     let mut visitor = ValueVisitor::new(&contents, &mut values);
-    
+
     // Visit the tree
     if let Err(e) = tree.visit_from_root(&mut visitor) {
         eprintln!("Error visiting EURE tree: {e:?}");
@@ -455,24 +459,25 @@ fn handle_to_yaml(args: ToYaml) {
 
     // Extract the main value from the document
     let value = if let Ok(root_view) = tree.root_handle().get_view(&tree)
-        && let Some(eure_value) = values.get_eure(&root_view.eure) {
-            eure_value.clone()
-        } else {
-            eprintln!("Error: Could not extract document value");
-            return;
-        };
+        && let Some(eure_value) = values.get_eure(&root_view.eure)
+    {
+        eure_value.clone()
+    } else {
+        eprintln!("Error: Could not extract document value");
+        return;
+    };
 
     // Configure variant representation
     let variant_repr = match args.variant {
         VariantFormat::External => VariantRepr::External,
         VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent { 
-            tag: args.tag, 
-            content: args.content 
+        VariantFormat::Adjacent => VariantRepr::Adjacent {
+            tag: args.tag,
+            content: args.content,
         },
         VariantFormat::Untagged => VariantRepr::Untagged,
     };
-    
+
     let config = YamlConfig { variant_repr };
 
     // Convert to YAML
@@ -525,13 +530,13 @@ fn handle_from_yaml(args: FromYaml) {
     let variant_repr = match args.variant {
         VariantFormat::External => VariantRepr::External,
         VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent { 
-            tag: args.tag, 
-            content: args.content 
+        VariantFormat::Adjacent => VariantRepr::Adjacent {
+            tag: args.tag,
+            content: args.content,
         },
         VariantFormat::Untagged => VariantRepr::Untagged,
     };
-    
+
     let config = YamlConfig { variant_repr };
 
     // Convert to EURE Value

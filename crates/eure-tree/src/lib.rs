@@ -6,7 +6,7 @@ use tree::{ConcreteSyntaxTree, ViewConstructionError};
 pub mod action;
 pub mod builder;
 pub mod common_visitors;
-pub mod generated;
+pub mod constructors;
 pub mod node_kind;
 pub mod nodes;
 pub mod tree;

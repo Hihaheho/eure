@@ -39,7 +39,7 @@ fn main() {
         VisitorGenerator::new(Path::new("crates/eure-tree/src/visitor.rs").into());
     visitor_generator.generate(&node_info);
     let constructor_generator =
-        ConstructorGenerator::new(Path::new("crates/eure-tree/src/generated/constructors.rs").into());
+        ConstructorGenerator::new(Path::new("crates/eure-tree/src/constructors.rs").into());
     constructor_generator.generate(&node_info);
     generate_node_kind("crates/eure-tree/src/node_kind.rs");
 

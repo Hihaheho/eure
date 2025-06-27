@@ -699,7 +699,7 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         }
         // Process the ] terminal by calling super
         self.visit_array_end_super(handle, _view, tree)?;
-        
+
         // After closing bracket, don't require space before next token
         // This allows newlines to properly mark the next token as starting a new line
         self.need_space_before_next = false;
@@ -1490,7 +1490,10 @@ echo "Hello"
 
         let mut output = String::new();
         cst.write(input, &mut output).expect("Write should succeed");
-        assert_eq!(output, "arr = [\n  \"item1\",\n  \"item2\",\n]\nkey = \"value\"\n");
+        assert_eq!(
+            output,
+            "arr = [\n  \"item1\",\n  \"item2\",\n]\nkey = \"value\"\n"
+        );
     }
 
     #[test]

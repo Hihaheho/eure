@@ -2,16 +2,15 @@
 
 mod de;
 mod error;
-mod ser;
 mod format;
+mod ser;
 
-pub use de::{from_str, from_value, Deserializer};
+pub use de::{Deserializer, from_str, from_value};
 pub use error::{Error, Result};
-pub use ser::{to_string, to_string_pretty, to_value, Serializer};
+pub use ser::{Serializer, to_string, to_string_pretty, to_value};
 
 // Re-export formatting utilities
 pub use format::{format_eure, format_eure_bindings};
-
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
@@ -73,7 +72,10 @@ mod tests {
 
         // Tuple (EURE tuples have trailing commas)
         let tuple = (1, "hello", true);
-        assert_eq!(to_string(&tuple).unwrap(), "value = (1, \"hello\", true,)\n");
+        assert_eq!(
+            to_string(&tuple).unwrap(),
+            "value = (1, \"hello\", true,)\n"
+        );
 
         // HashMap
         let mut map = HashMap::new();
@@ -91,7 +93,7 @@ mod tests {
             age: 30,
             active: true,
         };
-        
+
         let result = to_string(&test).unwrap();
         assert!(result.contains("name = \"Bob\""));
         assert!(result.contains("age = 30"));
@@ -105,10 +107,10 @@ mod tests {
             age: 35,
             active: true,
         };
-        
+
         let serialized = to_string(&original).unwrap();
         let deserialized: TestStruct = from_str(&serialized).unwrap();
-        
+
         assert_eq!(original, deserialized);
     }
 
@@ -123,10 +125,10 @@ mod tests {
             },
             tags: vec!["tag1".to_string(), "tag2".to_string()],
         };
-        
+
         let serialized = to_string(&nested).unwrap();
         let deserialized: NestedStruct = from_str(&serialized).unwrap();
-        
+
         assert_eq!(nested, deserialized);
     }
 
@@ -134,7 +136,7 @@ mod tests {
     fn test_empty_collections() {
         let empty_vec: Vec<i32> = vec![];
         assert_eq!(to_string(&empty_vec).unwrap(), "value = []\n");
-        
+
         let empty_map: HashMap<String, String> = HashMap::new();
         assert_eq!(to_string(&empty_map).unwrap(), "");
     }
@@ -144,8 +146,11 @@ mod tests {
         // Test escaping
         let special = "Hello \"world\"\nNew line\tTab";
         let serialized = to_string(&special).unwrap();
-        assert_eq!(serialized, "value = \"Hello \\\"world\\\"\\nNew line\\tTab\"\n");
-        
+        assert_eq!(
+            serialized,
+            "value = \"Hello \\\"world\\\"\\nNew line\\tTab\"\n"
+        );
+
         let deserialized: String = from_str(&serialized).unwrap();
         assert_eq!(special, deserialized);
     }
@@ -153,8 +158,14 @@ mod tests {
     #[test]
     fn test_numeric_limits() {
         // Test various numeric types
-        assert_eq!(to_string(&i64::MAX).unwrap(), format!("value = {}\n", i64::MAX));
-        assert_eq!(to_string(&u64::MAX).unwrap(), format!("value = {}\n", u64::MAX));
+        assert_eq!(
+            to_string(&i64::MAX).unwrap(),
+            format!("value = {}\n", i64::MAX)
+        );
+        assert_eq!(
+            to_string(&u64::MAX).unwrap(),
+            format!("value = {}\n", u64::MAX)
+        );
         assert_eq!(to_string(&f64::INFINITY).unwrap(), "value = inf\n");
         assert_eq!(to_string(&f64::NEG_INFINITY).unwrap(), "value = -inf\n");
         assert_eq!(to_string(&f64::NAN).unwrap(), "value = NaN\n");
@@ -168,23 +179,23 @@ mod tests {
             optional: Option<i32>,
             nested_option: Option<Option<bool>>,
         }
-        
+
         let with_some = WithOptions {
             required: "test".to_string(),
             optional: Some(42),
             nested_option: Some(Some(true)),
         };
-        
+
         let serialized = to_string(&with_some).unwrap();
         let deserialized: WithOptions = from_str(&serialized).unwrap();
         assert_eq!(with_some, deserialized);
-        
+
         let with_none = WithOptions {
             required: "test".to_string(),
             optional: None,
-            nested_option: None,  // Serde collapses Some(None) to None
+            nested_option: None, // Serde collapses Some(None) to None
         };
-        
+
         let serialized = to_string(&with_none).unwrap();
         let deserialized: WithOptions = from_str(&serialized).unwrap();
         assert_eq!(with_none, deserialized);
@@ -197,19 +208,19 @@ mod tests {
             meta: HashMap<String, String>,
             config: HashMap<String, HashMap<String, i32>>,
         }
-        
+
         let mut meta = HashMap::new();
         meta.insert("version".to_string(), "1.0".to_string());
-        
+
         let mut inner = HashMap::new();
         inner.insert("timeout".to_string(), 30);
         inner.insert("retries".to_string(), 3);
-        
+
         let mut config = HashMap::new();
         config.insert("default".to_string(), inner);
-        
+
         let complex = Complex { meta, config };
-        
+
         let serialized = to_string(&complex).unwrap();
         let deserialized: Complex = from_str(&serialized).unwrap();
         assert_eq!(complex, deserialized);
@@ -221,27 +232,27 @@ mod tests {
     fn test_parse_errors() {
         // Missing closing brace
         assert!(from_str::<TestStruct>("name = \"test\"").is_err());
-        
+
         // Invalid syntax
         assert!(from_str::<TestStruct>("{ invalid syntax }").is_err());
-        
+
         // Empty input
         assert!(from_str::<TestStruct>("").is_err());
-        
+
         // Missing quotes around string
         assert!(from_str::<TestStruct>("value = hello").is_err());
-        
+
         // Unterminated string
         assert!(from_str::<TestStruct>("value = \"unterminated").is_err());
-        
+
         // Invalid number
         assert!(from_str::<i32>("value = 1.2.3").is_err());
         assert!(from_str::<i32>("value = ++1").is_err());
         assert!(from_str::<i32>("value = 1e").is_err());
-        
+
         // Missing value
         assert!(from_str::<i32>("value =").is_err());
-        
+
         // Test if double values are allowed (EURE might allow this, so check actual behavior)
         let double_result = from_str::<i32>("value = 1\nvalue = 2");
         // If it doesn't error, at least verify we get one of the values
@@ -254,16 +265,16 @@ mod tests {
     fn test_type_mismatch_errors() {
         // String to number
         assert!(from_str::<i32>("value = \"not a number\"").is_err());
-        
+
         // Number to bool
         assert!(from_str::<bool>("value = 42").is_err());
-        
+
         // Array to struct
         assert!(from_str::<TestStruct>("value = [1, 2, 3,]").is_err());
-        
+
         // Null to non-option
         assert!(from_str::<i32>("value = null").is_err());
-        
+
         // Wrong tuple length
         assert!(from_str::<(i32, i32)>("value = (1,)").is_err());
         assert!(from_str::<(i32, i32)>("value = (1, 2, 3,)").is_err());
@@ -278,7 +289,7 @@ mod tests {
             # missing 'active' field
         "#;
         assert!(from_str::<TestStruct>(eure).is_err());
-        
+
         // Unknown field (depending on serde config)
         let eure = r#"
             name = "Bob"
@@ -288,7 +299,7 @@ mod tests {
         "#;
         // This may or may not error depending on serde attributes
         let _ = from_str::<TestStruct>(eure);
-        
+
         // Wrong field type
         let eure = r#"
             name = "Bob"
@@ -302,15 +313,17 @@ mod tests {
     fn test_enum_errors() {
         // Invalid variant
         assert!(from_str::<TestEnum>("value = {$tag = \"InvalidVariant\",}").is_err());
-        
+
         // Missing tag
         assert!(from_str::<TestEnum>("value = {x = 1.0, y = 2.0,}").is_err());
-        
+
         // Wrong data for variant
         assert!(from_str::<TestEnum>("value = {$tag = \"newtype-variant\", x = 1.0,}").is_err());
-        
+
         // Newtype variant with wrong content
-        assert!(from_str::<TestEnum>("value = {$tag = \"newtype-variant\", content = 123,}").is_err());
+        assert!(
+            from_str::<TestEnum>("value = {$tag = \"newtype-variant\", content = 123,}").is_err()
+        );
     }
 
     #[test]
@@ -322,7 +335,7 @@ mod tests {
             // If it doesn't error, verify the behavior
             assert_eq!(result.unwrap(), "\\q");
         }
-        
+
         // Test unicode escape handling
         // EURE might be permissive with escape sequences
         let short_unicode = from_str::<String>("value = \"\\u123\"");
@@ -330,13 +343,13 @@ mod tests {
             // If it doesn't error, it might preserve the literal
             assert!(val == "\\u123" || !val.is_empty());
         }
-        
+
         let invalid_hex = from_str::<String>("value = \"\\uXYZW\"");
         if let Ok(val) = invalid_hex {
             // If it doesn't error, verify it's preserved
             assert_eq!(val, "\\uXYZW");
         }
-        
+
         // Unterminated escape
         assert!(from_str::<String>("value = \"test\\").is_err());
     }
@@ -345,13 +358,13 @@ mod tests {
     fn test_collection_errors() {
         // Unclosed array
         assert!(from_str::<Vec<i32>>("value = [1, 2, 3").is_err());
-        
+
         // Unclosed tuple
         assert!(from_str::<(i32, i32)>("value = (1, 2").is_err());
-        
+
         // Mixed types in homogeneous collection
         assert!(from_str::<Vec<i32>>("value = [1, \"two\", 3,]").is_err());
-        
+
         // Missing comma in array
         assert!(from_str::<Vec<i32>>("value = [1 2 3,]").is_err());
     }
@@ -369,14 +382,14 @@ mod tests {
             tags = ["tag1", "tag2",]
         "#;
         assert!(from_str::<NestedStruct>(eure).is_err());
-        
+
         // Error in deeply nested value
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         struct ComplexError {
             meta: HashMap<String, String>,
             config: HashMap<String, HashMap<String, i32>>,
         }
-        
+
         let eure = r#"
             meta = {version = "1.0",}
             config = {
@@ -393,10 +406,10 @@ mod tests {
     fn test_edge_cases() {
         // Very large numbers
         assert!(from_str::<i8>("value = 999999999999999999999").is_err());
-        
+
         // Float overflow
         assert!(from_str::<f32>("value = 1e400").is_err());
-        
+
         // Empty string key
         let eure = r#"
             "" = "value"
@@ -405,7 +418,7 @@ mod tests {
         if result.is_ok() {
             assert!(result.unwrap().contains_key(""));
         }
-        
+
         // Special float values (these might work depending on implementation)
         let _ = from_str::<f64>("value = inf");
         let _ = from_str::<f64>("value = -inf");
@@ -415,11 +428,11 @@ mod tests {
     #[test]
     fn test_serialization_errors() {
         use std::f64;
-        
+
         // NaN and Infinity (JSON doesn't support these)
         let nan = f64::NAN;
         let inf = f64::INFINITY;
-        
+
         // These should serialize but might not round-trip through JSON
         assert!(to_string(&nan).is_ok());
         assert!(to_string(&inf).is_ok());
@@ -429,13 +442,13 @@ mod tests {
     fn test_malformed_documents() {
         // Multiple root values
         assert!(from_str::<i32>("value = 1\nother = 2").is_err());
-        
+
         // No root binding
         assert!(from_str::<i32>("42").is_err());
-        
+
         // Invalid binding name
         assert!(from_str::<i32>("123 = 42").is_err());
-        
+
         // Circular reference attempt (not really possible in EURE but test parser)
         let eure = r#"
             a = b

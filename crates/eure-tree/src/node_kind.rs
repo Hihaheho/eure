@@ -125,7 +125,7 @@ impl TerminalKind {
             26 => Self::Esc,
             27 => Self::TextStart,
             28 => Self::Ident,
-            _ => panic!("Invalid terminal index: {}", index),
+            _ => panic!("Invalid terminal index: {index}"),
         }
     }
     pub fn is_builtin_terminal(&self) -> bool {
@@ -214,7 +214,7 @@ impl NonTerminalKind {
             "ValueBinding" => Self::ValueBinding,
             "Ws" => Self::Ws,
             "" => Self::Root,
-            _ => panic!("Invalid non-terminal name: {}", name),
+            _ => panic!("Invalid non-terminal name: {name}"),
         }
     }
 }

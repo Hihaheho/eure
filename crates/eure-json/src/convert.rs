@@ -1,4 +1,4 @@
-use eure_value::value::{Value, KeyCmpValue, Map, Array, Tuple, Variant, TypedString, Code};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant};
 use serde_json::json;
 
 use crate::{config::Config, error::Error};
@@ -10,7 +10,10 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, Error> {
 }
 
 /// Convert an eure Value to a JSON value with custom configuration
-pub fn value_to_json_with_config(value: &Value, config: &Config) -> Result<serde_json::Value, Error> {
+pub fn value_to_json_with_config(
+    value: &Value,
+    config: &Config,
+) -> Result<serde_json::Value, Error> {
     match value {
         Value::Null => Ok(serde_json::Value::Null),
         Value::Bool(b) => Ok(json!(*b)),
@@ -87,7 +90,7 @@ fn convert_variant_to_json(variant: &Variant, config: &Config) -> Result<serde_j
                 Value::Map(Map(content_map)) => {
                     let mut json_map = serde_json::Map::new();
                     json_map.insert(tag.clone(), json!(variant.tag));
-                    
+
                     // Add all fields from content
                     for (key, value) in content_map {
                         let key_str = key_to_string(key)?;
@@ -97,8 +100,8 @@ fn convert_variant_to_json(variant: &Variant, config: &Config) -> Result<serde_j
                     Ok(serde_json::Value::Object(json_map))
                 }
                 _ => Err(Error::InvalidVariant(
-                    "Internal tagging requires variant content to be a Map".to_string()
-                ))
+                    "Internal tagging requires variant content to be a Map".to_string(),
+                )),
             }
         }
         VariantRepr::Adjacent { tag, content } => {
@@ -126,7 +129,7 @@ fn key_to_string(key: &KeyCmpValue) -> Result<String, Error> {
         KeyCmpValue::Bool(b) => Ok(b.to_string()),
         KeyCmpValue::Unit => Ok("unit".to_string()),
         KeyCmpValue::Tuple(_) => Err(Error::UnsupportedValue(
-            "Tuple keys cannot be converted to JSON object keys".to_string()
+            "Tuple keys cannot be converted to JSON object keys".to_string(),
         )),
     }
 }
@@ -137,7 +140,10 @@ pub fn json_to_value(json: &serde_json::Value) -> Result<Value, Error> {
 }
 
 /// Convert a JSON value to an eure Value with custom configuration
-pub fn json_to_value_with_config(json: &serde_json::Value, config: &Config) -> Result<Value, Error> {
+pub fn json_to_value_with_config(
+    json: &serde_json::Value,
+    config: &Config,
+) -> Result<Value, Error> {
     match json {
         serde_json::Value::Null => Ok(Value::Null),
         serde_json::Value::Bool(b) => Ok(Value::Bool(*b)),
@@ -155,10 +161,10 @@ pub fn json_to_value_with_config(json: &serde_json::Value, config: &Config) -> R
         serde_json::Value::String(s) => {
             // Check if it's a code block
             if s.starts_with("```") && s.ends_with("```") {
-                let without_fences = &s[3..s.len()-3];
+                let without_fences = &s[3..s.len() - 3];
                 if let Some(newline_pos) = without_fences.find('\n') {
                     let language = without_fences[..newline_pos].to_string();
-                    let mut content = without_fences[newline_pos+1..].to_string();
+                    let mut content = without_fences[newline_pos + 1..].to_string();
                     // Remove trailing newline if present
                     if content.ends_with('\n') {
                         content.pop();
@@ -168,8 +174,11 @@ pub fn json_to_value_with_config(json: &serde_json::Value, config: &Config) -> R
                     Ok(Value::String(s.clone()))
                 }
             } else if s.starts_with('`') && s.ends_with('`') && s.len() > 2 {
-                let content = s[1..s.len()-1].to_string();
-                Ok(Value::Code(Code { language: String::new(), content }))
+                let content = s[1..s.len() - 1].to_string();
+                Ok(Value::Code(Code {
+                    language: String::new(),
+                    content,
+                }))
             } else {
                 Ok(Value::String(s.clone()))
             }
@@ -214,8 +223,9 @@ pub fn json_to_value_with_config(json: &serde_json::Value, config: &Config) -> R
                     }
                 }
                 VariantRepr::Adjacent { tag, content } => {
-                    if let (Some(variant_tag), Some(variant_content)) = 
-                        (obj.get(tag).and_then(|v| v.as_str()), obj.get(content)) {
+                    if let (Some(variant_tag), Some(variant_content)) =
+                        (obj.get(tag).and_then(|v| v.as_str()), obj.get(content))
+                    {
                         // This is a variant with adjacent tagging
                         let content_value = json_to_value_with_config(variant_content, config)?;
                         Ok(Value::Variant(Variant {

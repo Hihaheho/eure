@@ -91,9 +91,7 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_, '_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some((line, column)) = get_error_position(&self.line_numbers, &node_data, &error) {
-            eprintln!(
-                "Syntax error at line {line}, column {column}: {error} expected {kind:?}"
-            );
+            eprintln!("Syntax error at line {line}, column {column}: {error} expected {kind:?}");
         } else {
             eprintln!("Syntax error: {error} expected {kind:?}");
         }
@@ -155,9 +153,7 @@ impl<F: CstFacade> CstVisitor<F> for InspectVisitor<'_, '_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some((line, column)) = get_error_position(&self.line_numbers, &node_data, &error) {
-            eprintln!(
-                "Syntax error at line {line}, column {column}: {error}"
-            );
+            eprintln!("Syntax error at line {line}, column {column}: {error}");
         } else {
             eprintln!("Syntax error: {error}");
         }

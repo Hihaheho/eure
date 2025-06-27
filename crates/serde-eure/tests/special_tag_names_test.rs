@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use serde_eure::{from_str, to_string, from_value};
-use eure_value::value::{Value, Map, KeyCmpValue};
 use ahash::AHashMap;
+use eure_value::value::{KeyCmpValue, Map, Value};
+use serde::{Deserialize, Serialize};
+use serde_eure::{from_str, from_value, to_string};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "_tag")]
@@ -46,21 +46,26 @@ fn test_underscore_tag() {
     let serialized = to_string(&unit).unwrap();
     assert!(serialized.contains("_tag"));
     assert!(serialized.contains("Unit"));
-    
+
     let deserialized: UnderscoreTagEnum = from_str(&serialized).unwrap();
     assert_eq!(unit, deserialized);
-    
+
     // Test struct variant
-    let struct_var = UnderscoreTagEnum::Struct { field: "test".to_string() };
+    let struct_var = UnderscoreTagEnum::Struct {
+        field: "test".to_string(),
+    };
     let serialized = to_string(&struct_var).unwrap();
     let deserialized: UnderscoreTagEnum = from_str(&serialized).unwrap();
     assert_eq!(struct_var, deserialized);
-    
+
     // Test direct value creation
     let mut map = AHashMap::new();
-    map.insert(KeyCmpValue::String("_tag".to_string()), Value::String("Unit".to_string()));
+    map.insert(
+        KeyCmpValue::String("_tag".to_string()),
+        Value::String("Unit".to_string()),
+    );
     let value = Value::Map(Map(map));
-    
+
     let from_value: UnderscoreTagEnum = from_value(value).unwrap();
     assert_eq!(from_value, UnderscoreTagEnum::Unit);
 }
@@ -71,15 +76,18 @@ fn test_dash_tag() {
     let serialized = to_string(&unit).unwrap();
     assert!(serialized.contains("tag-with-dash"));
     assert!(serialized.contains("Unit"));
-    
+
     let deserialized: DashTagEnum = from_str(&serialized).unwrap();
     assert_eq!(unit, deserialized);
-    
+
     // Test direct value creation
     let mut map = AHashMap::new();
-    map.insert(KeyCmpValue::String("tag-with-dash".to_string()), Value::String("Unit".to_string()));
+    map.insert(
+        KeyCmpValue::String("tag-with-dash".to_string()),
+        Value::String("Unit".to_string()),
+    );
     let value = Value::Map(Map(map));
-    
+
     let from_value: DashTagEnum = from_value(value).unwrap();
     assert_eq!(from_value, DashTagEnum::Unit);
 }
@@ -91,21 +99,24 @@ fn test_at_tag() {
     let serialized = to_string(&unit).unwrap();
     assert!(serialized.contains("@tag"));
     assert!(serialized.contains("Unit"));
-    
+
     let deserialized: AtTagEnum = from_str(&serialized).unwrap();
     assert_eq!(unit, deserialized);
-    
+
     // Test struct variant
     let struct_var = AtTagEnum::Struct { value: 42 };
     let serialized = to_string(&struct_var).unwrap();
     let deserialized: AtTagEnum = from_str(&serialized).unwrap();
     assert_eq!(struct_var, deserialized);
-    
+
     // Test direct value creation
     let mut map = AHashMap::new();
-    map.insert(KeyCmpValue::String("@tag".to_string()), Value::String("Unit".to_string()));
+    map.insert(
+        KeyCmpValue::String("@tag".to_string()),
+        Value::String("Unit".to_string()),
+    );
     let value = Value::Map(Map(map));
-    
+
     let from_value: AtTagEnum = from_value(value).unwrap();
     assert_eq!(from_value, AtTagEnum::Unit);
 }
@@ -117,21 +128,26 @@ fn test_dollar_tag() {
     let serialized = to_string(&unit).unwrap();
     assert!(serialized.contains("$tag"));
     assert!(serialized.contains("Unit"));
-    
+
     let deserialized: DollarTagEnum = from_str(&serialized).unwrap();
     assert_eq!(unit, deserialized);
-    
+
     // Test struct variant
-    let struct_var = DollarTagEnum::Struct { data: "test".to_string() };
+    let struct_var = DollarTagEnum::Struct {
+        data: "test".to_string(),
+    };
     let serialized = to_string(&struct_var).unwrap();
     let deserialized: DollarTagEnum = from_str(&serialized).unwrap();
     assert_eq!(struct_var, deserialized);
-    
+
     // Test direct value creation - this is where the issue might be
     let mut map = AHashMap::new();
-    map.insert(KeyCmpValue::String("$tag".to_string()), Value::String("Unit".to_string()));
+    map.insert(
+        KeyCmpValue::String("$tag".to_string()),
+        Value::String("Unit".to_string()),
+    );
     let value = Value::Map(Map(map));
-    
+
     let from_value: DollarTagEnum = from_value(value).unwrap();
     assert_eq!(from_value, DollarTagEnum::Unit);
 }
@@ -149,20 +165,20 @@ fn test_mixed_special_chars_in_field_names() {
         #[serde(rename = "$meta")]
         meta: String,
     }
-    
+
     let value = SpecialFields {
         id: 123,
         first_name: "John".to_string(),
         type_field: "user".to_string(),
         meta: "metadata".to_string(),
     };
-    
+
     let serialized = to_string(&value).unwrap();
     assert!(serialized.contains("_id"));
     assert!(serialized.contains("first-name"));
     assert!(serialized.contains("@type"));
     assert!(serialized.contains("$meta"));
-    
+
     let deserialized: SpecialFields = from_str(&serialized).unwrap();
     assert_eq!(value, deserialized);
 }
@@ -174,27 +190,27 @@ fn test_adjacent_tagging() {
     let serialized = to_string(&unit).unwrap();
     assert!(serialized.contains("type"));
     assert!(serialized.contains("Unit"));
-    
+
     let deserialized: AdjacentEnum = from_str(&serialized).unwrap();
     assert_eq!(unit, deserialized);
-    
+
     // Newtype variant
     let newtype = AdjacentEnum::Newtype("hello".to_string());
     let serialized = to_string(&newtype).unwrap();
     assert!(serialized.contains("type"));
     assert!(serialized.contains("Newtype"));
     assert!(serialized.contains("content"));
-    
+
     let deserialized: AdjacentEnum = from_str(&serialized).unwrap();
     assert_eq!(newtype, deserialized);
-    
+
     // Struct variant
     let struct_var = AdjacentEnum::Struct { field: 42 };
     let serialized = to_string(&struct_var).unwrap();
     assert!(serialized.contains("type"));
     assert!(serialized.contains("Struct"));
     assert!(serialized.contains("content"));
-    
+
     let deserialized: AdjacentEnum = from_str(&serialized).unwrap();
     assert_eq!(struct_var, deserialized);
 }
@@ -204,12 +220,14 @@ fn test_special_chars_in_array() {
     // Test that special tag names work correctly in arrays
     let array = vec![
         DollarTagEnum::Unit,
-        DollarTagEnum::Struct { data: "test".to_string() },
+        DollarTagEnum::Struct {
+            data: "test".to_string(),
+        },
     ];
-    
+
     let serialized = to_string(&array).unwrap();
     assert!(serialized.contains("$tag"));
-    
+
     let deserialized: Vec<DollarTagEnum> = from_str(&serialized).unwrap();
     assert_eq!(array, deserialized);
 }

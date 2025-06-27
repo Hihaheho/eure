@@ -1,4 +1,4 @@
-use eure_value::value::{Value, Map, Array, KeyCmpValue, TypedString, Code, Variant, Tuple};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant};
 use std::fmt::Write;
 
 /// Format a Value as EURE syntax
@@ -98,9 +98,12 @@ fn is_valid_identifier(s: &str) -> bool {
     }
     let mut chars = s.chars();
     if let Some(first) = chars.next()
-        && !first.is_alphabetic() && first != '_' && first != '$' {
-            return false;
-        }
+        && !first.is_alphabetic()
+        && first != '_'
+        && first != '$'
+    {
+        return false;
+    }
     chars.all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '$')
 }
 
@@ -118,7 +121,7 @@ fn escape_string(s: &str) -> String {
 }
 
 /// Format a Value as EURE bindings (for root-level)
-/// 
+///
 /// EURE format requires all values to be in bindings at the top level.
 /// Non-map values are wrapped in a synthetic "value" binding.
 pub fn format_eure_bindings(value: &Value) -> String {
@@ -127,7 +130,7 @@ pub fn format_eure_bindings(value: &Value) -> String {
             // Check if this looks like an internally tagged enum
             // (has a single $tag field, or $tag plus other fields)
             let has_tag = map.contains_key(&KeyCmpValue::String("$tag".to_string()));
-            
+
             if has_tag {
                 // This is likely an internally tagged enum, format as object
                 format!("value = {}\n", format_eure(value))

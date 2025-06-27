@@ -1,6 +1,6 @@
+use eure_value::value::{Array, Value};
 use serde::{Deserialize, Serialize};
-use serde_eure::{from_str, to_string, from_value, to_value};
-use eure_value::value::{Value, Array};
+use serde_eure::{from_str, from_value, to_string, to_value};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Item {
@@ -39,31 +39,38 @@ struct ComplexContainer {
 fn test_simple_array_of_structs() {
     let data = Container {
         items: vec![
-            Item { name: "first".to_string(), value: 1 },
-            Item { name: "second".to_string(), value: 2 },
-            Item { name: "third".to_string(), value: 3 },
+            Item {
+                name: "first".to_string(),
+                value: 1,
+            },
+            Item {
+                name: "second".to_string(),
+                value: 2,
+            },
+            Item {
+                name: "third".to_string(),
+                value: 3,
+            },
         ],
     };
-    
+
     let serialized = to_string(&data).unwrap();
     assert!(serialized.contains("items"));
     assert!(serialized.contains("first"));
     assert!(serialized.contains("second"));
     assert!(serialized.contains("third"));
-    
+
     let deserialized: Container = from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
 }
 
 #[test]
 fn test_empty_array_of_structs() {
-    let data = Container {
-        items: vec![],
-    };
-    
+    let data = Container { items: vec![] };
+
     let serialized = to_string(&data).unwrap();
     assert!(serialized.contains("items"));
-    
+
     let deserialized: Container = from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
     assert!(deserialized.items.is_empty());
@@ -97,7 +104,7 @@ fn test_complex_nested_structs_in_array() {
         ],
         total_count: 2,
     };
-    
+
     let serialized = to_string(&data).unwrap();
     let deserialized: ComplexContainer = from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
@@ -111,12 +118,12 @@ fn test_array_of_structs_with_options() {
         description: Option<String>,
         value: Option<i32>,
     }
-    
+
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct OptionalContainer {
         items: Vec<OptionalItem>,
     }
-    
+
     let data = OptionalContainer {
         items: vec![
             OptionalItem {
@@ -136,7 +143,7 @@ fn test_array_of_structs_with_options() {
             },
         ],
     };
-    
+
     let serialized = to_string(&data).unwrap();
     let deserialized: OptionalContainer = from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
@@ -146,14 +153,20 @@ fn test_array_of_structs_with_options() {
 fn test_direct_array_serialization() {
     // Test serializing Vec<Struct> directly without a container
     let items = vec![
-        Item { name: "alpha".to_string(), value: 10 },
-        Item { name: "beta".to_string(), value: 20 },
+        Item {
+            name: "alpha".to_string(),
+            value: 10,
+        },
+        Item {
+            name: "beta".to_string(),
+            value: 20,
+        },
     ];
-    
+
     let serialized = to_string(&items).unwrap();
     assert!(serialized.contains("alpha"));
     assert!(serialized.contains("beta"));
-    
+
     let deserialized: Vec<Item> = from_str(&serialized).unwrap();
     assert_eq!(items, deserialized);
 }
@@ -161,13 +174,19 @@ fn test_direct_array_serialization() {
 #[test]
 fn test_array_of_structs_through_value() {
     let items = vec![
-        Item { name: "one".to_string(), value: 1 },
-        Item { name: "two".to_string(), value: 2 },
+        Item {
+            name: "one".to_string(),
+            value: 1,
+        },
+        Item {
+            name: "two".to_string(),
+            value: 2,
+        },
     ];
-    
+
     // Convert to Value
     let value = to_value(&items).unwrap();
-    
+
     // Verify it's an Array
     match &value {
         Value::Array(Array(elements)) => {
@@ -175,7 +194,7 @@ fn test_array_of_structs_through_value() {
         }
         _ => panic!("Expected Array value"),
     }
-    
+
     // Convert back
     let deserialized: Vec<Item> = from_value(value).unwrap();
     assert_eq!(items, deserialized);
@@ -188,31 +207,43 @@ fn test_nested_arrays_of_structs() {
         name: String,
         items: Vec<Item>,
     }
-    
+
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Groups {
         groups: Vec<Group>,
     }
-    
+
     let data = Groups {
         groups: vec![
             Group {
                 name: "Group A".to_string(),
                 items: vec![
-                    Item { name: "A1".to_string(), value: 1 },
-                    Item { name: "A2".to_string(), value: 2 },
+                    Item {
+                        name: "A1".to_string(),
+                        value: 1,
+                    },
+                    Item {
+                        name: "A2".to_string(),
+                        value: 2,
+                    },
                 ],
             },
             Group {
                 name: "Group B".to_string(),
                 items: vec![
-                    Item { name: "B1".to_string(), value: 10 },
-                    Item { name: "B2".to_string(), value: 20 },
+                    Item {
+                        name: "B1".to_string(),
+                        value: 10,
+                    },
+                    Item {
+                        name: "B2".to_string(),
+                        value: 20,
+                    },
                 ],
             },
         ],
     };
-    
+
     let serialized = to_string(&data).unwrap();
     let deserialized: Groups = from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
@@ -225,20 +256,27 @@ fn test_array_of_enum_structs() {
         Simple { name: String },
         Complex { name: String, value: i32 },
     }
-    
+
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct EnumContainer {
         items: Vec<ItemType>,
     }
-    
+
     let data = EnumContainer {
         items: vec![
-            ItemType::Simple { name: "simple1".to_string() },
-            ItemType::Complex { name: "complex1".to_string(), value: 42 },
-            ItemType::Simple { name: "simple2".to_string() },
+            ItemType::Simple {
+                name: "simple1".to_string(),
+            },
+            ItemType::Complex {
+                name: "complex1".to_string(),
+                value: 42,
+            },
+            ItemType::Simple {
+                name: "simple2".to_string(),
+            },
         ],
     };
-    
+
     let serialized = to_string(&data).unwrap();
     let deserialized: EnumContainer = from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
