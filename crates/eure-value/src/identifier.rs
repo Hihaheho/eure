@@ -19,7 +19,7 @@ impl IdentifierParser {
     /// Initialize the parser. This internally compiles a regex, so don't call this in a hot path.
     /// Prefer using `FromStr` impl for `Identifier` if you are using `std`.
     pub fn init() -> Self {
-        Self(Regex::new(r"^\p{XID_Start}[\p{XID_Continue}-]*").unwrap())
+        Self(Regex::new(r"^[\p{XID_Start}_][\p{XID_Continue}-]*").unwrap())
     }
 
     pub fn parse(&self, s: &str) -> Result<Identifier, IdentifierError> {

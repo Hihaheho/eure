@@ -48,7 +48,7 @@ pub const TERMINALS: &[(&str, Option<(bool, &str)>); 30] = &[
     /* 25 */ (r",", None),
     /* 26 */ (r"\\\\", None),
     /* 27 */ (r":", None),
-    /* 28 */ (r"\p{XID_Start}[\p{XID_Continue}-]*", None),
+    /* 28 */ (r"[\p{XID_Start}_][\p{XID_Continue}-]*", None),
     /* 29 */ (ERROR_TOKEN, None),
 ];
 
@@ -1122,7 +1122,7 @@ pub const PRODUCTIONS: &[Production; 88] = &[
         lhs: 53,
         production: &[ParseType::T(27)],
     },
-    // 87 - Ident: /\p{XID_Start}[\p{XID_Continue}-]*/;
+    // 87 - Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;
     Production {
         lhs: 30,
         production: &[ParseType::T(28)],

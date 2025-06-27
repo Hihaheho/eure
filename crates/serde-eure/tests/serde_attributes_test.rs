@@ -26,15 +26,15 @@ struct CamelStruct {
 }
 
 #[test]
-#[ignore = "Serde rename_all attribute is not properly handled by serde-eure"]
 fn test_kebab_case_enum() {
     let value = KebabEnum::TestVariant { 
         some_field: "hello".to_string() 
     };
     
     let serialized = to_string(&value).unwrap();
+    // Serde correctly applies rename_all
     assert!(serialized.contains("test-variant"));
-    assert!(serialized.contains("some-field"));
+    assert!(serialized.contains("some_field")); // Field names are already snake_case
     
     // Test roundtrip
     let deserialized: KebabEnum = from_str(&serialized).unwrap();
@@ -42,7 +42,6 @@ fn test_kebab_case_enum() {
 }
 
 #[test]
-#[ignore = "Serde rename_all attribute is not properly handled by serde-eure"]
 fn test_kebab_case_enum_in_array() {
     let array = vec![
         KebabEnum::TestVariant { some_field: "first".to_string() },
@@ -52,8 +51,8 @@ fn test_kebab_case_enum_in_array() {
     let serialized = to_string(&array).unwrap();
     assert!(serialized.contains("test-variant"));
     assert!(serialized.contains("another-variant"));
-    assert!(serialized.contains("some-field"));
-    assert!(serialized.contains("long-field-name"));
+    assert!(serialized.contains("some_field")); // Already snake_case
+    assert!(serialized.contains("long_field_name")); // Already snake_case
     
     // Test roundtrip
     let deserialized: Vec<KebabEnum> = from_str(&serialized).unwrap();
@@ -61,7 +60,6 @@ fn test_kebab_case_enum_in_array() {
 }
 
 #[test]
-#[ignore = "Serde rename_all attribute is not properly handled by serde-eure"]
 fn test_snake_case_enum() {
     let value = SnakeEnum::TestVariant { 
         someField: "test".to_string() 
@@ -69,7 +67,7 @@ fn test_snake_case_enum() {
     
     let serialized = to_string(&value).unwrap();
     assert!(serialized.contains("test_variant"));
-    assert!(serialized.contains("some_field"));
+    assert!(serialized.contains("someField")); // Original field name is someField
     
     // Test roundtrip
     let deserialized: SnakeEnum = from_str(&serialized).unwrap();
@@ -95,7 +93,6 @@ fn test_camel_case_struct() {
 }
 
 #[test]
-#[ignore = "Serde rename attribute with special characters causes parse errors"]
 fn test_rename_field_attribute() {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct RenameFields {
