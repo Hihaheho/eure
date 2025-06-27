@@ -15,6 +15,7 @@ eure-value = { workspace = true }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
 ahash = { workspace = true }
+bon = "3.0"
 
 [dev-dependencies]
 eure-parol = { path = "../eure-parol" }

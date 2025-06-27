@@ -1,9 +1,11 @@
 mod ast_type_generator;
+mod constructor_generator;
 mod visitor_generator;
 
 use std::{path::Path, process::Command};
 
 use ast_type_generator::AstTypeGenerator;
+use constructor_generator::ConstructorGenerator;
 use convert_case::{Case, Casing as _};
 use parol::generators::export_node_types::{NodeName, NodeTypesInfo};
 use quote::format_ident;
@@ -36,6 +38,9 @@ fn main() {
     let visitor_generator =
         VisitorGenerator::new(Path::new("crates/eure-tree/src/visitor.rs").into());
     visitor_generator.generate(&node_info);
+    let constructor_generator =
+        ConstructorGenerator::new(Path::new("crates/eure-tree/src/generated/constructors.rs").into());
+    constructor_generator.generate(&node_info);
     generate_node_kind("crates/eure-tree/src/node_kind.rs");
 
     Command::new("cargo")

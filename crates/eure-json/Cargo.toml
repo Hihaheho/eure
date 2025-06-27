@@ -11,10 +11,13 @@ keywords = ["eure", "json", "conversion", "serialization"]
 
 [dependencies]
 eure-value = { workspace = true }
+eure-tree = { workspace = true }
+eure-fmt = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 ahash = { workspace = true }
+indexmap = { workspace = true }
 
 [dev-dependencies]
 eure-parol = { workspace = true }
