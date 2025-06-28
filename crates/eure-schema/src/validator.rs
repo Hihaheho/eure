@@ -27,7 +27,8 @@ pub enum ValidationErrorKind {
 
     // Constraint violations
     StringLengthViolation {
-        constraint: (Option<usize>, Option<usize>),
+        min: Option<usize>,
+        max: Option<usize>,
         actual: usize,
     },
     StringPatternViolation {
@@ -35,7 +36,8 @@ pub enum ValidationErrorKind {
         value: String,
     },
     NumberRangeViolation {
-        constraint: (Option<f64>, Option<f64>),
+        min: Option<f64>,
+        max: Option<f64>,
         actual: f64,
     },
     ArrayLengthViolation {
@@ -259,7 +261,8 @@ impl<'a> SchemaValidator<'a> {
             if violation {
                 self.add_error(
                     ValidationErrorKind::StringLengthViolation {
-                        constraint: (min, max),
+                        min,
+                        max,
                         actual: len,
                     },
                     span,
@@ -303,7 +306,8 @@ impl<'a> SchemaValidator<'a> {
             if violation {
                 self.add_error(
                     ValidationErrorKind::NumberRangeViolation {
-                        constraint: (min, max),
+                        min,
+                        max,
                         actual: value,
                     },
                     span,
@@ -317,7 +321,8 @@ impl<'a> SchemaValidator<'a> {
         {
             self.add_error(
                 ValidationErrorKind::NumberRangeViolation {
-                    constraint: (Some(exclusive_min), None),
+                    min: Some(exclusive_min),
+                    max: None,
                     actual: value,
                 },
                 span,
@@ -329,7 +334,8 @@ impl<'a> SchemaValidator<'a> {
         {
             self.add_error(
                 ValidationErrorKind::NumberRangeViolation {
-                    constraint: (None, Some(exclusive_max)),
+                    min: None,
+                    max: Some(exclusive_max),
                     actual: value,
                 },
                 span,
