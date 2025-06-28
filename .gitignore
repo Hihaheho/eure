@@ -14,6 +14,7 @@
 !crates/eure-parol/eure.par
 
 !example.eure
+!eure-schema.schema.eure
 
 !playground/**/*.json
 !playground/**/*.js

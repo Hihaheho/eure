@@ -10,3 +10,6 @@ readme = "README.md"
 keywords = ["eure", "schema", "validation", "specification"]
 
 [dependencies]
+eure-tree = { path = "../eure-tree" }
+serde_json = "1.0"
+regex = "1.11"
