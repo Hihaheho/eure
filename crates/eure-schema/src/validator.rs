@@ -4,6 +4,7 @@ use crate::schema::*;
 use eure_tree::prelude::*;
 use eure_tree::tree::InputSpan;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 /// Types of validation errors
 #[derive(Debug, Clone)]
@@ -86,6 +87,128 @@ pub struct ValidationError {
     pub severity: Severity,
 }
 
+impl fmt::Display for ValidationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ValidationErrorKind::TypeMismatch { expected, actual } => {
+                write!(f, "Type mismatch: expected {expected}, but got {actual}")
+            }
+            ValidationErrorKind::UnknownType(type_name) => {
+                write!(f, "Unknown type: {type_name}")
+            }
+            ValidationErrorKind::RequiredFieldMissing { field, path } => {
+                let location = if path.is_empty() {
+                    String::new()
+                } else {
+                    format!(" at {}", path.join("."))
+                };
+                write!(f, "Required field '{field}' is missing{location}")
+            }
+            ValidationErrorKind::UnexpectedField { field, path } => {
+                let location = if path.is_empty() {
+                    String::new()
+                } else {
+                    format!(" at {}", path.join("."))
+                };
+                write!(f, "Unexpected field '{field}'{location} not defined in schema")
+            }
+            ValidationErrorKind::StringLengthViolation { min, max, actual } => {
+                match (min, max) {
+                    (Some(min), Some(max)) => {
+                        write!(f, "String length must be between {min} and {max} characters, but got {actual}")
+                    }
+                    (Some(min), None) => {
+                        write!(f, "String must be at least {min} characters long, but got {actual}")
+                    }
+                    (None, Some(max)) => {
+                        write!(f, "String must be at most {max} characters long, but got {actual}")
+                    }
+                    (None, None) => {
+                        write!(f, "String length violation (actual: {actual})")
+                    }
+                }
+            }
+            ValidationErrorKind::StringPatternViolation { pattern, value } => {
+                write!(f, "String '{value}' does not match pattern /{pattern}/")
+            }
+            ValidationErrorKind::NumberRangeViolation { min, max, actual } => {
+                match (min, max) {
+                    (Some(min), Some(max)) => {
+                        write!(f, "Number must be between {min} and {max}, but got {actual}")
+                    }
+                    (Some(min), None) => {
+                        write!(f, "Number must be at least {min}, but got {actual}")
+                    }
+                    (None, Some(max)) => {
+                        write!(f, "Number must be at most {max}, but got {actual}")
+                    }
+                    (None, None) => {
+                        write!(f, "Number range violation (actual: {actual})")
+                    }
+                }
+            }
+            ValidationErrorKind::ArrayLengthViolation { min, max, actual } => {
+                match (min, max) {
+                    (Some(min), Some(max)) => {
+                        write!(f, "Array must have between {min} and {max} items, but has {actual}")
+                    }
+                    (Some(min), None) => {
+                        write!(f, "Array must have at least {min} items, but has {actual}")
+                    }
+                    (None, Some(max)) => {
+                        write!(f, "Array must have at most {max} items, but has {actual}")
+                    }
+                    (None, None) => {
+                        write!(f, "Array length violation (actual: {actual})")
+                    }
+                }
+            }
+            ValidationErrorKind::ArrayUniqueViolation { duplicate } => {
+                write!(f, "Array contains duplicate value: {duplicate}")
+            }
+            ValidationErrorKind::InvalidSchemaPattern { pattern, error } => {
+                write!(f, "Invalid pattern '/{pattern}/': {error}")
+            }
+            ValidationErrorKind::UnknownVariant { variant, available } => {
+                if available.is_empty() {
+                    write!(f, "Unknown variant '{variant}'")
+                } else {
+                    write!(f, "Unknown variant '{variant}'. Available variants: {}", available.join(", "))
+                }
+            }
+            ValidationErrorKind::MissingVariantTag => {
+                write!(f, "Missing $variant tag for variant type")
+            }
+            ValidationErrorKind::PreferSection { path } => {
+                let location = if path.is_empty() {
+                    String::new()
+                } else {
+                    format!(" for {}", path.join("."))
+                };
+                write!(f, "Consider using binding syntax instead of section syntax{location}")
+            }
+            ValidationErrorKind::PreferArraySyntax { path } => {
+                let location = if path.is_empty() {
+                    String::new()
+                } else {
+                    format!(" for {}", path.join("."))
+                };
+                write!(f, "Consider using explicit array syntax instead of array append syntax{location}")
+            }
+        }
+    }
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let severity = match self.severity {
+            Severity::Error => "error",
+            Severity::Warning => "warning",
+        };
+        write!(f, "{}: {}", severity, self.kind)
+    }
+}
+
 /// Validates EURE documents against schemas
 pub struct SchemaValidator<'a> {
     // Input string
@@ -105,6 +228,8 @@ pub struct SchemaValidator<'a> {
 
     // Current context
     current_object_schema: Option<ObjectSchema>,
+    current_variants: Option<HashMap<String, ObjectSchema>>,
+    selected_variant: Option<String>,
     in_extension: bool,
     expected_type: Option<Type>,
 
@@ -154,6 +279,8 @@ impl<'a> SchemaValidator<'a> {
             seen_fields: HashMap::new(),
             required_fields,
             current_object_schema: None,
+            current_variants: None,
+            selected_variant: None,
             in_extension: false,
             expected_type: None,
             cascade_field_schema,
@@ -503,26 +630,71 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                             other => other
                         };
                         
-                        if let Type::Object(obj_schema) = resolved_type {
-                            // Clone the object schema first to avoid borrow issues
-                            let obj_schema_clone = obj_schema.clone();
-                            
-                            // Track required fields for this object
-                            let object_required: HashSet<String> = obj_schema_clone
-                                .fields
-                                .iter()
-                                .filter(|(_, field)| !field.optional)
-                                .map(|(name, _)| name.clone())
-                                .collect();
-                            if !object_required.is_empty() {
-                                // Get the path that will be current after we push section_path
-                                let mut future_path = self.current_path();
-                                future_path.extend(section_path.clone());
-                                self.required_fields.insert(future_path, object_required);
+                        match resolved_type {
+                            Type::Object(obj_schema) => {
+                                // Clone the object schema first to avoid borrow issues
+                                let obj_schema_clone = obj_schema.clone();
+                                
+                                // Track required fields for this object
+                                let object_required: HashSet<String> = obj_schema_clone
+                                    .fields
+                                    .iter()
+                                    .filter(|(_, field)| !field.optional)
+                                    .map(|(name, _)| name.clone())
+                                    .collect();
+                                if !object_required.is_empty() {
+                                    // Get the path that will be current after we push section_path
+                                    let mut future_path = self.current_path();
+                                    future_path.extend(section_path.clone());
+                                    self.required_fields.insert(future_path, object_required);
+                                }
+                                
+                                // Now update current_object_schema
+                                self.current_object_schema = Some(obj_schema_clone);
+                                self.current_variants = None;
+                                self.selected_variant = None;
                             }
-                            
-                            // Now update current_object_schema
-                            self.current_object_schema = Some(obj_schema_clone);
+                            Type::Variants(variant_schema) => {
+                                // For variant types, we store the variants and wait for $variant field
+                                self.current_variants = Some(variant_schema.variants.clone());
+                                self.current_object_schema = None;
+                                self.selected_variant = None;
+                            }
+                            Type::Array(element_type) if is_array => {
+                                // For array sections, we need to handle the element type
+                                let resolved_element_type = match element_type.as_ref() {
+                                    Type::TypeRef(type_name) => {
+                                        self.schema.types.get(type_name)
+                                            .map(|type_def| &type_def.type_expr)
+                                            .unwrap_or(element_type.as_ref())
+                                    }
+                                    other => other
+                                };
+                                
+                                match resolved_element_type {
+                                    Type::Object(obj_schema) => {
+                                        self.current_object_schema = Some(obj_schema.clone());
+                                        self.current_variants = None;
+                                        self.selected_variant = None;
+                                    }
+                                    Type::Variants(variant_schema) => {
+                                        self.current_variants = Some(variant_schema.variants.clone());
+                                        self.current_object_schema = None;
+                                        self.selected_variant = None;
+                                    }
+                                    _ => {
+                                        self.current_object_schema = None;
+                                        self.current_variants = None;
+                                        self.selected_variant = None;
+                                    }
+                                }
+                            }
+                            _ => {
+                                // Not an object or variant type
+                                self.current_object_schema = None;
+                                self.current_variants = None;
+                                self.selected_variant = None;
+                            }
                         }
                     }
                 }
@@ -538,26 +710,71 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                     other => other
                 };
                 
-                if let Type::Object(obj_schema) = resolved_type {
-                    // Clone the object schema first to avoid borrow issues
-                    let obj_schema_clone = obj_schema.clone();
-                    
-                    // Track required fields for this object
-                    let object_required: HashSet<String> = obj_schema_clone
-                        .fields
-                        .iter()
-                        .filter(|(_, field)| !field.optional)
-                        .map(|(name, _)| name.clone())
-                        .collect();
-                    if !object_required.is_empty() {
-                        // Get the path that will be current after we push section_path
-                        let mut future_path = self.current_path();
-                        future_path.extend(section_path.clone());
-                        self.required_fields.insert(future_path, object_required);
+                match resolved_type {
+                    Type::Object(obj_schema) => {
+                        // Clone the object schema first to avoid borrow issues
+                        let obj_schema_clone = obj_schema.clone();
+                        
+                        // Track required fields for this object
+                        let object_required: HashSet<String> = obj_schema_clone
+                            .fields
+                            .iter()
+                            .filter(|(_, field)| !field.optional)
+                            .map(|(name, _)| name.clone())
+                            .collect();
+                        if !object_required.is_empty() {
+                            // Get the path that will be current after we push section_path
+                            let mut future_path = self.current_path();
+                            future_path.extend(section_path.clone());
+                            self.required_fields.insert(future_path, object_required);
+                        }
+                        
+                        // Now update current_object_schema
+                        self.current_object_schema = Some(obj_schema_clone);
+                        self.current_variants = None;
+                        self.selected_variant = None;
                     }
-                    
-                    // Now update current_object_schema
-                    self.current_object_schema = Some(obj_schema_clone);
+                    Type::Variants(variant_schema) => {
+                        // For variant types, we store the variants and wait for $variant field
+                        self.current_variants = Some(variant_schema.variants.clone());
+                        self.current_object_schema = None;
+                        self.selected_variant = None;
+                    }
+                    Type::Array(element_type) if is_array => {
+                        // For array sections, we need to handle the element type
+                        let resolved_element_type = match element_type.as_ref() {
+                            Type::TypeRef(type_name) => {
+                                self.schema.types.get(type_name)
+                                    .map(|type_def| &type_def.type_expr)
+                                    .unwrap_or(element_type.as_ref())
+                            }
+                            other => other
+                        };
+                        
+                        match resolved_element_type {
+                            Type::Object(obj_schema) => {
+                                self.current_object_schema = Some(obj_schema.clone());
+                                self.current_variants = None;
+                                self.selected_variant = None;
+                            }
+                            Type::Variants(variant_schema) => {
+                                self.current_variants = Some(variant_schema.variants.clone());
+                                self.current_object_schema = None;
+                                self.selected_variant = None;
+                            }
+                            _ => {
+                                self.current_object_schema = None;
+                                self.current_variants = None;
+                                self.selected_variant = None;
+                            }
+                        }
+                    }
+                    _ => {
+                        // Not an object or variant type
+                        self.current_object_schema = None;
+                        self.current_variants = None;
+                        self.selected_variant = None;
+                    }
                 }
             }
         }
@@ -583,6 +800,11 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                 .insert(field_name);
         }
 
+        // Save current variant context
+        let saved_object_schema = self.current_object_schema.clone();
+        let saved_variants = self.current_variants.clone();
+        let saved_selected_variant = self.selected_variant.clone();
+
         // Visit children
         let result = self.visit_section_super(handle, view, tree);
 
@@ -591,6 +813,11 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
             self.path_stack.pop();
         }
         self.section_is_array.pop();
+        
+        // Restore variant context
+        self.current_object_schema = saved_object_schema;
+        self.current_variants = saved_variants;
+        self.selected_variant = saved_selected_variant;
 
         result
     }
@@ -613,12 +840,47 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
         }
 
         if !key_path.is_empty() {
-            // Skip if any part of the key path is an extension
-            if key_path.iter().any(|k| k.starts_with('$')) {
+            let key = &key_path[0];
+            
+            // Check if this is a $variant field in a variant context
+            if key == "$variant" && self.current_variants.is_some() {
+                // Handle variant selection
+                if let Ok(binding_rhs_view) = view.binding_rhs.get_view(tree)
+                    && let BindingRhsView::ValueBinding(value_binding_handle) = binding_rhs_view
+                    && let Ok(value_binding_view) = value_binding_handle.get_view(tree)
+                    && let Ok(value_view) = value_binding_view.value.get_view(tree)
+                {
+                    // Extract the variant name
+                    if let ValueView::Strings(_) = value_view {
+                        if let Some(variant_name) = self.extract_string_value(value_binding_view.value, tree) {
+                            // Validate variant exists and update current schema
+                            if let Some(variants) = &self.current_variants {
+                                if let Some(variant_object_schema) = variants.get(&variant_name) {
+                                    // Set the selected variant and its object schema
+                                    self.selected_variant = Some(variant_name);
+                                    self.current_object_schema = Some(variant_object_schema.clone());
+                                } else {
+                                    // Unknown variant
+                                    let available: Vec<String> = variants.keys().cloned().collect();
+                                    self.add_error(
+                                        ValidationErrorKind::UnknownVariant {
+                                            variant: variant_name,
+                                            available,
+                                        },
+                                        self.get_span(handle.node_id(), tree),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
                 return Ok(());
             }
             
-            let key = &key_path[0];
+            // Skip if any part of the key path is an extension (but not $variant)
+            if key_path.iter().any(|k| k.starts_with('$')) {
+                return Ok(());
+            }
 
             // Track seen field
             let current_path = self.current_path();

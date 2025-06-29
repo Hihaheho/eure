@@ -1,0 +1,23 @@
+$schema = "assets/eure-schema.schema.eure"
+
+$types.Action {
+  @ $variants.set-text {
+    speaker = .string
+    lines.$array = .string
+    code1 = .code.rust
+    code2 = .code.rust
+  }
+  @ $variants.set-choices {
+    description = .string
+  }
+  @ $variants.set-choices.choice.$array {
+    text = .string
+    value = .string
+  }
+}
+
+@ script
+id = .string
+description = .string
+description.$optional = true
+actions.$array = .$types.Action

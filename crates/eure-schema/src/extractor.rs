@@ -72,7 +72,26 @@ impl<'a> SchemaExtractor<'a> {
     }
 
     fn handle_schema_extension(&mut self, key: &str) {
-        match key {
+        // Convert meta-extension prefix back to double dollar for matching
+        let normalized_key = if key.starts_with("$̄") {
+            key.replacen("$̄", "$$", 1)
+        } else {
+            key.to_string()
+        };
+        
+        match normalized_key.as_str() {
+            "$schema" => {
+                if self.path_stack.is_empty() {
+                    // Root-level $schema
+                    if let Some(value) = &self.pending_value
+                        && let Some(schema_ref) = self.extract_string(value)
+                    {
+                        self.document_schema.schema_ref = Some(schema_ref.to_string());
+                    }
+                }
+                // Note: Non-root $schema references would need additional handling
+                // for partial schema application, which is a more complex feature
+            }
             "$type" => {
                 if let Some(value) = &self.pending_value
                     && let Some(path_str) = self.extract_string(value)
@@ -102,7 +121,7 @@ impl<'a> SchemaExtractor<'a> {
                     self.set_current_type(Type::Array(Box::new(element_type)));
                 }
             }
-            "$optional" => {
+            "$optional" | "$$optional" => {
                 if let Some(ExtractedValue::Boolean(true)) = &self.pending_value
                     && let Some(schema) = &mut self.current_field_schema
                 {
@@ -191,7 +210,7 @@ impl<'a> SchemaExtractor<'a> {
                 }
             }
             // Preferences
-            "$prefer.section" => {
+            "$prefer.section" | "$$prefer.section" => {
                 if let Some(ExtractedValue::Boolean(b)) = &self.pending_value
                     && let Some(schema) = &mut self.current_field_schema
                 {
@@ -230,7 +249,7 @@ impl<'a> SchemaExtractor<'a> {
                     }
                 }
             }
-            "$variant-repr" => {
+            "$variant-repr" | "$$variant-repr" => {
                 // Handle variant representation
                 // $variant-repr is a union type with these possible values:
                 // "untagged" (when type is { $literal = "untagged" })
@@ -293,6 +312,14 @@ impl<'a> SchemaExtractor<'a> {
                     }
                 }
             }
+            // Meta-extensions that are schema-related but don't require special handling
+            "$$prefer" | "$$prefer.array" |
+            "$$serde" | "$$serde.rename" | "$$serde.rename-all" |
+            "$$array" | "$$map" | "$$variants" | "$$cascade-type" | 
+            "$$json-schema" | "$$literal" | "$$key" | "$$value" => {
+                // These are valid schema meta-extensions
+                // They define the schema structure itself, not data
+            }
             _ => {
                 // Other extensions are not schema-related, ignore them
             }
@@ -338,53 +365,6 @@ impl<'a> SchemaExtractor<'a> {
         }
     }
 
-    fn save_inline_schema(&mut self) {
-        if let Some(schema) = self.current_field_schema.take() {
-            let path = self.current_path();
-            if !path.is_empty() && !path[0].starts_with('$') {
-                // Merge inline schema directly into document schema
-                let field_name = path.last().unwrap().clone();
-                
-                // Merge with existing schema if present
-                let merged_schema = if let Some(existing) = self.document_schema.root.fields.get(&field_name) {
-                    FieldSchema {
-                        type_expr: if matches!(schema.type_expr, Type::Any) {
-                            existing.type_expr.clone()
-                        } else {
-                            schema.type_expr
-                        },
-                        optional: schema.optional || existing.optional,
-                        constraints: Constraints {
-                            length: schema.constraints.length.or(existing.constraints.length),
-                            pattern: schema.constraints.pattern.or(existing.constraints.pattern.clone()),
-                            range: schema.constraints.range.or(existing.constraints.range),
-                            exclusive_min: schema.constraints.exclusive_min.or(existing.constraints.exclusive_min),
-                            exclusive_max: schema.constraints.exclusive_max.or(existing.constraints.exclusive_max),
-                            min_items: schema.constraints.min_items.or(existing.constraints.min_items),
-                            max_items: schema.constraints.max_items.or(existing.constraints.max_items),
-                            unique: schema.constraints.unique.or(existing.constraints.unique),
-                            contains: schema.constraints.contains.or(existing.constraints.contains.clone()),
-                        },
-                        preferences: Preferences {
-                            section: schema.preferences.section.or(existing.preferences.section),
-                            array: schema.preferences.array.or(existing.preferences.array),
-                        },
-                        serde: SerdeOptions {
-                            rename: schema.serde.rename.or(existing.serde.rename.clone()),
-                            rename_all: schema.serde.rename_all.or(existing.serde.rename_all),
-                        },
-                        span: schema.span.or(existing.span),
-                    }
-                } else {
-                    schema
-                };
-                
-                self.document_schema.root.fields.insert(field_name, merged_schema);
-            }
-        }
-        // Reset for next field
-        self.current_field_schema = None;
-    }
 }
 
 impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
@@ -436,10 +416,36 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
 
             if section_path.len() == 2 {
                 self.current_variant = Some(section_path[1].clone());
+                
+                // If we're inside a $types definition, this variant belongs to that type
+                if self.in_types_section && self.path_stack.len() >= 2 && self.path_stack[0] == "$types" {
+                    let type_name = &self.path_stack[1];
+                    
+                    
+                    // Get the type from document_schema.types and ensure it's a variant type
+                    if let Some(type_def) = self.document_schema.types.get_mut(type_name) {
+                        if !matches!(type_def.type_expr, Type::Variants(_)) {
+                            type_def.type_expr = Type::Variants(VariantSchema {
+                                variants: HashMap::new(),
+                                representation: VariantRepr::default(),
+                            });
+                        }
+                        
+                        // Add this variant to the schema
+                        if let Type::Variants(ref mut variant_schema) = type_def.type_expr {
+                            variant_schema.variants.insert(section_path[1].clone(), ObjectSchema::default());
+                        }
+                        
+                        // Set current_field_schema to this type so field collection works
+                        self.current_field_schema = Some(type_def.clone());
+                    }
+                }
             }
-        } else if !section_path.is_empty() && !section_path[0].starts_with('$') {
-            // Regular content
-            self.has_non_schema_content = true;
+        } else if !section_path.is_empty() && !section_path[0].starts_with('$') && !section_path[0].starts_with("$̄") {
+            // Don't immediately mark as non-schema content
+            // We'll determine this based on the section's contents
+            // If it only contains schema field definitions (bindings with type paths),
+            // then it's still a pure schema file
         }
 
         // Push path
@@ -453,6 +459,7 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
         if self.in_types_section && self.path_stack.len() == 2 && self.path_stack[0] == "$types" {
             // We're exiting a type definition section
             let type_name = self.path_stack[1].clone();
+            
             self.save_current_type_definition(type_name);
         } else if self.in_types_section && self.path_stack.len() >= 3 && self.path_stack[0] == "$types" {
             // We're exiting a field definition for an object type
@@ -460,6 +467,7 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
             let field_name = &self.path_stack[2];
             
             if let Some(field_schema) = self.current_field_schema.take() {
+                
                 // Add field to the object type
                 if let Some(type_def) = self.document_schema.types.get_mut(type_name)
                     && let Type::Object(ref mut obj_schema) = type_def.type_expr {
@@ -477,7 +485,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
             self.in_types_section = false;
         }
 
-        if self.in_variants_section && self.path_stack.is_empty() {
+        if self.in_variants_section && (self.path_stack.len() < 2 || self.path_stack[0] != "$types") {
+            
             self.in_variants_section = false;
             self.current_variant = None;
         }
@@ -517,39 +526,271 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                 Some(ExtractedValue::String(text.trim().to_string()));
                         }
                     }
-                    BindingRhsView::SectionBinding(_) => {
-                        // Schema definitions don't use section bindings
+                    BindingRhsView::SectionBinding(section_binding_handle) => {
+                        // Handle $types.TypeName { ... } syntax
+                        if key_path.len() == 2 && key_path[0] == "$types" {
+                            // This is a type definition using section binding syntax
+                            let type_name = key_path[1].clone();
+                            
+                            // We'll simulate entering a $types.TypeName section
+                            // by directly processing the content
+                            if let Ok(section_binding_view) = section_binding_handle.get_view(tree)
+                                && let Ok(eure_view) = section_binding_view.eure.get_view(tree) {
+                                // Visit this as if it's a @ $types.TypeName section
+                                let saved_in_types = self.in_types_section;
+                                let saved_in_variants = self.in_variants_section;
+                                let saved_path = self.path_stack.clone();
+                                
+                                self.in_types_section = true;
+                                self.in_variants_section = false;
+                                self.path_stack = vec!["$types".to_string(), type_name.clone()];
+                                
+                                // Create a variant schema to collect variants
+                                self.current_field_schema = Some(FieldSchema {
+                                    type_expr: Type::Variants(VariantSchema {
+                                        variants: HashMap::new(),
+                                        representation: VariantRepr::default(),
+                                    }),
+                                    optional: false,
+                                    constraints: Constraints::default(),
+                                    preferences: Preferences::default(),
+                                    serde: SerdeOptions::default(),
+                                    span: None,
+                                });
+                                
+                                // Save the current field schema in the types map immediately
+                                // so that when we process variants, they can find and update it
+                                self.document_schema.types.insert(type_name.clone(), self.current_field_schema.clone().unwrap());
+                                self.current_field_schema = None;
+                                
+                                // Visit the eure content
+                                let _ = self.visit_eure(section_binding_view.eure, eure_view, tree);
+                                
+                                // The type has already been saved to document_schema.types
+                                
+                                
+                                // Restore state
+                                self.in_types_section = saved_in_types;
+                                self.in_variants_section = saved_in_variants;
+                                self.path_stack = saved_path;
+                            }
+                        } else if !self.in_types_section && !self.in_variants_section {
+                            // Regular content with section binding
+                            self.has_non_schema_content = true;
+                        }
                     }
                 }
             }
 
             // Check if this is an inline schema extension (e.g., field.$type)
             if key_path.len() >= 2 && key_path.last().unwrap().starts_with('$') {
-                // This is an inline schema like field.$type = .string
+                // This is an inline schema like field.$type = .string or person.email.$optional = true
                 let field_path: Vec<String> = key_path[..key_path.len() - 1].to_vec();
                 let extension = key_path.last().unwrap();
                 
-                // Update path stack to point to the field
-                let original_path = self.path_stack.clone();
-                self.path_stack.extend(field_path.clone());
-                
-                // Get existing inline schema or create new one
-                let full_path = self.current_path();
-                let field_name = full_path.last().unwrap().clone();
-                self.current_field_schema = self.document_schema.root.fields.get(&field_name).cloned()
-                    .or_else(|| Some(FieldSchema::default()));
-                
-                // Handle the schema extension
-                self.handle_schema_extension(extension);
-                
-                // Save the inline schema
-                self.save_inline_schema();
-                
-                // Clear current field schema for next field
-                self.current_field_schema = None;
-                
-                // Restore original path
-                self.path_stack = original_path;
+                // Handle nested field schema extensions
+                if !field_path.is_empty() {
+                    // Check if we're inside a variant section
+                    if field_path.len() == 1 && self.in_variants_section && self.current_variant.is_some() {
+                        // We're inside a variant, handle specially
+                        if let Some(variant_name) = self.current_variant.clone() {
+                            let field_name = field_path[0].clone();
+                            
+                            // Get the type name from path stack
+                            if self.in_types_section && self.path_stack.len() >= 2 && self.path_stack[0] == "$types" {
+                                let type_name = self.path_stack[1].clone();
+                                
+                                // Get existing field schema from the variant
+                                let existing_schema = self.document_schema.types
+                                    .get(&type_name)
+                                    .and_then(|type_def| {
+                                        if let Type::Variants(ref variant_schema) = type_def.type_expr {
+                                            variant_schema.variants.get(&variant_name)
+                                                .and_then(|obj| obj.fields.get(&field_name).cloned())
+                                        } else {
+                                            None
+                                        }
+                                    });
+                                
+                                self.current_field_schema = existing_schema.or_else(|| Some(FieldSchema::default()));
+                                
+                                // Handle the schema extension
+                                self.handle_schema_extension(extension);
+                                
+                                // Save back to the variant
+                                if let Some(field_schema) = self.current_field_schema.take()
+                                    && let Some(type_def) = self.document_schema.types.get_mut(&type_name)
+                                    && let Type::Variants(ref mut variant_schema) = type_def.type_expr
+                                    && let Some(obj) = variant_schema.variants.get_mut(&variant_name) {
+                                    obj.fields.insert(field_name, field_schema);
+                                }
+                            }
+                        }
+                    } else if field_path.len() == 1 && !self.path_stack.is_empty() && !self.path_stack[0].starts_with('$') {
+                        // We're inside a regular section, handle as nested field
+                        let section_name = self.path_stack[0].clone();
+                        let field_name = &field_path[0];
+                        
+                        // Get the existing field from the section object
+                        let existing_schema = self.document_schema.root.fields
+                            .get(&section_name)
+                            .and_then(|section_schema| {
+                                if let Type::Object(ref obj_schema) = section_schema.type_expr {
+                                    obj_schema.fields.get(field_name).cloned()
+                                } else {
+                                    None
+                                }
+                            });
+                        
+                        self.current_field_schema = existing_schema.or_else(|| Some(FieldSchema::default()));
+                        
+                        // Handle the schema extension
+                        self.handle_schema_extension(extension);
+                        
+                        // Save back to the section object
+                        if let Some(field_schema) = self.current_field_schema.take() {
+                            // Ensure the section exists and is an object type
+                            let section_schema = self.document_schema.root.fields
+                                .entry(section_name.clone())
+                                .or_insert_with(|| FieldSchema {
+                                    type_expr: Type::Object(ObjectSchema::default()),
+                                    optional: false,
+                                    constraints: Constraints::default(),
+                                    preferences: Preferences::default(),
+                                    serde: SerdeOptions::default(),
+                                    span: None,
+                                });
+                            
+                            // Ensure it's an object type
+                            if !matches!(section_schema.type_expr, Type::Object(_)) {
+                                section_schema.type_expr = Type::Object(ObjectSchema::default());
+                            }
+                            
+                            // Insert the field
+                            if let Type::Object(ref mut obj_schema) = section_schema.type_expr {
+                                obj_schema.fields.insert(field_name.clone(), field_schema);
+                            }
+                        }
+                    } else {
+                        // Handle arbitrary depth: field.$ext, parent.field.$ext, parent.child.field.$ext, etc.
+                        // Navigate to find the existing schema
+                        let mut existing_schema = None;
+                        
+                        if field_path.len() == 1 {
+                            // Root level field
+                            existing_schema = self.document_schema.root.fields.get(&field_path[0]).cloned();
+                        } else {
+                            // Nested field - navigate through the object hierarchy
+                            let root_field = &field_path[0];
+                            if let Some(root_schema) = self.document_schema.root.fields.get(root_field) {
+                                if let Type::Object(ref obj_schema) = root_schema.type_expr {
+                                    let mut current_obj = obj_schema;
+                                    let mut found = true;
+                                    
+                                    // Navigate through intermediate levels
+                                    for i in 1..field_path.len() - 1 {
+                                        if let Some(intermediate_schema) = current_obj.fields.get(&field_path[i]) {
+                                            if let Type::Object(ref next_obj) = intermediate_schema.type_expr {
+                                                current_obj = next_obj;
+                                            } else {
+                                                found = false;
+                                                break;
+                                            }
+                                        } else {
+                                            found = false;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Get the final field schema
+                                    if found && field_path.len() > 1 {
+                                        existing_schema = current_obj.fields.get(&field_path[field_path.len() - 1]).cloned();
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Set current field schema
+                        self.current_field_schema = existing_schema.or_else(|| Some(FieldSchema::default()));
+                        
+                        // Handle the schema extension
+                        self.handle_schema_extension(extension);
+                        
+                        // Save back to the appropriate location
+                        if let Some(schema) = self.current_field_schema.take() {
+                            if field_path.len() == 1 {
+                                // Root level - save directly
+                                self.document_schema.root.fields.insert(field_path[0].clone(), schema);
+                            } else {
+                                // Nested - navigate and create intermediate objects as needed
+                                let root_field = &field_path[0];
+                                let root_schema = self.document_schema.root.fields
+                                    .entry(root_field.clone())
+                                    .or_insert_with(|| FieldSchema {
+                                        type_expr: Type::Object(ObjectSchema::default()),
+                                        optional: false,
+                                        constraints: Constraints::default(),
+                                        preferences: Preferences::default(),
+                                        serde: SerdeOptions::default(),
+                                        span: None,
+                                    });
+                                
+                                // Ensure root is an object
+                                if !matches!(root_schema.type_expr, Type::Object(_)) {
+                                    root_schema.type_expr = Type::Object(ObjectSchema::default());
+                                }
+                                
+                                // Navigate to the target location
+                                if let Type::Object(obj_schema) = &mut root_schema.type_expr {
+                                    // Navigate through the path, creating objects as needed
+                                    let path_to_traverse = &field_path[1..field_path.len() - 1];
+                                    let final_field = field_path[field_path.len() - 1].clone();
+                                    
+                                    // Use a recursive helper to navigate and create the path
+                                    fn ensure_path_and_insert(
+                                        current_obj: &mut ObjectSchema,
+                                        remaining_path: &[String],
+                                        final_field: String,
+                                        schema: FieldSchema,
+                                    ) {
+                                        if remaining_path.is_empty() {
+                                            // We've reached the target location
+                                            current_obj.fields.insert(final_field, schema);
+                                        } else {
+                                            // Still have intermediate levels to process
+                                            let next_field = &remaining_path[0];
+                                            let rest = &remaining_path[1..];
+                                            
+                                            // Ensure the intermediate field exists and is an object
+                                            let intermediate_schema = current_obj.fields
+                                                .entry(next_field.clone())
+                                                .or_insert_with(|| FieldSchema {
+                                                    type_expr: Type::Object(ObjectSchema::default()),
+                                                    optional: false,
+                                                    constraints: Constraints::default(),
+                                                    preferences: Preferences::default(),
+                                                    serde: SerdeOptions::default(),
+                                                    span: None,
+                                                });
+                                            
+                                            // Ensure it's an object type
+                                            if !matches!(intermediate_schema.type_expr, Type::Object(_)) {
+                                                intermediate_schema.type_expr = Type::Object(ObjectSchema::default());
+                                            }
+                                            
+                                            // Recurse into the next level
+                                            if let Type::Object(ref mut next_obj) = intermediate_schema.type_expr {
+                                                ensure_path_and_insert(next_obj, rest, final_field.clone(), schema);
+                                            }
+                                        }
+                                    }
+                                    
+                                    ensure_path_and_insert(obj_schema, path_to_traverse, final_field, schema);
+                                }
+                            }
+                        }
+                    }
+                }
             } else if let Some(key) = key_path.first() {
                 // Check if this is a $type binding in a regular section
                 if key == "$type" && !self.in_types_section && !self.path_stack.is_empty() && !self.path_stack[0].starts_with('$') {
@@ -576,14 +817,54 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                             self.document_schema.root.fields.insert(section_name.clone(), schema);
                         }
                     }
-                } else if key.starts_with('$') {
-                    // Regular schema extension
+                } else if key.starts_with('$') || key.starts_with("$̄") {
+                    // Regular schema extension or meta-extension
                     // For compound keys like $prefer.section, reconstruct the full key
                     let full_key = key_path.join(".");
                     self.handle_schema_extension(&full_key);
+                } else if self.in_variants_section && self.current_variant.is_some() && self.is_type_path_value() {
+                    // We're inside a variant definition, collect field schemas
+                    // e.g., inside @ $variants.set-text { speaker = .string }
+                    if let Some(variant_name) = &self.current_variant {
+                        let field_name = key_path[0].clone();
+                        
+                        
+                        // Extract the type from the pending value
+                        if let Some(ExtractedValue::Path(path)) = &self.pending_value {
+                            if let Some(type_expr) = Type::from_path(path) {
+                                // Find the type in document_schema.types
+                                if self.in_types_section && self.path_stack.len() >= 2 && self.path_stack[0] == "$types" {
+                                    let type_name = &self.path_stack[1];
+                                    
+                                    if let Some(type_def) = self.document_schema.types.get_mut(type_name) {
+                                        if let Type::Variants(ref mut variant_schema) = type_def.type_expr {
+                                            if let Some(object_schema) = variant_schema.variants.get_mut(variant_name) {
+                                                let field = FieldSchema {
+                                                    type_expr,
+                                                    optional: false,
+                                                    constraints: Constraints::default(),
+                                                    preferences: Preferences::default(),
+                                                    serde: SerdeOptions::default(),
+                                                    span: None,
+                                                };
+                                                object_schema.fields.insert(field_name, field);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else if !self.in_types_section && !self.in_variants_section {
-                    // Regular content
-                    self.has_non_schema_content = true;
+                    // Check if this is a schema definition by looking at the value
+                    // e.g., person.name = .string
+                    if self.is_type_path_value() {
+                        // This is a schema definition using shorthand syntax
+                        self.handle_shorthand_schema_definition(&key_path);
+                    } else {
+                        // Regular content
+                        self.has_non_schema_content = true;
+                    }
                 }
             }
         }
@@ -642,6 +923,170 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
 }
 
 impl SchemaExtractor<'_> {
+    /// Check if the pending value is a type path (e.g., .string, .number, etc.)
+    fn is_type_path_value(&self) -> bool {
+        if let Some(ExtractedValue::Path(path)) = &self.pending_value {
+            Type::from_path(path).is_some()
+        } else {
+            false
+        }
+    }
+
+    /// Handle shorthand schema definitions like `person.name = .string`
+    fn handle_shorthand_schema_definition(&mut self, key_path: &[String]) {
+        if key_path.is_empty() {
+            return;
+        }
+
+        // Extract the type from the pending value
+        let type_expr = if let Some(ExtractedValue::Path(path)) = &self.pending_value {
+            Type::from_path(path)
+        } else {
+            None
+        };
+
+        if let Some(type_expr) = type_expr {
+            // Check if we're inside a section
+            if !self.path_stack.is_empty() {
+                // We're inside a section, add the field to that section's object
+                let section_name = self.path_stack[0].clone();
+                
+                // Get or create the section's field schema
+                let mut section_schema = self.document_schema.root.fields
+                    .get(&section_name)
+                    .cloned()
+                    .unwrap_or_else(|| FieldSchema {
+                        type_expr: Type::Object(ObjectSchema::default()),
+                        optional: false,
+                        constraints: Constraints::default(),
+                        preferences: Preferences::default(),
+                        serde: SerdeOptions::default(),
+                        span: None,
+                    });
+                
+                // Ensure it's an object type
+                if !matches!(section_schema.type_expr, Type::Object(_)) {
+                    section_schema.type_expr = Type::Object(ObjectSchema::default());
+                }
+                
+                // Add the field to this object
+                if let Type::Object(ref mut obj_schema) = section_schema.type_expr {
+                    let field_name = key_path[0].clone();
+                    let field_schema = FieldSchema {
+                        type_expr,
+                        optional: false,
+                        constraints: Constraints::default(),
+                        preferences: Preferences::default(),
+                        serde: SerdeOptions::default(),
+                        span: None,
+                    };
+                    obj_schema.fields.insert(field_name, field_schema);
+                }
+                
+                // Save the section schema back
+                self.document_schema.root.fields.insert(section_name, section_schema);
+            } else if key_path.len() == 1 {
+                // Simple field at root: field = .string
+                let field_name = &key_path[0];
+                let field_schema = FieldSchema {
+                    type_expr,
+                    optional: false,
+                    constraints: Constraints::default(),
+                    preferences: Preferences::default(),
+                    serde: SerdeOptions::default(),
+                    span: None,
+                };
+                self.document_schema.root.fields.insert(field_name.clone(), field_schema);
+            } else {
+                // Nested field: person.name = .string
+                // We need to ensure the parent exists as an object type
+                let root_field = &key_path[0];
+                
+                // Get or create the root field schema
+                let mut root_schema = self.document_schema.root.fields
+                    .get(root_field)
+                    .cloned()
+                    .unwrap_or_else(|| FieldSchema {
+                        type_expr: Type::Object(ObjectSchema::default()),
+                        optional: false,
+                        constraints: Constraints::default(),
+                        preferences: Preferences::default(),
+                        serde: SerdeOptions::default(),
+                        span: None,
+                    });
+
+                // Ensure it's an object type
+                if !matches!(root_schema.type_expr, Type::Object(_)) {
+                    root_schema.type_expr = Type::Object(ObjectSchema::default());
+                }
+
+                // Navigate to the nested field
+                if let Type::Object(obj_schema) = &mut root_schema.type_expr {
+                    // Use the same recursive approach to avoid borrow checker issues
+                    let path_to_traverse = &key_path[1..key_path.len() - 1];
+                    let final_field = if key_path.len() > 1 {
+                        key_path[key_path.len() - 1].clone()
+                    } else {
+                        return; // No field to insert
+                    };
+                    
+                    let field_schema = FieldSchema {
+                        type_expr,
+                        optional: false,
+                        constraints: Constraints::default(),
+                        preferences: Preferences::default(),
+                        serde: SerdeOptions::default(),
+                        span: None,
+                    };
+                    
+                    // Use a recursive helper to navigate and create the path
+                    fn ensure_path_and_insert_field(
+                        current_obj: &mut ObjectSchema,
+                        remaining_path: &[String],
+                        final_field: String,
+                        schema: FieldSchema,
+                    ) {
+                        if remaining_path.is_empty() {
+                            // We've reached the target location
+                            current_obj.fields.insert(final_field, schema);
+                        } else {
+                            // Still have intermediate levels to process
+                            let next_field = &remaining_path[0];
+                            let rest = &remaining_path[1..];
+                            
+                            // Ensure the intermediate field exists and is an object
+                            let intermediate_schema = current_obj.fields
+                                .entry(next_field.clone())
+                                .or_insert_with(|| FieldSchema {
+                                    type_expr: Type::Object(ObjectSchema::default()),
+                                    optional: false,
+                                    constraints: Constraints::default(),
+                                    preferences: Preferences::default(),
+                                    serde: SerdeOptions::default(),
+                                    span: None,
+                                });
+                            
+                            // Ensure it's an object type
+                            if !matches!(intermediate_schema.type_expr, Type::Object(_)) {
+                                intermediate_schema.type_expr = Type::Object(ObjectSchema::default());
+                            }
+                            
+                            // Recurse into the next level
+                            if let Type::Object(ref mut next_obj) = intermediate_schema.type_expr {
+                                ensure_path_and_insert_field(next_obj, rest, final_field.clone(), schema);
+                            }
+                        }
+                    }
+                    
+                    ensure_path_and_insert_field(obj_schema, path_to_traverse, final_field, field_schema);
+                }
+
+                // Save the updated root schema
+                self.document_schema.root.fields.insert(root_field.clone(), root_schema);
+            }
+        }
+    }
+
     fn extract_keys_path<F: CstFacade>(
         &mut self,
         keys_view: &KeysView,

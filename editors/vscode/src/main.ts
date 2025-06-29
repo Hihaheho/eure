@@ -37,6 +37,14 @@ export function activate(
     commands.registerCommand(
       "eure-ls.restart",
       restartLanguageServer
+    ),
+    commands.registerCommand(
+      "eure.validateWithSchema",
+      validateWithSchema
+    ),
+    commands.registerCommand(
+      "eure.selectSchema",
+      selectSchema
     )
   );
 
@@ -122,6 +130,59 @@ export function activate(
     );
     await stopLanguageServer();
     await startLanguageServer();
+  }
+
+  async function validateWithSchema() {
+    const activeEditor = window.activeTextEditor;
+    if (!activeEditor || activeEditor.document.languageId !== "eure") {
+      window.showErrorMessage("No active EURE file to validate");
+      return;
+    }
+
+    // Send a custom request to the language server to trigger validation
+    if (!client) {
+      window.showErrorMessage("Language server is not running");
+      return;
+    }
+
+    // The language server already validates on change, so we just need to 
+    // inform the user that validation is active
+    window.showInformationMessage(
+      "Schema validation is active. Check the Problems panel for any issues."
+    );
+  }
+
+  async function selectSchema() {
+    const activeEditor = window.activeTextEditor;
+    if (!activeEditor || activeEditor.document.languageId !== "eure") {
+      window.showErrorMessage("No active EURE file");
+      return;
+    }
+
+    // Show quick pick to select schema file
+    const schemaFiles = await workspace.findFiles("**/*.schema.eure", "**/node_modules/**");
+    
+    if (schemaFiles.length === 0) {
+      window.showWarningMessage("No schema files found in workspace");
+      return;
+    }
+
+    const items = schemaFiles.map(uri => ({
+      label: workspace.asRelativePath(uri),
+      uri: uri
+    }));
+
+    const selected = await window.showQuickPick(items, {
+      placeHolder: "Select a schema file for the current document"
+    });
+
+    if (selected) {
+      // TODO: Send request to language server to associate this schema
+      // For now, just inform the user
+      window.showInformationMessage(
+        `Schema association feature coming soon. Place your schema as ${activeEditor.document.fileName}.schema.eure for automatic detection.`
+      );
+    }
   }
 }
 

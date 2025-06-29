@@ -1,3 +1,5 @@
+$schema = ".eure-schema.schema.eure"
+
 @ $cascade-type.$union[] = .$types.expr
 @ $cascade-type.$union[]
 $$optional = .boolean

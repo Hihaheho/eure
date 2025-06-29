@@ -38,6 +38,29 @@
     "typescript": "^5.8.3"
   },
   "contributes": {
+    "configuration": {
+      "title": "EURE Language Support",
+      "properties": {
+        "eure.schema.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable schema validation for EURE files"
+        },
+        "eure.schema.searchPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional paths to search for schema files"
+        },
+        "eure.schema.strictMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Treat schema validation warnings as errors"
+        }
+      }
+    },
     "commands": [
       {
         "command": "eure-ls.start",
@@ -50,6 +73,14 @@
       {
         "command": "eure-ls.restart",
         "title": "Restart eure-ls"
+      },
+      {
+        "command": "eure.validateWithSchema",
+        "title": "EURE: Validate current file with schema"
+      },
+      {
+        "command": "eure.selectSchema",
+        "title": "EURE: Select schema for current file"
       }
     ],
     "languages": [

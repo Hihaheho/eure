@@ -142,6 +142,7 @@ mod tests {
         assert_eq!(Type::from_path(".typed-string.email"), Some(Type::TypedString(TypedStringKind::Email)));
         assert_eq!(Type::from_path(".code.javascript"), Some(Type::Code("javascript".to_string())));
         assert_eq!(Type::from_path(".$types.UserType"), Some(Type::TypeRef("UserType".to_string())));
+        assert_eq!(Type::from_path(".UserType"), Some(Type::TypeRef("UserType".to_string())));  // Uppercase = type ref
     }
 
     #[test]

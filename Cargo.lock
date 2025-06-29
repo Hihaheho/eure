@@ -1713,6 +1713,7 @@ name = "eure-editor-support"
 version = "0.1.0"
 dependencies = [
  "eure-parol",
+ "eure-schema",
  "eure-tree",
  "lsp-types",
 ]

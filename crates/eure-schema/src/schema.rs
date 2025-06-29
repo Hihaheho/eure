@@ -174,6 +174,8 @@ pub struct DocumentSchema {
     pub cascade_type: Option<Type>,
     /// Global serde options
     pub serde_options: SerdeOptions,
+    /// Reference to external schema (from $schema key)
+    pub schema_ref: Option<String>,
 }
 
 /// Result of schema extraction
@@ -284,9 +286,16 @@ impl Type {
                         _ => return None,
                     };
                     Some(Type::TypedString(kind))
+                } else if let Some(path) = path.strip_prefix("code.") {
+                    Some(Type::Code(path.to_string()))
                 } else {
-                    path.strip_prefix("code.")
-                        .map(|path| Type::Code(path.to_string()))
+                    // If it starts with uppercase, treat it as a type reference
+                    // This allows .Action to be shorthand for .$types.Action
+                    if path.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                        Some(Type::TypeRef(path.to_string()))
+                    } else {
+                        None
+                    }
                 }
             }
         }

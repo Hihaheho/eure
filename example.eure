@@ -1,3 +1,5 @@
+$schema = "./example.schema.eure"
+
 $eure {
   data-model: eure
 }
@@ -6,6 +8,7 @@ $eure {
 $eure.id = "aaa"
 id = "aaa"
 description = "aaa"
+text = "aaa"
 
 @ script.actions[]
 $variant: set-text

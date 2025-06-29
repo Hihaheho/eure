@@ -12,4 +12,5 @@ keywords = ["eure", "editor", "ide", "language-support"]
 [dependencies]
 eure-parol = { workspace = true }
 eure-tree = { workspace = true }
+eure-schema = { workspace = true }
 lsp-types = { workspace = true }
