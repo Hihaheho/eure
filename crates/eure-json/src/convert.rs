@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, TypedString, Value, Variant};
 use serde_json::json;
 
 use crate::{config::Config, error::Error};
@@ -71,6 +71,26 @@ pub fn value_to_json_with_config(
         }
         Value::Variant(variant) => convert_variant_to_json(variant, config),
         Value::Unit => Ok(serde_json::Value::Null),
+        Value::Path(Path(segments)) => {
+            // Paths represented as dot-separated strings
+            let path_str = segments.iter()
+                .map(|seg| match seg {
+                    PathSegment::Ident(id) => id.as_ref().to_string(),
+                    PathSegment::Extension(id) => format!("${}", id.as_ref()),
+                    PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
+                    PathSegment::Value(v) => format!("[{:?}]", v),
+                    PathSegment::Array { key, index } => {
+                        if let Some(idx) = index {
+                            format!("{:?}[{:?}]", key, idx)
+                        } else {
+                            format!("{:?}[]", key)
+                        }
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(".");
+            Ok(serde_json::Value::String(format!(".{}", path_str)))
+        }
     }
 }
 

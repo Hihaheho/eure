@@ -1,6 +1,6 @@
 use crate::{Config, Error};
 use eure_value::value::{
-    Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant, VariantRepr,
+    Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, TypedString, Value, Variant, VariantRepr,
 };
 use serde_yaml::{Mapping, Value as YamlValue};
 
@@ -87,6 +87,26 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
         Value::Unit => {
             // Represent unit as null in YAML
             Ok(YamlValue::Null)
+        }
+        Value::Path(Path(segments)) => {
+            // Paths represented as dot-separated strings
+            let path_str = segments.iter()
+                .map(|seg| match seg {
+                    PathSegment::Ident(id) => id.as_ref().to_string(),
+                    PathSegment::Extension(id) => format!("${}", id.as_ref()),
+                    PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
+                    PathSegment::Value(v) => format!("[{:?}]", v),
+                    PathSegment::Array { key, index } => {
+                        if let Some(idx) = index {
+                            format!("{:?}[{:?}]", key, idx)
+                        } else {
+                            format!("{:?}[]", key)
+                        }
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(".");
+            Ok(YamlValue::String(format!(".{}", path_str)))
         }
     }
 }

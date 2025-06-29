@@ -22,15 +22,16 @@ Binding: Keys BindingRhs ;
   TextBinding: TextStart [Ws^] Text [GrammarNewline] ;
 
 Section: At Keys SectionBody ;
-  SectionBody: { Binding } | SectionBinding ;
+  SectionBody: { Binding } | SectionBinding | Bind Value ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: Ident | ExtensionNameSpace | Str | Integer ;
+  KeyBase: Ident | ExtensionNameSpace | Str | Integer | MetaExtKey | Null | True | False ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext Ident ;
+  MetaExtKey: MetaExt Ident ;
 
-Value: Object | Array | Integer | Boolean | Null | Strings | Hole | CodeBlock | NamedCode | Code ;
+Value: Object | Array | Integer | Boolean | Null | Strings | Hole | CodeBlock | NamedCode | Code | Path ;
   Object: Begin { Key Bind Value [ Comma ] } End ;
   Array: ArrayBegin [ ArrayElements ] ArrayEnd ;
   ArrayElements: Value [ ArrayElementsTail ] ;
@@ -41,6 +42,7 @@ Value: Object | Array | Integer | Boolean | Null | Strings | Hole | CodeBlock | 
   False: 'false';
   Null: 'null' ;
   Hole: '!' ;
+  Path: Dot Keys ;
 
 Strings: Str { Continue Str } ;
 Str: /([a-zA-Z0-9-_]+)?"([^"]|\\")*"/ ;
@@ -56,6 +58,7 @@ Code: /`([^`\r\n]|\\`)*`/ ;
 GrammarNewline: <Text>/\r\n|\r|\n/ ;
 Ws: <Text>/[\s--\r\n]+/ ;
 At: '@' ;
+MetaExt: '$$' ;
 Ext: '$' ;
 Dot: '.' ;
 Begin: '{' ;

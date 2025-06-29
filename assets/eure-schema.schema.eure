@@ -42,10 +42,11 @@ $$serde.rename-all.$union[].$literal = "UPPERCASE"
   @ $union[].$$variants
   $key = .ident
   $value = .$types.type
-  $$variant-repr.untagged[] = { $literal = "untagged" }
-  $$variant-repr.tagged[] = { tag = .string }
-  $$variant-repr.tagged[] = { tag = .string, content = .string }
-  $$variant-repr.$optional = true
+  $$variant-repr.union[] = { $literal = "untagged" } # untagged variant
+  $$variant-repr.union[] = { tag = .string } # internally tagged
+  $$variant-repr.union[] = { tag = .string, content = .string } # adjacently tagged
+  $$variant-repr.union[] = { $literal = "external" } # external tagged
+  $$variant-repr.$optional = true # the default representation is externally tagged
 
   # cascade type that cascades this type to all descendant keys (not including extensions of course)
   @ $union[].$$cascade-type = .$types.type

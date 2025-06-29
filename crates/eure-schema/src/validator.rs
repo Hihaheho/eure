@@ -48,6 +48,12 @@ pub enum ValidationErrorKind {
     ArrayUniqueViolation {
         duplicate: String,
     },
+    
+    // Schema definition errors
+    InvalidSchemaPattern {
+        pattern: String,
+        error: String,
+    },
 
     // Variant errors
     UnknownVariant {
@@ -96,12 +102,11 @@ pub struct SchemaValidator<'a> {
     // Validation state
     seen_fields: HashMap<Vec<String>, HashSet<String>>,
     required_fields: HashMap<Vec<String>, HashSet<String>>,
-    _array_values: HashMap<Vec<String>, Vec<String>>,
 
     // Current context
     current_object_schema: Option<ObjectSchema>,
-    _current_variant: Option<String>,
     in_extension: bool,
+    expected_type: Option<Type>,
 
     // Cascade type field schema (cached)
     cascade_field_schema: Option<FieldSchema>,
@@ -127,25 +132,13 @@ impl<'a> SchemaValidator<'a> {
             required_fields.insert(vec![], root_required);
         }
 
-        // Extract required fields from type definitions
-        for (type_name, field_schema) in &schema.types {
-            if let Type::Object(obj_schema) = &field_schema.type_expr {
-                let type_required: HashSet<String> = obj_schema
-                    .fields
-                    .iter()
-                    .filter(|(_, field)| !field.optional)
-                    .map(|(name, _)| name.clone())
-                    .collect();
-                if !type_required.is_empty() {
-                    required_fields.insert(vec![format!("$types.{}", type_name)], type_required);
-                }
-            }
-        }
+        // Note: We don't extract required fields from type definitions
+        // Type definitions are just schemas, not actual data to validate
 
         // Create cascade field schema if needed
-        let cascade_field_schema = if let Some(Type::CascadeType(cascade)) = &schema.cascade_type {
+        let cascade_field_schema = if let Some(cascade_type) = &schema.cascade_type {
             Some(FieldSchema {
-                type_expr: (**cascade).clone(),
+                type_expr: cascade_type.clone(),
                 optional: false,
                 constraints: Constraints::default(),
                 preferences: Preferences::default(),
@@ -164,10 +157,9 @@ impl<'a> SchemaValidator<'a> {
             section_is_array: Vec::new(),
             seen_fields: HashMap::new(),
             required_fields,
-            _array_values: HashMap::new(),
             current_object_schema: None,
-            _current_variant: None,
             in_extension: false,
+            expected_type: None,
             cascade_field_schema,
             errors: Vec::new(),
         }
@@ -238,6 +230,11 @@ impl<'a> SchemaValidator<'a> {
             return Some(field_schema);
         }
 
+        // Check if this field name corresponds to a type definition
+        if self.schema.types.contains_key(field_name) {
+            return self.schema.types.get(field_name);
+        }
+
         // Check cascade type
         if let Some(cascade_schema) = &self.cascade_field_schema {
             return Some(cascade_schema);
@@ -285,9 +282,15 @@ impl<'a> SchemaValidator<'a> {
                         );
                     }
                 }
-                Err(_) => {
+                Err(e) => {
                     // Invalid regex pattern in schema - this is a schema error
-                    // For now, we'll skip validation
+                    self.add_error(
+                        ValidationErrorKind::InvalidSchemaPattern {
+                            pattern: pattern.clone(),
+                            error: e.to_string(),
+                        },
+                        span,
+                    );
                 }
             }
         }
@@ -344,51 +347,22 @@ impl<'a> SchemaValidator<'a> {
     }
 
     fn infer_value_type<F: CstFacade>(&self, value_handle: ValueHandle, tree: &F) -> String {
-        let node_id = value_handle.node_id();
-
-        // Check for terminals
-        let children: Vec<_> = tree.children(node_id).collect();
-        if let Some(first_child) = children.first()
-            && let Some(node_data) = tree.node_data(*first_child)
-        {
-            match node_data {
-                CstNode::Terminal {
-                    kind: TerminalKind::Str,
-                    ..
-                } => return "string".to_string(),
-                CstNode::Terminal {
-                    kind: TerminalKind::Integer,
-                    ..
-                } => return "number".to_string(),
-                CstNode::Terminal {
-                    kind: TerminalKind::True,
-                    ..
-                }
-                | CstNode::Terminal {
-                    kind: TerminalKind::False,
-                    ..
-                } => return "boolean".to_string(),
-                CstNode::Terminal {
-                    kind: TerminalKind::Null,
-                    ..
-                } => return "null".to_string(),
-                CstNode::Terminal {
-                    kind: TerminalKind::LBracket,
-                    ..
-                } => return "array".to_string(),
-                CstNode::Terminal {
-                    kind: TerminalKind::LBrace,
-                    ..
-                } => return "object".to_string(),
-                CstNode::Terminal {
-                    kind: TerminalKind::Dot,
-                    ..
-                } => return "path".to_string(),
-                _ => {}
+        // Use ValueView to properly infer type
+        if let Ok(view) = value_handle.get_view(tree) {
+            match view {
+                ValueView::Strings(_) => "string".to_string(),
+                ValueView::Integer(_) => "number".to_string(),
+                ValueView::Boolean(_) => "boolean".to_string(),
+                ValueView::Null(_) => "null".to_string(),
+                ValueView::Array(_) => "array".to_string(),
+                ValueView::Object(_) => "object".to_string(),
+                ValueView::Path(_) => "path".to_string(),
+                ValueView::Code(_) | ValueView::CodeBlock(_) | ValueView::NamedCode(_) => "string".to_string(),
+                ValueView::Hole(_) => "unknown".to_string(),
             }
+        } else {
+            "unknown".to_string()
         }
-
-        "unknown".to_string()
     }
 
     fn get_span<F: CstFacade>(&self, node_id: CstNodeId, tree: &F) -> InputSpan {
@@ -436,18 +410,31 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
         }
 
         // Check section preferences
-        let needs_section_error = section_path
+        let field_schema = section_path
             .last()
-            .and_then(|name| self.find_field_schema(name))
-            .and_then(|field_schema| field_schema.preferences.section)
+            .and_then(|name| self.find_field_schema(name));
+            
+        // Get preferences, following TypeRef if needed
+        let preferences = if let Some(schema) = field_schema {
+            match &schema.type_expr {
+                Type::TypeRef(type_name) => {
+                    // Look up preferences from the type definition
+                    self.schema.types.get(type_name)
+                        .map(|type_def| &type_def.preferences)
+                        .unwrap_or(&schema.preferences)
+                }
+                _ => &schema.preferences
+            }
+        } else {
+            &Preferences::default()
+        };
+        
+        let needs_section_error = preferences.section
             .map(|prefer| !prefer)
             .unwrap_or(false);
 
         let needs_array_error = is_array
-            && section_path
-                .last()
-                .and_then(|name| self.find_field_schema(name))
-                .and_then(|field_schema| field_schema.preferences.array)
+            && preferences.array
                 .map(|prefer| !prefer)
                 .unwrap_or(false);
 
@@ -473,15 +460,131 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
         let path_len = section_path.len();
 
         // Update current_object_schema based on path
-        if let Some(last_key) = section_path.last()
-            && let Some(field_schema) = self.find_field_schema(last_key)
-            && let Type::Object(obj_schema) = &field_schema.type_expr
-        {
-            self.current_object_schema = Some(obj_schema.clone());
+        if let Some(last_key) = section_path.last() {
+            // For nested sections, we need to traverse the path
+            if section_path.len() >= 2 {
+                // Start from root schema
+                let mut current_schema = &self.schema.root;
+                let mut found_schema = true;
+                
+                // Traverse path segments except the last one
+                for segment in section_path[..section_path.len()-1].iter() {
+                    if let Some(field_schema) = current_schema.fields.get(segment) {
+                        // Resolve type if it's a TypeRef
+                        let resolved_type = match &field_schema.type_expr {
+                            Type::TypeRef(type_name) => {
+                                self.schema.types.get(type_name)
+                                    .map(|type_def| &type_def.type_expr)
+                                    .unwrap_or(&field_schema.type_expr)
+                            }
+                            other => other
+                        };
+                        
+                        // Check if it's an object type
+                        if let Type::Object(obj_schema) = resolved_type {
+                            current_schema = obj_schema;
+                        } else {
+                            found_schema = false;
+                            break;
+                        }
+                    } else {
+                        found_schema = false;
+                        break;
+                    }
+                }
+                
+                if found_schema {
+                    // Now check if the last segment exists in current_schema
+                    if let Some(field_schema) = current_schema.fields.get(last_key) {
+                        // Resolve the type (handle TypeRef)
+                        let resolved_type = match &field_schema.type_expr {
+                            Type::TypeRef(type_name) => {
+                                self.schema.types.get(type_name)
+                                    .map(|type_def| &type_def.type_expr)
+                                    .unwrap_or(&field_schema.type_expr)
+                            }
+                            other => other
+                        };
+                        
+                        if let Type::Object(obj_schema) = resolved_type {
+                            // Clone the object schema first to avoid borrow issues
+                            let obj_schema_clone = obj_schema.clone();
+                            
+                            // Track required fields for this object
+                            let object_required: HashSet<String> = obj_schema_clone
+                                .fields
+                                .iter()
+                                .filter(|(_, field)| !field.optional)
+                                .map(|(name, _)| name.clone())
+                                .collect();
+                            if !object_required.is_empty() {
+                                // Get the path that will be current after we push section_path
+                                let mut future_path = self.current_path();
+                                future_path.extend(section_path.clone());
+                                self.required_fields.insert(future_path, object_required);
+                            }
+                            
+                            // Now update current_object_schema
+                            self.current_object_schema = Some(obj_schema_clone);
+                        }
+                    }
+                }
+            } else if let Some(field_schema) = self.find_field_schema(last_key) {
+                // Single-segment section path (e.g., @ user)
+                // Resolve the type (handle TypeRef)
+                let resolved_type = match &field_schema.type_expr {
+                    Type::TypeRef(type_name) => {
+                        self.schema.types.get(type_name)
+                            .map(|type_def| &type_def.type_expr)
+                            .unwrap_or(&field_schema.type_expr)
+                    }
+                    other => other
+                };
+                
+                if let Type::Object(obj_schema) = resolved_type {
+                    // Clone the object schema first to avoid borrow issues
+                    let obj_schema_clone = obj_schema.clone();
+                    
+                    // Track required fields for this object
+                    let object_required: HashSet<String> = obj_schema_clone
+                        .fields
+                        .iter()
+                        .filter(|(_, field)| !field.optional)
+                        .map(|(name, _)| name.clone())
+                        .collect();
+                    if !object_required.is_empty() {
+                        // Get the path that will be current after we push section_path
+                        let mut future_path = self.current_path();
+                        future_path.extend(section_path.clone());
+                        self.required_fields.insert(future_path, object_required);
+                    }
+                    
+                    // Now update current_object_schema
+                    self.current_object_schema = Some(obj_schema_clone);
+                }
+            }
         }
 
-        self.path_stack.extend(section_path);
+        self.path_stack.extend(section_path.clone());
         self.section_is_array.push(is_array);
+        
+        // Track that this section field has been seen
+        if section_path.len() >= 2 {
+            // For nested sections like @ person.address, mark "address" as seen in "person"
+            let parent_path: Vec<String> = self.path_stack[..self.path_stack.len() - 1].to_vec();
+            let field_name = section_path.last().unwrap().clone();
+            self.seen_fields
+                .entry(parent_path)
+                .or_default()
+                .insert(field_name);
+        } else if section_path.len() == 1 && !section_path[0].starts_with('$') {
+            // For root sections, mark them as seen at root level
+            let field_name = section_path[0].clone();
+            self.seen_fields
+                .entry(vec![])
+                .or_default()
+                .insert(field_name);
+        }
 
         // Visit children
         let result = self.visit_section_super(handle, view, tree);
@@ -512,11 +615,13 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
             self.extract_keys_path(&keys_view, tree, &mut key_path);
         }
 
-        if let Some(key) = key_path.first() {
-            // Skip extension keys
-            if key.starts_with('$') {
+        if !key_path.is_empty() {
+            // Skip if any part of the key path is an extension
+            if key_path.iter().any(|k| k.starts_with('$')) {
                 return Ok(());
             }
+            
+            let key = &key_path[0];
 
             // Track seen field
             let current_path = self.current_path();
@@ -529,6 +634,9 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
             if let Some(field_schema) = self.find_field_schema(key) {
                 // Push expected type
                 self.type_stack.push(field_schema.type_expr.clone());
+                
+                // Push key to path stack for constraint validation
+                self.path_stack.push(key.clone());
 
                 // Validate the value
                 if let Ok(binding_rhs_view) = view.binding_rhs.get_view(tree)
@@ -539,10 +647,13 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                     let _ = self.visit_value(value_binding_view.value, value_view, tree);
                 }
 
+                // Pop key from path stack
+                self.path_stack.pop();
+                
                 // Pop type
                 self.type_stack.pop();
-            } else if self.current_object_schema.is_some() {
-                // Unexpected field (only if we have a schema)
+            } else if self.current_object_schema.is_some() && self.cascade_field_schema.is_none() {
+                // Unexpected field (only if we have a schema and no cascade type)
                 self.add_error(
                     ValidationErrorKind::UnexpectedField {
                         field: key.clone(),
@@ -592,7 +703,12 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                 Type::TypeRef(type_name) => {
                     // Look up the type definition
                     if let Some(type_def) = self.schema.types.get(type_name) {
-                        match &type_def.type_expr {
+                        // Recursively check against the referenced type
+                        let mut temp_type_stack = self.type_stack.clone();
+                        temp_type_stack.push(type_def.type_expr.clone());
+                        let old_stack = std::mem::replace(&mut self.type_stack, temp_type_stack);
+                        
+                        let type_matches = match &type_def.type_expr {
                             Type::String | Type::TypedString(_) | Type::Code(_) => {
                                 actual_type == "string"
                             }
@@ -602,8 +718,24 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                             Type::Array(_) => actual_type == "array",
                             Type::Object(_) => actual_type == "object",
                             Type::Path => actual_type == "path",
-                            _ => true,
-                        }
+                            Type::Union(types) => {
+                                // Check if actual type matches any in union
+                                types.iter().any(|t| match t {
+                                    Type::String => actual_type == "string",
+                                    Type::Number => actual_type == "number",
+                                    Type::Boolean => actual_type == "boolean",
+                                    Type::Null => actual_type == "null",
+                                    _ => false,
+                                })
+                            }
+                            Type::Any => true,
+                            Type::TypeRef(_) => true, // Nested TypeRef - would need recursive handling
+                            Type::Variants(_) => actual_type == "object",
+                            Type::CascadeType(_) => true,
+                        };
+                        
+                        self.type_stack = old_stack;
+                        type_matches
                     } else {
                         false // Unknown type reference
                     }
@@ -625,91 +757,95 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                     },
                     span,
                 );
-            }
-
-            // Additional validation based on type
-            match &expected_type {
-                Type::String => {
-                    if let Some(str_value) = self.extract_string_value(handle, tree)
-                        && let Some(key) = self.path_stack.last()
-                        && let Some(field_schema) = self.find_field_schema(key)
-                    {
-                        let constraints = field_schema.constraints.clone();
-                        self.validate_string_value(
-                            &str_value,
-                            &constraints,
-                            self.get_span(handle.node_id(), tree),
-                        );
-                    }
-                }
-                Type::Number => {
-                    if let Some(num_value) = self.extract_number_value(handle, tree)
-                        && let Some(key) = self.path_stack.last()
-                        && let Some(field_schema) = self.find_field_schema(key)
-                    {
-                        let constraints = field_schema.constraints.clone();
-                        self.validate_number_value(
-                            num_value,
-                            &constraints,
-                            self.get_span(handle.node_id(), tree),
-                        );
-                    }
-                }
-                Type::Array(_elem_type) => {
-                    // Validate array constraints
-                    let array_constraints = self
-                        .path_stack
-                        .last()
-                        .and_then(|key| self.find_field_schema(key))
-                        .map(|schema| schema.constraints.clone());
-
-                    if let Some(constraints) = array_constraints {
-                        // Check array length constraints
-                        if let Ok(_array_view) = handle.get_view(tree) {
-                            // Count array elements
-                            let mut element_count = 0;
-                            let node_id = handle.node_id();
-                            for _ in tree.children(node_id) {
-                                element_count += 1;
-                            }
-
-                            // Adjust for brackets
-                            if element_count >= 2 {
-                                element_count -= 2; // Remove [ and ]
-                            }
-
-                            if let Some(min) = constraints.min_items
-                                && element_count < min
-                            {
-                                self.add_error(
-                                    ValidationErrorKind::ArrayLengthViolation {
-                                        min: Some(min),
-                                        max: constraints.max_items,
-                                        actual: element_count,
-                                    },
-                                    self.get_span(handle.node_id(), tree),
-                                );
-                            }
-
-                            if let Some(max) = constraints.max_items
-                                && element_count > max
-                            {
-                                self.add_error(
-                                    ValidationErrorKind::ArrayLengthViolation {
-                                        min: constraints.min_items,
-                                        max: Some(max),
-                                        actual: element_count,
-                                    },
-                                    self.get_span(handle.node_id(), tree),
-                                );
-                            }
-
-                            // TODO: Validate individual array elements against elem_type
-                            // This would require visiting array elements with the expected type
+            } else {
+                // Additional validation based on type
+                match &expected_type {
+                    Type::String => {
+                        if let Some(str_value) = self.extract_string_value(handle, tree)
+                            && let Some(key) = self.path_stack.last()
+                            && let Some(field_schema) = self.find_field_schema(key)
+                        {
+                            let constraints = field_schema.constraints.clone();
+                            self.validate_string_value(
+                                &str_value,
+                                &constraints,
+                                self.get_span(handle.node_id(), tree),
+                            );
                         }
                     }
+                    Type::Number => {
+                        if let Some(num_value) = self.extract_number_value(handle, tree)
+                            && let Some(key) = self.path_stack.last()
+                            && let Some(field_schema) = self.find_field_schema(key)
+                        {
+                            let constraints = field_schema.constraints.clone();
+                            self.validate_number_value(
+                                num_value,
+                                &constraints,
+                                self.get_span(handle.node_id(), tree),
+                            );
+                        }
+                    }
+                    Type::Array(_elem_type) => {
+                        // Validate array constraints
+                        let array_constraints = self
+                            .path_stack
+                            .last()
+                            .and_then(|key| self.find_field_schema(key))
+                            .map(|schema| schema.constraints.clone());
+
+                        if let Some(constraints) = array_constraints {
+                            // Check array length constraints
+                            if let Ok(_array_view) = handle.get_view(tree) {
+                                // Count array elements
+                                let mut element_count = 0;
+                                let node_id = handle.node_id();
+                                for _ in tree.children(node_id) {
+                                    element_count += 1;
+                                }
+
+                                // Adjust for brackets
+                                if element_count >= 2 {
+                                    element_count -= 2; // Remove [ and ]
+                                }
+
+                                if let Some(min) = constraints.min_items
+                                    && element_count < min
+                                {
+                                    self.add_error(
+                                        ValidationErrorKind::ArrayLengthViolation {
+                                            min: Some(min),
+                                            max: constraints.max_items,
+                                            actual: element_count,
+                                        },
+                                        self.get_span(handle.node_id(), tree),
+                                    );
+                                }
+
+                                if let Some(max) = constraints.max_items
+                                    && element_count > max
+                                {
+                                    self.add_error(
+                                        ValidationErrorKind::ArrayLengthViolation {
+                                            min: constraints.min_items,
+                                            max: Some(max),
+                                            actual: element_count,
+                                        },
+                                        self.get_span(handle.node_id(), tree),
+                                    );
+                                }
+
+                                // Validate individual array elements against elem_type
+                                if let Ok(ValueView::Array(array_handle)) = handle.get_view(tree) {
+                                    if let Ok(array_view) = array_handle.get_view(tree) {
+                                        self.validate_array_elements(array_view, _elem_type, tree);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
 
@@ -806,6 +942,26 @@ impl SchemaValidator<'_> {
                 KeyBaseView::Integer(_) => {
                     // Integer keys are not used in schema paths
                 }
+                KeyBaseView::Null(_) => {
+                    path.push("null".to_string());
+                }
+                KeyBaseView::True(_) => {
+                    path.push("true".to_string());
+                }
+                KeyBaseView::False(_) => {
+                    path.push("false".to_string());
+                }
+                KeyBaseView::MetaExtKey(meta_ext_handle) => {
+                    if let Ok(meta_ext_view) = meta_ext_handle.get_view(tree) {
+                        if let Ok(ident_view) = meta_ext_view.ident.get_view(tree) {
+                            if let Ok(data) = ident_view.ident.get_data(tree) {
+                                if let Some(s) = tree.get_str(data, self.input) {
+                                    path.push(format!("$̄{}", s));
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -824,16 +980,20 @@ impl SchemaValidator<'_> {
         value_handle: ValueHandle,
         tree: &F,
     ) -> Option<String> {
-        let node_id = value_handle.node_id();
-        for child_id in tree.children(node_id) {
-            if let Some(node_data) = tree.node_data(child_id)
-                && let CstNode::Terminal {
-                    kind: TerminalKind::Str,
-                    data,
-                } = node_data
-                && let Some(s) = tree.get_str(data, self.input)
-            {
-                return Some(s.to_string());
+        if let Ok(value_view) = value_handle.get_view(tree) {
+            match value_view {
+                ValueView::Strings(strings_handle) => {
+                    if let Ok(strings_view) = strings_handle.get_view(tree)
+                        && let Ok(str_view) = strings_view.str.get_view(tree)
+                        && let Ok(data) = str_view.str.get_data(tree)
+                        && let Some(s) = tree.get_str(data, self.input)
+                    {
+                        // Parse the string literal (remove quotes and unescape)
+                        let unquoted = s.trim_matches('"');
+                        return Some(unquoted.to_string());
+                    }
+                }
+                _ => {}
             }
         }
         None
@@ -844,19 +1004,84 @@ impl SchemaValidator<'_> {
         value_handle: ValueHandle,
         tree: &F,
     ) -> Option<f64> {
-        let node_id = value_handle.node_id();
-        for child_id in tree.children(node_id) {
-            if let Some(node_data) = tree.node_data(child_id)
-                && let CstNode::Terminal {
-                    kind: TerminalKind::Integer,
-                    data,
-                } = node_data
-                && let Some(s) = tree.get_str(data, self.input)
-                && let Ok(n) = s.parse::<f64>()
-            {
-                return Some(n);
+        if let Ok(value_view) = value_handle.get_view(tree) {
+            match value_view {
+                ValueView::Integer(integer_handle) => {
+                    if let Ok(integer_view) = integer_handle.get_view(tree)
+                        && let Ok(data) = integer_view.integer.get_data(tree)
+                        && let Some(s) = tree.get_str(data, self.input)
+                        && let Ok(n) = s.parse::<f64>()
+                    {
+                        return Some(n);
+                    }
+                }
+                _ => {}
             }
         }
         None
+    }
+
+    fn validate_array_elements<F: CstFacade>(
+        &mut self,
+        array_view: ArrayView,
+        elem_type: &Type,
+        tree: &F,
+    ) {
+        // Check if array has elements
+        if let Ok(Some(array_opt)) = array_view.array_opt.get_view(tree) {
+            if let Ok(array_elements_view) = array_opt.get_view(tree) {
+                // Validate first element
+                self.validate_array_element(array_elements_view.value, elem_type, tree);
+                
+                // Validate remaining elements if any
+                if let Ok(Some(tail_opt)) = array_elements_view.array_elements_opt.get_view(tree) {
+                    if let Ok(tail_view) = tail_opt.get_view(tree) {
+                        self.validate_array_elements_tail(tail_view, elem_type, tree);
+                    }
+                }
+            }
+        }
+    }
+    
+    fn validate_array_element<F: CstFacade>(
+        &mut self,
+        value_handle: ValueHandle,
+        expected_type: &Type,
+        tree: &F,
+    ) {
+        // Store the current expected type for this element
+        let prev_expected = self.expected_type.clone();
+        self.expected_type = Some(expected_type.clone());
+        
+        // Visit the value to validate it
+        if let Ok(view) = value_handle.get_view(tree) {
+            let _ = self.visit_value(value_handle, view, tree);
+        }
+        
+        // Restore previous expected type
+        self.expected_type = prev_expected;
+    }
+    
+    fn validate_array_elements_tail<F: CstFacade>(
+        &mut self,
+        tail_view: ArrayElementsTailView,
+        elem_type: &Type,
+        tree: &F,
+    ) {
+        // Check if there are more elements
+        if let Ok(Some(elements_handle)) = tail_view.array_elements_tail_opt.get_view(tree) {
+            // The elements_handle is ArrayElementsHandle
+            if let Ok(elements_view) = elements_handle.get_view(tree) {
+                // Validate this element
+                self.validate_array_element(elements_view.value, elem_type, tree);
+                
+                // Continue with remaining elements
+                if let Ok(Some(more_tail)) = elements_view.array_elements_opt.get_view(tree) {
+                    if let Ok(more_tail_view) = more_tail.get_view(tree) {
+                        self.validate_array_elements_tail(more_tail_view, elem_type, tree);
+                    }
+                }
+            }
+        }
     }
 }

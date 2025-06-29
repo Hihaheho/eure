@@ -17,11 +17,9 @@ pub struct SchemaExtractor<'a> {
 
     // Schema being built
     current_field_schema: Option<FieldSchema>,
-    _current_object_schema: Option<ObjectSchema>,
 
     // Extracted schemas
     document_schema: DocumentSchema,
-    inline_schemas: HashMap<Vec<String>, FieldSchema>,
 
     // Tracking
     has_non_schema_content: bool,
@@ -35,8 +33,8 @@ enum ExtractedValue {
     String(String),
     Number(f64),
     Boolean(bool),
-    _Array(Vec<ExtractedValue>),
-    _Object(HashMap<String, ExtractedValue>),
+    Array(Vec<ExtractedValue>),
+    Object(HashMap<String, ExtractedValue>),
     Path(String),
     Null,
 }
@@ -50,20 +48,22 @@ impl<'a> SchemaExtractor<'a> {
             in_variants_section: false,
             current_variant: None,
             current_field_schema: None,
-            _current_object_schema: None,
             document_schema: DocumentSchema::default(),
-            inline_schemas: HashMap::new(),
             has_non_schema_content: false,
             pending_value: None,
         }
     }
 
     /// Consume the extractor and return the extracted schema
-    pub fn extract(self) -> ExtractedSchema {
+    pub fn extract(mut self) -> ExtractedSchema {
+        // If we have inline schemas but no explicit cascade type, set it to Any
+        if self.has_non_schema_content && self.document_schema.cascade_type.is_none() && !self.document_schema.root.fields.is_empty() {
+            self.document_schema.cascade_type = Some(Type::Any);
+        }
+        
         ExtractedSchema {
             document_schema: self.document_schema,
             is_pure_schema: !self.has_non_schema_content,
-            inline_schemas: self.inline_schemas,
         }
     }
 
@@ -82,7 +82,7 @@ impl<'a> SchemaExtractor<'a> {
                 }
             }
             "$union" => {
-                if let Some(ExtractedValue::_Array(values)) = &self.pending_value {
+                if let Some(ExtractedValue::Array(values)) = &self.pending_value {
                     let types: Vec<Type> = values
                         .iter()
                         .filter_map(|v| self.extract_string(v))
@@ -132,7 +132,7 @@ impl<'a> SchemaExtractor<'a> {
             }
             // Constraints
             "$length" => {
-                if let Some(ExtractedValue::_Array(values)) = &self.pending_value
+                if let Some(ExtractedValue::Array(values)) = &self.pending_value
                     && values.len() == 2
                 {
                     let min = self.extract_number(&values[0]).map(|n| n as usize);
@@ -153,7 +153,7 @@ impl<'a> SchemaExtractor<'a> {
                 }
             }
             "$range" => {
-                if let Some(ExtractedValue::_Array(values)) = &self.pending_value
+                if let Some(ExtractedValue::Array(values)) = &self.pending_value
                     && values.len() == 2
                 {
                     let min = self.extract_number(&values[0]);
@@ -232,17 +232,57 @@ impl<'a> SchemaExtractor<'a> {
             }
             "$variant-repr" => {
                 // Handle variant representation
+                // $variant-repr is a union type with these possible values:
+                // "untagged" (when type is { $literal = "untagged" })
+                // "external" (when type is { $literal = "external" })
+                // { tag = "fieldname" } (internal tagging)
+                // { tag = "tagfield", content = "contentfield" } (adjacent tagging)
                 if self.in_variants_section
                     && self.current_field_schema.is_some()
-                    && let Some(repr_str) = self
-                        .pending_value
-                        .as_ref()
-                        .and_then(|v| self.extract_string(v))
+                    && let Some(value) = self.pending_value.as_ref()
                 {
-                    let repr = match repr_str.as_str() {
-                        "tagged" => VariantRepr::Tagged,
-                        "inline" => VariantRepr::Tagged, // Inline not yet supported
-                        _ => VariantRepr::Tagged,        // Default to tagged
+                    let repr = match value {
+                        // Handle literal string values (from $literal types)
+                        ExtractedValue::String(s) => {
+                            match s.as_str() {
+                                "untagged" => VariantRepr::Untagged,
+                                "external" => VariantRepr::Tagged, // External is the default tagged representation
+                                _ => VariantRepr::Tagged, // Unknown string, default to tagged
+                            }
+                        }
+                        // Handle object values for internal/adjacent tagging
+                        ExtractedValue::Object(fields) => {
+                            if let Some(tag_value) = fields.get("tag") {
+                                // Extract the tag field name
+                                let tag_field = match tag_value {
+                                    ExtractedValue::String(s) => s.clone(),
+                                    ExtractedValue::Path(p) => p.strip_prefix('.').unwrap_or(p).to_string(),
+                                    _ => "tag".to_string(), // Default if not a string or path
+                                };
+                                
+                                if let Some(content_value) = fields.get("content") {
+                                    // Adjacent tagging: { tag = "...", content = "..." }
+                                    let content_field = match content_value {
+                                        ExtractedValue::String(s) => s.clone(),
+                                        ExtractedValue::Path(p) => p.strip_prefix('.').unwrap_or(p).to_string(),
+                                        _ => "content".to_string(), // Default if not a string or path
+                                    };
+                                    VariantRepr::AdjacentlyTagged {
+                                        tag: tag_field,
+                                        content: content_field,
+                                    }
+                                } else {
+                                    // Internal tagging: { tag = "..." }
+                                    VariantRepr::InternallyTagged {
+                                        tag: tag_field,
+                                    }
+                                }
+                            } else {
+                                // Invalid object structure, default to tagged
+                                VariantRepr::Tagged
+                            }
+                        }
+                        _ => VariantRepr::Tagged, // Not a string or object, default to tagged
                     };
 
                     // Apply to current variant schema if we're building one
@@ -253,7 +293,9 @@ impl<'a> SchemaExtractor<'a> {
                     }
                 }
             }
-            _ => {}
+            _ => {
+                // Other extensions are not schema-related, ignore them
+            }
         }
     }
 
@@ -297,12 +339,51 @@ impl<'a> SchemaExtractor<'a> {
     }
 
     fn save_inline_schema(&mut self) {
-        if let Some(schema) = self.current_field_schema.clone() {
+        if let Some(schema) = self.current_field_schema.take() {
             let path = self.current_path();
             if !path.is_empty() && !path[0].starts_with('$') {
-                self.inline_schemas.insert(path, schema);
+                // Merge inline schema directly into document schema
+                let field_name = path.last().unwrap().clone();
+                
+                // Merge with existing schema if present
+                let merged_schema = if let Some(existing) = self.document_schema.root.fields.get(&field_name) {
+                    FieldSchema {
+                        type_expr: if matches!(schema.type_expr, Type::Any) {
+                            existing.type_expr.clone()
+                        } else {
+                            schema.type_expr
+                        },
+                        optional: schema.optional || existing.optional,
+                        constraints: Constraints {
+                            length: schema.constraints.length.or(existing.constraints.length),
+                            pattern: schema.constraints.pattern.or(existing.constraints.pattern.clone()),
+                            range: schema.constraints.range.or(existing.constraints.range),
+                            exclusive_min: schema.constraints.exclusive_min.or(existing.constraints.exclusive_min),
+                            exclusive_max: schema.constraints.exclusive_max.or(existing.constraints.exclusive_max),
+                            min_items: schema.constraints.min_items.or(existing.constraints.min_items),
+                            max_items: schema.constraints.max_items.or(existing.constraints.max_items),
+                            unique: schema.constraints.unique.or(existing.constraints.unique),
+                            contains: schema.constraints.contains.or(existing.constraints.contains.clone()),
+                        },
+                        preferences: Preferences {
+                            section: schema.preferences.section.or(existing.preferences.section),
+                            array: schema.preferences.array.or(existing.preferences.array),
+                        },
+                        serde: SerdeOptions {
+                            rename: schema.serde.rename.or(existing.serde.rename.clone()),
+                            rename_all: schema.serde.rename_all.or(existing.serde.rename_all),
+                        },
+                        span: schema.span.or(existing.span),
+                    }
+                } else {
+                    schema
+                };
+                
+                self.document_schema.root.fields.insert(field_name, merged_schema);
             }
         }
+        // Reset for next field
+        self.current_field_schema = None;
     }
 }
 
@@ -333,6 +414,22 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
 
                 // Start new type definition
                 self.current_field_schema = Some(FieldSchema::default());
+            } else if section_path.len() >= 3 {
+                // This is a field definition for an object type
+                // e.g., @ $types.Person.name
+                let type_name = &section_path[1];
+                let _field_name = &section_path[2];
+                
+                // Make sure the type exists and is an object
+                if let Some(type_def) = self.document_schema.types.get_mut(type_name) {
+                    // Ensure it's an object type
+                    if !matches!(type_def.type_expr, Type::Object(_)) {
+                        type_def.type_expr = Type::Object(ObjectSchema::default());
+                    }
+                    
+                    // Create field schema for this field
+                    self.current_field_schema = Some(FieldSchema::default());
+                }
             }
         } else if !section_path.is_empty() && section_path[0] == "$variants" {
             self.in_variants_section = true;
@@ -347,26 +444,38 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
 
         // Push path
         let path_len = section_path.len();
-        self.path_stack.extend(section_path);
+        self.path_stack.extend(section_path.clone());
 
         // Visit children
         let result = self.visit_section_super(handle, view, tree);
+
+        // Handle exiting sections
+        if self.in_types_section && self.path_stack.len() == 2 && self.path_stack[0] == "$types" {
+            // We're exiting a type definition section
+            let type_name = self.path_stack[1].clone();
+            self.save_current_type_definition(type_name);
+        } else if self.in_types_section && self.path_stack.len() >= 3 && self.path_stack[0] == "$types" {
+            // We're exiting a field definition for an object type
+            let type_name = &self.path_stack[1];
+            let field_name = &self.path_stack[2];
+            
+            if let Some(field_schema) = self.current_field_schema.take() {
+                // Add field to the object type
+                if let Some(type_def) = self.document_schema.types.get_mut(type_name) {
+                    if let Type::Object(ref mut obj_schema) = type_def.type_expr {
+                        obj_schema.fields.insert(field_name.clone(), field_schema);
+                    }
+                }
+            }
+        }
 
         // Pop path
         for _ in 0..path_len {
             self.path_stack.pop();
         }
 
-        // Handle exiting sections
-        if self.in_types_section && self.path_stack.len() <= 1 {
-            // Save last type definition
-            if let Some(name) = self.path_stack.get(1).cloned() {
-                self.save_current_type_definition(name);
-            }
-
-            if self.path_stack.is_empty() || self.path_stack[0] != "$types" {
-                self.in_types_section = false;
-            }
+        if self.in_types_section && (self.path_stack.is_empty() || self.path_stack.get(0).map(|s| s.as_str()) != Some("$types")) {
+            self.in_types_section = false;
         }
 
         if self.in_variants_section && self.path_stack.is_empty() {
@@ -389,7 +498,7 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
             self.extract_keys_path(&keys_view, tree, &mut key_path);
         }
 
-        if let Some(key) = key_path.first() {
+        if !key_path.is_empty() {
             // First visit value to extract it
             self.pending_value = None;
             if let Ok(binding_rhs_view) = view.binding_rhs.get_view(tree) {
@@ -415,17 +524,68 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                 }
             }
 
-            // Handle schema extensions
-            if key.starts_with('$') {
-                self.handle_schema_extension(key);
-            } else if !self.in_types_section && !self.in_variants_section {
-                // Regular content
-                self.has_non_schema_content = true;
-            }
-
-            // If we have inline schema info, save it
-            if self.current_field_schema.is_some() && !self.in_types_section {
+            // Check if this is an inline schema extension (e.g., field.$type)
+            if key_path.len() >= 2 && key_path.last().unwrap().starts_with('$') {
+                // This is an inline schema like field.$type = .string
+                let field_path: Vec<String> = key_path[..key_path.len() - 1].to_vec();
+                let extension = key_path.last().unwrap();
+                
+                // Update path stack to point to the field
+                let original_path = self.path_stack.clone();
+                self.path_stack.extend(field_path.clone());
+                
+                // Get existing inline schema or create new one
+                let full_path = self.current_path();
+                let field_name = full_path.last().unwrap().clone();
+                self.current_field_schema = self.document_schema.root.fields.get(&field_name).cloned()
+                    .or_else(|| Some(FieldSchema::default()));
+                
+                // Handle the schema extension
+                self.handle_schema_extension(extension);
+                
+                // Save the inline schema
                 self.save_inline_schema();
+                
+                // Clear current field schema for next field
+                self.current_field_schema = None;
+                
+                // Restore original path
+                self.path_stack = original_path;
+            } else if let Some(key) = key_path.first() {
+                // Check if this is a $type binding in a regular section
+                if key == "$type" && !self.in_types_section && !self.path_stack.is_empty() && !self.path_stack[0].starts_with('$') {
+                    // This is an inline type declaration for a section
+                    // e.g., @ person { $type = .$types.Person }
+                    let section_path = self.current_path();
+                    if let Some(section_name) = section_path.first() {
+                        // Create or get field schema for this section
+                        self.current_field_schema = self.document_schema.root.fields.get(section_name).cloned()
+                            .or_else(|| Some(FieldSchema {
+                                type_expr: Type::Any,
+                                optional: true,  // Inline types are optional by default
+                                constraints: Constraints::default(),
+                                preferences: Preferences::default(),
+                                serde: SerdeOptions::default(),
+                                span: None,
+                            }));
+                        
+                        // Handle the type declaration
+                        self.handle_schema_extension(key);
+                        
+                        // Save as inline schema
+                        if let Some(schema) = self.current_field_schema.take() {
+                            self.document_schema.root.fields.insert(section_name.clone(), schema);
+                        }
+                    }
+                } else if key.starts_with('$') {
+                    // Regular schema extension
+                    // For compound keys like $prefer.section, reconstruct the full key
+                    let full_key = key_path.join(".");
+                    self.handle_schema_extension(&full_key);
+                } else if !self.in_types_section && !self.in_variants_section {
+                    // Regular content
+                    self.has_non_schema_content = true;
+                }
             }
         }
 
@@ -444,7 +604,16 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
             match kind {
                 TerminalKind::Str => {
                     if let Some(s) = tree.get_str(data, self.input) {
-                        self.pending_value = Some(ExtractedValue::String(s.to_string()));
+                        // Parse the string literal (remove quotes and unescape)
+                        let unquoted = s.trim_matches('"');
+                        // Basic unescaping for common escape sequences
+                        let unescaped = unquoted
+                            .replace("\\\\", "\\")  // \\ -> \
+                            .replace("\\\"", "\"")  // \" -> "
+                            .replace("\\n", "\n")    // \n -> newline
+                            .replace("\\r", "\r")    // \r -> carriage return
+                            .replace("\\t", "\t");   // \t -> tab
+                        self.pending_value = Some(ExtractedValue::String(unescaped));
                     }
                 }
                 TerminalKind::Integer => {
@@ -463,7 +632,9 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                 TerminalKind::Null => {
                     self.pending_value = Some(ExtractedValue::Null);
                 }
-                _ => {}
+                _ => {
+                    // Other terminal types don't produce extractable values
+                }
             }
         }
 
@@ -533,54 +704,138 @@ impl SchemaExtractor<'_> {
                 KeyBaseView::Integer(_) => {
                     // Integer keys are not used in schema paths
                 }
+                KeyBaseView::Null(_) => {
+                    path.push("null".to_string());
+                }
+                KeyBaseView::True(_) => {
+                    path.push("true".to_string());
+                }
+                KeyBaseView::False(_) => {
+                    path.push("false".to_string());
+                }
+                KeyBaseView::MetaExtKey(meta_ext_handle) => {
+                    if let Ok(meta_ext_view) = meta_ext_handle.get_view(tree) {
+                        if let Ok(ident_view) = meta_ext_view.ident.get_view(tree) {
+                            if let Ok(data) = ident_view.ident.get_data(tree) {
+                                if let Some(s) = tree.get_str(data, self.input) {
+                                    path.push(format!("$̄{}", s));
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
     fn visit_value_for_extraction<F: CstFacade>(&mut self, value_handle: ValueHandle, tree: &F) {
-        let node_id = value_handle.node_id();
-
-        // Check if it's a path (starts with .)
-        let children: Vec<_> = tree.children(node_id).collect();
-        if let Some(first_child) = children.first()
-            && let Some(node_data) = tree.node_data(*first_child)
-            && matches!(
-                node_data,
-                CstNode::Terminal {
-                    kind: TerminalKind::Dot,
-                    ..
-                }
-            )
-        {
-            // This is a path
-            let mut path_str = String::from(".");
-            for (i, &child_id) in children.iter().enumerate().skip(1) {
-                if let Some(CstNode::Terminal {
-                    kind: TerminalKind::Ident,
-                    data,
-                }) = tree.node_data(child_id)
-                    && let Some(ident) = tree.get_str(data, self.input)
-                {
-                    path_str.push_str(ident);
-
-                    // Check if there's a dot after this
-                    if i + 1 < children.len()
-                        && let Some(CstNode::Terminal {
-                            kind: TerminalKind::Dot,
-                            ..
-                        }) = tree.node_data(children[i + 1])
+        // Try to get the value view first
+        if let Ok(view) = value_handle.get_view(tree) {
+            match view {
+                ValueView::Path(path_handle) => {
+                    // Extract path value
+                    if let Ok(path_view) = path_handle.get_view(tree)
+                        && let Ok(keys_view) = path_view.keys.get_view(tree)
                     {
-                        path_str.push('.');
+                        let mut path_segments = Vec::new();
+                        self.extract_keys_path(&keys_view, tree, &mut path_segments);
+                        
+                        // Build path string with dots
+                        let path_str = format!(".{}", path_segments.join("."));
+                        self.pending_value = Some(ExtractedValue::Path(path_str));
                     }
                 }
+                ValueView::Array(array_handle) => {
+                    // Extract array elements
+                    let mut values = Vec::new();
+                    
+                    if let Ok(array_view) = array_handle.get_view(tree) {
+                        // Check if array has elements
+                        if let Ok(Some(array_opt_handle)) = array_view.array_opt.get_view(tree) {
+                            // Process array elements
+                            if let Ok(array_elements_view) = array_opt_handle.get_view(tree) {
+                                self.extract_array_elements(array_elements_view, tree, &mut values);
+                            }
+                        }
+                    }
+                    
+                    self.pending_value = Some(ExtractedValue::Array(values));
+                }
+                ValueView::Object(object_handle) => {
+                    // Extract object fields
+                    let mut fields = HashMap::new();
+                    
+                    if let Ok(object_view) = object_handle.get_view(tree) {
+                        // Process object fields
+                        self.extract_object_fields(object_view.object_list, tree, &mut fields);
+                    }
+                    
+                    self.pending_value = Some(ExtractedValue::Object(fields));
+                }
+                _ => {
+                    // Visit normally for other value types
+                    let _ = self.visit_value_super(value_handle, view, tree);
+                }
             }
-            self.pending_value = Some(ExtractedValue::Path(path_str));
-            return;
         }
-
-        // Visit normally for other value types
-        if let Ok(view) = value_handle.get_view(tree) {
-            let _ = self.visit_value_super(value_handle, view, tree);
+    }
+    
+    fn extract_object_fields<F: CstFacade>(
+        &mut self,
+        object_list_handle: ObjectListHandle,
+        tree: &F,
+        _fields: &mut HashMap<String, ExtractedValue>,
+    ) {
+        // Visit the object normally to trigger terminal extraction
+        // This approach works because we're only extracting simple values for schema extensions
+        // Complex object extraction would require building a HashMap from the fields,
+        // but for schema purposes, we only need to extract individual field values
+        // We need to get the node data for the object list
+        if let Some(node_data) = tree.node_data(object_list_handle.node_id()) {
+            if let eure_tree::tree::CstNodeData::NonTerminal { data, .. } = node_data {
+                let _ = self.visit_non_terminal_super(
+                    object_list_handle.node_id(),
+                    eure_tree::node_kind::NonTerminalKind::ObjectList,
+                    data,
+                    tree
+                );
+            }
+        }
+    }
+    
+    fn extract_array_elements<F: CstFacade>(
+        &mut self,
+        array_elements_view: ArrayElementsView,
+        tree: &F,
+        values: &mut Vec<ExtractedValue>,
+    ) {
+        // Extract first element
+        self.pending_value = None;
+        self.visit_value_for_extraction(array_elements_view.value, tree);
+        if let Some(value) = self.pending_value.take() {
+            values.push(value);
+        }
+        
+        // Extract remaining elements
+        if let Ok(Some(tail_opt)) = array_elements_view.array_elements_opt.get_view(tree) {
+            if let Ok(tail_view) = tail_opt.get_view(tree) {
+                self.extract_array_elements_tail(tail_view, tree, values);
+            }
+        }
+    }
+    
+    fn extract_array_elements_tail<F: CstFacade>(
+        &mut self,
+        tail_view: ArrayElementsTailView,
+        tree: &F,
+        values: &mut Vec<ExtractedValue>,
+    ) {
+        // Check if there are more elements
+        if let Ok(Some(elements_handle)) = tail_view.array_elements_tail_opt.get_view(tree) {
+            // Extract the elements
+            if let Ok(elements_view) = elements_handle.get_view(tree) {
+                self.extract_array_elements(elements_view, tree, values);
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ pub mod action;
 pub mod builder;
 pub mod common_visitors;
 pub mod constructors;
+#[allow(clippy::uninlined_format_args)]
 pub mod node_kind;
 pub mod nodes;
 pub mod tree;

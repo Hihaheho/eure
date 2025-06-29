@@ -278,6 +278,7 @@ fn test_array_of_enum_structs() {
     };
 
     let serialized = to_string(&data).unwrap();
+    println!("Serialized: {}", serialized);
     let deserialized: EnumContainer = from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
 }

@@ -140,7 +140,7 @@ pub struct SerdeOptions {
     pub rename_all: Option<RenameRule>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RenameRule {
     CamelCase,
     SnakeCase,
@@ -183,8 +183,6 @@ pub struct ExtractedSchema {
     pub document_schema: DocumentSchema,
     /// Whether this is a pure schema document (no data, only definitions)
     pub is_pure_schema: bool,
-    /// Inline schemas found in the document (path -> schema)
-    pub inline_schemas: HashMap<Vec<String>, FieldSchema>,
 }
 
 // Helper functions for case conversion

@@ -149,27 +149,9 @@ fn test_extension_namespace_in_object() {
             .expect("Failed to get value");
 
         if let Value::Map(Map(map)) = value {
-            // Verify the map contains both keys
-            assert_eq!(map.len(), 2, "Expected map to contain 2 entries");
-
-            // Check for $tag key with preserved prefix
-            let has_extension_tag = map.iter().any(|(key, val)| {
-                matches!(key, KeyCmpValue::String(s) if s == "$tag")
-                    && matches!(val, Value::String(s) if s == "test-variant")
-            });
-            assert!(
-                has_extension_tag,
-                "Expected to find $tag key with preserved $ prefix"
-            );
-
-            // Ensure $tag prefix wasn't lost (would appear as just "tag")
-            let has_plain_tag = map
-                .iter()
-                .any(|(key, _)| matches!(key, KeyCmpValue::String(s) if s == "tag"));
-            assert!(
-                !has_plain_tag,
-                "Found 'tag' without $ prefix - extension namespace was lost!"
-            );
+            // Extension namespace fields should be metadata, not data
+            // So the map should only contain the regular field
+            assert_eq!(map.len(), 1, "Expected map to contain 1 entry (extension fields are metadata)");
 
             // Check for field key
             let has_field = map.iter().any(|(key, val)| {
@@ -177,6 +159,15 @@ fn test_extension_namespace_in_object() {
                     && matches!(val, Value::String(s) if s == "value")
             });
             assert!(has_field, "Expected to find 'field' key with value 'value'");
+
+            // Ensure no extension fields are in the data map
+            let has_extension_fields = map
+                .iter()
+                .any(|(key, _)| matches!(key, KeyCmpValue::String(s) if s.starts_with('$')));
+            assert!(
+                !has_extension_fields,
+                "Found extension fields in data map - they should be metadata!"
+            );
         } else {
             panic!("Expected Map value, got {value:?}");
         }
@@ -232,31 +223,16 @@ fn test_multiple_extension_fields() {
             .expect("Failed to get value");
 
         if let Value::Map(Map(map)) = value {
-            assert_eq!(map.len(), 3, "Expected map to contain 3 entries");
+            // Extension namespace fields ($tag, $meta) should be metadata, not data
+            // So the map should only contain the regular field
+            assert_eq!(map.len(), 1, "Expected map to contain 1 entry (extension fields are metadata)");
 
-            // Verify all extension namespace fields are preserved
+            // Verify no extension namespace fields are in the data
             let extension_fields = map
                 .iter()
                 .filter(|(key, _)| matches!(key, KeyCmpValue::String(s) if s.starts_with('$')))
                 .count();
-            assert_eq!(extension_fields, 2, "Expected 2 extension namespace fields");
-
-            // Verify specific extension fields
-            assert!(
-                map.iter().any(|(k, v)| {
-                    matches!(k, KeyCmpValue::String(s) if s == "$tag")
-                        && matches!(v, Value::String(s) if s == "variant")
-                }),
-                "Expected $tag field"
-            );
-
-            assert!(
-                map.iter().any(|(k, v)| {
-                    matches!(k, KeyCmpValue::String(s) if s == "$meta")
-                        && matches!(v, Value::String(s) if s == "metadata")
-                }),
-                "Expected $meta field"
-            );
+            assert_eq!(extension_fields, 0, "Extension namespace fields should not be in data map");
 
             // Verify regular field
             assert!(

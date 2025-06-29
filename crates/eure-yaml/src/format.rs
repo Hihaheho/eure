@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, TypedString, Value, Variant};
 
 /// Format a Value as EURE syntax
 pub fn format_eure(value: &Value) -> String {
@@ -53,6 +53,26 @@ pub fn format_eure(value: &Value) -> String {
             format!("$variant: {}\n{}", format_string(tag), format_eure(content))
         }
         Value::Unit => "()".to_string(),
+        Value::Path(Path(segments)) => {
+            // Format path as dot-separated string
+            let path_str = segments.iter()
+                .map(|seg| match seg {
+                    PathSegment::Ident(id) => id.as_ref().to_string(),
+                    PathSegment::Extension(id) => format!("${}", id.as_ref()),
+                    PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
+                    PathSegment::Value(v) => format!("[{}]", format_key(v)),
+                    PathSegment::Array { key, index } => {
+                        if let Some(idx) = index {
+                            format!("{}[{}]", format_eure(key), format_eure(idx))
+                        } else {
+                            format!("{}[]", format_eure(key))
+                        }
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(".");
+            format!(".{}", path_str)
+        }
     }
 }
 
