@@ -143,6 +143,8 @@ impl<'a> SchemaValidator<'a> {
                 preferences: Preferences::default(),
                 serde: SerdeOptions::default(),
                 span: None,
+                default_value: None,
+                description: None,
             });
 
         Self {
@@ -973,9 +975,9 @@ impl SchemaValidator<'_> {
         value_handle: ValueHandle,
         tree: &F,
     ) -> Option<String> {
-        if let Ok(value_view) = value_handle.get_view(tree) {
-            if let ValueView::Strings(strings_handle) = value_view {
-                if let Ok(strings_view) = strings_handle.get_view(tree)
+        if let Ok(value_view) = value_handle.get_view(tree)
+            && let ValueView::Strings(strings_handle) = value_view
+                && let Ok(strings_view) = strings_handle.get_view(tree)
                     && let Ok(str_view) = strings_view.str.get_view(tree)
                     && let Ok(data) = str_view.str.get_data(tree)
                     && let Some(s) = tree.get_str(data, self.input)
@@ -984,8 +986,6 @@ impl SchemaValidator<'_> {
                     let unquoted = s.trim_matches('"');
                     return Some(unquoted.to_string());
                 }
-            }
-        }
         None
     }
 
@@ -994,17 +994,15 @@ impl SchemaValidator<'_> {
         value_handle: ValueHandle,
         tree: &F,
     ) -> Option<f64> {
-        if let Ok(value_view) = value_handle.get_view(tree) {
-            if let ValueView::Integer(integer_handle) = value_view {
-                if let Ok(integer_view) = integer_handle.get_view(tree)
+        if let Ok(value_view) = value_handle.get_view(tree)
+            && let ValueView::Integer(integer_handle) = value_view
+                && let Ok(integer_view) = integer_handle.get_view(tree)
                     && let Ok(data) = integer_view.integer.get_data(tree)
                     && let Some(s) = tree.get_str(data, self.input)
                     && let Ok(n) = s.parse::<f64>()
                 {
                     return Some(n);
                 }
-            }
-        }
         None
     }
 

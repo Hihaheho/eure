@@ -14,3 +14,21 @@ eure-tree = { path = "../eure-tree" }
 serde_json = "1.0"
 regex = "1.11"
 eure-parol = { path = "../eure-parol" }
+indexmap = { version = "2.0", features = ["serde"] }
+
+# Optional dependencies for external crate support
+chrono = { version = "0.4", optional = true }
+uuid = { version = "1.0", optional = true }
+url = { version = "2.0", optional = true }
+semver = { version = "1.0", optional = true }
+
+# Optional derive macro support
+eure-derive = { path = "../eure-derive", optional = true }
+
+[features]
+default = []
+chrono = ["dep:chrono"]
+uuid = ["dep:uuid"]
+url = ["dep:url"]
+semver = ["dep:semver"]
+derive = ["dep:eure-derive"]

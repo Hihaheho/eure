@@ -18,6 +18,7 @@ eure-template = { path = "crates/eure-template", version = "0.1.0" }
 eure-value = { path = "crates/eure-value", version = "0.1.0" }
 eure-tree = { path = "crates/eure-tree", version = "0.1.0" }
 eure-editor-support = { path = "crates/eure-editor-support", version = "0.1.0" }
+eure-derive = { path = "crates/eure-derive", version = "0.1.0" }
 
 parol_runtime = { git = "https://github.com/ryo33/parol.git", package = "parol_runtime", branch = "parse2" }
 parol = { git = "https://github.com/ryo33/parol.git", package = "parol", branch = "parse2" }
