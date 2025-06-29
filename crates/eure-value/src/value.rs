@@ -21,6 +21,7 @@ pub enum Value {
     Map(Map),
     Variant(Variant),
     Unit,
+    Path(Path),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -40,10 +41,17 @@ pub struct Path(pub Vec<PathSegment>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathSegment {
-    Ident(Identifier),     // Regular identifiers like id, description
-    Extension(Identifier), // Extension namespace fields starting with $ like $eure, $variant
+    /// Regular identifiers like id, description
+    Ident(Identifier),
+    /// Extension namespace fields starting with $ like $eure, $variant
+    Extension(Identifier),
+    /// MetaExtKey uses $$ prefix, e.g., $$eure, $$variant
+    MetaExt(Identifier),
     Value(KeyCmpValue),
-    Array { key: Value, index: Option<Value> },
+    Array {
+        key: Value,
+        index: Option<Value>,
+    },
 }
 
 // A simplified path representation that can be used as a HashMap key

@@ -73,6 +73,26 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
             format_value(output, content, 0);
         }
         Value::Unit => output.push_str("()"),
+        Value::Path(path) => {
+            // Format path with dot notation
+            output.push('.');
+            let segments: Vec<String> = path.0.iter()
+                .map(|seg| match seg {
+                    eure_value::value::PathSegment::Ident(id) => id.as_ref().to_string(),
+                    eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
+                    eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
+                    eure_value::value::PathSegment::Value(v) => format!("{:?}", v),
+                    eure_value::value::PathSegment::Array { key, index } => {
+                        if let Some(idx) = index {
+                            format!("{:?}[{:?}]", key, idx)
+                        } else {
+                            format!("{:?}[]", key)
+                        }
+                    }
+                })
+                .collect();
+            output.push_str(&segments.join("."));
+        }
     }
 }
 

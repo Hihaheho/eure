@@ -189,6 +189,14 @@ fn process_sections<F: eure_tree::prelude::CstFacade>(
                         input,
                     );
                 }
+                SectionBodyView::Bind(bind_handle) => {
+                    // Handle "Bind Value" case - this is a value assignment to the section
+                    if let Ok(_bind_view) = bind_handle.get_view(tree) {
+                        // The section itself has a value, treat it as a special key
+                        // This would be something like: @ section = value
+                        // For now, we'll skip this case as it's not commonly used
+                    }
+                }
             }
         }
 
@@ -413,15 +421,15 @@ fn transform_variants(value: Value) -> Value {
     match value {
         Value::Map(Map(mut map)) => {
             let variant_name = map
-                .get(&KeyCmpValue::String("variant".to_string()))
+                .get(&KeyCmpValue::String("$variant".to_string()))
                 .and_then(|v| match v {
                     Value::String(s) => Some(s.clone()),
                     _ => None,
                 });
 
             if let Some(name) = variant_name {
-                map.remove(&KeyCmpValue::String("variant".to_string()));
-                map.remove(&KeyCmpValue::String("variant.repr".to_string()));
+                map.remove(&KeyCmpValue::String("$variant".to_string()));
+                map.remove(&KeyCmpValue::String("$variant.repr".to_string()));
 
                 let mut transformed_map = ahash::AHashMap::new();
                 for (key, val) in map {
@@ -470,6 +478,26 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::Map(_) => self.deserialize_map(visitor),
             Value::Variant(_) => self.deserialize_enum("", &[], visitor),
             Value::Unit => visitor.visit_unit(),
+            Value::Path(path) => {
+                // Convert path to string representation
+                let path_str = path.0.iter()
+                    .map(|seg| match seg {
+                        eure_value::value::PathSegment::Ident(id) => id.as_ref().to_string(),
+                        eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
+                        eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
+                        eure_value::value::PathSegment::Value(v) => format!("{:?}", v),
+                        eure_value::value::PathSegment::Array { key, index } => {
+                            if let Some(idx) = index {
+                                format!("{:?}[{:?}]", key, idx)
+                            } else {
+                                format!("{:?}[]", key)
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(".");
+                visitor.visit_string(format!(".{}", path_str))
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 use ahash::AHashMap;
 use eure_value::{
     identifier::Identifier, value::Array, value::Code, value::KeyCmpValue, value::Map,
-    value::PathSegment, value::Tuple, value::TypedString, value::Value,
+    value::Path, value::PathSegment, value::Tuple, value::TypedString, value::Value,
 };
 use std::str::FromStr;
 use thiserror::Error;
@@ -102,6 +102,26 @@ pub enum ValueVisitorError {
     InvalidString(String),
 }
 
+// Helper function to convert KeyCmpValue to Value recursively
+fn convert_key_cmp_value_to_value(v: &KeyCmpValue) -> Value {
+    match v {
+        KeyCmpValue::Null => Value::Null,
+        KeyCmpValue::Bool(b) => Value::Bool(*b),
+        KeyCmpValue::I64(i) => Value::I64(*i),
+        KeyCmpValue::U64(u) => Value::U64(*u),
+        KeyCmpValue::String(s) => Value::String(s.clone()),
+        KeyCmpValue::Tuple(t) => {
+            // Preserve tuple type - EURE has first-class tuple support
+            Value::Tuple(Tuple(
+                t.0.iter()
+                    .map(|v| convert_key_cmp_value_to_value(v))
+                    .collect(),
+            ))
+        }
+        KeyCmpValue::Unit => Value::Unit,
+    }
+}
+
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     type Error = ValueVisitorError;
 
@@ -169,6 +189,33 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     }
                 }
             }
+            KeyBaseView::MetaExtKey(meta_ext_key_handle) => {
+                let meta_ext_key_view = meta_ext_key_handle.get_view(tree)?;
+                // MetaExtKey uses $$ prefix, e.g., $$eure, $$variant
+                if let Some(identifier) = self.values.ident_handles.get(&meta_ext_key_view.ident) {
+                    PathSegment::MetaExt(identifier.clone())
+                } else {
+                    // Need to visit the identifier first
+                    let ident_view = meta_ext_key_view.ident.get_view(tree)?;
+                    self.visit_ident(meta_ext_key_view.ident, ident_view, tree)?;
+                    if let Some(identifier) =
+                        self.values.ident_handles.get(&meta_ext_key_view.ident)
+                    {
+                        PathSegment::MetaExt(identifier.clone())
+                    } else {
+                        return Ok(());
+                    }
+                }
+            }
+            KeyBaseView::Null(_) => {
+                PathSegment::Ident(Identifier::from_str("null").unwrap())
+            }
+            KeyBaseView::True(_) => {
+                PathSegment::Ident(Identifier::from_str("true").unwrap())
+            }
+            KeyBaseView::False(_) => {
+                PathSegment::Ident(Identifier::from_str("false").unwrap())
+            }
         };
 
         // Handle array indexing if present
@@ -201,6 +248,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let key_value = match &path_segment {
                 PathSegment::Ident(ident) => Value::String(ident.to_string()),
                 PathSegment::Extension(ident) => Value::String(ident.to_string()),
+                PathSegment::MetaExt(ident) => Value::String(ident.to_string()),
                 PathSegment::Value(val) => match val {
                     KeyCmpValue::Null => Value::Null,
                     KeyCmpValue::Bool(b) => Value::Bool(*b),
@@ -209,15 +257,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     KeyCmpValue::String(s) => Value::String(s.clone()),
                     KeyCmpValue::Tuple(t) => Value::Tuple(Tuple(
                         t.0.iter()
-                            .map(|v| match v {
-                                KeyCmpValue::Null => Value::Null,
-                                KeyCmpValue::Bool(b) => Value::Bool(*b),
-                                KeyCmpValue::I64(i) => Value::I64(*i),
-                                KeyCmpValue::U64(u) => Value::U64(*u),
-                                KeyCmpValue::String(s) => Value::String(s.clone()),
-                                KeyCmpValue::Tuple(_) => Value::Null, // Nested tuples not supported
-                                KeyCmpValue::Unit => Value::Unit,
-                            })
+                            .map(|v| convert_key_cmp_value_to_value(v))
                             .collect(),
                     )),
                     KeyCmpValue::Unit => Value::Unit,
@@ -402,10 +442,107 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 Value::TypedString(TypedString { type_name, value })
             }
             ValueView::Hole(_hole_handle) => {
-                // Hole represents a placeholder value "!"
-                // We've overridden visit_hole to do nothing, so we can skip the handle call
-                // For now, we'll represent it as Unit
+                // Hole represents a placeholder value "!" in EURE
+                // It indicates a value that needs to be filled in later
+                // Similar to undefined/null in other languages
+                // We represent it as Unit (the empty value type)
                 Value::Unit
+            }
+            ValueView::Path(path_handle) => {
+                let path_view = path_handle.get_view(tree)?;
+                
+                // A path starts with a dot followed by keys
+                // Extract the keys to build path segments
+                let mut segments = Vec::new();
+                
+                if let Ok(keys_view) = path_view.keys.get_view(tree) {
+                    // First key
+                    if let Ok(key_view) = keys_view.key.get_view(tree) {
+                        if let Ok(key_base_view) = key_view.key_base.get_view(tree) {
+                            match key_base_view {
+                                KeyBaseView::Ident(ident_handle) => {
+                                    if let Ok(ident_view) = ident_handle.get_view(tree) {
+                                        if let Ok(data) = ident_view.ident.get_data(tree) {
+                                            if let Some(s) = tree.get_str(data, self.input) {
+                                                segments.push(PathSegment::Ident(Identifier::from_str(s).unwrap()));
+                                            }
+                                        }
+                                    }
+                                }
+                                KeyBaseView::ExtensionNameSpace(ext_handle) => {
+                                    if let Ok(ext_view) = ext_handle.get_view(tree) {
+                                        if let Ok(ident_view) = ext_view.ident.get_view(tree) {
+                                            if let Ok(data) = ident_view.ident.get_data(tree) {
+                                                if let Some(s) = tree.get_str(data, self.input) {
+                                                    segments.push(PathSegment::Extension(Identifier::from_str(s).unwrap()));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                KeyBaseView::Null(_) => {
+                                    segments.push(PathSegment::Ident(Identifier::from_str("null").unwrap()));
+                                }
+                                KeyBaseView::True(_) => {
+                                    segments.push(PathSegment::Ident(Identifier::from_str("true").unwrap()));
+                                }
+                                KeyBaseView::False(_) => {
+                                    segments.push(PathSegment::Ident(Identifier::from_str("false").unwrap()));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    
+                    // Additional keys
+                    if let Ok(Some(mut keys_list)) = keys_view.keys_list.get_view(tree) {
+                        loop {
+                            if let Ok(key_view) = keys_list.key.get_view(tree) {
+                                if let Ok(key_base_view) = key_view.key_base.get_view(tree) {
+                                    match key_base_view {
+                                        KeyBaseView::Ident(ident_handle) => {
+                                            if let Ok(ident_view) = ident_handle.get_view(tree) {
+                                                if let Ok(data) = ident_view.ident.get_data(tree) {
+                                                    if let Some(s) = tree.get_str(data, self.input) {
+                                                        segments.push(PathSegment::Ident(Identifier::from_str(s).unwrap()));
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        KeyBaseView::ExtensionNameSpace(ext_handle) => {
+                                            if let Ok(ext_view) = ext_handle.get_view(tree) {
+                                                if let Ok(ident_view) = ext_view.ident.get_view(tree) {
+                                                    if let Ok(data) = ident_view.ident.get_data(tree) {
+                                                        if let Some(s) = tree.get_str(data, self.input) {
+                                                            segments.push(PathSegment::Extension(Identifier::from_str(s).unwrap()));
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        KeyBaseView::Null(_) => {
+                                            segments.push(PathSegment::Ident(Identifier::from_str("null").unwrap()));
+                                        }
+                                        KeyBaseView::True(_) => {
+                                            segments.push(PathSegment::Ident(Identifier::from_str("true").unwrap()));
+                                        }
+                                        KeyBaseView::False(_) => {
+                                            segments.push(PathSegment::Ident(Identifier::from_str("false").unwrap()));
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            
+                            match keys_list.keys_list.get_view(tree) {
+                                Ok(Some(next)) => keys_list = next,
+                                _ => break,
+                            }
+                        }
+                    }
+                }
+                
+                Value::Path(Path(segments))
             }
         };
 
@@ -749,16 +886,10 @@ impl<'a> ValueVisitor<'a> {
                     Err(ValueVisitorError::InvalidInteger(text.to_string()))
                 }
             }
-            KeyBaseView::ExtensionNameSpace(ext_ns_handle) => {
-                let ext_ns_view = ext_ns_handle.get_view(tree)?;
-                // Extension namespace uses $ prefix, e.g., $eure, $variant
-                if let Some(identifier) = self.values.ident_handles.get(&ext_ns_view.ident) {
-                    // Preserve the $ prefix when converting to a string key
-                    Ok(Some(KeyCmpValue::String(format!("${identifier}"))))
-                } else {
-                    Ok(None)
-                }
-            }
+            KeyBaseView::MetaExtKey(_) | KeyBaseView::ExtensionNameSpace(_) => Ok(None),
+            KeyBaseView::Null(_) => Ok(Some(KeyCmpValue::String("null".to_string()))),
+            KeyBaseView::True(_) => Ok(Some(KeyCmpValue::String("true".to_string()))),
+            KeyBaseView::False(_) => Ok(Some(KeyCmpValue::String("false".to_string())))
         }
     }
 }

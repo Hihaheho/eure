@@ -1789,6 +1789,12 @@ dependencies = [
 [[package]]
 name = "eure-schema"
 version = "0.1.0"
+dependencies = [
+ "eure-parol",
+ "eure-tree",
+ "regex",
+ "serde_json",
+]
 
 [[package]]
 name = "eure-template"

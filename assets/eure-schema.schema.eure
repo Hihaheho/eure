@@ -1,0 +1,78 @@
+@ $cascade-type.$union[] = .$types.expr
+@ $cascade-type.$union[]
+$$optional = .boolean
+$$optional.$optional = true
+$$prefer {
+  section = .boolean
+  section.$optional = true
+  $optional = true
+}
+$$serde.rename = .string
+$$serde.rename.$optional = true
+$$serde.rename-all.$union[].$literal = "camelCase"
+$$serde.rename-all.$union[].$literal = "snake_case"
+$$serde.rename-all.$union[].$literal = "kebab-case"
+$$serde.rename-all.$union[].$literal = "PascalCase"
+$$serde.rename-all.$union[].$literal = "lowercase"
+$$serde.rename-all.$union[].$literal = "UPPERCASE"
+
+@ $types.type {
+  # NOTE: `@ <keys> = <value>` will be introduced as new syntax called inline section
+  # path type
+  @ $union[].$literal = .path # In contrast to $variants, that is map, this is array since union types.
+
+  # string type
+  @ $union[].$literal = .string
+
+  # There should be more primitive types here
+
+  # NOTE: `$$` will be newly introduced as new syntax which called meta extension. It's talks about an extension in meta level.
+  # array type
+  @ $union[].$$array.$type = .$types.type # recursive type
+
+  # map type
+  @ $union[].$$map
+  key.$type = .$types.type # map is also recursive type
+  value.$type = .$types.type
+
+  # any
+  @ $union[].$literal = .any
+
+  # variants type
+  @ $union[].$$variants
+  $key = .ident
+  $value = .$types.type
+  $$variant-repr.union[] = { $literal = "untagged" } # untagged variant
+  $$variant-repr.union[] = { tag = .string } # internally tagged
+  $$variant-repr.union[] = { tag = .string, content = .string } # adjacently tagged
+  $$variant-repr.union[] = { $literal = "external" } # external tagged
+  $$variant-repr.$optional = true # the default representation is externally tagged
+
+  # cascade type that cascades this type to all descendant keys (not including extensions of course)
+  @ $union[].$$cascade-type = .$types.type
+
+  # expr-based type
+  @ $union[].$cascade-type = .$types.expr
+
+  # json-schema type
+  @ $union[].$$json-schema.$union = [.any, .code.json.json-schema, .code.yaml.json-schema]
+}
+
+@ $types.expr {
+  # normal type
+  @ $union[]
+  $type = .$types.type
+
+  # literal type
+  @ $union[]
+  $$literal = .value
+
+  # inlined array type
+  @ $union[]
+  $$array = .$types.type
+
+  # inlined map type
+  @ $union[]
+  $$key = .$types.type
+  $$value = .$types.type
+}
