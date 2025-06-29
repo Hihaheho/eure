@@ -6,10 +6,19 @@
 mod schema;
 mod extractor;
 mod validator;
+mod impls;
+mod builder;
+mod utils;
 
 pub use schema::*;
 pub use extractor::SchemaExtractor;
 pub use validator::{SchemaValidator, ValidationError, ValidationErrorKind, Severity};
+pub use builder::{FieldSchemaBuilder, TypeBuilder, ObjectSchemaBuilder, VariantSchemaBuilder};
+pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case};
+
+// Re-export the derive macro if the feature is enabled
+#[cfg(feature = "derive")]
+pub use eure_derive::Eure;
 
 
 /// Result of validating a self-describing document

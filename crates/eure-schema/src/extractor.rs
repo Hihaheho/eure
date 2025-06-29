@@ -364,7 +364,6 @@ impl<'a> SchemaExtractor<'a> {
             self.document_schema.types.insert(name, schema);
         }
     }
-
 }
 
 impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
@@ -556,6 +555,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                     preferences: Preferences::default(),
                                     serde: SerdeOptions::default(),
                                     span: None,
+                                    default_value: None,
+                                    description: None,
                                 });
                                 
                                 // Save the current field schema in the types map immediately
@@ -659,6 +660,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                     preferences: Preferences::default(),
                                     serde: SerdeOptions::default(),
                                     span: None,
+                                    default_value: None,
+                                    description: None,
                                 });
                             
                             // Ensure it's an object type
@@ -771,6 +774,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                                     preferences: Preferences::default(),
                                                     serde: SerdeOptions::default(),
                                                     span: None,
+                                                    default_value: None,
+                                                    description: None,
                                                 });
                                             
                                             // Ensure it's an object type
@@ -807,6 +812,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                 preferences: Preferences::default(),
                                 serde: SerdeOptions::default(),
                                 span: None,
+                                default_value: None,
+                                description: None,
                             }));
                         
                         // Handle the type declaration
@@ -846,6 +853,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                                     preferences: Preferences::default(),
                                                     serde: SerdeOptions::default(),
                                                     span: None,
+                                                    default_value: None,
+                                                    description: None,
                                                 };
                                                 object_schema.fields.insert(field_name, field);
                                             }
@@ -962,6 +971,8 @@ impl SchemaExtractor<'_> {
                         preferences: Preferences::default(),
                         serde: SerdeOptions::default(),
                         span: None,
+                        default_value: None,
+                        description: None,
                     });
                 
                 // Ensure it's an object type
@@ -979,6 +990,8 @@ impl SchemaExtractor<'_> {
                         preferences: Preferences::default(),
                         serde: SerdeOptions::default(),
                         span: None,
+                        default_value: None,
+                        description: None,
                     };
                     obj_schema.fields.insert(field_name, field_schema);
                 }
@@ -995,6 +1008,8 @@ impl SchemaExtractor<'_> {
                     preferences: Preferences::default(),
                     serde: SerdeOptions::default(),
                     span: None,
+                    default_value: None,
+                    description: None,
                 };
                 self.document_schema.root.fields.insert(field_name.clone(), field_schema);
             } else {
@@ -1013,6 +1028,8 @@ impl SchemaExtractor<'_> {
                         preferences: Preferences::default(),
                         serde: SerdeOptions::default(),
                         span: None,
+                        default_value: None,
+                        description: None,
                     });
 
                 // Ensure it's an object type
@@ -1037,6 +1054,8 @@ impl SchemaExtractor<'_> {
                         preferences: Preferences::default(),
                         serde: SerdeOptions::default(),
                         span: None,
+                        default_value: None,
+                        description: None,
                     };
                     
                     // Use a recursive helper to navigate and create the path
@@ -1064,6 +1083,8 @@ impl SchemaExtractor<'_> {
                                     preferences: Preferences::default(),
                                     serde: SerdeOptions::default(),
                                     span: None,
+                                    default_value: None,
+                                    description: None,
                                 });
                             
                             // Ensure it's an object type
