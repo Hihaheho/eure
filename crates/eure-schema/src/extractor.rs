@@ -374,6 +374,8 @@ impl<'a> SchemaExtractor<'a> {
                             rename_all: schema.serde.rename_all.or(existing.serde.rename_all),
                         },
                         span: schema.span.or(existing.span),
+                        default_value: None,
+                        description: None,
                     }
                 } else {
                     schema
@@ -566,6 +568,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                 preferences: Preferences::default(),
                                 serde: SerdeOptions::default(),
                                 span: None,
+                                default_value: None,
+                                description: None,
                             }));
                         
                         // Handle the type declaration

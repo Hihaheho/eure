@@ -1,7 +1,7 @@
 //! Schema representation types for EURE documents
 
 use eure_tree::tree::InputSpan;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 /// Core type representation in EURE schema
 #[derive(Debug, Clone, PartialEq)]
@@ -49,7 +49,7 @@ pub enum TypedStringKind {
 /// Schema for object types
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ObjectSchema {
-    pub fields: HashMap<String, FieldSchema>,
+    pub fields: IndexMap<String, FieldSchema>,
     pub additional_properties: Option<Box<Type>>,
 }
 
@@ -62,6 +62,8 @@ pub struct FieldSchema {
     pub preferences: Preferences,
     pub serde: SerdeOptions,
     pub span: Option<InputSpan>,
+    pub default_value: Option<serde_json::Value>,
+    pub description: Option<String>,
 }
 
 impl Default for FieldSchema {
@@ -73,6 +75,8 @@ impl Default for FieldSchema {
             preferences: Preferences::default(),
             serde: SerdeOptions::default(),
             span: None,
+            default_value: None,
+            description: None,
         }
     }
 }
@@ -80,7 +84,7 @@ impl Default for FieldSchema {
 /// Schema for variant types (tagged unions)
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariantSchema {
-    pub variants: HashMap<String, ObjectSchema>,
+    pub variants: IndexMap<String, ObjectSchema>,
     pub representation: VariantRepr,
 }
 
@@ -152,6 +156,7 @@ pub enum RenameRule {
 
 impl RenameRule {
     pub fn apply(&self, name: &str) -> String {
+        use crate::utils::*;
         match self {
             Self::CamelCase => to_camel_case(name),
             Self::SnakeCase => to_snake_case(name),
@@ -167,7 +172,7 @@ impl RenameRule {
 #[derive(Debug, Clone, Default)]
 pub struct DocumentSchema {
     /// Type definitions in $types namespace
-    pub types: HashMap<String, FieldSchema>,
+    pub types: IndexMap<String, FieldSchema>,
     /// Schema for root object
     pub root: ObjectSchema,
     /// Type that cascades to all descendants
@@ -185,70 +190,6 @@ pub struct ExtractedSchema {
     pub is_pure_schema: bool,
 }
 
-// Helper functions for case conversion
-fn to_camel_case(s: &str) -> String {
-    let mut result = String::new();
-    let mut capitalize_next = false;
-
-    for (i, ch) in s.chars().enumerate() {
-        if ch == '_' || ch == '-' {
-            capitalize_next = true;
-        } else if capitalize_next {
-            result.push(ch.to_uppercase().next().unwrap());
-            capitalize_next = false;
-        } else if i == 0 {
-            result.push(ch.to_lowercase().next().unwrap());
-        } else {
-            result.push(ch);
-        }
-    }
-
-    result
-}
-
-fn to_snake_case(s: &str) -> String {
-    let mut result = String::new();
-
-    for (i, ch) in s.chars().enumerate() {
-        if i > 0 && ch.is_uppercase() {
-            result.push('_');
-        }
-        result.push(ch.to_lowercase().next().unwrap());
-    }
-
-    result.replace('-', "_")
-}
-
-fn to_pascal_case(s: &str) -> String {
-    let mut result = String::new();
-    let mut capitalize_next = true;
-
-    for ch in s.chars() {
-        if ch == '_' || ch == '-' {
-            capitalize_next = true;
-        } else if capitalize_next {
-            result.push(ch.to_uppercase().next().unwrap());
-            capitalize_next = false;
-        } else {
-            result.push(ch);
-        }
-    }
-
-    result
-}
-
-fn to_kebab_case(s: &str) -> String {
-    let mut result = String::new();
-
-    for (i, ch) in s.chars().enumerate() {
-        if i > 0 && ch.is_uppercase() {
-            result.push('-');
-        }
-        result.push(ch.to_lowercase().next().unwrap());
-    }
-
-    result.replace('_', "-")
-}
 
 impl Type {
     /// Parse a type from a path string (e.g., ".string", ".$types.username")
@@ -299,6 +240,36 @@ impl Type {
             (Type::Union(types), other) => types.iter().any(|t| t.is_compatible_with(other)),
             (other, Type::Union(types)) => types.iter().any(|t| other.is_compatible_with(t)),
             (a, b) => a == b,
+        }
+    }
+}
+
+/// Trait for types that can generate their own EURE schema
+pub trait ToEureSchema {
+    /// Generate the EURE schema for this type
+    fn eure_schema() -> FieldSchema;
+    
+    /// Optional: Return the type name for named types
+    fn type_name() -> Option<&'static str> {
+        None
+    }
+    
+    /// Generate schema for use as a field type (may return TypeRef to prevent recursion)
+    fn eure_field_schema() -> FieldSchema {
+        // By default, check if this is a named type and return a TypeRef
+        if let Some(name) = Self::type_name() {
+            FieldSchema {
+                type_expr: Type::TypeRef(name.to_string()),
+                optional: false,
+                constraints: Default::default(),
+                preferences: Default::default(),
+                serde: Default::default(),
+                span: None,
+                default_value: None,
+                description: None,
+            }
+        } else {
+            Self::eure_schema()
         }
     }
 }

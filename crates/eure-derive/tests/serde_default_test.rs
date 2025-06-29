@@ -1,0 +1,112 @@
+use eure_derive::Eure;
+use eure_schema::{ToEureSchema, Type};
+use serde::{Serialize, Deserialize};
+
+#[test]
+fn test_field_level_default() {
+    #[derive(Eure, Serialize, Deserialize)]
+    struct Config {
+        host: String,
+        #[serde(default)]
+        port: u16,
+        #[serde(default)]
+        debug: bool,
+        #[serde(default)]
+        timeout: u64,
+    }
+    
+    let schema = Config::eure_schema();
+    
+    if let Type::Object(obj_schema) = &schema.type_expr {
+        // host is required (not optional)
+        assert!(!obj_schema.fields["host"].optional);
+        
+        // Fields with serde(default) should be optional
+        assert!(obj_schema.fields["port"].optional);
+        assert!(obj_schema.fields["debug"].optional);
+        assert!(obj_schema.fields["timeout"].optional);
+    } else {
+        panic!("Expected object schema");
+    }
+}
+
+#[test]
+fn test_container_level_default() {
+    #[derive(Default, Eure, Serialize, Deserialize)]
+    #[serde(default)]
+    struct Settings {
+        name: String,
+        value: i32,
+        enabled: bool,
+    }
+    
+    let schema = Settings::eure_schema();
+    
+    if let Type::Object(obj_schema) = &schema.type_expr {
+        // All fields should be optional when container has #[serde(default)]
+        assert!(obj_schema.fields["name"].optional);
+        assert!(obj_schema.fields["value"].optional);
+        assert!(obj_schema.fields["enabled"].optional);
+    } else {
+        panic!("Expected object schema");
+    }
+}
+
+#[test]
+fn test_mixed_default_and_option() {
+    #[derive(Eure, Serialize, Deserialize)]
+    struct User {
+        id: u64,
+        #[serde(default)]
+        name: String,
+        email: Option<String>,
+        #[serde(default)]
+        age: Option<u32>,
+    }
+    
+    let schema = User::eure_schema();
+    
+    if let Type::Object(obj_schema) = &schema.type_expr {
+        // id is required
+        assert!(!obj_schema.fields["id"].optional);
+        
+        // name has default, so it's optional
+        assert!(obj_schema.fields["name"].optional);
+        assert_eq!(obj_schema.fields["name"].type_expr, Type::String);
+        
+        // email is Option, so it's optional
+        assert!(obj_schema.fields["email"].optional);
+        assert_eq!(obj_schema.fields["email"].type_expr, Type::String);
+        
+        // age is both Option and has default, still optional
+        assert!(obj_schema.fields["age"].optional);
+        assert_eq!(obj_schema.fields["age"].type_expr, Type::Number);
+    } else {
+        panic!("Expected object schema");
+    }
+}
+
+#[test]
+fn test_container_default_with_skip() {
+    #[derive(Default, Eure, Serialize, Deserialize)]
+    #[serde(default)]
+    struct Data {
+        value: String,
+        count: u32,
+        #[serde(skip)]
+        internal: String,
+    }
+    
+    let schema = Data::eure_schema();
+    
+    if let Type::Object(obj_schema) = &schema.type_expr {
+        // Container default makes all fields optional
+        assert!(obj_schema.fields["value"].optional);
+        assert!(obj_schema.fields["count"].optional);
+        
+        // Skipped field shouldn't appear
+        assert!(!obj_schema.fields.contains_key("internal"));
+    } else {
+        panic!("Expected object schema");
+    }
+}
