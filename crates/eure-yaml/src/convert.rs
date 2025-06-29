@@ -95,18 +95,18 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
                     PathSegment::Ident(id) => id.as_ref().to_string(),
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
                     PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
-                    PathSegment::Value(v) => format!("[{:?}]", v),
+                    PathSegment::Value(v) => format!("[{v:?}]"),
                     PathSegment::Array { key, index } => {
                         if let Some(idx) = index {
-                            format!("{:?}[{:?}]", key, idx)
+                            format!("{key:?}[{idx:?}]")
                         } else {
-                            format!("{:?}[]", key)
+                            format!("{key:?}[]")
                         }
                     }
                 })
                 .collect::<Vec<_>>()
                 .join(".");
-            Ok(YamlValue::String(format!(".{}", path_str)))
+            Ok(YamlValue::String(format!(".{path_str}")))
         }
     }
 }

@@ -461,11 +461,10 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
             
             if let Some(field_schema) = self.current_field_schema.take() {
                 // Add field to the object type
-                if let Some(type_def) = self.document_schema.types.get_mut(type_name) {
-                    if let Type::Object(ref mut obj_schema) = type_def.type_expr {
+                if let Some(type_def) = self.document_schema.types.get_mut(type_name)
+                    && let Type::Object(ref mut obj_schema) = type_def.type_expr {
                         obj_schema.fields.insert(field_name.clone(), field_schema);
                     }
-                }
             }
         }
 
@@ -474,7 +473,7 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
             self.path_stack.pop();
         }
 
-        if self.in_types_section && (self.path_stack.is_empty() || self.path_stack.get(0).map(|s| s.as_str()) != Some("$types")) {
+        if self.in_types_section && (self.path_stack.is_empty() || self.path_stack.first().map(|s| s.as_str()) != Some("$types")) {
             self.in_types_section = false;
         }
 
@@ -714,15 +713,12 @@ impl SchemaExtractor<'_> {
                     path.push("false".to_string());
                 }
                 KeyBaseView::MetaExtKey(meta_ext_handle) => {
-                    if let Ok(meta_ext_view) = meta_ext_handle.get_view(tree) {
-                        if let Ok(ident_view) = meta_ext_view.ident.get_view(tree) {
-                            if let Ok(data) = ident_view.ident.get_data(tree) {
-                                if let Some(s) = tree.get_str(data, self.input) {
-                                    path.push(format!("$̄{}", s));
+                    if let Ok(meta_ext_view) = meta_ext_handle.get_view(tree)
+                        && let Ok(ident_view) = meta_ext_view.ident.get_view(tree)
+                            && let Ok(data) = ident_view.ident.get_data(tree)
+                                && let Some(s) = tree.get_str(data, self.input) {
+                                    path.push(format!("$̄{s}"));
                                 }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -791,8 +787,8 @@ impl SchemaExtractor<'_> {
         // Complex object extraction would require building a HashMap from the fields,
         // but for schema purposes, we only need to extract individual field values
         // We need to get the node data for the object list
-        if let Some(node_data) = tree.node_data(object_list_handle.node_id()) {
-            if let eure_tree::tree::CstNodeData::NonTerminal { data, .. } = node_data {
+        if let Some(node_data) = tree.node_data(object_list_handle.node_id())
+            && let eure_tree::tree::CstNodeData::NonTerminal { data, .. } = node_data {
                 let _ = self.visit_non_terminal_super(
                     object_list_handle.node_id(),
                     eure_tree::node_kind::NonTerminalKind::ObjectList,
@@ -800,7 +796,6 @@ impl SchemaExtractor<'_> {
                     tree
                 );
             }
-        }
     }
     
     fn extract_array_elements<F: CstFacade>(
@@ -817,11 +812,10 @@ impl SchemaExtractor<'_> {
         }
         
         // Extract remaining elements
-        if let Ok(Some(tail_opt)) = array_elements_view.array_elements_opt.get_view(tree) {
-            if let Ok(tail_view) = tail_opt.get_view(tree) {
+        if let Ok(Some(tail_opt)) = array_elements_view.array_elements_opt.get_view(tree)
+            && let Ok(tail_view) = tail_opt.get_view(tree) {
                 self.extract_array_elements_tail(tail_view, tree, values);
             }
-        }
     }
     
     fn extract_array_elements_tail<F: CstFacade>(

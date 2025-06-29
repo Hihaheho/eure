@@ -485,18 +485,18 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                         eure_value::value::PathSegment::Ident(id) => id.as_ref().to_string(),
                         eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
                         eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
-                        eure_value::value::PathSegment::Value(v) => format!("{:?}", v),
+                        eure_value::value::PathSegment::Value(v) => format!("{v:?}"),
                         eure_value::value::PathSegment::Array { key, index } => {
                             if let Some(idx) = index {
-                                format!("{:?}[{:?}]", key, idx)
+                                format!("{key:?}[{idx:?}]")
                             } else {
-                                format!("{:?}[]", key)
+                                format!("{key:?}[]")
                             }
                         }
                     })
                     .collect::<Vec<_>>()
                     .join(".");
-                visitor.visit_string(format!(".{}", path_str))
+                visitor.visit_string(format!(".{path_str}"))
             }
         }
     }
