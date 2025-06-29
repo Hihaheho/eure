@@ -279,14 +279,9 @@ fn build_value(value: &Value) -> ValueNode {
                 map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             build_object_value(&index_map)
         }
-        Value::Tuple(_tuple) => {
-            // EURE supports tuples but doesn't have tuple literal syntax yet
-            // Tuple literals like (1, 2, 3) are planned but not implemented
-            // For now, tuples must be constructed using indexed syntax: tuple.0 = 1, tuple.1 = 2
-            // Since we can't represent a tuple literal in the current EURE syntax,
-            // we return an empty object as a placeholder
-            // TODO: Implement tuple formatting once literal syntax is added
-            build_object_value(&IndexMap::new())
+        Value::Tuple(tuple) => {
+            // Build tuple using the new tuple literal syntax: (value1, value2, value3)
+            build_tuple_value(&tuple.0)
         }
         Value::Variant(Variant { tag, content }) => {
             // Build as an object with special $variant key
@@ -340,6 +335,75 @@ fn build_string_value(s: &str, type_name: Option<&String>) -> ValueNode {
         .build()
         .build();
     ValueConstructor::Strings(strings_node).build()
+}
+
+fn build_tuple_value(values: &[Value]) -> ValueNode {
+    let lparen = terminals::l_paren();
+    let l_paren_node = LParenConstructor::builder().l_paren(lparen).build().build();
+    
+    let tuple_opt = if values.is_empty() {
+        TupleOptConstructor::builder().build().build()
+    } else {
+        // Build tuple elements recursively from right to left
+        let mut tuple_elements_opt = TupleElementsOptConstructor::builder().build().build();
+        
+        for (_idx, value) in values.iter().enumerate().skip(1).rev() {
+            let comma = terminals::comma();
+            let comma_node = CommaConstructor::builder().comma(comma).build().build();
+            
+            let value_node = build_value(value);
+            
+            // Build tuple elements for this value
+            let elements = TupleElementsConstructor::builder()
+                .value(value_node)
+                .tuple_elements_opt(tuple_elements_opt)
+                .build()
+                .build();
+            
+            // Build tail with comma and elements
+            let tail = TupleElementsTailConstructor::builder()
+                .comma(comma_node)
+                .tuple_elements_tail_opt(
+                    TupleElementsTailOptConstructor::builder()
+                        .tuple_elements(elements)
+                        .build()
+                        .build(),
+                )
+                .build()
+                .build();
+            
+            // Update tuple_elements_opt for next iteration
+            tuple_elements_opt = TupleElementsOptConstructor::builder()
+                .tuple_elements_tail(tail)
+                .build()
+                .build();
+        }
+        
+        // Build the first element
+        let first_value = build_value(&values[0]);
+        let elements = TupleElementsConstructor::builder()
+            .value(first_value)
+            .tuple_elements_opt(tuple_elements_opt)
+            .build()
+            .build();
+        
+        TupleOptConstructor::builder()
+            .tuple_elements(elements)
+            .build()
+            .build()
+    };
+    
+    let rparen = terminals::r_paren();
+    let r_paren_node = RParenConstructor::builder().r_paren(rparen).build().build();
+    
+    let tuple_node = TupleConstructor::builder()
+        .l_paren(l_paren_node)
+        .tuple_opt(tuple_opt)
+        .r_paren(r_paren_node)
+        .build()
+        .build();
+        
+    ValueConstructor::Tuple(tuple_node).build()
 }
 
 fn build_array_value(values: &[Value]) -> ValueNode {
@@ -694,7 +758,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             Value::Null => "null".to_string(),
                             _ => "<complex-value>".to_string(),
                         };
-                        let str_token = terminals::str(&format!("\"{}\"", str_representation));
+                        let str_token = terminals::str(&format!("\"{str_representation}\""));
                         KeyBaseConstructor::Str(
                             StrConstructor::builder().str(str_token).build().build()
                         ).build()

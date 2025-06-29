@@ -340,6 +340,40 @@ impl From<RBracketToken> for BuilderNodeId {
         token.node_id
     }
 }
+///Branded type for LParen terminal
+#[derive(Debug, Clone)]
+pub struct LParenToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl LParenToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<LParenToken> for BuilderNodeId {
+    fn from(token: LParenToken) -> Self {
+        token.node_id
+    }
+}
+///Branded type for RParen terminal
+#[derive(Debug, Clone)]
+pub struct RParenToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RParenToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RParenToken> for BuilderNodeId {
+    fn from(token: RParenToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for Bind terminal
 #[derive(Debug, Clone)]
 pub struct BindToken {
@@ -1054,6 +1088,23 @@ impl From<KeysListNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for LParen non-terminal
+#[derive(Debug, Clone)]
+pub struct LParenNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl LParenNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<LParenNode> for BuilderNodeId {
+    fn from(node: LParenNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for MetaExt non-terminal
 #[derive(Debug, Clone)]
 pub struct MetaExtNode {
@@ -1187,6 +1238,23 @@ impl PathNode {
 }
 impl From<PathNode> for BuilderNodeId {
     fn from(node: PathNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for RParen non-terminal
+#[derive(Debug, Clone)]
+pub struct RParenNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RParenNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RParenNode> for BuilderNodeId {
+    fn from(node: RParenNode) -> Self {
         node.node_id
     }
 }
@@ -1408,6 +1476,108 @@ impl TrueNode {
 }
 impl From<TrueNode> for BuilderNodeId {
     fn from(node: TrueNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for Tuple non-terminal
+#[derive(Debug, Clone)]
+pub struct TupleNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TupleNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TupleNode> for BuilderNodeId {
+    fn from(node: TupleNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for TupleElements non-terminal
+#[derive(Debug, Clone)]
+pub struct TupleElementsNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TupleElementsNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TupleElementsNode> for BuilderNodeId {
+    fn from(node: TupleElementsNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for TupleElementsOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct TupleElementsOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TupleElementsOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TupleElementsOptNode> for BuilderNodeId {
+    fn from(node: TupleElementsOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for TupleElementsTail non-terminal
+#[derive(Debug, Clone)]
+pub struct TupleElementsTailNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TupleElementsTailNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TupleElementsTailNode> for BuilderNodeId {
+    fn from(node: TupleElementsTailNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for TupleElementsTailOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct TupleElementsTailOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TupleElementsTailOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TupleElementsTailOptNode> for BuilderNodeId {
+    fn from(node: TupleElementsTailOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for TupleOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct TupleOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TupleOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TupleOptNode> for BuilderNodeId {
+    fn from(node: TupleOptNode) -> Self {
         node.node_id
     }
 }
@@ -2083,6 +2253,18 @@ impl KeysListConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct LParenConstructor {
+    l_paren: LParenToken,
+}
+impl LParenConstructor {
+    pub fn build(self) -> LParenNode {
+        let mut builder = CstBuilder::new();
+        let l_paren = builder.embed(self.l_paren.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::LParen, vec![l_paren]);
+        LParenNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct MetaExtConstructor {
     dollar_dollar: DollarDollarToken,
 }
@@ -2211,6 +2393,18 @@ impl PathConstructor {
         let keys = builder.embed(self.keys.builder);
         let node_id = builder.non_terminal(NonTerminalKind::Path, vec![dot, keys]);
         PathNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct RParenConstructor {
+    r_paren: RParenToken,
+}
+impl RParenConstructor {
+    pub fn build(self) -> RParenNode {
+        let mut builder = CstBuilder::new();
+        let r_paren = builder.embed(self.r_paren.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::RParen, vec![r_paren]);
+        RParenNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -2462,9 +2656,125 @@ impl TrueConstructor {
         TrueNode { node_id, builder }
     }
 }
+#[derive(bon::Builder)]
+pub struct TupleConstructor {
+    l_paren: LParenNode,
+    tuple_opt: TupleOptNode,
+    r_paren: RParenNode,
+}
+impl TupleConstructor {
+    pub fn build(self) -> TupleNode {
+        let mut builder = CstBuilder::new();
+        let l_paren = builder.embed(self.l_paren.builder);
+        let tuple_opt = builder.embed(self.tuple_opt.builder);
+        let r_paren = builder.embed(self.r_paren.builder);
+        let node_id = builder
+            .non_terminal(NonTerminalKind::Tuple, vec![l_paren, tuple_opt, r_paren]);
+        TupleNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct TupleElementsConstructor {
+    value: ValueNode,
+    tuple_elements_opt: TupleElementsOptNode,
+}
+impl TupleElementsConstructor {
+    pub fn build(self) -> TupleElementsNode {
+        let mut builder = CstBuilder::new();
+        let value = builder.embed(self.value.builder);
+        let tuple_elements_opt = builder.embed(self.tuple_elements_opt.builder);
+        let node_id = builder
+            .non_terminal(
+                NonTerminalKind::TupleElements,
+                vec![value, tuple_elements_opt],
+            );
+        TupleElementsNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct TupleElementsOptConstructor {
+    tuple_elements_tail: Option<TupleElementsTailNode>,
+}
+impl TupleElementsOptConstructor {
+    pub fn build(self) -> TupleElementsOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.tuple_elements_tail {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::TupleElementsOpt, children);
+        TupleElementsOptNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct TupleElementsTailConstructor {
+    comma: CommaNode,
+    tuple_elements_tail_opt: TupleElementsTailOptNode,
+}
+impl TupleElementsTailConstructor {
+    pub fn build(self) -> TupleElementsTailNode {
+        let mut builder = CstBuilder::new();
+        let comma = builder.embed(self.comma.builder);
+        let tuple_elements_tail_opt = builder
+            .embed(self.tuple_elements_tail_opt.builder);
+        let node_id = builder
+            .non_terminal(
+                NonTerminalKind::TupleElementsTail,
+                vec![comma, tuple_elements_tail_opt],
+            );
+        TupleElementsTailNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct TupleElementsTailOptConstructor {
+    tuple_elements: Option<TupleElementsNode>,
+}
+impl TupleElementsTailOptConstructor {
+    pub fn build(self) -> TupleElementsTailOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.tuple_elements {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder
+            .non_terminal(NonTerminalKind::TupleElementsTailOpt, children);
+        TupleElementsTailOptNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct TupleOptConstructor {
+    tuple_elements: Option<TupleElementsNode>,
+}
+impl TupleOptConstructor {
+    pub fn build(self) -> TupleOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.tuple_elements {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::TupleOpt, children);
+        TupleOptNode { node_id, builder }
+    }
+}
 pub enum ValueConstructor {
     Object(ObjectNode),
     Array(ArrayNode),
+    Tuple(TupleNode),
     Integer(IntegerNode),
     Boolean(BooleanNode),
     Null(NullNode),
@@ -2481,6 +2791,7 @@ impl ValueConstructor {
         let child_id = match self {
             Self::Object(node) => builder.embed(node.builder),
             Self::Array(node) => builder.embed(node.builder),
+            Self::Tuple(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
             Self::Boolean(node) => builder.embed(node.builder),
             Self::Null(node) => builder.embed(node.builder),
@@ -2644,6 +2955,16 @@ pub mod terminals {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::RBracket, "]");
         RBracketToken { node_id, builder }
+    }
+    pub fn l_paren() -> LParenToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::LParen, "");
+        LParenToken { node_id, builder }
+    }
+    pub fn r_paren() -> RParenToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::RParen, "");
+        RParenToken { node_id, builder }
     }
     pub fn bind() -> BindToken {
         let mut builder = CstBuilder::new();

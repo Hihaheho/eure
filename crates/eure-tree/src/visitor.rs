@@ -304,6 +304,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_keys_list_super(handle, view, tree)
     }
+    fn visit_l_paren(
+        &mut self,
+        handle: LParenHandle,
+        view: LParenView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_l_paren_super(handle, view, tree)
+    }
     fn visit_meta_ext(
         &mut self,
         handle: MetaExtHandle,
@@ -367,6 +375,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_path_super(handle, view, tree)
+    }
+    fn visit_r_paren(
+        &mut self,
+        handle: RParenHandle,
+        view: RParenView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_r_paren_super(handle, view, tree)
     }
     fn visit_section(
         &mut self,
@@ -471,6 +487,54 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_true_super(handle, view, tree)
+    }
+    fn visit_tuple(
+        &mut self,
+        handle: TupleHandle,
+        view: TupleView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_tuple_super(handle, view, tree)
+    }
+    fn visit_tuple_elements(
+        &mut self,
+        handle: TupleElementsHandle,
+        view: TupleElementsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_tuple_elements_super(handle, view, tree)
+    }
+    fn visit_tuple_elements_opt(
+        &mut self,
+        handle: TupleElementsOptHandle,
+        view: TupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_tuple_elements_opt_super(handle, view, tree)
+    }
+    fn visit_tuple_elements_tail(
+        &mut self,
+        handle: TupleElementsTailHandle,
+        view: TupleElementsTailView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_tuple_elements_tail_super(handle, view, tree)
+    }
+    fn visit_tuple_elements_tail_opt(
+        &mut self,
+        handle: TupleElementsTailOptHandle,
+        view: TupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_tuple_elements_tail_opt_super(handle, view, tree)
+    }
+    fn visit_tuple_opt(
+        &mut self,
+        handle: TupleOptHandle,
+        view: TupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_tuple_opt_super(handle, view, tree)
     }
     fn visit_value(
         &mut self,
@@ -695,6 +759,22 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_r_bracket_terminal_super(terminal, data, tree)
+    }
+    fn visit_l_paren_terminal(
+        &mut self,
+        terminal: LParen,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_l_paren_terminal_super(terminal, data, tree)
+    }
+    fn visit_r_paren_terminal(
+        &mut self,
+        terminal: RParen,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_r_paren_terminal_super(terminal, data, tree)
     }
     fn visit_bind_terminal(
         &mut self,
@@ -1112,6 +1192,13 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: KeysListView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_l_paren_handle(&mut self, handle: LParenHandle, tree: &F) -> Result<(), E>;
+    fn visit_l_paren_super(
+        &mut self,
+        handle: LParenHandle,
+        view: LParenView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_meta_ext_handle(
         &mut self,
         handle: MetaExtHandle,
@@ -1186,6 +1273,13 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: PathHandle,
         view: PathView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_r_paren_handle(&mut self, handle: RParenHandle, tree: &F) -> Result<(), E>;
+    fn visit_r_paren_super(
+        &mut self,
+        handle: RParenHandle,
+        view: RParenView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_section_handle(&mut self, handle: SectionHandle, tree: &F) -> Result<(), E>;
@@ -1309,6 +1403,68 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: TrueHandle,
         view: TrueView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_handle(&mut self, handle: TupleHandle, tree: &F) -> Result<(), E>;
+    fn visit_tuple_super(
+        &mut self,
+        handle: TupleHandle,
+        view: TupleView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_handle(
+        &mut self,
+        handle: TupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_super(
+        &mut self,
+        handle: TupleElementsHandle,
+        view: TupleElementsView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_opt_handle(
+        &mut self,
+        handle: TupleElementsOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_opt_super(
+        &mut self,
+        handle: TupleElementsOptHandle,
+        view: TupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_tail_handle(
+        &mut self,
+        handle: TupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_tail_super(
+        &mut self,
+        handle: TupleElementsTailHandle,
+        view: TupleElementsTailView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_tail_opt_handle(
+        &mut self,
+        handle: TupleElementsTailOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_elements_tail_opt_super(
+        &mut self,
+        handle: TupleElementsTailOptHandle,
+        view: TupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_opt_handle(
+        &mut self,
+        handle: TupleOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_opt_super(
+        &mut self,
+        handle: TupleOptHandle,
+        view: TupleElementsHandle,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_value_handle(&mut self, handle: ValueHandle, tree: &F) -> Result<(), E>;
@@ -1484,6 +1640,18 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_r_bracket_terminal_super(
         &mut self,
         terminal: RBracket,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_l_paren_terminal_super(
+        &mut self,
+        terminal: LParen,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_r_paren_terminal_super(
+        &mut self,
+        terminal: RParen,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -3219,6 +3387,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_l_paren_handle(
+        &mut self,
+        handle: LParenHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_l_paren(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_meta_ext_handle(
         &mut self,
         handle: MetaExtHandle,
@@ -3566,6 +3780,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_path(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_r_paren_handle(
+        &mut self,
+        handle: RParenHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_r_paren(handle, view, tree),
+                    visit,
+                ),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -4167,6 +4427,291 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_true(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_tuple_handle(
+        &mut self,
+        handle: TupleHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_tuple(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_tuple_elements_handle(
+        &mut self,
+        handle: TupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_tuple_elements(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_tuple_elements_opt_handle(
+        &mut self,
+        handle: TupleElementsOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_tuple_elements_opt(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_tuple_elements_tail_handle(
+        &mut self,
+        handle: TupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_tuple_elements_tail(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_tuple_elements_tail_opt_handle(
+        &mut self,
+        handle: TupleElementsTailOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_tuple_elements_tail_opt(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_tuple_opt_handle(
+        &mut self,
+        handle: TupleOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_tuple_opt(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -5035,6 +5580,30 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_keys_list_handle(keys_list, tree)?;
         Ok(())
     }
+    fn visit_l_paren_super(
+        &mut self,
+        handle: LParenHandle,
+        view_param: LParenView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LParenView { l_paren } = view_param;
+        let data = match l_paren.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        l_paren.0,
+                        NodeKind::Terminal(l_paren.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_l_paren_terminal(l_paren, data, tree)?;
+        Ok(())
+    }
     fn visit_meta_ext_super(
         &mut self,
         handle: MetaExtHandle,
@@ -5167,6 +5736,30 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let PathView { dot, keys } = view_param;
         self.visit_dot_handle(dot, tree)?;
         self.visit_keys_handle(keys, tree)?;
+        Ok(())
+    }
+    fn visit_r_paren_super(
+        &mut self,
+        handle: RParenHandle,
+        view_param: RParenView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let RParenView { r_paren } = view_param;
+        let data = match r_paren.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        r_paren.0,
+                        NodeKind::Terminal(r_paren.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_r_paren_terminal(r_paren, data, tree)?;
         Ok(())
     }
     fn visit_section_super(
@@ -5382,6 +5975,73 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_true_terminal(r#true, data, tree)?;
         Ok(())
     }
+    fn visit_tuple_super(
+        &mut self,
+        handle: TupleHandle,
+        view_param: TupleView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let TupleView { l_paren, tuple_opt, r_paren } = view_param;
+        self.visit_l_paren_handle(l_paren, tree)?;
+        self.visit_tuple_opt_handle(tuple_opt, tree)?;
+        self.visit_r_paren_handle(r_paren, tree)?;
+        Ok(())
+    }
+    fn visit_tuple_elements_super(
+        &mut self,
+        handle: TupleElementsHandle,
+        view_param: TupleElementsView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let TupleElementsView { value, tuple_elements_opt } = view_param;
+        self.visit_value_handle(value, tree)?;
+        self.visit_tuple_elements_opt_handle(tuple_elements_opt, tree)?;
+        Ok(())
+    }
+    fn visit_tuple_elements_opt_super(
+        &mut self,
+        handle: TupleElementsOptHandle,
+        view_param: TupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_tuple_elements_tail_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_tuple_elements_tail_super(
+        &mut self,
+        handle: TupleElementsTailHandle,
+        view_param: TupleElementsTailView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let TupleElementsTailView { comma, tuple_elements_tail_opt } = view_param;
+        self.visit_comma_handle(comma, tree)?;
+        self.visit_tuple_elements_tail_opt_handle(tuple_elements_tail_opt, tree)?;
+        Ok(())
+    }
+    fn visit_tuple_elements_tail_opt_super(
+        &mut self,
+        handle: TupleElementsTailOptHandle,
+        view_param: TupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_tuple_elements_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_tuple_opt_super(
+        &mut self,
+        handle: TupleOptHandle,
+        view_param: TupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_tuple_elements_handle(view_param, tree)?;
+        Ok(())
+    }
     fn visit_value_super(
         &mut self,
         handle: ValueHandle,
@@ -5395,6 +6055,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
             ValueView::Array(item) => {
                 self.visit_array_handle(item, tree)?;
+            }
+            ValueView::Tuple(item) => {
+                self.visit_tuple_handle(item, tree)?;
             }
             ValueView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
@@ -5689,6 +6352,24 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
+    fn visit_l_paren_terminal_super(
+        &mut self,
+        terminal: LParen,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_r_paren_terminal_super(
+        &mut self,
+        terminal: RParen,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
     fn visit_bind_terminal_super(
         &mut self,
         terminal: Bind,
@@ -5939,6 +6620,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = KeysListHandle(id);
                         self.visit_keys_list_handle(handle, tree)?;
                     }
+                    NonTerminalKind::LParen => {
+                        let handle = LParenHandle(id);
+                        self.visit_l_paren_handle(handle, tree)?;
+                    }
                     NonTerminalKind::MetaExt => {
                         let handle = MetaExtHandle(id);
                         self.visit_meta_ext_handle(handle, tree)?;
@@ -5970,6 +6655,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::Path => {
                         let handle = PathHandle(id);
                         self.visit_path_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::RParen => {
+                        let handle = RParenHandle(id);
+                        self.visit_r_paren_handle(handle, tree)?;
                     }
                     NonTerminalKind::Section => {
                         let handle = SectionHandle(id);
@@ -6022,6 +6711,30 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::True => {
                         let handle = TrueHandle(id);
                         self.visit_true_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::Tuple => {
+                        let handle = TupleHandle(id);
+                        self.visit_tuple_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::TupleElements => {
+                        let handle = TupleElementsHandle(id);
+                        self.visit_tuple_elements_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::TupleElementsOpt => {
+                        let handle = TupleElementsOptHandle(id);
+                        self.visit_tuple_elements_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::TupleElementsTail => {
+                        let handle = TupleElementsTailHandle(id);
+                        self.visit_tuple_elements_tail_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::TupleElementsTailOpt => {
+                        let handle = TupleElementsTailOptHandle(id);
+                        self.visit_tuple_elements_tail_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::TupleOpt => {
+                        let handle = TupleOptHandle(id);
+                        self.visit_tuple_opt_handle(handle, tree)?;
                     }
                     NonTerminalKind::Value => {
                         let handle = ValueHandle(id);
@@ -6138,6 +6851,14 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     TerminalKind::RBracket => {
                         let terminal = RBracket(id);
                         self.visit_r_bracket_terminal(terminal, data, tree)?;
+                    }
+                    TerminalKind::LParen => {
+                        let terminal = LParen(id);
+                        self.visit_l_paren_terminal(terminal, data, tree)?;
+                    }
+                    TerminalKind::RParen => {
+                        let terminal = RParen(id);
+                        self.visit_r_paren_terminal(terminal, data, tree)?;
                     }
                     TerminalKind::Bind => {
                         let terminal = Bind(id);

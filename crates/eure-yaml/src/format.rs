@@ -71,7 +71,7 @@ pub fn format_eure(value: &Value) -> String {
                 })
                 .collect::<Vec<_>>()
                 .join(".");
-            format!(".{}", path_str)
+            format!(".{path_str}")
         }
     }
 }

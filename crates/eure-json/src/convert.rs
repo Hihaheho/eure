@@ -78,18 +78,18 @@ pub fn value_to_json_with_config(
                     PathSegment::Ident(id) => id.as_ref().to_string(),
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
                     PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
-                    PathSegment::Value(v) => format!("[{:?}]", v),
+                    PathSegment::Value(v) => format!("[{v:?}]"),
                     PathSegment::Array { key, index } => {
                         if let Some(idx) = index {
-                            format!("{:?}[{:?}]", key, idx)
+                            format!("{key:?}[{idx:?}]")
                         } else {
-                            format!("{:?}[]", key)
+                            format!("{key:?}[]")
                         }
                     }
                 })
                 .collect::<Vec<_>>()
                 .join(".");
-            Ok(serde_json::Value::String(format!(".{}", path_str)))
+            Ok(serde_json::Value::String(format!(".{path_str}")))
         }
     }
 }

@@ -114,7 +114,7 @@ fn convert_key_cmp_value_to_value(v: &KeyCmpValue) -> Value {
             // Preserve tuple type - EURE has first-class tuple support
             Value::Tuple(Tuple(
                 t.0.iter()
-                    .map(|v| convert_key_cmp_value_to_value(v))
+                    .map(convert_key_cmp_value_to_value)
                     .collect(),
             ))
         }
@@ -257,7 +257,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     KeyCmpValue::String(s) => Value::String(s.clone()),
                     KeyCmpValue::Tuple(t) => Value::Tuple(Tuple(
                         t.0.iter()
-                            .map(|v| convert_key_cmp_value_to_value(v))
+                            .map(convert_key_cmp_value_to_value)
                             .collect(),
                     )),
                     KeyCmpValue::Unit => Value::Unit,
@@ -457,28 +457,23 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 
                 if let Ok(keys_view) = path_view.keys.get_view(tree) {
                     // First key
-                    if let Ok(key_view) = keys_view.key.get_view(tree) {
-                        if let Ok(key_base_view) = key_view.key_base.get_view(tree) {
+                    if let Ok(key_view) = keys_view.key.get_view(tree)
+                        && let Ok(key_base_view) = key_view.key_base.get_view(tree) {
                             match key_base_view {
                                 KeyBaseView::Ident(ident_handle) => {
-                                    if let Ok(ident_view) = ident_handle.get_view(tree) {
-                                        if let Ok(data) = ident_view.ident.get_data(tree) {
-                                            if let Some(s) = tree.get_str(data, self.input) {
+                                    if let Ok(ident_view) = ident_handle.get_view(tree)
+                                        && let Ok(data) = ident_view.ident.get_data(tree)
+                                            && let Some(s) = tree.get_str(data, self.input) {
                                                 segments.push(PathSegment::Ident(Identifier::from_str(s).unwrap()));
                                             }
-                                        }
-                                    }
                                 }
                                 KeyBaseView::ExtensionNameSpace(ext_handle) => {
-                                    if let Ok(ext_view) = ext_handle.get_view(tree) {
-                                        if let Ok(ident_view) = ext_view.ident.get_view(tree) {
-                                            if let Ok(data) = ident_view.ident.get_data(tree) {
-                                                if let Some(s) = tree.get_str(data, self.input) {
+                                    if let Ok(ext_view) = ext_handle.get_view(tree)
+                                        && let Ok(ident_view) = ext_view.ident.get_view(tree)
+                                            && let Ok(data) = ident_view.ident.get_data(tree)
+                                                && let Some(s) = tree.get_str(data, self.input) {
                                                     segments.push(PathSegment::Extension(Identifier::from_str(s).unwrap()));
                                                 }
-                                            }
-                                        }
-                                    }
                                 }
                                 KeyBaseView::Null(_) => {
                                     segments.push(PathSegment::Ident(Identifier::from_str("null").unwrap()));
@@ -492,33 +487,27 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                                 _ => {}
                             }
                         }
-                    }
                     
                     // Additional keys
                     if let Ok(Some(mut keys_list)) = keys_view.keys_list.get_view(tree) {
                         loop {
-                            if let Ok(key_view) = keys_list.key.get_view(tree) {
-                                if let Ok(key_base_view) = key_view.key_base.get_view(tree) {
+                            if let Ok(key_view) = keys_list.key.get_view(tree)
+                                && let Ok(key_base_view) = key_view.key_base.get_view(tree) {
                                     match key_base_view {
                                         KeyBaseView::Ident(ident_handle) => {
-                                            if let Ok(ident_view) = ident_handle.get_view(tree) {
-                                                if let Ok(data) = ident_view.ident.get_data(tree) {
-                                                    if let Some(s) = tree.get_str(data, self.input) {
+                                            if let Ok(ident_view) = ident_handle.get_view(tree)
+                                                && let Ok(data) = ident_view.ident.get_data(tree)
+                                                    && let Some(s) = tree.get_str(data, self.input) {
                                                         segments.push(PathSegment::Ident(Identifier::from_str(s).unwrap()));
                                                     }
-                                                }
-                                            }
                                         }
                                         KeyBaseView::ExtensionNameSpace(ext_handle) => {
-                                            if let Ok(ext_view) = ext_handle.get_view(tree) {
-                                                if let Ok(ident_view) = ext_view.ident.get_view(tree) {
-                                                    if let Ok(data) = ident_view.ident.get_data(tree) {
-                                                        if let Some(s) = tree.get_str(data, self.input) {
+                                            if let Ok(ext_view) = ext_handle.get_view(tree)
+                                                && let Ok(ident_view) = ext_view.ident.get_view(tree)
+                                                    && let Ok(data) = ident_view.ident.get_data(tree)
+                                                        && let Some(s) = tree.get_str(data, self.input) {
                                                             segments.push(PathSegment::Extension(Identifier::from_str(s).unwrap()));
                                                         }
-                                                    }
-                                                }
-                                            }
                                         }
                                         KeyBaseView::Null(_) => {
                                             segments.push(PathSegment::Ident(Identifier::from_str("null").unwrap()));
@@ -532,7 +521,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                                         _ => {}
                                     }
                                 }
-                            }
                             
                             match keys_list.keys_list.get_view(tree) {
                                 Ok(Some(next)) => keys_list = next,
@@ -543,6 +531,33 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 }
                 
                 Value::Path(Path(segments))
+            }
+            ValueView::Tuple(tuple_handle) => {
+                // Get the tuple view to access the elements
+                let tuple_view = tuple_handle.get_view(tree)?;
+                
+                // Collect all tuple elements
+                let mut elements = Vec::new();
+                
+                // Check if there are any elements
+                if let Ok(Some(tuple_elements_handle)) = tuple_view.tuple_opt.get_view(tree) {
+                    // Get the first element
+                    let tuple_elements_view = tuple_elements_handle.get_view(tree)?;
+                    
+                    // Visit and collect the first element
+                    self.visit_value_handle(tuple_elements_view.value, tree)?;
+                    if let Some(value) = self.values.value_handles.get(&tuple_elements_view.value) {
+                        elements.push(value.clone());
+                    }
+                    
+                    // Check for more elements
+                    if let Ok(Some(tuple_tail_handle)) = tuple_elements_view.tuple_elements_opt.get_view(tree) {
+                        // Recursively collect remaining elements
+                        self.collect_tuple_elements(&mut elements, tuple_tail_handle.get_view(tree)?, tree)?;
+                    }
+                }
+                
+                Value::Tuple(Tuple(elements))
             }
         };
 
@@ -791,6 +806,35 @@ impl<'a> ValueVisitor<'a> {
     }
 
     /// Collect array elements from the tail (after the first element)
+    fn collect_tuple_elements<F: CstFacade>(
+        &mut self,
+        elements: &mut Vec<Value>,
+        tuple_elements_tail_view: TupleElementsTailView,
+        tree: &F,
+    ) -> Result<(), ValueVisitorError> {
+        // Check if there are more elements after the comma
+        if let Some(tuple_elements_handle) = tuple_elements_tail_view
+            .tuple_elements_tail_opt
+            .get_view(tree)?
+        {
+            // Get the TupleElementsView for the next element
+            let tuple_elements_view = tuple_elements_handle.get_view(tree)?;
+
+            // Visit and collect the value
+            self.visit_value_handle(tuple_elements_view.value, tree)?;
+            if let Some(value) = self.values.value_handles.get(&tuple_elements_view.value) {
+                elements.push(value.clone());
+            }
+
+            // Check for more elements recursively
+            if let Ok(Some(next_tail_handle)) = tuple_elements_view.tuple_elements_opt.get_view(tree) {
+                self.collect_tuple_elements(elements, next_tail_handle.get_view(tree)?, tree)?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn collect_array_elements_tail<F: CstFacade>(
         &mut self,
         elements: &mut Vec<Value>,

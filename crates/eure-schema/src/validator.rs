@@ -136,18 +136,14 @@ impl<'a> SchemaValidator<'a> {
         // Type definitions are just schemas, not actual data to validate
 
         // Create cascade field schema if needed
-        let cascade_field_schema = if let Some(cascade_type) = &schema.cascade_type {
-            Some(FieldSchema {
+        let cascade_field_schema = schema.cascade_type.as_ref().map(|cascade_type| FieldSchema {
                 type_expr: cascade_type.clone(),
                 optional: false,
                 constraints: Constraints::default(),
                 preferences: Preferences::default(),
                 serde: SerdeOptions::default(),
                 span: None,
-            })
-        } else {
-            None
-        };
+            });
 
         Self {
             input,
@@ -359,6 +355,7 @@ impl<'a> SchemaValidator<'a> {
                 ValueView::Path(_) => "path".to_string(),
                 ValueView::Code(_) | ValueView::CodeBlock(_) | ValueView::NamedCode(_) => "string".to_string(),
                 ValueView::Hole(_) => "unknown".to_string(),
+                ValueView::Tuple(_) => "tuple".to_string(),
             }
         } else {
             "unknown".to_string()
@@ -836,11 +833,10 @@ impl<F: CstFacade> CstVisitor<F> for SchemaValidator<'_> {
                                 }
 
                                 // Validate individual array elements against elem_type
-                                if let Ok(ValueView::Array(array_handle)) = handle.get_view(tree) {
-                                    if let Ok(array_view) = array_handle.get_view(tree) {
+                                if let Ok(ValueView::Array(array_handle)) = handle.get_view(tree)
+                                    && let Ok(array_view) = array_handle.get_view(tree) {
                                         self.validate_array_elements(array_view, _elem_type, tree);
                                     }
-                                }
                             }
                         }
                     }
@@ -952,15 +948,12 @@ impl SchemaValidator<'_> {
                     path.push("false".to_string());
                 }
                 KeyBaseView::MetaExtKey(meta_ext_handle) => {
-                    if let Ok(meta_ext_view) = meta_ext_handle.get_view(tree) {
-                        if let Ok(ident_view) = meta_ext_view.ident.get_view(tree) {
-                            if let Ok(data) = ident_view.ident.get_data(tree) {
-                                if let Some(s) = tree.get_str(data, self.input) {
-                                    path.push(format!("$̄{}", s));
+                    if let Ok(meta_ext_view) = meta_ext_handle.get_view(tree)
+                        && let Ok(ident_view) = meta_ext_view.ident.get_view(tree)
+                            && let Ok(data) = ident_view.ident.get_data(tree)
+                                && let Some(s) = tree.get_str(data, self.input) {
+                                    path.push(format!("$̄{s}"));
                                 }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -981,19 +974,16 @@ impl SchemaValidator<'_> {
         tree: &F,
     ) -> Option<String> {
         if let Ok(value_view) = value_handle.get_view(tree) {
-            match value_view {
-                ValueView::Strings(strings_handle) => {
-                    if let Ok(strings_view) = strings_handle.get_view(tree)
-                        && let Ok(str_view) = strings_view.str.get_view(tree)
-                        && let Ok(data) = str_view.str.get_data(tree)
-                        && let Some(s) = tree.get_str(data, self.input)
-                    {
-                        // Parse the string literal (remove quotes and unescape)
-                        let unquoted = s.trim_matches('"');
-                        return Some(unquoted.to_string());
-                    }
+            if let ValueView::Strings(strings_handle) = value_view {
+                if let Ok(strings_view) = strings_handle.get_view(tree)
+                    && let Ok(str_view) = strings_view.str.get_view(tree)
+                    && let Ok(data) = str_view.str.get_data(tree)
+                    && let Some(s) = tree.get_str(data, self.input)
+                {
+                    // Parse the string literal (remove quotes and unescape)
+                    let unquoted = s.trim_matches('"');
+                    return Some(unquoted.to_string());
                 }
-                _ => {}
             }
         }
         None
@@ -1005,17 +995,14 @@ impl SchemaValidator<'_> {
         tree: &F,
     ) -> Option<f64> {
         if let Ok(value_view) = value_handle.get_view(tree) {
-            match value_view {
-                ValueView::Integer(integer_handle) => {
-                    if let Ok(integer_view) = integer_handle.get_view(tree)
-                        && let Ok(data) = integer_view.integer.get_data(tree)
-                        && let Some(s) = tree.get_str(data, self.input)
-                        && let Ok(n) = s.parse::<f64>()
-                    {
-                        return Some(n);
-                    }
+            if let ValueView::Integer(integer_handle) = value_view {
+                if let Ok(integer_view) = integer_handle.get_view(tree)
+                    && let Ok(data) = integer_view.integer.get_data(tree)
+                    && let Some(s) = tree.get_str(data, self.input)
+                    && let Ok(n) = s.parse::<f64>()
+                {
+                    return Some(n);
                 }
-                _ => {}
             }
         }
         None
@@ -1028,19 +1015,17 @@ impl SchemaValidator<'_> {
         tree: &F,
     ) {
         // Check if array has elements
-        if let Ok(Some(array_opt)) = array_view.array_opt.get_view(tree) {
-            if let Ok(array_elements_view) = array_opt.get_view(tree) {
+        if let Ok(Some(array_opt)) = array_view.array_opt.get_view(tree)
+            && let Ok(array_elements_view) = array_opt.get_view(tree) {
                 // Validate first element
                 self.validate_array_element(array_elements_view.value, elem_type, tree);
                 
                 // Validate remaining elements if any
-                if let Ok(Some(tail_opt)) = array_elements_view.array_elements_opt.get_view(tree) {
-                    if let Ok(tail_view) = tail_opt.get_view(tree) {
+                if let Ok(Some(tail_opt)) = array_elements_view.array_elements_opt.get_view(tree)
+                    && let Ok(tail_view) = tail_opt.get_view(tree) {
                         self.validate_array_elements_tail(tail_view, elem_type, tree);
                     }
-                }
             }
-        }
     }
     
     fn validate_array_element<F: CstFacade>(
@@ -1076,11 +1061,10 @@ impl SchemaValidator<'_> {
                 self.validate_array_element(elements_view.value, elem_type, tree);
                 
                 // Continue with remaining elements
-                if let Ok(Some(more_tail)) = elements_view.array_elements_opt.get_view(tree) {
-                    if let Ok(more_tail_view) = more_tail.get_view(tree) {
+                if let Ok(Some(more_tail)) = elements_view.array_elements_opt.get_view(tree)
+                    && let Ok(more_tail_view) = more_tail.get_view(tree) {
                         self.validate_array_elements_tail(more_tail_view, elem_type, tree);
                     }
-                }
             }
         }
     }
