@@ -154,7 +154,7 @@ $$cascade-type = .string
         
         // Type-specific cascade type
         let special_type = &extracted.document_schema.types["SpecialSection"];
-        if let Type::Object(obj) = &special_type.type_expr {
+        if let Type::Object(_obj) = &special_type.type_expr {
             // Check cascade type is set on the object schema
             // Note: This might need adjustment based on actual implementation
             // For now, just verify the type exists

@@ -16,12 +16,12 @@ description.$optional = true
     let schema_result = parse(schema_input);
     let schema_tree = match schema_result {
         Ok(tree) => tree,
-        Err(e) => panic!("Failed to parse schema: {:?}", e),
+        Err(e) => panic!("Failed to parse schema: {e:?}"),
     };
     
     // Extract schema
     let extracted = extract_schema(schema_input, &schema_tree);
-    println!("Extracted schema: {:#?}", extracted);
+    println!("Extracted schema: {extracted:#?}");
     
     // Check if script field exists in root
     println!("\nRoot fields:");
@@ -30,7 +30,7 @@ description.$optional = true
         
         // If it's an object, print its fields
         if let eure_schema::Type::Object(ref obj_schema) = field.type_expr {
-            println!("    Fields in {}:", name);
+            println!("    Fields in {name}:");
             for (field_name, field_schema) in &obj_schema.fields {
                 println!("      {}: {:?}", field_name, field_schema.type_expr);
             }
@@ -49,7 +49,7 @@ description = "test description"
     let doc_result = parse(doc_input);
     let doc_tree = match doc_result {
         Ok(tree) => tree,
-        Err(e) => panic!("Failed to parse document: {:?}", e),
+        Err(e) => panic!("Failed to parse document: {e:?}"),
     };
     
     // Validate
@@ -66,6 +66,6 @@ description = "test description"
         .collect();
     
     if !unexpected_field_errors.is_empty() {
-        panic!("Found unexpected field errors: {:?}", unexpected_field_errors);
+        panic!("Found unexpected field errors: {unexpected_field_errors:?}");
     }
 }

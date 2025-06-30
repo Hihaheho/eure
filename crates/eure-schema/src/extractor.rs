@@ -1,8 +1,11 @@
 //! Schema extraction from EURE documents
 
+#![allow(clippy::collapsible_if, clippy::needless_range_loop)]
+
 use crate::schema::*;
 use eure_tree::prelude::*;
 use std::collections::HashMap;
+use indexmap::IndexMap;
 
 /// Extracts schema information from EURE documents
 pub struct SchemaExtractor<'a> {
@@ -425,7 +428,7 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                     if let Some(type_def) = self.document_schema.types.get_mut(type_name) {
                         if !matches!(type_def.type_expr, Type::Variants(_)) {
                             type_def.type_expr = Type::Variants(VariantSchema {
-                                variants: HashMap::new(),
+                                variants: IndexMap::new(),
                                 representation: VariantRepr::default(),
                             });
                         }
@@ -547,7 +550,7 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                 // Create a variant schema to collect variants
                                 self.current_field_schema = Some(FieldSchema {
                                     type_expr: Type::Variants(VariantSchema {
-                                        variants: HashMap::new(),
+                                        variants: IndexMap::new(),
                                         representation: VariantRepr::default(),
                                     }),
                                     optional: false,
@@ -736,6 +739,8 @@ impl<F: CstFacade> CstVisitor<F> for SchemaExtractor<'_> {
                                         preferences: Preferences::default(),
                                         serde: SerdeOptions::default(),
                                         span: None,
+                                        default_value: None,
+                                        description: None,
                                     });
                                 
                                 // Ensure root is an object

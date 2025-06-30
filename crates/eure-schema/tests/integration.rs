@@ -790,8 +790,10 @@ extra = "not allowed"
     #[test]
     fn test_unknown_type_reference() {
         // Create schema with cascade type to allow any field
-        let mut schema = DocumentSchema::default();
-        schema.cascade_type = Some(Type::Any);
+        let schema = DocumentSchema {
+            cascade_type: Some(Type::Any),
+            ..Default::default()
+        };
 
         // Reference to non-existent type
         let doc = r#"

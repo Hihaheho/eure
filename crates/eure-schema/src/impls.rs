@@ -233,7 +233,7 @@ impl<T: ToEureSchema, E: ToEureSchema> ToEureSchema for Result<T, E> {
 mod chrono_impls {
     use super::*;
     use crate::TypedStringKind;
-    use chrono::{NaiveDate, NaiveDateTime, DateTime, Utc, Local};
+    use chrono::{NaiveDate, NaiveDateTime, DateTime};
     
     impl ToEureSchema for NaiveDate {
         fn eure_schema() -> FieldSchema {

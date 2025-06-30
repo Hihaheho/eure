@@ -262,8 +262,7 @@ lines = [
     assert_eq!(
         errors.len(), 
         0, 
-        "Document should validate against schema. Errors: {:?}", 
-        errors
+        "Document should validate against schema. Errors: {errors:?}"
     );
 }
 
@@ -309,10 +308,8 @@ enabled = "yes"  # Type error: string instead of boolean
         match &error.kind {
             eure_schema::ValidationErrorKind::TypeMismatch { expected, actual } => {
                 assert!(
-                    (expected == "number" && actual == "string") ||
-                    (expected == "boolean" && actual == "string"),
-                    "Unexpected type mismatch: expected={}, actual={}",
-                    expected, actual
+                    actual == "string" && (expected == "number" || expected == "boolean"),
+                    "Unexpected type mismatch: expected={expected}, actual={actual}"
                 );
             }
             _ => panic!("Expected TypeMismatch error, got: {:?}", error.kind),

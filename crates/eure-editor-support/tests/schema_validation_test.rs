@@ -81,7 +81,7 @@ name = 123
     );
     
     // Should have validation errors
-    assert!(diagnostics.len() > 0, "Expected validation errors");
+    assert!(!diagnostics.is_empty(), "Expected validation errors");
     
     // Check for type mismatch error
     let has_type_error = diagnostics.iter().any(|d| 

@@ -152,7 +152,7 @@ fn test_nested_types() {
             if let Type::TypeRef(type_name) = &**inner {
                 assert_eq!(type_name, "Address");
             } else {
-                panic!("Expected TypeRef for Address, got: {:?}", inner);
+                panic!("Expected TypeRef for Address, got: {inner:?}");
             }
         } else {
             panic!("Expected array type for addresses");

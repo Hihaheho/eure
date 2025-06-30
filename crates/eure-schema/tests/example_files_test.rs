@@ -11,7 +11,7 @@ fn test_example_files_validation() {
     let schema_result = parse(&schema_input);
     let schema_tree = match schema_result {
         Ok(tree) => tree,
-        Err(e) => panic!("Failed to parse schema: {:?}", e),
+        Err(e) => panic!("Failed to parse schema: {e:?}"),
     };
     
     // Extract schema
@@ -41,7 +41,7 @@ fn test_example_files_validation() {
     let doc_result = parse(&doc_input);
     let doc_tree = match doc_result {
         Ok(tree) => tree,
-        Err(e) => panic!("Failed to parse document: {:?}", e),
+        Err(e) => panic!("Failed to parse document: {e:?}"),
     };
     
     // Validate - use the extracted schema directly (bypass $schema reference)

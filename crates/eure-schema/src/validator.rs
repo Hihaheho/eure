@@ -1,10 +1,13 @@
 //! Schema validation for EURE documents
 
+#![allow(clippy::collapsible_if)]
+
 use crate::schema::*;
 use eure_tree::prelude::*;
 use eure_tree::tree::InputSpan;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use indexmap::IndexMap;
 
 /// Types of validation errors
 #[derive(Debug, Clone)]
@@ -228,7 +231,7 @@ pub struct SchemaValidator<'a> {
 
     // Current context
     current_object_schema: Option<ObjectSchema>,
-    current_variants: Option<HashMap<String, ObjectSchema>>,
+    current_variants: Option<IndexMap<String, ObjectSchema>>,
     selected_variant: Option<String>,
     in_extension: bool,
     expected_type: Option<Type>,

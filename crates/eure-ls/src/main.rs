@@ -207,7 +207,7 @@ impl ServerContext {
             if uri_string.contains(".schema.eure") {
                 // Try to load this as a schema
                 if let Err(e) = self.schema_manager.load_schema(&uri_string, &text, cst) {
-                    eprintln!("Failed to load schema from {}: {}", uri_string, e);
+                    eprintln!("Failed to load schema from {uri_string}: {e}");
                 }
             } else {
                 // First, extract schema and check for $schema reference
@@ -223,26 +223,25 @@ impl ServerContext {
                                 let schema_uri = format!("file://{}", schema_path.display());
                                 if self.schema_manager.get_schema(&schema_uri).is_none() {
                                     // Need to parse and load the schema
-                                    if let Ok(schema_content) = std::fs::read_to_string(&schema_path) {
-                                        if let parser::ParseResult::Ok(schema_cst) = parser::parse_document(&schema_content) {
+                                    if let Ok(schema_content) = std::fs::read_to_string(&schema_path)
+                                        && let parser::ParseResult::Ok(schema_cst) = parser::parse_document(&schema_content) {
                                             if let Err(e) = self.schema_manager.load_schema(&schema_uri, &schema_content, &schema_cst) {
-                                                eprintln!("Failed to load schema from {}: {}", schema_uri, e);
+                                                eprintln!("Failed to load schema from {schema_uri}: {e}");
                                                 eprintln!("Schema path: {}", schema_path.display());
                                             } else {
-                                                eprintln!("Successfully loaded schema from {}", schema_uri);
+                                                eprintln!("Successfully loaded schema from {schema_uri}");
                                                 // Associate document with schema
                                                 self.schema_manager.set_document_schema(&uri_string, &schema_uri);
-                                                eprintln!("Associated {} with schema {}", uri_string, schema_uri);
+                                                eprintln!("Associated {uri_string} with schema {schema_uri}");
                                             }
                                         }
-                                    }
                                 } else {
                                     // Schema already loaded, just associate
                                     self.schema_manager.set_document_schema(&uri_string, &schema_uri);
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to resolve schema reference '{}': {}", schema_ref, e);
+                                eprintln!("Failed to resolve schema reference '{schema_ref}': {e}");
                             }
                         }
                     }
@@ -259,12 +258,12 @@ impl ServerContext {
                                 if let Ok(schema_content) = std::fs::read_to_string(&schema_path) {
                                     if let parser::ParseResult::Ok(schema_cst) = parser::parse_document(&schema_content) {
                                         if let Err(e) = self.schema_manager.load_schema(&schema_uri, &schema_content, &schema_cst) {
-                                            eprintln!("Failed to load schema from {}: {}", schema_uri, e);
+                                            eprintln!("Failed to load schema from {schema_uri}: {e}");
                                         } else {
-                                            eprintln!("Successfully loaded schema from {}", schema_uri);
+                                            eprintln!("Successfully loaded schema from {schema_uri}");
                                             // Associate document with schema
                                             self.schema_manager.set_document_schema(&uri_string, &schema_uri);
-                                            eprintln!("Associated {} with schema {}", uri_string, schema_uri);
+                                            eprintln!("Associated {uri_string} with schema {schema_uri}");
                                         }
                                     } else {
                                         eprintln!("Failed to parse schema file: {}", schema_path.display());
@@ -273,12 +272,12 @@ impl ServerContext {
                                     eprintln!("Failed to read schema file: {}", schema_path.display());
                                 }
                             } else {
-                                eprintln!("Schema already loaded, associating {} with {}", uri_string, schema_uri);
+                                eprintln!("Schema already loaded, associating {uri_string} with {schema_uri}");
                                 // Schema already loaded, just associate
                                 self.schema_manager.set_document_schema(&uri_string, &schema_uri);
                             }
                         } else {
-                            eprintln!("No schema found by convention for {}", uri_string);
+                            eprintln!("No schema found by convention for {uri_string}");
                         }
                     }
                 }
@@ -451,7 +450,7 @@ impl ServerContext {
                 self.params
                     .root_uri
                     .as_ref()
-                    .and_then(|uri| uri_to_path(uri))
+                    .and_then(uri_to_path)
             })
     }
 }

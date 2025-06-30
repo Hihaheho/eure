@@ -4,6 +4,9 @@ use eure_derive::Eure;
 use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_with_schema, has_errors};
 use serde::{Serialize, Deserialize};
 
+// Type alias to simplify complex type signature
+type TypeDefinition = (&'static str, fn() -> FieldSchema);
+
 /// Helper function to validate a EURE document string against a schema
 fn validate_document<T: ToEureSchema>(document: &str) -> Result<(), String> {
     validate_document_with_types::<T>(document, &[])
@@ -12,12 +15,12 @@ fn validate_document<T: ToEureSchema>(document: &str) -> Result<(), String> {
 /// Helper function to validate a EURE document string against a schema with type definitions
 fn validate_document_with_types<T: ToEureSchema>(
     document: &str, 
-    type_definitions: &[(&str, fn() -> FieldSchema)]
+    type_definitions: &[TypeDefinition]
 ) -> Result<(), String> {
     // Parse the EURE document using the high-level parse function
     let parsed = match eure_parol::parse(document) {
         Ok(cst) => cst,
-        Err(e) => return Err(format!("Parse error: {:?}", e)),
+        Err(e) => return Err(format!("Parse error: {e:?}")),
     };
     
     // Get the schema
@@ -143,7 +146,7 @@ age = 25
     
     match validate_document::<User>(valid) {
         Ok(_) => {},
-        Err(e) => panic!("Validation failed: {}", e),
+        Err(e) => panic!("Validation failed: {e}"),
     }
     
     // Username too short
@@ -156,7 +159,7 @@ age = 25
     let result = validate_document::<User>(short_username);
     assert!(result.is_err());
     let err_msg = result.unwrap_err();
-    println!("Short username error: {}", err_msg);
+    println!("Short username error: {err_msg}");
     assert!(err_msg.contains("length") || err_msg.contains("StringLengthViolation"));
     
     // Invalid pattern
@@ -245,14 +248,14 @@ name = "Acme Corp"
 "#;
     
     // Register the type definitions that Company references
-    let type_defs: &[(&str, fn() -> FieldSchema)] = &[
+    let type_defs: &[TypeDefinition] = &[
         ("Address", || Address::eure_schema()),
         ("Person", || Person::eure_schema()),
     ];
     
     match validate_document_with_types::<Company>(valid_nested, type_defs) {
         Ok(_) => {},
-        Err(e) => panic!("Nested validation failed: {}", e),
+        Err(e) => panic!("Nested validation failed: {e}"),
     }
     
     // Missing nested field

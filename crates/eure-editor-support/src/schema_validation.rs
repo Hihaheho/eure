@@ -20,6 +20,12 @@ pub struct SchemaManager {
     schema_paths: HashMap<String, String>,
 }
 
+impl Default for SchemaManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SchemaManager {
     /// Create a new schema manager
     pub fn new() -> Self {
@@ -70,8 +76,8 @@ pub fn validate_document(
     let line_numbers = LineNumbers::new(input);
     
     // Check if there's an external schema to use
-    if let Some(schema_uri) = schema_manager.get_document_schema_uri(uri) {
-        if let Some(schema) = schema_manager.get_schema(schema_uri) {
+    if let Some(schema_uri) = schema_manager.get_document_schema_uri(uri)
+        && let Some(schema) = schema_manager.get_schema(schema_uri) {
             // Validate against the external schema
             let errors = validate_with_schema(input, tree, schema.clone());
             for error in errors {
@@ -79,7 +85,6 @@ pub fn validate_document(
             }
             return diagnostics;
         }
-    }
     
     // If no external schema, fall back to self-describing validation
     let validation_result = validate_self_describing(input, tree);
@@ -142,11 +147,10 @@ pub fn find_schema_for_document(
         }
         
         // Stop at workspace root if provided
-        if let Some(root) = workspace_root {
-            if dir == root {
+        if let Some(root) = workspace_root
+            && dir == root {
                 break;
             }
-        }
         
         current = dir.parent();
     }

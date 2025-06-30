@@ -9,7 +9,7 @@ fn test_serde_skip() {
         id: u64,
         name: String,
         #[serde(skip)]
-        internal_state: String,
+        _internal_state: String,
         email: Option<String>,
     }
     
@@ -108,7 +108,7 @@ fn test_skip_and_flatten_combined() {
     struct Base {
         id: u64,
         #[serde(skip)]
-        secret: String,
+        _secret: String,
     }
     
     #[derive(Eure, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ fn test_skip_and_flatten_combined() {
         #[serde(flatten)]
         base: Base,
         #[serde(skip)]
-        cache: Option<String>,
+        _cache: Option<String>,
     }
     
     let schema = Extended::eure_schema();

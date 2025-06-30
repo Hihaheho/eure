@@ -84,7 +84,7 @@ value = "b"
     if !errors.is_empty() {
         eprintln!("Validation errors:");
         for (i, error) in errors.iter().enumerate() {
-            eprintln!("  {}: {:?}", i, error);
+            eprintln!("  {i}: {error:?}");
         }
     }
     
