@@ -207,7 +207,7 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
             let path_str = if path.is_empty() {
                 String::new()
             } else {
-                format!(" at {}", path.join("."))
+                format!(" at {}", path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join("."))
             };
             (
                 format!("Required field '{field}' is missing{path_str}"),
@@ -219,7 +219,7 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
             let path_str = if path.is_empty() {
                 String::new()
             } else {
-                format!(" at {}", path.join("."))
+                format!(" at {}", path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join("."))
             };
             (
                 format!("Unexpected field '{field}'{path_str}"),
@@ -301,7 +301,7 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
         ValidationErrorKind::PreferSection { path } => (
             format!(
                 "Consider using section syntax for '{}' instead of inline binding",
-                path.join(".")
+                path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(".")
             ),
             Some("eure-schema-prefer-section".to_string()),
             None,
@@ -309,7 +309,7 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
         ValidationErrorKind::PreferArraySyntax { path } => (
             format!(
                 "Consider using array syntax [] for '{}' instead of repeated fields",
-                path.join(".")
+                path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(".")
             ),
             Some("eure-schema-prefer-array".to_string()),
             None,

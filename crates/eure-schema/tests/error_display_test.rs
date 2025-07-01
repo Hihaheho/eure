@@ -1,7 +1,9 @@
 //! Tests for error message display formatting
 
 use eure_schema::{ValidationError, ValidationErrorKind, Severity};
-use eure_tree::tree::InputSpan;
+use eure_value::value::PathSegment;
+use eure_value::identifier::Identifier;
+use std::str::FromStr;
 
 #[test]
 fn test_type_mismatch_display() {
@@ -19,7 +21,7 @@ fn test_type_mismatch_display() {
 fn test_required_field_missing_display() {
     let error = ValidationErrorKind::RequiredFieldMissing {
         field: "name".to_string(),
-        path: vec!["user".to_string()],
+        path: vec![PathSegment::Ident(Identifier::from_str("user").unwrap())],
     };
     assert_eq!(
         error.to_string(),
@@ -112,30 +114,11 @@ fn test_validation_error_display() {
             expected: "boolean".to_string(),
             actual: "string".to_string(),
         },
-        span: InputSpan {
-            start: 10,
-            end: 20,
-        },
         severity: Severity::Error,
     };
     assert_eq!(
         error.to_string(),
         "error: Type mismatch: expected boolean, but got string"
-    );
-    
-    let warning = ValidationError {
-        kind: ValidationErrorKind::PreferSection {
-            path: vec!["config".to_string()],
-        },
-        span: InputSpan {
-            start: 30,
-            end: 40,
-        },
-        severity: Severity::Warning,
-    };
-    assert_eq!(
-        warning.to_string(),
-        "warning: Consider using binding syntax instead of section syntax for config"
     );
 }
 
@@ -150,21 +133,13 @@ fn test_array_violations_display() {
         length_error.to_string(),
         "Array must have between 2 and 5 items, but has 7"
     );
-    
-    let unique_error = ValidationErrorKind::ArrayUniqueViolation {
-        duplicate: "item1".to_string(),
-    };
-    assert_eq!(
-        unique_error.to_string(),
-        "Array contains duplicate value: item1"
-    );
 }
 
 #[test]
 fn test_unexpected_field_display() {
     let error = ValidationErrorKind::UnexpectedField {
         field: "extra".to_string(),
-        path: vec!["user".to_string(), "profile".to_string()],
+        path: vec![PathSegment::Ident(Identifier::from_str("user").unwrap()), PathSegment::Ident(Identifier::from_str("profile").unwrap())],
     };
     assert_eq!(
         error.to_string(),
@@ -172,42 +147,15 @@ fn test_unexpected_field_display() {
     );
 }
 
+// InvalidSchemaPattern is not in the new implementation
+
 #[test]
-fn test_invalid_schema_pattern_display() {
-    let error = ValidationErrorKind::InvalidSchemaPattern {
-        pattern: "[invalid".to_string(),
-        error: "unclosed character class".to_string(),
-    };
+fn test_variant_discriminator_missing_display() {
+    let error = ValidationErrorKind::VariantDiscriminatorMissing;
     assert_eq!(
         error.to_string(),
-        "Invalid pattern '/[invalid/': unclosed character class"
+        "Variant discriminator field '$variant' is missing"
     );
 }
 
-#[test]
-fn test_missing_variant_tag_display() {
-    let error = ValidationErrorKind::MissingVariantTag;
-    assert_eq!(
-        error.to_string(),
-        "Missing $variant tag for variant type"
-    );
-}
-
-#[test]
-fn test_prefer_warnings_display() {
-    let section_warning = ValidationErrorKind::PreferSection {
-        path: vec!["database".to_string(), "config".to_string()],
-    };
-    assert_eq!(
-        section_warning.to_string(),
-        "Consider using binding syntax instead of section syntax for database.config"
-    );
-    
-    let array_warning = ValidationErrorKind::PreferArraySyntax {
-        path: vec!["items".to_string()],
-    };
-    assert_eq!(
-        array_warning.to_string(),
-        "Consider using explicit array syntax instead of array append syntax for items"
-    );
-}
+// Preference warnings are not implemented in the new value-based validator

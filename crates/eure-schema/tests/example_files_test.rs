@@ -1,21 +1,15 @@
-use eure_schema::{extract_schema, validate_with_schema};
-use eure_parol::parse;
+use eure_schema::{extract_schema_from_value, validate_with_schema_value};
 use std::fs;
 
 #[test]
 fn test_example_files_validation() {
-    // Load and parse the actual schema file
+    // Load the actual schema file
     let schema_input = fs::read_to_string("../../example.schema.eure")
         .expect("Failed to read example.schema.eure");
     
-    let schema_result = parse(&schema_input);
-    let schema_tree = match schema_result {
-        Ok(tree) => tree,
-        Err(e) => panic!("Failed to parse schema: {e:?}"),
-    };
-    
-    // Extract schema
-    let extracted = extract_schema(&schema_input, &schema_tree);
+    // Extract schema using value-based API
+    let extracted = extract_schema_from_value(&schema_input)
+        .expect("Failed to extract schema");
     
     // Verify it's a pure schema
     assert!(extracted.is_pure_schema, "example.schema.eure should be a pure schema file");
@@ -34,20 +28,15 @@ fn test_example_files_validation() {
         }
     }
     
-    // Load and parse the example document
+    // Load the example document
     let doc_input = fs::read_to_string("../../example.eure")
         .expect("Failed to read example.eure");
-    
-    let doc_result = parse(&doc_input);
-    let doc_tree = match doc_result {
-        Ok(tree) => tree,
-        Err(e) => panic!("Failed to parse document: {e:?}"),
-    };
     
     // Validate - use the extracted schema directly (bypass $schema reference)
     let mut test_schema = extracted.document_schema.clone();
     test_schema.schema_ref = None; // Clear schema ref to avoid circular loading
-    let errors = validate_with_schema(&doc_input, &doc_tree, test_schema);
+    let errors = validate_with_schema_value(&doc_input, test_schema)
+        .expect("Failed to validate document");
     
     // Print errors for debugging
     if !errors.is_empty() {

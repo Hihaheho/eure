@@ -1,24 +1,20 @@
 //! Tests for deep nesting support in schema definitions
 
-use eure_parol::parse;
 use eure_schema::*;
 
 /// Helper to parse and extract schema from a document
 fn extract(input: &str) -> ExtractedSchema {
-    let tree = parse(input).expect("Failed to parse EURE document");
-    extract_schema(input, &tree)
+    extract_schema_from_value(input).expect("Failed to extract schema")
 }
 
 /// Helper to parse and validate with schema
 fn validate(input: &str, schema: DocumentSchema) -> Vec<ValidationError> {
-    let tree = parse(input).expect("Failed to parse EURE document");
-    validate_with_schema(input, &tree, schema)
+    validate_with_schema_value(input, schema).expect("Failed to validate")
 }
 
 /// Helper to validate self-describing document
 fn validate_self(input: &str) -> ValidationResult {
-    let tree = parse(input).expect("Failed to parse EURE document");
-    validate_self_describing(input, &tree)
+    validate_self_describing(input).expect("Failed to validate self-describing document")
 }
 
 #[cfg(test)]
@@ -32,22 +28,28 @@ company.department.manager.$type = .string
 company.department.budget.$type = .number
 "#;
         let extracted = extract(doc);
-        
+
         // Should extract nested structure
-        assert!(extracted.document_schema.root.fields.contains_key("company"));
-        
+        assert!(
+            extracted
+                .document_schema
+                .root
+                .fields
+                .contains_key("company")
+        );
+
         let company = &extracted.document_schema.root.fields["company"];
         if let Type::Object(obj) = &company.type_expr {
             assert!(obj.fields.contains_key("department"));
-            
+
             let department = &obj.fields["department"];
             if let Type::Object(dept_obj) = &department.type_expr {
                 assert!(dept_obj.fields.contains_key("manager"));
                 assert!(dept_obj.fields.contains_key("budget"));
-                
+
                 let manager = &dept_obj.fields["manager"];
                 assert!(matches!(manager.type_expr, Type::String));
-                
+
                 let budget = &dept_obj.fields["budget"];
                 assert!(matches!(budget.type_expr, Type::Number));
             } else {
@@ -66,7 +68,7 @@ org.division.team.lead.email.$type = .typed-string.email
 org.division.team.size.$type = .number
 "#;
         let extracted = extract(doc);
-        
+
         // Navigate through the structure
         let org = &extracted.document_schema.root.fields["org"];
         if let Type::Object(org_obj) = &org.type_expr {
@@ -76,12 +78,12 @@ org.division.team.size.$type = .number
                 if let Type::Object(team_obj) = &team.type_expr {
                     assert!(team_obj.fields.contains_key("lead"));
                     assert!(team_obj.fields.contains_key("size"));
-                    
+
                     let lead = &team_obj.fields["lead"];
                     if let Type::Object(lead_obj) = &lead.type_expr {
                         assert!(lead_obj.fields.contains_key("name"));
                         assert!(lead_obj.fields.contains_key("email"));
-                        
+
                         let email = &lead_obj.fields["email"];
                         if let Type::TypedString(ts) = &email.type_expr {
                             assert_eq!(*ts, TypedStringKind::Email);
@@ -111,7 +113,7 @@ api.v1.endpoints.users.path.$type = .string
 api.v1.endpoints.users.path.$pattern = "^/api/v1/users.*$"
 "#;
         let result = validate_self(doc);
-        
+
         // Extract the deeply nested field
         let api = &result.schema.document_schema.root.fields["api"];
         if let Type::Object(api_obj) = &api.type_expr {
@@ -124,9 +126,12 @@ api.v1.endpoints.users.path.$pattern = "^/api/v1/users.*$"
                         // Check rateLimit constraints
                         let rate_limit = &users_obj.fields["rateLimit"];
                         assert!(matches!(rate_limit.type_expr, Type::Number));
-                        assert_eq!(rate_limit.constraints.range, Some((Some(0.0), Some(1000.0))));
-                        
-                        // Check path constraints  
+                        assert_eq!(
+                            rate_limit.constraints.range,
+                            Some((Some(0.0), Some(1000.0)))
+                        );
+
+                        // Check path constraints
                         let path = &users_obj.fields["path"];
                         assert!(matches!(path.type_expr, Type::String));
                         assert!(path.constraints.pattern.is_some());
@@ -142,7 +147,7 @@ api.v1.endpoints.users.path.$pattern = "^/api/v1/users.*$"
         } else {
             panic!("api should be an object");
         }
-        
+
         // No validation errors
         assert!(result.errors.is_empty());
     }
@@ -151,12 +156,12 @@ api.v1.endpoints.users.path.$pattern = "^/api/v1/users.*$"
     fn test_deep_nesting_with_meta_extensions() {
         let doc = r#"
 server.config.database.connection.timeout.$type = .number
-server.config.database.connection.timeout.$$optional = true
+server.config.database.connection.timeout.$optional = true
 server.config.database.connection.host.$type = .string
-server.config.database.connection.host.$$prefer.section = false
+server.config.database.connection.host.$prefer.section = false
 "#;
         let extracted = extract(doc);
-        
+
         // Navigate to connection object
         let server = &extracted.document_schema.root.fields["server"];
         if let Type::Object(server_obj) = &server.type_expr {
@@ -169,7 +174,7 @@ server.config.database.connection.host.$$prefer.section = false
                         // Check timeout is optional
                         let timeout = &conn_obj.fields["timeout"];
                         assert!(timeout.optional);
-                        
+
                         // Check host preference
                         let host = &conn_obj.fields["host"];
                         assert_eq!(host.preferences.section, Some(false));
@@ -197,7 +202,16 @@ app.services.auth.providers.oauth.redirectUrl.$type = .typed-string.url
 app.services.auth.providers.oauth.enabled.$type = .boolean
 "#;
         let schema = extract(schema_doc).document_schema;
-        
+
+        // Debug: print schema structure
+        eprintln!(
+            "Schema root fields: {:?}",
+            schema.root.fields.keys().collect::<Vec<_>>()
+        );
+        if let Some(app_field) = schema.root.fields.get("app") {
+            eprintln!("app field optional: {}", app_field.optional);
+        }
+
         // Valid document
         let valid_doc = r#"
 @ app.services.auth.providers.oauth
@@ -207,8 +221,14 @@ redirectUrl = "https://example.com/callback"
 enabled = true
 "#;
         let errors = validate(valid_doc, schema.clone());
+        if !errors.is_empty() {
+            eprintln!("Validation errors for valid_doc:");
+            for error in &errors {
+                eprintln!("  - {error:?}");
+            }
+        }
         assert!(errors.is_empty());
-        
+
         // Invalid document - wrong type
         let invalid_doc = r#"
 @ app.services.auth.providers.oauth
@@ -221,7 +241,7 @@ enabled = "yes"  # Should be boolean
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             &errors[0].kind,
-            ValidationErrorKind::TypeMismatch { expected, actual } 
+            ValidationErrorKind::TypeMismatch { expected, actual }
                 if expected == "boolean" && actual == "string"
         ));
     }
@@ -236,7 +256,7 @@ name.$type = .string
 # Two levels
 person.age.$type = .number
 
-# Three levels  
+# Three levels
 company.info.founded.$type = .number
 company.info.founded.$range = [1800, 2100]
 
@@ -249,14 +269,49 @@ system.modules.core.version.patch.$type = .number
 config.debug.$type = .boolean
 "#;
         let result = validate_self(doc);
-        
+
         // Check all fields were extracted correctly
-        assert!(result.schema.document_schema.root.fields.contains_key("name"));
-        assert!(result.schema.document_schema.root.fields.contains_key("person"));
-        assert!(result.schema.document_schema.root.fields.contains_key("company"));
-        assert!(result.schema.document_schema.root.fields.contains_key("system"));
-        assert!(result.schema.document_schema.root.fields.contains_key("config"));
-        
+        assert!(
+            result
+                .schema
+                .document_schema
+                .root
+                .fields
+                .contains_key("name")
+        );
+        assert!(
+            result
+                .schema
+                .document_schema
+                .root
+                .fields
+                .contains_key("person")
+        );
+        assert!(
+            result
+                .schema
+                .document_schema
+                .root
+                .fields
+                .contains_key("company")
+        );
+        assert!(
+            result
+                .schema
+                .document_schema
+                .root
+                .fields
+                .contains_key("system")
+        );
+        assert!(
+            result
+                .schema
+                .document_schema
+                .root
+                .fields
+                .contains_key("config")
+        );
+
         // Verify the system.modules.core.version structure
         let system = &result.schema.document_schema.root.fields["system"];
         if let Type::Object(sys_obj) = &system.type_expr {
@@ -291,14 +346,15 @@ major.$type = .number
 minor.$type = .number
 patch.$type = .number
 
-# Deep reference to custom type
-product.info.software.version.$type = .$types.Version
+# Deep reference to custom type - use nested section syntax
+@ product.info.software.version
+$type = .$types.Version
 "#;
         let extracted = extract(schema_doc);
-        
+
         // Check type was defined
         assert!(extracted.document_schema.types.contains_key("Version"));
-        
+
         // Check deep reference was created
         let product = &extracted.document_schema.root.fields["product"];
         if let Type::Object(prod_obj) = &product.type_expr {
@@ -333,7 +389,7 @@ team.backend.lead.$type = .string
 team.backend.members.$type = .array
 "#;
         let result = validate_self(doc);
-        
+
         // The inline schemas inside the section should be applied to the section path
         let company = &result.schema.document_schema.root.fields["company"];
         if let Type::Object(company_obj) = &company.type_expr {
@@ -346,7 +402,7 @@ team.backend.members.$type = .array
                         // Check frontend and backend teams
                         assert!(team_obj.fields.contains_key("frontend"));
                         assert!(team_obj.fields.contains_key("backend"));
-                        
+
                         let frontend = &team_obj.fields["frontend"];
                         if let Type::Object(fe_obj) = &frontend.type_expr {
                             assert!(fe_obj.fields.contains_key("lead"));

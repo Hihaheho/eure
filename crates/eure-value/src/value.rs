@@ -32,6 +32,10 @@ pub enum KeyCmpValue {
     I64(i64),
     U64(u64),
     String(String),
+    /// Extension identifier (e.g., $type, $serde)
+    Extension(String),
+    /// Meta-extension identifier (e.g., $$meta)
+    MetaExtension(String),
     Tuple(Tuple<KeyCmpValue>),
     Unit,
 }

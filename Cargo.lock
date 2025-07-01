@@ -1835,14 +1835,17 @@ dependencies = [
 name = "eure-schema"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "chrono",
  "eure-derive",
  "eure-parol",
  "eure-tree",
+ "eure-value",
  "indexmap 2.9.0",
  "regex",
  "semver",
  "serde_json",
+ "thiserror 1.0.69",
  "url",
  "uuid",
 ]

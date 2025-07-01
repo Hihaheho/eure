@@ -66,12 +66,6 @@ impl FieldSchemaBuilder {
         self
     }
     
-    /// Set unique constraint for arrays
-    pub fn unique(mut self, unique: bool) -> Self {
-        self.constraints.unique = Some(unique);
-        self
-    }
-    
     /// Prefer section syntax
     pub fn prefer_section(mut self, prefer: bool) -> Self {
         self.preferences.section = Some(prefer);

@@ -110,6 +110,8 @@ fn convert_key_cmp_value_to_value(v: &KeyCmpValue) -> Value {
         KeyCmpValue::I64(i) => Value::I64(*i),
         KeyCmpValue::U64(u) => Value::U64(*u),
         KeyCmpValue::String(s) => Value::String(s.clone()),
+        KeyCmpValue::Extension(s) => Value::Path(Path(vec![PathSegment::Extension(Identifier::from_str(s).unwrap())])),
+        KeyCmpValue::MetaExtension(s) => Value::Path(Path(vec![PathSegment::MetaExt(Identifier::from_str(s).unwrap())])),
         KeyCmpValue::Tuple(t) => {
             // Preserve tuple type - EURE has first-class tuple support
             Value::Tuple(Tuple(
@@ -255,6 +257,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     KeyCmpValue::I64(i) => Value::I64(*i),
                     KeyCmpValue::U64(u) => Value::U64(*u),
                     KeyCmpValue::String(s) => Value::String(s.clone()),
+                    KeyCmpValue::Extension(s) => Value::Path(Path(vec![PathSegment::Extension(Identifier::from_str(s).unwrap())])),
+                    KeyCmpValue::MetaExtension(s) => Value::Path(Path(vec![PathSegment::MetaExt(Identifier::from_str(s).unwrap())])),
                     KeyCmpValue::Tuple(t) => Value::Tuple(Tuple(
                         t.0.iter()
                             .map(convert_key_cmp_value_to_value)
@@ -621,7 +625,18 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let binding_value = match view.binding_rhs.get_view(tree) {
                 Ok(BindingRhsView::ValueBinding(value_binding_handle)) => {
                     if let Ok(value_binding_view) = value_binding_handle.get_view(tree) {
-                        self.values.get_value(&value_binding_view.value).cloned()
+                        // First ensure the value is visited
+                        self.visit_value_handle(value_binding_view.value, tree)?;
+                        
+                        // Then get the value
+                        let result = self.values.get_value(&value_binding_view.value).cloned();
+                        
+                        // Debug output
+                        if result.is_none() {
+                            eprintln!("DEBUG: ValueBinding - No value found for handle {:?}", value_binding_view.value);
+                        }
+                        
+                        result
                     } else {
                         None
                     }
@@ -697,22 +712,75 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
     fn visit_section(
         &mut self,
-        handle: SectionHandle,
+        _handle: SectionHandle,
         view: SectionView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Get keys from the section before visiting
+        // First visit the keys to populate the key handles
+        self.visit_keys(view.keys, view.keys.get_view(tree)?, tree)?;
+        
+        // Get keys from the section
         let key_handles = self.values.get_keys(&view.keys).cloned();
-
-        // Visit the section using the default implementation
-        self.visit_section_super(handle, view, tree)?;
 
         // Process the section if we have valid keys
         if let Some(key_handles) = key_handles
             && !key_handles.is_empty()
         {
-            // The section content will be processed via visit_section_body_list or visit_section_binding
-            // For now, we'll handle this in the visit_eure method when transforming the document
+            // Create a new section map for this section's content
+            let mut section_map = AHashMap::new();
+            
+            // Process section body
+            if let Ok(section_body) = view.section_body.get_view(tree) {
+                match section_body {
+                    SectionBodyView::SectionBinding(binding_handle) => {
+                        // Section with nested bindings: @ section { bindings... }
+                        if let Ok(binding_view) = binding_handle.get_view(tree)
+                            && let Ok(eure_view) = binding_view.eure.get_view(tree)
+                        {
+                            // Push section map onto stack
+                            self.current_section_stack.push(section_map);
+                            
+                            // Visit the eure content (bindings and nested sections)
+                            if let Ok(Some(bindings)) = eure_view.eure_bindings.get_view(tree) {
+                                self.visit_eure_bindings(eure_view.eure_bindings, bindings, tree)?;
+                            }
+                            if let Ok(Some(sections)) = eure_view.eure_sections.get_view(tree) {
+                                self.visit_eure_sections(eure_view.eure_sections, sections, tree)?;
+                            }
+                            
+                            // Pop section map
+                            section_map = self.current_section_stack.pop().unwrap();
+                        }
+                    }
+                    SectionBodyView::SectionBodyList(body_list_handle) => {
+                        // Section with list of bindings: @ section \n bindings...
+                        // Push section map onto stack
+                        self.current_section_stack.push(section_map);
+                        
+                        // Visit the body list
+                        if let Ok(Some(body_list)) = body_list_handle.get_view(tree) {
+                            self.visit_section_body_list(body_list_handle, body_list, tree)?;
+                        }
+                        
+                        // Pop section map
+                        section_map = self.current_section_stack.pop().unwrap();
+                    }
+                    SectionBodyView::Bind(_bind_handle) => {
+                        // Section with direct value assignment: @ section = value
+                        // The Bind is just the "=" symbol, we need to look for a Value after it
+                        // However, the SectionBodyView doesn't directly contain the value
+                        // This case might not be fully implemented in the AST yet
+                        // For now, we'll skip this case
+                    }
+                }
+            }
+            
+            // Add the section map to the parent map using the section's path
+            let target_map = self
+                .current_section_stack
+                .last_mut()
+                .unwrap_or(&mut self.document_map);
+            process_path_recursive(target_map, &key_handles, Value::Map(Map(section_map)), self.values);
         }
 
         Ok(())
@@ -720,16 +788,19 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
     fn visit_section_body_list(
         &mut self,
-        handle: SectionBodyListHandle,
+        _handle: SectionBodyListHandle,
         view: SectionBodyListView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Create a new map for this section body
-        let section_map = AHashMap::new();
-        self.current_section_stack.push(section_map);
-
-        // Visit the section body list
-        self.visit_section_body_list_super(handle, view, tree)?;
+        // Process the binding in this section body list entry
+        if let Ok(binding_view) = view.binding.get_view(tree) {
+            self.visit_binding(view.binding, binding_view, tree)?;
+        }
+        
+        // Continue with the rest of the section body list
+        if let Ok(Some(more)) = view.section_body_list.get_view(tree) {
+            self.visit_section_body_list(view.section_body_list, more, tree)?;
+        }
 
         Ok(())
     }
@@ -1005,8 +1076,12 @@ fn process_path_recursive(
         Some(PathSegment::Ident(ident)) => (KeyCmpValue::String(ident.to_string()), false),
         Some(PathSegment::Value(val)) => (val.clone(), false),
         Some(PathSegment::Extension(ident)) => {
-            // For extension namespace, preserve the $ prefix
-            (KeyCmpValue::String(format!("${ident}")), false)
+            // Use the Extension variant to preserve semantic information
+            (KeyCmpValue::Extension(ident.to_string()), false)
+        }
+        Some(PathSegment::MetaExt(ident)) => {
+            // Use the MetaExtension variant for meta-extensions
+            (KeyCmpValue::MetaExtension(ident.to_string()), false)
         }
         Some(PathSegment::Array { key, index: _ }) => {
             // Handle array access
@@ -1061,12 +1136,35 @@ fn process_path_recursive(
         }
     } else {
         // Nested object path
-        let nested = map
-            .entry(key)
-            .or_insert_with(|| Value::Map(Map(AHashMap::new())));
-
-        if let Value::Map(Map(nested_map)) = nested {
-            process_path_recursive(nested_map, &key_handles[1..], value, values);
+        let nested = map.get_mut(&key);
+        
+        match nested {
+            Some(Value::Map(Map(nested_map))) => {
+                // Already a map, recurse into it
+                process_path_recursive(nested_map, &key_handles[1..], value, values);
+            }
+            Some(existing_value) => {
+                // Not a map, need to convert to a map and preserve the existing value
+                let mut new_map = AHashMap::new();
+                
+                // Store the existing value under a special key
+                new_map.insert(
+                    KeyCmpValue::String("_value".to_string()),
+                    existing_value.clone()
+                );
+                
+                // Process the nested path
+                process_path_recursive(&mut new_map, &key_handles[1..], value, values);
+                
+                // Replace with the new map
+                map.insert(key, Value::Map(Map(new_map)));
+            }
+            None => {
+                // No existing value, create a new map
+                let mut new_map = AHashMap::new();
+                process_path_recursive(&mut new_map, &key_handles[1..], value, values);
+                map.insert(key, Value::Map(Map(new_map)));
+            }
         }
     }
 }

@@ -1,7 +1,6 @@
 //! Simple integration test for schema validation with example files
 
-use eure_schema::{extract_schema, validate_with_schema};
-use eure_parol::parse;
+use eure_schema::{extract_schema_from_value, validate_with_schema_value};
 
 #[test]
 fn test_example_schema_validation() {
@@ -64,12 +63,8 @@ text = "Option B"
 value = "b"
 "#;
 
-    // Parse both
-    let schema_tree = parse(schema_input).expect("Failed to parse schema");
-    let doc_tree = parse(doc_input).expect("Failed to parse document");
-
     // Extract schema
-    let extracted = extract_schema(schema_input, &schema_tree);
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
     
     // The schema should contain type definitions
     assert!(extracted.document_schema.types.contains_key("Action"));
@@ -78,7 +73,7 @@ value = "b"
     assert!(extracted.document_schema.root.fields.contains_key("script"));
     
     // Validate document against schema
-    let errors = validate_with_schema(doc_input, &doc_tree, extracted.document_schema);
+    let errors = validate_with_schema_value(doc_input, extracted.document_schema).expect("Failed to validate");
     
     // Print errors for debugging
     if !errors.is_empty() {
@@ -102,8 +97,7 @@ name = "test"
 value = 42
 "#;
 
-    let tree = parse(doc).expect("Failed to parse");
-    let extracted = extract_schema(doc, &tree);
+    let extracted = extract_schema_from_value(doc).expect("Failed to extract schema");
     
     // Should extract the schema reference
     assert_eq!(
@@ -125,8 +119,7 @@ person.email.$type = .typed-string.email
 person.email.$optional = true
 "#;
 
-    let tree = parse(schema).expect("Failed to parse");
-    let extracted = extract_schema(schema, &tree);
+    let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
     
     // Should be detected as pure schema
     assert!(extracted.is_pure_schema);
@@ -147,8 +140,7 @@ email = .typed-string.email
 email.$optional = true
 "#;
 
-    let tree = parse(schema).expect("Failed to parse");
-    let extracted = extract_schema(schema, &tree);
+    let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
     
     // This should be detected as a pure schema
     assert!(extracted.is_pure_schema, "Shorthand syntax should be recognized as pure schema");
