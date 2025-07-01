@@ -13,7 +13,7 @@ mod value_validator;
 pub use schema::*;
 pub use value_validator::{ValidationError, ValidationErrorKind, Severity};
 pub use builder::{FieldSchemaBuilder, TypeBuilder, ObjectSchemaBuilder, VariantSchemaBuilder};
-pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case};
+pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, path_to_string, path_segments_to_string};
 pub use value_schema::{value_to_schema, is_pure_schema, SchemaError};
 pub use value_validator::validate_document;
 pub use eure_value::value::PathSegment;
@@ -31,38 +31,46 @@ pub struct ValidationResult {
     pub errors: Vec<ValidationError>,
 }
 
+/// Macro to reduce boilerplate for parsing and value extraction
+macro_rules! parse_and_extract_value {
+    ($input:expr, $callback:expr) => {{
+        // Parse to CST
+        let tree = eure_parol::parse($input)
+            .map_err(|e| SchemaError::InvalidField(format!("Parse error: {:?}", e)))?;
+        
+        // Extract to Value
+        let mut values = eure_tree::value_visitor::Values::default();
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new($input, &mut values);
+        
+        use eure_tree::prelude::*;
+        tree.visit_from_root(&mut visitor)
+            .map_err(|e| SchemaError::InvalidField(format!("Value extraction error: {:?}", e)))?;
+        
+        // Get document value
+        let doc_value = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
+            values.get_eure(&root_view.eure)
+                .ok_or_else(|| SchemaError::InvalidField("No document value found".to_string()))?
+        } else {
+            return Err(SchemaError::InvalidField("Invalid document structure".to_string()).into());
+        };
+        
+        $callback(doc_value)
+    }};
+}
 
 /// Extract schema information from a EURE document using Value-based approach
 /// 
 /// This is the new recommended way to extract schemas.
 pub fn extract_schema_from_value(input: &str) -> Result<ExtractedSchema, SchemaError> {
-    // Parse to CST
-    let tree = eure_parol::parse(input)
-        .map_err(|e| SchemaError::InvalidField(format!("Parse error: {:?}", e)))?;
-    
-    // Extract to Value
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input, &mut values);
-    
-    use eure_tree::prelude::*;
-    tree.visit_from_root(&mut visitor)
-        .map_err(|e| SchemaError::InvalidField(format!("Value extraction error: {:?}", e)))?;
-    
-    // Get document value
-    let doc_value = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure)
-            .ok_or_else(|| SchemaError::InvalidField("No document value found".to_string()))?
-    } else {
-        return Err(SchemaError::InvalidField("Invalid document structure".to_string()));
-    };
-    
-    // Convert to schema
-    let schema = value_to_schema(doc_value)?;
-    let is_pure = is_pure_schema(doc_value);
-    
-    Ok(ExtractedSchema { 
-        document_schema: schema,
-        is_pure_schema: is_pure,
+    parse_and_extract_value!(input, |doc_value| {
+        // Convert to schema
+        let schema = value_to_schema(doc_value)?;
+        let is_pure = is_pure_schema(doc_value);
+        
+        Ok(ExtractedSchema { 
+            document_schema: schema,
+            is_pure_schema: is_pure,
+        })
     })
 }
 
@@ -74,28 +82,10 @@ pub fn validate_with_schema_value(
     input: &str,
     schema: DocumentSchema,
 ) -> Result<Vec<ValidationError>, SchemaError> {
-    // Parse to CST
-    let tree = eure_parol::parse(input)
-        .map_err(|e| SchemaError::InvalidField(format!("Parse error: {:?}", e)))?;
-    
-    // Extract to Value
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input, &mut values);
-    
-    use eure_tree::prelude::*;
-    tree.visit_from_root(&mut visitor)
-        .map_err(|e| SchemaError::InvalidField(format!("Value extraction error: {:?}", e)))?;
-    
-    // Get document value
-    let doc_value = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure)
-            .ok_or_else(|| SchemaError::InvalidField("No document value found".to_string()))?
-    } else {
-        return Err(SchemaError::InvalidField("Invalid document structure".to_string()));
-    };
-    
-    // Validate
-    Ok(validate_document(doc_value, &schema))
+    parse_and_extract_value!(input, |doc_value| {
+        // Validate
+        Ok(validate_document(doc_value, &schema))
+    })
 }
 
 /// Extract schema and validate in one pass for self-describing documents
@@ -109,20 +99,25 @@ pub fn validate_with_schema_value(
 /// # Returns
 /// The extracted schema and any validation errors
 pub fn validate_self_describing(input: &str) -> Result<ValidationResult, Box<dyn std::error::Error>> {
-    // First pass: extract schema
-    let extracted = extract_schema_from_value(input)?;
-    
-    // Second pass: validate against extracted schema
-    let errors = if extracted.is_pure_schema {
-        // Pure schema documents don't need validation
-        Vec::new()
-    } else {
-        validate_with_schema_value(input, extracted.document_schema.clone())?
-    };
-    
-    Ok(ValidationResult {
-        schema: extracted,
-        errors,
+    parse_and_extract_value!(input, |doc_value| {
+        // Extract schema
+        let schema = value_to_schema(doc_value)?;
+        let is_pure = is_pure_schema(doc_value);
+        
+        // Validate if not a pure schema
+        let errors = if is_pure {
+            Vec::new()
+        } else {
+            validate_document(doc_value, &schema)
+        };
+        
+        Ok(ValidationResult {
+            schema: ExtractedSchema { 
+                document_schema: schema,
+                is_pure_schema: is_pure,
+            },
+            errors,
+        })
     })
 }
 

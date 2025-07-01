@@ -165,6 +165,19 @@ impl RenameRule {
             Self::Uppercase => name.to_uppercase(),
         }
     }
+    
+    /// Parse a rename rule from a string
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "camelCase" => Some(Self::CamelCase),
+            "snake_case" => Some(Self::SnakeCase),
+            "kebab-case" => Some(Self::KebabCase),
+            "PascalCase" => Some(Self::PascalCase),
+            "UPPERCASE" => Some(Self::Uppercase),
+            "lowercase" => Some(Self::Lowercase),
+            _ => None,
+        }
+    }
 }
 
 /// Complete schema for a document

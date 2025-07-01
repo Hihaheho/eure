@@ -1,5 +1,7 @@
 //! Utility functions shared across the crate
 
+use eure_value::value::{Path, PathSegment};
+
 /// Convert a string to camelCase
 pub fn to_camel_case(s: &str) -> String {
     let mut result = String::new();
@@ -66,6 +68,35 @@ pub fn to_kebab_case(s: &str) -> String {
     }
 
     result.replace('_', "-")
+}
+
+/// Convert a Path to a string representation
+pub fn path_to_string(path: &Path) -> String {
+    let mut parts = Vec::new();
+    
+    for segment in &path.0 {
+        match segment {
+            PathSegment::Ident(id) => parts.push(id.to_string()),
+            PathSegment::Extension(id) => parts.push(format!("${}", id)),
+            PathSegment::MetaExt(id) => parts.push(format!("$${}", id)),
+            _ => {} // Skip other segment types for now
+        }
+    }
+    
+    format!(".{}", parts.join("."))
+}
+
+/// Convert path segments to a string for error messages
+pub fn path_segments_to_string(segments: &[PathSegment]) -> String {
+    segments.iter()
+        .map(|s| match s {
+            PathSegment::Ident(id) => id.to_string(),
+            PathSegment::Extension(id) => format!("${}", id),
+            PathSegment::MetaExt(id) => format!("$${}", id),
+            _ => String::new(),
+        })
+        .collect::<Vec<_>>()
+        .join(".")
 }
 
 #[cfg(test)]

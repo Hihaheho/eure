@@ -4,7 +4,8 @@
 //! EURE documents that have been parsed into Value representations.
 
 use crate::schema::*;
-use eure_value::value::{Value, KeyCmpValue, Path, PathSegment};
+use crate::utils::path_to_string;
+use eure_value::value::{Value, KeyCmpValue};
 use indexmap::IndexMap;
 use ahash::AHashMap;
 
@@ -55,17 +56,7 @@ pub fn value_to_schema(value: &Value) -> Result<DocumentSchema, SchemaError> {
     
     // Handle global serde options
     if let Some(Value::Map(serde_map)) = map.0.get(&KeyCmpValue::Extension("serde".to_string())) {
-        if let Some(Value::String(rename_all)) = serde_map.0.get(&KeyCmpValue::String("rename-all".to_string())) {
-            schema.serde_options.rename_all = match rename_all.as_str() {
-                "camelCase" => Some(RenameRule::CamelCase),
-                "snake_case" => Some(RenameRule::SnakeCase),
-                "kebab-case" => Some(RenameRule::KebabCase),
-                "PascalCase" => Some(RenameRule::PascalCase),
-                "UPPERCASE" => Some(RenameRule::Uppercase),
-                "lowercase" => Some(RenameRule::Lowercase),
-                _ => None,
-            };
-        }
+        schema.serde_options = SchemaBuilder::extract_serde_options(&serde_map.0);
     }
     
     Ok(schema)
@@ -109,6 +100,40 @@ impl SchemaBuilder {
             types: IndexMap::new(),
             root_fields: IndexMap::new(),
         }
+    }
+    
+    /// Helper to extract usize from numeric Value
+    fn extract_usize(val: &Value) -> Option<usize> {
+        match val {
+            Value::I64(n) => Some(*n as usize),
+            Value::U64(n) => Some(*n as usize),
+            _ => None,
+        }
+    }
+    
+    /// Helper to extract f64 from numeric Value
+    fn extract_f64(val: &Value) -> Option<f64> {
+        match val {
+            Value::I64(n) => Some(*n as f64),
+            Value::U64(n) => Some(*n as f64),
+            Value::F32(n) => Some(*n as f64),
+            Value::F64(n) => Some(*n),
+            _ => None,
+        }
+    }
+    
+    /// Helper to extract serde options from a map
+    fn extract_serde_options(serde_map: &AHashMap<KeyCmpValue, Value>) -> SerdeOptions {
+        let mut options = SerdeOptions::default();
+        
+        if let Some(Value::String(rename)) = serde_map.get(&KeyCmpValue::String("rename".to_string())) {
+            options.rename = Some(rename.clone());
+        }
+        if let Some(Value::String(rename_all)) = serde_map.get(&KeyCmpValue::String("rename-all".to_string())) {
+            options.rename_all = RenameRule::from_str(rename_all);
+        }
+        
+        options
     }
     
     /// Process a map at a given path
@@ -164,6 +189,38 @@ impl SchemaBuilder {
         Ok(())
     }
     
+    /// Extract variants from a Value Map
+    fn extract_variants(&mut self, variants_map: &AHashMap<KeyCmpValue, Value>) -> Result<IndexMap<String, ObjectSchema>, SchemaError> {
+        let mut variants = IndexMap::new();
+        
+        for (variant_key, variant_value) in variants_map {
+            let KeyCmpValue::String(variant_name) = variant_key else {
+                continue;
+            };
+            
+            if let Value::Map(variant_map) = variant_value {
+                let mut variant_fields = IndexMap::new();
+                
+                for (field_key, field_value) in &variant_map.0 {
+                    let KeyCmpValue::String(field_name) = field_key else {
+                        continue;
+                    };
+                    
+                    if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
+                        variant_fields.insert(field_name.clone(), field_schema);
+                    }
+                }
+                
+                variants.insert(variant_name.clone(), ObjectSchema {
+                    fields: variant_fields,
+                    additional_properties: None,
+                });
+            }
+        }
+        
+        Ok(variants)
+    }
+    
     /// Extract a type definition from a Value
     fn extract_type_definition(&mut self, _type_name: &str, value: &Value) -> Result<Option<FieldSchema>, SchemaError> {
         match value {
@@ -181,40 +238,13 @@ impl SchemaBuilder {
                                 }
                             }
                             "variants" => {
-                            // Process variants directly here instead of recursive call
-                            if let Value::Map(variants_map) = val {
-                                let mut variants = IndexMap::new();
-                                for (variant_key, variant_value) in &variants_map.0 {
-                                    let KeyCmpValue::String(variant_name) = variant_key else {
-                                        continue;
-                                    };
-                                    
-                                    if let Value::Map(variant_map) = variant_value {
-                                        let mut variant_fields = IndexMap::new();
-                                        
-                                        for (field_key, field_value) in &variant_map.0 {
-                                            let KeyCmpValue::String(field_name) = field_key else {
-                                                continue;
-                                            };
-                                            
-                                            if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
-                                                variant_fields.insert(field_name.clone(), field_schema);
-                                            }
-                                        }
-                                        
-                                        variants.insert(variant_name.clone(), ObjectSchema {
-                                            fields: variant_fields,
-                                            additional_properties: None,
-                                        });
-                                    }
+                                if let Value::Map(variants_map) = val {
+                                    let variants = self.extract_variants(&variants_map.0)?;
+                                    schema.type_expr = Type::Variants(VariantSchema {
+                                        variants,
+                                        representation: VariantRepr::default(),
+                                    });
                                 }
-                                
-                                // Store the variants in the schema
-                                schema.type_expr = Type::Variants(VariantSchema {
-                                    variants,
-                                    representation: VariantRepr::default(),
-                                });
-                            }
                             }
                             "union" => {
                                 if let Value::Array(arr) = val {
@@ -245,36 +275,14 @@ impl SchemaBuilder {
                                 }
                             }
                             "min-items" => {
-                                if let Value::I64(n) = val {
-                                    schema.constraints.min_items = Some(*n as usize);
-                                } else if let Value::U64(n) = val {
-                                    schema.constraints.min_items = Some(*n as usize);
-                                }
+                                schema.constraints.min_items = Self::extract_usize(val);
                             }
                             "max-items" => {
-                                if let Value::I64(n) = val {
-                                    schema.constraints.max_items = Some(*n as usize);
-                                } else if let Value::U64(n) = val {
-                                    schema.constraints.max_items = Some(*n as usize);
-                                }
+                                schema.constraints.max_items = Self::extract_usize(val);
                             }
                             "serde" => {
                                 if let Value::Map(serde_map) = val {
-                                    // Handle serde options
-                                    if let Some(Value::String(rename)) = serde_map.0.get(&KeyCmpValue::String("rename".to_string())) {
-                                        schema.serde.rename = Some(rename.clone());
-                                    }
-                                    if let Some(Value::String(rename_all)) = serde_map.0.get(&KeyCmpValue::String("rename-all".to_string())) {
-                                        schema.serde.rename_all = match rename_all.as_str() {
-                                            "camelCase" => Some(RenameRule::CamelCase),
-                                            "snake_case" => Some(RenameRule::SnakeCase),
-                                            "kebab-case" => Some(RenameRule::KebabCase),
-                                            "PascalCase" => Some(RenameRule::PascalCase),
-                                            "UPPERCASE" => Some(RenameRule::Uppercase),
-                                            "lowercase" => Some(RenameRule::Lowercase),
-                                            _ => None,
-                                        };
-                                    }
+                                    schema.serde = Self::extract_serde_options(&serde_map.0);
                                 }
                             }
                             _ => {} // Skip other extensions for now
@@ -284,34 +292,8 @@ impl SchemaBuilder {
                             if let Value::Map(nested_map) = val {
                                 // Look for $variants extension key in the nested map
                                 if let Some(Value::Map(variants_map)) = nested_map.0.get(&KeyCmpValue::Extension("variants".to_string())) {
-                                    // Found nested variants, process them
-                                    let mut variants = IndexMap::new();
-                                    for (variant_key, variant_value) in &variants_map.0 {
-                                        let KeyCmpValue::String(variant_name) = variant_key else {
-                                            continue;
-                                        };
-                                        
-                                        if let Value::Map(variant_map) = variant_value {
-                                            let mut variant_fields = IndexMap::new();
-                                            
-                                            for (field_key, field_value) in &variant_map.0 {
-                                                let KeyCmpValue::String(field_name) = field_key else {
-                                                    continue;
-                                                };
-                                                
-                                                if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
-                                                    variant_fields.insert(field_name.clone(), field_schema);
-                                                }
-                                            }
-                                            
-                                            variants.insert(variant_name.clone(), ObjectSchema {
-                                                fields: variant_fields,
-                                                additional_properties: None,
-                                            });
-                                        }
-                                    }
-                                    
-                                    // Store the variants in the schema
+                                    // Found nested variants, use common extraction logic
+                                    let variants = self.extract_variants(&variants_map.0)?;
                                     schema.type_expr = Type::Variants(VariantSchema {
                                         variants,
                                         representation: VariantRepr::default(),
@@ -388,44 +370,24 @@ impl SchemaBuilder {
                                 }
                             }
                             "length" => {
-                            has_schema_info = true;
-                            if let Value::Array(arr) = val {
-                                if arr.0.len() == 2 {
-                                    let min = match &arr.0[0] {
-                                        Value::I64(n) => Some(*n as usize),
-                                        Value::U64(n) => Some(*n as usize),
-                                        _ => None,
-                                    };
-                                    let max = match &arr.0[1] {
-                                        Value::I64(n) => Some(*n as usize),
-                                        Value::U64(n) => Some(*n as usize),
-                                        _ => None,
-                                    };
-                                    if min.is_some() || max.is_some() {
-                                        schema.constraints.length = Some((min, max));
+                                has_schema_info = true;
+                                if let Value::Array(arr) = val {
+                                    if arr.0.len() == 2 {
+                                        let min = Self::extract_usize(&arr.0[0]);
+                                        let max = Self::extract_usize(&arr.0[1]);
+                                        if min.is_some() || max.is_some() {
+                                            schema.constraints.length = Some((min, max));
+                                        }
                                     }
                                 }
                             }
-                        }
                             "range" => {
                                 has_schema_info = true;
                                 if let Value::Array(arr) = val {
-                                if arr.0.len() == 2 {
-                                    let min = match &arr.0[0] {
-                                        Value::I64(n) => Some(*n as f64),
-                                        Value::U64(n) => Some(*n as f64),
-                                        Value::F32(n) => Some(*n as f64),
-                                        Value::F64(n) => Some(*n),
-                                        _ => None,
-                                    };
-                                    let max = match &arr.0[1] {
-                                        Value::I64(n) => Some(*n as f64),
-                                        Value::U64(n) => Some(*n as f64),
-                                        Value::F32(n) => Some(*n as f64),
-                                        Value::F64(n) => Some(*n),
-                                        _ => None,
-                                    };
-                                    if min.is_some() || max.is_some() {
+                                    if arr.0.len() == 2 {
+                                        let min = Self::extract_f64(&arr.0[0]);
+                                        let max = Self::extract_f64(&arr.0[1]);
+                                        if min.is_some() || max.is_some() {
                                             schema.constraints.range = Some((min, max));
                                         }
                                     }
@@ -446,21 +408,7 @@ impl SchemaBuilder {
                             "serde" => {
                             // has_schema_info is not set here because $serde is metadata, not type info
                             if let Value::Map(serde_map) = val {
-                                // Handle nested serde options
-                                if let Some(Value::String(rename)) = serde_map.0.get(&KeyCmpValue::String("rename".to_string())) {
-                                    schema.serde.rename = Some(rename.clone());
-                                }
-                                if let Some(Value::String(rename_all)) = serde_map.0.get(&KeyCmpValue::String("rename-all".to_string())) {
-                                    schema.serde.rename_all = match rename_all.as_str() {
-                                        "camelCase" => Some(RenameRule::CamelCase),
-                                        "snake_case" => Some(RenameRule::SnakeCase),
-                                        "kebab-case" => Some(RenameRule::KebabCase),
-                                        "PascalCase" => Some(RenameRule::PascalCase),
-                                        "UPPERCASE" => Some(RenameRule::Uppercase),
-                                        "lowercase" => Some(RenameRule::Lowercase),
-                                        _ => None,
-                                    };
-                                }
+                                schema.serde = Self::extract_serde_options(&serde_map.0);
                             }
                         }
                             "prefer" => {
@@ -523,22 +471,6 @@ impl SchemaBuilder {
             _ => Ok(None),
         }
     }
-}
-
-/// Convert a Path to a string representation
-fn path_to_string(path: &Path) -> String {
-    let mut parts = Vec::new();
-    
-    for segment in &path.0 {
-        match segment {
-            PathSegment::Ident(id) => parts.push(id.to_string()),
-            PathSegment::Extension(id) => parts.push(format!("${}", id)),
-            PathSegment::MetaExt(id) => parts.push(format!("$${}", id)),
-            _ => {} // Skip other segment types for now
-        }
-    }
-    
-    format!(".{}", parts.join("."))
 }
 
 /// Check if a value represents a schema definition

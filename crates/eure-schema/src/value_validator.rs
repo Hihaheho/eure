@@ -3,6 +3,7 @@
 //! This module provides simple validation of EURE Values against schemas.
 
 use crate::schema::*;
+use crate::utils::path_segments_to_string;
 use eure_value::value::{Value, Map, KeyCmpValue, Array, PathSegment};
 use std::collections::HashSet;
 use ahash::AHashMap;
@@ -162,18 +163,6 @@ impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.severity, self.kind)
     }
-}
-
-fn path_segments_to_string(segments: &[PathSegment]) -> String {
-    segments.iter()
-        .map(|s| match s {
-            PathSegment::Ident(id) => id.to_string(),
-            PathSegment::Extension(id) => format!("${}", id),
-            PathSegment::MetaExt(id) => format!("$${}", id),
-            _ => String::new(),
-        })
-        .collect::<Vec<_>>()
-        .join(".")
 }
 
 /// Validate a document Value against a schema
