@@ -17,7 +17,7 @@ $types.Action {
 }
 
 @ script
-id = .string
-description = .string
+id.$type = .string
+description.$type = .string
 description.$optional = true
 actions.$array = .$types.Action

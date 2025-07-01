@@ -75,7 +75,7 @@ pub fn is_pure_schema(value: &Value) -> bool {
                 // Extension keys are OK for schemas
                 continue;
             }
-            KeyCmpValue::String(_s) => {
+            KeyCmpValue::String(_) => {
                 // Regular fields should contain schema definitions or be nested objects
                 if !is_schema_or_nested_schema(val) {
                     return false;
@@ -532,6 +532,8 @@ fn is_schema_or_nested_schema(value: &Value) -> bool {
         }
         // Primitive values in a schema context (like `.string`) are schema references
         Value::Path(_) => true,
+        // Boolean values can be schema metadata (e.g., for $optional)
+        Value::Bool(_) => true,
         _ => false,
     }
 }

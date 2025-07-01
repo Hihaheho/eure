@@ -111,32 +111,32 @@ impl fmt::Display for ValidationErrorKind {
                 } else {
                     format!(" at {}", path_segments_to_string(path))
                 };
-                write!(f, "Unexpected field '{field}'{location}")
+                write!(f, "Unexpected field '{field}'{location} not defined in schema")
             }
             ValidationErrorKind::StringLengthViolation { min, max, actual } => {
                 match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "String length {actual} is not between {min} and {max}"),
-                    (Some(min), None) => write!(f, "String length {actual} is less than minimum {min}"),
-                    (None, Some(max)) => write!(f, "String length {actual} exceeds maximum {max}"),
+                    (Some(min), Some(max)) => write!(f, "String length must be between {min} and {max} characters, but got {actual}"),
+                    (Some(min), None) => write!(f, "String must be at least {min} characters long, but got {actual}"),
+                    (None, Some(max)) => write!(f, "String length exceeds maximum {max} characters, but got {actual}"),
                     (None, None) => write!(f, "String length violation"),
                 }
             }
             ValidationErrorKind::StringPatternViolation { pattern, value } => {
-                write!(f, "String '{value}' does not match pattern '{pattern}'")
+                write!(f, "String '{value}' does not match pattern /{pattern}/")
             }
             ValidationErrorKind::NumberRangeViolation { min, max, actual } => {
                 match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "Number {actual} is not between {min} and {max}"),
-                    (Some(min), None) => write!(f, "Number {actual} is less than minimum {min}"),
-                    (None, Some(max)) => write!(f, "Number {actual} exceeds maximum {max}"),
+                    (Some(min), Some(max)) => write!(f, "Number must be between {min} and {max}, but got {actual}"),
+                    (Some(min), None) => write!(f, "Number must be at least {min}, but got {actual}"),
+                    (None, Some(max)) => write!(f, "Number exceeds maximum {max}, but got {actual}"),
                     (None, None) => write!(f, "Number range violation"),
                 }
             }
             ValidationErrorKind::ArrayLengthViolation { min, max, actual } => {
                 match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "Array length {actual} is not between {min} and {max}"),
-                    (Some(min), None) => write!(f, "Array length {actual} is less than minimum {min}"),
-                    (None, Some(max)) => write!(f, "Array length {actual} exceeds maximum {max}"),
+                    (Some(min), Some(max)) => write!(f, "Array must have between {min} and {max} items, but has {actual}"),
+                    (Some(min), None) => write!(f, "Array must have at least {min} items, but has {actual}"),
+                    (None, Some(max)) => write!(f, "Array exceeds maximum {max} items, but has {actual}"),
                     (None, None) => write!(f, "Array length violation"),
                 }
             }
@@ -147,7 +147,11 @@ impl fmt::Display for ValidationErrorKind {
                 write!(f, "Invalid variant discriminator: {value}")
             }
             ValidationErrorKind::UnknownVariant { variant, available } => {
-                write!(f, "Unknown variant '{variant}'. Available variants: {}", available.join(", "))
+                if available.is_empty() {
+                    write!(f, "Unknown variant '{variant}'")
+                } else {
+                    write!(f, "Unknown variant '{variant}'. Available variants: {}", available.join(", "))
+                }
             }
             ValidationErrorKind::InvalidValue(msg) => {
                 write!(f, "Invalid value: {msg}")

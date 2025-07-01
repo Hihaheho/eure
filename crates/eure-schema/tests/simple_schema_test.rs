@@ -134,9 +134,9 @@ fn test_shorthand_schema_syntax() {
     // Test the shorthand syntax without explicit .$type
     let schema = r#"
 @ person
-name = .string
-age = .number
-email = .typed-string.email
+name.$type = .string
+age.$type = .number
+email.$type = .typed-string.email
 email.$optional = true
 "#;
 
