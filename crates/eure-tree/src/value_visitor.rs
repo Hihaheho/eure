@@ -488,6 +488,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                                 KeyBaseView::False(_) => {
                                     segments.push(PathSegment::Ident(Identifier::from_str("false").unwrap()));
                                 }
+                                KeyBaseView::MetaExtKey(meta_handle) => {
+                                    if let Ok(meta_view) = meta_handle.get_view(tree)
+                                        && let Ok(ident_view) = meta_view.ident.get_view(tree)
+                                            && let Ok(data) = ident_view.ident.get_data(tree)
+                                                && let Some(s) = tree.get_str(data, self.input) {
+                                                    segments.push(PathSegment::MetaExt(Identifier::from_str(s).unwrap()));
+                                                }
+                                }
                                 _ => {}
                             }
                         }
@@ -521,6 +529,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                                         }
                                         KeyBaseView::False(_) => {
                                             segments.push(PathSegment::Ident(Identifier::from_str("false").unwrap()));
+                                        }
+                                        KeyBaseView::MetaExtKey(meta_handle) => {
+                                            if let Ok(meta_view) = meta_handle.get_view(tree)
+                                                && let Ok(ident_view) = meta_view.ident.get_view(tree)
+                                                    && let Ok(data) = ident_view.ident.get_data(tree)
+                                                        && let Some(s) = tree.get_str(data, self.input) {
+                                                            segments.push(PathSegment::MetaExt(Identifier::from_str(s).unwrap()));
+                                                        }
                                         }
                                         _ => {}
                                     }
