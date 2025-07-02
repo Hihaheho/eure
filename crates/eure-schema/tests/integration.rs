@@ -1,6 +1,7 @@
 //! Integration tests for eure-schema
 
 use eure_schema::*;
+use eure_value::value::KeyCmpValue;
 
 /// Helper to parse and extract schema from a document
 fn extract(input: &str) -> ExtractedSchema {
@@ -360,8 +361,8 @@ $optional = true
         let schema = extract(schema_doc);
         
         // Check that Person type was extracted
-        assert!(schema.document_schema.types.contains_key("Person"));
-        let person_type = &schema.document_schema.types["Person"];
+        assert!(schema.document_schema.types.contains_key(&KeyCmpValue::String("Person".to_string())));
+        let person_type = &schema.document_schema.types[&KeyCmpValue::String("Person".to_string())];
         
         // Check type is object
         assert!(matches!(person_type.type_expr, Type::Object(_)));
@@ -530,7 +531,7 @@ age.$type = .number
         // Debug: print what we got
         println!("Root fields found: {}", result.schema.document_schema.root.fields.len());
         for (name, schema) in &result.schema.document_schema.root.fields {
-            println!("  Field: {}, Type: {:?}", name, schema.type_expr);
+            println!("  Field: {:?}, Type: {:?}", name, schema.type_expr);
         }
         
         // Debug: print cascade type
@@ -546,8 +547,8 @@ age.$type = .number
         
         // Should extract inline schemas into root fields
         assert_eq!(result.schema.document_schema.root.fields.len(), 2);
-        assert!(result.schema.document_schema.root.fields.contains_key("name"));
-        assert!(result.schema.document_schema.root.fields.contains_key("age"));
+        assert!(result.schema.document_schema.root.fields.contains_key(&KeyCmpValue::String("name".to_string())));
+        assert!(result.schema.document_schema.root.fields.contains_key(&KeyCmpValue::String("age".to_string())));
         
         // Should validate successfully
         assert!(result.errors.is_empty());
@@ -569,7 +570,7 @@ score.$range = [0, 100]
         // Debug: print extracted fields
         println!("First test - fields found:");
         for (name, schema) in &result.schema.document_schema.root.fields {
-            println!("  Field: {}, Type: {:?}, Constraints: {:?}", name, schema.type_expr, schema.constraints);
+            println!("  Field: {:?}, Type: {:?}, Constraints: {:?}", name, schema.type_expr, schema.constraints);
         }
         
         assert!(result.errors.is_empty());
@@ -585,7 +586,7 @@ username.$length = [3, 20]
         // Debug: print extracted fields and errors
         println!("\nSecond test - fields found:");
         for (name, schema) in &result.schema.document_schema.root.fields {
-            println!("  Field: {}, Type: {:?}, Constraints: {:?}", name, schema.type_expr, schema.constraints);
+            println!("  Field: {:?}, Type: {:?}, Constraints: {:?}", name, schema.type_expr, schema.constraints);
         }
         println!("Errors: {}", result.errors.len());
         for error in &result.errors {
@@ -650,9 +651,9 @@ $serde.rename = "firstName"
         let schema = extract(schema_doc);
         
         // Check that rename was extracted
-        let user_type = &schema.document_schema.types["User"];
+        let user_type = &schema.document_schema.types[&KeyCmpValue::String("User".to_string())];
         if let Type::Object(obj_schema) = &user_type.type_expr {
-            let field = &obj_schema.fields["first_name"];
+            let field = &obj_schema.fields.get(&KeyCmpValue::String("first_name".to_string())).unwrap();
             assert_eq!(field.serde.rename, Some("firstName".to_string()));
         } else {
             panic!("Expected object type");
@@ -677,7 +678,7 @@ $serde.rename-all = "snake_case"
         );
         
         // Check type-specific rename-all
-        let person_type = &schema.document_schema.types["Person"];
+        let person_type = &schema.document_schema.types[&KeyCmpValue::String("Person".to_string())];
         assert_eq!(
             person_type.serde.rename_all,
             Some(RenameRule::SnakeCase)
@@ -712,7 +713,7 @@ email = "user@example.com"
         
         // Check that we have a required field missing error for "name"
         let has_name_missing = errors.iter().any(|e| 
-            matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if field == "name")
+            matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if field == &KeyCmpValue::String("name".to_string()))
         );
         assert!(has_name_missing, "Expected 'name' to be flagged as missing required field");
     }
@@ -740,7 +741,7 @@ extra = "not allowed"
         // doesn't handle inline schemas during validation.
         // For now, we'll just check that "extra" is flagged as unexpected
         let has_extra_error = errors.iter().any(|e| 
-            matches!(&e.kind, ValidationErrorKind::UnexpectedField { field, .. } if field == "extra")
+            matches!(&e.kind, ValidationErrorKind::UnexpectedField { field, .. } if field == &KeyCmpValue::String("extra".to_string()))
         );
         assert!(has_extra_error, "Expected 'extra' to be flagged as unexpected field");
     }

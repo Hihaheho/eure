@@ -1,4 +1,5 @@
 use eure_schema::{extract_schema_from_value, validate_with_schema_value};
+use eure_value::value::KeyCmpValue;
 
 #[test]
 fn test_value_based_schema_extraction() {
@@ -26,26 +27,26 @@ age.$type = .number
     }
     
     assert!(extracted.is_pure_schema, "Document should be recognized as pure schema");
-    assert!(extracted.document_schema.types.contains_key("User"));
+    assert!(extracted.document_schema.types.contains_key(&KeyCmpValue::String("User".to_string())));
     
     // Check that User type is properly defined
-    let user_type = &extracted.document_schema.types["User"];
+    let user_type = &extracted.document_schema.types[&KeyCmpValue::String("User".to_string())];
     match &user_type.type_expr {
         eure_schema::Type::Object(obj) => {
-            assert!(obj.fields.contains_key("name"));
-            assert!(obj.fields.contains_key("age"));
+            assert!(obj.fields.contains_key(&KeyCmpValue::String("name".to_string())));
+            assert!(obj.fields.contains_key(&KeyCmpValue::String("age".to_string())));
         }
         _ => panic!("User type should be an Object"),
     }
     
     // Check root schema has users array field
-    assert!(extracted.document_schema.root.fields.contains_key("users"));
-    let users_field = &extracted.document_schema.root.fields["users"];
+    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("users".to_string())));
+    let users_field = &extracted.document_schema.root.fields.get(&KeyCmpValue::String("users".to_string())).unwrap();
     println!("Users field type: {:?}", users_field.type_expr);
     match &users_field.type_expr {
         eure_schema::Type::Array(elem_type) => {
             match elem_type.as_ref() {
-                eure_schema::Type::TypeRef(name) => assert_eq!(name, "User"),
+                eure_schema::Type::TypeRef(name) => assert_eq!(name, &KeyCmpValue::String("User".to_string())),
                 _ => panic!("Array element should be a TypeRef to User"),
             }
         }
@@ -128,23 +129,23 @@ options.$array = .string
     
     // Check Action type is a variant
     println!("Types: {:?}", extracted.document_schema.types.keys().collect::<Vec<_>>());
-    let action_type = &extracted.document_schema.types["Action"];
+    let action_type = &extracted.document_schema.types[&KeyCmpValue::String("Action".to_string())];
     println!("Action type: {:?}", action_type);
     match &action_type.type_expr {
         eure_schema::Type::Variants(variant_schema) => {
             println!("Variants found: {:?}", variant_schema.variants.keys().collect::<Vec<_>>());
-            assert!(variant_schema.variants.contains_key("set-text"));
-            assert!(variant_schema.variants.contains_key("set-choice"));
+            assert!(variant_schema.variants.contains_key(&KeyCmpValue::String("set-text".to_string())));
+            assert!(variant_schema.variants.contains_key(&KeyCmpValue::String("set-choice".to_string())));
             
             // Check set-text variant fields
-            let set_text = &variant_schema.variants["set-text"];
-            assert!(set_text.fields.contains_key("speaker"));
-            assert!(set_text.fields.contains_key("text"));
+            let set_text = &variant_schema.variants[&KeyCmpValue::String("set-text".to_string())];
+            assert!(set_text.fields.contains_key(&KeyCmpValue::String("speaker".to_string())));
+            assert!(set_text.fields.contains_key(&KeyCmpValue::String("text".to_string())));
             
             // Check set-choice variant fields
-            let set_choice = &variant_schema.variants["set-choice"];
-            assert!(set_choice.fields.contains_key("prompt"));
-            assert!(set_choice.fields.contains_key("options"));
+            let set_choice = &variant_schema.variants[&KeyCmpValue::String("set-choice".to_string())];
+            assert!(set_choice.fields.contains_key(&KeyCmpValue::String("prompt".to_string())));
+            assert!(set_choice.fields.contains_key(&KeyCmpValue::String("options".to_string())));
         }
         _ => panic!("Action type should be Variants"),
     }

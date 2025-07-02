@@ -4,7 +4,7 @@
 //! EURE documents that have been parsed into Value representations.
 
 use crate::schema::*;
-use crate::utils::path_to_string;
+use crate::utils::path_to_display_string;
 use eure_value::value::{Value, KeyCmpValue};
 use indexmap::IndexMap;
 use ahash::AHashMap;
@@ -51,7 +51,7 @@ pub fn value_to_schema(value: &Value) -> Result<DocumentSchema, SchemaError> {
     
     // Handle cascade type
     if let Some(Value::Path(path)) = map.0.get(&KeyCmpValue::Extension("cascade-type".to_string())) {
-        schema.cascade_type = Type::from_path(&path_to_string(path));
+        schema.cascade_type = Type::from_path(&path_to_display_string(path));
     }
     
     // Handle global serde options
@@ -90,8 +90,8 @@ pub fn is_pure_schema(value: &Value) -> bool {
 
 /// Helper to build schemas from Values
 struct SchemaBuilder {
-    types: IndexMap<String, FieldSchema>,
-    root_fields: IndexMap<String, FieldSchema>,
+    types: IndexMap<KeyCmpValue, FieldSchema>,
+    root_fields: IndexMap<KeyCmpValue, FieldSchema>,
 }
 
 impl SchemaBuilder {
@@ -153,15 +153,28 @@ impl SchemaBuilder {
                         self.process_map(&types_map.0, &["$types"])?;
                     }
                 }
-                KeyCmpValue::Extension(_) | KeyCmpValue::MetaExtension(_) => {
-                    // Skip other extension keys at root level for now
+                KeyCmpValue::Extension(_) => {
+                    // Skip other extensions at root level - they are handled in value_to_schema
                     continue;
+                }
+                KeyCmpValue::MetaExtension(meta_ext) => {
+                    // Meta-extension defines schema for corresponding extension
+                    if let Some(mut schema) = self.extract_field_schema(meta_ext, value)?
+                        && path.is_empty() {
+                            // Extension schemas are always optional
+                            schema.optional = true;
+                            // Store as Extension key (without $$)
+                            self.root_fields.insert(
+                                KeyCmpValue::Extension(meta_ext.clone()), 
+                                schema
+                            );
+                    }
                 }
                 KeyCmpValue::String(key_str) => {
                     // Regular field - check if it has schema definitions
                     if let Some(field_schema) = self.extract_field_schema(key_str, value)?
                         && path.is_empty() {
-                            self.root_fields.insert(key_str.clone(), field_schema);
+                            self.root_fields.insert(KeyCmpValue::String(key_str.clone()), field_schema);
                     }
                 }
                 _ => {} // Skip other key types
@@ -181,7 +194,7 @@ impl SchemaBuilder {
                 };
                 
                 if let Some(type_schema) = self.extract_type_definition(type_name, value)? {
-                    self.types.insert(type_name.clone(), type_schema);
+                    self.types.insert(KeyCmpValue::String(type_name.clone()), type_schema);
                 }
             }
         }
@@ -190,7 +203,7 @@ impl SchemaBuilder {
     }
     
     /// Extract variants from a Value Map
-    fn extract_variants(&mut self, variants_map: &AHashMap<KeyCmpValue, Value>) -> Result<IndexMap<String, ObjectSchema>, SchemaError> {
+    fn extract_variants(&mut self, variants_map: &AHashMap<KeyCmpValue, Value>) -> Result<IndexMap<KeyCmpValue, ObjectSchema>, SchemaError> {
         let mut variants = IndexMap::new();
         
         for (variant_key, variant_value) in variants_map {
@@ -202,16 +215,28 @@ impl SchemaBuilder {
                 let mut variant_fields = IndexMap::new();
                 
                 for (field_key, field_value) in &variant_map.0 {
-                    let KeyCmpValue::String(field_name) = field_key else {
-                        continue;
-                    };
-                    
-                    if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
-                        variant_fields.insert(field_name.clone(), field_schema);
+                    match field_key {
+                        KeyCmpValue::String(field_name) => {
+                            if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
+                                variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
+                            }
+                        }
+                        KeyCmpValue::Extension(ext_name) => {
+                            if let Some(field_schema) = self.extract_field_schema(ext_name, field_value)? {
+                                variant_fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
+                            }
+                        }
+                        KeyCmpValue::MetaExtension(meta_ext) => {
+                            if let Some(schema) = self.extract_field_schema(meta_ext, field_value)? {
+                                // Store as Extension key (without $$)
+                                variant_fields.insert(KeyCmpValue::Extension(meta_ext.clone()), schema);
+                            }
+                        }
+                        _ => continue,
                     }
                 }
                 
-                variants.insert(variant_name.clone(), ObjectSchema {
+                variants.insert(KeyCmpValue::String(variant_name.clone()), ObjectSchema {
                     fields: variant_fields,
                     additional_properties: None,
                 });
@@ -226,15 +251,16 @@ impl SchemaBuilder {
         match value {
             Value::Map(map) => {
                 let mut schema = FieldSchema::default();
-                let mut fields = IndexMap::new();
+                let mut fields: IndexMap<KeyCmpValue, FieldSchema> = IndexMap::new();
                 
                 for (key, val) in &map.0 {
                     match key {
                         KeyCmpValue::Extension(ext_name) => match ext_name.as_str() {
                             "type" => {
                                 if let Value::Path(path) = val {
-                                    schema.type_expr = Type::from_path(&path_to_string(path))
-                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_to_string(path)))?;
+                                    let path_str = path_to_display_string(path);
+                                    schema.type_expr = Type::from_path(&path_str)
+                                        .ok_or(SchemaError::InvalidTypePath(path_str))?;
                                 }
                             }
                             "variants" => {
@@ -251,7 +277,8 @@ impl SchemaBuilder {
                                     let mut union_types = Vec::new();
                                     for elem in &arr.0 {
                                         if let Value::Path(path) = elem {
-                                            if let Some(union_type) = Type::from_path(&path_to_string(path)) {
+                                            let path_str = path_to_display_string(path);
+                                            if let Some(union_type) = Type::from_path(&path_str) {
                                                 union_types.push(union_type);
                                             }
                                         }
@@ -263,7 +290,7 @@ impl SchemaBuilder {
                             }
                             "array" => {
                                 if let Value::Path(path) = val {
-                                    let path_str = path_to_string(path);
+                                    let path_str = path_to_display_string(path);
                                     let elem_type = Type::from_path(&path_str)
                                         .ok_or_else(|| SchemaError::InvalidTypePath(path_str.clone()))?;
                                     schema.type_expr = Type::Array(Box::new(elem_type));
@@ -304,7 +331,7 @@ impl SchemaBuilder {
                             
                             // Regular field within type definition
                             if let Some(field_schema) = self.extract_field_schema(key_str, val)? {
-                                fields.insert(key_str.clone(), field_schema);
+                                fields.insert(KeyCmpValue::String(key_str.clone()), field_schema);
                             }
                         }
                         _ => {} // Skip other key types
@@ -342,7 +369,7 @@ impl SchemaBuilder {
             Value::Map(map) => {
                 let mut schema = FieldSchema::default();
                 let mut has_schema_info = false;
-                let mut child_fields = IndexMap::new();
+                let mut child_fields: IndexMap<KeyCmpValue, FieldSchema> = IndexMap::new();
                 
                 for (key, val) in &map.0 {
                     match key {
@@ -350,14 +377,15 @@ impl SchemaBuilder {
                             "type" => {
                                 has_schema_info = true;
                                 if let Value::Path(path) = val {
-                                    schema.type_expr = Type::from_path(&path_to_string(path))
-                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_to_string(path)))?;
+                                    let path_str = path_to_display_string(path);
+                                    schema.type_expr = Type::from_path(&path_str)
+                                        .ok_or(SchemaError::InvalidTypePath(path_str))?;
                                 }
                             }
                             "array" => {
                             has_schema_info = true;
                             if let Value::Path(path) = val {
-                                let path_str = path_to_string(path);
+                                let path_str = path_to_display_string(path);
                                 let elem_type = Type::from_path(&path_str)
                                     .ok_or_else(|| SchemaError::InvalidTypePath(path_str.clone()))?;
                                 schema.type_expr = Type::Array(Box::new(elem_type));
@@ -371,27 +399,25 @@ impl SchemaBuilder {
                             }
                             "length" => {
                                 has_schema_info = true;
-                                if let Value::Array(arr) = val {
-                                    if arr.0.len() == 2 {
+                                if let Value::Array(arr) = val
+                                    && arr.0.len() == 2 {
                                         let min = Self::extract_usize(&arr.0[0]);
                                         let max = Self::extract_usize(&arr.0[1]);
                                         if min.is_some() || max.is_some() {
                                             schema.constraints.length = Some((min, max));
                                         }
                                     }
-                                }
                             }
                             "range" => {
                                 has_schema_info = true;
-                                if let Value::Array(arr) = val {
-                                    if arr.0.len() == 2 {
+                                if let Value::Array(arr) = val
+                                    && arr.0.len() == 2 {
                                         let min = Self::extract_f64(&arr.0[0]);
                                         let max = Self::extract_f64(&arr.0[1]);
                                         if min.is_some() || max.is_some() {
                                             schema.constraints.range = Some((min, max));
                                         }
                                     }
-                                }
                             }
                             "pattern" => {
                             has_schema_info = true;
@@ -433,7 +459,7 @@ impl SchemaBuilder {
                             } else {
                                 // Regular field - check if it has schema definitions
                                 if let Some(child_schema) = self.extract_field_schema(key_str, val)? {
-                                    child_fields.insert(key_str.clone(), child_schema);
+                                    child_fields.insert(KeyCmpValue::String(key_str.clone()), child_schema);
                                 }
                             }
                         }
@@ -451,11 +477,10 @@ impl SchemaBuilder {
                     Ok(Some(schema))
                 } else if has_schema_info {
                     // If type is already object and we have child fields, merge them
-                    if matches!(schema.type_expr, Type::Object(_)) && !child_fields.is_empty() {
-                        if let Type::Object(ref mut obj_schema) = schema.type_expr {
+                    if matches!(schema.type_expr, Type::Object(_)) && !child_fields.is_empty()
+                        && let Type::Object(ref mut obj_schema) = schema.type_expr {
                             obj_schema.fields = child_fields;
                         }
-                    }
                     Ok(Some(schema))
                 } else {
                     Ok(None)
@@ -464,8 +489,9 @@ impl SchemaBuilder {
             Value::Path(path) => {
                 // Handle simple type assignments like `id = .string`
                 let mut schema = FieldSchema::default();
-                schema.type_expr = Type::from_path(&path_to_string(path))
-                    .ok_or_else(|| SchemaError::InvalidTypePath(path_to_string(path)))?;
+                let path_str = path_to_display_string(path);
+                schema.type_expr = Type::from_path(&path_str)
+                    .ok_or(SchemaError::InvalidTypePath(path_str))?;
                 Ok(Some(schema))
             }
             _ => Ok(None),

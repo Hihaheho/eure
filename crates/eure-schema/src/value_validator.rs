@@ -3,7 +3,7 @@
 //! This module provides simple validation of EURE Values against schemas.
 
 use crate::schema::*;
-use crate::utils::path_segments_to_string;
+use crate::utils::path_segments_to_display_string;
 use eure_value::value::{Value, Map, KeyCmpValue, Array, PathSegment};
 use std::collections::HashSet;
 use ahash::AHashMap;
@@ -38,11 +38,11 @@ pub enum ValidationErrorKind {
 
     // Field errors
     RequiredFieldMissing {
-        field: String,
+        field: KeyCmpValue,
         path: Vec<PathSegment>,
     },
     UnexpectedField {
-        field: String,
+        field: KeyCmpValue,
         path: Vec<PathSegment>,
     },
 
@@ -101,17 +101,17 @@ impl fmt::Display for ValidationErrorKind {
                 let location = if path.is_empty() {
                     String::new()
                 } else {
-                    format!(" at {}", path_segments_to_string(path))
+                    format!(" at {}", path_segments_to_display_string(path))
                 };
-                write!(f, "Required field '{field}' is missing{location}")
+                write!(f, "Required field {field:?} is missing{location}")
             }
             ValidationErrorKind::UnexpectedField { field, path } => {
                 let location = if path.is_empty() {
                     String::new()
                 } else {
-                    format!(" at {}", path_segments_to_string(path))
+                    format!(" at {}", path_segments_to_display_string(path))
                 };
-                write!(f, "Unexpected field '{field}'{location} not defined in schema")
+                write!(f, "Unexpected field {field:?}{location} not defined in schema")
             }
             ValidationErrorKind::StringLengthViolation { min, max, actual } => {
                 match (min, max) {
@@ -220,7 +220,7 @@ impl<'a> ValidationContext<'a> {
 /// Extract the actual value from a possibly wrapped value
 /// If the value is a map containing only schema keys and a _value key,
 /// return the _value. Otherwise return the original value.
-fn extract_actual_value<'a>(value: &'a Value) -> &'a Value {
+fn extract_actual_value(value: &Value) -> &Value {
     if let Value::Map(map) = value {
         // Check if this map has _value and only schema-related keys
         let has_value_key = map.0.contains_key(&KeyCmpValue::String("_value".to_string()));
@@ -247,7 +247,7 @@ fn validate_object_against_schema(
     context: &mut ValidationContext
 ) {
     // Track required fields
-    let mut required_fields: HashSet<String> = schema.fields
+    let mut required_fields: HashSet<KeyCmpValue> = schema.fields
         .iter()
         .filter(|(_, field)| !field.optional)
         .map(|(name, _)| name.clone())
@@ -267,10 +267,10 @@ fn validate_object_against_schema(
                 let path_segment = PathSegment::Ident(Identifier::from_str(field_name).unwrap_or_else(|_| Identifier::from_str("unknown").unwrap()));
                 
                 // Mark field as seen
-                required_fields.remove(field_name);
+                required_fields.remove(&KeyCmpValue::String(field_name.clone()));
                 
                 // Find schema for this field
-                if let Some(field_schema) = schema.fields.get(field_name) {
+                if let Some(field_schema) = schema.fields.get(&KeyCmpValue::String(field_name.clone())) {
                     context.with_path(path_segment, |ctx| {
                         // Extract the actual value (unwrap from _value if needed)
                         let actual_value = extract_actual_value(value);
@@ -289,7 +289,7 @@ fn validate_object_against_schema(
                     } else if schema.additional_properties.is_none() {
                         // Unexpected field
                         context.add_error(ValidationErrorKind::UnexpectedField {
-                            field: field_name.clone(),
+                            field: KeyCmpValue::String(field_name.clone()),
                             path: context.path.clone(),
                         });
                     }
@@ -343,7 +343,7 @@ fn validate_value_against_type(
         (Value::Code(code), Type::Code(expected_lang)) => {
             if !expected_lang.is_empty() && code.language != *expected_lang {
                 context.add_error(ValidationErrorKind::TypeMismatch {
-                    expected: format!("code.{}", expected_lang),
+                    expected: format!("code.{expected_lang}"),
                     actual: format!("code.{}", code.language),
                 });
             }
@@ -366,7 +366,11 @@ fn validate_value_against_type(
                 // Also validate constraints from the type definition
                 validate_constraints(value, &type_def.constraints, context);
             } else {
-                context.add_error(ValidationErrorKind::UnknownType(type_name.clone()));
+                let type_name_str = match type_name {
+                    KeyCmpValue::String(s) => s.clone(),
+                    _ => format!("{type_name:?}"),
+                };
+                context.add_error(ValidationErrorKind::UnknownType(type_name_str));
             }
         },
         
@@ -452,7 +456,7 @@ fn validate_variant(
     };
     
     // Find the variant schema
-    if let Some(variant_obj_schema) = variant_schema.variants.get(variant_name) {
+    if let Some(variant_obj_schema) = variant_schema.variants.get(&KeyCmpValue::String(variant_name.clone())) {
         // Create a filtered map without the $variant field and other extension keys
         let mut filtered_map = AHashMap::new();
         for (k, v) in &map.0 {
@@ -471,7 +475,12 @@ fn validate_variant(
         // Validate against the variant's object schema
         validate_object_against_schema(&Map(filtered_map), variant_obj_schema, context);
     } else {
-        let available: Vec<String> = variant_schema.variants.keys().cloned().collect();
+        let available: Vec<String> = variant_schema.variants.keys()
+            .filter_map(|k| match k {
+                KeyCmpValue::String(s) => Some(s.clone()),
+                _ => None,
+            })
+            .collect();
         context.add_error(ValidationErrorKind::UnknownVariant {
             variant: variant_name.clone(),
             available,
@@ -490,24 +499,22 @@ fn validate_constraints(
             // String length constraints
             if let Some((min, max)) = &constraints.length {
                 let len = s.len();
-                if let Some(min) = min {
-                    if len < *min {
+                if let Some(min) = min
+                    && len < *min {
                         context.add_error(ValidationErrorKind::StringLengthViolation {
                             min: Some(*min),
                             max: *max,
                             actual: len,
                         });
                     }
-                }
-                if let Some(max) = max {
-                    if len > *max {
+                if let Some(max) = max
+                    && len > *max {
                         context.add_error(ValidationErrorKind::StringLengthViolation {
                             min: *min,
                             max: Some(*max),
                             actual: len,
                         });
                     }
-                }
             }
             
             // Pattern constraint
@@ -524,7 +531,7 @@ fn validate_constraints(
                     Err(_) => {
                         // Invalid regex pattern - this should be caught during schema validation
                         context.add_error(ValidationErrorKind::InvalidValue(
-                            format!("Invalid regex pattern: {}", pattern)
+                            format!("Invalid regex pattern: {pattern}")
                         ));
                     }
                 }
@@ -539,24 +546,22 @@ fn validate_constraints(
         Value::Array(array) => {
             // Array length constraints
             let len = array.0.len();
-            if let Some(min) = constraints.min_items {
-                if len < min {
+            if let Some(min) = constraints.min_items
+                && len < min {
                     context.add_error(ValidationErrorKind::ArrayLengthViolation {
                         min: Some(min),
                         max: constraints.max_items,
                         actual: len,
                     });
                 }
-            }
-            if let Some(max) = constraints.max_items {
-                if len > max {
+            if let Some(max) = constraints.max_items
+                && len > max {
                     context.add_error(ValidationErrorKind::ArrayLengthViolation {
                         min: constraints.min_items,
                         max: Some(max),
                         actual: len,
                     });
                 }
-            }
         }
         
         _ => {}
@@ -570,45 +575,41 @@ fn validate_number_constraints(
     context: &mut ValidationContext
 ) {
     if let Some((min, max)) = &constraints.range {
-        if let Some(min) = min {
-            if value < *min {
+        if let Some(min) = min
+            && value < *min {
                 context.add_error(ValidationErrorKind::NumberRangeViolation {
                     min: Some(*min),
                     max: *max,
                     actual: value,
                 });
             }
-        }
-        if let Some(max) = max {
-            if value > *max {
+        if let Some(max) = max
+            && value > *max {
                 context.add_error(ValidationErrorKind::NumberRangeViolation {
                     min: *min,
                     max: Some(*max),
                     actual: value,
                 });
             }
-        }
     }
     
-    if let Some(exclusive_min) = constraints.exclusive_min {
-        if value <= exclusive_min {
+    if let Some(exclusive_min) = constraints.exclusive_min
+        && value <= exclusive_min {
             context.add_error(ValidationErrorKind::NumberRangeViolation {
                 min: Some(exclusive_min),
                 max: None,
                 actual: value,
             });
         }
-    }
     
-    if let Some(exclusive_max) = constraints.exclusive_max {
-        if value >= exclusive_max {
+    if let Some(exclusive_max) = constraints.exclusive_max
+        && value >= exclusive_max {
             context.add_error(ValidationErrorKind::NumberRangeViolation {
                 min: None,
                 max: Some(exclusive_max),
                 actual: value,
             });
         }
-    }
 }
 
 /// Get the type name of a value for error messages
@@ -638,19 +639,22 @@ fn type_to_string(t: &Type) -> String {
         Type::Null => "null".to_string(),
         Type::Any => "any".to_string(),
         Type::Path => "path".to_string(),
-        Type::TypedString(kind) => format!("typed-string.{:?}", kind),
+        Type::TypedString(kind) => format!("typed-string.{kind:?}"),
         Type::Code(lang) => {
             if lang.is_empty() {
                 "code".to_string()
             } else {
-                format!("code.{}", lang)
+                format!("code.{lang}")
             }
         },
         Type::Array(_) => "array".to_string(),
         Type::Object(_) => "object".to_string(),
         Type::Union(_) => "union".to_string(),
         Type::Variants(_) => "variant".to_string(),
-        Type::TypeRef(name) => format!("${}", name),
+        Type::TypeRef(name) => match name {
+            KeyCmpValue::String(s) => format!("${s}"),
+            _ => format!("${name:?}"),
+        },
         Type::CascadeType(_) => "cascade".to_string(),
     }
 }

@@ -19,7 +19,7 @@ age.$type = .number
             println!("Number of root fields: {}", extracted.document_schema.root.fields.len());
             
             for (name, field) in &extracted.document_schema.root.fields {
-                println!("Field '{}': type = {:?}, optional = {}", name, field.type_expr, field.optional);
+                println!("Field '{:?}': type = {:?}, optional = {}", name, field.type_expr, field.optional);
             }
         }
         Err(e) => {

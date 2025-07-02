@@ -1,6 +1,7 @@
 //! Schema representation types for EURE documents
 
 use eure_tree::tree::InputSpan;
+use eure_value::value::KeyCmpValue;
 use indexmap::IndexMap;
 
 /// Core type representation in EURE schema
@@ -29,7 +30,7 @@ pub enum Type {
     Variants(VariantSchema), // Tagged union with $variant
 
     // Type reference
-    TypeRef(String), // Reference to $types.name
+    TypeRef(KeyCmpValue), // Reference to $types.name
 
     // Special types
     CascadeType(Box<Type>), // Type that cascades to descendants
@@ -49,7 +50,7 @@ pub enum TypedStringKind {
 /// Schema for object types
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ObjectSchema {
-    pub fields: IndexMap<String, FieldSchema>,
+    pub fields: IndexMap<KeyCmpValue, FieldSchema>,
     pub additional_properties: Option<Box<Type>>,
 }
 
@@ -84,7 +85,7 @@ impl Default for FieldSchema {
 /// Schema for variant types (tagged unions)
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariantSchema {
-    pub variants: IndexMap<String, ObjectSchema>,
+    pub variants: IndexMap<KeyCmpValue, ObjectSchema>,
     pub representation: VariantRepr,
 }
 
@@ -96,9 +97,9 @@ pub enum VariantRepr {
     /// No discriminator field
     Untagged,
     /// Custom tag field name
-    InternallyTagged { tag: String },
+    InternallyTagged { tag: KeyCmpValue },
     /// Separate tag and content fields
-    AdjacentlyTagged { tag: String, content: String },
+    AdjacentlyTagged { tag: KeyCmpValue, content: KeyCmpValue },
 }
 
 impl Default for VariantRepr {
@@ -184,7 +185,7 @@ impl RenameRule {
 #[derive(Debug, Clone, Default)]
 pub struct DocumentSchema {
     /// Type definitions in $types namespace
-    pub types: IndexMap<String, FieldSchema>,
+    pub types: IndexMap<KeyCmpValue, FieldSchema>,
     /// Schema for root object
     pub root: ObjectSchema,
     /// Type that cascades to all descendants
@@ -212,7 +213,7 @@ impl Type {
 
         // Check for type references
         if let Some(path) = path.strip_prefix("$types.") {
-            return Some(Type::TypeRef(path.to_string()));
+            return Some(Type::TypeRef(KeyCmpValue::String(path.to_string())));
         }
 
         // Check primitive types
@@ -245,7 +246,7 @@ impl Type {
                     // If it starts with uppercase, treat it as a type reference
                     // This allows .Action to be shorthand for .$types.Action
                     if path.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-                        Some(Type::TypeRef(path.to_string()))
+                        Some(Type::TypeRef(KeyCmpValue::String(path.to_string())))
                     } else {
                         None
                     }
@@ -280,7 +281,7 @@ pub trait ToEureSchema {
         // By default, check if this is a named type and return a TypeRef
         if let Some(name) = Self::type_name() {
             FieldSchema {
-                type_expr: Type::TypeRef(name.to_string()),
+                type_expr: Type::TypeRef(KeyCmpValue::String(name.to_string())),
                 optional: false,
                 constraints: Default::default(),
                 preferences: Default::default(),

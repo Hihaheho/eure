@@ -70,15 +70,16 @@ pub fn to_kebab_case(s: &str) -> String {
     result.replace('_', "-")
 }
 
-/// Convert a Path to a string representation
-pub fn path_to_string(path: &Path) -> String {
+/// Convert a Path to a string representation for display purposes only
+/// Note: This is only for error messages and debugging, not for lookups
+pub fn path_to_display_string(path: &Path) -> String {
     let mut parts = Vec::new();
     
     for segment in &path.0 {
         match segment {
             PathSegment::Ident(id) => parts.push(id.to_string()),
-            PathSegment::Extension(id) => parts.push(format!("${}", id)),
-            PathSegment::MetaExt(id) => parts.push(format!("$${}", id)),
+            PathSegment::Extension(id) => parts.push(format!("${id}")),
+            PathSegment::MetaExt(id) => parts.push(format!("$${id}")),
             _ => {} // Skip other segment types for now
         }
     }
@@ -86,13 +87,14 @@ pub fn path_to_string(path: &Path) -> String {
     format!(".{}", parts.join("."))
 }
 
-/// Convert path segments to a string for error messages
-pub fn path_segments_to_string(segments: &[PathSegment]) -> String {
+/// Convert path segments to a string for error messages only
+/// Note: This is only for display purposes, not for lookups
+pub fn path_segments_to_display_string(segments: &[PathSegment]) -> String {
     segments.iter()
         .map(|s| match s {
             PathSegment::Ident(id) => id.to_string(),
-            PathSegment::Extension(id) => format!("${}", id),
-            PathSegment::MetaExt(id) => format!("$${}", id),
+            PathSegment::Extension(id) => format!("${id}"),
+            PathSegment::MetaExt(id) => format!("$${id}"),
             _ => String::new(),
         })
         .collect::<Vec<_>>()

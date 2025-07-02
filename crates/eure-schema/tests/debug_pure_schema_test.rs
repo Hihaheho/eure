@@ -1,4 +1,5 @@
 use eure_schema::{extract_schema_from_value, is_pure_schema};
+use eure_value::value::KeyCmpValue;
 
 #[test]
 fn debug_example_schema() {
@@ -26,7 +27,7 @@ actions.$array = .$types.Action
     println!("Root fields: {:?}", extracted.document_schema.root.fields.keys().collect::<Vec<_>>());
     println!("Types: {:?}", extracted.document_schema.types.keys().collect::<Vec<_>>());
     
-    if let Some(script_field) = extracted.document_schema.root.fields.get("script") {
+    if let Some(script_field) = extracted.document_schema.root.fields.get(&KeyCmpValue::String("script".to_string())) {
         println!("Script field type: {:?}", script_field.type_expr);
     }
     

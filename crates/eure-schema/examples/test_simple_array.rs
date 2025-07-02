@@ -15,7 +15,7 @@ fn main() {
     println!("Types: {:?}", extracted1.types.keys().collect::<Vec<_>>());
     println!("Root fields: {:?}", extracted1.root.fields.keys().collect::<Vec<_>>());
     
-    if let Some(item) = extracted1.types.get("Item") {
+    if let Some(item) = extracted1.types.get(&eure_value::value::KeyCmpValue::String("Item".to_string())) {
         println!("Item type: {:?}", item.type_expr);
         if let Type::Object(obj) = &item.type_expr {
             println!("Item fields: {:?}", obj.fields.keys().collect::<Vec<_>>());
@@ -35,7 +35,7 @@ value.$type = .string
     println!("Types: {:?}", extracted2.types.keys().collect::<Vec<_>>());
     println!("Root fields: {:?}", extracted2.root.fields.keys().collect::<Vec<_>>());
     
-    if let Some(item) = extracted2.types.get("Item") {
+    if let Some(item) = extracted2.types.get(&eure_value::value::KeyCmpValue::String("Item".to_string())) {
         println!("Item type: {:?}", item.type_expr);
         if let Type::Object(obj) = &item.type_expr {
             println!("Item fields: {:?}", obj.fields.keys().collect::<Vec<_>>());
@@ -61,7 +61,7 @@ value.$type = .string
     println!("Schema types: {:?}", schema.types.keys().collect::<Vec<_>>());
     println!("Root fields: {:?}", schema.root.fields.keys().collect::<Vec<_>>());
     
-    if let Some(item_type) = schema.types.get("Item") {
+    if let Some(item_type) = schema.types.get(&eure_value::value::KeyCmpValue::String("Item".to_string())) {
         println!("Item type: {:?}", item_type.type_expr);
         if let Type::Object(obj) = &item_type.type_expr {
             println!("Item fields: {:?}", obj.fields.keys().collect::<Vec<_>>());

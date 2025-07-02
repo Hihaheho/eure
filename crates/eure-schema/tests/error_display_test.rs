@@ -1,5 +1,7 @@
 //! Tests for error message display formatting
 
+use eure_value::value::KeyCmpValue;
+
 use eure_schema::{ValidationError, ValidationErrorKind, Severity};
 use eure_value::value::PathSegment;
 use eure_value::identifier::Identifier;
@@ -20,21 +22,21 @@ fn test_type_mismatch_display() {
 #[test]
 fn test_required_field_missing_display() {
     let error = ValidationErrorKind::RequiredFieldMissing {
-        field: "name".to_string(),
+        field: KeyCmpValue::String("name".to_string()),
         path: vec![PathSegment::Ident(Identifier::from_str("user").unwrap())],
     };
     assert_eq!(
         error.to_string(),
-        "Required field 'name' is missing at user"
+        "Required field String(\"name\") is missing at user"
     );
     
     let error_root = ValidationErrorKind::RequiredFieldMissing {
-        field: "id".to_string(),
+        field: KeyCmpValue::String("id".to_string()),
         path: vec![],
     };
     assert_eq!(
         error_root.to_string(),
-        "Required field 'id' is missing"
+        "Required field String(\"id\") is missing"
     );
 }
 
@@ -138,12 +140,12 @@ fn test_array_violations_display() {
 #[test]
 fn test_unexpected_field_display() {
     let error = ValidationErrorKind::UnexpectedField {
-        field: "extra".to_string(),
+        field: KeyCmpValue::String("extra".to_string()),
         path: vec![PathSegment::Ident(Identifier::from_str("user").unwrap()), PathSegment::Ident(Identifier::from_str("profile").unwrap())],
     };
     assert_eq!(
         error.to_string(),
-        "Unexpected field 'extra' at user.profile not defined in schema"
+        "Unexpected field String(\"extra\") at user.profile not defined in schema"
     );
 }
 

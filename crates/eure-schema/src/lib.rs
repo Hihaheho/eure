@@ -13,10 +13,10 @@ mod value_validator;
 pub use schema::*;
 pub use value_validator::{ValidationError, ValidationErrorKind, Severity};
 pub use builder::{FieldSchemaBuilder, TypeBuilder, ObjectSchemaBuilder, VariantSchemaBuilder};
-pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, path_to_string, path_segments_to_string};
+pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, path_to_display_string, path_segments_to_display_string};
 pub use value_schema::{value_to_schema, is_pure_schema, SchemaError};
 pub use value_validator::validate_document;
-pub use eure_value::value::PathSegment;
+pub use eure_value::value::{PathSegment, KeyCmpValue};
 
 // Re-export the derive macro if the feature is enabled
 #[cfg(feature = "derive")]
@@ -178,8 +178,8 @@ mod tests {
         assert_eq!(Type::from_path(".path"), Some(Type::Path));
         assert_eq!(Type::from_path(".typed-string.email"), Some(Type::TypedString(TypedStringKind::Email)));
         assert_eq!(Type::from_path(".code.javascript"), Some(Type::Code("javascript".to_string())));
-        assert_eq!(Type::from_path(".$types.UserType"), Some(Type::TypeRef("UserType".to_string())));
-        assert_eq!(Type::from_path(".UserType"), Some(Type::TypeRef("UserType".to_string())));  // Uppercase = type ref
+        assert_eq!(Type::from_path(".$types.UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));
+        assert_eq!(Type::from_path(".UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));  // Uppercase = type ref
     }
 
     #[test]

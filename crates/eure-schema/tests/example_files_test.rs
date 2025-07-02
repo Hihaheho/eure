@@ -1,4 +1,5 @@
 use eure_schema::{extract_schema_from_value, validate_with_schema_value};
+use eure_value::value::KeyCmpValue;
 use std::fs;
 
 #[test]
@@ -50,14 +51,14 @@ fn test_example_files_validation() {
     // in the strict sense. This is fine - it's a valid schema document.
     
     // Check that script field exists and is an object
-    assert!(extracted.document_schema.root.fields.contains_key("script"));
-    if let Some(script_field) = extracted.document_schema.root.fields.get("script") {
+    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("script".to_string())));
+    if let Some(script_field) = extracted.document_schema.root.fields.get(&KeyCmpValue::String("script".to_string())) {
         match &script_field.type_expr {
             eure_schema::Type::Object(obj_schema) => {
                 // Verify expected fields exist
-                assert!(obj_schema.fields.contains_key("id"), "script should have 'id' field");
-                assert!(obj_schema.fields.contains_key("description"), "script should have 'description' field");
-                assert!(obj_schema.fields.contains_key("actions"), "script should have 'actions' field");
+                assert!(obj_schema.fields.contains_key(&KeyCmpValue::String("id".to_string())), "script should have 'id' field");
+                assert!(obj_schema.fields.contains_key(&KeyCmpValue::String("description".to_string())), "script should have 'description' field");
+                assert!(obj_schema.fields.contains_key(&KeyCmpValue::String("actions".to_string())), "script should have 'actions' field");
             }
             _ => panic!("script field should be an Object type"),
         }
@@ -85,7 +86,8 @@ fn test_example_files_validation() {
     let unexpected_field_errors: Vec<_> = errors.iter()
         .filter(|e| {
             if let eure_schema::ValidationErrorKind::UnexpectedField { field, .. } = &e.kind {
-                field == "id" || field == "description"
+                field == &eure_value::value::KeyCmpValue::String("id".to_string()) || 
+                field == &eure_value::value::KeyCmpValue::String("description".to_string())
             } else {
                 false
             }
