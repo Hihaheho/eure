@@ -1106,5 +1106,7 @@ fn key_cmp_to_value(key: KeyCmpValue) -> Value {
             Value::Tuple(eure_value::value::Tuple(values))
         }
         KeyCmpValue::Unit => Value::Unit,
+        KeyCmpValue::Extension(ext) => Value::String(format!("${ext}")),
+        KeyCmpValue::MetaExtension(meta) => Value::String(format!("$${meta}")),
     }
 }

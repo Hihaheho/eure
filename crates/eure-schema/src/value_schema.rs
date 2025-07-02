@@ -144,7 +144,105 @@ impl SchemaBuilder {
             return Ok(());
         }
         
-        // Process each entry in the map
+        // First pass: collect all schema definitions from extension keys
+        let mut field_schemas: AHashMap<String, FieldSchema> = AHashMap::new();
+        
+        // Look for field.$extension patterns that define schemas
+        for (key, _value) in map {
+            if let KeyCmpValue::String(field_name) = key {
+                // Check if there are any extension keys for this field
+                let type_key = KeyCmpValue::String(format!("{}.{}", field_name, "$type"));
+                let array_key = KeyCmpValue::String(format!("{}.{}", field_name, "$array"));
+                let optional_key = KeyCmpValue::String(format!("{}.{}", field_name, "$optional"));
+                let length_key = KeyCmpValue::String(format!("{}.{}", field_name, "$length"));
+                let range_key = KeyCmpValue::String(format!("{}.{}", field_name, "$range"));
+                let pattern_key = KeyCmpValue::String(format!("{}.{}", field_name, "$pattern"));
+                let unique_key = KeyCmpValue::String(format!("{}.{}", field_name, "$unique"));
+                let min_items_key = KeyCmpValue::String(format!("{}.{}", field_name, "$min-items"));
+                let max_items_key = KeyCmpValue::String(format!("{}.{}", field_name, "$max-items"));
+                
+                let mut field_schema = FieldSchema::default();
+                let mut has_schema = false;
+                
+                // Check for $type
+                if let Some(Value::Path(path)) = map.get(&type_key) {
+                    let path_str = path_to_display_string(path);
+                    if let Some(type_expr) = Type::from_path(&path_str) {
+                        field_schema.type_expr = type_expr;
+                        has_schema = true;
+                    }
+                }
+                
+                // Check for $array
+                if let Some(Value::Path(path)) = map.get(&array_key) {
+                    let path_str = path_to_display_string(path);
+                    if let Some(elem_type) = Type::from_path(&path_str) {
+                        field_schema.type_expr = Type::Array(Box::new(elem_type));
+                        has_schema = true;
+                    }
+                }
+                
+                // Check for $optional
+                if let Some(Value::Bool(b)) = map.get(&optional_key) {
+                    field_schema.optional = *b;
+                    has_schema = true;
+                }
+                
+                // Check for constraints
+                if let Some(val) = map.get(&length_key) {
+                    match val {
+                        Value::I64(n) => {
+                            field_schema.constraints.length = Some((Some(*n as usize), Some(*n as usize)));
+                            has_schema = true;
+                        }
+                        Value::Array(arr) if arr.0.len() == 2 => {
+                            let min = Self::extract_usize(&arr.0[0]);
+                            let max = Self::extract_usize(&arr.0[1]);
+                            field_schema.constraints.length = Some((min, max));
+                            has_schema = true;
+                        }
+                        _ => {}
+                    }
+                }
+                
+                if let Some(val) = map.get(&range_key) {
+                    if let Value::Array(arr) = val {
+                        if arr.0.len() == 2 {
+                            let min = Self::extract_f64(&arr.0[0]);
+                            let max = Self::extract_f64(&arr.0[1]);
+                            field_schema.constraints.range = Some((min, max));
+                            has_schema = true;
+                        }
+                    }
+                }
+                
+                if let Some(Value::String(pattern)) = map.get(&pattern_key) {
+                    field_schema.constraints.pattern = Some(pattern.clone());
+                    has_schema = true;
+                }
+                
+                if let Some(Value::Bool(b)) = map.get(&unique_key) {
+                    field_schema.constraints.unique = Some(*b);
+                    has_schema = true;
+                }
+                
+                if let Some(val) = map.get(&min_items_key) {
+                    field_schema.constraints.min_items = Self::extract_usize(val);
+                    has_schema = true;
+                }
+                
+                if let Some(val) = map.get(&max_items_key) {
+                    field_schema.constraints.max_items = Self::extract_usize(val);
+                    has_schema = true;
+                }
+                
+                if has_schema {
+                    field_schemas.insert(field_name.clone(), field_schema);
+                }
+            }
+        }
+        
+        // Second pass: process other entries
         for (key, value) in map {
             match key {
                 KeyCmpValue::Extension(ext) if ext == "types" => {
@@ -171,10 +269,22 @@ impl SchemaBuilder {
                     }
                 }
                 KeyCmpValue::String(key_str) => {
-                    // Regular field - check if it has schema definitions
-                    if let Some(field_schema) = self.extract_field_schema(key_str, value)?
-                        && path.is_empty() {
-                            self.root_fields.insert(KeyCmpValue::String(key_str.clone()), field_schema);
+                    // Skip if this is a field.$extension pattern
+                    if key_str.contains('.') && key_str.split('.').nth(1).map_or(false, |s| s.starts_with('$')) {
+                        continue;
+                    }
+                    
+                    // Check if we already have schema from extension keys
+                    if let Some(existing_schema) = field_schemas.get(key_str) {
+                        if path.is_empty() {
+                            self.root_fields.insert(KeyCmpValue::String(key_str.clone()), existing_schema.clone());
+                        }
+                    } else {
+                        // Regular field - check if it has schema definitions
+                        if let Some(field_schema) = self.extract_field_schema(key_str, value)?
+                            && path.is_empty() {
+                                self.root_fields.insert(KeyCmpValue::String(key_str.clone()), field_schema);
+                        }
                     }
                 }
                 _ => {} // Skip other key types

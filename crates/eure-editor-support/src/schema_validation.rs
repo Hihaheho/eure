@@ -2,7 +2,7 @@
 
 use eure_schema::{
     DocumentSchema, Severity, ValidationError, ValidationErrorKind,
-    extract_schema, validate_self_describing, validate_with_schema,
+    extract_schema_from_value, validate_self_describing_with_tree, validate_with_tree,
 };
 use eure_tree::Cst;
 use eure_tree::tree::LineNumbers;
@@ -36,8 +36,9 @@ impl SchemaManager {
     }
 
     /// Load a schema from a file
-    pub fn load_schema(&mut self, uri: &str, input: &str, tree: &Cst) -> Result<(), String> {
-        let extracted = extract_schema(input, tree);
+    pub fn load_schema(&mut self, uri: &str, input: &str, _tree: &Cst) -> Result<(), String> {
+        let extracted = extract_schema_from_value(input)
+            .map_err(|e| format!("Failed to extract schema: {}", e))?;
         
         // We don't reject schemas with non-schema content anymore
         // A schema file can contain examples, documentation, etc.
@@ -79,15 +80,27 @@ pub fn validate_document(
     if let Some(schema_uri) = schema_manager.get_document_schema_uri(uri)
         && let Some(schema) = schema_manager.get_schema(schema_uri) {
             // Validate against the external schema
-            let errors = validate_with_schema(input, tree, schema.clone());
-            for error in errors {
-                diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers));
+            match validate_with_tree(input, schema.clone(), tree) {
+                Ok(errors) => {
+                    for error in errors {
+                        diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers));
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Validation error: {}", e);
+                }
             }
             return diagnostics;
         }
     
     // If no external schema, fall back to self-describing validation
-    let validation_result = validate_self_describing(input, tree);
+    let validation_result = match validate_self_describing_with_tree(input, tree) {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("Self-describing validation error: {}", e);
+            return diagnostics;
+        }
+    };
     
     // If it's a pure schema, we don't need to validate it
     if validation_result.schema.is_pure_schema {
@@ -106,8 +119,8 @@ pub fn validate_document(
 pub fn validate_and_extract_schema(
     input: &str,
     tree: &Cst,
-) -> eure_schema::ValidationResult {
-    validate_self_describing(input, tree)
+) -> Result<eure_schema::ValidationResult, Box<dyn std::error::Error>> {
+    validate_self_describing_with_tree(input, tree)
 }
 
 /// Find a schema file for a document
@@ -175,11 +188,31 @@ pub fn find_schema_for_document(
     None
 }
 
+/// Format a field key for display
+fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
+    match key {
+        eure_schema::KeyCmpValue::String(s) => s.clone(),
+        eure_schema::KeyCmpValue::I64(i) => i.to_string(),
+        eure_schema::KeyCmpValue::U64(u) => u.to_string(),
+        eure_schema::KeyCmpValue::Bool(b) => b.to_string(),
+        eure_schema::KeyCmpValue::Null => "null".to_string(),
+        eure_schema::KeyCmpValue::Unit => "()".to_string(),
+        eure_schema::KeyCmpValue::Tuple(_) => "<tuple>".to_string(),
+        eure_schema::KeyCmpValue::Extension(ext) => format!("${ext}"),
+        eure_schema::KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
+    }
+}
+
 /// Convert a ValidationError to an LSP Diagnostic
 pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_numbers: &LineNumbers) -> Diagnostic {
     // Convert byte offsets to line/column positions
-    let start_info = line_numbers.get_char_info(error.span.start);
-    let end_info = line_numbers.get_char_info(error.span.end);
+    let (start_info, end_info) = if let Some(span) = error.span {
+        (line_numbers.get_char_info(span.start), line_numbers.get_char_info(span.end))
+    } else {
+        // Default to beginning of file if no span
+        let default_info = line_numbers.get_char_info(0);
+        (default_info, default_info)
+    };
     
     let range = Range {
         start: Position {
@@ -207,10 +240,10 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
             let path_str = if path.is_empty() {
                 String::new()
             } else {
-                format!(" at {}", path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join("."))
+                format!(" at {}", eure_schema::path_segments_to_display_string(path))
             };
             (
-                format!("Required field '{field}' is missing{path_str}"),
+                format!("Required field '{}' is missing{}", format_field_key(field), path_str),
                 Some("eure-schema-required".to_string()),
                 None,
             )
@@ -219,10 +252,10 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
             let path_str = if path.is_empty() {
                 String::new()
             } else {
-                format!(" at {}", path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join("."))
+                format!(" at {}", eure_schema::path_segments_to_display_string(path))
             };
             (
-                format!("Unexpected field '{field}'{path_str}"),
+                format!("Unexpected field '{}'{}", format_field_key(field), path_str),
                 Some("eure-schema-unexpected".to_string()),
                 None,
             )
@@ -301,7 +334,7 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
         ValidationErrorKind::PreferSection { path } => (
             format!(
                 "Consider using section syntax for '{}' instead of inline binding",
-                path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(".")
+                eure_schema::path_segments_to_display_string(path)
             ),
             Some("eure-schema-prefer-section".to_string()),
             None,
@@ -309,9 +342,29 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
         ValidationErrorKind::PreferArraySyntax { path } => (
             format!(
                 "Consider using array syntax [] for '{}' instead of repeated fields",
-                path.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(".")
+                eure_schema::path_segments_to_display_string(path)
             ),
             Some("eure-schema-prefer-array".to_string()),
+            None,
+        ),
+        ValidationErrorKind::VariantDiscriminatorMissing => (
+            "Variant discriminator field '$variant' is missing".to_string(),
+            Some("eure-schema-variant-discriminator".to_string()),
+            None,
+        ),
+        ValidationErrorKind::InvalidVariantDiscriminator(value) => (
+            format!("Invalid variant discriminator: {value}"),
+            Some("eure-schema-invalid-discriminator".to_string()),
+            None,
+        ),
+        ValidationErrorKind::InvalidValue(msg) => (
+            format!("Invalid value: {msg}"),
+            Some("eure-schema-invalid-value".to_string()),
+            None,
+        ),
+        ValidationErrorKind::InternalError(msg) => (
+            format!("Internal error: {msg}"),
+            Some("eure-schema-internal-error".to_string()),
             None,
         ),
     };
@@ -387,7 +440,7 @@ mod tests {
                 actual: "number".to_string(),
             },
             // Span from "with" (chars 12-16) on line 2
-            span: InputSpan::new(12, 16),
+            span: Some(InputSpan::new(12, 16)),
             severity: Severity::Error,
         };
         

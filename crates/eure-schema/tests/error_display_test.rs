@@ -117,6 +117,7 @@ fn test_validation_error_display() {
             actual: "string".to_string(),
         },
         severity: Severity::Error,
+        span: None,
     };
     assert_eq!(
         error.to_string(),

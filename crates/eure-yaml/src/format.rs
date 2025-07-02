@@ -134,6 +134,8 @@ fn format_key(key: &KeyCmpValue) -> String {
             format!("({inner})")
         }
         KeyCmpValue::Unit => "()".to_string(),
+        KeyCmpValue::Extension(ext) => format!("${ext}"),
+        KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
     }
 }
 

@@ -151,6 +151,8 @@ fn key_to_string(key: &KeyCmpValue) -> Result<String, Error> {
         KeyCmpValue::Tuple(_) => Err(Error::UnsupportedValue(
             "Tuple keys cannot be converted to JSON object keys".to_string(),
         )),
+        KeyCmpValue::Extension(ext) => Ok(format!("${ext}")),
+        KeyCmpValue::MetaExtension(meta) => Ok(format!("$${meta}")),
     }
 }
 

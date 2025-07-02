@@ -123,6 +123,7 @@ pub struct Constraints {
     // Array constraints
     pub min_items: Option<usize>,
     pub max_items: Option<usize>,
+    pub unique: Option<bool>,
     pub contains: Option<serde_json::Value>,
 }
 

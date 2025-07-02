@@ -715,6 +715,22 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             StrConstructor::builder().str(str_token).build().build()
                         ).build()
                     }
+                    KeyCmpValue::Extension(_) => {
+                        // Extension keys should not appear in regular value paths
+                        // Use a descriptive string
+                        let str_token = terminals::str("\"<extension>\"");
+                        KeyBaseConstructor::Str(
+                            StrConstructor::builder().str(str_token).build().build()
+                        ).build()
+                    }
+                    KeyCmpValue::MetaExtension(_) => {
+                        // Meta-extension keys should not appear in regular value paths
+                        // Use a descriptive string
+                        let str_token = terminals::str("\"<meta-extension>\"");
+                        KeyBaseConstructor::Str(
+                            StrConstructor::builder().str(str_token).build().build()
+                        ).build()
+                    }
                 };
                 (key_base, None)
             }

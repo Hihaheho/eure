@@ -5,6 +5,7 @@
 use crate::schema::*;
 use crate::utils::path_segments_to_display_string;
 use eure_value::value::{Value, Map, KeyCmpValue, Array, PathSegment};
+use eure_tree::tree::InputSpan;
 use std::collections::HashSet;
 use ahash::AHashMap;
 use std::fmt;
@@ -74,7 +75,24 @@ pub enum ValidationErrorKind {
         variant: String,
         available: Vec<String>,
     },
+    MissingVariantTag,
     
+    // Schema validation errors
+    InvalidSchemaPattern {
+        pattern: String,
+        error: String,
+    },
+    ArrayUniqueViolation {
+        duplicate: String,
+    },
+    
+    // Preference violations (warnings)
+    PreferSection {
+        path: Vec<PathSegment>,
+    },
+    PreferArraySyntax {
+        path: Vec<PathSegment>,
+    },
     
     // Other errors
     InvalidValue(String),
@@ -86,6 +104,7 @@ pub enum ValidationErrorKind {
 pub struct ValidationError {
     pub kind: ValidationErrorKind,
     pub severity: Severity,
+    pub span: Option<InputSpan>,
 }
 
 impl fmt::Display for ValidationErrorKind {
@@ -153,6 +172,23 @@ impl fmt::Display for ValidationErrorKind {
                     write!(f, "Unknown variant '{variant}'. Available variants: {}", available.join(", "))
                 }
             }
+            ValidationErrorKind::MissingVariantTag => {
+                write!(f, "Missing variant tag field '$variant'")
+            }
+            ValidationErrorKind::InvalidSchemaPattern { pattern, error } => {
+                write!(f, "Invalid regex pattern '{pattern}': {error}")
+            }
+            ValidationErrorKind::ArrayUniqueViolation { duplicate } => {
+                write!(f, "Array contains duplicate value: {duplicate}")
+            }
+            ValidationErrorKind::PreferSection { path } => {
+                let path_str = path_segments_to_display_string(path);
+                write!(f, "Consider using section syntax for '{path_str}' instead of inline binding")
+            }
+            ValidationErrorKind::PreferArraySyntax { path } => {
+                let path_str = path_segments_to_display_string(path);
+                write!(f, "Consider using array syntax [] for '{path_str}' instead of repeated fields")
+            }
             ValidationErrorKind::InvalidValue(msg) => {
                 write!(f, "Invalid value: {msg}")
             }
@@ -204,6 +240,7 @@ impl<'a> ValidationContext<'a> {
         self.errors.push(ValidationError {
             kind,
             severity: Severity::Error,
+            span: None, // Value-based validation doesn't have spans
         });
     }
     

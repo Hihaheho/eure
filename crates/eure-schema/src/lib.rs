@@ -9,6 +9,7 @@ mod builder;
 mod utils;
 mod value_schema;
 mod value_validator;
+mod tree_validator;
 
 pub use schema::*;
 pub use value_validator::{ValidationError, ValidationErrorKind, Severity};
@@ -17,6 +18,10 @@ pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, pat
 pub use value_schema::{value_to_schema, is_pure_schema, SchemaError};
 pub use value_validator::validate_document;
 pub use eure_value::value::{PathSegment, KeyCmpValue};
+
+// Compatibility aliases for old API names
+pub use extract_schema_from_value as extract_schema;
+pub use validate_with_schema_value as validate_with_schema;
 
 // Re-export the derive macro if the feature is enabled
 #[cfg(feature = "derive")]
@@ -147,6 +152,67 @@ pub fn has_errors(errors: &[ValidationError]) -> bool {
     errors.iter().any(|e| e.severity == Severity::Error)
 }
 
+/// Validate a document against a schema using the CST for span information
+/// 
+/// This is the preferred method when you need accurate span information
+/// for error reporting (e.g., in LSP).
+/// 
+/// # Arguments
+/// * `input` - The input string
+/// * `schema` - The schema to validate against
+/// * `tree` - The concrete syntax tree
+/// 
+/// # Returns
+/// A list of validation errors with span information
+pub fn validate_with_tree(
+    input: &str,
+    schema: DocumentSchema,
+    tree: &eure_tree::tree::ConcreteSyntaxTree<eure_tree::node_kind::TerminalKind, eure_tree::node_kind::NonTerminalKind>,
+) -> Result<Vec<ValidationError>, Box<dyn std::error::Error>> {
+    use eure_tree::value_visitor::{ValueVisitor, Values};
+    
+    use crate::tree_validator::SchemaValidator;
+    
+    // First pass: Extract values using ValueVisitor
+    let mut values = Values::default();
+    let mut value_visitor = ValueVisitor::new(input, &mut values);
+    tree.visit_from_root(&mut value_visitor)?;
+    
+    // Second pass: Validate with span tracking
+    let mut validator = SchemaValidator::new(input, &schema, &values);
+    tree.visit_from_root(&mut validator)?;
+    
+    Ok(validator.into_errors())
+}
+
+/// Validate a self-describing document using the CST for span information
+/// 
+/// # Arguments
+/// * `input` - The input string
+/// * `tree` - The concrete syntax tree
+/// 
+/// # Returns
+/// The extracted schema and validation errors with span information
+pub fn validate_self_describing_with_tree(
+    input: &str,
+    tree: &eure_tree::tree::ConcreteSyntaxTree<eure_tree::node_kind::TerminalKind, eure_tree::node_kind::NonTerminalKind>,
+) -> Result<ValidationResult, Box<dyn std::error::Error>> {
+    // Extract schema using existing value-based method
+    let extracted = extract_schema_from_value(input)?;
+    
+    // Validate using tree-based method for spans if not a pure schema
+    let errors = if extracted.is_pure_schema {
+        Vec::new()
+    } else {
+        validate_with_tree(input, extracted.document_schema.clone(), tree)?
+    };
+    
+    Ok(ValidationResult {
+        schema: extracted,
+        errors,
+    })
+}
+
 /// Filter errors by severity
 pub fn filter_by_severity(errors: &[ValidationError], severity: Severity) -> Vec<&ValidationError> {
     errors.iter()
@@ -202,6 +268,7 @@ mod tests {
                 actual: "number".to_string(),
             },
             severity: Severity::Error,
+            span: None,
         };
         assert_eq!(type_error.severity, Severity::Error);
     }

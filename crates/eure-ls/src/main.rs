@@ -211,10 +211,9 @@ impl ServerContext {
                 }
             } else {
                 // First, extract schema and check for $schema reference
-                let validation_result = schema_validation::validate_and_extract_schema(&text, cst);
-                
-                // Check if document has a $schema reference
-                if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref {
+                if let Ok(validation_result) = schema_validation::validate_and_extract_schema(&text, cst) {
+                    // Check if document has a $schema reference
+                    if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref {
                     if let Some(doc_path) = uri_to_path(&uri) {
                         let workspace_root = self.get_workspace_root();
                         match schema_validation::resolve_schema_reference(&doc_path, schema_ref, workspace_root.as_deref()) {
@@ -244,6 +243,7 @@ impl ServerContext {
                                 eprintln!("Failed to resolve schema reference '{schema_ref}': {e}");
                             }
                         }
+                    }
                     }
                 } else {
                     // No $schema reference, fall back to convention-based discovery

@@ -6,7 +6,7 @@ use eure_value::{
 use std::str::FromStr;
 use thiserror::Error;
 
-use crate::{prelude::*, tree::CstFacade};
+use crate::{prelude::*, tree::{CstFacade, InputSpan}};
 
 pub struct Values {
     ident_handles: AHashMap<IdentHandle, Identifier>,
@@ -14,6 +14,11 @@ pub struct Values {
     keys_handles: AHashMap<KeysHandle, Vec<KeyHandle>>,
     value_handles: AHashMap<ValueHandle, Value>,
     eure_handles: AHashMap<EureHandle, Value>,
+    
+    // Span tracking for better error reporting
+    value_spans: AHashMap<ValueHandle, InputSpan>,
+    key_spans: AHashMap<KeyHandle, InputSpan>,
+    eure_spans: AHashMap<EureHandle, InputSpan>,
 }
 
 impl Default for Values {
@@ -24,6 +29,9 @@ impl Default for Values {
             keys_handles: AHashMap::new(),
             value_handles: AHashMap::new(),
             eure_handles: AHashMap::new(),
+            value_spans: AHashMap::new(),
+            key_spans: AHashMap::new(),
+            eure_spans: AHashMap::new(),
         }
     }
 }
@@ -48,6 +56,22 @@ impl Values {
     pub fn get_eure(&self, handle: &EureHandle) -> Option<&Value> {
         self.eure_handles.get(handle)
     }
+    
+    // New span-aware getters
+    pub fn get_value_with_span(&self, handle: &ValueHandle) -> Option<(&Value, Option<&InputSpan>)> {
+        self.value_handles.get(handle)
+            .map(|v| (v, self.value_spans.get(handle)))
+    }
+    
+    pub fn get_key_with_span(&self, handle: &KeyHandle) -> Option<(&PathSegment, Option<&InputSpan>)> {
+        self.key_handles.get(handle)
+            .map(|k| (k, self.key_spans.get(handle)))
+    }
+    
+    pub fn get_eure_with_span(&self, handle: &EureHandle) -> Option<(&Value, Option<&InputSpan>)> {
+        self.eure_handles.get(handle)
+            .map(|v| (v, self.eure_spans.get(handle)))
+    }
 
     #[cfg(test)]
     pub(crate) fn test_value_handles(&self) -> &AHashMap<ValueHandle, Value> {
@@ -67,6 +91,21 @@ impl Values {
     #[cfg(test)]
     pub(crate) fn test_keys_handles(&self) -> &AHashMap<KeysHandle, Vec<KeyHandle>> {
         &self.keys_handles
+    }
+    
+    #[cfg(test)]
+    pub(crate) fn test_value_spans(&self) -> &AHashMap<ValueHandle, InputSpan> {
+        &self.value_spans
+    }
+    
+    #[cfg(test)]
+    pub(crate) fn test_key_spans(&self) -> &AHashMap<KeyHandle, InputSpan> {
+        &self.key_spans
+    }
+    
+    #[cfg(test)]
+    pub(crate) fn test_eure_spans(&self) -> &AHashMap<EureHandle, InputSpan> {
+        &self.eure_spans
     }
 }
 
@@ -282,6 +321,20 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         // Store the PathSegment
         self.values.key_handles.insert(handle, final_path_segment);
+        
+        // Store the span if available
+        if let Some(node_data) = tree.node_data(handle.node_id()) {
+            match node_data {
+                CstNode::Terminal { data: TerminalData::Input(span), .. } => {
+                    self.values.key_spans.insert(handle, span);
+                }
+                CstNode::NonTerminal { data: NonTerminalData::Input(span), .. } => {
+                    self.values.key_spans.insert(handle, span);
+                }
+                _ => {}
+            }
+        }
+        
         self.current_keys.push(handle);
 
         Ok(())
@@ -583,6 +636,20 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         // Store the constructed value with its handle
         self.values.value_handles.insert(handle, value);
+        
+        // Store the span if available
+        if let Some(node_data) = tree.node_data(handle.node_id()) {
+            match node_data {
+                CstNode::Terminal { data: TerminalData::Input(span), .. } => {
+                    self.values.value_spans.insert(handle, span);
+                }
+                CstNode::NonTerminal { data: NonTerminalData::Input(span), .. } => {
+                    self.values.value_spans.insert(handle, span);
+                }
+                _ => {}
+            }
+        }
+        
         Ok(())
     }
 
@@ -601,6 +668,19 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // Transform variants and store the final document value
         let document_value = transform_variants(Value::Map(Map(self.document_map.clone())));
         self.values.eure_handles.insert(handle, document_value);
+        
+        // Store the span if available
+        if let Some(node_data) = tree.node_data(handle.node_id()) {
+            match node_data {
+                CstNode::Terminal { data: TerminalData::Input(span), .. } => {
+                    self.values.eure_spans.insert(handle, span);
+                }
+                CstNode::NonTerminal { data: NonTerminalData::Input(span), .. } => {
+                    self.values.eure_spans.insert(handle, span);
+                }
+                _ => {}
+            }
+        }
 
         Ok(())
     }
