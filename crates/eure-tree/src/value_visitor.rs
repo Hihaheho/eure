@@ -114,7 +114,9 @@ pub struct ValueVisitor<'a> {
     values: &'a mut Values,
     current_keys: Vec<KeyHandle>,
     document_map: AHashMap<KeyCmpValue, Value>,
+    schema_map: AHashMap<KeyCmpValue, Value>, // For paths containing $extensions
     current_section_stack: Vec<AHashMap<KeyCmpValue, Value>>,
+    current_schema_stack: Vec<AHashMap<KeyCmpValue, Value>>, // Schema stack for sections
 }
 
 impl<'a> ValueVisitor<'a> {
@@ -124,7 +126,9 @@ impl<'a> ValueVisitor<'a> {
             values,
             current_keys: Vec::new(),
             document_map: AHashMap::new(),
+            schema_map: AHashMap::new(),
             current_section_stack: Vec::new(),
+            current_schema_stack: Vec::new(),
         }
     }
 }
@@ -174,6 +178,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         self.current_keys.clear();
         self.visit_keys_super(handle, view, tree)?;
+        
+        
         self.values
             .keys_handles
             .insert(handle, std::mem::take(&mut self.current_keys));
@@ -309,6 +315,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     // Nested array syntax not expected here
                     return Ok(());
                 }
+                PathSegment::TupleIndex(idx) => Value::U64(*idx as u64),
             };
 
             PathSegment::Array {
@@ -665,8 +672,34 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // Visit the eure structure
         self.visit_eure_super(handle, view, tree)?;
 
+        // For schema extraction, we need the merged view
+        // For validation, we need just the data
+        // Let's merge schema_map and document_map to create the final value
+        let mut final_map = self.document_map.clone();
+        
+        // Merge schema definitions into the final map
+        for (key, schema_value) in &self.schema_map {
+            match (final_map.get(key), schema_value) {
+                (Some(data_value), Value::Map(schema_map)) => {
+                    // We have data in document_map and schema in schema_map
+                    // Create a new map that contains both the schema and the data under _value
+                    let mut combined_map = schema_map.0.clone();
+                    combined_map.insert(KeyCmpValue::String("_value".to_string()), data_value.clone());
+                    final_map.insert(key.clone(), Value::Map(Map(combined_map)));
+                }
+                (None, _) => {
+                    // No data, just insert the schema value
+                    final_map.insert(key.clone(), schema_value.clone());
+                }
+                _ => {
+                    // Otherwise just insert the schema value
+                    final_map.insert(key.clone(), schema_value.clone());
+                }
+            }
+        }
+        
         // Transform variants and store the final document value
-        let document_value = transform_variants(Value::Map(Map(self.document_map.clone())));
+        let document_value = transform_variants(Value::Map(Map(final_map)));
         self.values.eure_handles.insert(handle, document_value);
         
         // Store the span if available
@@ -725,14 +758,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         self.visit_value_handle(value_binding_view.value, tree)?;
                         
                         // Then get the value
-                        let result = self.values.get_value(&value_binding_view.value).cloned();
-                        
-                        // Debug output
-                        if result.is_none() {
-                            eprintln!("DEBUG: ValueBinding - No value found for handle {:?}", value_binding_view.value);
-                        }
-                        
-                        result
+                        self.values.get_value(&value_binding_view.value).cloned()
                     } else {
                         None
                     }
@@ -754,9 +780,11 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     }
                 }
                 Ok(BindingRhsView::SectionBinding(section_binding_handle)) => {
-                    // Create a new section map
+                    // Create new maps for both data and schema
                     let section_map = AHashMap::new();
+                    let schema_section_map = AHashMap::new();
                     self.current_section_stack.push(section_map);
+                    self.current_schema_stack.push(schema_section_map);
 
                     // Process section binding
                     if let Ok(section_binding_view) = section_binding_handle.get_view(tree)
@@ -766,21 +794,54 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         self.visit_eure(section_binding_view.eure, eure_view, tree)?;
                     }
 
-                    // Pop the section map and use it as the value
-                    self.current_section_stack
-                        .pop()
-                        .map(|section_map| Value::Map(Map(section_map)))
+                    // Pop both maps
+                    let data_map = self.current_section_stack.pop();
+                    let schema_map = self.current_schema_stack.pop();
+                    
+                    // Merge schema map into data map if both exist
+                    match (data_map, schema_map) {
+                        (Some(mut data), Some(schema)) => {
+                            if !schema.is_empty() {
+                                // Merge schema definitions into data map
+                                for (key, value) in schema {
+                                    data.insert(key, value);
+                                }
+                            }
+                            Some(Value::Map(Map(data)))
+                        }
+                        (Some(data), None) => Some(Value::Map(Map(data))),
+                        (None, Some(schema)) => Some(Value::Map(Map(schema))),
+                        (None, None) => None
+                    }
                 }
                 _ => None,
             };
 
             // Process the path and bind the value
             if let Some(value) = binding_value {
-                let target_map = self
-                    .current_section_stack
-                    .last_mut()
-                    .unwrap_or(&mut self.document_map);
-                process_path_recursive(target_map, &key_handles, value, self.values);
+                
+                // Check if any key in the path is an extension (but not meta-extension)
+                let has_extension = key_handles.iter().any(|handle| {
+                    if let Some(path_segment) = self.values.get_path_segment(handle) {
+                        matches!(path_segment, PathSegment::Extension(_))
+                    } else {
+                        false
+                    }
+                });
+                
+                if has_extension {
+                    let target_map = self
+                        .current_schema_stack
+                        .last_mut()
+                        .unwrap_or(&mut self.schema_map);
+                    process_path_recursive(target_map, &key_handles, value, self.values);
+                } else {
+                    let target_map = self
+                        .current_section_stack
+                        .last_mut()
+                        .unwrap_or(&mut self.document_map);
+                    process_path_recursive(target_map, &key_handles, value, self.values);
+                }
             }
         }
 
@@ -822,8 +883,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         if let Some(key_handles) = key_handles
             && !key_handles.is_empty()
         {
-            // Create a new section map for this section's content
+            // Create new maps for both data and schema in this section
             let mut section_map = AHashMap::new();
+            let mut schema_section_map = AHashMap::new();
             
             // Process section body
             if let Ok(section_body) = view.section_body.get_view(tree) {
@@ -833,8 +895,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         if let Ok(binding_view) = binding_handle.get_view(tree)
                             && let Ok(eure_view) = binding_view.eure.get_view(tree)
                         {
-                            // Push section map onto stack
+                            // Push both maps onto stacks
                             self.current_section_stack.push(section_map);
+                            self.current_schema_stack.push(schema_section_map);
                             
                             // Visit the eure content (bindings and nested sections)
                             if let Ok(Some(bindings)) = eure_view.eure_bindings.get_view(tree) {
@@ -844,22 +907,25 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                                 self.visit_eure_sections(eure_view.eure_sections, sections, tree)?;
                             }
                             
-                            // Pop section map
+                            // Pop both maps
                             section_map = self.current_section_stack.pop().unwrap();
+                            schema_section_map = self.current_schema_stack.pop().unwrap();
                         }
                     }
                     SectionBodyView::SectionBodyList(body_list_handle) => {
                         // Section with list of bindings: @ section \n bindings...
-                        // Push section map onto stack
+                        // Push both maps onto stacks
                         self.current_section_stack.push(section_map);
+                        self.current_schema_stack.push(schema_section_map);
                         
                         // Visit the body list
                         if let Ok(Some(body_list)) = body_list_handle.get_view(tree) {
                             self.visit_section_body_list(body_list_handle, body_list, tree)?;
                         }
                         
-                        // Pop section map
+                        // Pop both maps
                         section_map = self.current_section_stack.pop().unwrap();
+                        schema_section_map = self.current_schema_stack.pop().unwrap();
                     }
                     SectionBodyView::Bind(_bind_handle) => {
                         // Section with direct value assignment: @ section = value
@@ -871,12 +937,49 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 }
             }
             
-            // Add the section map to the parent map using the section's path
-            let target_map = self
-                .current_section_stack
-                .last_mut()
-                .unwrap_or(&mut self.document_map);
-            process_path_recursive(target_map, &key_handles, Value::Map(Map(section_map)), self.values);
+            // Check if any key in the path is an extension
+            let has_extension = key_handles.iter().any(|handle| {
+                if let Some(path_segment) = self.values.get_path_segment(handle) {
+                    matches!(path_segment, PathSegment::Extension(_))
+                } else {
+                    false
+                }
+            });
+            
+            // Merge schema map into section map before adding
+            // Need to do field-level merging for mixed content
+            if !schema_section_map.is_empty() {
+                for (key, schema_value) in schema_section_map {
+                    match (section_map.get(&key), &schema_value) {
+                        (Some(Value::String(_) | Value::I64(_) | Value::U64(_) | Value::F32(_) | Value::F64(_) | Value::Bool(_)), Value::Map(schema_map)) => {
+                            // We have data in section_map and schema in schema_section_map
+                            // Create a new map that contains both the schema and the data under _value
+                            let mut combined_map = schema_map.0.clone();
+                            combined_map.insert(KeyCmpValue::String("_value".to_string()), section_map.get(&key).unwrap().clone());
+                            section_map.insert(key, Value::Map(Map(combined_map)));
+                        }
+                        _ => {
+                            // Otherwise just insert the schema value
+                            section_map.insert(key, schema_value);
+                        }
+                    }
+                }
+            }
+            
+            // Add the section map to the appropriate parent map
+            if has_extension {
+                let target_map = self
+                    .current_schema_stack
+                    .last_mut()
+                    .unwrap_or(&mut self.schema_map);
+                process_path_recursive(target_map, &key_handles, Value::Map(Map(section_map)), self.values);
+            } else {
+                let target_map = self
+                    .current_section_stack
+                    .last_mut()
+                    .unwrap_or(&mut self.document_map);
+                process_path_recursive(target_map, &key_handles, Value::Map(Map(section_map)), self.values);
+            }
         }
 
         Ok(())
@@ -1165,6 +1268,7 @@ fn process_path_recursive(
     if key_handles.is_empty() {
         return;
     }
+    
 
     // Convert the first key handle to a key
     let first_segment = values.get_path_segment(&key_handles[0]);

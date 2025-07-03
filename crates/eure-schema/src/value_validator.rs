@@ -4,7 +4,7 @@
 
 use crate::schema::*;
 use crate::utils::path_segments_to_display_string;
-use eure_value::value::{Value, Map, KeyCmpValue, Array, PathSegment};
+use eure_value::value::{Value, Map, KeyCmpValue, Array, Tuple, PathSegment};
 use eure_tree::tree::InputSpan;
 use std::collections::HashSet;
 use ahash::AHashMap;
@@ -390,6 +390,9 @@ fn validate_value_against_type(
         (Value::Array(array), Type::Array(elem_type)) => {
             validate_array(array, elem_type, context);
         },
+        (Value::Tuple(tuple), Type::Array(elem_type)) => {
+            validate_tuple(tuple, elem_type, context);
+        },
         
         // Objects
         (Value::Map(map), Type::Object(obj_schema)) => {
@@ -463,12 +466,27 @@ fn validate_array(
     context: &mut ValidationContext
 ) {
     for (index, element) in array.0.iter().enumerate() {
-        // Use Array variant with index
-        let index_val = Value::F64(index as f64);
-        context.with_path(PathSegment::Array { 
-            key: Value::String("".to_string()), 
-            index: Some(index_val)
-        }, |ctx| {
+        context.with_path(PathSegment::Value(KeyCmpValue::U64(index as u64)), |ctx| {
+            validate_value_against_type(element, elem_type, ctx);
+        });
+    }
+}
+
+/// Validate a tuple
+fn validate_tuple(
+    tuple: &Tuple<Value>,
+    elem_type: &Type,
+    context: &mut ValidationContext
+) {
+    for (index, element) in tuple.0.iter().enumerate() {
+        if index > 255 {
+            context.add_error(ValidationErrorKind::InvalidValue(
+                format!("Tuple index {} exceeds maximum of 255", index)
+            ));
+            break;
+        }
+        
+        context.with_path(PathSegment::TupleIndex(index as u8), |ctx| {
             validate_value_against_type(element, elem_type, ctx);
         });
     }

@@ -51,7 +51,11 @@ pub enum PathSegment {
     Extension(Identifier),
     /// MetaExtKey uses $$ prefix, e.g., $$eure, $$variant
     MetaExt(Identifier),
+    /// Arbitrary value used as key
     Value(KeyCmpValue),
+    /// Tuple element index (0-255)
+    TupleIndex(u8),
+    /// Array element access
     Array {
         key: Value,
         index: Option<Value>,
@@ -66,6 +70,7 @@ pub struct PathKey(pub Vec<PathKeySegment>);
 pub enum PathKeySegment {
     Ident(String),
     Extension(String),
+    TupleIndex(u8),
     Array { key: String, index: Option<usize> },
 }
 
