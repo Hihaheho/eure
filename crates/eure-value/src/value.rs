@@ -32,6 +32,10 @@ pub enum KeyCmpValue {
     I64(i64),
     U64(u64),
     String(String),
+    /// Extension identifier (e.g., $type, $serde)
+    Extension(String),
+    /// Meta-extension identifier (e.g., $$meta)
+    MetaExtension(String),
     Tuple(Tuple<KeyCmpValue>),
     Unit,
 }
@@ -47,7 +51,11 @@ pub enum PathSegment {
     Extension(Identifier),
     /// MetaExtKey uses $$ prefix, e.g., $$eure, $$variant
     MetaExt(Identifier),
+    /// Arbitrary value used as key
     Value(KeyCmpValue),
+    /// Tuple element index (0-255)
+    TupleIndex(u8),
+    /// Array element access
     Array {
         key: Value,
         index: Option<Value>,
@@ -62,6 +70,7 @@ pub struct PathKey(pub Vec<PathKeySegment>);
 pub enum PathKeySegment {
     Ident(String),
     Extension(String),
+    TupleIndex(u8),
     Array { key: String, index: Option<usize> },
 }
 
@@ -139,5 +148,55 @@ impl VariantRepr {
             }
             _ => None,
         }
+    }
+}
+
+// Helper trait implementations for KeyCmpValue
+
+impl PartialEq<str> for KeyCmpValue {
+    fn eq(&self, other: &str) -> bool {
+        match self {
+            KeyCmpValue::String(s) => s == other,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<&str> for KeyCmpValue {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            KeyCmpValue::String(s) => s == *other,
+            _ => false,
+        }
+    }
+}
+
+impl From<String> for KeyCmpValue {
+    fn from(s: String) -> Self {
+        KeyCmpValue::String(s)
+    }
+}
+
+impl From<&str> for KeyCmpValue {
+    fn from(s: &str) -> Self {
+        KeyCmpValue::String(s.to_string())
+    }
+}
+
+impl From<u64> for KeyCmpValue {
+    fn from(n: u64) -> Self {
+        KeyCmpValue::U64(n)
+    }
+}
+
+impl From<i64> for KeyCmpValue {
+    fn from(n: i64) -> Self {
+        KeyCmpValue::I64(n)
+    }
+}
+
+impl From<bool> for KeyCmpValue {
+    fn from(b: bool) -> Self {
+        KeyCmpValue::Bool(b)
     }
 }

@@ -24,13 +24,13 @@ fn main() {
     // Get the schema for User
     let user_schema = User::eure_schema();
     println!("User schema:");
-    println!("{:#?}", user_schema);
+    println!("{user_schema:#?}");
     println!("\nType name: {:?}", User::type_name());
     
     // Get the schema for UserStatus
     let status_schema = UserStatus::eure_schema();
     println!("\nUserStatus schema:");
-    println!("{:#?}", status_schema);
+    println!("{status_schema:#?}");
     println!("\nType name: {:?}", UserStatus::type_name());
     
     // You can now use these schemas for validation, documentation,

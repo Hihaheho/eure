@@ -715,6 +715,22 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             StrConstructor::builder().str(str_token).build().build()
                         ).build()
                     }
+                    KeyCmpValue::Extension(_) => {
+                        // Extension keys should not appear in regular value paths
+                        // Use a descriptive string
+                        let str_token = terminals::str("\"<extension>\"");
+                        KeyBaseConstructor::Str(
+                            StrConstructor::builder().str(str_token).build().build()
+                        ).build()
+                    }
+                    KeyCmpValue::MetaExtension(_) => {
+                        // Meta-extension keys should not appear in regular value paths
+                        // Use a descriptive string
+                        let str_token = terminals::str("\"<meta-extension>\"");
+                        KeyBaseConstructor::Str(
+                            StrConstructor::builder().str(str_token).build().build()
+                        ).build()
+                    }
                 };
                 (key_base, None)
             }
@@ -806,6 +822,13 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                 
                 // Return key_base and array marker separately
                 (key_base, Some(array_marker))
+            }
+            PathSegment::TupleIndex(idx) => {
+                // Tuple indices are represented as simple integer keys
+                let integer = terminals::integer(&idx.to_string());
+                let integer_node = IntegerConstructor::builder().integer(integer).build().build();
+                let key_base = KeyBaseConstructor::Integer(integer_node).build();
+                (key_base, None)
             }
         };
         

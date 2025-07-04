@@ -61,6 +61,7 @@ pub fn format_eure(value: &Value) -> String {
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
                     PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
                     PathSegment::Value(v) => format!("[{}]", format_key(v)),
+                    PathSegment::TupleIndex(idx) => idx.to_string(),
                     PathSegment::Array { key, index } => {
                         if let Some(idx) = index {
                             format!("{}[{}]", format_eure(key), format_eure(idx))
@@ -134,6 +135,8 @@ fn format_key(key: &KeyCmpValue) -> String {
             format!("({inner})")
         }
         KeyCmpValue::Unit => "()".to_string(),
+        KeyCmpValue::Extension(ext) => format!("${ext}"),
+        KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
     }
 }
 

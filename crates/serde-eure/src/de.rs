@@ -486,6 +486,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                         eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
                         eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
                         eure_value::value::PathSegment::Value(v) => format!("{v:?}"),
+                        eure_value::value::PathSegment::TupleIndex(idx) => idx.to_string(),
                         eure_value::value::PathSegment::Array { key, index } => {
                             if let Some(idx) = index {
                                 format!("{key:?}[{idx:?}]")
@@ -769,13 +770,29 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
         }
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         match std::mem::replace(&mut self.value, Value::Null) {
-            Value::Tuple(Tuple(values)) => visitor.visit_seq(SeqDeserializer::new(values)),
-            Value::Array(Array(values)) => visitor.visit_seq(SeqDeserializer::new(values)),
+            Value::Tuple(Tuple(values)) => {
+                if values.len() != len {
+                    return Err(Error::InvalidType(format!(
+                        "expected tuple of length {}, found {}",
+                        len, values.len()
+                    )));
+                }
+                visitor.visit_seq(SeqDeserializer::new(values))
+            }
+            Value::Array(Array(values)) => {
+                if values.len() != len {
+                    return Err(Error::InvalidType(format!(
+                        "expected tuple of length {}, found array of length {}",
+                        len, values.len()
+                    )));
+                }
+                visitor.visit_seq(SeqDeserializer::new(values))
+            }
             _ => Err(Error::InvalidType("expected tuple".to_string())),
         }
     }
@@ -783,13 +800,13 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
-        _len: usize,
+        len: usize,
         visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        self.deserialize_tuple(len, visitor)
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
@@ -1090,5 +1107,7 @@ fn key_cmp_to_value(key: KeyCmpValue) -> Value {
             Value::Tuple(eure_value::value::Tuple(values))
         }
         KeyCmpValue::Unit => Value::Unit,
+        KeyCmpValue::Extension(ext) => Value::String(format!("${ext}")),
+        KeyCmpValue::MetaExtension(meta) => Value::String(format!("$${meta}")),
     }
 }

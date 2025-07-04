@@ -2,13 +2,16 @@
 // mod semantic_tokens;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-use eure_editor_support::{diagnostics, parser, semantic_tokens};
+use eure_editor_support::{diagnostics, parser, schema_validation, semantic_tokens};
 use eure_tree::Cst;
 use lsp_types::notification::{Notification as _, PublishDiagnostics};
-use lsp_types::request::SemanticTokensFullRequest;
+use lsp_types::request::{DocumentDiagnosticRequest, SemanticTokensFullRequest};
 use lsp_types::{
-    Diagnostic, InitializeParams, PublishDiagnosticsParams, SemanticTokensFullOptions,
+    Diagnostic, DocumentDiagnosticParams, DocumentDiagnosticReport,
+    DocumentDiagnosticReportResult, FullDocumentDiagnosticReport, InitializeParams,
+    PublishDiagnosticsParams, RelatedFullDocumentDiagnosticReport, SemanticTokensFullOptions,
     SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult, ServerCapabilities, Uri,
 };
 
@@ -64,6 +67,8 @@ fn main() -> anyhow::Result<()> {
         params,
         documents: HashMap::new(), // Initialize documents map
         legend,                    // Store legend in context
+        schema_manager: schema_validation::SchemaManager::new(),
+        diagnostics: HashMap::new(), // Initialize diagnostics map
     };
     context.run()?;
 
@@ -80,6 +85,8 @@ pub struct ServerContext {
     params: InitializeParams,
     documents: HashMap<String, (Option<Cst>, String)>, // Store (CST, Content) by document URI
     legend: SemanticTokensLegend,                      // Store the legend
+    schema_manager: schema_validation::SchemaManager,  // Schema management
+    diagnostics: HashMap<String, Vec<Diagnostic>>,     // Store diagnostics by document URI
 }
 
 pub enum Event {
@@ -92,7 +99,6 @@ impl ServerContext {
     fn run(&mut self) -> anyhow::Result<()> {
         loop {
             let msg = self.connection.receiver.recv()?;
-            eprintln!("got msg: {msg:?}");
             match msg {
                 Message::Request(req) => {
                     if self.connection.handle_shutdown(&req)? {
@@ -103,6 +109,17 @@ impl ServerContext {
                         .handle_request::<SemanticTokensFullRequest>(
                             req.clone(), // Clone req as handle_request consumes it
                             Self::handle_semantic_tokens_full,
+                        )?
+                        .is_some()
+                    {
+                        continue; // Request was handled
+                    }
+
+                    // Handle Document Diagnostic request
+                    if self
+                        .handle_request::<DocumentDiagnosticRequest>(
+                            req.clone(),
+                            Self::handle_document_diagnostic,
                         )?
                         .is_some()
                     {
@@ -122,11 +139,10 @@ impl ServerContext {
                     };
                     self.send_response(resp)?;
                 }
-                Message::Response(resp) => {
-                    eprintln!("got response: {resp:?}");
+                Message::Response(_resp) => {
+                    // Handle response if needed
                 }
                 Message::Notification(not) => {
-                    eprintln!("got notification: {not:?}");
                     // Handle notification for document updates
                     if not.method == "textDocument/didOpen" {
                         if let Ok(params) = serde_json::from_value::<
@@ -170,7 +186,7 @@ impl ServerContext {
         let parse_result = parser::parse_document(&text);
 
         // Prepare diagnostics and store CST based on parse result
-        let (cst, diagnostics) = match parse_result {
+        let (cst, mut diagnostics) = match parse_result {
             parser::ParseResult::Ok(cst) => {
                 // Success case - store CST and clear diagnostics
                 (Some(cst), Vec::new())
@@ -182,7 +198,102 @@ impl ServerContext {
         };
 
         // Store document in our map
-        self.documents.insert(uri_string, (cst, text));
+        let cst_clone = cst.clone();
+        self.documents.insert(uri_string.clone(), (cst, text.clone()));
+
+        // If we have a valid CST, perform schema validation
+        if let Some(ref cst) = cst_clone {
+            // Check if this is a schema file itself
+            if uri_string.contains(".schema.eure") {
+                // Try to load this as a schema
+                if let Err(e) = self.schema_manager.load_schema(&uri_string, &text, cst) {
+                    eprintln!("Failed to load schema from {uri_string}: {e}");
+                }
+            } else {
+                // First, extract schema and check for $schema reference
+                if let Ok(validation_result) = schema_validation::validate_and_extract_schema(&text, cst) {
+                    // Check if document has a $schema reference
+                    if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref {
+                    if let Some(doc_path) = uri_to_path(&uri) {
+                        let workspace_root = self.get_workspace_root();
+                        match schema_validation::resolve_schema_reference(&doc_path, schema_ref, workspace_root.as_deref()) {
+                            Ok(schema_path) => {
+                                // Load the schema if we haven't already
+                                let schema_uri = format!("file://{}", schema_path.display());
+                                if self.schema_manager.get_schema(&schema_uri).is_none() {
+                                    // Need to parse and load the schema
+                                    if let Ok(schema_content) = std::fs::read_to_string(&schema_path)
+                                        && let parser::ParseResult::Ok(schema_cst) = parser::parse_document(&schema_content) {
+                                            if let Err(e) = self.schema_manager.load_schema(&schema_uri, &schema_content, &schema_cst) {
+                                                eprintln!("Failed to load schema from {schema_uri}: {e}");
+                                                eprintln!("Schema path: {}", schema_path.display());
+                                            } else {
+                                                eprintln!("Successfully loaded schema from {schema_uri}");
+                                                // Associate document with schema
+                                                self.schema_manager.set_document_schema(&uri_string, &schema_uri);
+                                                eprintln!("Associated {uri_string} with schema {schema_uri}");
+                                            }
+                                        }
+                                } else {
+                                    // Schema already loaded, just associate
+                                    self.schema_manager.set_document_schema(&uri_string, &schema_uri);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to resolve schema reference '{schema_ref}': {e}");
+                            }
+                        }
+                    }
+                    }
+                } else {
+                    // No $schema reference, fall back to convention-based discovery
+                    if let Some(path) = uri_to_path(&uri) {
+                        let workspace_root = self.get_workspace_root();
+                        if let Some(schema_path) = schema_validation::find_schema_for_document(&path, workspace_root.as_deref()) {
+                            eprintln!("Found schema by convention for {}: {}", uri_string, schema_path.display());
+                            // Load the schema if we haven't already
+                            let schema_uri = format!("file://{}", schema_path.display());
+                            if self.schema_manager.get_schema(&schema_uri).is_none() {
+                                // Need to parse and load the schema
+                                if let Ok(schema_content) = std::fs::read_to_string(&schema_path) {
+                                    if let parser::ParseResult::Ok(schema_cst) = parser::parse_document(&schema_content) {
+                                        if let Err(e) = self.schema_manager.load_schema(&schema_uri, &schema_content, &schema_cst) {
+                                            eprintln!("Failed to load schema from {schema_uri}: {e}");
+                                        } else {
+                                            eprintln!("Successfully loaded schema from {schema_uri}");
+                                            // Associate document with schema
+                                            self.schema_manager.set_document_schema(&uri_string, &schema_uri);
+                                            eprintln!("Associated {uri_string} with schema {schema_uri}");
+                                        }
+                                    } else {
+                                        eprintln!("Failed to parse schema file: {}", schema_path.display());
+                                    }
+                                } else {
+                                    eprintln!("Failed to read schema file: {}", schema_path.display());
+                                }
+                            } else {
+                                eprintln!("Schema already loaded, associating {uri_string} with {schema_uri}");
+                                // Schema already loaded, just associate
+                                self.schema_manager.set_document_schema(&uri_string, &schema_uri);
+                            }
+                        } else {
+                            eprintln!("No schema found by convention for {uri_string}");
+                        }
+                    }
+                }
+                
+                // Run schema validation
+                let schema_diagnostics = schema_validation::validate_document(
+                    &uri_string,
+                    &text,
+                    cst,
+                    &self.schema_manager,
+                );
+                
+                // Merge diagnostics
+                diagnostics.extend(schema_diagnostics);
+            }
+        }
 
         // Publish diagnostics
         self.publish_diagnostics(uri, diagnostics, version)?;
@@ -192,11 +303,14 @@ impl ServerContext {
 
     // Publish diagnostics to the client
     fn publish_diagnostics(
-        &self,
+        &mut self,
         uri: Uri,
         diagnostics: Vec<Diagnostic>,
         version: Option<i32>,
     ) -> anyhow::Result<()> {
+        // Store diagnostics for pull-based requests
+        self.diagnostics.insert(uri.to_string(), diagnostics.clone());
+        
         let params = PublishDiagnosticsParams {
             uri,
             diagnostics,
@@ -221,8 +335,6 @@ impl ServerContext {
     ) -> anyhow::Result<Option<Option<SemanticTokensResult>>> {
         let uri = params.text_document.uri.to_string();
 
-        eprintln!("Handling semantic tokens full request for: {uri}");
-
         // Lookup document in our store
         if let Some((cst_opt, text)) = self.documents.get(&uri) {
             if let Some(cst) = cst_opt {
@@ -239,6 +351,38 @@ impl ServerContext {
             eprintln!("Document not found in store: {uri}");
             Ok(Some(None))
         }
+    }
+
+    // Handler for textDocument/diagnostic
+    fn handle_document_diagnostic(
+        &mut self,
+        params: DocumentDiagnosticParams,
+    ) -> anyhow::Result<Option<DocumentDiagnosticReportResult>> {
+        let uri = params.text_document.uri.to_string();
+        
+        // Get stored diagnostics for this document
+        let diagnostics = self.diagnostics
+            .get(&uri)
+            .cloned()
+            .unwrap_or_default();
+        
+        // Create a full diagnostic report
+        let report = FullDocumentDiagnosticReport {
+            items: diagnostics,
+            result_id: None, // We don't support result IDs yet
+        };
+        
+        // Wrap in the required response types
+        let result = DocumentDiagnosticReportResult::Report(
+            DocumentDiagnosticReport::Full(
+                RelatedFullDocumentDiagnosticReport {
+                    related_documents: None, // We don't track related documents yet
+                    full_document_diagnostic_report: report,
+                }
+            )
+        );
+        
+        Ok(Some(result))
     }
 
     fn send_response(&self, resp: Response) -> anyhow::Result<()> {
@@ -293,4 +437,63 @@ impl ServerContext {
         self.send_response(resp)?;
         Ok(Some(())) // Signal that the request was handled
     }
+
+    // Get the workspace root from initialization params
+    fn get_workspace_root(&self) -> Option<PathBuf> {
+        self.params
+            .workspace_folders
+            .as_ref()
+            .and_then(|folders| folders.first())
+            .and_then(|folder| uri_to_path(&folder.uri))
+            .or_else(|| {
+                #[allow(deprecated)]
+                self.params
+                    .root_uri
+                    .as_ref()
+                    .and_then(uri_to_path)
+            })
+    }
+}
+
+/// Convert a URI to a file path
+fn uri_to_path(uri: &Uri) -> Option<PathBuf> {
+    // Check if it's a file:// URI
+    let uri_str = uri.as_str();
+    if !uri_str.starts_with("file://") {
+        return None;
+    }
+    
+    // Remove the file:// prefix and decode the path
+    let path_str = &uri_str[7..]; // Skip "file://"
+    
+    // On Windows, file URIs might have an extra slash (file:///C:/...)
+    let path_str = if cfg!(windows) && path_str.starts_with('/') {
+        &path_str[1..]
+    } else {
+        path_str
+    };
+    
+    // Decode percent-encoded characters
+    let decoded = percent_decode(path_str).ok()?;
+    
+    Some(PathBuf::from(decoded))
+}
+
+/// Simple percent decoding for file paths
+fn percent_decode(s: &str) -> Result<String, ()> {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    
+    while let Some(ch) = chars.next() {
+        if ch == '%' {
+            let hex1 = chars.next().ok_or(())?;
+            let hex2 = chars.next().ok_or(())?;
+            let byte = u8::from_str_radix(&format!("{hex1}{hex2}"), 16).map_err(|_| ())?;
+            result.push(byte as char);
+        } else {
+            result.push(ch);
+        }
+    }
+    
+    Ok(result)
 }

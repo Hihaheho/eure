@@ -4,17 +4,24 @@
 //! It supports both standalone schema files and inline schemas within documents.
 
 mod schema;
-mod extractor;
-mod validator;
 mod impls;
 mod builder;
 mod utils;
+mod value_schema;
+mod value_validator;
+mod tree_validator;
 
 pub use schema::*;
-pub use extractor::SchemaExtractor;
-pub use validator::{SchemaValidator, ValidationError, ValidationErrorKind, Severity};
+pub use value_validator::{ValidationError, ValidationErrorKind, Severity};
 pub use builder::{FieldSchemaBuilder, TypeBuilder, ObjectSchemaBuilder, VariantSchemaBuilder};
-pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case};
+pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, path_to_display_string, path_segments_to_display_string};
+pub use value_schema::{value_to_schema, is_pure_schema, SchemaError};
+pub use value_validator::validate_document;
+pub use eure_value::value::{PathSegment, KeyCmpValue};
+
+// Compatibility aliases for old API names
+pub use extract_schema_from_value as extract_schema;
+pub use validate_with_schema_value as validate_with_schema;
 
 // Re-export the derive macro if the feature is enabled
 #[cfg(feature = "derive")]
@@ -29,36 +36,61 @@ pub struct ValidationResult {
     pub errors: Vec<ValidationError>,
 }
 
-/// Extract schema information from a EURE document
-/// 
-/// This will extract:
-/// - Type definitions from $types namespace
-/// - Inline schemas from field extensions
-/// - Global settings like cascade types
-pub fn extract_schema(input: &str, tree: &eure_tree::Cst) -> ExtractedSchema {
-    let mut extractor = SchemaExtractor::new(input);
-    // Use the visitor pattern to visit the tree
-    use eure_tree::visitor::CstVisitorSuper;
-    let root_handle = tree.root_handle();
-    extractor.visit_root_handle(root_handle, tree).expect("Schema extraction should not fail");
-    extractor.extract()
+/// Macro to reduce boilerplate for parsing and value extraction
+macro_rules! parse_and_extract_value {
+    ($input:expr, $callback:expr) => {{
+        // Parse to CST
+        let tree = eure_parol::parse($input)
+            .map_err(|e| SchemaError::InvalidField(format!("Parse error: {:?}", e)))?;
+        
+        // Extract to Value
+        let mut values = eure_tree::value_visitor::Values::default();
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new($input, &mut values);
+        
+        use eure_tree::prelude::*;
+        tree.visit_from_root(&mut visitor)
+            .map_err(|e| SchemaError::InvalidField(format!("Value extraction error: {:?}", e)))?;
+        
+        // Get document value
+        let doc_value = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
+            values.get_eure(&root_view.eure)
+                .ok_or_else(|| SchemaError::InvalidField("No document value found".to_string()))?
+        } else {
+            return Err(SchemaError::InvalidField("Invalid document structure".to_string()).into());
+        };
+        
+        $callback(doc_value)
+    }};
 }
 
-/// Validate a document against a provided schema
+/// Extract schema information from a EURE document using Value-based approach
 /// 
-/// # Arguments
-/// * `input` - The input string
-/// * `tree` - The document to validate
-/// * `schema` - The schema to validate against
+/// This is the new recommended way to extract schemas.
+pub fn extract_schema_from_value(input: &str) -> Result<ExtractedSchema, SchemaError> {
+    parse_and_extract_value!(input, |doc_value| {
+        // Convert to schema
+        let schema = value_to_schema(doc_value)?;
+        let is_pure = is_pure_schema(doc_value);
+        
+        Ok(ExtractedSchema { 
+            document_schema: schema,
+            is_pure_schema: is_pure,
+        })
+    })
+}
+
+
+/// Validate a document against a provided schema using Value-based approach
 /// 
-/// # Returns
-/// A vector of validation errors (may include warnings)
-pub fn validate_with_schema(
+/// This is the new recommended way to validate documents.
+pub fn validate_with_schema_value(
     input: &str,
-    tree: &eure_tree::Cst,
     schema: DocumentSchema,
-) -> Vec<ValidationError> {
-    SchemaValidator::new(input, schema).validate(tree)
+) -> Result<Vec<ValidationError>, SchemaError> {
+    parse_and_extract_value!(input, |doc_value| {
+        // Validate
+        Ok(validate_document(doc_value, &schema))
+    })
 }
 
 /// Extract schema and validate in one pass for self-describing documents
@@ -68,26 +100,30 @@ pub fn validate_with_schema(
 /// 
 /// # Arguments
 /// * `input` - The input string
-/// * `tree` - The self-describing document
 /// 
 /// # Returns
 /// The extracted schema and any validation errors
-pub fn validate_self_describing(input: &str, tree: &eure_tree::Cst) -> ValidationResult {
-    // First pass: extract schema
-    let extracted = extract_schema(input, tree);
-    
-    // Second pass: validate against extracted schema
-    let errors = if extracted.is_pure_schema {
-        // Pure schema documents don't need validation
-        Vec::new()
-    } else {
-        validate_with_schema(input, tree, extracted.document_schema.clone())
-    };
-    
-    ValidationResult {
-        schema: extracted,
-        errors,
-    }
+pub fn validate_self_describing(input: &str) -> Result<ValidationResult, Box<dyn std::error::Error>> {
+    parse_and_extract_value!(input, |doc_value| {
+        // Extract schema
+        let schema = value_to_schema(doc_value)?;
+        let is_pure = is_pure_schema(doc_value);
+        
+        // Validate if not a pure schema
+        let errors = if is_pure {
+            Vec::new()
+        } else {
+            validate_document(doc_value, &schema)
+        };
+        
+        Ok(ValidationResult {
+            schema: ExtractedSchema { 
+                document_schema: schema,
+                is_pure_schema: is_pure,
+            },
+            errors,
+        })
+    })
 }
 
 /// Create a validator function from a schema document
@@ -96,19 +132,16 @@ pub fn validate_self_describing(input: &str, tree: &eure_tree::Cst) -> Validatio
 /// the same schema.
 /// 
 /// # Arguments
-/// * `schema_tree` - A parsed EURE document containing schema definitions
+/// * `input` - A EURE document string containing schema definitions
 /// 
 /// # Returns
 /// A function that validates documents against the schema, or an error
 /// if the provided document is not a pure schema.
-pub fn create_validator(
-    input: &str,
-    schema_tree: &eure_tree::Cst,
-) -> Result<DocumentSchema, String> {
-    let extracted = extract_schema(input, schema_tree);
+pub fn create_validator(input: &str) -> Result<DocumentSchema, Box<dyn std::error::Error>> {
+    let extracted = extract_schema_from_value(input)?;
     
     if !extracted.is_pure_schema {
-        return Err("Provided document is not a pure schema".to_string());
+        return Err("Provided document is not a pure schema".into());
     }
     
     Ok(extracted.document_schema)
@@ -117,6 +150,72 @@ pub fn create_validator(
 /// Check if validation errors contain any errors (not just warnings)
 pub fn has_errors(errors: &[ValidationError]) -> bool {
     errors.iter().any(|e| e.severity == Severity::Error)
+}
+
+/// Validate a document against a schema using the CST for span information
+/// 
+/// This is the preferred method when you need accurate span information
+/// for error reporting (e.g., in LSP).
+/// 
+/// # Arguments
+/// * `input` - The input string
+/// * `schema` - The schema to validate against
+/// * `tree` - The concrete syntax tree
+/// 
+/// # Returns
+/// A list of validation errors with span information
+pub fn validate_with_tree(
+    input: &str,
+    schema: DocumentSchema,
+    tree: &eure_tree::tree::ConcreteSyntaxTree<eure_tree::node_kind::TerminalKind, eure_tree::node_kind::NonTerminalKind>,
+) -> Result<Vec<ValidationError>, Box<dyn std::error::Error>> {
+    use eure_tree::value_visitor::{ValueVisitor, Values};
+    
+    use crate::tree_validator::SchemaValidator;
+    
+    // First pass: Extract values using ValueVisitor
+    let mut values = Values::default();
+    let mut value_visitor = ValueVisitor::new(input, &mut values);
+    tree.visit_from_root(&mut value_visitor)?;
+    
+    // Second pass: Validate with span tracking
+    let mut validator = SchemaValidator::new(input, &schema, &values);
+    tree.visit_from_root(&mut validator)?;
+    
+    Ok(validator.into_errors())
+}
+
+/// Validate a self-describing document using the CST for span information
+/// 
+/// # Arguments
+/// * `input` - The input string
+/// * `tree` - The concrete syntax tree
+/// 
+/// # Returns
+/// The extracted schema and validation errors with span information
+pub fn validate_self_describing_with_tree(
+    input: &str,
+    tree: &eure_tree::tree::ConcreteSyntaxTree<eure_tree::node_kind::TerminalKind, eure_tree::node_kind::NonTerminalKind>,
+) -> Result<ValidationResult, Box<dyn std::error::Error>> {
+    // Extract schema using existing value-based method
+    let extracted = extract_schema_from_value(input)?;
+    
+    // Validate using tree-based method for spans if not a pure schema
+    let errors = if extracted.is_pure_schema {
+        Vec::new()
+    } else {
+        // For self-describing documents, we need to allow additional properties
+        // because the document contains both schema definitions and data
+        let mut schema_for_validation = extracted.document_schema.clone();
+        schema_for_validation.root.additional_properties = Some(Box::new(Type::Any));
+        
+        validate_with_tree(input, schema_for_validation, tree)?
+    };
+    
+    Ok(ValidationResult {
+        schema: extracted,
+        errors,
+    })
 }
 
 /// Filter errors by severity
@@ -150,7 +249,8 @@ mod tests {
         assert_eq!(Type::from_path(".path"), Some(Type::Path));
         assert_eq!(Type::from_path(".typed-string.email"), Some(Type::TypedString(TypedStringKind::Email)));
         assert_eq!(Type::from_path(".code.javascript"), Some(Type::Code("javascript".to_string())));
-        assert_eq!(Type::from_path(".$types.UserType"), Some(Type::TypeRef("UserType".to_string())));
+        assert_eq!(Type::from_path(".$types.UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));
+        assert_eq!(Type::from_path(".UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));  // Uppercase = type ref
     }
 
     #[test]
@@ -165,26 +265,16 @@ mod tests {
 
     #[test]
     fn test_validation_error_severity() {
-        use crate::validator::{ValidationError, ValidationErrorKind, Severity};
-        use eure_tree::tree::InputSpan;
+        use crate::value_validator::{ValidationError, ValidationErrorKind, Severity};
         
         let type_error = ValidationError {
             kind: ValidationErrorKind::TypeMismatch {
                 expected: "string".to_string(),
                 actual: "number".to_string(),
             },
-            span: InputSpan::new(0, 10),
             severity: Severity::Error,
+            span: None,
         };
         assert_eq!(type_error.severity, Severity::Error);
-        
-        let pref_error = ValidationError {
-            kind: ValidationErrorKind::PreferSection {
-                path: vec!["foo".to_string()],
-            },
-            span: InputSpan::new(0, 10),
-            severity: Severity::Warning,
-        };
-        assert_eq!(pref_error.severity, Severity::Warning);
     }
 }

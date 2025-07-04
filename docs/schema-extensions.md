@@ -18,13 +18,15 @@ EURE Schema is embedded within EURE documents using extension namespaces (prefix
 Assigns a type to a specific field.
 
 ```eure
-@ user.name
-$type = .string
-
-@ user.age
-$type = .number
-$optional = true  # Fields are required by default
+@ user
+name.$type = .string
+age.$type = .number
+age.$optional = true  # Fields are required by default
 ```
+
+**Important:** Do not confuse schema definitions with data bindings:
+- `name.$type = .string` - Correct: defines the type of the field
+- `name = .string` - Wrong: assigns the path value `.string` as data
 
 ### $types
 
@@ -37,8 +39,8 @@ $length = [3, 20]  # Min and max length
 $pattern = regex"^[a-z0-9_]+$"
 
 # Using the custom type
-@ user.username
-$type = .$types.username
+@ user
+username.$type = .$types.username
 ```
 
 ### $union
@@ -58,47 +60,48 @@ $union = [.string, .number, .boolean, .array]
 Defines algebraic data types (tagged unions). The `$variant` field is always used as the discriminator.
 
 ```eure
-@ $types.action
-@ $variants {
-  @ set-text {
-    text = .string
-    speaker = .string
+$types.action {
+  @ $variants.set-text {
+    text.$type = .string
+    speaker.$type = .string
   }
 
-  @ set-choices {
-    prompt = .string
-    @ choices
-    $array = .$types.choice  # Array of choice type
+  @ $variants.set-choices {
+    prompt.$type = .string
+    choices.$array = .$types.choice  # Array of choice type
   }
 }
 
 # Optionally specify variant representation
-@ $types.response
-$variant-repr = "untagged"  # No discriminator field
-@ $variants {
-  @ success {
-    data = .any
+$types.response {
+  $variant-repr = "untagged"  # No discriminator field
+  @ $variants.success {
+    data.$type = .any
   }
-  @ error {
-    message = .string
+  @ $variants.error {
+    message.$type = .string
   }
 }
 ```
 
 ### $array
 
-Indicates that a field is an array type.
+Indicates that a field is an array type. Note: Use `$array`, not `$type = .array`.
 
 ```eure
-@ config.features
-$array = .$types.feature  # Array of feature type
+@ config
+features.$array = .$types.feature  # Array of feature type
 
-@ user.tags
-$array = .string  # Array of strings
-$unique = true    # No duplicate values
-$min-items = 1
-$max-items = 10
+@ user
+tags.$array = .string  # Array of strings
+tags.$unique = true    # No duplicate values
+tags.$min-items = 1
+tags.$max-items = 10
 ```
+
+**Important:** 
+- `items.$array = .string` - Correct: defines an array of strings
+- `items.$type = .array` - Wrong: invalid syntax for arrays
 
 ### $cascade-type
 
@@ -118,12 +121,11 @@ $optional = true         # The cascade-type itself is optional
 Marks a field as optional. Fields are required by default.
 
 ```eure
-@ user.email
-$type = .typed-string.email
+@ user
+email.$type = .typed-string.email
 
-@ user.bio
-$type = .string
-$optional = true  # This field can be omitted
+bio.$type = .string
+bio.$optional = true  # This field can be omitted
 ```
 
 ## Type Constraints
@@ -131,34 +133,36 @@ $optional = true  # This field can be omitted
 ### String Constraints
 
 ```eure
-@ $types.username
-$type = .string
-$length = [3, 20]         # Array with [min, max]
-$pattern = regex"^[a-z]+" # Regex pattern
-$format = "email"         # Format validation
+$types.username {
+  $type = .string
+  $length = [3, 20]         # Array with [min, max]
+  $pattern = regex"^[a-z]+" # Regex pattern
+  $format = "email"         # Format validation
+}
 ```
 
 ### Number Constraints
 
 ```eure
-@ $types.age
-$type = .number
-$range = [0, 150]    # Inclusive range
-$minimum = 0         # Alternative: just minimum
-$maximum = 150       # Alternative: just maximum
-$exclusive-min = 0   # Exclusive minimum
-$exclusive-max = 150 # Exclusive maximum
+$types.age {
+  $type = .number
+  $range = [0, 150]    # Inclusive range
+  $minimum = 0         # Alternative: just minimum
+  $maximum = 150       # Alternative: just maximum
+  $exclusive-min = 0   # Exclusive minimum
+  $exclusive-max = 150 # Exclusive maximum
+}
 ```
 
 ### Array Constraints
 
 ```eure
-@ tags
-$array = .string
-$unique = true       # No duplicates
-$min-items = 1
-$max-items = 10
-$contains = "required-tag"  # Must contain this value
+@ config
+tags.$array = .string
+tags.$unique = true       # No duplicates
+tags.$min-items = 1
+tags.$max-items = 10
+tags.$contains = "required-tag"  # Must contain this value
 ```
 
 ## Primitive Types
@@ -331,42 +335,87 @@ $range = [1, 65535]
 @ $types.host
 $union = [.string, .typed-string.url]  # String or URL
 
-@ $types.feature
-@ id
-$type = .string
-$pattern = regex"^[a-z-]+$"
-
-@ enabled
-$type = .boolean
-
-@ config
-$type = .object
-$optional = true
+# Feature type using inline style
+$types.feature {
+  id.$type = .string
+  id.$pattern = regex"^[a-z-]+$"
+  
+  enabled.$type = .boolean
+  
+  config.$type = .object
+  config.$optional = true
+}
 
 # Document schema with serde hints
 @ app
 $serde.rename-all = "camelCase"
 
-@ name
-$type = .string
-
-@ version
-$type = .typed-string.semver
+name.$type = .string
+version.$type = .typed-string.semver
 
 @ server
 $prefer.section = true
-@ host
-$type = .$types.host
+host.$type = .$types.host
+port.$type = .$types.port
+port.$serde.rename = "serverPort"  # Override rename-all
 
-@ port
-$type = .$types.port
-$serde.rename = "serverPort"  # Override rename-all
+@ logging
+level.$type = .$types.log-level
 
-@ logging.level
-$type = .$types.log-level
+features.$array = .$types.feature
+```
 
-@ features
-$array = .$types.feature
+## Common Mistakes and Best Practices
+
+### Schema Definition vs Data Binding
+
+The most common mistake is confusing schema definitions with data bindings:
+
+```eure
+# WRONG - This creates data bindings, not schema definitions
+@ person
+name = .string          # Assigns the path value `.string` to field `name`
+age = .number          # Assigns the path value `.number` to field `age`
+email = .typed-string.email
+
+# CORRECT - Use $type extension for schema definitions
+@ person
+name.$type = .string
+age.$type = .number
+email.$type = .typed-string.email
+```
+
+When you write `name = .string`, you're creating a data entry where the field `name` contains the path value `.string`. This is valid EURE but not what you want for schema definitions.
+
+### Arrays
+
+```eure
+# WRONG
+items.$type = .array    # Invalid - there's no .array type
+
+# CORRECT
+items.$array = .string  # Array of strings
+```
+
+### Mixed Schema and Data
+
+Be careful not to mix schema definitions with data in the same document:
+
+```eure
+# PROBLEMATIC - Mixing schema and data
+@ config
+debug = true                    # Data
+debug.$type = .boolean         # Schema - but debug already has data!
+
+# BETTER - Separate schema from data
+# schema.eure
+@ config
+debug.$type = .boolean
+
+# config.eure
+$schema = "schema.eure"
+@ config
+debug = true
 ```
 
 ## Meta-Schema Insights

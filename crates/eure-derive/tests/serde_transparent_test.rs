@@ -98,8 +98,8 @@ fn test_transparent_with_complex_type() {
     // Should have the same schema as Inner
     if let Type::Object(obj_schema) = &schema.type_expr {
         assert_eq!(obj_schema.fields.len(), 2);
-        assert!(obj_schema.fields.contains_key("a"));
-        assert!(obj_schema.fields.contains_key("b"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("a")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("b")));
     } else {
         panic!("Expected object schema");
     }

@@ -9,7 +9,7 @@ fn test_serde_skip() {
         id: u64,
         name: String,
         #[serde(skip)]
-        internal_state: String,
+        _internal_state: String,
         email: Option<String>,
     }
     
@@ -18,10 +18,10 @@ fn test_serde_skip() {
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Should have 3 fields (internal_state is skipped)
         assert_eq!(obj_schema.fields.len(), 3);
-        assert!(obj_schema.fields.contains_key("id"));
-        assert!(obj_schema.fields.contains_key("name"));
-        assert!(obj_schema.fields.contains_key("email"));
-        assert!(!obj_schema.fields.contains_key("internal_state"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("id")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("name")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("email")));
+        assert!(!obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("internal_state")));
     } else {
         panic!("Expected object schema");
     }
@@ -48,13 +48,13 @@ fn test_serde_flatten() {
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Should have 4 fields (name, email, and 2 from BaseInfo)
         assert_eq!(obj_schema.fields.len(), 4);
-        assert!(obj_schema.fields.contains_key("name"));
-        assert!(obj_schema.fields.contains_key("email"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("name")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("email")));
         // Fields from BaseInfo should be flattened in
-        assert!(obj_schema.fields.contains_key("id"));
-        assert!(obj_schema.fields.contains_key("created_at"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("id")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("created_at")));
         // The base field itself should not appear
-        assert!(!obj_schema.fields.contains_key("base"));
+        assert!(!obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("base")));
     } else {
         panic!("Expected object schema");
     }
@@ -89,14 +89,14 @@ fn test_multiple_flatten() {
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Should have 6 fields total
         assert_eq!(obj_schema.fields.len(), 6);
-        assert!(obj_schema.fields.contains_key("title"));
-        assert!(obj_schema.fields.contains_key("content"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("title")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("content")));
         // From Timestamps
-        assert!(obj_schema.fields.contains_key("created_at"));
-        assert!(obj_schema.fields.contains_key("updated_at"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("created_at")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("updated_at")));
         // From Metadata
-        assert!(obj_schema.fields.contains_key("tags"));
-        assert!(obj_schema.fields.contains_key("category"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("tags")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("category")));
     } else {
         panic!("Expected object schema");
     }
@@ -108,7 +108,7 @@ fn test_skip_and_flatten_combined() {
     struct Base {
         id: u64,
         #[serde(skip)]
-        secret: String,
+        _secret: String,
     }
     
     #[derive(Eure, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ fn test_skip_and_flatten_combined() {
         #[serde(flatten)]
         base: Base,
         #[serde(skip)]
-        cache: Option<String>,
+        _cache: Option<String>,
     }
     
     let schema = Extended::eure_schema();
@@ -125,10 +125,10 @@ fn test_skip_and_flatten_combined() {
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Should have 2 fields (name and id from Base, secret and cache are skipped)
         assert_eq!(obj_schema.fields.len(), 2);
-        assert!(obj_schema.fields.contains_key("name"));
-        assert!(obj_schema.fields.contains_key("id"));
-        assert!(!obj_schema.fields.contains_key("secret"));
-        assert!(!obj_schema.fields.contains_key("cache"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("name")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("id")));
+        assert!(!obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("secret")));
+        assert!(!obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("cache")));
     } else {
         panic!("Expected object schema");
     }
@@ -149,14 +149,14 @@ fn test_description_attribute() {
     let schema = Config::eure_schema();
     
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let host_field = &obj_schema.fields["host"];
+        let host_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("host")];
         assert_eq!(host_field.description, Some("The server hostname or IP address".to_string()));
         
-        let port_field = &obj_schema.fields["port"];
+        let port_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("port")];
         assert_eq!(port_field.description, Some("The port number to listen on".to_string()));
         assert_eq!(port_field.constraints.range, Some((Some(1.0), Some(65535.0))));
         
-        let debug_field = &obj_schema.fields["debug"];
+        let debug_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("debug")];
         assert_eq!(debug_field.description, Some("Enable debug mode".to_string()));
     } else {
         panic!("Expected object schema");

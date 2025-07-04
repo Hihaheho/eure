@@ -79,6 +79,7 @@ pub fn value_to_json_with_config(
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
                     PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
                     PathSegment::Value(v) => format!("[{v:?}]"),
+                    PathSegment::TupleIndex(idx) => idx.to_string(),
                     PathSegment::Array { key, index } => {
                         if let Some(idx) = index {
                             format!("{key:?}[{idx:?}]")
@@ -151,6 +152,8 @@ fn key_to_string(key: &KeyCmpValue) -> Result<String, Error> {
         KeyCmpValue::Tuple(_) => Err(Error::UnsupportedValue(
             "Tuple keys cannot be converted to JSON object keys".to_string(),
         )),
+        KeyCmpValue::Extension(ext) => Ok(format!("${ext}")),
+        KeyCmpValue::MetaExtension(meta) => Ok(format!("$${meta}")),
     }
 }
 

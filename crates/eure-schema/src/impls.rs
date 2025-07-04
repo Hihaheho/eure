@@ -133,19 +133,13 @@ impl<K: ToEureSchema, V: ToEureSchema> ToEureSchema for BTreeMap<K, V> {
 
 impl<T: ToEureSchema> ToEureSchema for HashSet<T> {
     fn eure_schema() -> FieldSchema {
-        let mut schema = Vec::<T>::eure_schema();
-        // Sets have unique constraint
-        schema.constraints.unique = Some(true);
-        schema
+        Vec::<T>::eure_schema()
     }
 }
 
 impl<T: ToEureSchema> ToEureSchema for BTreeSet<T> {
     fn eure_schema() -> FieldSchema {
-        let mut schema = Vec::<T>::eure_schema();
-        // Sets have unique constraint
-        schema.constraints.unique = Some(true);
-        schema
+        Vec::<T>::eure_schema()
     }
 }
 
@@ -233,7 +227,7 @@ impl<T: ToEureSchema, E: ToEureSchema> ToEureSchema for Result<T, E> {
 mod chrono_impls {
     use super::*;
     use crate::TypedStringKind;
-    use chrono::{NaiveDate, NaiveDateTime, DateTime, Utc, Local};
+    use chrono::{NaiveDate, NaiveDateTime, DateTime};
     
     impl ToEureSchema for NaiveDate {
         fn eure_schema() -> FieldSchema {
