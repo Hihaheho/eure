@@ -486,6 +486,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                         eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
                         eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
                         eure_value::value::PathSegment::Value(v) => format!("{v:?}"),
+                        eure_value::value::PathSegment::TupleIndex(idx) => idx.to_string(),
                         eure_value::value::PathSegment::Array { key, index } => {
                             if let Some(idx) = index {
                                 format!("{key:?}[{idx:?}]")

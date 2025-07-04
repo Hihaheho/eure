@@ -14,8 +14,8 @@ fn test_basic_struct() {
     
     if let Type::Object(obj_schema) = &schema.type_expr {
         assert_eq!(obj_schema.fields.len(), 2);
-        assert!(obj_schema.fields.contains_key("name"));
-        assert!(obj_schema.fields.contains_key("age"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("name")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("age")));
     } else {
         panic!("Expected object schema");
     }

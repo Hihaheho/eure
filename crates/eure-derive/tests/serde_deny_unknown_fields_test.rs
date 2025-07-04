@@ -64,8 +64,8 @@ fn test_deny_unknown_fields_with_flatten() {
         // but our schema generation still works
         assert_eq!(obj_schema.additional_properties, None);
         assert_eq!(obj_schema.fields.len(), 2); // name + id from base
-        assert!(obj_schema.fields.contains_key("name"));
-        assert!(obj_schema.fields.contains_key("id"));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("name")));
+        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("id")));
     } else {
         panic!("Expected object schema");
     }

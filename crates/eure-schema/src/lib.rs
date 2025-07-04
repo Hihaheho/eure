@@ -204,7 +204,12 @@ pub fn validate_self_describing_with_tree(
     let errors = if extracted.is_pure_schema {
         Vec::new()
     } else {
-        validate_with_tree(input, extracted.document_schema.clone(), tree)?
+        // For self-describing documents, we need to allow additional properties
+        // because the document contains both schema definitions and data
+        let mut schema_for_validation = extracted.document_schema.clone();
+        schema_for_validation.root.additional_properties = Some(Box::new(Type::Any));
+        
+        validate_with_tree(input, schema_for_validation, tree)?
     };
     
     Ok(ValidationResult {

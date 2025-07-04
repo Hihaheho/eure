@@ -28,23 +28,25 @@ fn validate_document<T: ToEureSchema>(document: &str) -> Result<(), String> {
     } else {
         // For non-object types like enums, wrap in a single field
         let mut root = ObjectSchema::default();
-        root.fields.insert("value".to_string(), schema);
+        root.fields.insert(eure_schema::KeyCmpValue::String("value".to_string()), schema);
         doc_schema.root = root;
     }
     
     println!("Document schema root fields: {:?}", doc_schema.root.fields.keys().collect::<Vec<_>>());
     
     // Validate the document
-    let errors = validate_with_schema(document, &parsed, doc_schema);
+    let errors = validate_with_schema(document, doc_schema);
     
-    if !has_errors(&errors) {
-        Ok(())
-    } else {
-        let error_messages: Vec<String> = errors.iter()
-            .filter(|e| e.severity == eure_schema::Severity::Error)
-            .map(|e| format!("{:?}", e.kind))
+    match errors {
+        Ok(errors) if !has_errors(&errors) => Ok(()),
+        Ok(errors) => {
+            let error_messages: Vec<String> = errors.iter()
+                .filter(|e| e.severity == eure_schema::Severity::Error)
+                .map(|e| format!("{:?}", e.kind))
             .collect();
         Err(format!("Validation errors: {}", error_messages.join(", ")))
+        },
+        Err(e) => Err(format!("Schema error: {:?}", e))
     }
 }
 

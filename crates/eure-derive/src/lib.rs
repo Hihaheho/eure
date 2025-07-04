@@ -167,7 +167,7 @@ fn generate_struct_schema(
                     &rename_all_rule,
                 );
                 regular_fields.push(quote! {
-                    fields.insert(#field_name_str.to_string(), #field_schema);
+                    fields.insert(::eure_schema::KeyCmpValue::String(#field_name_str.to_string()), #field_schema);
                 });
             }
             
@@ -272,7 +272,7 @@ fn generate_enum_schema(
                                 &variant_field_rename_rule,  // Use variant-specific or enum-level rename rule
                             );
                             Ok(quote! {
-                                variant_fields.insert(#field_name_str.to_string(), #field_schema);
+                                variant_fields.insert(::eure_schema::KeyCmpValue::String(#field_name_str.to_string()), #field_schema);
                             })
                         })
                         .collect::<syn::Result<Vec<_>>>()?;
@@ -296,7 +296,7 @@ fn generate_enum_schema(
                         quote! {
                             {
                                 let mut variant_fields = ::indexmap::IndexMap::new();
-                                variant_fields.insert("0".to_string(), <#ty as ::eure_schema::ToEureSchema>::eure_field_schema());
+                                variant_fields.insert(::eure_schema::KeyCmpValue::U64(0), <#ty as ::eure_schema::ToEureSchema>::eure_field_schema());
                                 ::eure_schema::ObjectSchema {
                                     fields: variant_fields,
                                     additional_properties: None,
@@ -304,11 +304,23 @@ fn generate_enum_schema(
                             }
                         }
                     } else {
-                        // Multiple unnamed fields - treat as tuple
+                        // Multiple unnamed fields - enumerate them with numeric indices
+                        let field_insertions = fields.unnamed.iter().enumerate().map(|(idx, field)| {
+                            let idx = idx as u64;
+                            let ty = &field.ty;
+                            quote! {
+                                variant_fields.insert(::eure_schema::KeyCmpValue::U64(#idx), <#ty as ::eure_schema::ToEureSchema>::eure_field_schema());
+                            }
+                        });
+                        
                         quote! {
-                            ::eure_schema::ObjectSchema {
-                                fields: ::indexmap::IndexMap::new(),
-                                additional_properties: Some(Box::new(::eure_schema::Type::Any)),
+                            {
+                                let mut variant_fields = ::indexmap::IndexMap::new();
+                                #(#field_insertions)*
+                                ::eure_schema::ObjectSchema {
+                                    fields: variant_fields,
+                                    additional_properties: None,
+                                }
                             }
                         }
                     }
@@ -324,7 +336,7 @@ fn generate_enum_schema(
             };
             
             Ok(quote! {
-                variants.insert(#variant_name.to_string(), #variant_schema);
+                variants.insert(::eure_schema::KeyCmpValue::String(#variant_name.to_string()), #variant_schema);
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;

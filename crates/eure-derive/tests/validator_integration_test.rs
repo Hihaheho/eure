@@ -31,7 +31,7 @@ fn validate_document_with_types<T: ToEureSchema>(
     
     // Register type definitions
     for (name, schema_fn) in type_definitions {
-        doc_schema.types.insert(name.to_string(), schema_fn());
+        doc_schema.types.insert(eure_schema::KeyCmpValue::String(name.to_string()), schema_fn());
     }
     
     // Add the generated schema to the document schema  
@@ -55,21 +55,21 @@ fn validate_document_with_types<T: ToEureSchema>(
         _ => {
             // For other types, wrap in a single field
             let mut root = ObjectSchema::default();
-            root.fields.insert("value".to_string(), schema);
+            root.fields.insert(eure_schema::KeyCmpValue::String("value".to_string()), schema);
             doc_schema.root = root;
         }
     }
     
     
     // Validate the document
-    let errors = validate_with_schema(document, &parsed, doc_schema.clone());
+    let errors = validate_with_schema(document, doc_schema.clone());
     
-    if !has_errors(&errors) {
-        Ok(())
-    } else {
-        let error_messages: Vec<String> = errors.iter()
-            .filter(|e| e.severity == eure_schema::Severity::Error)
-            .map(|e| format!("{:?}", e.kind))
+    match errors {
+        Ok(errors) if !has_errors(&errors) => Ok(()),
+        Ok(errors) => {
+            let error_messages: Vec<String> = errors.iter()
+                .filter(|e| e.severity == eure_schema::Severity::Error)
+                .map(|e| format!("{:?}", e.kind))
             .collect();
         eprintln!("Document schema root fields: {:?}", doc_schema.root.fields.keys().collect::<Vec<_>>());
         eprintln!("Document schema types: {:?}", doc_schema.types.keys().collect::<Vec<_>>());
@@ -77,6 +77,8 @@ fn validate_document_with_types<T: ToEureSchema>(
         eprintln!("Validation errors: {:?}", error_messages);
         eprintln!("Full errors: {:#?}", errors);
         Err(format!("Validation errors: {}", error_messages.join(", ")))
+        },
+        Err(e) => Err(format!("Schema error: {:?}", e))
     }
 }
 

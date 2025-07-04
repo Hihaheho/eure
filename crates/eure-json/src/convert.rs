@@ -79,6 +79,7 @@ pub fn value_to_json_with_config(
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
                     PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
                     PathSegment::Value(v) => format!("[{v:?}]"),
+                    PathSegment::TupleIndex(idx) => idx.to_string(),
                     PathSegment::Array { key, index } => {
                         if let Some(idx) = index {
                             format!("{key:?}[{idx:?}]")
