@@ -7,11 +7,13 @@ use crate::schema::*;
 use crate::value_validator::{ValidationError, ValidationErrorKind, Severity};
 use eure_tree::{
     prelude::*,
-    tree::{InputSpan, CstNodeData, TerminalData, NonTerminalData},
+    tree::{InputSpan, CstNodeData, TerminalData, NonTerminalData, RecursiveView},
     value_visitor::Values,
-    nodes::{BindingRhsView, SectionHandle, SectionView},
+    nodes::{BindingRhsView, SectionHandle, SectionView, SectionBodyView},
 };
 use eure_value::value::{Value, Map, KeyCmpValue, PathSegment};
+use eure_value::identifier::Identifier;
+use std::str::FromStr;
 use std::collections::HashSet;
 
 /// A tree-based validator that preserves span information
@@ -22,6 +24,8 @@ pub struct SchemaValidator<'a> {
     errors: Vec<ValidationError>,
     current_path: Vec<PathSegment>,
     seen_fields: HashSet<KeyCmpValue>,
+    /// Track variant context for proper field validation
+    variant_context: Option<String>,
 }
 
 impl<'a> SchemaValidator<'a> {
@@ -34,6 +38,7 @@ impl<'a> SchemaValidator<'a> {
             errors: Vec::new(),
             current_path: Vec::new(),
             seen_fields: HashSet::new(),
+            variant_context: None,
         }
     }
     
@@ -236,10 +241,163 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                 }
             }
             
-            // Update current path to reflect we're inside this section
-            let old_path = std::mem::replace(&mut self.current_path, path);
+            // Save current context
+            let old_variant_context = self.variant_context.clone();
+            let old_path = self.current_path.clone();
+            
+            // Check if this is a variant array element BEFORE updating current_path
+            // For sections like @ tasks[], check if tasks is an array of variants
+            let is_variant_element = if let Some(PathSegment::Array { key, .. }) = path.last() {
+                
+                // Need to look up the field based on the parent path + field name
+                // For script.actions[], we need to find the schema for the actions field
+                // First, get the parent path without the array element
+                let parent_path = &path[..path.len() - 1];
+                
+                // Extract the field name from the array key
+                if let Value::String(field_name) = key {
+                    // Build path to the array field
+                    let mut field_path = parent_path.to_vec();
+                    field_path.push(PathSegment::Ident(Identifier::from_str(field_name).unwrap()));
+                    
+                    // Save current path temporarily
+                    let temp_path = std::mem::replace(&mut self.current_path, parent_path.to_vec());
+                    
+                    // Then look up the array field itself
+                    let result = if let Some(field_schema) = self.lookup_field_schema(&[PathSegment::Ident(Identifier::from_str(field_name).unwrap())]) {
+                        if let Type::Array(elem_type) = &field_schema.type_expr {
+                            match elem_type.as_ref() {
+                                Type::Variants(_) => true,
+                                Type::TypeRef(type_name) => {
+                                    if let Some(type_def) = self.schema.types.get(type_name) {
+                                        matches!(&type_def.type_expr, Type::Variants(_))
+                                    } else {
+                                        false
+                                    }
+                                }
+                                _ => false,
+                            }
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    
+                    // Restore current path
+                    self.current_path = temp_path;
+                    result
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            
+            // Now update current path to reflect we're inside this section
+            self.current_path = path.clone();
+            
+            if is_variant_element {
+                // Try to get the eure value from the section body
+                match view.section_body.get_view(tree) {
+                    Ok(section_body_view) => {
+                    match &section_body_view {
+                        SectionBodyView::SectionBodyList(_) => {},
+                        SectionBodyView::SectionBinding(_) => {},
+                        SectionBodyView::Bind(_) => {},
+                    }
+                    match section_body_view {
+                        SectionBodyView::SectionBinding(binding_handle) => {
+                            if let Ok(binding_view) = binding_handle.get_view(tree) {
+                                if let Some((eure_value, _)) = self.values.get_eure_with_span(&binding_view.eure) {
+                                    if let Value::Map(map) = eure_value {
+                                        // Look for $variant field
+                                        if let Some(Value::String(variant_name)) = map.0.get(&KeyCmpValue::Extension("variant".to_string())) {
+                                            self.variant_context = Some(variant_name.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        SectionBodyView::SectionBodyList(list_handle) => {
+                            // Iterate through bindings to find $variant field
+                            match list_handle.get_view(tree) {
+                                Ok(Some(list_view)) => {
+                                    match list_view.get_all(tree) {
+                                        Ok(bindings) => {
+                                    for (_i, binding_handle) in bindings.iter().enumerate() {
+                                        if let Ok(binding_view) = binding_handle.get_view(tree) {
+                                            if let Some(key_handles) = self.values.get_keys(&binding_view.keys) {
+                                                if key_handles.len() == 1 {
+                                                    if let Some((segment, _)) = self.values.get_key_with_span(&key_handles[0]) {
+                                                        if let PathSegment::Extension(ext) = segment {
+                                                            if ext.as_ref() == "variant" {
+                                                            // Found $variant field
+                                                            match binding_view.binding_rhs.get_view(tree) {
+                                                                Ok(BindingRhsView::ValueBinding(value_binding)) => {
+                                                                    if let Ok(value_binding_view) = value_binding.get_view(tree) {
+                                                                        if let Some(value) = self.values.get_value(&value_binding_view.value) {
+                                                                            if let Value::String(variant_name) = value {
+                                                                                self.variant_context = Some(variant_name.clone());
+                                                                                break;
+                                                                            }
+                                                                        } else {
+                                                                        }
+                                                                    } else {
+                                                                    }
+                                                                }
+                                                                Ok(BindingRhsView::TextBinding(text_binding)) => {
+                                                                    if let Ok(text_binding_view) = text_binding.get_view(tree) {
+                                                                        // text_binding_view.text is a TextHandle
+                                                                        if let Ok(text_view) = text_binding_view.text.get_view(tree) {
+                                                                            // Get the text directly from the tree
+                                                                            if let Ok(data) = text_view.text.get_data(tree) {
+                                                                                if let Some(text) = tree.get_str(data, self._input) {
+                                                                                    let variant_name = text.trim();
+                                                                                    self.variant_context = Some(variant_name.to_string());
+                                                                                    break;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                                Ok(BindingRhsView::SectionBinding(_)) => {
+                                                                }
+                                                                Err(_e) => {
+                                                                }
+                                                            }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                        }
+                                        Err(_e) => {
+                                        }
+                                    }
+                                }
+                                Ok(None) => {
+                                }
+                                Err(_e) => {
+                                }
+                            }
+                        }
+                        _ => {
+                        }
+                    }
+                    }
+                    Err(_e) => {
+                    }
+                }
+            }
+            
             let result = self.visit_section_super(handle, view, tree);
+            
+            // Restore previous state
             self.current_path = old_path;
+            self.variant_context = old_variant_context;
             
             return result;
         }
@@ -250,6 +408,132 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
 
 // Helper functions for validation
 impl<'a> SchemaValidator<'a> {
+    /// Check if we're currently inside a variant array
+    fn is_in_variant_array(&self) -> bool {
+        // Check if current_path indicates we're in a variant array
+        if self.current_path.is_empty() {
+            return false;
+        }
+        
+        // Check if any segment in the path is a variant array
+        let mut current_fields = &self.schema.root.fields;
+        
+        for (i, segment) in self.current_path.iter().enumerate() {
+            match segment {
+                PathSegment::Array { .. } => {
+                    // We're inside an array, check if the previous segment was a variant array field
+                    if i > 0 {
+                        if let PathSegment::Ident(ident) = &self.current_path[i - 1] {
+                            let field_key = KeyCmpValue::String(ident.as_ref().to_string());
+                            if let Some(field) = current_fields.get(&field_key) {
+                                if let Type::Array(elem_type) = &field.type_expr {
+                                    match elem_type.as_ref() {
+                                        Type::Variants(_) => return true,
+                                        Type::TypeRef(type_name) => {
+                                            if let Some(type_def) = self.schema.types.get(type_name) {
+                                                return matches!(&type_def.type_expr, Type::Variants(_));
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                PathSegment::Ident(ident) => {
+                    // Navigate deeper into the schema
+                    let key = KeyCmpValue::String(ident.as_ref().to_string());
+                    if let Some(field) = current_fields.get(&key) {
+                        match &field.type_expr {
+                            Type::Object(obj_schema) => {
+                                current_fields = &obj_schema.fields;
+                            }
+                            Type::TypeRef(type_name) => {
+                                if let Some(type_def) = self.schema.types.get(type_name) {
+                                    if let Type::Object(obj_schema) = &type_def.type_expr {
+                                        current_fields = &obj_schema.fields;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        false
+    }
+    
+    /// Check if a path points to a variant array element
+    fn is_variant_array(&self, path: &[PathSegment]) -> bool {
+        if path.is_empty() {
+            return false;
+        }
+        
+        // Combine current_path with the provided path
+        let full_path: Vec<PathSegment> = self.current_path.iter()
+            .chain(path.iter())
+            .cloned()
+            .collect();
+        
+        // Navigate through the schema to check if this is a variant array
+        let mut current_fields = &self.schema.root.fields;
+        
+        for (i, segment) in full_path.iter().enumerate() {
+            match segment {
+                PathSegment::Ident(ident) => {
+                    let key = KeyCmpValue::String(ident.as_ref().to_string());
+                    if let Some(field) = current_fields.get(&key) {
+                        // Check if this field is an array of variants
+                        if let Type::Array(elem_type) = &field.type_expr {
+                            // Check if the next segment is an array access
+                            if i + 1 < full_path.len() {
+                                if let PathSegment::Array { .. } = &full_path[i + 1] {
+                                    // Check if the element type is a variant
+                                    match elem_type.as_ref() {
+                                        Type::Variants(_) => return true,
+                                        Type::TypeRef(type_name) => {
+                                            // Check if the type reference is a variant
+                                            if let Some(type_def) = self.schema.types.get(type_name) {
+                                                return matches!(&type_def.type_expr, Type::Variants(_));
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Continue navigating for non-array fields
+                        match &field.type_expr {
+                            Type::Object(obj_schema) => {
+                                current_fields = &obj_schema.fields;
+                            }
+                            Type::TypeRef(type_name) => {
+                                if let Some(type_def) = self.schema.types.get(type_name) {
+                                    if let Type::Object(obj_schema) = &type_def.type_expr {
+                                        current_fields = &obj_schema.fields;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                PathSegment::Array { .. } => {
+                    // Already checked above
+                    continue;
+                }
+                _ => {}
+            }
+        }
+        
+        false
+    }
+    
     /// Look up a field schema based on a path
     fn lookup_field_schema(&self, path: &[PathSegment]) -> Option<&FieldSchema> {
         if path.is_empty() {
@@ -261,6 +545,7 @@ impl<'a> SchemaValidator<'a> {
             .chain(path.iter())
             .cloned()
             .collect();
+        
         
         // Start with root schema
         let mut current_fields = &self.schema.root.fields;
@@ -288,9 +573,14 @@ impl<'a> SchemaValidator<'a> {
                                             if let Type::Object(obj_schema) = elem_type.as_ref() {
                                                 current_fields = &obj_schema.fields;
                                                 continue;
-                                            } else if let Type::Variants(_variant_schema) = elem_type.as_ref() {
-                                                // For variant arrays, we'll need more context
-                                                // For now, return None
+                                            } else if let Type::Variants(variant_schema) = elem_type.as_ref() {
+                                                // For variant arrays, use the variant context if available
+                                                if let Some(variant_name) = &self.variant_context {
+                                                    if let Some(variant_obj) = variant_schema.variants.get(&KeyCmpValue::String(variant_name.clone())) {
+                                                        current_fields = &variant_obj.fields;
+                                                        continue;
+                                                    }
+                                                }
                                                 return None;
                                             }
                                         }
@@ -300,10 +590,24 @@ impl<'a> SchemaValidator<'a> {
                                 Type::TypeRef(type_name) => {
                                     // Look up the type definition
                                     if let Some(type_def) = self.schema.types.get(type_name) {
-                                        if let Type::Object(obj_schema) = &type_def.type_expr {
-                                            current_fields = &obj_schema.fields;
-                                        } else {
-                                            return None;
+                                        match &type_def.type_expr {
+                                            Type::Object(obj_schema) => {
+                                                current_fields = &obj_schema.fields;
+                                            }
+                                            Type::Variants(variant_schema) => {
+                                                // For variant types, we need the variant context
+                                                if let Some(variant_name) = &self.variant_context {
+                                                    if let Some(variant_obj) = variant_schema.variants.get(&KeyCmpValue::String(variant_name.clone())) {
+                                                        current_fields = &variant_obj.fields;
+                                                    } else {
+                                                        return None;
+                                                    }
+                                                } else {
+                                                    // No variant context available
+                                                    return None;
+                                                }
+                                            }
+                                            _ => return None,
                                         }
                                     } else {
                                         return None;
@@ -316,8 +620,65 @@ impl<'a> SchemaValidator<'a> {
                         return None;
                     }
                 }
-                PathSegment::Array { .. } => {
-                    // Array segments don't change the schema context by themselves
+                PathSegment::Array { key, .. } => {
+                    // For array segments, we need to look up the array field by its key
+                    
+                    // Extract the field name from the array key
+                    if let Value::String(field_name) = key {
+                        let array_key = KeyCmpValue::String(field_name.clone());
+                        
+                        if let Some(array_field) = current_fields.get(&array_key) {
+                            field_schema = Some(array_field);
+                            
+                            if let Type::Array(elem_type) = &array_field.type_expr {
+                            match elem_type.as_ref() {
+                                Type::Object(obj_schema) => {
+                                    current_fields = &obj_schema.fields;
+                                }
+                                Type::Variants(variant_schema) => {
+                                    // For variant arrays, use the variant context
+                                    if let Some(variant_name) = &self.variant_context {
+                                        if let Some(variant_obj) = variant_schema.variants.get(&KeyCmpValue::String(variant_name.clone())) {
+                                            current_fields = &variant_obj.fields;
+                                        } else {
+                                            return None;
+                                        }
+                                    } else {
+                                        return None;
+                                    }
+                                }
+                                Type::TypeRef(type_name) => {
+                                    // Look up the type definition
+                                    if let Some(type_def) = self.schema.types.get(type_name) {
+                                        match &type_def.type_expr {
+                                            Type::Object(obj_schema) => {
+                                                current_fields = &obj_schema.fields;
+                                            }
+                                            Type::Variants(variant_schema) => {
+                                                // For variant types, use the variant context
+                                                if let Some(variant_name) = &self.variant_context {
+                                                    if let Some(variant_obj) = variant_schema.variants.get(&KeyCmpValue::String(variant_name.clone())) {
+                                                        current_fields = &variant_obj.fields;
+                                                    } else {
+                                                        return None;
+                                                    }
+                                                } else {
+                                                    return None;
+                                                }
+                                            }
+                                            _ => return None,
+                                        }
+                                    } else {
+                                        return None;
+                                    }
+                                }
+                                _ => return None,
+                            }
+                            } else {
+                            }
+                        } else {
+                        }
+                    }
                     continue;
                 }
                 PathSegment::Extension(_) | PathSegment::MetaExt(_) => {
