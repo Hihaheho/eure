@@ -9,7 +9,7 @@ use eure_tree::{
     prelude::*,
     tree::{InputSpan, CstNodeData, TerminalData, NonTerminalData},
     value_visitor::Values,
-    nodes::{BindingRhsView},
+    nodes::{BindingRhsView, SectionHandle, SectionView},
 };
 use eure_value::value::{Value, Map, KeyCmpValue, PathSegment};
 use std::collections::HashSet;
@@ -40,6 +40,12 @@ impl<'a> SchemaValidator<'a> {
     /// Get the validation errors
     pub fn into_errors(self) -> Vec<ValidationError> {
         self.errors
+    }
+    
+    /// Finalize validation by checking for missing required fields
+    pub fn finalize(&mut self) {
+        // Check for missing required fields at the document root
+        self.check_missing_required_fields(None);
     }
     
     /// Add an error with span information
@@ -94,9 +100,8 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
         // Continue visiting children - this will handle field validation
         let result = self.visit_eure_super(handle, view, tree)?;
         
-        // After visiting all children, check for missing required fields
-        let span = self.get_span_from_node(handle.node_id(), tree);
-        self.check_missing_required_fields(span);
+        // Don't check for missing fields here - it happens too early
+        // The check will be done after all visiting is complete
         
         Ok(result)
     }
@@ -136,8 +141,10 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                         None
                     }
                     Ok(BindingRhsView::SectionBinding(_)) => {
-                        // Section bindings are handled separately
-                        None
+                        // Section bindings create an object/map value
+                        // We need to track that we've seen this field
+                        // Return a placeholder to indicate the field exists
+                        Some(&Value::Map(Default::default()))
                     }
                     _ => None,
                 };
@@ -161,7 +168,8 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                     let is_extension = self.is_extension_field(&path);
                     
                     if let Some(field_schema) = field_schema_opt {
-                        // Track that we've seen this field
+                        // Track that we've seen this field (only for actual root-level fields)
+                        // A root-level field has exactly one segment that is an identifier
                         if path.len() == 1 && self.current_path.is_empty() {
                             if let PathSegment::Ident(ident) = &path[0] {
                                 self.seen_fields.insert(KeyCmpValue::String(ident.as_ref().to_string()));
@@ -177,12 +185,14 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                         // Restore path
                         self.current_path = old_path;
                     } else if !is_extension {
-                        // If it's not an extension field and not in schema, it might be an unexpected field
-                        // But only report if additional_properties is None
-                        if self.schema.root.additional_properties.is_none() {
+                        // Field not found in schema and not an extension - report as unexpected
+                        if let Some(field_key) = path.last().and_then(|seg| match seg {
+                            PathSegment::Ident(name) => Some(KeyCmpValue::String(name.as_ref().to_string())),
+                            _ => None,
+                        }) {
                             self.add_error(
                                 ValidationErrorKind::UnexpectedField {
-                                    field: path_to_key(&path),
+                                    field: field_key,
                                     path: self.current_path.clone(),
                                 },
                                 span,
@@ -202,6 +212,40 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
         
         self.visit_binding_super(handle, view, tree)
     }
+    
+    fn visit_section(
+        &mut self,
+        handle: SectionHandle,
+        view: SectionView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Sections create fields - track them
+        if let Some(key_handles) = self.values.get_keys(&view.keys) {
+            // Build the path from key handles
+            let mut path = Vec::new();
+            for key_handle in key_handles {
+                if let Some((segment, _)) = self.values.get_key_with_span(key_handle) {
+                    path.push(segment.clone());
+                }
+            }
+            
+            // Track root-level sections as seen fields
+            if path.len() == 1 && self.current_path.is_empty() {
+                if let PathSegment::Ident(ident) = &path[0] {
+                    self.seen_fields.insert(KeyCmpValue::String(ident.as_ref().to_string()));
+                }
+            }
+            
+            // Update current path to reflect we're inside this section
+            let old_path = std::mem::replace(&mut self.current_path, path);
+            let result = self.visit_section_super(handle, view, tree);
+            self.current_path = old_path;
+            
+            return result;
+        }
+        
+        self.visit_section_super(handle, view, tree)
+    }
 }
 
 // Helper functions for validation
@@ -212,16 +256,79 @@ impl<'a> SchemaValidator<'a> {
             return None;
         }
         
-        // For now, we only support single-level paths
-        // TODO: Support nested paths for object validation
-        if path.len() == 1 {
-            if let PathSegment::Ident(ident) = &path[0] {
-                let key = KeyCmpValue::String(ident.as_ref().to_string());
-                return self.schema.root.fields.get(&key);
+        // Combine current_path with the provided path to get the full path
+        let full_path: Vec<PathSegment> = self.current_path.iter()
+            .chain(path.iter())
+            .cloned()
+            .collect();
+        
+        // Start with root schema
+        let mut current_fields = &self.schema.root.fields;
+        let mut field_schema: Option<&FieldSchema> = None;
+        
+        // Navigate through the full path
+        for (i, segment) in full_path.iter().enumerate() {
+            match segment {
+                PathSegment::Ident(ident) => {
+                    let key = KeyCmpValue::String(ident.as_ref().to_string());
+                    if let Some(field) = current_fields.get(&key) {
+                        field_schema = Some(field);
+                        
+                        // If this is not the last segment, we need to navigate deeper
+                        if i < full_path.len() - 1 {
+                            match &field.type_expr {
+                                Type::Object(obj_schema) => {
+                                    current_fields = &obj_schema.fields;
+                                }
+                                Type::Array(elem_type) => {
+                                    // For arrays, we need to check the next segment
+                                    if i + 1 < full_path.len() {
+                                        if let PathSegment::Array { .. } = &full_path[i + 1] {
+                                            // Handle array element type
+                                            if let Type::Object(obj_schema) = elem_type.as_ref() {
+                                                current_fields = &obj_schema.fields;
+                                                continue;
+                                            } else if let Type::Variants(_variant_schema) = elem_type.as_ref() {
+                                                // For variant arrays, we'll need more context
+                                                // For now, return None
+                                                return None;
+                                            }
+                                        }
+                                    }
+                                    return None;
+                                }
+                                Type::TypeRef(type_name) => {
+                                    // Look up the type definition
+                                    if let Some(type_def) = self.schema.types.get(type_name) {
+                                        if let Type::Object(obj_schema) = &type_def.type_expr {
+                                            current_fields = &obj_schema.fields;
+                                        } else {
+                                            return None;
+                                        }
+                                    } else {
+                                        return None;
+                                    }
+                                }
+                                _ => return None,
+                            }
+                        }
+                    } else {
+                        return None;
+                    }
+                }
+                PathSegment::Array { .. } => {
+                    // Array segments don't change the schema context by themselves
+                    continue;
+                }
+                PathSegment::Extension(_) | PathSegment::MetaExt(_) => {
+                    // Extension fields are metadata, not data fields
+                    return None;
+                }
+                _ => return None,
             }
         }
         
-        None
+        field_schema
     }
     
     /// Check if a path represents an extension field
@@ -641,6 +748,7 @@ fn value_type_name(value: &Value) -> &'static str {
 }
 
 /// Convert a path to a KeyCmpValue for error reporting
+#[allow(dead_code)]
 fn path_to_key(path: &[PathSegment]) -> KeyCmpValue {
     if path.is_empty() {
         KeyCmpValue::String("<empty>".to_string())

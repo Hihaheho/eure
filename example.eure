@@ -9,6 +9,7 @@ $eure.id = "aaa"
 id = "aaa"
 description = "aaa"
 text = "aaa"
+aaa = 1
 
 @ script.actions[]
 $variant: set-text

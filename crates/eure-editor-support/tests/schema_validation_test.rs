@@ -102,11 +102,11 @@ name = 123
     );
     assert!(has_type_error, "Expected type mismatch error");
     
-    // Check for unexpected field error (since name is not in extracted schema)
-    let has_unexpected_field = diagnostics.iter().any(|d| 
-        d.message.contains("Unexpected field")
+    // Check for missing field error
+    let has_missing_field = diagnostics.iter().any(|d| 
+        d.message.contains("Required field") && d.message.contains("missing")
     );
-    assert!(has_unexpected_field, "Expected unexpected field error: {:?}", 
+    assert!(has_missing_field, "Expected missing field error: {:?}", 
         diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>());
 }
 

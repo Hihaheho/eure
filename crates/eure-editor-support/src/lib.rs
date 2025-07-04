@@ -1,3 +1,4 @@
+pub mod completions;
 pub mod diagnostics;
 pub mod parser;
 pub mod schema_validation;
