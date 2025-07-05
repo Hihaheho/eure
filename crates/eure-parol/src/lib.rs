@@ -18,11 +18,57 @@ use eure_tree::visitor::{NodeVisitor, NodeVisitorSuper as _};
 pub use parol_runtime::parser::parse_tree_type::TreeConstruct;
 use tree::CstBuilder;
 
+/// Result of parsing that may include a partial CST even on error
+#[derive(Debug)]
+pub enum ParseResult {
+    /// Parsing succeeded
+    Ok(Cst),
+    /// Parsing failed but a partial CST is available
+    ErrWithCst { cst: Cst, error: ParolError },
+}
+
+impl ParseResult {
+    /// Returns the CST regardless of whether parsing succeeded
+    pub fn cst(self) -> Cst {
+        match self {
+            ParseResult::Ok(cst) => cst,
+            ParseResult::ErrWithCst { cst, .. } => cst,
+        }
+    }
+    
+    /// Returns the error if parsing failed
+    pub fn error(&self) -> Option<&ParolError> {
+        match self {
+            ParseResult::Ok(_) => None,
+            ParseResult::ErrWithCst { error, .. } => Some(error),
+        }
+    }
+    
+    /// Returns true if parsing succeeded
+    pub fn is_ok(&self) -> bool {
+        matches!(self, ParseResult::Ok(_))
+    }
+}
+
 pub fn parse(input: &str) -> Result<Cst, ParolError> {
     let mut actions = grammar::Grammar::new();
     let mut tree_builder = CstBuilder::new();
     parser::parse_into(input, &mut tree_builder, "test.eure", &mut actions)?;
     Ok(tree_builder.build_tree())
+}
+
+/// Parse with error tolerance - returns a CST even if parsing fails
+pub fn parse_tolerant(input: &str) -> ParseResult {
+    let mut actions = grammar::Grammar::new();
+    let mut tree_builder = CstBuilder::new();
+    
+    match parser::parse_into(input, &mut tree_builder, "test.eure", &mut actions) {
+        Ok(()) => ParseResult::Ok(tree_builder.build_tree()),
+        Err(error) => ParseResult::ErrWithCst {
+            cst: tree_builder.build_tree(),
+            error,
+        },
+    }
 }
 
 #[test]
@@ -125,6 +171,48 @@ fn test_zenkaku_space() {
     let tree = parse(input).unwrap();
     let mut visitor = InspectVisitor { indent: 0, input };
     visitor.visit_node_id(tree.root(), &tree).unwrap();
+}
+
+#[test]
+fn test_parse_tolerant() {
+    // Test with valid input
+    let valid_input = r#"key = "value""#;
+    match parse_tolerant(valid_input) {
+        ParseResult::Ok(tree) => {
+            assert!(tree.root() != CstNodeId(0));
+        }
+        ParseResult::ErrWithCst { .. } => panic!("Expected successful parse"),
+    }
+    
+    // Test with invalid input - missing value
+    let invalid_input = r#"key = "#;
+    match parse_tolerant(invalid_input) {
+        ParseResult::Ok(_) => panic!("Expected parse error"),
+        ParseResult::ErrWithCst { cst, error } => {
+            // Should have partial tree with key
+            assert!(cst.root() != CstNodeId(0));
+            // Just verify we got an error
+            assert!(!error.to_string().is_empty());
+        }
+    }
+    
+    // Test with syntax error in middle
+    let syntax_error = r#"
+    @ a
+    @ !! @
+    $variant
+    "#;
+    match parse_tolerant(syntax_error) {
+        ParseResult::Ok(_) => panic!("Expected parse error"),
+        ParseResult::ErrWithCst { cst, .. } => {
+            // Should have partial tree
+            assert!(cst.root() != CstNodeId(0));
+            
+            // Verify we can traverse the partial tree
+            let mut visitor = InspectVisitor { indent: 0, input: syntax_error };
+            visitor.visit_node_id(cst.root(), &cst).unwrap();
+        }
+    }
 }
 
 pub struct InspectVisitor<'a> {

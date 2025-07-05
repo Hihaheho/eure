@@ -8,8 +8,6 @@ $eure {
 $eure.id = "aaa"
 id = "aaa"
 description = "aaa"
-text = "aaa"
-aaa = 1
 
 @ script.actions[]
 $variant: set-text
@@ -31,7 +29,6 @@ description = "aaa"
 @ script.actions[].choice[]
 text = "aaa"
 value = "aaa"
-a = "aa"
 
 @ script.actions[].choice[]
 text = "bbb"
@@ -45,8 +42,6 @@ value = "bbb"
   @ choice[]
   text = "aaa"
   value = "aaa"
-  aaa: aaa
-  bbb = 1
 
   @ choice[]
   text = "aaa"
@@ -60,3 +55,6 @@ lines = [
   "long string item in array",
   "with trailing comma",
 ]
+
+@script.actions[]
+$variant: set-text

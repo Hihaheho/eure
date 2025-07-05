@@ -1759,6 +1759,8 @@ dependencies = [
  "eure-parol",
  "eure-schema",
  "eure-tree",
+ "eure-value",
+ "indexmap 2.9.0",
  "lsp-types",
 ]
 
