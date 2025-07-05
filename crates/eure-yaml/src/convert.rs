@@ -73,6 +73,12 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
                     KeyCmpValue::U64(u) => YamlValue::Number((*u).into()),
                     KeyCmpValue::Bool(b) => YamlValue::Bool(*b),
                     KeyCmpValue::Null => YamlValue::Null,
+                    KeyCmpValue::Unit => YamlValue::String("unit".to_string()),
+                    KeyCmpValue::Hole => {
+                        return Err(Error::ConversionError(
+                            "Cannot use hole value (!) as YAML map key".to_string()
+                        ));
+                    }
                     _ => {
                         return Err(Error::ConversionError(format!(
                             "Cannot use {k:?} as YAML map key"
@@ -87,6 +93,11 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
         Value::Unit => {
             // Represent unit as null in YAML
             Ok(YamlValue::Null)
+        }
+        Value::Hole => {
+            // Holes cannot be meaningfully converted to YAML
+            // Return an error
+            Err(Error::ConversionError("Cannot convert hole value (!) to YAML - holes must be filled with actual values".to_string()))
         }
         Value::Path(Path(segments)) => {
             // Paths represented as dot-separated strings

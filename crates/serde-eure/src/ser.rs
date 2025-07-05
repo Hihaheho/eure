@@ -432,6 +432,7 @@ fn value_to_key_cmp(value: Value) -> Result<KeyCmpValue> {
             Ok(KeyCmpValue::Tuple(eure_value::value::Tuple(keys)))
         }
         Value::Unit => Ok(KeyCmpValue::Unit),
+        Value::Hole => Ok(KeyCmpValue::Hole),
         _ => Err(Error::InvalidType(format!(
             "cannot use {value:?} as map key"
         ))),

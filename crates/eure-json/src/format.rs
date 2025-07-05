@@ -306,6 +306,12 @@ fn build_value(value: &Value) -> ValueNode {
             // Build path value with dot notation
             build_path_value(path)
         }
+        Value::Hole => {
+            // Build hole value using the exclamation mark
+            let hole_token = terminals::hole();
+            let hole_node = HoleConstructor::builder().hole(hole_token).build().build();
+            ValueConstructor::Hole(hole_node).build()
+        }
     }
 }
 
@@ -727,6 +733,14 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         // Meta-extension keys should not appear in regular value paths
                         // Use a descriptive string
                         let str_token = terminals::str("\"<meta-extension>\"");
+                        KeyBaseConstructor::Str(
+                            StrConstructor::builder().str(str_token).build().build()
+                        ).build()
+                    }
+                    KeyCmpValue::Hole => {
+                        // Holes cannot be used as keys in paths
+                        // Use a descriptive string
+                        let str_token = terminals::str("\"<hole>\"");
                         KeyBaseConstructor::Str(
                             StrConstructor::builder().str(str_token).build().build()
                         ).build()
