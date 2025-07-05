@@ -4,11 +4,12 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use eure_editor_support::{diagnostics, parser, schema_validation, semantic_tokens};
+use eure_editor_support::{completions, diagnostics, parser, schema_validation, semantic_tokens};
 use eure_tree::Cst;
 use lsp_types::notification::{Notification as _, PublishDiagnostics};
-use lsp_types::request::{DocumentDiagnosticRequest, SemanticTokensFullRequest};
+use lsp_types::request::{Completion, DocumentDiagnosticRequest, SemanticTokensFullRequest};
 use lsp_types::{
+    CompletionList, CompletionOptions, CompletionParams, CompletionResponse,
     Diagnostic, DocumentDiagnosticParams, DocumentDiagnosticReport,
     DocumentDiagnosticReportResult, FullDocumentDiagnosticReport, InitializeParams,
     PublishDiagnosticsParams, RelatedFullDocumentDiagnosticReport, SemanticTokensFullOptions,
@@ -48,6 +49,14 @@ fn main() -> anyhow::Result<()> {
                 inter_file_dependencies: false,
             },
         )),
+        // Add completion capability
+        completion_provider: Some(CompletionOptions {
+            resolve_provider: Some(false),
+            trigger_characters: Some(vec!["@".to_string(), ".".to_string(), "=".to_string(), ":".to_string()]),
+            all_commit_characters: None,
+            work_done_progress_options: Default::default(),
+            completion_item: None,
+        }),
         ..Default::default()
     })
     .unwrap();
@@ -120,6 +129,17 @@ impl ServerContext {
                         .handle_request::<DocumentDiagnosticRequest>(
                             req.clone(),
                             Self::handle_document_diagnostic,
+                        )?
+                        .is_some()
+                    {
+                        continue; // Request was handled
+                    }
+
+                    // Handle Completion request
+                    if self
+                        .handle_request::<Completion>(
+                            req.clone(),
+                            Self::handle_completion,
                         )?
                         .is_some()
                     {
@@ -213,8 +233,8 @@ impl ServerContext {
                 // First, extract schema and check for $schema reference
                 if let Ok(validation_result) = schema_validation::validate_and_extract_schema(&text, cst) {
                     // Check if document has a $schema reference
-                    if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref {
-                    if let Some(doc_path) = uri_to_path(&uri) {
+                    if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref
+                    && let Some(doc_path) = uri_to_path(&uri) {
                         let workspace_root = self.get_workspace_root();
                         match schema_validation::resolve_schema_reference(&doc_path, schema_ref, workspace_root.as_deref()) {
                             Ok(schema_path) => {
@@ -243,7 +263,6 @@ impl ServerContext {
                                 eprintln!("Failed to resolve schema reference '{schema_ref}': {e}");
                             }
                         }
-                    }
                     }
                 } else {
                     // No $schema reference, fall back to convention-based discovery
@@ -383,6 +402,52 @@ impl ServerContext {
         );
         
         Ok(Some(result))
+    }
+
+    // Handler for textDocument/completion
+    fn handle_completion(
+        &mut self,
+        params: CompletionParams,
+    ) -> anyhow::Result<Option<Option<CompletionResponse>>> {
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+        let trigger_character = params.context.and_then(|ctx| ctx.trigger_character);
+        
+        eprintln!("Completion request at {position:?} in {uri}, trigger: {trigger_character:?}");
+        
+        // Get the document and CST
+        if let Some((cst_opt, text)) = self.documents.get(&uri) {
+            if let Some(cst) = cst_opt {
+                // Get completions from the completions module
+                let items = completions::get_completions(
+                    text,
+                    cst,
+                    position,
+                    trigger_character,
+                    &uri,
+                    &self.schema_manager,
+                );
+                
+                if items.is_empty() {
+                    eprintln!("No completions found");
+                    Ok(Some(None))
+                } else {
+                    eprintln!("Found {} completions", items.len());
+                    // Return as a CompletionList
+                    let list = CompletionList {
+                        is_incomplete: false,
+                        items,
+                    };
+                    Ok(Some(Some(CompletionResponse::List(list))))
+                }
+            } else {
+                eprintln!("Document has no valid CST");
+                Ok(Some(None))
+            }
+        } else {
+            eprintln!("Document not found in store");
+            Ok(Some(None))
+        }
     }
 
     fn send_response(&self, resp: Response) -> anyhow::Result<()> {

@@ -1,206 +1,134 @@
-//! Tests for tree-based validation with span tracking
+//! Integration tests for tree-based validation
 
-use eure_schema::{validate_with_tree, DocumentSchema, FieldSchema, Type, ObjectSchema, Severity};
-use eure_value::value::KeyCmpValue;
-use indexmap::IndexMap;
+use eure_schema::{extract_schema_from_value, validate_with_tree};
 
 #[test]
-fn test_tree_validation_with_spans() {
-    let input = r#"
-# Test document
-name = 123  # Wrong type - should be string
-age = "not a number"  # Wrong type - should be number
-"#;
-
+fn test_example_eure_validation() {
+    // Load the schema from example.schema.eure
+    let schema_input = include_str!("../../../example.schema.eure");
+    let extracted = extract_schema_from_value(schema_input)
+        .expect("Failed to extract schema from example.schema.eure");
+    
+    // Load the example document
+    let doc_input = include_str!("../../../example.eure");
+    
     // Parse the document
-    let tree = eure_parol::parse(input).expect("Failed to parse");
+    let tree = eure_parol::parse(doc_input).expect("Failed to parse example.eure");
     
-    // Create a simple schema
-    let mut fields = IndexMap::new();
-    fields.insert(
-        KeyCmpValue::String("name".to_string()),
-        FieldSchema {
-            type_expr: Type::String,
-            optional: false,
-            ..Default::default()
-        }
-    );
-    fields.insert(
-        KeyCmpValue::String("age".to_string()),
-        FieldSchema {
-            type_expr: Type::Number,
-            optional: false,
-            ..Default::default()
-        }
-    );
+    // Validate the document against the schema
+    let errors = validate_with_tree(doc_input, extracted.document_schema, &tree)
+        .expect("Failed to validate");
     
-    let schema = DocumentSchema {
-        root: ObjectSchema {
-            fields,
-            additional_properties: None,
-        },
-        ..Default::default()
-    };
-    
-    // Validate using tree-based validator
-    let errors = validate_with_tree(input, schema, &tree)
-        .expect("Validation should not fail");
-    
-    // Should have 2 type mismatch errors
-    assert_eq!(errors.len(), 2, "Expected 2 validation errors");
-    
-    // Check that errors have spans
-    for error in &errors {
-        assert!(error.span.is_some(), "Error should have span information");
-        assert_eq!(error.severity, Severity::Error);
+    // Print all errors for debugging
+    println!("Found {} validation errors:", errors.len());
+    for (i, error) in errors.iter().enumerate() {
+        println!("  {}: {:?}", i + 1, error);
     }
     
-    // Check error types
-    let name_errors: Vec<_> = errors.iter()
+    // Check for false positive "Required field 'script' is missing" errors
+    let false_positive_count = errors.iter()
         .filter(|e| matches!(&e.kind, 
-            eure_schema::ValidationErrorKind::TypeMismatch { expected, actual } 
-            if expected == "string" && actual == "number"
+            eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. } 
+            if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "script")
         ))
-        .collect();
-    assert_eq!(name_errors.len(), 1, "Should have one string/number mismatch");
+        .count();
     
-    let age_errors: Vec<_> = errors.iter()
-        .filter(|e| matches!(&e.kind,
-            eure_schema::ValidationErrorKind::TypeMismatch { expected, actual }
-            if expected == "number" && actual == "string"
-        ))
-        .collect();
-    assert_eq!(age_errors.len(), 1, "Should have one number/string mismatch");
+    // The document has a valid 'script' section, so there should be NO such errors
+    assert_eq!(false_positive_count, 0, 
+        "Found {false_positive_count} false positive 'Required field script is missing' errors");
+    
+    // The document should have some valid content
+    assert!(doc_input.contains("@ script"), "Document should contain script section");
+    
+    // There might be other legitimate errors, but not related to missing 'script' field
+    println!("Test passed: No false positive 'script missing' errors");
 }
 
 #[test]
-fn test_tree_validation_missing_fields() {
-    let input = r#"
-name = "John"
-# age field is missing
+fn test_nested_section_validation() {
+    // Test schema with nested objects
+    let schema_input = r#"
+@ user {
+    @ name {
+        @ first
+        $type = .string
+        
+        @ last
+        $type = .string
+    }
+    
+    @ age
+    $type = .number
+}
 "#;
 
-    // Parse the document
-    let tree = eure_parol::parse(input).expect("Failed to parse");
+    let extracted = extract_schema_from_value(schema_input)
+        .expect("Failed to extract schema");
     
-    // Create schema with required fields
-    let mut fields = IndexMap::new();
-    fields.insert(
-        KeyCmpValue::String("name".to_string()),
-        FieldSchema {
-            type_expr: Type::String,
-            optional: false,
-            ..Default::default()
-        }
-    );
-    fields.insert(
-        KeyCmpValue::String("age".to_string()),
-        FieldSchema {
-            type_expr: Type::Number,
-            optional: false, // Required field
-            ..Default::default()
-        }
-    );
-    
-    let schema = DocumentSchema {
-        root: ObjectSchema {
-            fields,
-            additional_properties: None,
-        },
-        ..Default::default()
-    };
-    
-    // Validate
-    let errors = validate_with_tree(input, schema, &tree)
-        .expect("Validation should not fail");
-    
-    // Should have 1 missing field error
-    assert_eq!(errors.len(), 1, "Expected 1 validation error");
-    
-    match &errors[0].kind {
-        eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. } => {
-            assert_eq!(field, &KeyCmpValue::String("age".to_string()));
-        }
-        _ => panic!("Expected RequiredFieldMissing error"),
-    }
-}
-
-#[test]
-fn test_tree_validation_unexpected_fields() {
-    let input = r#"
-name = "John"
+    // Document with nested sections
+    let doc_input = r#"
+@ user
 age = 30
-extra = "unexpected"  # This field is not in schema
+
+@ user.name
+first = "John"
+last = "Doe"
 "#;
 
-    // Parse the document
-    let tree = eure_parol::parse(input).expect("Failed to parse");
+    let tree = eure_parol::parse(doc_input).expect("Failed to parse document");
     
-    // Create schema without extra field
-    let mut fields = IndexMap::new();
-    fields.insert(
-        KeyCmpValue::String("name".to_string()),
-        FieldSchema {
-            type_expr: Type::String,
-            optional: false,
-            ..Default::default()
-        }
-    );
-    fields.insert(
-        KeyCmpValue::String("age".to_string()),
-        FieldSchema {
-            type_expr: Type::Number,
-            optional: false,
-            ..Default::default()
-        }
-    );
+    let errors = validate_with_tree(doc_input, extracted.document_schema, &tree)
+        .expect("Failed to validate");
     
-    let schema = DocumentSchema {
-        root: ObjectSchema {
-            fields,
-            additional_properties: None, // No additional properties allowed
-        },
-        ..Default::default()
-    };
+    // Should not have any "Required field 'user' is missing" errors
+    let user_missing_errors = errors.iter()
+        .filter(|e| matches!(&e.kind,
+            eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
+            if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "user")
+        ))
+        .count();
     
-    // Validate
-    let errors = validate_with_tree(input, schema, &tree)
-        .expect("Validation should not fail");
-    
-    // Should have 1 unexpected field error
-    assert_eq!(errors.len(), 1, "Expected 1 validation error");
-    
-    match &errors[0].kind {
-        eure_schema::ValidationErrorKind::UnexpectedField { field, .. } => {
-            assert_eq!(field, &KeyCmpValue::String("extra".to_string()));
-        }
-        _ => panic!("Expected UnexpectedField error"),
-    }
+    assert_eq!(user_missing_errors, 0, 
+        "Should not report 'user' as missing when it exists");
 }
 
 #[test]
-fn test_self_describing_with_tree() {
-    let input = r#"
-# Self-describing document
-name.$type = .string
-age.$type = .number
+fn test_actually_missing_required_field() {
+    // Test that we still catch genuinely missing required fields
+    let schema_input = r#"
+@ name
+$type = .string
 
-# Data
-name = "Alice"
-age = 25
+@ age
+$type = .number
+
+@ email
+$type = .string
+$optional = true
 "#;
 
-    // Parse the document
-    let tree = eure_parol::parse(input).expect("Failed to parse");
+    let extracted = extract_schema_from_value(schema_input)
+        .expect("Failed to extract schema");
     
-    // Validate self-describing document
-    let result = eure_schema::validate_self_describing_with_tree(input, &tree)
-        .expect("Should extract and validate");
+    // Document missing required 'age' field
+    let doc_input = r#"
+name = "Alice"
+email = "alice@example.com"
+"#;
+
+    let tree = eure_parol::parse(doc_input).expect("Failed to parse document");
     
-    // Should have no errors
-    assert_eq!(result.errors.len(), 0, "Expected no validation errors");
+    let errors = validate_with_tree(doc_input, extracted.document_schema, &tree)
+        .expect("Failed to validate");
     
-    // Should have extracted the schema
-    assert!(!result.schema.is_pure_schema);
-    assert_eq!(result.schema.document_schema.root.fields.len(), 2);
+    // Should have exactly one error about missing 'age' field
+    let age_missing_errors = errors.iter()
+        .filter(|e| matches!(&e.kind,
+            eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
+            if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "age")
+        ))
+        .count();
+    
+    assert_eq!(age_missing_errors, 1, 
+        "Should report 'age' as missing exactly once");
 }

@@ -84,10 +84,7 @@ age.$optional = true
     
     // None of the meta-extensions should appear in the document schema
     for key in extracted.document_schema.root.fields.keys() {
-        match key {
-            KeyCmpValue::MetaExtension(_) => panic!("Meta-extension {:?} should not be in document schema", key),
-            _ => {}
-        }
+        if let KeyCmpValue::MetaExtension(_) = key { panic!("Meta-extension {key:?} should not be in document schema") }
     }
 }
 
@@ -253,7 +250,7 @@ name = "John Doe"
     if !errors.is_empty() {
         println!("Validation errors:");
         for error in &errors {
-            println!("  - {:?}", error);
+            println!("  - {error:?}");
         }
     }
     

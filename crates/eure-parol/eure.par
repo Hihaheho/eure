@@ -26,7 +26,7 @@ Section: At Keys SectionBody ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: Ident | ExtensionNameSpace | Str | Integer | MetaExtKey | Null | True | False ;
+  KeyBase: Ident | ExtensionNameSpace | Str | Integer | MetaExtKey | Null | True | False | Hole ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext Ident ;
   MetaExtKey: MetaExt Ident ;

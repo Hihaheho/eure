@@ -206,14 +206,179 @@ impl SchemaBuilder {
         Ok(())
     }
     
+    /// Extract all variants from entries that start with $variants
+    fn extract_all_variants(&mut self, all_entries: &AHashMap<KeyCmpValue, Value>) -> Result<IndexMap<KeyCmpValue, ObjectSchema>, SchemaError> {
+        let mut variants = IndexMap::new();
+        
+        // The $variants map contains all variant-related definitions
+        if let Some(Value::Map(variants_map)) = all_entries.get(&KeyCmpValue::Extension("variants".to_string())) {
+            // Process all entries in the variants map
+            for (key, value) in &variants_map.0 {
+                
+                if let KeyCmpValue::String(key_str) = key {
+                    // Check if this is a simple variant definition or a nested field definition
+                    if key_str.contains('.') {
+                        // This is a nested field definition like "set-choices.choice.$array"
+                        let parts: Vec<&str> = key_str.split('.').collect();
+                        if parts.len() >= 2 {
+                            let variant_name = parts[0];
+                            let field_path = parts[1..].join(".");
+                            
+                            
+                            // Ensure the variant exists
+                            if !variants.contains_key(&KeyCmpValue::String(variant_name.to_string())) {
+                                variants.insert(KeyCmpValue::String(variant_name.to_string()), ObjectSchema {
+                                    fields: IndexMap::new(),
+                                    additional_properties: None,
+                                });
+                            }
+                            
+                            if let Some(variant_obj) = variants.get_mut(&KeyCmpValue::String(variant_name.to_string())) {
+                                // Handle array field definitions
+                                if field_path.ends_with(".$array") {
+                                    let field_name = &field_path[..field_path.len() - 7];
+                                    
+                                    if let Value::Map(elem_map) = value {
+                                        let mut elem_fields = IndexMap::new();
+                                        for (elem_key, elem_value) in &elem_map.0 {
+                                            if let KeyCmpValue::String(elem_field_name) = elem_key
+                                                && let Some(elem_field_schema) = self.extract_field_schema(elem_field_name, elem_value)? {
+                                                    elem_fields.insert(KeyCmpValue::String(elem_field_name.clone()), elem_field_schema);
+                                                }
+                                        }
+                                        
+                                        let array_field = FieldSchema {
+                                            type_expr: Type::Array(Box::new(Type::Object(ObjectSchema {
+                                                fields: elem_fields,
+                                                additional_properties: None,
+                                            }))),
+                                            optional: false,
+                                            ..Default::default()
+                                        };
+                                        
+                                        variant_obj.fields.insert(KeyCmpValue::String(field_name.to_string()), array_field);
+                                    }
+                                } else if let Some(field_schema) = self.extract_field_schema(&field_path, value)? {
+                                    variant_obj.fields.insert(KeyCmpValue::String(field_path.to_string()), field_schema);
+                                }
+                            }
+                        }
+                    } else {
+                        // Simple variant definition
+                        if let Value::Map(variant_map) = value {
+                            let mut variant_fields = IndexMap::new();
+                            
+                            
+                            for (field_key, field_value) in &variant_map.0 {
+                                match field_key {
+                                    KeyCmpValue::String(field_name) => {
+                                        
+                                        if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
+                                            variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
+                                        }
+                                    }
+                                    KeyCmpValue::Extension(ext_name) => {
+                                        if let Some(field_schema) = self.extract_field_schema(ext_name, field_value)? {
+                                            variant_fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
+                                        }
+                                    }
+                                    KeyCmpValue::MetaExtension(meta_ext) => {
+                                        if let Some(schema) = self.extract_field_schema(meta_ext, field_value)? {
+                                            variant_fields.insert(KeyCmpValue::Extension(meta_ext.clone()), schema);
+                                        }
+                                    }
+                                    _ => continue,
+                                }
+                            }
+                            
+                            variants.insert(KeyCmpValue::String(key_str.clone()), ObjectSchema {
+                                fields: variant_fields,
+                                additional_properties: None,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(variants)
+    }
+    
     /// Extract variants from a Value Map
     fn extract_variants(&mut self, variants_map: &AHashMap<KeyCmpValue, Value>) -> Result<IndexMap<KeyCmpValue, ObjectSchema>, SchemaError> {
         let mut variants = IndexMap::new();
         
+        // First pass: collect direct variant definitions
         for (variant_key, variant_value) in variants_map {
-            let KeyCmpValue::String(variant_name) = variant_key else {
-                continue;
+            let key_str = match variant_key {
+                KeyCmpValue::String(s) => s.clone(),
+                KeyCmpValue::Extension(ext) if ext == "variants" => {
+                    // Handle the case where we have a direct $variants map
+                    if let Value::Map(direct_variants) = variant_value {
+                        // Process all direct variants in this map
+                        for (vk, vv) in &direct_variants.0 {
+                            if let KeyCmpValue::String(variant_name) = vk
+                                && let Value::Map(variant_map) = vv {
+                                    let mut variant_fields = IndexMap::new();
+                                    
+                                    for (field_key, field_value) in &variant_map.0 {
+                                        match field_key {
+                                            KeyCmpValue::String(field_name) => {
+                                                if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
+                                                    variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
+                                                }
+                                            }
+                                            KeyCmpValue::Extension(ext_name) => {
+                                                if let Some(field_schema) = self.extract_field_schema(ext_name, field_value)? {
+                                                    variant_fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
+                                                }
+                                            }
+                                            KeyCmpValue::MetaExtension(meta_ext) => {
+                                                if let Some(schema) = self.extract_field_schema(meta_ext, field_value)? {
+                                                    // Store as Extension key (without $$)
+                                                    variant_fields.insert(KeyCmpValue::Extension(meta_ext.clone()), schema);
+                                                }
+                                            }
+                                            _ => continue,
+                                        }
+                                    }
+                                    
+                                    eprintln!("DEBUG: First pass - creating variant '{}' with {} fields", variant_name, variant_fields.len());
+                                    for (k, v) in &variant_fields {
+                                        eprintln!("  - Field {:?}: {:?}", k, v.type_expr);
+                                    }
+                                    
+                                    variants.insert(KeyCmpValue::String(variant_name.clone()), ObjectSchema {
+                                        fields: variant_fields,
+                                        additional_properties: None,
+                                    });
+                                }
+                        }
+                    }
+                    continue;
+                }
+                _ => continue,
             };
+            
+            // For string keys that might have full paths like "section.variants.variant-name"
+            // Extract just the variant name
+            let variant_name = if let Some(pos) = key_str.rfind('.') {
+                let prefix = &key_str[..pos];
+                if prefix.ends_with("variants") {
+                    &key_str[pos + 1..]
+                } else {
+                    // This is a nested field definition
+                    continue;
+                }
+            } else {
+                &key_str
+            };
+            
+            // Check if this is a nested variant field definition
+            if variant_name.contains('.') {
+                // Skip in first pass, handle in second pass
+                continue;
+            }
             
             if let Value::Map(variant_map) = variant_value {
                 let mut variant_fields = IndexMap::new();
@@ -240,7 +405,112 @@ impl SchemaBuilder {
                     }
                 }
                 
-                variants.insert(KeyCmpValue::String(variant_name.clone()), ObjectSchema {
+                eprintln!("DEBUG: First pass - creating variant '{}' with {} fields", key_str, variant_fields.len());
+                for (k, v) in &variant_fields {
+                    eprintln!("  - Field {:?}: {:?}", k, v.type_expr);
+                }
+                
+                variants.insert(KeyCmpValue::String(key_str.clone()), ObjectSchema {
+                    fields: variant_fields,
+                    additional_properties: None,
+                });
+            }
+        }
+        
+        // Second pass: handle nested variant field definitions (process these first)
+        let mut nested_fields: IndexMap<String, IndexMap<String, FieldSchema>> = IndexMap::new();
+        
+        for (variant_key, variant_value) in variants_map {
+            let key_str = match variant_key {
+                KeyCmpValue::String(s) => s.clone(),
+                _ => continue,
+            };
+            
+            // Parse the key to extract variant name and field path
+            // Keys might be like "section.variants.set-choices.choice.$array"
+            let parts: Vec<&str> = key_str.split('.').collect();
+            
+            // Find the "variants" part and extract what comes after
+            let mut variant_idx = None;
+            for (i, part) in parts.iter().enumerate() {
+                if *part == "variants" && i + 1 < parts.len() {
+                    variant_idx = Some(i);
+                    break;
+                }
+            }
+            
+            if let Some(idx) = variant_idx
+                && idx + 2 < parts.len() {
+                    // We have at least "variants.variant-name.field"
+                    let variant_name = parts[idx + 1];
+                    let field_parts = &parts[idx + 2..];
+                    let field_path = field_parts.join(".");
+                
+                eprintln!("DEBUG: Processing nested variant field: key={key_str}, variant={variant_name}, field_path={field_path}");
+                
+                // Collect nested fields for this variant
+                if !nested_fields.contains_key(variant_name) {
+                    nested_fields.insert(variant_name.to_string(), IndexMap::new());
+                }
+                
+                // Handle the nested field definition
+                if let Some(variant_fields) = nested_fields.get_mut(variant_name) {
+                    // Parse the field path to check for modifiers like $array
+                    if field_path.ends_with(".$array") {
+                        // Extract the field name without the .$array suffix
+                        let field_name = &field_path[..field_path.len() - 7]; // Remove ".$array"
+                        
+                        // The value should be a map defining the array element schema
+                        if let Value::Map(elem_map) = variant_value {
+                            // Extract the element schema from the map
+                            let mut elem_fields = IndexMap::new();
+                            for (elem_key, elem_value) in &elem_map.0 {
+                                if let KeyCmpValue::String(elem_field_name) = elem_key
+                                    && let Some(elem_field_schema) = self.extract_field_schema(elem_field_name, elem_value)? {
+                                        elem_fields.insert(KeyCmpValue::String(elem_field_name.clone()), elem_field_schema);
+                                    }
+                            }
+                            
+                            // Create an array field with object elements
+                            let array_field = FieldSchema {
+                                type_expr: Type::Array(Box::new(Type::Object(ObjectSchema {
+                                    fields: elem_fields,
+                                    additional_properties: None,
+                                }))),
+                                optional: false,
+                                ..Default::default()
+                            };
+                            
+                            variant_fields.insert(field_name.to_string(), array_field);
+                        }
+                    } else if let Some(field_schema) = self.extract_field_schema(&field_path, variant_value)? {
+                        // Regular nested field without modifiers
+                        variant_fields.insert(field_path.to_string(), field_schema);
+                    }
+                }
+            }
+        }
+        
+        // Merge nested fields into the variants
+        for (variant_name, fields) in nested_fields {
+            eprintln!("DEBUG: Merging nested fields for variant '{variant_name}'");
+            
+            if let Some(variant_obj) = variants.get_mut(&KeyCmpValue::String(variant_name.clone())) {
+                // Add nested fields to existing variant
+                eprintln!("  - Found existing variant with {} fields", variant_obj.fields.len());
+                for (field_name, field_schema) in fields {
+                    eprintln!("  - Adding nested field '{}' with type {:?}", field_name, field_schema.type_expr);
+                    variant_obj.fields.insert(KeyCmpValue::String(field_name), field_schema);
+                }
+                eprintln!("  - Variant now has {} fields", variant_obj.fields.len());
+            } else {
+                // Create new variant with only the nested fields
+                eprintln!("  - Creating new variant");
+                let mut variant_fields = IndexMap::new();
+                for (field_name, field_schema) in fields {
+                    variant_fields.insert(KeyCmpValue::String(field_name), field_schema);
+                }
+                variants.insert(KeyCmpValue::String(variant_name), ObjectSchema {
                     fields: variant_fields,
                     additional_properties: None,
                 });
@@ -257,24 +527,43 @@ impl SchemaBuilder {
                 let mut schema = FieldSchema::default();
                 let mut fields: IndexMap<KeyCmpValue, FieldSchema> = IndexMap::new();
                 
+                // First check if this type has variants by collecting all variant-related entries
+                let mut has_variants = false;
+                let mut all_variant_entries = AHashMap::new();
+                
+                
+                for (key, val) in &map.0 {
+                    if let KeyCmpValue::Extension(ext_name) = key
+                        && ext_name.starts_with("variants") {
+                            has_variants = true;
+                            // Store with the extension name as key
+                            all_variant_entries.insert(KeyCmpValue::Extension(ext_name.clone()), val.clone());
+                        }
+                }
+                
+                
+                if has_variants {
+                    let variants = self.extract_all_variants(&all_variant_entries)?;
+                    schema.type_expr = Type::Variants(VariantSchema {
+                        variants,
+                        representation: VariantRepr::default(),
+                    });
+                }
+                
                 for (key, val) in &map.0 {
                     match key {
                         KeyCmpValue::Extension(ext_name) => match ext_name.as_str() {
                             "type" => {
-                                if let Value::Path(path) = val {
-                                    let path_str = path_to_display_string(path);
-                                    schema.type_expr = Type::from_path(&path_str)
-                                        .ok_or(SchemaError::InvalidTypePath(path_str))?;
+                                if !has_variants {  // Only set type if not already set to Variants
+                                    if let Value::Path(path) = val {
+                                        let path_str = path_to_display_string(path);
+                                        schema.type_expr = Type::from_path(&path_str)
+                                            .ok_or(SchemaError::InvalidTypePath(path_str))?;
+                                    }
                                 }
                             }
-                            "variants" => {
-                                if let Value::Map(variants_map) = val {
-                                    let variants = self.extract_variants(&variants_map.0)?;
-                                    schema.type_expr = Type::Variants(VariantSchema {
-                                        variants,
-                                        representation: VariantRepr::default(),
-                                    });
-                                }
+                            ext if ext.starts_with("variants") => {
+                                // Already handled above
                             }
                             "union" => {
                                 if let Value::Array(arr) = val {
@@ -388,11 +677,29 @@ impl SchemaBuilder {
                             }
                             "array" => {
                             has_schema_info = true;
-                            if let Value::Path(path) = val {
-                                let path_str = path_to_display_string(path);
-                                let elem_type = Type::from_path(&path_str)
-                                    .ok_or_else(|| SchemaError::InvalidTypePath(path_str.clone()))?;
-                                schema.type_expr = Type::Array(Box::new(elem_type));
+                            match val {
+                                Value::Path(path) => {
+                                    // Simple array type: $array = .string
+                                    let path_str = path_to_display_string(path);
+                                    let elem_type = Type::from_path(&path_str)
+                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_str.clone()))?;
+                                    schema.type_expr = Type::Array(Box::new(elem_type));
+                                }
+                                Value::Map(elem_map) => {
+                                    // Complex array with object elements: $array = { text = .string, value = .string }
+                                    let mut elem_fields = IndexMap::new();
+                                    for (elem_key, elem_value) in &elem_map.0 {
+                                        if let KeyCmpValue::String(elem_field_name) = elem_key
+                                            && let Some(elem_field_schema) = self.extract_field_schema(elem_field_name, elem_value)? {
+                                                elem_fields.insert(KeyCmpValue::String(elem_field_name.clone()), elem_field_schema);
+                                            }
+                                    }
+                                    schema.type_expr = Type::Array(Box::new(Type::Object(ObjectSchema {
+                                        fields: elem_fields,
+                                        additional_properties: None,
+                                    })));
+                                }
+                                _ => {} // Other value types for $array are not supported
                             }
                             }
                             "optional" => {

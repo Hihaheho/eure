@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue};
 
@@ -23,7 +22,7 @@ fn test_section_with_value_assignment() {
         panic!("Invalid document structure");
     };
     
-    println!("Document structure: {:#?}", doc);
+    println!("Document structure: {doc:#?}");
     
     if let Value::Map(map) = doc {
         println!("\nTop-level keys: {:?}", map.0.keys().collect::<Vec<_>>());
@@ -57,7 +56,7 @@ users.$array = .$types.User
         panic!("Invalid document structure");
     };
     
-    println!("\nActual structure from failing test: {:#?}", doc);
+    println!("\nActual structure from failing test: {doc:#?}");
     
     if let Value::Map(map) = doc {
         println!("\nTop-level keys: {:?}", map.0.keys().collect::<Vec<_>>());
@@ -66,7 +65,7 @@ users.$array = .$types.User
         for (key, value) in &map.0 {
             match key {
                 KeyCmpValue::String(s) if s.contains("users") => {
-                    println!("Found key containing 'users': {:?} -> {:?}", s, value);
+                    println!("Found key containing 'users': {s:?} -> {value:?}");
                 }
                 _ => {}
             }

@@ -149,7 +149,16 @@ fn main() {
                 }
             };
 
-            let tree = eure_parol::parse(&contents).unwrap();
+            let parse_result = eure_parol::parse_tolerant(&contents);
+            
+            // Print any parse errors
+            if let Some(error) = parse_result.error() {
+                eprintln!("Parse error: {error:?}");
+                eprintln!("Note: Showing partial syntax tree below");
+                eprintln!();
+            }
+            
+            let tree = parse_result.cst();
             let mut out = String::new();
             tree.inspect(&contents, &mut out).unwrap();
             println!("{out}");

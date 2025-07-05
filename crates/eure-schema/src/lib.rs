@@ -182,6 +182,9 @@ pub fn validate_with_tree(
     let mut validator = SchemaValidator::new(input, &schema, &values);
     tree.visit_from_root(&mut validator)?;
     
+    // Finalize validation by checking for missing required fields
+    validator.finalize();
+    
     Ok(validator.into_errors())
 }
 

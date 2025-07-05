@@ -8,7 +8,6 @@ $eure {
 $eure.id = "aaa"
 id = "aaa"
 description = "aaa"
-text = "aaa"
 
 @ script.actions[]
 $variant: set-text
@@ -38,6 +37,7 @@ value = "bbb"
 # Valid multiple sections by using a explicit block
 @ script.actions[] {
   $variant: set-choices
+  description = "aaa"
 
   @ choice[]
   text = "aaa"
@@ -55,3 +55,6 @@ lines = [
   "long string item in array",
   "with trailing comma",
 ]
+
+@script.actions[]
+$variant: set-text

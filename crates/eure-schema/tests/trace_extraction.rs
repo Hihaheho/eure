@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::Value;
 
@@ -30,18 +29,18 @@ users.$array = .$types.User
     };
     
     // Print the structure
-    println!("Document value: {:#?}", doc_value);
+    println!("Document value: {doc_value:#?}");
     
     // Check what's in the map
     if let Value::Map(map) = doc_value {
         println!("\nTop-level keys:");
         for (key, _) in &map.0 {
-            println!("  {:?}", key);
+            println!("  {key:?}");
         }
         
         // Check if users key exists
         if let Some(users_value) = map.0.get(&eure_value::value::KeyCmpValue::String("users".to_string())) {
-            println!("\nFound 'users' key with value: {:?}", users_value);
+            println!("\nFound 'users' key with value: {users_value:?}");
         } else {
             println!("\n'users' key not found!");
         }

@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue};
 
@@ -26,7 +25,7 @@ field1 = "in_section"
         panic!("Invalid document structure");
     };
     
-    println!("Document structure: {:#?}", doc);
+    println!("Document structure: {doc:#?}");
     
     if let Value::Map(map) = doc {
         println!("\nTop-level keys: {:?}", map.0.keys().collect::<Vec<_>>());
@@ -40,7 +39,7 @@ field1 = "in_section"
         if let Some(val) = map.0.get(&KeyCmpValue::String("root2".to_string())) {
             match val {
                 Value::Path(_) => println!("root2 is correctly a Path"),
-                _ => panic!("root2 should be a Path, but got: {:?}", val),
+                _ => panic!("root2 should be a Path, but got: {val:?}"),
             }
         }
     }
@@ -68,7 +67,7 @@ field2 = .$types.Test
         panic!("Invalid document structure");
     };
     
-    println!("\nSections-only document: {:#?}", doc);
+    println!("\nSections-only document: {doc:#?}");
     
     if let Value::Map(map) = doc {
         println!("Top-level keys: {:?}", map.0.keys().collect::<Vec<_>>());
@@ -78,14 +77,13 @@ field2 = .$types.Test
         assert!(map.0.contains_key(&KeyCmpValue::String("section2".to_string())));
         
         // Check section2.field2 is a Path
-        if let Some(Value::Map(section2_map)) = map.0.get(&KeyCmpValue::String("section2".to_string())) {
-            if let Some(val) = section2_map.0.get(&KeyCmpValue::String("field2".to_string())) {
+        if let Some(Value::Map(section2_map)) = map.0.get(&KeyCmpValue::String("section2".to_string()))
+            && let Some(val) = section2_map.0.get(&KeyCmpValue::String("field2".to_string())) {
                 match val {
                     Value::Path(_) => println!("section2.field2 is correctly a Path"),
-                    _ => panic!("section2.field2 should be a Path, but got: {:?}", val),
+                    _ => panic!("section2.field2 should be a Path, but got: {val:?}"),
                 }
             }
-        }
     }
 }
 

@@ -130,7 +130,7 @@ options.$array = .string
     // Check Action type is a variant
     println!("Types: {:?}", extracted.document_schema.types.keys().collect::<Vec<_>>());
     let action_type = &extracted.document_schema.types[&KeyCmpValue::String("Action".to_string())];
-    println!("Action type: {:?}", action_type);
+    println!("Action type: {action_type:?}");
     match &action_type.type_expr {
         eure_schema::Type::Variants(variant_schema) => {
             println!("Variants found: {:?}", variant_schema.variants.keys().collect::<Vec<_>>());

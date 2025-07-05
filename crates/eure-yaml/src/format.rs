@@ -74,6 +74,7 @@ pub fn format_eure(value: &Value) -> String {
                 .join(".");
             format!(".{path_str}")
         }
+        Value::Hole => "!".to_string(),
     }
 }
 
@@ -137,6 +138,7 @@ fn format_key(key: &KeyCmpValue) -> String {
         KeyCmpValue::Unit => "()".to_string(),
         KeyCmpValue::Extension(ext) => format!("${ext}"),
         KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
+        KeyCmpValue::Hole => "!".to_string(),
     }
 }
 

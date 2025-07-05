@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue};
 
@@ -29,15 +28,14 @@ field2 = .$types.Test
     if let Value::Map(map) = doc1 {
         println!("  Top-level keys: {:?}", map.0.keys().collect::<Vec<_>>());
         
-        if let Some(Value::Map(section2_map)) = map.0.get(&KeyCmpValue::String("section2".to_string())) {
-            if let Some(field2_val) = section2_map.0.get(&KeyCmpValue::String("field2".to_string())) {
+        if let Some(Value::Map(section2_map)) = map.0.get(&KeyCmpValue::String("section2".to_string()))
+            && let Some(field2_val) = section2_map.0.get(&KeyCmpValue::String("field2".to_string())) {
                 println!("  section2.field2 type: {:?}", match field2_val {
                     Value::Path(_) => "Path",
                     Value::Map(_) => "Map",
                     _ => "Other",
                 });
             }
-        }
     }
     
     // Test 2: Root-level bindings after sections
@@ -73,11 +71,10 @@ root_field = .$types.Test
                     _ => "Other",
                 });
             }
-        } else if let Some(Value::Map(section1_map)) = map.0.get(&KeyCmpValue::String("section1".to_string())) {
-            if section1_map.0.contains_key(&KeyCmpValue::String("root_field".to_string())) {
+        } else if let Some(Value::Map(section1_map)) = map.0.get(&KeyCmpValue::String("section1".to_string()))
+            && section1_map.0.contains_key(&KeyCmpValue::String("root_field".to_string())) {
                 println!("  root_field is INSIDE section1");
             }
-        }
     }
 }
 

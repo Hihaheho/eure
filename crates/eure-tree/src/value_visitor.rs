@@ -164,6 +164,7 @@ fn convert_key_cmp_value_to_value(v: &KeyCmpValue) -> Value {
             ))
         }
         KeyCmpValue::Unit => Value::Unit,
+        KeyCmpValue::Hole => Value::Hole,
     }
 }
 
@@ -310,6 +311,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                             .collect(),
                     )),
                     KeyCmpValue::Unit => Value::Unit,
+                    KeyCmpValue::Hole => Value::Hole,
                 },
                 PathSegment::Array { .. } => {
                     // Nested array syntax not expected here
@@ -508,9 +510,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             ValueView::Hole(_hole_handle) => {
                 // Hole represents a placeholder value "!" in EURE
                 // It indicates a value that needs to be filled in later
-                // Similar to undefined/null in other languages
-                // We represent it as Unit (the empty value type)
-                Value::Unit
+                // Similar to todo!() in Rust - can represent any type
+                Value::Hole
             }
             ValueView::Path(path_handle) => {
                 let path_view = path_handle.get_view(tree)?;

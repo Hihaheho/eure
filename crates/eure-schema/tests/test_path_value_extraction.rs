@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue};
 
@@ -22,11 +21,10 @@ test = .$types.User
     };
     
     println!("Test 1 - No sections:");
-    if let Value::Map(map) = doc1 {
-        if let Some(val) = map.0.get(&KeyCmpValue::String("test".to_string())) {
-            println!("  test value: {:?}", val);
+    if let Value::Map(map) = doc1
+        && let Some(val) = map.0.get(&KeyCmpValue::String("test".to_string())) {
+            println!("  test value: {val:?}");
         }
-    }
     
     // Test 2: Path value with unrelated section
     let input2 = r#"
@@ -49,11 +47,10 @@ test = .$types.User
     };
     
     println!("\nTest 2 - With unrelated section:");
-    if let Value::Map(map) = doc2 {
-        if let Some(val) = map.0.get(&KeyCmpValue::String("test".to_string())) {
-            println!("  test value: {:?}", val);
+    if let Value::Map(map) = doc2
+        && let Some(val) = map.0.get(&KeyCmpValue::String("test".to_string())) {
+            println!("  test value: {val:?}");
         }
-    }
     
     // Test 3: Path value with $types section
     let input3 = r#"
@@ -79,7 +76,7 @@ test = .$types.User
     println!("\nTest 3 - With $types section:");
     if let Value::Map(map) = doc3 {
         if let Some(val) = map.0.get(&KeyCmpValue::String("test".to_string())) {
-            println!("  test value: {:?}", val);
+            println!("  test value: {val:?}");
         }
         
         // Also check the $types structure
@@ -123,14 +120,13 @@ outer = .path.value
         }
         
         // Check inner binding
-        if let Some(Value::Map(section_map)) = map.0.get(&KeyCmpValue::String("section1".to_string())) {
-            if let Some(val) = section_map.0.get(&KeyCmpValue::String("inner".to_string())) {
+        if let Some(Value::Map(section_map)) = map.0.get(&KeyCmpValue::String("section1".to_string()))
+            && let Some(val) = section_map.0.get(&KeyCmpValue::String("inner".to_string())) {
                 println!("  inner value type: {:?}", match val {
                     Value::Path(_) => "Path",
                     Value::Map(_) => "Map", 
                     _ => "Other",
                 });
             }
-        }
     }
 }

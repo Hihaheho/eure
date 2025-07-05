@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue};
 
@@ -31,19 +30,17 @@ users.$array = .$types.User
         panic!("Invalid document structure");
     };
     
-    println!("Full document: {:#?}", doc_value);
+    println!("Full document: {doc_value:#?}");
     
     // Check if users.$array has the correct Path value
-    if let Value::Map(map) = doc_value {
-        if let Some(Value::Map(users_map)) = map.0.get(&KeyCmpValue::String("users".to_string())) {
-            if let Some(array_value) = users_map.0.get(&KeyCmpValue::String("$array".to_string())) {
-                println!("\nusers.$array value: {:?}", array_value);
+    if let Value::Map(map) = doc_value
+        && let Some(Value::Map(users_map)) = map.0.get(&KeyCmpValue::String("users".to_string()))
+            && let Some(array_value) = users_map.0.get(&KeyCmpValue::String("$array".to_string())) {
+                println!("\nusers.$array value: {array_value:?}");
                 match array_value {
                     Value::Path(_) => println!("SUCCESS: $array has Path value"),
                     Value::Map(_) => println!("FAIL: $array has Map value instead of Path"),
                     _ => println!("FAIL: $array has unexpected value type"),
                 }
             }
-        }
-    }
 }
