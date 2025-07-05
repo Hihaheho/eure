@@ -1,4 +1,6 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, TypedString, Value, Variant};
+use eure_value::value::{
+    Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant,
+};
 
 /// Format a Value as EURE syntax
 pub fn format_eure(value: &Value) -> String {
@@ -17,10 +19,10 @@ pub fn format_eure(value: &Value) -> String {
         }
         Value::F64(f) => f.to_string(),
         Value::String(s) => format_string(s),
-        Value::TypedString(TypedString { type_name, value }) => {
-            format!("{}{}", type_name, format_string(value))
-        }
         Value::Code(Code { language, content }) => {
+            format!("{language}`{content}`")
+        }
+        Value::CodeBlock(Code { language, content }) => {
             if language.is_empty() {
                 format!("`{content}`")
             } else {
@@ -55,7 +57,8 @@ pub fn format_eure(value: &Value) -> String {
         Value::Unit => "()".to_string(),
         Value::Path(Path(segments)) => {
             // Format path as dot-separated string
-            let path_str = segments.iter()
+            let path_str = segments
+                .iter()
                 .map(|seg| match seg {
                     PathSegment::Ident(id) => id.as_ref().to_string(),
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),

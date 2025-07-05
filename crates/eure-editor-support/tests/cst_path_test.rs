@@ -17,7 +17,7 @@ fn test_nested_path_extraction() {
     let mut extractor = CstPathExtractor::new(input.to_string(), 7); // Position after 'c'
     let path = extractor.extract_path(get_cst_ref(&parse_result));
     
-    eprintln!("Extracted path: {:?}", path);
+    eprintln!("Extracted path: {path:?}");
     assert_eq!(path, vec!["a", "b", "c"], "Should extract full nested path");
 }
 

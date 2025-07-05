@@ -14,8 +14,8 @@ pub enum Value {
     F32(f32),
     F64(f64),
     String(String),
-    TypedString(TypedString),
     Code(Code),
+    CodeBlock(Code),
     Array(Array),
     Tuple(Tuple<Value>),
     Map(Map),
@@ -58,10 +58,7 @@ pub enum PathSegment {
     /// Tuple element index (0-255)
     TupleIndex(u8),
     /// Array element access
-    Array {
-        key: Value,
-        index: Option<Value>,
-    },
+    Array { key: Value, index: Option<Value> },
 }
 
 // A simplified path representation that can be used as a HashMap key
@@ -74,12 +71,6 @@ pub enum PathKeySegment {
     Extension(String),
     TupleIndex(u8),
     Array { key: String, index: Option<usize> },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TypedString {
-    pub type_name: String,
-    pub value: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]

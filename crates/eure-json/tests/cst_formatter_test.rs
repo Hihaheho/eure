@@ -1,6 +1,6 @@
 use ahash::AHashMap;
 use eure_json::format_eure;
-use eure_value::value::{Array, Code, KeyCmpValue, Map, TypedString, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Value, Variant};
 
 #[test]
 fn test_cst_formatter_comprehensive() {
@@ -54,7 +54,7 @@ fn test_cst_formatter_comprehensive() {
     assert_eq!(result.trim(), "value = {}");
 
     // Test code block
-    let code = Value::Code(Code {
+    let code = Value::CodeBlock(Code {
         language: "rust".to_string(),
         content: "fn main() {\n    println!(\"Hello\");\n}".to_string(),
     });
@@ -62,13 +62,13 @@ fn test_cst_formatter_comprehensive() {
     assert!(result.contains("```rust"));
     assert!(result.contains("fn main()"));
 
-    // Test typed string
-    let typed_str = Value::TypedString(TypedString {
-        type_name: "Email".to_string(),
-        value: "test@example.com".to_string(),
+    // Test inline code
+    let inline_code = Value::Code(Code {
+        language: "Email".to_string(),
+        content: "test@example.com".to_string(),
     });
-    let result = format_eure(&typed_str);
-    assert_eq!(result.trim(), r#"value = Email"test@example.com""#);
+    let result = format_eure(&inline_code);
+    assert_eq!(result.trim(), r#"value = Email`test@example.com`"#);
 
     // Test variant
     let variant = Value::Variant(Variant {

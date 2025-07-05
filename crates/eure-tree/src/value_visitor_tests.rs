@@ -119,7 +119,7 @@ mod visitor_tests {
     use crate::value_visitor::{ValueVisitor, Values};
     use crate::visitor::CstVisitor;
     use ahash::AHashMap;
-    use eure_value::value::{Array, Code, KeyCmpValue, Map, PathSegment, TypedString, Value};
+    use eure_value::value::{Array, Code, KeyCmpValue, Map, PathSegment, Value};
     use std::collections::HashMap;
 
     // Mock tree implementation for testing
@@ -350,11 +350,11 @@ mod visitor_tests {
             assert_eq!(content, "inline code");
 
             // Test that Value::Code is constructed correctly
-            let code_val = Value::Code(Code {
+            let code_val = Value::CodeBlock(Code {
                 language: String::new(),
                 content: "inline code".to_string(),
             });
-            assert!(matches!(code_val, Value::Code(c) if c.content == "inline code"));
+            assert!(matches!(code_val, Value::CodeBlock(c) if c.content == "inline code"));
         }
 
         // Test code block parsing logic
@@ -369,11 +369,11 @@ mod visitor_tests {
             assert_eq!(content, "fn main() {}\n");
 
             // Test that Value::Code is constructed correctly
-            let code_val = Value::Code(Code {
+            let code_val = Value::CodeBlock(Code {
                 language: "rust".to_string(),
                 content: "fn main() {}\n".to_string(),
             });
-            assert!(matches!(code_val, Value::Code(c) if c.language == "rust"));
+            assert!(matches!(code_val, Value::CodeBlock(c) if c.language == "rust"));
         }
 
         // Test named code parsing logic
@@ -386,12 +386,12 @@ mod visitor_tests {
             assert_eq!(type_name, "url");
             assert_eq!(value, "https://example.com");
 
-            // Test that Value::TypedString is constructed correctly
-            let typed_str = Value::TypedString(TypedString {
-                type_name: "url".to_string(),
-                value: "https://example.com".to_string(),
+            // Test that Value::Code is constructed correctly for named code
+            let typed_str = Value::Code(Code {
+                language: "url".to_string(),
+                content: "https://example.com".to_string(),
             });
-            assert!(matches!(typed_str, Value::TypedString(ts) if ts.type_name == "url"));
+            assert!(matches!(typed_str, Value::Code(c) if c.language == "url"));
         }
     }
 
@@ -420,18 +420,18 @@ mod visitor_tests {
         assert!(matches!(str_val, Value::String(s) if s == "hello"));
 
         // Code
-        let code_val = Value::Code(Code {
+        let code_val = Value::CodeBlock(Code {
             language: "rust".to_string(),
             content: "fn main() {}".to_string(),
         });
-        assert!(matches!(code_val, Value::Code(c) if c.language == "rust"));
+        assert!(matches!(code_val, Value::CodeBlock(c) if c.language == "rust"));
 
-        // TypedString
-        let typed_str = Value::TypedString(TypedString {
-            type_name: "url".to_string(),
-            value: "https://example.com".to_string(),
+        // Code (named code)
+        let named_code = Value::Code(Code {
+            language: "url".to_string(),
+            content: "https://example.com".to_string(),
         });
-        assert!(matches!(typed_str, Value::TypedString(ts) if ts.type_name == "url"));
+        assert!(matches!(named_code, Value::Code(c) if c.language == "url"));
 
         // Unit (for holes)
         let unit_val = Value::Unit;

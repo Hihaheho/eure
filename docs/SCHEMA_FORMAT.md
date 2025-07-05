@@ -39,7 +39,7 @@ Define field types using the `$type` extension:
 name.$type = .string
 
 # Nested object field
-person.email.$type = .typed-string.email
+person.email.$type = .code.email
 ```
 
 ### Type Definitions Section
@@ -89,15 +89,15 @@ $type = .$types.Address
 Typed strings provide semantic meaning:
 
 ```eure
-email.$type = .typed-string.email
-url.$type = .typed-string.url
-uuid.$type = .typed-string.uuid
-date.$type = .typed-string.date
-time.$type = .typed-string.time
-datetime.$type = .typed-string.datetime
-duration.$type = .typed-string.duration
-semver.$type = .typed-string.semver
-regex.$type = .typed-string.regex
+email.$type = .code.email
+url.$type = .code.url
+uuid.$type = .code.uuid
+date.$type = .code.date
+time.$type = .code.time
+datetime.$type = .code.datetime
+duration.$type = .code.duration
+semver.$type = .code.semver
+regex.$type = .code.regex
 ```
 
 ### Code Types
@@ -171,7 +171,7 @@ Meta-extensions use the `$$` prefix and define schema metadata:
 ```eure
 @ $types.User
 name = .string                  # Required by default
-email = .typed-string.email
+email = .code.email
 email.$$optional = true         # Make field optional
 ```
 
@@ -325,7 +325,7 @@ $$variant-repr = { tag = "event_type" }
 @ $$variants.user_created
 username = .string
 username.$length = [3, 20]
-email = .typed-string.email
+email = .code.email
 timestamp = .number
 
 @ $$variants.user_deleted

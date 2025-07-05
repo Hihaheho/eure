@@ -242,19 +242,6 @@ mod tests {
         assert!(schema.cascade_type.is_none());
     }
 
-    #[test]
-    fn test_type_from_path() {
-        assert_eq!(Type::from_path(".string"), Some(Type::String));
-        assert_eq!(Type::from_path(".number"), Some(Type::Number));
-        assert_eq!(Type::from_path(".boolean"), Some(Type::Boolean));
-        assert_eq!(Type::from_path(".null"), Some(Type::Null));
-        assert_eq!(Type::from_path(".any"), Some(Type::Any));
-        assert_eq!(Type::from_path(".path"), Some(Type::Path));
-        assert_eq!(Type::from_path(".typed-string.email"), Some(Type::TypedString(TypedStringKind::Email)));
-        assert_eq!(Type::from_path(".code.javascript"), Some(Type::Code("javascript".to_string())));
-        assert_eq!(Type::from_path(".$types.UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));
-        assert_eq!(Type::from_path(".UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));  // Uppercase = type ref
-    }
 
     #[test]
     fn test_rename_rules() {

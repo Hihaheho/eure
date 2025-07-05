@@ -1,12 +1,15 @@
 use ahash::AHashMap;
 use eure_value::{
     identifier::Identifier, value::Array, value::Code, value::KeyCmpValue, value::Map,
-    value::Path, value::PathSegment, value::Tuple, value::TypedString, value::Value,
+    value::Path, value::PathSegment, value::Tuple, value::Value,
 };
 use std::str::FromStr;
 use thiserror::Error;
 
-use crate::{prelude::*, tree::{CstFacade, InputSpan}};
+use crate::{
+    prelude::*,
+    tree::{CstFacade, InputSpan},
+};
 
 pub struct Values {
     ident_handles: AHashMap<IdentHandle, Identifier>,
@@ -14,7 +17,7 @@ pub struct Values {
     keys_handles: AHashMap<KeysHandle, Vec<KeyHandle>>,
     value_handles: AHashMap<ValueHandle, Value>,
     eure_handles: AHashMap<EureHandle, Value>,
-    
+
     // Span tracking for better error reporting
     value_spans: AHashMap<ValueHandle, InputSpan>,
     key_spans: AHashMap<KeyHandle, InputSpan>,
@@ -56,20 +59,29 @@ impl Values {
     pub fn get_eure(&self, handle: &EureHandle) -> Option<&Value> {
         self.eure_handles.get(handle)
     }
-    
+
     // New span-aware getters
-    pub fn get_value_with_span(&self, handle: &ValueHandle) -> Option<(&Value, Option<&InputSpan>)> {
-        self.value_handles.get(handle)
+    pub fn get_value_with_span(
+        &self,
+        handle: &ValueHandle,
+    ) -> Option<(&Value, Option<&InputSpan>)> {
+        self.value_handles
+            .get(handle)
             .map(|v| (v, self.value_spans.get(handle)))
     }
-    
-    pub fn get_key_with_span(&self, handle: &KeyHandle) -> Option<(&PathSegment, Option<&InputSpan>)> {
-        self.key_handles.get(handle)
+
+    pub fn get_key_with_span(
+        &self,
+        handle: &KeyHandle,
+    ) -> Option<(&PathSegment, Option<&InputSpan>)> {
+        self.key_handles
+            .get(handle)
             .map(|k| (k, self.key_spans.get(handle)))
     }
-    
+
     pub fn get_eure_with_span(&self, handle: &EureHandle) -> Option<(&Value, Option<&InputSpan>)> {
-        self.eure_handles.get(handle)
+        self.eure_handles
+            .get(handle)
             .map(|v| (v, self.eure_spans.get(handle)))
     }
 
@@ -92,17 +104,17 @@ impl Values {
     pub(crate) fn test_keys_handles(&self) -> &AHashMap<KeysHandle, Vec<KeyHandle>> {
         &self.keys_handles
     }
-    
+
     #[cfg(test)]
     pub(crate) fn test_value_spans(&self) -> &AHashMap<ValueHandle, InputSpan> {
         &self.value_spans
     }
-    
+
     #[cfg(test)]
     pub(crate) fn test_key_spans(&self) -> &AHashMap<KeyHandle, InputSpan> {
         &self.key_spans
     }
-    
+
     #[cfg(test)]
     pub(crate) fn test_eure_spans(&self) -> &AHashMap<EureHandle, InputSpan> {
         &self.eure_spans
@@ -153,14 +165,16 @@ fn convert_key_cmp_value_to_value(v: &KeyCmpValue) -> Value {
         KeyCmpValue::I64(i) => Value::I64(*i),
         KeyCmpValue::U64(u) => Value::U64(*u),
         KeyCmpValue::String(s) => Value::String(s.clone()),
-        KeyCmpValue::Extension(s) => Value::Path(Path(vec![PathSegment::Extension(Identifier::from_str(s).unwrap())])),
-        KeyCmpValue::MetaExtension(s) => Value::Path(Path(vec![PathSegment::MetaExt(Identifier::from_str(s).unwrap())])),
+        KeyCmpValue::Extension(s) => Value::Path(Path(vec![PathSegment::Extension(
+            Identifier::from_str(s).unwrap(),
+        )])),
+        KeyCmpValue::MetaExtension(s) => Value::Path(Path(vec![PathSegment::MetaExt(
+            Identifier::from_str(s).unwrap(),
+        )])),
         KeyCmpValue::Tuple(t) => {
             // Preserve tuple type - EURE has first-class tuple support
             Value::Tuple(Tuple(
-                t.0.iter()
-                    .map(convert_key_cmp_value_to_value)
-                    .collect(),
+                t.0.iter().map(convert_key_cmp_value_to_value).collect(),
             ))
         }
         KeyCmpValue::Unit => Value::Unit,
@@ -179,8 +193,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         self.current_keys.clear();
         self.visit_keys_super(handle, view, tree)?;
-        
-        
+
         self.values
             .keys_handles
             .insert(handle, std::mem::take(&mut self.current_keys));
@@ -255,15 +268,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     }
                 }
             }
-            KeyBaseView::Null(_) => {
-                PathSegment::Ident(Identifier::from_str("null").unwrap())
-            }
-            KeyBaseView::True(_) => {
-                PathSegment::Ident(Identifier::from_str("true").unwrap())
-            }
-            KeyBaseView::False(_) => {
-                PathSegment::Ident(Identifier::from_str("false").unwrap())
-            }
+            KeyBaseView::Null(_) => PathSegment::Ident(Identifier::from_str("null").unwrap()),
+            KeyBaseView::True(_) => PathSegment::Ident(Identifier::from_str("true").unwrap()),
+            KeyBaseView::False(_) => PathSegment::Ident(Identifier::from_str("false").unwrap()),
         };
 
         // Handle array indexing if present
@@ -303,12 +310,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     KeyCmpValue::I64(i) => Value::I64(*i),
                     KeyCmpValue::U64(u) => Value::U64(*u),
                     KeyCmpValue::String(s) => Value::String(s.clone()),
-                    KeyCmpValue::Extension(s) => Value::Path(Path(vec![PathSegment::Extension(Identifier::from_str(s).unwrap())])),
-                    KeyCmpValue::MetaExtension(s) => Value::Path(Path(vec![PathSegment::MetaExt(Identifier::from_str(s).unwrap())])),
+                    KeyCmpValue::Extension(s) => Value::Path(Path(vec![PathSegment::Extension(
+                        Identifier::from_str(s).unwrap(),
+                    )])),
+                    KeyCmpValue::MetaExtension(s) => Value::Path(Path(vec![PathSegment::MetaExt(
+                        Identifier::from_str(s).unwrap(),
+                    )])),
                     KeyCmpValue::Tuple(t) => Value::Tuple(Tuple(
-                        t.0.iter()
-                            .map(convert_key_cmp_value_to_value)
-                            .collect(),
+                        t.0.iter().map(convert_key_cmp_value_to_value).collect(),
                     )),
                     KeyCmpValue::Unit => Value::Unit,
                     KeyCmpValue::Hole => Value::Hole,
@@ -330,20 +339,26 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         // Store the PathSegment
         self.values.key_handles.insert(handle, final_path_segment);
-        
+
         // Store the span if available
         if let Some(node_data) = tree.node_data(handle.node_id()) {
             match node_data {
-                CstNode::Terminal { data: TerminalData::Input(span), .. } => {
+                CstNode::Terminal {
+                    data: TerminalData::Input(span),
+                    ..
+                } => {
                     self.values.key_spans.insert(handle, span);
                 }
-                CstNode::NonTerminal { data: NonTerminalData::Input(span), .. } => {
+                CstNode::NonTerminal {
+                    data: NonTerminalData::Input(span),
+                    ..
+                } => {
                     self.values.key_spans.insert(handle, span);
                 }
                 _ => {}
             }
         }
-        
+
         self.current_keys.push(handle);
 
         Ok(())
@@ -470,7 +485,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
                 // Remove backticks and create Code with empty language
                 let content = text[1..text.len() - 1].to_string();
-                Value::Code(Code {
+                Value::CodeBlock(Code {
                     language: String::new(),
                     content,
                 })
@@ -482,17 +497,29 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let text = tree.get_str(data, self.input).unwrap();
 
                 // Parse code block: ```lang\ncontent\n```
-                let without_fences = &text[3..text.len() - 3];
-                let newline_pos = without_fences.find('\n').unwrap_or(0);
+                // Note: Due to parser limitations, the terminal might capture more than one code block
+                // We need to find the actual end of this code block
 
-                let language = without_fences[..newline_pos].to_string();
-                let content = if newline_pos < without_fences.len() {
-                    without_fences[newline_pos + 1..].to_string()
+                // Skip the opening ```
+                let after_opening = &text[3..];
+
+                // Find the matching closing ```
+                // We look for \n``` to avoid matching ``` within code
+                let closing_pos = after_opening.find("\n```").unwrap_or(after_opening.len());
+                let code_content = &after_opening[..closing_pos];
+
+                // Find the first newline to separate language from content
+                let newline_pos = code_content.find('\n').unwrap_or(code_content.len());
+
+                let language = code_content[..newline_pos].trim().to_string();
+                let content = if newline_pos < code_content.len() {
+                    // Skip the newline after language
+                    code_content[newline_pos + 1..].to_string()
                 } else {
                     String::new()
                 };
 
-                Value::Code(Code { language, content })
+                Value::CodeBlock(Code { language, content })
             }
             ValueView::NamedCode(named_code_handle) => {
                 // Get the named code view to access the terminal
@@ -502,10 +529,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
                 // Parse named code: type`content`
                 let backtick_pos = text.find('`').unwrap();
-                let type_name = text[..backtick_pos].to_string();
-                let value = text[backtick_pos + 1..text.len() - 1].to_string();
+                let language = text[..backtick_pos].to_string();
+                let content = text[backtick_pos + 1..text.len() - 1].to_string();
 
-                Value::TypedString(TypedString { type_name, value })
+                // Named code always creates Value::Code
+                Value::Code(Code {
+                    language,
+                    content,
+                })
             }
             ValueView::Hole(_hole_handle) => {
                 // Hole represents a placeholder value "!" in EURE
@@ -515,94 +546,125 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
             ValueView::Path(path_handle) => {
                 let path_view = path_handle.get_view(tree)?;
-                
+
                 // A path starts with a dot followed by keys
                 // Extract the keys to build path segments
                 let mut segments = Vec::new();
-                
+
                 if let Ok(keys_view) = path_view.keys.get_view(tree) {
                     // First key
                     if let Ok(key_view) = keys_view.key.get_view(tree)
-                        && let Ok(key_base_view) = key_view.key_base.get_view(tree) {
-                            match key_base_view {
-                                KeyBaseView::Ident(ident_handle) => {
-                                    if let Ok(ident_view) = ident_handle.get_view(tree)
-                                        && let Ok(data) = ident_view.ident.get_data(tree)
-                                            && let Some(s) = tree.get_str(data, self.input) {
-                                                segments.push(PathSegment::Ident(Identifier::from_str(s).unwrap()));
-                                            }
+                        && let Ok(key_base_view) = key_view.key_base.get_view(tree)
+                    {
+                        match key_base_view {
+                            KeyBaseView::Ident(ident_handle) => {
+                                if let Ok(ident_view) = ident_handle.get_view(tree)
+                                    && let Ok(data) = ident_view.ident.get_data(tree)
+                                    && let Some(s) = tree.get_str(data, self.input)
+                                {
+                                    segments
+                                        .push(PathSegment::Ident(Identifier::from_str(s).unwrap()));
                                 }
-                                KeyBaseView::ExtensionNameSpace(ext_handle) => {
-                                    if let Ok(ext_view) = ext_handle.get_view(tree)
-                                        && let Ok(ident_view) = ext_view.ident.get_view(tree)
-                                            && let Ok(data) = ident_view.ident.get_data(tree)
-                                                && let Some(s) = tree.get_str(data, self.input) {
-                                                    segments.push(PathSegment::Extension(Identifier::from_str(s).unwrap()));
-                                                }
-                                }
-                                KeyBaseView::Null(_) => {
-                                    segments.push(PathSegment::Ident(Identifier::from_str("null").unwrap()));
-                                }
-                                KeyBaseView::True(_) => {
-                                    segments.push(PathSegment::Ident(Identifier::from_str("true").unwrap()));
-                                }
-                                KeyBaseView::False(_) => {
-                                    segments.push(PathSegment::Ident(Identifier::from_str("false").unwrap()));
-                                }
-                                KeyBaseView::MetaExtKey(meta_handle) => {
-                                    if let Ok(meta_view) = meta_handle.get_view(tree)
-                                        && let Ok(ident_view) = meta_view.ident.get_view(tree)
-                                            && let Ok(data) = ident_view.ident.get_data(tree)
-                                                && let Some(s) = tree.get_str(data, self.input) {
-                                                    segments.push(PathSegment::MetaExt(Identifier::from_str(s).unwrap()));
-                                                }
-                                }
-                                _ => {}
                             }
+                            KeyBaseView::ExtensionNameSpace(ext_handle) => {
+                                if let Ok(ext_view) = ext_handle.get_view(tree)
+                                    && let Ok(ident_view) = ext_view.ident.get_view(tree)
+                                    && let Ok(data) = ident_view.ident.get_data(tree)
+                                    && let Some(s) = tree.get_str(data, self.input)
+                                {
+                                    segments.push(PathSegment::Extension(
+                                        Identifier::from_str(s).unwrap(),
+                                    ));
+                                }
+                            }
+                            KeyBaseView::Null(_) => {
+                                segments.push(PathSegment::Ident(
+                                    Identifier::from_str("null").unwrap(),
+                                ));
+                            }
+                            KeyBaseView::True(_) => {
+                                segments.push(PathSegment::Ident(
+                                    Identifier::from_str("true").unwrap(),
+                                ));
+                            }
+                            KeyBaseView::False(_) => {
+                                segments.push(PathSegment::Ident(
+                                    Identifier::from_str("false").unwrap(),
+                                ));
+                            }
+                            KeyBaseView::MetaExtKey(meta_handle) => {
+                                if let Ok(meta_view) = meta_handle.get_view(tree)
+                                    && let Ok(ident_view) = meta_view.ident.get_view(tree)
+                                    && let Ok(data) = ident_view.ident.get_data(tree)
+                                    && let Some(s) = tree.get_str(data, self.input)
+                                {
+                                    segments.push(PathSegment::MetaExt(
+                                        Identifier::from_str(s).unwrap(),
+                                    ));
+                                }
+                            }
+                            _ => {}
                         }
-                    
+                    }
+
                     // Additional keys
                     if let Ok(Some(mut keys_list)) = keys_view.keys_list.get_view(tree) {
                         loop {
                             if let Ok(key_view) = keys_list.key.get_view(tree)
-                                && let Ok(key_base_view) = key_view.key_base.get_view(tree) {
-                                    match key_base_view {
-                                        KeyBaseView::Ident(ident_handle) => {
-                                            if let Ok(ident_view) = ident_handle.get_view(tree)
-                                                && let Ok(data) = ident_view.ident.get_data(tree)
-                                                    && let Some(s) = tree.get_str(data, self.input) {
-                                                        segments.push(PathSegment::Ident(Identifier::from_str(s).unwrap()));
-                                                    }
+                                && let Ok(key_base_view) = key_view.key_base.get_view(tree)
+                            {
+                                match key_base_view {
+                                    KeyBaseView::Ident(ident_handle) => {
+                                        if let Ok(ident_view) = ident_handle.get_view(tree)
+                                            && let Ok(data) = ident_view.ident.get_data(tree)
+                                            && let Some(s) = tree.get_str(data, self.input)
+                                        {
+                                            segments.push(PathSegment::Ident(
+                                                Identifier::from_str(s).unwrap(),
+                                            ));
                                         }
-                                        KeyBaseView::ExtensionNameSpace(ext_handle) => {
-                                            if let Ok(ext_view) = ext_handle.get_view(tree)
-                                                && let Ok(ident_view) = ext_view.ident.get_view(tree)
-                                                    && let Ok(data) = ident_view.ident.get_data(tree)
-                                                        && let Some(s) = tree.get_str(data, self.input) {
-                                                            segments.push(PathSegment::Extension(Identifier::from_str(s).unwrap()));
-                                                        }
-                                        }
-                                        KeyBaseView::Null(_) => {
-                                            segments.push(PathSegment::Ident(Identifier::from_str("null").unwrap()));
-                                        }
-                                        KeyBaseView::True(_) => {
-                                            segments.push(PathSegment::Ident(Identifier::from_str("true").unwrap()));
-                                        }
-                                        KeyBaseView::False(_) => {
-                                            segments.push(PathSegment::Ident(Identifier::from_str("false").unwrap()));
-                                        }
-                                        KeyBaseView::MetaExtKey(meta_handle) => {
-                                            if let Ok(meta_view) = meta_handle.get_view(tree)
-                                                && let Ok(ident_view) = meta_view.ident.get_view(tree)
-                                                    && let Ok(data) = ident_view.ident.get_data(tree)
-                                                        && let Some(s) = tree.get_str(data, self.input) {
-                                                            segments.push(PathSegment::MetaExt(Identifier::from_str(s).unwrap()));
-                                                        }
-                                        }
-                                        _ => {}
                                     }
+                                    KeyBaseView::ExtensionNameSpace(ext_handle) => {
+                                        if let Ok(ext_view) = ext_handle.get_view(tree)
+                                            && let Ok(ident_view) = ext_view.ident.get_view(tree)
+                                            && let Ok(data) = ident_view.ident.get_data(tree)
+                                            && let Some(s) = tree.get_str(data, self.input)
+                                        {
+                                            segments.push(PathSegment::Extension(
+                                                Identifier::from_str(s).unwrap(),
+                                            ));
+                                        }
+                                    }
+                                    KeyBaseView::Null(_) => {
+                                        segments.push(PathSegment::Ident(
+                                            Identifier::from_str("null").unwrap(),
+                                        ));
+                                    }
+                                    KeyBaseView::True(_) => {
+                                        segments.push(PathSegment::Ident(
+                                            Identifier::from_str("true").unwrap(),
+                                        ));
+                                    }
+                                    KeyBaseView::False(_) => {
+                                        segments.push(PathSegment::Ident(
+                                            Identifier::from_str("false").unwrap(),
+                                        ));
+                                    }
+                                    KeyBaseView::MetaExtKey(meta_handle) => {
+                                        if let Ok(meta_view) = meta_handle.get_view(tree)
+                                            && let Ok(ident_view) = meta_view.ident.get_view(tree)
+                                            && let Ok(data) = ident_view.ident.get_data(tree)
+                                            && let Some(s) = tree.get_str(data, self.input)
+                                        {
+                                            segments.push(PathSegment::MetaExt(
+                                                Identifier::from_str(s).unwrap(),
+                                            ));
+                                        }
+                                    }
+                                    _ => {}
                                 }
-                            
+                            }
+
                             match keys_list.keys_list.get_view(tree) {
                                 Ok(Some(next)) => keys_list = next,
                                 _ => break,
@@ -610,54 +672,66 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         }
                     }
                 }
-                
+
                 Value::Path(Path(segments))
             }
             ValueView::Tuple(tuple_handle) => {
                 // Get the tuple view to access the elements
                 let tuple_view = tuple_handle.get_view(tree)?;
-                
+
                 // Collect all tuple elements
                 let mut elements = Vec::new();
-                
+
                 // Check if there are any elements
                 if let Ok(Some(tuple_elements_handle)) = tuple_view.tuple_opt.get_view(tree) {
                     // Get the first element
                     let tuple_elements_view = tuple_elements_handle.get_view(tree)?;
-                    
+
                     // Visit and collect the first element
                     self.visit_value_handle(tuple_elements_view.value, tree)?;
                     if let Some(value) = self.values.value_handles.get(&tuple_elements_view.value) {
                         elements.push(value.clone());
                     }
-                    
+
                     // Check for more elements
-                    if let Ok(Some(tuple_tail_handle)) = tuple_elements_view.tuple_elements_opt.get_view(tree) {
+                    if let Ok(Some(tuple_tail_handle)) =
+                        tuple_elements_view.tuple_elements_opt.get_view(tree)
+                    {
                         // Recursively collect remaining elements
-                        self.collect_tuple_elements(&mut elements, tuple_tail_handle.get_view(tree)?, tree)?;
+                        self.collect_tuple_elements(
+                            &mut elements,
+                            tuple_tail_handle.get_view(tree)?,
+                            tree,
+                        )?;
                     }
                 }
-                
+
                 Value::Tuple(Tuple(elements))
             }
         };
 
         // Store the constructed value with its handle
         self.values.value_handles.insert(handle, value);
-        
+
         // Store the span if available
         if let Some(node_data) = tree.node_data(handle.node_id()) {
             match node_data {
-                CstNode::Terminal { data: TerminalData::Input(span), .. } => {
+                CstNode::Terminal {
+                    data: TerminalData::Input(span),
+                    ..
+                } => {
                     self.values.value_spans.insert(handle, span);
                 }
-                CstNode::NonTerminal { data: NonTerminalData::Input(span), .. } => {
+                CstNode::NonTerminal {
+                    data: NonTerminalData::Input(span),
+                    ..
+                } => {
                     self.values.value_spans.insert(handle, span);
                 }
                 _ => {}
             }
         }
-        
+
         Ok(())
     }
 
@@ -677,7 +751,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // For validation, we need just the data
         // Let's merge schema_map and document_map to create the final value
         let mut final_map = self.document_map.clone();
-        
+
         // Merge schema definitions into the final map
         for (key, schema_value) in &self.schema_map {
             match (final_map.get(key), schema_value) {
@@ -685,7 +759,10 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     // We have data in document_map and schema in schema_map
                     // Create a new map that contains both the schema and the data under _value
                     let mut combined_map = schema_map.0.clone();
-                    combined_map.insert(KeyCmpValue::String("_value".to_string()), data_value.clone());
+                    combined_map.insert(
+                        KeyCmpValue::String("_value".to_string()),
+                        data_value.clone(),
+                    );
                     final_map.insert(key.clone(), Value::Map(Map(combined_map)));
                 }
                 (None, _) => {
@@ -698,18 +775,24 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 }
             }
         }
-        
+
         // Transform variants and store the final document value
         let document_value = transform_variants(Value::Map(Map(final_map)));
         self.values.eure_handles.insert(handle, document_value);
-        
+
         // Store the span if available
         if let Some(node_data) = tree.node_data(handle.node_id()) {
             match node_data {
-                CstNode::Terminal { data: TerminalData::Input(span), .. } => {
+                CstNode::Terminal {
+                    data: TerminalData::Input(span),
+                    ..
+                } => {
                     self.values.eure_spans.insert(handle, span);
                 }
-                CstNode::NonTerminal { data: NonTerminalData::Input(span), .. } => {
+                CstNode::NonTerminal {
+                    data: NonTerminalData::Input(span),
+                    ..
+                } => {
                     self.values.eure_spans.insert(handle, span);
                 }
                 _ => {}
@@ -757,7 +840,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     if let Ok(value_binding_view) = value_binding_handle.get_view(tree) {
                         // First ensure the value is visited
                         self.visit_value_handle(value_binding_view.value, tree)?;
-                        
+
                         // Then get the value
                         self.values.get_value(&value_binding_view.value).cloned()
                     } else {
@@ -798,7 +881,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     // Pop both maps
                     let data_map = self.current_section_stack.pop();
                     let schema_map = self.current_schema_stack.pop();
-                    
+
                     // Merge schema map into data map if both exist
                     match (data_map, schema_map) {
                         (Some(mut data), Some(schema)) => {
@@ -812,7 +895,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         }
                         (Some(data), None) => Some(Value::Map(Map(data))),
                         (None, Some(schema)) => Some(Value::Map(Map(schema))),
-                        (None, None) => None
+                        (None, None) => None,
                     }
                 }
                 _ => None,
@@ -820,7 +903,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
             // Process the path and bind the value
             if let Some(value) = binding_value {
-                
                 // Check if any key in the path is an extension (but not meta-extension)
                 let has_extension = key_handles.iter().any(|handle| {
                     if let Some(path_segment) = self.values.get_path_segment(handle) {
@@ -829,7 +911,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         false
                     }
                 });
-                
+
                 if has_extension {
                     let target_map = self
                         .current_schema_stack
@@ -876,7 +958,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         // First visit the keys to populate the key handles
         self.visit_keys(view.keys, view.keys.get_view(tree)?, tree)?;
-        
+
         // Get keys from the section
         let key_handles = self.values.get_keys(&view.keys).cloned();
 
@@ -887,7 +969,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             // Create new maps for both data and schema in this section
             let mut section_map = AHashMap::new();
             let mut schema_section_map = AHashMap::new();
-            
+
             // Process section body
             if let Ok(section_body) = view.section_body.get_view(tree) {
                 match section_body {
@@ -899,7 +981,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                             // Push both maps onto stacks
                             self.current_section_stack.push(section_map);
                             self.current_schema_stack.push(schema_section_map);
-                            
+
                             // Visit the eure content (bindings and nested sections)
                             if let Ok(Some(bindings)) = eure_view.eure_bindings.get_view(tree) {
                                 self.visit_eure_bindings(eure_view.eure_bindings, bindings, tree)?;
@@ -907,7 +989,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                             if let Ok(Some(sections)) = eure_view.eure_sections.get_view(tree) {
                                 self.visit_eure_sections(eure_view.eure_sections, sections, tree)?;
                             }
-                            
+
                             // Pop both maps
                             section_map = self.current_section_stack.pop().unwrap();
                             schema_section_map = self.current_schema_stack.pop().unwrap();
@@ -918,12 +1000,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         // Push both maps onto stacks
                         self.current_section_stack.push(section_map);
                         self.current_schema_stack.push(schema_section_map);
-                        
+
                         // Visit the body list
                         if let Ok(Some(body_list)) = body_list_handle.get_view(tree) {
                             self.visit_section_body_list(body_list_handle, body_list, tree)?;
                         }
-                        
+
                         // Pop both maps
                         section_map = self.current_section_stack.pop().unwrap();
                         schema_section_map = self.current_schema_stack.pop().unwrap();
@@ -937,7 +1019,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     }
                 }
             }
-            
+
             // Check if any key in the path is an extension
             let has_extension = key_handles.iter().any(|handle| {
                 if let Some(path_segment) = self.values.get_path_segment(handle) {
@@ -946,17 +1028,30 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     false
                 }
             });
-            
+
             // Merge schema map into section map before adding
             // Need to do field-level merging for mixed content
             if !schema_section_map.is_empty() {
                 for (key, schema_value) in schema_section_map {
                     match (section_map.get(&key), &schema_value) {
-                        (Some(Value::String(_) | Value::I64(_) | Value::U64(_) | Value::F32(_) | Value::F64(_) | Value::Bool(_)), Value::Map(schema_map)) => {
+                        (
+                            Some(
+                                Value::String(_)
+                                | Value::I64(_)
+                                | Value::U64(_)
+                                | Value::F32(_)
+                                | Value::F64(_)
+                                | Value::Bool(_),
+                            ),
+                            Value::Map(schema_map),
+                        ) => {
                             // We have data in section_map and schema in schema_section_map
                             // Create a new map that contains both the schema and the data under _value
                             let mut combined_map = schema_map.0.clone();
-                            combined_map.insert(KeyCmpValue::String("_value".to_string()), section_map.get(&key).unwrap().clone());
+                            combined_map.insert(
+                                KeyCmpValue::String("_value".to_string()),
+                                section_map.get(&key).unwrap().clone(),
+                            );
                             section_map.insert(key, Value::Map(Map(combined_map)));
                         }
                         _ => {
@@ -966,20 +1061,30 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     }
                 }
             }
-            
+
             // Add the section map to the appropriate parent map
             if has_extension {
                 let target_map = self
                     .current_schema_stack
                     .last_mut()
                     .unwrap_or(&mut self.schema_map);
-                process_path_recursive(target_map, &key_handles, Value::Map(Map(section_map)), self.values);
+                process_path_recursive(
+                    target_map,
+                    &key_handles,
+                    Value::Map(Map(section_map)),
+                    self.values,
+                );
             } else {
                 let target_map = self
                     .current_section_stack
                     .last_mut()
                     .unwrap_or(&mut self.document_map);
-                process_path_recursive(target_map, &key_handles, Value::Map(Map(section_map)), self.values);
+                process_path_recursive(
+                    target_map,
+                    &key_handles,
+                    Value::Map(Map(section_map)),
+                    self.values,
+                );
             }
         }
 
@@ -996,7 +1101,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         if let Ok(binding_view) = view.binding.get_view(tree) {
             self.visit_binding(view.binding, binding_view, tree)?;
         }
-        
+
         // Continue with the rest of the section body list
         if let Ok(Some(more)) = view.section_body_list.get_view(tree) {
             self.visit_section_body_list(view.section_body_list, more, tree)?;
@@ -1098,7 +1203,9 @@ impl<'a> ValueVisitor<'a> {
             }
 
             // Check for more elements recursively
-            if let Ok(Some(next_tail_handle)) = tuple_elements_view.tuple_elements_opt.get_view(tree) {
+            if let Ok(Some(next_tail_handle)) =
+                tuple_elements_view.tuple_elements_opt.get_view(tree)
+            {
                 self.collect_tuple_elements(elements, next_tail_handle.get_view(tree)?, tree)?;
             }
         }
@@ -1204,7 +1311,7 @@ impl<'a> ValueVisitor<'a> {
             KeyBaseView::MetaExtKey(_) | KeyBaseView::ExtensionNameSpace(_) => Ok(None),
             KeyBaseView::Null(_) => Ok(Some(KeyCmpValue::String("null".to_string()))),
             KeyBaseView::True(_) => Ok(Some(KeyCmpValue::String("true".to_string()))),
-            KeyBaseView::False(_) => Ok(Some(KeyCmpValue::String("false".to_string())))
+            KeyBaseView::False(_) => Ok(Some(KeyCmpValue::String("false".to_string()))),
         }
     }
 }
@@ -1260,6 +1367,7 @@ fn transform_variants(value: Value) -> Value {
     }
 }
 
+
 fn process_path_recursive(
     map: &mut AHashMap<KeyCmpValue, Value>,
     key_handles: &[KeyHandle],
@@ -1269,7 +1377,6 @@ fn process_path_recursive(
     if key_handles.is_empty() {
         return;
     }
-    
 
     // Convert the first key handle to a key
     let first_segment = values.get_path_segment(&key_handles[0]);
@@ -1338,7 +1445,7 @@ fn process_path_recursive(
     } else {
         // Nested object path
         let nested = map.get_mut(&key);
-        
+
         match nested {
             Some(Value::Map(Map(nested_map))) => {
                 // Already a map, recurse into it
@@ -1347,16 +1454,16 @@ fn process_path_recursive(
             Some(existing_value) => {
                 // Not a map, need to convert to a map and preserve the existing value
                 let mut new_map = AHashMap::new();
-                
+
                 // Store the existing value under a special key
                 new_map.insert(
                     KeyCmpValue::String("_value".to_string()),
-                    existing_value.clone()
+                    existing_value.clone(),
                 );
-                
+
                 // Process the nested path
                 process_path_recursive(&mut new_map, &key_handles[1..], value, values);
-                
+
                 // Replace with the new map
                 map.insert(key, Value::Map(Map(new_map)));
             }

@@ -226,13 +226,12 @@ impl<T: ToEureSchema, E: ToEureSchema> ToEureSchema for Result<T, E> {
 #[cfg(feature = "chrono")]
 mod chrono_impls {
     use super::*;
-    use crate::TypedStringKind;
     use chrono::{NaiveDate, NaiveDateTime, DateTime};
     
     impl ToEureSchema for NaiveDate {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
-                type_expr: Type::TypedString(TypedStringKind::Date),
+                type_expr: Type::String, // date format
                 ..Default::default()
             }
         }
@@ -241,7 +240,7 @@ mod chrono_impls {
     impl ToEureSchema for NaiveDateTime {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
-                type_expr: Type::TypedString(TypedStringKind::DateTime),
+                type_expr: Type::String, // datetime format
                 ..Default::default()
             }
         }
@@ -250,7 +249,7 @@ mod chrono_impls {
     impl<Tz: chrono::TimeZone> ToEureSchema for DateTime<Tz> {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
-                type_expr: Type::TypedString(TypedStringKind::DateTime),
+                type_expr: Type::String, // datetime format
                 ..Default::default()
             }
         }
@@ -260,13 +259,12 @@ mod chrono_impls {
 #[cfg(feature = "uuid")]
 mod uuid_impls {
     use super::*;
-    use crate::TypedStringKind;
     use uuid::Uuid;
     
     impl ToEureSchema for Uuid {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
-                type_expr: Type::TypedString(TypedStringKind::Uuid),
+                type_expr: Type::String, // uuid format
                 ..Default::default()
             }
         }
@@ -276,13 +274,12 @@ mod uuid_impls {
 #[cfg(feature = "url")]
 mod url_impls {
     use super::*;
-    use crate::TypedStringKind;
     use url::Url;
     
     impl ToEureSchema for Url {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
-                type_expr: Type::TypedString(TypedStringKind::Url),
+                type_expr: Type::String, // url format
                 ..Default::default()
             }
         }
@@ -292,13 +289,12 @@ mod url_impls {
 #[cfg(feature = "semver")]
 mod semver_impls {
     use super::*;
-    use crate::TypedStringKind;
     use semver::Version;
     
     impl ToEureSchema for Version {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
-                type_expr: Type::TypedString(TypedStringKind::Semver),
+                type_expr: Type::String, // semver format
                 ..Default::default()
             }
         }

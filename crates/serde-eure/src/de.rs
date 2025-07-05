@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant};
 use serde::Deserialize;
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 
@@ -471,8 +471,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::F32(f) => visitor.visit_f32(*f),
             Value::F64(f) => visitor.visit_f64(*f),
             Value::String(s) => visitor.visit_string(s.clone()),
-            Value::TypedString(TypedString { value, .. }) => visitor.visit_string(value.clone()),
             Value::Code(Code { content, .. }) => visitor.visit_string(content.clone()),
+            Value::CodeBlock(Code { content, .. }) => visitor.visit_string(content.clone()),
             Value::Array(_) => self.deserialize_seq(visitor),
             Value::Tuple(_) => self.deserialize_tuple(0, visitor),
             Value::Map(_) => self.deserialize_map(visitor),
@@ -675,8 +675,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
     {
         match &self.value {
             Value::String(s) => visitor.visit_str(s),
-            Value::TypedString(TypedString { value, .. }) => visitor.visit_str(value),
             Value::Code(Code { content, .. }) => visitor.visit_str(content),
+            Value::CodeBlock(Code { content, .. }) => visitor.visit_str(content),
             _ => Err(Error::InvalidType(format!(
                 "expected string, found {:?}",
                 self.value
@@ -690,8 +690,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
     {
         match &self.value {
             Value::String(s) => visitor.visit_string(s.clone()),
-            Value::TypedString(TypedString { value, .. }) => visitor.visit_string(value.clone()),
             Value::Code(Code { content, .. }) => visitor.visit_string(content.clone()),
+            Value::CodeBlock(Code { content, .. }) => visitor.visit_string(content.clone()),
             _ => Err(Error::InvalidType(format!(
                 "expected string, found {:?}",
                 self.value

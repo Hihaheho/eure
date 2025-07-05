@@ -84,7 +84,7 @@ pub fn validate_document(
             match validate_with_tree(input, schema.clone(), tree) {
                 Ok(errors) => {
                     for error in errors {
-                        diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers));
+                        diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers, input));
                     }
                 }
                 Err(e) => {
@@ -110,7 +110,7 @@ pub fn validate_document(
     
     // Convert validation errors to diagnostics
     for error in validation_result.errors {
-        diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers));
+        diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers, input));
     }
 
     diagnostics
@@ -205,11 +205,44 @@ fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
     }
 }
 
+/// Adjust a span to exclude leading and trailing whitespace
+fn trim_span_whitespace(span: eure_tree::tree::InputSpan, input: &str) -> eure_tree::tree::InputSpan {
+    let mut start = span.start as usize;
+    let mut end = span.end as usize;
+    
+    // Safety check
+    if start >= input.len() || end > input.len() || start >= end {
+        return span;
+    }
+    
+    // Trim leading whitespace
+    let span_text = &input[start..end];
+    let leading_ws = span_text.len() - span_text.trim_start().len();
+    start += leading_ws;
+    
+    // Trim trailing whitespace  
+    let trimmed_text = &input[start..end];
+    let trailing_ws = trimmed_text.len() - trimmed_text.trim_end().len();
+    end -= trailing_ws;
+    
+    // Ensure we didn't trim everything
+    if start >= end {
+        return span;
+    }
+    
+    eure_tree::tree::InputSpan {
+        start: start as u32,
+        end: end as u32,
+    }
+}
+
 /// Convert a ValidationError to an LSP Diagnostic
-pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_numbers: &LineNumbers) -> Diagnostic {
+pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_numbers: &LineNumbers, input: &str) -> Diagnostic {
     // Convert byte offsets to line/column positions
     let (start_info, end_info) = if let Some(span) = error.span {
-        (line_numbers.get_char_info(span.start), line_numbers.get_char_info(span.end))
+        // Adjust span to exclude leading whitespace
+        let adjusted_span = trim_span_whitespace(span, input);
+        (line_numbers.get_char_info(adjusted_span.start), line_numbers.get_char_info(adjusted_span.end))
     } else {
         // Default to beginning of file if no span
         let default_info = line_numbers.get_char_info(0);
@@ -375,13 +408,13 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
                     PathSegment::Ident(id) => id.as_ref().to_string(),
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
                     PathSegment::MetaExt(id) => format!("$${}", id.as_ref()),
-                    PathSegment::Value(v) => format!("[{:?}]", v),
-                    PathSegment::TupleIndex(idx) => format!("[{}]", idx),
+                    PathSegment::Value(v) => format!("[{v:?}]"),
+                    PathSegment::TupleIndex(idx) => format!("[{idx}]"),
                     PathSegment::Array { key, index } => {
                         if let Some(idx) = index {
-                            format!("{:?}[{:?}]", key, idx)
+                            format!("{key:?}[{idx:?}]")
                         } else {
-                            format!("{:?}[]", key)
+                            format!("{key:?}[]")
                         }
                     }
                 })
@@ -470,7 +503,7 @@ mod tests {
             severity: Severity::Error,
         };
         
-        let diagnostic = validation_error_to_diagnostic(&error, "file:///test.eure", &line_numbers);
+        let diagnostic = validation_error_to_diagnostic(&error, "file:///test.eure", &line_numbers, input);
         
         assert_eq!(diagnostic.severity, Some(DiagnosticSeverity::ERROR));
         assert_eq!(diagnostic.source, Some("eure-schema".to_string()));

@@ -130,69 +130,59 @@ impl<'a> PathContextExtractor<'a> {
     
     fn extract_variant_from_section<F: CstFacade>(&self, section_view: &SectionView, tree: &F) -> Option<String> {
         // Look for $variant field in section body
-        match section_view.section_body.get_view(tree) {
-            Ok(section_body_view) => {
-                match section_body_view {
-                    SectionBodyView::SectionBinding(binding_handle) => {
-                        if let Ok(binding_view) = binding_handle.get_view(tree)
-                            && let Some((eure_value, _)) = self.values.get_eure_with_span(&binding_view.eure)
-                            && let eure_value::value::Value::Map(map) = eure_value {
-                                // Look for $variant field
-                                if let Some(eure_value::value::Value::String(variant_name)) = map.0.get(&KeyCmpValue::Extension("variant".to_string())) {
-                                    return Some(variant_name.clone());
-                                }
+        if let Ok(section_body_view) = section_view.section_body.get_view(tree) {
+            match section_body_view {
+                SectionBodyView::SectionBinding(binding_handle) => {
+                    if let Ok(binding_view) = binding_handle.get_view(tree)
+                        && let Some((eure_value, _)) = self.values.get_eure_with_span(&binding_view.eure)
+                        && let eure_value::value::Value::Map(map) = eure_value {
+                            // Look for $variant field
+                            if let Some(eure_value::value::Value::String(variant_name)) = map.0.get(&KeyCmpValue::Extension("variant".to_string())) {
+                                return Some(variant_name.clone());
                             }
-                    }
-                    SectionBodyView::SectionBodyList(list_handle) => {
-                        // Iterate through bindings to find $variant field
-                        match list_handle.get_view(tree) {
-                            Ok(Some(list_view)) => {
-                                match list_view.get_all(tree) {
-                                    Ok(bindings) => {
-                                        for binding_handle in bindings.iter() {
-                                            if let Ok(binding_view) = binding_handle.get_view(tree)
-                                                && let Some(key_handles) = self.values.get_keys(&binding_view.keys)
-                                                && key_handles.len() == 1
-                                                && let Some((segment, _)) = self.values.get_key_with_span(&key_handles[0])
-                                                && let PathSegment::Extension(ext) = segment
-                                                && ext.as_ref() == "variant" {
-                                                    // Found $variant field
-                                                    match binding_view.binding_rhs.get_view(tree) {
-                                                        Ok(BindingRhsView::ValueBinding(value_binding)) => {
-                                                            if let Ok(value_binding_view) = value_binding.get_view(tree)
-                                                                && let Some(value) = self.values.get_value(&value_binding_view.value)
-                                                                && let eure_value::value::Value::String(variant_name) = value {
-                                                                    return Some(variant_name.clone());
-                                                                } 
-                                                        }
-                                                        Ok(BindingRhsView::TextBinding(text_binding)) => {
-                                                            if let Ok(text_binding_view) = text_binding.get_view(tree) {
-                                                                // text_binding_view.text is a TextHandle
-                                                                if let Ok(text_view) = text_binding_view.text.get_view(tree) {
-                                                                    // Get the text directly from the tree
-                                                                    if let Ok(data) = text_view.text.get_data(tree)
-                                                                        && let Some(text) = tree.get_str(data, self.input) {
-                                                                            let variant_name = text.trim();
-                                                                            return Some(variant_name.to_string());
-                                                                        }
-                                                                }
+                        }
+                }
+                SectionBodyView::SectionBodyList(list_handle) => {
+                    // Iterate through bindings to find $variant field
+                    if let Ok(Some(list_view)) = list_handle.get_view(tree)
+                        && let Ok(bindings) = list_view.get_all(tree) {
+                            for binding_handle in bindings.iter() {
+                                if let Ok(binding_view) = binding_handle.get_view(tree)
+                                    && let Some(key_handles) = self.values.get_keys(&binding_view.keys)
+                                    && key_handles.len() == 1
+                                    && let Some((segment, _)) = self.values.get_key_with_span(&key_handles[0])
+                                    && let PathSegment::Extension(ext) = segment
+                                    && ext.as_ref() == "variant" {
+                                        // Found $variant field
+                                        match binding_view.binding_rhs.get_view(tree) {
+                                            Ok(BindingRhsView::ValueBinding(value_binding)) => {
+                                                if let Ok(value_binding_view) = value_binding.get_view(tree)
+                                                    && let Some(value) = self.values.get_value(&value_binding_view.value)
+                                                    && let eure_value::value::Value::String(variant_name) = value {
+                                                        return Some(variant_name.clone());
+                                                    } 
+                                            }
+                                            Ok(BindingRhsView::TextBinding(text_binding)) => {
+                                                if let Ok(text_binding_view) = text_binding.get_view(tree) {
+                                                    // text_binding_view.text is a TextHandle
+                                                    if let Ok(text_view) = text_binding_view.text.get_view(tree) {
+                                                        // Get the text directly from the tree
+                                                        if let Ok(data) = text_view.text.get_data(tree)
+                                                            && let Some(text) = tree.get_str(data, self.input) {
+                                                                let variant_name = text.trim();
+                                                                return Some(variant_name.to_string());
                                                             }
-                                                        }
-                                                        _ => {}
                                                     }
                                                 }
+                                            }
+                                            _ => {}
                                         }
                                     }
-                                    Err(_) => {}
-                                }
                             }
-                            _ => {}
                         }
-                    }
-                    _ => {}
                 }
+                _ => {}
             }
-            Err(_) => {}
         }
         None
     }
@@ -249,11 +239,10 @@ impl<'a> PathContextExtractor<'a> {
             if !trimmed.contains('=') && !trimmed.contains(':') {
                 is_in_key_position = true;
                 // Extract partial field name
-                if let Some(last_word) = trimmed.split_whitespace().last() {
-                    if !last_word.starts_with('@') {
+                if let Some(last_word) = trimmed.split_whitespace().last()
+                    && !last_word.starts_with('@') {
                         partial_field = Some(last_word.to_string());
                     }
-                }
             }
         }
         
@@ -336,8 +325,8 @@ impl<'a, F: CstFacade> CstVisitor<F> for PathContextExtractor<'a> {
         }
         
         // Get the span of this binding to check cursor position
-        if let Some(span) = self.get_span_from_node(handle.node_id(), tree) {
-            if self.is_at_cursor_position(span) {
+        if let Some(span) = self.get_span_from_node(handle.node_id(), tree)
+            && self.is_at_cursor_position(span) {
                 // Extract the line containing the binding
                 let line_start = self.input[..span.start as usize]
                     .rfind('\n')
@@ -359,7 +348,6 @@ impl<'a, F: CstFacade> CstVisitor<F> for PathContextExtractor<'a> {
                 
                 self.check_cursor_in_line(line_text, line_offset);
             }
-        }
         
         // Continue visiting children
         let _ = self.visit_binding_super(handle, view, tree);

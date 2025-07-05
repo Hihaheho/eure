@@ -18,7 +18,7 @@ fn test_deserialize_hole_value_error() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn test_deserialize_hole_in_array() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn test_deserialize_nested_hole() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }
 
 #[test]
@@ -126,5 +126,5 @@ fn test_parse_file_with_holes() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }

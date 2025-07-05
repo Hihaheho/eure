@@ -425,7 +425,7 @@ fn test_nested_path_completion() {
     
     // Should have address fields: street, city, zipcode, country
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Nested path completions: {:?}", labels);
+    eprintln!("Nested path completions: {labels:?}");
     
     // Test the completions
     assert!(labels.contains(&"street".to_string()), "Should contain 'street' field");
@@ -495,7 +495,7 @@ fn test_array_element_completion() {
     
     // Should have array element fields: id, name, description, price
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Array element completions: {:?}", labels);
+    eprintln!("Array element completions: {labels:?}");
     
     // TODO: This test currently fails because array context tracking is not implemented
     // Once implemented, uncomment these assertions:
@@ -568,7 +568,7 @@ fn test_mixed_path_completion() {
     
     // Should have server fields: host, port, protocol, enabled
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Mixed path completions: {:?}", labels);
+    eprintln!("Mixed path completions: {labels:?}");
     
     // TODO: This test currently fails because complex path context is not implemented
     // Once implemented, uncomment these assertions:
@@ -656,7 +656,7 @@ $variant: "#;
     
     // Should have variant names: set-text, set-choices, navigate
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Variant name completions: {:?}", labels);
+    eprintln!("Variant name completions: {labels:?}");
     
     // Test the variant completions
     assert!(labels.contains(&"set-text".to_string()), "Should contain 'set-text' variant");
@@ -735,7 +735,7 @@ $variant: set-text
     
     // Should have set-text variant fields: speaker, lines
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Variant field completions: {:?}", labels);
+    eprintln!("Variant field completions: {labels:?}");
     
     // TODO: This test currently fails because variant field tracking is not implemented
     // Once implemented, uncomment these assertions:
@@ -815,7 +815,7 @@ $variant: set-choices
     
     // Should have set-choices variant fields: description, choices
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Different variant field completions: {:?}", labels);
+    eprintln!("Different variant field completions: {labels:?}");
     
     // TODO: This test currently fails because variant field tracking is not implemented
     // Once implemented, uncomment these assertions:
@@ -901,7 +901,7 @@ $types.Company {
     
     // Should have type names: Person, Address, Company
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Type reference completions: {:?}", labels);
+    eprintln!("Type reference completions: {labels:?}");
     
     // TODO: This test currently fails because type reference completion is not implemented
     // Once implemented, uncomment these assertions:
@@ -965,7 +965,7 @@ environment = "#;
     
     // Should have enum values: development, staging, production
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Enum value completions: {:?}", labels);
+    eprintln!("Enum value completions: {labels:?}");
     
     // TODO: This test currently fails because enum value completion is not implemented
     // Once implemented, uncomment these assertions:
@@ -1102,7 +1102,7 @@ fn test_completion_with_cascading_type() {
     
     // Should have cascaded array element fields: name, host, port
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Cascading type completions: {:?}", labels);
+    eprintln!("Cascading type completions: {labels:?}");
     
     // TODO: This test currently fails because cascading type completion is not implemented
     // Once implemented, uncomment these assertions:
@@ -1170,7 +1170,7 @@ fn test_completion_in_block_syntax() {
     
     // Should have user fields: name, email, profile
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Block syntax completions: {:?}", labels);
+    eprintln!("Block syntax completions: {labels:?}");
     
     // TODO: This test may fail if block context is not properly tracked
     // Once working, these should pass:
@@ -1232,7 +1232,7 @@ em"#;
     
     // Should still provide completions that match the prefix "em"
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Partial syntax completions: {:?}", labels);
+    eprintln!("Partial syntax completions: {labels:?}");
     
     // TODO: Partial/prefix matching may not be implemented
     // Once implemented, uncomment:
@@ -1287,7 +1287,7 @@ $type = .number"#;
     
     // Should provide root-level completions
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Empty document completions: {:?}", labels);
+    eprintln!("Empty document completions: {labels:?}");
     
     assert!(!completions.is_empty(), "Should provide completions for empty document");
     // Specific assertions depend on implementation details
@@ -1361,7 +1361,7 @@ $types.Server {
     
     // Should have server array element fields: name, endpoints
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Nested block array completions: {:?}", labels);
+    eprintln!("Nested block array completions: {labels:?}");
     
     // TODO: Complex nested context tracking may not be implemented
     // Once implemented, uncomment:
@@ -1420,7 +1420,7 @@ fn test_completion_with_inline_objects() {
     
     // Should suggest remaining fields (age, email) but not already-used field (name)
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Inline object completions: {:?}", labels);
+    eprintln!("Inline object completions: {labels:?}");
     
     // TODO: Inline object context and used-field filtering may not be implemented
     // Once implemented, uncomment:

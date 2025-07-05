@@ -67,11 +67,10 @@ impl<'a> CompletionAnalyzer<'a> {
                         let path = path_extractor.extract_path(get_cst_ref(&self.parse_result));
                         
                         // Get schema completions for this path
-                        if let Some(schema_uri) = self.schema_manager.get_document_schema_uri(self.uri) {
-                            if let Some(schema) = self.schema_manager.get_schema(schema_uri) {
+                        if let Some(schema_uri) = self.schema_manager.get_document_schema_uri(self.uri)
+                            && let Some(schema) = self.schema_manager.get_schema(schema_uri) {
                                 return self.get_field_completions_for_path(&path, schema);
                             }
-                        }
                         
                         return vec![];
                     }
@@ -104,14 +103,13 @@ return vec![
             // Check if we're typing a partial key after @ 
             if let Some(partial) = self.get_partial_identifier_at_cursor(byte_offset) {
                 // Get root-level field completions
-                if let Some(schema_uri) = self.schema_manager.get_document_schema_uri(self.uri) {
-                    if let Some(schema) = self.schema_manager.get_schema(schema_uri) {
-                        return self.get_field_completions_for_path(&vec![], schema)
+                if let Some(schema_uri) = self.schema_manager.get_document_schema_uri(self.uri)
+                    && let Some(schema) = self.schema_manager.get_schema(schema_uri) {
+                        return self.get_field_completions_for_path(&[], schema)
                             .into_iter()
                             .filter(|c| c.label.starts_with(&partial))
                             .collect();
                     }
-                }
             }
         }
         
@@ -201,8 +199,8 @@ vec![]
         for (field_name, field_schema) in &object_schema.fields {
             let label = match field_name {
                 eure_value::value::KeyCmpValue::String(s) => s.clone(),
-                eure_value::value::KeyCmpValue::Extension(s) => format!("${}", s),
-                eure_value::value::KeyCmpValue::MetaExtension(s) => format!("$${}", s),
+                eure_value::value::KeyCmpValue::Extension(s) => format!("${s}"),
+                eure_value::value::KeyCmpValue::MetaExtension(s) => format!("$${s}"),
                 _ => continue, // Skip non-string keys for completion
             };
             completions.push(CompletionItem {
@@ -235,7 +233,7 @@ vec![]
                 if let Some(field_schema) = schema.fields.get(&key) {
                     match &field_schema.type_expr {
                         eure_schema::Type::Object(obj) => {
-                            self.lookup_schema_at_path(remaining, &obj)
+                            self.lookup_schema_at_path(remaining, obj)
                         }
                         _ => None,
                     }

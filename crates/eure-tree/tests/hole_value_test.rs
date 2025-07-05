@@ -68,11 +68,11 @@ fn test_hole_in_different_contexts() {
     ];
 
     for (input, description) in test_cases {
-        let tree = eure_parol::parse(input).expect(&format!("Failed to parse: {}", description));
+        let tree = eure_parol::parse(input).unwrap_or_else(|_| panic!("Failed to parse: {description}"));
         
         let mut values = eure_tree::value_visitor::Values::default();
         let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input, &mut values);
-        tree.visit_from_root(&mut visitor).expect(&format!("Failed to visit tree: {}", description));
+        tree.visit_from_root(&mut visitor).unwrap_or_else(|_| panic!("Failed to visit tree: {description}"));
         
         // Just verify parsing succeeds - the important thing is that holes are recognized and don't cause parse errors
     }
@@ -95,7 +95,7 @@ fn test_hole_value_type() {
         Value::Map(map) => {
             let test_value = map.0.get(&eure_value::value::KeyCmpValue::String("test".to_string()))
                 .expect("test field not found");
-            assert!(matches!(test_value, Value::Hole), "Expected test value to be a hole, got {:?}", test_value);
+            assert!(matches!(test_value, Value::Hole), "Expected test value to be a hole, got {test_value:?}");
         }
         _ => panic!("Expected document to be a map"),
     }

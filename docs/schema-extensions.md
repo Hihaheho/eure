@@ -99,7 +99,7 @@ tags.$min-items = 1
 tags.$max-items = 10
 ```
 
-**Important:** 
+**Important:**
 - `items.$array = .string` - Correct: defines an array of strings
 - `items.$type = .array` - Wrong: invalid syntax for arrays
 
@@ -122,7 +122,7 @@ Marks a field as optional. Fields are required by default.
 
 ```eure
 @ user
-email.$type = .typed-string.email
+email.$type = .code.email
 
 bio.$type = .string
 bio.$optional = true  # This field can be omitted
@@ -181,13 +181,13 @@ All primitive types are accessed via path syntax:
 ### Typed Strings
 
 ```eure
-.typed-string.email     # Email addresses
-.typed-string.url       # URLs
-.typed-string.uuid      # UUIDs
-.typed-string.date      # Date strings
-.typed-string.datetime  # DateTime strings
-.typed-string.regex     # Regular expressions
-.typed-string.semver    # Semantic versions
+.code.email     # Email addresses
+.code.url       # URLs
+.code.uuid      # UUIDs
+.code.date      # Date strings
+.code.datetime  # DateTime strings
+.code.regex     # Regular expressions
+.code.semver    # Semantic versions
 ```
 
 ### Code Types
@@ -333,15 +333,15 @@ $type = .number
 $range = [1, 65535]
 
 @ $types.host
-$union = [.string, .typed-string.url]  # String or URL
+$union = [.string, .code.url]  # String or URL
 
 # Feature type using inline style
 $types.feature {
   id.$type = .string
   id.$pattern = regex"^[a-z-]+$"
-  
+
   enabled.$type = .boolean
-  
+
   config.$type = .object
   config.$optional = true
 }
@@ -351,7 +351,7 @@ $types.feature {
 $serde.rename-all = "camelCase"
 
 name.$type = .string
-version.$type = .typed-string.semver
+version.$type = .code.semver
 
 @ server
 $prefer.section = true
@@ -376,13 +376,13 @@ The most common mistake is confusing schema definitions with data bindings:
 @ person
 name = .string          # Assigns the path value `.string` to field `name`
 age = .number          # Assigns the path value `.number` to field `age`
-email = .typed-string.email
+email = .code.email
 
 # CORRECT - Use $type extension for schema definitions
 @ person
 name.$type = .string
 age.$type = .number
-email.$type = .typed-string.email
+email.$type = .code.email
 ```
 
 When you write `name = .string`, you're creating a data entry where the field `name` contains the path value `.string`. This is valid EURE but not what you want for schema definitions.

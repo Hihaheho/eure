@@ -16,20 +16,20 @@ fn validate(input: &str, schema: DocumentSchema) -> Vec<ValidationError> {
 /// Helper to validate with inline schema extraction
 fn validate_with_inline(input: &str, base_schema: DocumentSchema) -> Vec<ValidationError> {
     let extracted = extract_schema_from_value(input).expect("Failed to extract schema");
-    
+
     // Merge inline schemas with base schema
     let mut merged_schema = base_schema;
-    
+
     // Merge types
     for (name, type_def) in extracted.document_schema.types {
         merged_schema.types.insert(name, type_def);
     }
-    
+
     // Merge root fields
     for (name, field_schema) in extracted.document_schema.root.fields {
         merged_schema.root.fields.insert(name, field_schema);
     }
-    
+
     validate_with_schema_value(input, merged_schema).expect("Failed to validate")
 }
 
@@ -160,12 +160,12 @@ reference.$type = .path
     #[test]
     fn test_typed_string_validation() {
         let schema_doc = r#"
-email.$type = .typed-string.email
+email.$type = .code.email
 "#;
         let schema = extract(schema_doc).document_schema;
 
         // Valid - strings are accepted for typed strings
-        let valid_doc = r#"email = "user@example.com""#;
+        let valid_doc = r#"email = email`user@example.com`"#;
         let errors = validate(valid_doc, schema.clone());
         assert!(errors.is_empty());
 
@@ -187,7 +187,7 @@ script.$type = .code.javascript
         let schema = extract(schema_doc).document_schema;
 
         // Valid - strings are accepted for code
-        let valid_doc = r#"script = "console.log('hello')""#;
+        let valid_doc = r#"script = javascript`console.log('hello')`"#;
         let errors = validate(valid_doc, schema.clone());
         assert!(errors.is_empty());
 
@@ -318,7 +318,10 @@ tags.$type = .$types.StringArray
 "#;
         let errors = validate_with_inline(invalid_empty, schema.clone());
         if errors.len() != 1 {
-            eprintln!("Array length test - expected 1 error, got {}:", errors.len());
+            eprintln!(
+                "Array length test - expected 1 error, got {}:",
+                errors.len()
+            );
             for err in &errors {
                 eprintln!("  - {:?}", err.kind);
             }
@@ -359,14 +362,19 @@ $type = .number
 $optional = true
 "#;
         let schema = extract(schema_doc);
-        
+
         // Check that Person type was extracted
-        assert!(schema.document_schema.types.contains_key(&KeyCmpValue::String("Person".to_string())));
+        assert!(
+            schema
+                .document_schema
+                .types
+                .contains_key(&KeyCmpValue::String("Person".to_string()))
+        );
         let person_type = &schema.document_schema.types[&KeyCmpValue::String("Person".to_string())];
-        
+
         // Check type is object
         assert!(matches!(person_type.type_expr, Type::Object(_)));
-        
+
         // Check that it's a pure schema document
         assert!(schema.is_pure_schema);
     }
@@ -390,7 +398,7 @@ $type = .$types.Name
 $type = .$types.Person
 name = "Alice"
 "#;
-        
+
         // Use validate_with_inline which handles merging for us
         let errors = validate_with_inline(doc, schema);
         if !errors.is_empty() {
@@ -408,7 +416,7 @@ name = "Alice"
 $cascade-type = .string
 "#;
         let schema = extract(schema_doc).document_schema;
-        
+
         // Check cascade type was set
         assert!(matches!(schema.cascade_type, Some(Type::String)));
 
@@ -440,7 +448,8 @@ value.$type = .$types.StringOrNumber
         for (name, field) in doc_schema.document_schema.root.fields {
             test_schema.root.fields.insert(name, field);
         }
-        let errors = validate_with_schema_value(valid_string, test_schema).expect("Failed to validate");
+        let errors =
+            validate_with_schema_value(valid_string, test_schema).expect("Failed to validate");
         assert!(errors.is_empty());
 
         // Valid - number
@@ -453,7 +462,8 @@ value.$type = .$types.StringOrNumber
         for (name, field) in doc_schema.document_schema.root.fields {
             test_schema.root.fields.insert(name, field);
         }
-        let errors = validate_with_schema_value(valid_number, test_schema).expect("Failed to validate");
+        let errors =
+            validate_with_schema_value(valid_number, test_schema).expect("Failed to validate");
         assert!(errors.is_empty());
 
         // Invalid - boolean
@@ -527,16 +537,22 @@ age = 30
 age.$type = .number
 "#;
         let result = validate_self(doc);
-        
+
         // Debug: print what we got
-        println!("Root fields found: {}", result.schema.document_schema.root.fields.len());
+        println!(
+            "Root fields found: {}",
+            result.schema.document_schema.root.fields.len()
+        );
         for (name, schema) in &result.schema.document_schema.root.fields {
             println!("  Field: {:?}, Type: {:?}", name, schema.type_expr);
         }
-        
+
         // Debug: print cascade type
-        println!("Cascade type: {:?}", result.schema.document_schema.cascade_type);
-        
+        println!(
+            "Cascade type: {:?}",
+            result.schema.document_schema.cascade_type
+        );
+
         // Debug: print any errors
         if !result.errors.is_empty() {
             println!("Validation errors:");
@@ -544,12 +560,26 @@ age.$type = .number
                 println!("  {:?}", error.kind);
             }
         }
-        
+
         // Should extract inline schemas into root fields
         assert_eq!(result.schema.document_schema.root.fields.len(), 2);
-        assert!(result.schema.document_schema.root.fields.contains_key(&KeyCmpValue::String("name".to_string())));
-        assert!(result.schema.document_schema.root.fields.contains_key(&KeyCmpValue::String("age".to_string())));
-        
+        assert!(
+            result
+                .schema
+                .document_schema
+                .root
+                .fields
+                .contains_key(&KeyCmpValue::String("name".to_string()))
+        );
+        assert!(
+            result
+                .schema
+                .document_schema
+                .root
+                .fields
+                .contains_key(&KeyCmpValue::String("age".to_string()))
+        );
+
         // Should validate successfully
         assert!(result.errors.is_empty());
     }
@@ -566,13 +596,16 @@ score.$type = .number
 score.$range = [0, 100]
 "#;
         let result = validate_self(doc);
-        
+
         // Debug: print extracted fields
         println!("First test - fields found:");
         for (name, schema) in &result.schema.document_schema.root.fields {
-            println!("  Field: {:?}, Type: {:?}, Constraints: {:?}", name, schema.type_expr, schema.constraints);
+            println!(
+                "  Field: {:?}, Type: {:?}, Constraints: {:?}",
+                name, schema.type_expr, schema.constraints
+            );
         }
-        
+
         assert!(result.errors.is_empty());
 
         // Test constraint violation
@@ -582,17 +615,20 @@ username.$type = .string
 username.$length = [3, 20]
 "#;
         let result = validate_self(invalid_doc);
-        
+
         // Debug: print extracted fields and errors
         println!("\nSecond test - fields found:");
         for (name, schema) in &result.schema.document_schema.root.fields {
-            println!("  Field: {:?}, Type: {:?}, Constraints: {:?}", name, schema.type_expr, schema.constraints);
+            println!(
+                "  Field: {:?}, Type: {:?}, Constraints: {:?}",
+                name, schema.type_expr, schema.constraints
+            );
         }
         println!("Errors: {}", result.errors.len());
         for error in &result.errors {
             println!("  {:?}", error.kind);
         }
-        
+
         assert_eq!(result.errors.len(), 1);
         assert!(matches!(
             result.errors[0].kind,
@@ -616,10 +652,10 @@ username.$length = [3, 20]
 }
 "#;
         let result = validate_self(doc);
-        
+
         // Not a pure schema (has data)
         assert!(!result.schema.is_pure_schema);
-        
+
         // Should validate successfully
         if !result.errors.is_empty() {
             eprintln!("Validation errors in mixed schema/data test:");
@@ -649,11 +685,14 @@ $type = .string
 $serde.rename = "firstName"
 "#;
         let schema = extract(schema_doc);
-        
+
         // Check that rename was extracted
         let user_type = &schema.document_schema.types[&KeyCmpValue::String("User".to_string())];
         if let Type::Object(obj_schema) = &user_type.type_expr {
-            let field = &obj_schema.fields.get(&KeyCmpValue::String("first_name".to_string())).unwrap();
+            let field = &obj_schema
+                .fields
+                .get(&KeyCmpValue::String("first_name".to_string()))
+                .unwrap();
             assert_eq!(field.serde.rename, Some("firstName".to_string()));
         } else {
             panic!("Expected object type");
@@ -670,19 +709,16 @@ $type = .object
 $serde.rename-all = "snake_case"
 "#;
         let schema = extract(schema_doc);
-        
+
         // Check global rename-all
         assert_eq!(
             schema.document_schema.serde_options.rename_all,
             Some(RenameRule::CamelCase)
         );
-        
+
         // Check type-specific rename-all
         let person_type = &schema.document_schema.types[&KeyCmpValue::String("Person".to_string())];
-        assert_eq!(
-            person_type.serde.rename_all,
-            Some(RenameRule::SnakeCase)
-        );
+        assert_eq!(person_type.serde.rename_all, Some(RenameRule::SnakeCase));
     }
 }
 
@@ -710,12 +746,15 @@ $type = .$types.User
 email = "user@example.com"
 "#;
         let errors = validate_with_inline(doc, schema);
-        
+
         // Check that we have a required field missing error for "name"
-        let has_name_missing = errors.iter().any(|e| 
+        let has_name_missing = errors.iter().any(|e|
             matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if field == &KeyCmpValue::String("name".to_string()))
         );
-        assert!(has_name_missing, "Expected 'name' to be flagged as missing required field");
+        assert!(
+            has_name_missing,
+            "Expected 'name' to be flagged as missing required field"
+        );
     }
 
     #[test]
@@ -736,14 +775,17 @@ allowed = "yes"
 extra = "not allowed"
 "#;
         let errors = validate_with_inline(doc, schema);
-        // This test is checking that when using inline schemas, 
+        // This test is checking that when using inline schemas,
         // extra fields are detected. However, our current implementation
         // doesn't handle inline schemas during validation.
         // For now, we'll just check that "extra" is flagged as unexpected
-        let has_extra_error = errors.iter().any(|e| 
+        let has_extra_error = errors.iter().any(|e|
             matches!(&e.kind, ValidationErrorKind::UnexpectedField { field, .. } if field == &KeyCmpValue::String("extra".to_string()))
         );
-        assert!(has_extra_error, "Expected 'extra' to be flagged as unexpected field");
+        assert!(
+            has_extra_error,
+            "Expected 'extra' to be flagged as unexpected field"
+        );
     }
 
     #[test]
@@ -888,7 +930,7 @@ username = "app_user"
 $type = .string
 $length = [3, 20]
 @ $types.Event.$variants.user-created.email
-$type = .typed-string.email
+$type = .code.email
 @ $types.Event.$variants.user-deleted.user-id
 $type = .number
 @ $types.Event.$variants.user-deleted.reason
@@ -903,7 +945,7 @@ $optional = true
 $type = .$types.Event
 $variant = "user-created"
 username = "alice123"
-email = "alice@example.com"
+email = email`alice@example.com`
 "#;
         let errors = validate_with_inline(valid_created, schema.clone());
         if !errors.is_empty() {
@@ -920,7 +962,7 @@ email = "alice@example.com"
 $type = .$types.Event
 $variant = "user-created"
 username = "ab"
-email = "ab@example.com"
+email = email`ab@example.com`
 "#;
         let errors = validate_with_inline(invalid_username, schema);
         assert_eq!(errors.len(), 1);
@@ -959,5 +1001,4 @@ items.$type = .$types.StringArray
         let errors = validate_with_inline(invalid_doc, schema);
         assert!(!errors.is_empty());
     }
-
 }

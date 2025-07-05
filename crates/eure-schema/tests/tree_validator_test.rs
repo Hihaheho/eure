@@ -4,13 +4,76 @@ use eure_schema::{extract_schema_from_value, validate_with_tree};
 
 #[test]
 fn test_example_eure_validation() {
-    // Load the schema from example.schema.eure
-    let schema_input = include_str!("../../../example.schema.eure");
+    // Use inline schema instead of external file
+    let schema_input = r#"
+$types.Action {
+  @ $variants.set-text {
+    speaker = .string
+    lines.$array = .string
+    code1 = .code.rust
+    code2 = .code.rust
+  }
+  @ $variants.set-choices {
+    description = .string
+  }
+  @ $variants.set-choices.choice.$array {
+    text = .string
+    value = .string
+  }
+}
+
+@ script
+id.$type = .string
+description.$type = .string
+description.$optional = true
+actions.$array = .$types.Action
+"#;
     let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema from example.schema.eure");
+        .expect("Failed to extract schema");
     
-    // Load the example document
-    let doc_input = include_str!("../../../example.eure");
+    // Use inline document instead of external file
+    let doc_input = r#"
+@ script
+id = "test-id"
+description = "test description"
+
+@ script.actions[]
+$variant: set-text
+speaker = "alice"
+lines = ["hello", "world"]
+code1 = rust`let x = 1;`
+code2 = ```rust
+fn main() {
+    println!("Hello!");
+}
+```
+
+@ script.actions[]
+$variant: set-choices
+description = "Choose an option"
+
+@ script.actions[].choice[]
+text = "Option A"
+value = "a"
+
+@ script.actions[].choice[]
+text = "Option B"
+value = "b"
+
+# Test block syntax too
+@ script.actions[] {
+  $variant: set-choices
+  description = "Another choice"
+
+  @ choice[]
+  text = "Option C"
+  value = "c"
+
+  @ choice[]
+  text = "Option D"
+  value = "d"
+}
+"#;
     
     // Parse the document
     let tree = eure_parol::parse(doc_input).expect("Failed to parse example.eure");

@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant};
 use std::fmt::Write;
 
 /// Format a Value as EURE syntax
@@ -17,10 +17,10 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
         Value::F32(f) => write!(output, "{f}").unwrap(),
         Value::F64(f) => write!(output, "{f}").unwrap(),
         Value::String(s) => write!(output, "\"{}\"", escape_string(s)).unwrap(),
-        Value::TypedString(TypedString { type_name, value }) => {
-            write!(output, "{}\"{}\"", type_name, escape_string(value)).unwrap()
-        }
         Value::Code(Code { language, content }) => {
+            write!(output, "{}`{}`", language, escape_string(content)).unwrap()
+        }
+        Value::CodeBlock(Code { language, content }) => {
             write!(output, "```{language}\n{content}\n```").unwrap()
         }
         Value::Array(Array(values)) => {
@@ -77,7 +77,9 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
         Value::Path(path) => {
             // Format path with dot notation
             output.push('.');
-            let segments: Vec<String> = path.0.iter()
+            let segments: Vec<String> = path
+                .0
+                .iter()
                 .map(|seg| match seg {
                     eure_value::value::PathSegment::Ident(id) => id.as_ref().to_string(),
                     eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),

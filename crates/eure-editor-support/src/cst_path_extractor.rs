@@ -85,22 +85,19 @@ impl NodeVisitor for CstPathExtractor {
         self.visit_node_super(id, node, tree)?;
         
         // After visiting children
-        match &node {
-            CstNodeData::NonTerminal { kind, .. } => {
-                match kind {
-                    NonTerminalKind::Keys => {
-                        // If we just finished section keys, save as section path
-                        if !self.in_binding {
-                            self.section_path = self.current_path.clone();
-                        }
+        if let CstNodeData::NonTerminal { kind, .. } = &node {
+            match kind {
+                NonTerminalKind::Keys => {
+                    // If we just finished section keys, save as section path
+                    if !self.in_binding {
+                        self.section_path = self.current_path.clone();
                     }
-                    NonTerminalKind::Binding => {
-                        self.in_binding = false;
-                    }
-                    _ => {}
                 }
+                NonTerminalKind::Binding => {
+                    self.in_binding = false;
+                }
+                _ => {}
             }
-            _ => {}
         }
         
         Ok(())
