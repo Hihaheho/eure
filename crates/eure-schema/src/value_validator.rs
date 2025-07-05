@@ -97,6 +97,9 @@ pub enum ValidationErrorKind {
     // Other errors
     InvalidValue(String),
     InternalError(String),
+    HoleExists {
+        path: Vec<PathSegment>,
+    },
 }
 
 /// A validation error with severity
@@ -194,6 +197,10 @@ impl fmt::Display for ValidationErrorKind {
             }
             ValidationErrorKind::InternalError(msg) => {
                 write!(f, "Internal error: {msg}")
+            }
+            ValidationErrorKind::HoleExists { path } => {
+                let path_str = path_segments_to_display_string(path);
+                write!(f, "Hole value (!) found at '{path_str}' - holes must be filled with actual values")
             }
         }
     }
@@ -354,6 +361,14 @@ fn validate_value_against_type(
     expected_type: &Type,
     context: &mut ValidationContext
 ) {
+    // Check for holes first - they should always be reported regardless of expected type
+    if let Value::Hole = value {
+        context.add_error(ValidationErrorKind::HoleExists {
+            path: context.path.clone(),
+        });
+        return;
+    }
+    
     match (value, expected_type) {
         // Primitive types
         (Value::String(_), Type::String) => {},
@@ -682,6 +697,7 @@ fn value_type_name(value: &Value) -> &'static str {
         Value::Variant(_) => "variant",
         Value::Unit => "unit",
         Value::Path(_) => "path",
+        Value::Hole => "hole",
     }
 }
 

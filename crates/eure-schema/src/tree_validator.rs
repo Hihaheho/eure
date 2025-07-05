@@ -1309,6 +1309,7 @@ fn value_type_name(value: &Value) -> &'static str {
         Value::TypedString(_) => "typed-string",
         Value::Path(_) => "path",
         Value::Variant(_) => "variant",
+        Value::Hole => "hole",
     }
 }
 

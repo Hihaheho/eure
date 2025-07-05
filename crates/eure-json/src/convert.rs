@@ -71,6 +71,11 @@ pub fn value_to_json_with_config(
         }
         Value::Variant(variant) => convert_variant_to_json(variant, config),
         Value::Unit => Ok(serde_json::Value::Null),
+        Value::Hole => {
+            // Holes cannot be meaningfully converted to JSON
+            // Return an error or a special marker
+            Err(Error::UnsupportedValue("Cannot convert hole value (!) to JSON - holes must be filled with actual values".to_string()))
+        },
         Value::Path(Path(segments)) => {
             // Paths represented as dot-separated strings
             let path_str = segments.iter()
@@ -149,6 +154,9 @@ fn key_to_string(key: &KeyCmpValue) -> Result<String, Error> {
         KeyCmpValue::Null => Ok("null".to_string()),
         KeyCmpValue::Bool(b) => Ok(b.to_string()),
         KeyCmpValue::Unit => Ok("unit".to_string()),
+        KeyCmpValue::Hole => Err(Error::UnsupportedValue(
+            "Hole keys cannot be converted to JSON object keys".to_string(),
+        )),
         KeyCmpValue::Tuple(_) => Err(Error::UnsupportedValue(
             "Tuple keys cannot be converted to JSON object keys".to_string(),
         )),

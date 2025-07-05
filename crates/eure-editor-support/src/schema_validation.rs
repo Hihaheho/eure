@@ -3,6 +3,7 @@
 use eure_schema::{
     DocumentSchema, Severity, ValidationError, ValidationErrorKind,
     extract_schema_from_value, validate_self_describing_with_tree, validate_with_tree,
+    PathSegment,
 };
 use eure_tree::Cst;
 use eure_tree::tree::LineNumbers;
@@ -200,6 +201,7 @@ fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
         eure_schema::KeyCmpValue::Tuple(_) => "<tuple>".to_string(),
         eure_schema::KeyCmpValue::Extension(ext) => format!("${ext}"),
         eure_schema::KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
+        eure_schema::KeyCmpValue::Hole => "!".to_string(),
     }
 }
 
@@ -367,6 +369,30 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
             Some("eure-schema-internal-error".to_string()),
             None,
         ),
+        ValidationErrorKind::HoleExists { path } => {
+            let path_str = path.iter()
+                .map(|seg| match seg {
+                    PathSegment::Ident(id) => id.as_ref().to_string(),
+                    PathSegment::Extension(id) => format!("${}", id.as_ref()),
+                    PathSegment::MetaExt(id) => format!("$${}", id.as_ref()),
+                    PathSegment::Value(v) => format!("[{:?}]", v),
+                    PathSegment::TupleIndex(idx) => format!("[{}]", idx),
+                    PathSegment::Array { key, index } => {
+                        if let Some(idx) = index {
+                            format!("{:?}[{:?}]", key, idx)
+                        } else {
+                            format!("{:?}[]", key)
+                        }
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(".");
+            (
+                format!("Hole value (!) found at '{path_str}' - holes must be filled with actual values"),
+                Some("eure-schema-hole-exists".to_string()),
+                None,
+            )
+        },
     };
 
     let severity = match error.severity {

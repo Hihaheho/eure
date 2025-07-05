@@ -478,6 +478,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::Map(_) => self.deserialize_map(visitor),
             Value::Variant(_) => self.deserialize_enum("", &[], visitor),
             Value::Unit => visitor.visit_unit(),
+            Value::Hole => {
+                // Holes should be caught and reported during validation
+                // For now, return an error during deserialization
+                Err(Error::Message("Cannot deserialize hole value (!) - holes must be filled with actual values".to_string()))
+            },
             Value::Path(path) => {
                 // Convert path to string representation
                 let path_str = path.0.iter()
@@ -1109,5 +1114,6 @@ fn key_cmp_to_value(key: KeyCmpValue) -> Value {
         KeyCmpValue::Unit => Value::Unit,
         KeyCmpValue::Extension(ext) => Value::String(format!("${ext}")),
         KeyCmpValue::MetaExtension(meta) => Value::String(format!("$${meta}")),
+        KeyCmpValue::Hole => Value::Hole,
     }
 }

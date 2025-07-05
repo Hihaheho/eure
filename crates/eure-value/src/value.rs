@@ -22,6 +22,7 @@ pub enum Value {
     Variant(Variant),
     Unit,
     Path(Path),
+    Hole,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -38,6 +39,7 @@ pub enum KeyCmpValue {
     MetaExtension(String),
     Tuple(Tuple<KeyCmpValue>),
     Unit,
+    Hole,
 }
 
 #[derive(Debug, Clone, PartialEq, Plural)]

@@ -73,6 +73,7 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
             format_value(output, content, 0);
         }
         Value::Unit => output.push_str("()"),
+        Value::Hole => output.push('!'),
         Value::Path(path) => {
             // Format path with dot notation
             output.push('.');
