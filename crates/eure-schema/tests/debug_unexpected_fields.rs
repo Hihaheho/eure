@@ -58,10 +58,10 @@ fn debug_unexpected_fields_in_example() {
         .filter(|e| matches!(&e.kind, eure_schema::ValidationErrorKind::UnexpectedField { .. }))
         .count();
     
-    println!("\nUnexpected field errors found: {}", unexpected_count);
+    println!("\nUnexpected field errors found: {unexpected_count}");
     println!("Expected at least 2 (for 'text' and 'aaa')");
     
     // This will fail to show the issue
     assert!(unexpected_count >= 2, 
-        "Should have at least 2 unexpected field errors, but found {}", unexpected_count);
+        "Should have at least 2 unexpected field errors, but found {unexpected_count}");
 }

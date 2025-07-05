@@ -35,8 +35,7 @@ fn test_example_eure_validation() {
     
     // The document has a valid 'script' section, so there should be NO such errors
     assert_eq!(false_positive_count, 0, 
-        "Found {} false positive 'Required field script is missing' errors", 
-        false_positive_count);
+        "Found {false_positive_count} false positive 'Required field script is missing' errors");
     
     // The document should have some valid content
     assert!(doc_input.contains("@ script"), "Document should contain script section");

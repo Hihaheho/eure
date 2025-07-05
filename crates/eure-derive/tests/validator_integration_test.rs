@@ -74,11 +74,11 @@ fn validate_document_with_types<T: ToEureSchema>(
         eprintln!("Document schema root fields: {:?}", doc_schema.root.fields.keys().collect::<Vec<_>>());
         eprintln!("Document schema types: {:?}", doc_schema.types.keys().collect::<Vec<_>>());
         eprintln!("Document schema cascade type: {:?}", doc_schema.cascade_type);
-        eprintln!("Validation errors: {:?}", error_messages);
-        eprintln!("Full errors: {:#?}", errors);
+        eprintln!("Validation errors: {error_messages:?}");
+        eprintln!("Full errors: {errors:#?}");
         Err(format!("Validation errors: {}", error_messages.join(", ")))
         },
-        Err(e) => Err(format!("Schema error: {:?}", e))
+        Err(e) => Err(format!("Schema error: {e:?}"))
     }
 }
 

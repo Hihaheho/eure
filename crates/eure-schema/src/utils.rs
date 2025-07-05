@@ -80,8 +80,8 @@ pub fn path_to_display_string(path: &Path) -> String {
             PathSegment::Ident(id) => parts.push(id.to_string()),
             PathSegment::Extension(id) => parts.push(format!("${id}")),
             PathSegment::MetaExt(id) => parts.push(format!("$${id}")),
-            PathSegment::TupleIndex(idx) => parts.push(format!("[{}]", idx)),
-            PathSegment::Value(val) => parts.push(format!("{:?}", val)),
+            PathSegment::TupleIndex(idx) => parts.push(format!("[{idx}]")),
+            PathSegment::Value(val) => parts.push(format!("{val:?}")),
             PathSegment::Array { .. } => parts.push("[...]".to_string()),
         }
     }
@@ -97,8 +97,8 @@ pub fn path_segments_to_display_string(segments: &[PathSegment]) -> String {
             PathSegment::Ident(id) => id.to_string(),
             PathSegment::Extension(id) => format!("${id}"),
             PathSegment::MetaExt(id) => format!("$${id}"),
-            PathSegment::TupleIndex(idx) => format!("[{}]", idx),
-            PathSegment::Value(val) => format!("{:?}", val),
+            PathSegment::TupleIndex(idx) => format!("[{idx}]"),
+            PathSegment::Value(val) => format!("{val:?}"),
             PathSegment::Array { .. } => "[...]".to_string(),
         })
         .collect::<Vec<_>>()

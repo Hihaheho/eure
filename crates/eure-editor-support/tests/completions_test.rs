@@ -33,11 +33,11 @@ $type = .boolean"#;
                     eprintln!("Schema loaded successfully");
                     schema_manager.set_document_schema("test://document", "test://schema");
                 }
-                Err(e) => eprintln!("Failed to load schema: {}", e),
+                Err(e) => eprintln!("Failed to load schema: {e}"),
             }
         }
         parser::ParseResult::ErrWithCst { error, .. } => {
-            eprintln!("Failed to parse schema: {:?}", error);
+            eprintln!("Failed to parse schema: {error:?}");
         }
     }
     
@@ -212,11 +212,11 @@ fn test_section_snippet_generation() {
                     eprintln!("Schema loaded successfully");
                     schema_manager.set_document_schema("test://document", "test://schema");
                 }
-                Err(e) => eprintln!("Failed to load schema: {}", e),
+                Err(e) => eprintln!("Failed to load schema: {e}"),
             }
         }
         parser::ParseResult::ErrWithCst { error, .. } => {
-            eprintln!("Failed to parse schema: {:?}", error);
+            eprintln!("Failed to parse schema: {error:?}");
         }
     }
     
@@ -246,7 +246,7 @@ fn test_section_snippet_generation() {
     
     // Check the snippet content
     let snippet = name_completion.insert_text.as_ref().expect("Should have insert text");
-    eprintln!("Generated snippet:\n{}", snippet);
+    eprintln!("Generated snippet:\n{snippet}");
     
     // Should include "user.name" and required fields (first, last) but not optional (middle)
     assert!(snippet.contains("user.name"));
@@ -282,11 +282,11 @@ fn test_no_snippet_for_non_object_fields() {
                 Ok(_) => {
                     schema_manager.set_document_schema("test://document", "test://schema");
                 }
-                Err(e) => eprintln!("Failed to load schema: {}", e),
+                Err(e) => eprintln!("Failed to load schema: {e}"),
             }
         }
         parser::ParseResult::ErrWithCst { error, .. } => {
-            eprintln!("Failed to parse schema: {:?}", error);
+            eprintln!("Failed to parse schema: {error:?}");
         }
     }
     
@@ -341,11 +341,11 @@ $type = .$types.Person"#;
                     eprintln!("Schema loaded successfully");
                     schema_manager.set_document_schema("test://document", "test://schema");
                 }
-                Err(e) => eprintln!("Failed to load schema: {}", e),
+                Err(e) => eprintln!("Failed to load schema: {e}"),
             }
         }
         parser::ParseResult::ErrWithCst { error, .. } => {
-            eprintln!("Failed to parse schema: {:?}", error);
+            eprintln!("Failed to parse schema: {error:?}");
         }
     }
     

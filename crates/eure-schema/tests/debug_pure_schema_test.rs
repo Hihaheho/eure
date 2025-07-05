@@ -1,4 +1,4 @@
-use eure_schema::{extract_schema_from_value, is_pure_schema};
+use eure_schema::extract_schema_from_value;
 use eure_value::value::KeyCmpValue;
 
 #[test]
@@ -98,7 +98,7 @@ fn test_exact_example_schema_file() {
     // Debug the last part of the file
     println!("Last 50 chars of file:");
     let last_chars: String = schema_input.chars().rev().take(50).collect::<String>().chars().rev().collect();
-    println!("{:?}", last_chars);
+    println!("{last_chars:?}");
 }
 
 #[test]
@@ -147,9 +147,9 @@ name.$optional = true
     if let Value::Map(map) = doc_value {
         for (key, val) in &map.0 {
             match key {
-                KeyCmpValue::String(s) => println!("String key: '{}'", s),
-                KeyCmpValue::Extension(s) => println!("Extension key: '${}'", s),
-                KeyCmpValue::MetaExtension(s) => println!("MetaExtension key: '$${}'", s),
+                KeyCmpValue::String(s) => println!("String key: '{s}'"),
+                KeyCmpValue::Extension(s) => println!("Extension key: '${s}'"),
+                KeyCmpValue::MetaExtension(s) => println!("MetaExtension key: '$${s}'"),
                 _ => println!("Other key type"),
             }
             match val {
@@ -157,17 +157,17 @@ name.$optional = true
                     println!("  -> Map with {} entries", m.0.len());
                     for (k2, v2) in &m.0 {
                         match k2 {
-                            KeyCmpValue::String(s) => println!("    String key: '{}'", s),
-                            KeyCmpValue::Extension(s) => println!("    Extension key: '${}'", s),
-                            KeyCmpValue::MetaExtension(s) => println!("    MetaExtension key: '$${}'", s),
+                            KeyCmpValue::String(s) => println!("    String key: '{s}'"),
+                            KeyCmpValue::Extension(s) => println!("    Extension key: '${s}'"),
+                            KeyCmpValue::MetaExtension(s) => println!("    MetaExtension key: '$${s}'"),
                             _ => println!("    Other key type"),
                         }
                         println!("      -> {:?}", std::mem::discriminant(v2));
                     }
                 }
                 Value::Path(_) => println!("  -> Path"),
-                Value::Bool(b) => println!("  -> Bool: {}", b),
-                Value::String(s) => println!("  -> String: {}", s),
+                Value::Bool(b) => println!("  -> Bool: {b}"),
+                Value::String(s) => println!("  -> String: {s}"),
                 _ => println!("  -> Other value type"),
             }
         }

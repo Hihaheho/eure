@@ -94,7 +94,7 @@ fn analyze_context(
                 if let Some(dot_pos) = line_before_cursor.rfind('.') {
                     let before_dot = &line_before_cursor[..dot_pos];
                     // Find the identifier before the dot
-                    let parent_ident = before_dot.trim().split_whitespace().last();
+                    let parent_ident = before_dot.split_whitespace().last();
                     parent_path = parent_ident.map(|s| s.to_string());
                 }
             }
@@ -104,7 +104,7 @@ fn analyze_context(
                 is_string_only = true;
                 // Check if we're after $variant
                 // Remove the trigger character to check what came before it
-                let line_before_trigger = if line_before_cursor.len() > 0 {
+                let line_before_trigger = if !line_before_cursor.is_empty() {
                     &line_before_cursor[..line_before_cursor.len() - 1]
                 } else {
                     ""
@@ -118,7 +118,7 @@ fn analyze_context(
                 is_in_value_position = true;
                 // Check if we're after $variant
                 // Remove the trigger character to check what came before it
-                let line_before_trigger = if line_before_cursor.len() > 0 {
+                let line_before_trigger = if !line_before_cursor.is_empty() {
                     &line_before_cursor[..line_before_cursor.len() - 1]
                 } else {
                     ""
@@ -186,8 +186,8 @@ fn lookup_field_by_name<'a>(obj_schema: &'a ObjectSchema, name: &str) -> Option<
                 KeyCmpValue::String(s) => s == name,
                 KeyCmpValue::I64(n) => n.to_string() == name,
                 KeyCmpValue::U64(n) => n.to_string() == name,
-                KeyCmpValue::Extension(e) => format!("${}", e) == name,
-                KeyCmpValue::MetaExtension(m) => format!("$${}", m) == name,
+                KeyCmpValue::Extension(e) => format!("${e}") == name,
+                KeyCmpValue::MetaExtension(m) => format!("$${m}") == name,
                 _ => false,
             }
         })
@@ -231,8 +231,8 @@ fn generate_completions(context: &CompletionContext, schema: &DocumentSchema) ->
                 KeyCmpValue::String(s) => s.clone(),
                 KeyCmpValue::I64(n) => n.to_string(),
                 KeyCmpValue::U64(n) => n.to_string(),
-                KeyCmpValue::Extension(e) => format!("${}", e),
-                KeyCmpValue::MetaExtension(m) => format!("$${}", m),
+                KeyCmpValue::Extension(e) => format!("${e}"),
+                KeyCmpValue::MetaExtension(m) => format!("$${m}"),
                 _ => continue, // Skip other types like Null, Bool, Tuple, Unit
             };
             
@@ -453,7 +453,7 @@ fn generate_section_snippet(
     let prefix = if parent_path.is_empty() {
         field_name.to_string()
     } else {
-        format!("{}.{}", parent_path, field_name)
+        format!("{parent_path}.{field_name}")
     };
     
     // Generate the snippet with all required fields
@@ -466,13 +466,13 @@ fn generate_section_snippet(
                 KeyCmpValue::String(s) => s.clone(),
                 KeyCmpValue::I64(n) => n.to_string(),
                 KeyCmpValue::U64(n) => n.to_string(),
-                KeyCmpValue::Extension(e) => format!("${}", e),
-                KeyCmpValue::MetaExtension(m) => format!("$${}", m),
+                KeyCmpValue::Extension(e) => format!("${e}"),
+                KeyCmpValue::MetaExtension(m) => format!("$${m}"),
                 _ => continue, // Skip other types
             };
             
             // Add the field with a hole value
-            snippet.push_str(&format!("{} = ${{{}:!}}\n", key_str, tab_stop));
+            snippet.push_str(&format!("{key_str} = ${{{tab_stop}:!}}\n"));
             tab_stop += 1;
     }
     

@@ -481,7 +481,7 @@ fn validate_tuple(
     for (index, element) in tuple.0.iter().enumerate() {
         if index > 255 {
             context.add_error(ValidationErrorKind::InvalidValue(
-                format!("Tuple index {} exceeds maximum of 255", index)
+                format!("Tuple index {index} exceeds maximum of 255")
             ));
             break;
         }

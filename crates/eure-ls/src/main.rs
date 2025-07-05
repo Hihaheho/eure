@@ -233,8 +233,8 @@ impl ServerContext {
                 // First, extract schema and check for $schema reference
                 if let Ok(validation_result) = schema_validation::validate_and_extract_schema(&text, cst) {
                     // Check if document has a $schema reference
-                    if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref {
-                    if let Some(doc_path) = uri_to_path(&uri) {
+                    if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref
+                    && let Some(doc_path) = uri_to_path(&uri) {
                         let workspace_root = self.get_workspace_root();
                         match schema_validation::resolve_schema_reference(&doc_path, schema_ref, workspace_root.as_deref()) {
                             Ok(schema_path) => {
@@ -263,7 +263,6 @@ impl ServerContext {
                                 eprintln!("Failed to resolve schema reference '{schema_ref}': {e}");
                             }
                         }
-                    }
                     }
                 } else {
                     // No $schema reference, fall back to convention-based discovery
@@ -414,8 +413,7 @@ impl ServerContext {
         let position = params.text_document_position.position;
         let trigger_character = params.context.and_then(|ctx| ctx.trigger_character);
         
-        eprintln!("Completion request at {:?} in {}, trigger: {:?}", 
-                  position, uri, trigger_character);
+        eprintln!("Completion request at {position:?} in {uri}, trigger: {trigger_character:?}");
         
         // Get the document and CST
         if let Some((cst_opt, text)) = self.documents.get(&uri) {

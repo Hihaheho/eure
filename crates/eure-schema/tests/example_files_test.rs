@@ -7,17 +7,17 @@ fn test_example_files_validation() {
     // Load the actual schema file
     println!("Current dir: {:?}", std::env::current_dir());
     let schema_path = "../../example.schema.eure";
-    println!("Trying to read: {}", schema_path);
+    println!("Trying to read: {schema_path}");
     let schema_input = match fs::read_to_string(schema_path) {
         Ok(content) => {
             println!("Successfully read file, length: {}", content.len());
             content
         }
         Err(e) => {
-            println!("Failed to read file: {}", e);
+            println!("Failed to read file: {e}");
             // Try alternative path
             let alt_path = "example.schema.eure";
-            println!("Trying alternative path: {}", alt_path);
+            println!("Trying alternative path: {alt_path}");
             fs::read_to_string(alt_path)
                 .expect("Failed to read example.schema.eure from alternative path")
         }
@@ -41,7 +41,7 @@ fn test_example_files_validation() {
             ex
         }
         Err(e) => {
-            println!("Schema extraction failed: {:?}", e);
+            println!("Schema extraction failed: {e:?}");
             panic!("Failed to extract schema");
         }
     };

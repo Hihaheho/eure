@@ -44,17 +44,17 @@ fn test_tuple_index_exceeds_limit() {
     // Create a tuple with more than 256 elements
     let mut large_tuple_elements = vec![];
     for i in 0..300 {
-        large_tuple_elements.push(format!("{}", i));
+        large_tuple_elements.push(format!("{i}"));
     }
     let tuple_str = format!("({})", large_tuple_elements.join(", "));
     
     let input = format!(r#"
 data.$type = .$types.LargeArray
-data = {}
+data = {tuple_str}
 
 @ $types.LargeArray.$type = .array
 @ $types.LargeArray[] = .number
-"#, tuple_str);
+"#);
 
     let result = validate_self_describing(&input).expect("Failed to parse");
     

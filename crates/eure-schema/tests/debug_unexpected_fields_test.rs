@@ -72,7 +72,7 @@ fn debug_unexpected_fields_in_example() {
     println!("\nUnexpected field errors: {}", unexpected_field_errors.len());
     for error in &unexpected_field_errors {
         if let eure_schema::ValidationErrorKind::UnexpectedField { field, path } = &error.kind {
-            println!("  - Field: {:?}, Path: {:?}", field, path);
+            println!("  - Field: {field:?}, Path: {path:?}");
         }
     }
     
@@ -92,8 +92,8 @@ fn debug_unexpected_fields_in_example() {
     });
     
     println!("\nExpected unexpected fields:");
-    println!("  - 'aaa' field reported: {}", has_aaa_error);
-    println!("  - 'text' field reported: {}", has_text_error);
+    println!("  - 'aaa' field reported: {has_aaa_error}");
+    println!("  - 'text' field reported: {has_text_error}");
     
     // These assertions will fail, showing us the issue
     assert!(has_aaa_error, "Field 'aaa' should be reported as unexpected");
@@ -146,13 +146,13 @@ impl<'a, F: CstFacade> CstVisitor<F> for DebugValidator<'a> {
                 }
             }
             
-            println!("\n  Binding: {:?}", path);
+            println!("\n  Binding: {path:?}");
             
             // Check if this is a root-level field
-            if path.len() == 1 && self.current_path.is_empty() {
-                if let PathSegment::Ident(ident) = &path[0] {
+            if path.len() == 1 && self.current_path.is_empty()
+                && let PathSegment::Ident(ident) = &path[0] {
                     let key = KeyCmpValue::String(ident.as_ref().to_string());
-                    println!("    -> Root field: {:?}", key);
+                    println!("    -> Root field: {key:?}");
                     
                     // Mark as seen
                     self.seen_fields.insert(key.clone());
@@ -177,7 +177,6 @@ impl<'a, F: CstFacade> CstVisitor<F> for DebugValidator<'a> {
                         }
                     }
                 }
-            }
         }
         
         self.visit_binding_super(handle, view, tree)
@@ -197,16 +196,15 @@ impl<'a, F: CstFacade> CstVisitor<F> for DebugValidator<'a> {
                 }
             }
             
-            println!("\n  Section: {:?}", path);
+            println!("\n  Section: {path:?}");
             
             // Track root-level sections
-            if path.len() == 1 && self.current_path.is_empty() {
-                if let PathSegment::Ident(ident) = &path[0] {
+            if path.len() == 1 && self.current_path.is_empty()
+                && let PathSegment::Ident(ident) = &path[0] {
                     let key = KeyCmpValue::String(ident.as_ref().to_string());
-                    println!("    -> Root section: {:?}", key);
+                    println!("    -> Root section: {key:?}");
                     self.seen_fields.insert(key);
                 }
-            }
         }
         
         self.visit_section_super(handle, view, tree)

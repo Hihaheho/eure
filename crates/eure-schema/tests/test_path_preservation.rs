@@ -1,8 +1,6 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue, PathSegment, Path};
-use eure_value::identifier::Identifier;
 
 #[test]
 fn test_path_segments_preserved() {
@@ -24,7 +22,7 @@ test3 = .$$meta.extension
         panic!("Invalid document structure");
     };
     
-    println!("Document: {:#?}", doc);
+    println!("Document: {doc:#?}");
     
     if let Value::Map(map) = doc {
         // Check test1 - regular path
@@ -77,19 +75,19 @@ nested.field = .$types.User
         panic!("Invalid document structure");
     };
     
-    println!("\nNested document: {:#?}", doc);
+    println!("\nNested document: {doc:#?}");
     
     if let Value::Map(map) = doc {
         if let Some(Value::Map(nested_map)) = map.0.get(&KeyCmpValue::String("nested".to_string())) {
             if let Some(value) = nested_map.0.get(&KeyCmpValue::String("field".to_string())) {
                 match value {
                     Value::Path(Path(segments)) => {
-                        println!("Found Path with segments: {:?}", segments);
+                        println!("Found Path with segments: {segments:?}");
                         assert_eq!(segments.len(), 2);
                         assert!(matches!(&segments[0], PathSegment::Extension(id) if id.to_string() == "types"));
                         assert!(matches!(&segments[1], PathSegment::Ident(id) if id.to_string() == "User"));
                     }
-                    _ => panic!("nested.field should be a Path, but got: {:?}", value)
+                    _ => panic!("nested.field should be a Path, but got: {value:?}")
                 }
             } else {
                 panic!("nested.field not found");

@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, Values};
-use eure_tree::visitor::CstVisitorSuper;
 use eure_tree::prelude::*;
 use eure_value::value::Value;
 
@@ -42,11 +41,10 @@ users.$array = .$types.User
             println!("FAIL: 'users' is not at root level");
             
             // Check if it's inside $types
-            if let Some(Value::Map(types_map)) = map.0.get(&eure_value::value::KeyCmpValue::String("$types".to_string())) {
-                if let Some(Value::Map(user_map)) = types_map.0.get(&eure_value::value::KeyCmpValue::String("User".to_string())) {
+            if let Some(Value::Map(types_map)) = map.0.get(&eure_value::value::KeyCmpValue::String("$types".to_string()))
+                && let Some(Value::Map(user_map)) = types_map.0.get(&eure_value::value::KeyCmpValue::String("User".to_string())) {
                     println!("User type keys: {:?}", user_map.0.keys().collect::<Vec<_>>());
                 }
-            }
         }
     }
 }

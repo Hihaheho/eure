@@ -38,7 +38,7 @@ impl SchemaManager {
     /// Load a schema from a file
     pub fn load_schema(&mut self, uri: &str, input: &str, _tree: &Cst) -> Result<(), String> {
         let extracted = extract_schema_from_value(input)
-            .map_err(|e| format!("Failed to extract schema: {}", e))?;
+            .map_err(|e| format!("Failed to extract schema: {e}"))?;
         
         // We don't reject schemas with non-schema content anymore
         // A schema file can contain examples, documentation, etc.
@@ -87,7 +87,7 @@ pub fn validate_document(
                     }
                 }
                 Err(e) => {
-                    eprintln!("Validation error: {}", e);
+                    eprintln!("Validation error: {e}");
                 }
             }
             return diagnostics;
@@ -97,7 +97,7 @@ pub fn validate_document(
     let validation_result = match validate_self_describing_with_tree(input, tree) {
         Ok(result) => result,
         Err(e) => {
-            eprintln!("Self-describing validation error: {}", e);
+            eprintln!("Self-describing validation error: {e}");
             return diagnostics;
         }
     };

@@ -396,7 +396,7 @@ name = "Alice"
         if !errors.is_empty() {
             eprintln!("Validation errors:");
             for error in &errors {
-                eprintln!("  - {:?}", error);
+                eprintln!("  - {error:?}");
             }
         }
         assert!(errors.is_empty());
