@@ -10,12 +10,14 @@ mod utils;
 mod value_schema;
 mod value_validator;
 mod tree_validator;
+mod document_schema;
 
 pub use schema::*;
 pub use value_validator::{ValidationError, ValidationErrorKind, Severity};
 pub use builder::{FieldSchemaBuilder, TypeBuilder, ObjectSchemaBuilder, VariantSchemaBuilder};
 pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, path_to_display_string, path_segments_to_display_string};
 pub use value_schema::{value_to_schema, is_pure_schema, SchemaError};
+pub use document_schema::{document_to_schema, is_pure_schema_node};
 pub use value_validator::validate_document;
 pub use eure_value::value::{PathSegment, KeyCmpValue};
 
@@ -239,7 +241,7 @@ mod tests {
         let schema = DocumentSchema::default();
         assert!(schema.types.is_empty());
         assert!(schema.root.fields.is_empty());
-        assert!(schema.cascade_type.is_none());
+        assert!(schema.cascade_types.is_empty());
     }
 
 

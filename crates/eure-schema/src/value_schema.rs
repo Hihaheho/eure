@@ -52,19 +52,19 @@ pub fn value_to_schema(value: &Value) -> Result<DocumentSchema, SchemaError> {
     schema.cascade_types = builder.cascade_types;
     
     // Check for special root-level keys
-    if let Some(Value::String(schema_ref)) = map.0.get(&KeyCmpValue::Extension("schema".to_string())) {
+    if let Some(Value::String(schema_ref)) = map.0.get(&KeyCmpValue::String("$schema".to_string())) {
         schema.schema_ref = Some(schema_ref.clone());
     }
     
     // Handle root-level cascade type
-    if let Some(Value::Path(path)) = map.0.get(&KeyCmpValue::Extension("cascade-type".to_string())) {
+    if let Some(Value::Path(path)) = map.0.get(&KeyCmpValue::String("$cascade-type".to_string())) {
         if let Some(cascade_type) = Type::from_path_segments(&path.0) {
             schema.cascade_types.insert(PathKey::from_segments(&[]), cascade_type);
         }
     }
     
     // Handle global serde options
-    if let Some(Value::Map(serde_map)) = map.0.get(&KeyCmpValue::Extension("serde".to_string())) {
+    if let Some(Value::Map(serde_map)) = map.0.get(&KeyCmpValue::String("$serde".to_string())) {
         schema.serde_options = SchemaBuilder::extract_serde_options(&serde_map.0);
     }
     
@@ -81,16 +81,18 @@ pub fn is_pure_schema(value: &Value) -> bool {
     // A pure schema only contains schema definitions, no actual data
     for (key, val) in &map.0 {
         match key {
-            KeyCmpValue::Extension(_) | KeyCmpValue::MetaExtension(_) => {
-                // Extension keys are OK for schemas
-                continue;
-            }
-            KeyCmpValue::String(_) => {
-                // Regular fields should contain schema definitions or be nested objects
-                if !is_schema_or_nested_schema(val) {
-                    return false;
+            KeyCmpValue::String(s) => {
+                if s.starts_with('$') {
+                    // Extension keys (starting with $) are OK for schemas
+                    continue;
+                } else {
+                    // Regular fields should contain schema definitions or be nested objects
+                    if !is_schema_or_nested_schema(val) {
+                        return false;
+                    }
                 }
             }
+            // This case is now handled above
             _ => {
                 return false;
             }
@@ -161,51 +163,50 @@ impl SchemaBuilder {
         // Process each entry in the map
         for (key, value) in map {
             match key {
-                KeyCmpValue::Extension(ext) if ext == "types" => {
-                    // Process type definitions
-                    if let Value::Map(types_map) = value {
-                        self.process_types_map(&types_map.0)?;
-                    }
-                }
-                KeyCmpValue::Extension(ext) if ext == "cascade-type" => {
-                    // Handle cascade-type at any level
-                    if let Value::Path(type_path) = value {
-                        if let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
-                            // Convert string path to PathSegment path
-                            let path_segments: Vec<PathSegment> = path.iter()
-                                .map(|s| PathSegment::Ident(
-                                    eure_value::identifier::Identifier::from_str(s)
-                                        .unwrap_or_else(|_| eure_value::identifier::Identifier::from_str("unknown").unwrap())
-                                ))
-                                .collect();
-                            self.cascade_types.insert(PathKey::from_segments(&path_segments), cascade_type);
+                KeyCmpValue::String(key_str) => {
+                    if key_str == "$types" {
+                        // Process type definitions
+                        if let Value::Map(types_map) = value {
+                            self.process_types_map(&types_map.0)?;
+                        }
+                    } else if key_str == "$cascade-type" {
+                        // Handle cascade-type at any level
+                        if let Value::Path(type_path) = value {
+                            if let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
+                                // Convert string path to PathSegment path
+                                let path_segments: Vec<PathSegment> = path.iter()
+                                    .map(|s| PathSegment::Ident(
+                                        eure_value::identifier::Identifier::from_str(s)
+                                            .unwrap_or_else(|_| eure_value::identifier::Identifier::from_str("unknown").unwrap())
+                                    ))
+                                    .collect();
+                                self.cascade_types.insert(PathKey::from_segments(&path_segments), cascade_type);
+                            }
+                        }
+                    } else if key_str.starts_with("$$") {
+                        // Meta-extension defines schema for corresponding extension
+                        let meta_ext = &key_str[2..];
+                        if let Some(mut schema) = self.extract_field_schema(meta_ext, value)?
+                            && path.is_empty() {
+                                // Extension schemas are always optional
+                                schema.optional = true;
+                                // Store as extension key (with $ prefix)
+                                self.root_fields.insert(
+                                    KeyCmpValue::String(format!("${}", meta_ext)), 
+                                    schema
+                                );
+                        }
+                    } else if key_str.starts_with('$') {
+                        // Skip other extensions at root level - they are handled in value_to_schema
+                        continue;
+                    } else if path.is_empty() {
+                        // Regular field at root level
+                        if let Some(field_schema) = self.extract_field_schema(key_str, value)? {
+                            self.root_fields.insert(KeyCmpValue::String(key_str.clone()), field_schema);
                         }
                     }
                 }
-                KeyCmpValue::Extension(_) => {
-                    // Skip other extensions at root level - they are handled in value_to_schema
-                    continue;
-                }
-                KeyCmpValue::MetaExtension(meta_ext) => {
-                    // Meta-extension defines schema for corresponding extension
-                    if let Some(mut schema) = self.extract_field_schema(meta_ext, value)?
-                        && path.is_empty() {
-                            // Extension schemas are always optional
-                            schema.optional = true;
-                            // Store as Extension key (without $$)
-                            self.root_fields.insert(
-                                KeyCmpValue::Extension(meta_ext.clone()), 
-                                schema
-                            );
-                    }
-                }
-                KeyCmpValue::String(key_str) => {
-                    // Regular field - check if it has schema definitions
-                    if let Some(field_schema) = self.extract_field_schema(key_str, value)?
-                        && path.is_empty() {
-                            self.root_fields.insert(KeyCmpValue::String(key_str.clone()), field_schema);
-                    }
-                }
+                // String case is handled above
                 _ => {} // Skip other key types
             }
         }
@@ -234,7 +235,7 @@ impl SchemaBuilder {
         let mut variants = IndexMap::new();
         
         // The $variants map contains all variant-related definitions
-        if let Some(Value::Map(variants_map)) = all_entries.get(&KeyCmpValue::Extension("variants".to_string())) {
+        if let Some(Value::Map(variants_map)) = all_entries.get(&KeyCmpValue::String("$variants".to_string())) {
             // Process each variant in the variants map
             for (variant_key, variant_value) in &variants_map.0 {
                 if let KeyCmpValue::String(variant_name) = variant_key {
@@ -276,9 +277,9 @@ impl SchemaBuilder {
                     // Regular field - could be a direct field or nested structure
                     if let Value::Map(nested_map) = value {
                         // Check if this map contains $array extension
-                        if nested_map.0.contains_key(&KeyCmpValue::Extension("array".to_string())) {
+                        if nested_map.0.contains_key(&KeyCmpValue::String("$array".to_string())) {
                             // This field is an array
-                            if let Some(array_value) = nested_map.0.get(&KeyCmpValue::Extension("array".to_string())) {
+                            if let Some(array_value) = nested_map.0.get(&KeyCmpValue::String("$array".to_string())) {
                                 match array_value {
                                     Value::Path(path) => {
                                         // Simple array type: lines.$array = .string
@@ -354,7 +355,7 @@ impl SchemaBuilder {
         for (variant_key, variant_value) in variants_map {
             let key_str = match variant_key {
                 KeyCmpValue::String(s) => s.clone(),
-                KeyCmpValue::Extension(ext) if ext == "variants" => {
+                KeyCmpValue::String(s) if s == "$variants" => {
                     // Handle the case where we have a direct $variants map
                     if let Value::Map(direct_variants) = variant_value {
                         // Process all direct variants in this map
@@ -370,15 +371,15 @@ impl SchemaBuilder {
                                                     variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
                                                 }
                                             }
-                                            KeyCmpValue::Extension(ext_name) => {
-                                                if let Some(field_schema) = self.extract_field_schema(ext_name, field_value)? {
-                                                    variant_fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
+                                            KeyCmpValue::String(s) if s.starts_with('$') && !s.starts_with("$$") => {
+                                                if let Some(field_schema) = self.extract_field_schema(&s[1..], field_value)? {
+                                                    variant_fields.insert(KeyCmpValue::String(s.clone()), field_schema);
                                                 }
                                             }
-                                            KeyCmpValue::MetaExtension(meta_ext) => {
-                                                if let Some(schema) = self.extract_field_schema(meta_ext, field_value)? {
-                                                    // Store as Extension key (without $$)
-                                                    variant_fields.insert(KeyCmpValue::Extension(meta_ext.clone()), schema);
+                                            KeyCmpValue::String(s) if s.starts_with("$$") => {
+                                                if let Some(schema) = self.extract_field_schema(&s[2..], field_value)? {
+                                                    // Store as extension key (with $ prefix)
+                                                    variant_fields.insert(KeyCmpValue::String(format!("${}", &s[2..])), schema);
                                                 }
                                             }
                                             _ => continue,
@@ -432,12 +433,8 @@ impl SchemaBuilder {
                                 variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
                             }
                         }
-                        KeyCmpValue::Extension(_) => {
+                        KeyCmpValue::String(s) if s.starts_with('$') => {
                             // Skip extension fields - they are metadata, not data fields
-                            continue;
-                        }
-                        KeyCmpValue::MetaExtension(_) => {
-                            // Skip meta-extension fields - they are metadata, not data fields
                             continue;
                         }
                         _ => continue,
@@ -572,11 +569,11 @@ impl SchemaBuilder {
                 
                 
                 for (key, val) in &map.0 {
-                    if let KeyCmpValue::Extension(ext_name) = key
-                        && ext_name.starts_with("variants") {
+                    if let KeyCmpValue::String(s) = key
+                        && s.starts_with("$variants") {
                             has_variants = true;
                             // Store with the extension name as key
-                            all_variant_entries.insert(KeyCmpValue::Extension(ext_name.clone()), val.clone());
+                            all_variant_entries.insert(KeyCmpValue::String(s.clone()), val.clone());
                         }
                 }
                 
@@ -591,8 +588,8 @@ impl SchemaBuilder {
                 
                 for (key, val) in &map.0 {
                     match key {
-                        KeyCmpValue::Extension(ext_name) => match ext_name.as_str() {
-                            "type" => {
+                        KeyCmpValue::String(s) if s.starts_with('$') => match s.as_str() {
+                            "$type" => {
                                 if !has_variants {  // Only set type if not already set to Variants
                                     if let Value::Path(path) = val {
                                         schema.type_expr = Type::from_path_segments(&path.0)
