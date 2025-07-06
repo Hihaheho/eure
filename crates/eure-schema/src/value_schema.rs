@@ -5,9 +5,12 @@
 
 use crate::schema::*;
 use crate::utils::path_to_display_string;
-use eure_value::value::{Value, KeyCmpValue, Map};
+use eure_value::value::{Value, KeyCmpValue, Map, PathSegment, PathKey};
+use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
 use ahash::AHashMap;
+use std::collections::HashMap;
+use std::str::FromStr;
 
 /// Errors that can occur during schema extraction
 #[derive(Debug, thiserror::Error)]
@@ -46,15 +49,18 @@ pub fn value_to_schema(value: &Value) -> Result<DocumentSchema, SchemaError> {
         fields: builder.root_fields,
         additional_properties: None,
     };
+    schema.cascade_types = builder.cascade_types;
     
     // Check for special root-level keys
     if let Some(Value::String(schema_ref)) = map.0.get(&KeyCmpValue::Extension("schema".to_string())) {
         schema.schema_ref = Some(schema_ref.clone());
     }
     
-    // Handle cascade type
+    // Handle root-level cascade type
     if let Some(Value::Path(path)) = map.0.get(&KeyCmpValue::Extension("cascade-type".to_string())) {
-        schema.cascade_type = Type::from_path_segments(&path.0);
+        if let Some(cascade_type) = Type::from_path_segments(&path.0) {
+            schema.cascade_types.insert(PathKey::from_segments(&[]), cascade_type);
+        }
     }
     
     // Handle global serde options
@@ -98,6 +104,7 @@ pub fn is_pure_schema(value: &Value) -> bool {
 struct SchemaBuilder {
     types: IndexMap<KeyCmpValue, FieldSchema>,
     root_fields: IndexMap<KeyCmpValue, FieldSchema>,
+    cascade_types: HashMap<PathKey, Type>,
 }
 
 impl SchemaBuilder {
@@ -105,6 +112,7 @@ impl SchemaBuilder {
         Self {
             types: IndexMap::new(),
             root_fields: IndexMap::new(),
+            cascade_types: HashMap::new(),
         }
     }
     
@@ -157,6 +165,21 @@ impl SchemaBuilder {
                     // Process type definitions
                     if let Value::Map(types_map) = value {
                         self.process_types_map(&types_map.0)?;
+                    }
+                }
+                KeyCmpValue::Extension(ext) if ext == "cascade-type" => {
+                    // Handle cascade-type at any level
+                    if let Value::Path(type_path) = value {
+                        if let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
+                            // Convert string path to PathSegment path
+                            let path_segments: Vec<PathSegment> = path.iter()
+                                .map(|s| PathSegment::Ident(
+                                    eure_value::identifier::Identifier::from_str(s)
+                                        .unwrap_or_else(|_| eure_value::identifier::Identifier::from_str("unknown").unwrap())
+                                ))
+                                .collect();
+                            self.cascade_types.insert(PathKey::from_segments(&path_segments), cascade_type);
+                        }
                     }
                 }
                 KeyCmpValue::Extension(_) => {

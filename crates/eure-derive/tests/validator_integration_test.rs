@@ -1,7 +1,8 @@
 //! Integration tests that validate EURE documents against generated schemas
 
 use eure_derive::Eure;
-use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_with_schema, has_errors};
+use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_with_tree, has_errors};
+use eure_value::value::PathKey;
 use serde::{Serialize, Deserialize};
 
 // Type alias to simplify complex type signature
@@ -50,7 +51,7 @@ fn validate_document_with_types<T: ToEureSchema>(
             };
             
             // Set cascade type to the variant schema
-            doc_schema.cascade_type = Some(Type::Variants(variant_schema.clone()));
+            doc_schema.cascade_types.insert(PathKey::from_segments(&[]), Type::Variants(variant_schema.clone()));
         }
         _ => {
             // For other types, wrap in a single field
@@ -61,8 +62,8 @@ fn validate_document_with_types<T: ToEureSchema>(
     }
     
     
-    // Validate the document
-    let errors = validate_with_schema(document, doc_schema.clone());
+    // Validate the document using tree-based validation
+    let errors = validate_with_tree(document, doc_schema.clone(), &parsed);
     
     match errors {
         Ok(errors) if !has_errors(&errors) => Ok(()),
@@ -73,12 +74,12 @@ fn validate_document_with_types<T: ToEureSchema>(
             .collect();
         eprintln!("Document schema root fields: {:?}", doc_schema.root.fields.keys().collect::<Vec<_>>());
         eprintln!("Document schema types: {:?}", doc_schema.types.keys().collect::<Vec<_>>());
-        eprintln!("Document schema cascade type: {:?}", doc_schema.cascade_type);
+        eprintln!("Document schema cascade types: {:?}", doc_schema.cascade_types);
         eprintln!("Validation errors: {error_messages:?}");
         eprintln!("Full errors: {errors:#?}");
         Err(format!("Validation errors: {}", error_messages.join(", ")))
         },
-        Err(e) => Err(format!("Schema error: {e:?}"))
+        Err(e) => Err(format!("Validation error: {e:?}"))
     }
 }
 
@@ -223,6 +224,9 @@ age = 25
 "#;
     
     let result = validate_document::<User>(too_many_tags);
+    if result.is_ok() {
+        eprintln!("ERROR: Expected validation to fail for too many tags, but it passed!");
+    }
     assert!(result.is_err());
     let err_msg = result.unwrap_err();
     assert!(err_msg.contains("max_items") || err_msg.contains("ArrayLengthViolation"));

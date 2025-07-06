@@ -1,8 +1,9 @@
 //! Schema representation types for EURE documents
 
 use eure_tree::tree::InputSpan;
-use eure_value::value::{KeyCmpValue, PathSegment};
+use eure_value::value::{KeyCmpValue, PathSegment, PathKey};
 use indexmap::IndexMap;
+use std::collections::HashMap;
 
 /// Core type representation in EURE schema
 #[derive(Debug, Clone, PartialEq)]
@@ -179,8 +180,8 @@ pub struct DocumentSchema {
     pub types: IndexMap<KeyCmpValue, FieldSchema>,
     /// Schema for root object
     pub root: ObjectSchema,
-    /// Type that cascades to all descendants
-    pub cascade_type: Option<Type>,
+    /// Types that cascade at specific paths (empty PathKey = root)
+    pub cascade_types: HashMap<PathKey, Type>,
     /// Global serde options
     pub serde_options: SerdeOptions,
     /// Reference to external schema (from $schema key)

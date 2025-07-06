@@ -12,52 +12,11 @@ use eure_tree::{
     value_visitor::Values,
 };
 use eure_value::identifier::Identifier;
-use eure_value::value::{KeyCmpValue, Map, PathSegment, Value};
+use eure_value::value::{KeyCmpValue, Map, PathSegment, Value, PathKey};
 use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
-/// A key type for field tracking that preserves PathSegment type information
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct FieldPathKey(Vec<FieldPathSegment>);
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum FieldPathSegment {
-    Ident(String),
-    Extension(String),
-    MetaExt(String),
-    Value(KeyCmpValue),
-    Array { key: String, index: Option<String> },
-    TupleIndex(u8),
-}
-
-impl FieldPathKey {
-    fn from_path_segments(segments: &[PathSegment]) -> Self {
-        let converted = segments
-            .iter()
-            .map(|seg| match seg {
-                PathSegment::Ident(id) => FieldPathSegment::Ident(id.as_ref().to_string()),
-                PathSegment::Extension(id) => FieldPathSegment::Extension(id.as_ref().to_string()),
-                PathSegment::MetaExt(id) => FieldPathSegment::MetaExt(id.as_ref().to_string()),
-                PathSegment::Value(v) => FieldPathSegment::Value(v.clone()),
-                PathSegment::Array { key, index } => {
-                    let key_str = if let Value::String(s) = key {
-                        s.clone()
-                    } else {
-                        format!("{key:?}")
-                    };
-                    let index_str = index.as_ref().map(|idx| format!("{idx:?}"));
-                    FieldPathSegment::Array {
-                        key: key_str,
-                        index: index_str,
-                    }
-                }
-                PathSegment::TupleIndex(idx) => FieldPathSegment::TupleIndex(*idx),
-            })
-            .collect();
-        FieldPathKey(converted)
-    }
-}
 
 /// A tree-based validator that preserves span information
 pub struct SchemaValidator<'a> {
@@ -66,11 +25,13 @@ pub struct SchemaValidator<'a> {
     values: &'a Values,
     errors: Vec<ValidationError>,
     current_path: Vec<PathSegment>,
-    seen_fields: HashMap<FieldPathKey, HashSet<KeyCmpValue>>,
+    seen_fields: HashMap<PathKey, HashSet<KeyCmpValue>>,
     /// Track variant context for proper field validation
     variant_context: Option<String>,
     /// Track variant names at specific paths for finalize checking
-    variant_at_path: HashMap<FieldPathKey, String>,
+    variant_at_path: HashMap<PathKey, String>,
+    /// Cascade types at all paths (empty PathKey = root)
+    cascade_types: &'a HashMap<PathKey, Type>,
 }
 
 impl<'a> SchemaValidator<'a> {
@@ -85,6 +46,7 @@ impl<'a> SchemaValidator<'a> {
             seen_fields: HashMap::new(),
             variant_context: None,
             variant_at_path: HashMap::new(),
+            cascade_types: &schema.cascade_types,
         }
     }
 
@@ -266,7 +228,7 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                             if let Some(field_name) = field_name {
                                 // The parent path is the current path
                                 self.seen_fields
-                                    .entry(FieldPathKey::from_path_segments(&self.current_path))
+                                    .entry(PathKey::from_segments(&self.current_path))
                                     .or_default()
                                     .insert(field_name);
                             }
@@ -281,37 +243,83 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                         // Restore path
                         self.current_path = old_path;
                     } else if !is_extension {
-                        // Field not found - but before reporting as unexpected, check if we're in a variant array path
-                        // and the field might exist in one of the variants
-                        let mut found_in_variant = false;
+                        // Field not found - check for cascade types
+                        let cascade_type = self.find_cascade_type(&self.current_path).cloned();
+                        if let Some(cascade_type) = cascade_type {
+                            // Track that we've seen this field at its parent level
+                            if !path.is_empty() {
+                                let field_name = match path.last().unwrap() {
+                                    PathSegment::Ident(ident) => {
+                                        Some(KeyCmpValue::String(ident.as_ref().to_string()))
+                                    }
+                                    PathSegment::Array { key, .. } => {
+                                        if let Value::String(name) = key {
+                                            Some(KeyCmpValue::String(name.clone()))
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    PathSegment::Value(KeyCmpValue::String(s)) => {
+                                        Some(KeyCmpValue::String(s.clone()))
+                                    }
+                                    _ => None,
+                                };
 
-                        if self.variant_context.is_none() && path.len() == 1 {
-                            // Check if current path suggests we're inside a variant array element
-                            if let Some(field_key) = path[0].as_ident() {
-                                let current_path_clone = self.current_path.clone();
-                                found_in_variant = self
-                                    .check_field_in_variant_path(&current_path_clone, field_key);
+                                if let Some(field_name) = field_name {
+                                    self.seen_fields
+                                        .entry(PathKey::from_segments(&self.current_path))
+                                        .or_default()
+                                        .insert(field_name);
+                                }
                             }
-                        }
 
-                        if !found_in_variant {
-                            // Field not found in schema and not an extension - report as unexpected
-                            if let Some(field_key) = path.last().and_then(|seg| match seg {
-                                PathSegment::Ident(name) => {
-                                    Some(KeyCmpValue::String(name.as_ref().to_string()))
+                            // Create a field schema with the cascade type
+                            let cascade_field = FieldSchema {
+                                type_expr: cascade_type,
+                                optional: false,
+                                ..Default::default()
+                            };
+
+                            // Update current path for error reporting
+                            let old_path = std::mem::replace(&mut self.current_path, path.clone());
+
+                            // Validate the value against the cascade type
+                            self.validate_value(actual_value, &cascade_field, span);
+
+                            // Restore path
+                            self.current_path = old_path;
+                        } else {
+                            // No cascade type - check if we're in a variant array path
+                            let mut found_in_variant = false;
+
+                            if self.variant_context.is_none() && path.len() == 1 {
+                                // Check if current path suggests we're inside a variant array element
+                                if let Some(field_key) = path[0].as_ident() {
+                                    let current_path_clone = self.current_path.clone();
+                                    found_in_variant = self
+                                        .check_field_in_variant_path(&current_path_clone, field_key);
                                 }
-                                PathSegment::Value(KeyCmpValue::String(s)) => {
-                                    Some(KeyCmpValue::String(s.clone()))
+                            }
+
+                            if !found_in_variant {
+                                // Field not found in schema and not an extension - report as unexpected
+                                if let Some(field_key) = path.last().and_then(|seg| match seg {
+                                    PathSegment::Ident(name) => {
+                                        Some(KeyCmpValue::String(name.as_ref().to_string()))
+                                    }
+                                    PathSegment::Value(KeyCmpValue::String(s)) => {
+                                        Some(KeyCmpValue::String(s.clone()))
+                                    }
+                                    _ => None,
+                                }) {
+                                    self.add_error(
+                                        ValidationErrorKind::UnexpectedField {
+                                            field: field_key,
+                                            path: self.current_path.clone(),
+                                        },
+                                        span,
+                                    );
                                 }
-                                _ => None,
-                            }) {
-                                self.add_error(
-                                    ValidationErrorKind::UnexpectedField {
-                                        field: field_key,
-                                        path: self.current_path.clone(),
-                                    },
-                                    span,
-                                );
                             }
                         }
                     }
@@ -379,7 +387,7 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                     // The parent path is everything before this segment
                     let parent_path = path[..i].to_vec();
                     self.seen_fields
-                        .entry(FieldPathKey::from_path_segments(&parent_path))
+                        .entry(PathKey::from_segments(&parent_path))
                         .or_default()
                         .insert(field_name);
                 }
@@ -562,7 +570,7 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                                         self.variant_context = Some(variant_name.clone());
                                         // Store the variant name at this path for later checking
                                         self.variant_at_path.insert(
-                                            FieldPathKey::from_path_segments(&path),
+                                            PathKey::from_segments(&path),
                                             variant_name.clone(),
                                         );
                                     }
@@ -612,7 +620,7 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                                                                         Some(variant_name.clone());
                                                                     // Store the variant name at this path for later checking
                                                                     self.variant_at_path.insert(
-                                                                        FieldPathKey::from_path_segments(&path),
+                                                                        PathKey::from_segments(&path),
                                                                         variant_name.clone(),
                                                                     );
                                                                     break;
@@ -650,7 +658,7 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                                                                                 );
                                                                             // Store the variant name at this path for later checking
                                                                             self.variant_at_path.insert(
-                                                                                FieldPathKey::from_path_segments(&path),
+                                                                                PathKey::from_segments(&path),
                                                                                 variant_name.to_string(),
                                                                             );
                                                                             break;
@@ -713,6 +721,22 @@ impl PathSegmentExt for PathSegment {
 
 // Helper functions for validation
 impl<'a> SchemaValidator<'a> {
+    /// Find the most specific cascade type for a given path
+    fn find_cascade_type(&self, path: &[PathSegment]) -> Option<&Type> {
+        // Check from current path up to root
+        let mut check_path = path.to_vec();
+        loop {
+            let path_key = PathKey::from_segments(&check_path);
+            if let Some(cascade_type) = self.cascade_types.get(&path_key) {
+                return Some(cascade_type);
+            }
+            if check_path.is_empty() {
+                break;
+            }
+            check_path.pop();
+        }
+        None
+    }
     /// Check if a field exists in any variant when we're in a variant array path
     fn check_field_in_variant_path(&mut self, path: &[PathSegment], field_name: &str) -> bool {
         eprintln!("DEBUG: check_field_in_variant_path - path: {path:?}, field: {field_name}");
@@ -1225,7 +1249,7 @@ impl<'a> SchemaValidator<'a> {
         fields: &IndexMap<KeyCmpValue, FieldSchema>,
     ) {
         // For each field that exists and has been seen, check its nested fields
-        let path_key = FieldPathKey::from_path_segments(path);
+        let path_key = PathKey::from_segments(path);
         let seen_fields_clone = self.seen_fields.get(&path_key).cloned();
         if let Some(seen_at_level) = seen_fields_clone {
             for (field_key, field_schema) in fields {
@@ -1366,7 +1390,7 @@ impl<'a> SchemaValidator<'a> {
         // Get the set of fields seen at this level
         let seen_at_level = self
             .seen_fields
-            .get(&FieldPathKey::from_path_segments(path))
+            .get(&PathKey::from_segments(path))
             .cloned()
             .unwrap_or_default();
 
@@ -1394,7 +1418,7 @@ impl<'a> SchemaValidator<'a> {
         span: Option<InputSpan>,
     ) {
         // Look for the variant name stored at this path
-        let path_key = FieldPathKey::from_path_segments(path);
+        let path_key = PathKey::from_segments(path);
 
         if let Some(variant_name) = self.variant_at_path.get(&path_key) {
             // We know which variant was used at this path
@@ -1668,9 +1692,29 @@ impl<'a> SchemaValidator<'a> {
                 }
             }
 
-            if let Some(_pattern) = &constraints.pattern {
-                // For now, skip regex validation
-                // TODO: Add regex support
+            if let Some(pattern) = &constraints.pattern {
+                match regex::Regex::new(pattern) {
+                    Ok(re) => {
+                        if !re.is_match(s) {
+                            self.add_error(
+                                ValidationErrorKind::StringPatternViolation {
+                                    pattern: pattern.clone(),
+                                    value: s.clone(),
+                                },
+                                span,
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        self.add_error(
+                            ValidationErrorKind::InvalidSchemaPattern {
+                                pattern: pattern.clone(),
+                                error: e.to_string(),
+                            },
+                            span,
+                        );
+                    }
+                }
             }
         }
 

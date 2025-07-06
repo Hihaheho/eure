@@ -6,9 +6,9 @@ use crate::schema::*;
 use crate::utils::path_segments_to_display_string;
 use ahash::AHashMap;
 use eure_tree::tree::InputSpan;
-use eure_value::value::{Array, KeyCmpValue, Map, PathSegment, Tuple, Value};
+use eure_value::value::{Array, KeyCmpValue, Map, PathSegment, Tuple, Value, PathKey};
 use regex::Regex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 /// Severity of validation errors
@@ -362,8 +362,10 @@ fn validate_object_against_schema(
                         validate_constraints(actual_value, &field_schema.constraints, ctx);
                     });
                 } else {
-                    // Field not in schema - check cascade type
-                    if let Some(cascade_type) = &context.schema.cascade_type {
+                    // Field not in schema - check cascade types
+                    let cascade_type = find_cascade_type(&context.schema.cascade_types, &context.path);
+                    
+                    if let Some(cascade_type) = cascade_type {
                         context.with_path(path_segment, |ctx| {
                             let actual_value = extract_actual_value(value);
                             validate_value_against_type(actual_value, cascade_type, ctx);
@@ -792,4 +794,21 @@ fn type_to_string(t: &Type) -> String {
         },
         Type::CascadeType(_) => "cascade".to_string(),
     }
+}
+
+/// Find the most specific cascade type for a given path
+fn find_cascade_type<'a>(cascade_types: &'a HashMap<PathKey, Type>, path: &[PathSegment]) -> Option<&'a Type> {
+    // Check from current path up to root
+    let mut check_path = path.to_vec();
+    loop {
+        let path_key = PathKey::from_segments(&check_path);
+        if let Some(cascade_type) = cascade_types.get(&path_key) {
+            return Some(cascade_type);
+        }
+        if check_path.is_empty() {
+            break;
+        }
+        check_path.pop();
+    }
+    None
 }

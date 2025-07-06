@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use alloc::format;
 
 use crate::identifier::Identifier;
 use thisisplural::Plural;
@@ -67,10 +68,56 @@ pub struct PathKey(pub Vec<PathKeySegment>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PathKeySegment {
-    Ident(String),
-    Extension(String),
+    Ident(Identifier),
+    Extension(Identifier),
+    MetaExt(Identifier),
+    Value(KeyCmpValue),
+    Array { key: KeyCmpValue, index: Option<usize> },
     TupleIndex(u8),
-    Array { key: String, index: Option<usize> },
+}
+
+impl PathKey {
+    /// Create a PathKey from PathSegments
+    pub fn from_segments(segments: &[PathSegment]) -> Self {
+        let key_segments = segments
+            .iter()
+            .map(|seg| match seg {
+                PathSegment::Ident(id) => PathKeySegment::Ident(id.clone()),
+                PathSegment::Extension(id) => PathKeySegment::Extension(id.clone()),
+                PathSegment::MetaExt(id) => PathKeySegment::MetaExt(id.clone()),
+                PathSegment::Value(v) => PathKeySegment::Value(v.clone()),
+                PathSegment::Array { key, index } => PathKeySegment::Array {
+                    key: match key {
+                        Value::Null => KeyCmpValue::Null,
+                        Value::Bool(b) => KeyCmpValue::Bool(*b),
+                        Value::I64(n) => KeyCmpValue::I64(*n),
+                        Value::U64(n) => KeyCmpValue::U64(*n),
+                        Value::String(s) => KeyCmpValue::String(s.clone()),
+                        Value::Unit => KeyCmpValue::Unit,
+                        Value::Hole => KeyCmpValue::Hole,
+                        Value::Tuple(t) => KeyCmpValue::Tuple(Tuple(t.0.iter().map(|v| match v {
+                            Value::Null => KeyCmpValue::Null,
+                            Value::Bool(b) => KeyCmpValue::Bool(*b),
+                            Value::I64(n) => KeyCmpValue::I64(*n),
+                            Value::U64(n) => KeyCmpValue::U64(*n),
+                            Value::String(s) => KeyCmpValue::String(s.clone()),
+                            Value::Unit => KeyCmpValue::Unit,
+                            Value::Hole => KeyCmpValue::Hole,
+                            _ => KeyCmpValue::String(format!("{:?}", v)),
+                        }).collect())),
+                        _ => KeyCmpValue::String(format!("{:?}", key)),
+                    },
+                    index: index.as_ref().and_then(|v| match v {
+                        Value::I64(n) => Some(*n as usize),
+                        Value::U64(n) => Some(*n as usize),
+                        _ => None,
+                    }),
+                },
+                PathSegment::TupleIndex(idx) => PathKeySegment::TupleIndex(*idx),
+            })
+            .collect();
+        PathKey(key_segments)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
