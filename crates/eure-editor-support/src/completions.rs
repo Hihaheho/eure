@@ -508,6 +508,10 @@ fn format_type_detail(type_expr: &Type) -> String {
         Type::Path => "path".to_string(),
         Type::Union(types) => format!("union<{}>", types.len()),
         Type::CascadeType(inner) => format!("cascade<{}>", format_type_detail(inner)),
+        Type::Tuple(types) => {
+            let type_strs: Vec<String> = types.iter().map(format_type_detail).collect();
+            format!("({})", type_strs.join(", "))
+        }
     }
 }
 

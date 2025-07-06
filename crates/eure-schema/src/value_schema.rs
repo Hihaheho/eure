@@ -146,7 +146,7 @@ impl SchemaBuilder {
     fn process_map(&mut self, map: &AHashMap<KeyCmpValue, Value>, path: &[&str]) -> Result<(), SchemaError> {
         // Check if we're in the $types namespace
         if !path.is_empty() && path[0] == "$types" {
-            self.process_types_map(map, &path[1..])?;
+            self.process_types_map(map)?;
             return Ok(());
         }
         
@@ -156,7 +156,7 @@ impl SchemaBuilder {
                 KeyCmpValue::Extension(ext) if ext == "types" => {
                     // Process type definitions
                     if let Value::Map(types_map) = value {
-                        self.process_map(&types_map.0, &["$types"])?;
+                        self.process_types_map(&types_map.0)?;
                     }
                 }
                 KeyCmpValue::Extension(_) => {
@@ -191,17 +191,15 @@ impl SchemaBuilder {
     }
     
     /// Process entries in the $types namespace
-    fn process_types_map(&mut self, map: &AHashMap<KeyCmpValue, Value>, path: &[&str]) -> Result<(), SchemaError> {
-        if path.is_empty() {
-            // Direct children of $types are type definitions
-            for (key, value) in map {
-                let KeyCmpValue::String(type_name) = key else {
-                    continue;
-                };
-                
-                if let Some(type_schema) = self.extract_type_definition(type_name, value)? {
-                    self.types.insert(KeyCmpValue::String(type_name.clone()), type_schema);
-                }
+    fn process_types_map(&mut self, map: &AHashMap<KeyCmpValue, Value>) -> Result<(), SchemaError> {
+        // Direct children of $types are type definitions
+        for (key, value) in map {
+            let KeyCmpValue::String(type_name) = key else {
+                continue;
+            };
+            
+            if let Some(type_schema) = self.extract_type_definition(type_name, value)? {
+                self.types.insert(KeyCmpValue::String(type_name.clone()), type_schema);
             }
         }
         
@@ -228,7 +226,7 @@ impl SchemaBuilder {
     }
     
     /// Extract schema for a single variant, handling nested field definitions
-    fn extract_variant_schema(&self, variant_name: &str, variant_value: &Value) -> Result<ObjectSchema, SchemaError> {
+    fn extract_variant_schema(&self, _variant_name: &str, variant_value: &Value) -> Result<ObjectSchema, SchemaError> {
         let mut fields = IndexMap::new();
         
         if let Value::Map(variant_map) = variant_value {
@@ -666,6 +664,30 @@ impl SchemaBuilder {
                 
                 Ok(Some(schema))
             }
+            Value::Path(path) => {
+                // Handle simple type assignments like `Point = .string`
+                let mut schema = FieldSchema::default();
+                schema.type_expr = Type::from_path_segments(&path.0)
+                    .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                Ok(Some(schema))
+            }
+            Value::Tuple(tuple) => {
+                // Handle tuple type definitions like `Point = (.number, .string, .number)`
+                let mut element_types = Vec::new();
+                for elem in &tuple.0 {
+                    if let Value::Path(path) = elem {
+                        let elem_type = Type::from_path_segments(&path.0)
+                            .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                        element_types.push(elem_type);
+                    } else {
+                        return Err(SchemaError::InvalidField("Tuple type definition must contain only type paths".to_string()));
+                    }
+                }
+                
+                let mut schema = FieldSchema::default();
+                schema.type_expr = Type::Tuple(element_types);
+                Ok(Some(schema))
+            }
             _ => Ok(None),
         }
     }
@@ -814,6 +836,25 @@ impl SchemaBuilder {
                 let mut schema = FieldSchema::default();
                 schema.type_expr = Type::from_path_segments(&path.0)
                     .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                Ok(Some(schema))
+            }
+            Value::Tuple(tuple) => {
+                // Handle tuple type definitions like (.number, .string, .number)
+                // This represents a fixed-length tuple with specific types for each position
+                let mut element_types = Vec::new();
+                for elem in &tuple.0 {
+                    if let Value::Path(path) = elem {
+                        let elem_type = Type::from_path_segments(&path.0)
+                            .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                        element_types.push(elem_type);
+                    } else {
+                        return Err(SchemaError::InvalidField("Tuple type definition must contain only type paths".to_string()));
+                    }
+                }
+                
+                // Create a tuple type schema
+                let mut schema = FieldSchema::default();
+                schema.type_expr = Type::Tuple(element_types.clone());
                 Ok(Some(schema))
             }
             _ => Ok(None),

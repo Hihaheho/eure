@@ -1014,8 +1014,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         // Section with direct value assignment: @ section = value
                         // The Bind is just the "=" symbol, we need to look for a Value after it
                         // However, the SectionBodyView doesn't directly contain the value
-                        // This case might not be fully implemented in the AST yet
-                        // For now, we'll skip this case
+                        // This is a limitation in the current AST structure that would require
+                        // changes to the grammar and node generation to fix properly.
+                        // 
+                        // WORKAROUND: Use the standard syntax instead:
+                        //   $types.Point = (.number, .number, .number)
+                        // instead of:
+                        //   @ $types.Point = (.number, .number, .number)
+                        eprintln!("WARNING: @ section = value syntax is not fully supported. Use standard syntax instead.");
                     }
                 }
             }

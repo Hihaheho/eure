@@ -69,6 +69,8 @@ pub struct SchemaValidator<'a> {
     seen_fields: HashMap<FieldPathKey, HashSet<KeyCmpValue>>,
     /// Track variant context for proper field validation
     variant_context: Option<String>,
+    /// Track variant names at specific paths for finalize checking
+    variant_at_path: HashMap<FieldPathKey, String>,
 }
 
 impl<'a> SchemaValidator<'a> {
@@ -82,6 +84,7 @@ impl<'a> SchemaValidator<'a> {
             current_path: Vec::new(),
             seen_fields: HashMap::new(),
             variant_context: None,
+            variant_at_path: HashMap::new(),
         }
     }
 
@@ -95,7 +98,7 @@ impl<'a> SchemaValidator<'a> {
         // Check for missing required fields at all levels
         // Start with the root
         self.check_fields_at_path(&[], &self.schema.root.fields, None);
-        
+
         // Check all nested levels that we've tracked
         self.check_nested_required_fields(&[], &self.schema.root.fields);
     }
@@ -557,6 +560,11 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                                             "DEBUG: Setting variant context to '{variant_name}' at path {path:?} (SectionBinding)"
                                         );
                                         self.variant_context = Some(variant_name.clone());
+                                        // Store the variant name at this path for later checking
+                                        self.variant_at_path.insert(
+                                            FieldPathKey::from_path_segments(&path),
+                                            variant_name.clone(),
+                                        );
                                     }
                                 }
                             }
@@ -602,6 +610,11 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                                                                     );
                                                                     self.variant_context =
                                                                         Some(variant_name.clone());
+                                                                    // Store the variant name at this path for later checking
+                                                                    self.variant_at_path.insert(
+                                                                        FieldPathKey::from_path_segments(&path),
+                                                                        variant_name.clone(),
+                                                                    );
                                                                     break;
                                                                 }
                                                             }
@@ -635,6 +648,11 @@ impl<'a, F: CstFacade> CstVisitor<F> for SchemaValidator<'a> {
                                                                                         .to_string(
                                                                                         ),
                                                                                 );
+                                                                            // Store the variant name at this path for later checking
+                                                                            self.variant_at_path.insert(
+                                                                                FieldPathKey::from_path_segments(&path),
+                                                                                variant_name.to_string(),
+                                                                            );
                                                                             break;
                                                                         }
                                                                     }
@@ -1201,7 +1219,11 @@ impl<'a> SchemaValidator<'a> {
     }
 
     /// Check for missing required fields recursively
-    fn check_nested_required_fields(&mut self, path: &[PathSegment], fields: &IndexMap<KeyCmpValue, FieldSchema>) {
+    fn check_nested_required_fields(
+        &mut self,
+        path: &[PathSegment],
+        fields: &IndexMap<KeyCmpValue, FieldSchema>,
+    ) {
         // For each field that exists and has been seen, check its nested fields
         let path_key = FieldPathKey::from_path_segments(path);
         let seen_fields_clone = self.seen_fields.get(&path_key).cloned();
@@ -1216,35 +1238,116 @@ impl<'a> SchemaValidator<'a> {
                             match field_key {
                                 KeyCmpValue::String(name) => {
                                     nested_path.push(PathSegment::Ident(
-                                        Identifier::from_str(name).unwrap()
+                                        Identifier::from_str(name).unwrap(),
                                     ));
                                 }
                                 _ => continue,
                             }
-                            
+
                             // Check required fields at this nested level
                             self.check_fields_at_path(&nested_path, &obj_schema.fields, None);
-                            
+
                             // Recursively check deeper levels
                             self.check_nested_required_fields(&nested_path, &obj_schema.fields);
                         }
-                        Type::TypeRef(type_name) => {
-                            // Look up the type and check if it's an object
-                            if let Some(type_def) = self.schema.types.get(type_name)
-                                && let Type::Object(obj_schema) = &type_def.type_expr {
-                                    let mut nested_path = path.to_vec();
+                        Type::Array(elem_type) => {
+                            // For arrays, we need to check if the element type is a variant
+                            match elem_type.as_ref() {
+                                Type::Variants(variant_schema) => {
+                                    // This is an array of variants
+                                    let mut array_path = path.to_vec();
                                     match field_key {
                                         KeyCmpValue::String(name) => {
-                                            nested_path.push(PathSegment::Ident(
-                                                Identifier::from_str(name).unwrap()
-                                            ));
+                                            array_path.push(PathSegment::Array {
+                                                key: Value::String(name.clone()),
+                                                index: None,
+                                            });
                                         }
                                         _ => continue,
                                     }
-                                    
-                                    self.check_fields_at_path(&nested_path, &obj_schema.fields, None);
-                                    self.check_nested_required_fields(&nested_path, &obj_schema.fields);
+
+                                    // Check variant fields for array elements
+                                    self.check_variant_fields_at_path(
+                                        &array_path,
+                                        variant_schema,
+                                        None,
+                                    );
                                 }
+                                Type::TypeRef(type_name) => {
+                                    // Check if the type reference is a variant
+                                    if let Some(type_def) = self.schema.types.get(type_name)
+                                        && let Type::Variants(variant_schema) = &type_def.type_expr
+                                    {
+                                        let mut array_path = path.to_vec();
+                                        match field_key {
+                                            KeyCmpValue::String(name) => {
+                                                array_path.push(PathSegment::Array {
+                                                    key: Value::String(name.clone()),
+                                                    index: None,
+                                                });
+                                            }
+                                            _ => continue,
+                                        }
+
+                                        // Check variant fields for array elements
+                                        self.check_variant_fields_at_path(
+                                            &array_path,
+                                            variant_schema,
+                                            None,
+                                        );
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        Type::TypeRef(type_name) => {
+                            // Look up the type and check if it's an object or variant
+                            if let Some(type_def) = self.schema.types.get(type_name) {
+                                match &type_def.type_expr {
+                                    Type::Object(obj_schema) => {
+                                        let mut nested_path = path.to_vec();
+                                        match field_key {
+                                            KeyCmpValue::String(name) => {
+                                                nested_path.push(PathSegment::Ident(
+                                                    Identifier::from_str(name).unwrap(),
+                                                ));
+                                            }
+                                            _ => continue,
+                                        }
+
+                                        self.check_fields_at_path(
+                                            &nested_path,
+                                            &obj_schema.fields,
+                                            None,
+                                        );
+                                        self.check_nested_required_fields(
+                                            &nested_path,
+                                            &obj_schema.fields,
+                                        );
+                                    }
+                                    Type::Variants(variant_schema) => {
+                                        // For variants, we need to check fields for each variant instance
+                                        // This handles the case where a field directly references a variant type
+                                        let mut nested_path = path.to_vec();
+                                        match field_key {
+                                            KeyCmpValue::String(name) => {
+                                                nested_path.push(PathSegment::Ident(
+                                                    Identifier::from_str(name).unwrap(),
+                                                ));
+                                            }
+                                            _ => continue,
+                                        }
+
+                                        // Check variant fields at this path
+                                        self.check_variant_fields_at_path(
+                                            &nested_path,
+                                            variant_schema,
+                                            None,
+                                        );
+                                    }
+                                    _ => {}
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -1280,6 +1383,40 @@ impl<'a> SchemaValidator<'a> {
 
             // TODO: Recursively check nested objects if field was seen
             // This would require traversing into nested object schemas
+        }
+    }
+
+    /// Check variant fields at a specific path
+    fn check_variant_fields_at_path(
+        &mut self,
+        path: &[PathSegment],
+        variant_schema: &VariantSchema,
+        span: Option<InputSpan>,
+    ) {
+        // Look for the variant name stored at this path
+        let path_key = FieldPathKey::from_path_segments(path);
+
+        if let Some(variant_name) = self.variant_at_path.get(&path_key) {
+            // We know which variant was used at this path
+            if let Some(variant_obj_schema) = variant_schema
+                .variants
+                .get(&KeyCmpValue::String(variant_name.clone()))
+            {
+                // Check the required fields for this specific variant
+                let seen_at_level = self.seen_fields.get(&path_key).cloned().unwrap_or_default();
+
+                for (field_key, field_schema) in &variant_obj_schema.fields {
+                    if !field_schema.optional && !seen_at_level.contains(field_key) {
+                        self.add_error(
+                            ValidationErrorKind::RequiredFieldMissing {
+                                field: field_key.clone(),
+                                path: path.to_vec(),
+                            },
+                            span,
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -1404,6 +1541,45 @@ impl<'a> SchemaValidator<'a> {
 
                     let elem_field = FieldSchema {
                         type_expr: *elem_schema.clone(),
+                        optional: false,
+                        ..Default::default()
+                    };
+                    self.validate_value(elem, &elem_field, span);
+
+                    self.current_path.pop();
+                }
+            }
+            (Type::Tuple(elem_types), Value::Tuple(tuple)) => {
+                // Validate tuple with specific types for each position
+                // First check length matches
+                if elem_types.len() != tuple.0.len() {
+                    self.add_error(
+                        ValidationErrorKind::InvalidValue(format!(
+                            "Tuple length mismatch: expected {}, actual: {}",
+                            elem_types.len(),
+                            tuple.0.len()
+                        )),
+                        span,
+                    );
+                }
+
+                // Validate each element with its specific type
+                for (i, (elem, expected_type)) in tuple.0.iter().zip(elem_types.iter()).enumerate()
+                {
+                    if i > 255 {
+                        self.add_error(
+                            ValidationErrorKind::InvalidValue(
+                                "Tuple index exceeds maximum of 255".to_string(),
+                            ),
+                            span,
+                        );
+                        break;
+                    }
+                    let elem_path = PathSegment::TupleIndex(i as u8);
+                    self.current_path.push(elem_path);
+
+                    let elem_field = FieldSchema {
+                        type_expr: expected_type.clone(),
                         optional: false,
                         ..Default::default()
                     };
@@ -1614,6 +1790,7 @@ impl<'a> SchemaValidator<'a> {
             (Value::String(_), Type::String) => true,
             (Value::Array(_), Type::Array(_)) => true,
             (Value::Tuple(_), Type::Array(_)) => true,
+            (Value::Tuple(_), Type::Tuple(_)) => true,
             (Value::Map(_), Type::Object(_)) => true,
             (Value::Path(_), Type::Path) => true,
             (_, Type::Any) => true,
@@ -1730,6 +1907,10 @@ fn type_to_string(t: &Type) -> String {
         }
         Type::Array(_) => "array".to_string(),
         Type::Object(_) => "object".to_string(),
+        Type::Tuple(types) => {
+            let type_strs: Vec<String> = types.iter().map(type_to_string).collect();
+            format!("({})", type_strs.join(", "))
+        }
         Type::Union(_) => "union".to_string(),
         Type::Variants(_) => "variant".to_string(),
         Type::TypeRef(name) => match name {

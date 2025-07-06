@@ -443,6 +443,9 @@ fn validate_value_against_type(
         (Value::Tuple(tuple), Type::Array(elem_type)) => {
             validate_tuple(tuple, elem_type, context);
         }
+        (Value::Tuple(tuple), Type::Tuple(elem_types)) => {
+            validate_tuple_with_types(tuple, elem_types, context);
+        }
 
         // Objects
         (Value::Map(map), Type::Object(obj_schema)) => {
@@ -530,6 +533,32 @@ fn validate_tuple(tuple: &Tuple<Value>, elem_type: &Type, context: &mut Validati
 
         context.with_path(PathSegment::TupleIndex(index as u8), |ctx| {
             validate_value_against_type(element, elem_type, ctx);
+        });
+    }
+}
+
+/// Validate a tuple with specific types for each position
+fn validate_tuple_with_types(tuple: &Tuple<Value>, elem_types: &[Type], context: &mut ValidationContext) {
+    // Check length matches
+    if tuple.0.len() != elem_types.len() {
+        context.add_error(ValidationErrorKind::InvalidValue(format!(
+            "Tuple length mismatch: expected {}, actual: {}",
+            elem_types.len(),
+            tuple.0.len()
+        )));
+    }
+    
+    // Validate each element with its specific type
+    for (index, (element, expected_type)) in tuple.0.iter().zip(elem_types.iter()).enumerate() {
+        if index > 255 {
+            context.add_error(ValidationErrorKind::InvalidValue(format!(
+                "Tuple index {index} exceeds maximum of 255"
+            )));
+            break;
+        }
+
+        context.with_path(PathSegment::TupleIndex(index as u8), |ctx| {
+            validate_value_against_type(element, expected_type, ctx);
         });
     }
 }
@@ -751,6 +780,10 @@ fn type_to_string(t: &Type) -> String {
         }
         Type::Array(_) => "array".to_string(),
         Type::Object(_) => "object".to_string(),
+        Type::Tuple(types) => {
+            let type_strs: Vec<String> = types.iter().map(type_to_string).collect();
+            format!("({})", type_strs.join(", "))
+        }
         Type::Union(_) => "union".to_string(),
         Type::Variants(_) => "variant".to_string(),
         Type::TypeRef(name) => match name {

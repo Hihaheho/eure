@@ -1,6 +1,6 @@
 //! End-to-end tests for variant array field validation
 
-use eure_schema::{extract_schema_from_value, validate_with_tree};
+use eure_schema::{extract_schema_from_value, validate_with_tree, ValidationErrorKind, KeyCmpValue};
 
 #[test]
 fn test_variant_with_simple_array_validates() {
@@ -67,7 +67,7 @@ speaker = "Alice"
     assert!(!errors.is_empty(), "Expected validation errors for missing lines field");
     
     let has_missing_field_error = errors.iter().any(|e| 
-        matches!(&e.kind, eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. } if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "lines"))
+        matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if matches!(field, KeyCmpValue::String(s) if s == "lines"))
     );
     assert!(has_missing_field_error, "Expected missing field error for 'lines'");
 }
@@ -105,7 +105,7 @@ lines = [123, 456]  # Wrong type - numbers instead of strings
     assert!(!errors.is_empty(), "Expected validation errors for wrong array element types");
     
     let has_type_error = errors.iter().any(|e| 
-        matches!(&e.kind, eure_schema::ValidationErrorKind::TypeMismatch { .. })
+        matches!(&e.kind, ValidationErrorKind::TypeMismatch { .. })
     );
     assert!(has_type_error, "Expected type mismatch error");
 }

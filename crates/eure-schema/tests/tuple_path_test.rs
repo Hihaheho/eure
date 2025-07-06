@@ -8,7 +8,7 @@ fn test_tuple_validation_with_path() {
 coordinates.$type = .$types.Point
 coordinates = (10, 20, 5)
 
-@ $types.Point = (.number, .string, .number)
+$types.Point = (.number, .number, .number)
 "#;
 
     let result = validate_self_describing(input).expect("Failed to parse");
@@ -26,7 +26,7 @@ fn test_tuple_validation_error() {
 coordinates.$type = .$types.Point
 coordinates = (10, "invalid", 5)
 
-@ $types.Point = (.number, .string, .number)
+$types.Point = (.number, .number, .number)
 "#;
 
     let result = validate_self_describing(input).expect("Failed to parse");
@@ -57,7 +57,7 @@ fn test_tuple_index_exceeds_limit() {
 data.$type = .$types.LargeArray
 data = {tuple_str}
 
-@ $types.LargeArray.$array.number
+$types.LargeArray.$array = .number
 "#
     );
 
@@ -102,11 +102,13 @@ fn test_mixed_array_tuple_validation() {
     // Test that tuples can be used where arrays are expected
     let input = r#"
 pair.$type = .$types.Pair
-pair.values = ("a", "b", "c")
+pair = ("a", 1, "c")
+pair2.$type = .$types.Pair
+pair2.0 = "a"
+pair2.1 = 2
+pair2.2 = "c"
 
-@ $types.Pair.$type = .object
-@ $types.Pair.values.$type = .array
-@ $types.Pair.values[] = .string
+$types.Pair = (.string, .number, .string)
 "#;
 
     let result = validate_self_describing(input).expect("Failed to parse");
@@ -124,7 +126,7 @@ fn test_tuple_constraint_validation() {
 point.$type = .$types.Coordinate
 point = (1, 2, 3)
 
-@ $types.Coordinate = (.number, .number)
+$types.Coordinate = (.number, .number)
 "#;
 
     let result = validate_self_describing(input).expect("Failed to parse");

@@ -191,6 +191,13 @@ script.$type = .code.javascript
         let errors = validate(valid_doc, schema.clone());
         assert!(errors.is_empty());
 
+        // Valid - strings are accepted for code
+        let valid_doc = r#"script = ```javascript
+        console.log('hello')
+        ```"#;
+        let errors = validate(valid_doc, schema.clone());
+        assert!(errors.is_empty());
+
         // Invalid - boolean instead of string
         let invalid_doc = r#"script = true"#;
         let errors = validate(invalid_doc, schema.clone());

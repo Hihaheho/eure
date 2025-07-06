@@ -21,6 +21,9 @@ pub enum Type {
     // Collection types
     Array(Box<Type>),
     Object(ObjectSchema),
+    
+    // Tuple type - fixed-length array with specific types for each position
+    Tuple(Vec<Type>),
 
     // Union types
     Union(Vec<Type>),        // Untagged union
