@@ -1,7 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use alloc::format;
 
 use crate::identifier::Identifier;
 use thisisplural::Plural;
@@ -34,10 +33,6 @@ pub enum KeyCmpValue {
     I64(i64),
     U64(u64),
     String(String),
-    /// Extension identifier (e.g., $type, $serde)
-    Extension(String),
-    /// Meta-extension identifier (e.g., $$meta)
-    MetaExtension(String),
     Tuple(Tuple<KeyCmpValue>),
     Unit,
     Hole,
@@ -46,7 +41,7 @@ pub enum KeyCmpValue {
 #[derive(Debug, Clone, PartialEq, Plural)]
 pub struct Path(pub Vec<PathSegment>);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PathSegment {
     /// Regular identifiers like id, description
     Ident(Identifier),
@@ -59,64 +54,17 @@ pub enum PathSegment {
     /// Tuple element index (0-255)
     TupleIndex(u8),
     /// Array element access
-    Array { key: Value, index: Option<Value> },
+    ArrayIndex(u8),
 }
 
 // A simplified path representation that can be used as a HashMap key
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PathKey(pub Vec<PathKeySegment>);
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PathKeySegment {
-    Ident(Identifier),
-    Extension(Identifier),
-    MetaExt(Identifier),
-    Value(KeyCmpValue),
-    Array { key: KeyCmpValue, index: Option<usize> },
-    TupleIndex(u8),
-}
+pub struct PathKey(pub Vec<PathSegment>);
 
 impl PathKey {
     /// Create a PathKey from PathSegments
     pub fn from_segments(segments: &[PathSegment]) -> Self {
-        let key_segments = segments
-            .iter()
-            .map(|seg| match seg {
-                PathSegment::Ident(id) => PathKeySegment::Ident(id.clone()),
-                PathSegment::Extension(id) => PathKeySegment::Extension(id.clone()),
-                PathSegment::MetaExt(id) => PathKeySegment::MetaExt(id.clone()),
-                PathSegment::Value(v) => PathKeySegment::Value(v.clone()),
-                PathSegment::Array { key, index } => PathKeySegment::Array {
-                    key: match key {
-                        Value::Null => KeyCmpValue::Null,
-                        Value::Bool(b) => KeyCmpValue::Bool(*b),
-                        Value::I64(n) => KeyCmpValue::I64(*n),
-                        Value::U64(n) => KeyCmpValue::U64(*n),
-                        Value::String(s) => KeyCmpValue::String(s.clone()),
-                        Value::Unit => KeyCmpValue::Unit,
-                        Value::Hole => KeyCmpValue::Hole,
-                        Value::Tuple(t) => KeyCmpValue::Tuple(Tuple(t.0.iter().map(|v| match v {
-                            Value::Null => KeyCmpValue::Null,
-                            Value::Bool(b) => KeyCmpValue::Bool(*b),
-                            Value::I64(n) => KeyCmpValue::I64(*n),
-                            Value::U64(n) => KeyCmpValue::U64(*n),
-                            Value::String(s) => KeyCmpValue::String(s.clone()),
-                            Value::Unit => KeyCmpValue::Unit,
-                            Value::Hole => KeyCmpValue::Hole,
-                            _ => KeyCmpValue::String(format!("{:?}", v)),
-                        }).collect())),
-                        _ => KeyCmpValue::String(format!("{:?}", key)),
-                    },
-                    index: index.as_ref().and_then(|v| match v {
-                        Value::I64(n) => Some(*n as usize),
-                        Value::U64(n) => Some(*n as usize),
-                        _ => None,
-                    }),
-                },
-                PathSegment::TupleIndex(idx) => PathKeySegment::TupleIndex(*idx),
-            })
-            .collect();
-        PathKey(key_segments)
+        PathKey(segments.to_vec())
     }
 }
 
