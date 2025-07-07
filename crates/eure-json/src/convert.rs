@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, TypedString, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant};
 use serde_json::json;
 
 use crate::{config::Config, error::Error};
@@ -34,11 +34,11 @@ pub fn value_to_json_with_config(
             }
         }
         Value::String(s) => Ok(json!(s)),
-        Value::TypedString(TypedString { value, .. }) => {
+        Value::Code(Code { content, .. }) => {
             // In JSON, we lose the type information
-            Ok(json!(value))
+            Ok(json!(content))
         }
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             // Format as markdown code block
             if language.is_empty() {
                 Ok(json!(format!("`{}`", content)))
@@ -200,13 +200,13 @@ pub fn json_to_value_with_config(
                     if content.ends_with('\n') {
                         content.pop();
                     }
-                    Ok(Value::Code(Code { language, content }))
+                    Ok(Value::CodeBlock(Code { language, content }))
                 } else {
                     Ok(Value::String(s.clone()))
                 }
             } else if s.starts_with('`') && s.ends_with('`') && s.len() > 2 {
                 let content = s[1..s.len() - 1].to_string();
-                Ok(Value::Code(Code {
+                Ok(Value::CodeBlock(Code {
                     language: String::new(),
                     content,
                 }))

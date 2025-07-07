@@ -18,7 +18,7 @@ fn test_deserialize_hole_value_error() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn test_deserialize_hole_in_array() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn test_deserialize_nested_hole() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }
 
 #[test]
@@ -97,9 +97,12 @@ fn test_parse_file_with_holes() {
     let tree = eure_parol::parse(input).expect("Failed to parse");
     
     // Value extraction should succeed (holes become Value::Hole)
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input, &mut values);
+    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    
+    // Convert to value to verify holes are present
+    let doc = visitor.into_document();
+    let _value = eure_tree::value_visitor::document_to_value(doc);
     
     // But deserialization to a concrete type should fail
     #[derive(Debug, serde::Deserialize)]
@@ -126,5 +129,5 @@ fn test_parse_file_with_holes() {
     assert!(result.is_err());
     
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {}", error);
+    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
 }

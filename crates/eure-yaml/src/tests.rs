@@ -1,9 +1,7 @@
 #![allow(clippy::approx_constant)]
 
 use super::*;
-use eure_value::value::{
-    Array, Code, KeyCmpValue, Map, Tuple, TypedString, Value, Variant, VariantRepr,
-};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant, VariantRepr};
 use serde_yaml::Value as YamlValue;
 
 #[test]
@@ -42,20 +40,20 @@ fn test_basic_values_to_yaml() {
 }
 
 #[test]
-fn test_typed_string_to_yaml() {
-    let typed = Value::TypedString(TypedString {
-        type_name: "email".to_string(),
-        value: "test@example.com".to_string(),
+fn test_code_to_yaml() {
+    let code = Value::Code(Code {
+        language: "python".to_string(),
+        content: "print('hello')".to_string(),
     });
-    // Type information is lost in YAML
-    let yaml = value_to_yaml(&typed).unwrap();
-    assert_eq!(yaml, YamlValue::String("test@example.com".to_string()));
+    // Code is represented as a string in YAML
+    let yaml = value_to_yaml(&code).unwrap();
+    assert_eq!(yaml, YamlValue::String("print('hello')".to_string()));
 }
 
 #[test]
-fn test_code_to_yaml() {
+fn test_codeblock_to_yaml() {
     // Inline code
-    let code = Value::Code(Code {
+    let code = Value::CodeBlock(Code {
         language: String::new(),
         content: "let x = 42;".to_string(),
     });
@@ -63,7 +61,7 @@ fn test_code_to_yaml() {
     assert_eq!(yaml, YamlValue::String("`let x = 42;`".to_string()));
 
     // Code block with language
-    let code_block = Value::Code(Code {
+    let code_block = Value::CodeBlock(Code {
         language: "rust".to_string(),
         content: "fn main() {\n    println!(\"Hello\");\n}".to_string(),
     });
@@ -337,7 +335,7 @@ fn test_yaml_to_value_code() {
     let value = yaml_to_value(&yaml).unwrap();
 
     match value {
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             assert_eq!(language, "");
             assert_eq!(content, "let x = 42;");
         }
@@ -349,7 +347,7 @@ fn test_yaml_to_value_code() {
     let value = yaml_to_value(&yaml).unwrap();
 
     match value {
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             assert_eq!(language, "rust");
             assert_eq!(content, "fn main() {}");
         }
@@ -798,7 +796,7 @@ fn test_code_block_edge_cases() {
     // Empty code block
     let empty_code = YamlValue::String("```\n```".to_string());
     match yaml_to_value(&empty_code).unwrap() {
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             assert_eq!(language, "");
             // Empty code block might have trailing newline
             assert!(content.is_empty() || content == "\n");
@@ -809,7 +807,7 @@ fn test_code_block_edge_cases() {
     // Code block with just language
     let lang_only = YamlValue::String("```rust\n```".to_string());
     match yaml_to_value(&lang_only).unwrap() {
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             assert_eq!(language, "rust");
             // Empty code block might have trailing newline
             assert!(content.is_empty() || content == "\n");
@@ -820,7 +818,7 @@ fn test_code_block_edge_cases() {
     // Nested code fence markers
     let nested = YamlValue::String("```markdown\n```rust\ncode\n```\n```".to_string());
     match yaml_to_value(&nested).unwrap() {
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             assert_eq!(language, "markdown");
             assert_eq!(content, "```rust\ncode\n```");
         }
@@ -832,7 +830,7 @@ fn test_code_block_edge_cases() {
     let result = yaml_to_value(&inline_nested).unwrap();
     // This might be parsed as a regular string due to the internal backtick
     match result {
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             assert_eq!(language, "");
             assert_eq!(content, "code with ` backtick");
         }

@@ -5,9 +5,12 @@
 
 use crate::schema::*;
 use crate::utils::path_to_display_string;
-use eure_value::value::{Value, KeyCmpValue};
+use eure_value::value::{Value, KeyCmpValue, Map, PathSegment, PathKey};
+use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
 use ahash::AHashMap;
+use std::collections::HashMap;
+use std::str::FromStr;
 
 /// Errors that can occur during schema extraction
 #[derive(Debug, thiserror::Error)]
@@ -24,6 +27,8 @@ pub enum SchemaError {
     #[error("Invalid variant definition")]
     InvalidVariant,
 }
+
+
 
 /// Extract a schema from a Value representation of an EURE document
 pub fn value_to_schema(value: &Value) -> Result<DocumentSchema, SchemaError> {
@@ -44,19 +49,22 @@ pub fn value_to_schema(value: &Value) -> Result<DocumentSchema, SchemaError> {
         fields: builder.root_fields,
         additional_properties: None,
     };
+    schema.cascade_types = builder.cascade_types;
     
     // Check for special root-level keys
-    if let Some(Value::String(schema_ref)) = map.0.get(&KeyCmpValue::Extension("schema".to_string())) {
+    if let Some(Value::String(schema_ref)) = map.0.get(&KeyCmpValue::String("$schema".to_string())) {
         schema.schema_ref = Some(schema_ref.clone());
     }
     
-    // Handle cascade type
-    if let Some(Value::Path(path)) = map.0.get(&KeyCmpValue::Extension("cascade-type".to_string())) {
-        schema.cascade_type = Type::from_path(&path_to_display_string(path));
+    // Handle root-level cascade type
+    if let Some(Value::Path(path)) = map.0.get(&KeyCmpValue::String("$cascade-type".to_string())) {
+        if let Some(cascade_type) = Type::from_path_segments(&path.0) {
+            schema.cascade_types.insert(PathKey::from_segments(&[]), cascade_type);
+        }
     }
     
     // Handle global serde options
-    if let Some(Value::Map(serde_map)) = map.0.get(&KeyCmpValue::Extension("serde".to_string())) {
+    if let Some(Value::Map(serde_map)) = map.0.get(&KeyCmpValue::String("$serde".to_string())) {
         schema.serde_options = SchemaBuilder::extract_serde_options(&serde_map.0);
     }
     
@@ -73,16 +81,18 @@ pub fn is_pure_schema(value: &Value) -> bool {
     // A pure schema only contains schema definitions, no actual data
     for (key, val) in &map.0 {
         match key {
-            KeyCmpValue::Extension(_) | KeyCmpValue::MetaExtension(_) => {
-                // Extension keys are OK for schemas
-                continue;
-            }
-            KeyCmpValue::String(_) => {
-                // Regular fields should contain schema definitions or be nested objects
-                if !is_schema_or_nested_schema(val) {
-                    return false;
+            KeyCmpValue::String(s) => {
+                if s.starts_with('$') {
+                    // Extension keys (starting with $) are OK for schemas
+                    continue;
+                } else {
+                    // Regular fields should contain schema definitions or be nested objects
+                    if !is_schema_or_nested_schema(val) {
+                        return false;
+                    }
                 }
             }
+            // This case is now handled above
             _ => {
                 return false;
             }
@@ -96,6 +106,7 @@ pub fn is_pure_schema(value: &Value) -> bool {
 struct SchemaBuilder {
     types: IndexMap<KeyCmpValue, FieldSchema>,
     root_fields: IndexMap<KeyCmpValue, FieldSchema>,
+    cascade_types: HashMap<PathKey, Type>,
 }
 
 impl SchemaBuilder {
@@ -103,6 +114,7 @@ impl SchemaBuilder {
         Self {
             types: IndexMap::new(),
             root_fields: IndexMap::new(),
+            cascade_types: HashMap::new(),
         }
     }
     
@@ -144,43 +156,57 @@ impl SchemaBuilder {
     fn process_map(&mut self, map: &AHashMap<KeyCmpValue, Value>, path: &[&str]) -> Result<(), SchemaError> {
         // Check if we're in the $types namespace
         if !path.is_empty() && path[0] == "$types" {
-            self.process_types_map(map, &path[1..])?;
+            self.process_types_map(map)?;
             return Ok(());
         }
         
         // Process each entry in the map
         for (key, value) in map {
             match key {
-                KeyCmpValue::Extension(ext) if ext == "types" => {
-                    // Process type definitions
-                    if let Value::Map(types_map) = value {
-                        self.process_map(&types_map.0, &["$types"])?;
-                    }
-                }
-                KeyCmpValue::Extension(_) => {
-                    // Skip other extensions at root level - they are handled in value_to_schema
-                    continue;
-                }
-                KeyCmpValue::MetaExtension(meta_ext) => {
-                    // Meta-extension defines schema for corresponding extension
-                    if let Some(mut schema) = self.extract_field_schema(meta_ext, value)?
-                        && path.is_empty() {
-                            // Extension schemas are always optional
-                            schema.optional = true;
-                            // Store as Extension key (without $$)
-                            self.root_fields.insert(
-                                KeyCmpValue::Extension(meta_ext.clone()), 
-                                schema
-                            );
-                    }
-                }
                 KeyCmpValue::String(key_str) => {
-                    // Regular field - check if it has schema definitions
-                    if let Some(field_schema) = self.extract_field_schema(key_str, value)?
-                        && path.is_empty() {
+                    if key_str == "$types" {
+                        // Process type definitions
+                        if let Value::Map(types_map) = value {
+                            self.process_types_map(&types_map.0)?;
+                        }
+                    } else if key_str == "$cascade-type" {
+                        // Handle cascade-type at any level
+                        if let Value::Path(type_path) = value {
+                            if let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
+                                // Convert string path to PathSegment path
+                                let path_segments: Vec<PathSegment> = path.iter()
+                                    .map(|s| PathSegment::Ident(
+                                        eure_value::identifier::Identifier::from_str(s)
+                                            .unwrap_or_else(|_| eure_value::identifier::Identifier::from_str("unknown").unwrap())
+                                    ))
+                                    .collect();
+                                self.cascade_types.insert(PathKey::from_segments(&path_segments), cascade_type);
+                            }
+                        }
+                    } else if key_str.starts_with("$$") {
+                        // Meta-extension defines schema for corresponding extension
+                        let meta_ext = &key_str[2..];
+                        if let Some(mut schema) = self.extract_field_schema(meta_ext, value)?
+                            && path.is_empty() {
+                                // Extension schemas are always optional
+                                schema.optional = true;
+                                // Store as extension key (with $ prefix)
+                                self.root_fields.insert(
+                                    KeyCmpValue::String(format!("${}", meta_ext)), 
+                                    schema
+                                );
+                        }
+                    } else if key_str.starts_with('$') {
+                        // Skip other extensions at root level - they are handled in value_to_schema
+                        continue;
+                    } else if path.is_empty() {
+                        // Regular field at root level
+                        if let Some(field_schema) = self.extract_field_schema(key_str, value)? {
                             self.root_fields.insert(KeyCmpValue::String(key_str.clone()), field_schema);
+                        }
                     }
                 }
+                // String case is handled above
                 _ => {} // Skip other key types
             }
         }
@@ -189,17 +215,15 @@ impl SchemaBuilder {
     }
     
     /// Process entries in the $types namespace
-    fn process_types_map(&mut self, map: &AHashMap<KeyCmpValue, Value>, path: &[&str]) -> Result<(), SchemaError> {
-        if path.is_empty() {
-            // Direct children of $types are type definitions
-            for (key, value) in map {
-                let KeyCmpValue::String(type_name) = key else {
-                    continue;
-                };
-                
-                if let Some(type_schema) = self.extract_type_definition(type_name, value)? {
-                    self.types.insert(KeyCmpValue::String(type_name.clone()), type_schema);
-                }
+    fn process_types_map(&mut self, map: &AHashMap<KeyCmpValue, Value>) -> Result<(), SchemaError> {
+        // Direct children of $types are type definitions
+        for (key, value) in map {
+            let KeyCmpValue::String(type_name) = key else {
+                continue;
+            };
+            
+            if let Some(type_schema) = self.extract_type_definition(type_name, value)? {
+                self.types.insert(KeyCmpValue::String(type_name.clone()), type_schema);
             }
         }
         
@@ -207,40 +231,71 @@ impl SchemaBuilder {
     }
     
     /// Extract all variants from entries that start with $variants
-    fn extract_all_variants(&mut self, all_entries: &AHashMap<KeyCmpValue, Value>) -> Result<IndexMap<KeyCmpValue, ObjectSchema>, SchemaError> {
+    fn extract_all_variants(&self, all_entries: &AHashMap<KeyCmpValue, Value>) -> Result<IndexMap<KeyCmpValue, ObjectSchema>, SchemaError> {
         let mut variants = IndexMap::new();
         
         // The $variants map contains all variant-related definitions
-        if let Some(Value::Map(variants_map)) = all_entries.get(&KeyCmpValue::Extension("variants".to_string())) {
-            // Process all entries in the variants map
-            for (key, value) in &variants_map.0 {
-                
-                if let KeyCmpValue::String(key_str) = key {
-                    // Check if this is a simple variant definition or a nested field definition
-                    if key_str.contains('.') {
-                        // This is a nested field definition like "set-choices.choice.$array"
-                        let parts: Vec<&str> = key_str.split('.').collect();
-                        if parts.len() >= 2 {
-                            let variant_name = parts[0];
-                            let field_path = parts[1..].join(".");
-                            
-                            
-                            // Ensure the variant exists
-                            if !variants.contains_key(&KeyCmpValue::String(variant_name.to_string())) {
-                                variants.insert(KeyCmpValue::String(variant_name.to_string()), ObjectSchema {
-                                    fields: IndexMap::new(),
-                                    additional_properties: None,
-                                });
-                            }
-                            
-                            if let Some(variant_obj) = variants.get_mut(&KeyCmpValue::String(variant_name.to_string())) {
-                                // Handle array field definitions
-                                if field_path.ends_with(".$array") {
-                                    let field_name = &field_path[..field_path.len() - 7];
-                                    
-                                    if let Value::Map(elem_map) = value {
+        if let Some(Value::Map(variants_map)) = all_entries.get(&KeyCmpValue::String("$variants".to_string())) {
+            // Process each variant in the variants map
+            for (variant_key, variant_value) in &variants_map.0 {
+                if let KeyCmpValue::String(variant_name) = variant_key {
+                    // Process this variant's definition
+                    let variant_schema = self.extract_variant_schema(variant_name, variant_value)?;
+                    variants.insert(KeyCmpValue::String(variant_name.clone()), variant_schema);
+                }
+            }
+        }
+        
+        Ok(variants)
+    }
+    
+    /// Extract schema for a single variant, handling nested field definitions
+    fn extract_variant_schema(&self, _variant_name: &str, variant_value: &Value) -> Result<ObjectSchema, SchemaError> {
+        let mut fields = IndexMap::new();
+        
+        if let Value::Map(variant_map) = variant_value {
+            // Process all fields in this variant
+            self.extract_variant_fields(&mut fields, variant_map, &[])?;
+        }
+        
+        Ok(ObjectSchema {
+            fields,
+            additional_properties: None,
+        })
+    }
+    
+    /// Recursively extract variant fields, handling nested structures and $array
+    fn extract_variant_fields(
+        &self,
+        fields: &mut IndexMap<KeyCmpValue, FieldSchema>,
+        map: &Map,
+        path: &[String],
+    ) -> Result<(), SchemaError> {
+        for (key, value) in &map.0 {
+            match key {
+                KeyCmpValue::String(field_name) => {
+                    // Regular field - could be a direct field or nested structure
+                    if let Value::Map(nested_map) = value {
+                        // Check if this map contains $array extension
+                        if nested_map.0.contains_key(&KeyCmpValue::String("$array".to_string())) {
+                            // This field is an array
+                            if let Some(array_value) = nested_map.0.get(&KeyCmpValue::String("$array".to_string())) {
+                                match array_value {
+                                    Value::Path(path) => {
+                                        // Simple array type: lines.$array = .string
+                                        let elem_type = Type::from_path_segments(&path.0)
+                                            .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                                        let array_field = FieldSchema {
+                                            type_expr: Type::Array(Box::new(elem_type)),
+                                            optional: false,
+                                            ..Default::default()
+                                        };
+                                        fields.insert(KeyCmpValue::String(field_name.clone()), array_field);
+                                    }
+                                    Value::Map(array_elem_map) => {
+                                        // Complex array with object elements: choice.$array = { text = .string, value = .string }
                                         let mut elem_fields = IndexMap::new();
-                                        for (elem_key, elem_value) in &elem_map.0 {
+                                        for (elem_key, elem_value) in &array_elem_map.0 {
                                             if let KeyCmpValue::String(elem_field_name) = elem_key
                                                 && let Some(elem_field_schema) = self.extract_field_schema(elem_field_name, elem_value)? {
                                                     elem_fields.insert(KeyCmpValue::String(elem_field_name.clone()), elem_field_schema);
@@ -256,52 +311,40 @@ impl SchemaBuilder {
                                             ..Default::default()
                                         };
                                         
-                                        variant_obj.fields.insert(KeyCmpValue::String(field_name.to_string()), array_field);
+                                        fields.insert(KeyCmpValue::String(field_name.clone()), array_field);
                                     }
-                                } else if let Some(field_schema) = self.extract_field_schema(&field_path, value)? {
-                                    variant_obj.fields.insert(KeyCmpValue::String(field_path.to_string()), field_schema);
+                                    _ => {
+                                        // Other value types for $array are not supported
+                                    }
                                 }
                             }
+                        } else if let Some(field_schema) = self.extract_field_schema(field_name, value)? {
+                            // This map contains schema definitions (like $type), treat it as a field definition
+                            fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
+                        } else {
+                            // Regular nested object - recurse into it
+                            let mut new_path = path.to_vec();
+                            new_path.push(field_name.clone());
+                            self.extract_variant_fields(fields, nested_map, &new_path)?;
                         }
                     } else {
-                        // Simple variant definition
-                        if let Value::Map(variant_map) = value {
-                            let mut variant_fields = IndexMap::new();
-                            
-                            
-                            for (field_key, field_value) in &variant_map.0 {
-                                match field_key {
-                                    KeyCmpValue::String(field_name) => {
-                                        
-                                        if let Some(field_schema) = self.extract_field_schema(field_name, field_value)? {
-                                            variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
-                                        }
-                                    }
-                                    KeyCmpValue::Extension(ext_name) => {
-                                        if let Some(field_schema) = self.extract_field_schema(ext_name, field_value)? {
-                                            variant_fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
-                                        }
-                                    }
-                                    KeyCmpValue::MetaExtension(meta_ext) => {
-                                        if let Some(schema) = self.extract_field_schema(meta_ext, field_value)? {
-                                            variant_fields.insert(KeyCmpValue::Extension(meta_ext.clone()), schema);
-                                        }
-                                    }
-                                    _ => continue,
-                                }
-                            }
-                            
-                            variants.insert(KeyCmpValue::String(key_str.clone()), ObjectSchema {
-                                fields: variant_fields,
-                                additional_properties: None,
-                            });
+                        // Direct field definition
+                        if let Some(field_schema) = self.extract_field_schema(field_name, value)? {
+                            fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
                         }
                     }
                 }
+                KeyCmpValue::Extension(ext_name) => {
+                    // Handle extension fields in variants
+                    if let Some(field_schema) = self.extract_field_schema(ext_name, value)? {
+                        fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
+                    }
+                }
+                _ => continue,
             }
         }
         
-        Ok(variants)
+        Ok(())
     }
     
     /// Extract variants from a Value Map
@@ -312,7 +355,7 @@ impl SchemaBuilder {
         for (variant_key, variant_value) in variants_map {
             let key_str = match variant_key {
                 KeyCmpValue::String(s) => s.clone(),
-                KeyCmpValue::Extension(ext) if ext == "variants" => {
+                KeyCmpValue::String(s) if s == "$variants" => {
                     // Handle the case where we have a direct $variants map
                     if let Value::Map(direct_variants) = variant_value {
                         // Process all direct variants in this map
@@ -328,15 +371,15 @@ impl SchemaBuilder {
                                                     variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
                                                 }
                                             }
-                                            KeyCmpValue::Extension(ext_name) => {
-                                                if let Some(field_schema) = self.extract_field_schema(ext_name, field_value)? {
-                                                    variant_fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
+                                            KeyCmpValue::String(s) if s.starts_with('$') && !s.starts_with("$$") => {
+                                                if let Some(field_schema) = self.extract_field_schema(&s[1..], field_value)? {
+                                                    variant_fields.insert(KeyCmpValue::String(s.clone()), field_schema);
                                                 }
                                             }
-                                            KeyCmpValue::MetaExtension(meta_ext) => {
-                                                if let Some(schema) = self.extract_field_schema(meta_ext, field_value)? {
-                                                    // Store as Extension key (without $$)
-                                                    variant_fields.insert(KeyCmpValue::Extension(meta_ext.clone()), schema);
+                                            KeyCmpValue::String(s) if s.starts_with("$$") => {
+                                                if let Some(schema) = self.extract_field_schema(&s[2..], field_value)? {
+                                                    // Store as extension key (with $ prefix)
+                                                    variant_fields.insert(KeyCmpValue::String(format!("${}", &s[2..])), schema);
                                                 }
                                             }
                                             _ => continue,
@@ -390,16 +433,9 @@ impl SchemaBuilder {
                                 variant_fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
                             }
                         }
-                        KeyCmpValue::Extension(ext_name) => {
-                            if let Some(field_schema) = self.extract_field_schema(ext_name, field_value)? {
-                                variant_fields.insert(KeyCmpValue::Extension(ext_name.clone()), field_schema);
-                            }
-                        }
-                        KeyCmpValue::MetaExtension(meta_ext) => {
-                            if let Some(schema) = self.extract_field_schema(meta_ext, field_value)? {
-                                // Store as Extension key (without $$)
-                                variant_fields.insert(KeyCmpValue::Extension(meta_ext.clone()), schema);
-                            }
+                        KeyCmpValue::String(s) if s.starts_with('$') => {
+                            // Skip extension fields - they are metadata, not data fields
+                            continue;
                         }
                         _ => continue,
                     }
@@ -533,11 +569,11 @@ impl SchemaBuilder {
                 
                 
                 for (key, val) in &map.0 {
-                    if let KeyCmpValue::Extension(ext_name) = key
-                        && ext_name.starts_with("variants") {
+                    if let KeyCmpValue::String(s) = key
+                        && s.starts_with("$variants") {
                             has_variants = true;
                             // Store with the extension name as key
-                            all_variant_entries.insert(KeyCmpValue::Extension(ext_name.clone()), val.clone());
+                            all_variant_entries.insert(KeyCmpValue::String(s.clone()), val.clone());
                         }
                 }
                 
@@ -552,13 +588,12 @@ impl SchemaBuilder {
                 
                 for (key, val) in &map.0 {
                     match key {
-                        KeyCmpValue::Extension(ext_name) => match ext_name.as_str() {
-                            "type" => {
+                        KeyCmpValue::String(s) if s.starts_with('$') => match s.as_str() {
+                            "$type" => {
                                 if !has_variants {  // Only set type if not already set to Variants
                                     if let Value::Path(path) = val {
-                                        let path_str = path_to_display_string(path);
-                                        schema.type_expr = Type::from_path(&path_str)
-                                            .ok_or(SchemaError::InvalidTypePath(path_str))?;
+                                        schema.type_expr = Type::from_path_segments(&path.0)
+                                            .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
                                     }
                                 }
                             }
@@ -569,12 +604,10 @@ impl SchemaBuilder {
                                 if let Value::Array(arr) = val {
                                     let mut union_types = Vec::new();
                                     for elem in &arr.0 {
-                                        if let Value::Path(path) = elem {
-                                            let path_str = path_to_display_string(path);
-                                            if let Some(union_type) = Type::from_path(&path_str) {
+                                        if let Value::Path(path) = elem
+                                            && let Some(union_type) = Type::from_path_segments(&path.0) {
                                                 union_types.push(union_type);
                                             }
-                                        }
                                     }
                                     if !union_types.is_empty() {
                                         schema.type_expr = Type::Union(union_types);
@@ -583,9 +616,8 @@ impl SchemaBuilder {
                             }
                             "array" => {
                                 if let Value::Path(path) = val {
-                                    let path_str = path_to_display_string(path);
-                                    let elem_type = Type::from_path(&path_str)
-                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_str.clone()))?;
+                                    let elem_type = Type::from_path_segments(&path.0)
+                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
                                     schema.type_expr = Type::Array(Box::new(elem_type));
                                 }
                             }
@@ -652,6 +684,30 @@ impl SchemaBuilder {
                 
                 Ok(Some(schema))
             }
+            Value::Path(path) => {
+                // Handle simple type assignments like `Point = .string`
+                let mut schema = FieldSchema::default();
+                schema.type_expr = Type::from_path_segments(&path.0)
+                    .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                Ok(Some(schema))
+            }
+            Value::Tuple(tuple) => {
+                // Handle tuple type definitions like `Point = (.number, .string, .number)`
+                let mut element_types = Vec::new();
+                for elem in &tuple.0 {
+                    if let Value::Path(path) = elem {
+                        let elem_type = Type::from_path_segments(&path.0)
+                            .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                        element_types.push(elem_type);
+                    } else {
+                        return Err(SchemaError::InvalidField("Tuple type definition must contain only type paths".to_string()));
+                    }
+                }
+                
+                let mut schema = FieldSchema::default();
+                schema.type_expr = Type::Tuple(element_types);
+                Ok(Some(schema))
+            }
             _ => Ok(None),
         }
     }
@@ -670,9 +726,8 @@ impl SchemaBuilder {
                             "type" => {
                                 has_schema_info = true;
                                 if let Value::Path(path) = val {
-                                    let path_str = path_to_display_string(path);
-                                    schema.type_expr = Type::from_path(&path_str)
-                                        .ok_or(SchemaError::InvalidTypePath(path_str))?;
+                                    schema.type_expr = Type::from_path_segments(&path.0)
+                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
                                 }
                             }
                             "array" => {
@@ -680,9 +735,8 @@ impl SchemaBuilder {
                             match val {
                                 Value::Path(path) => {
                                     // Simple array type: $array = .string
-                                    let path_str = path_to_display_string(path);
-                                    let elem_type = Type::from_path(&path_str)
-                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_str.clone()))?;
+                                    let elem_type = Type::from_path_segments(&path.0)
+                                        .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
                                     schema.type_expr = Type::Array(Box::new(elem_type));
                                 }
                                 Value::Map(elem_map) => {
@@ -800,9 +854,27 @@ impl SchemaBuilder {
             Value::Path(path) => {
                 // Handle simple type assignments like `id = .string`
                 let mut schema = FieldSchema::default();
-                let path_str = path_to_display_string(path);
-                schema.type_expr = Type::from_path(&path_str)
-                    .ok_or(SchemaError::InvalidTypePath(path_str))?;
+                schema.type_expr = Type::from_path_segments(&path.0)
+                    .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                Ok(Some(schema))
+            }
+            Value::Tuple(tuple) => {
+                // Handle tuple type definitions like (.number, .string, .number)
+                // This represents a fixed-length tuple with specific types for each position
+                let mut element_types = Vec::new();
+                for elem in &tuple.0 {
+                    if let Value::Path(path) = elem {
+                        let elem_type = Type::from_path_segments(&path.0)
+                            .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
+                        element_types.push(elem_type);
+                    } else {
+                        return Err(SchemaError::InvalidField("Tuple type definition must contain only type paths".to_string()));
+                    }
+                }
+                
+                // Create a tuple type schema
+                let mut schema = FieldSchema::default();
+                schema.type_expr = Type::Tuple(element_types.clone());
                 Ok(Some(schema))
             }
             _ => Ok(None),

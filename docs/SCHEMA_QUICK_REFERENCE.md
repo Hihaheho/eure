@@ -3,7 +3,7 @@
 ## Basic Types
 ```eure
 field.$type = .string          # Text
-field.$type = .number          # Numbers  
+field.$type = .number          # Numbers
 field.$type = .boolean         # true/false
 field.$type = .null            # null
 field.$type = .path            # Path like .some.path
@@ -14,10 +14,10 @@ field.$type = .any             # Any type
 
 ## Typed Strings
 ```eure
-email.$type = .typed-string.email
-url.$type = .typed-string.url
-date.$type = .typed-string.date
-uuid.$type = .typed-string.uuid
+email.$type = .code.email
+url.$type = .code.url
+date.$type = .code.date
+uuid.$type = .code.uuid
 ```
 
 ## Type Definitions
@@ -38,7 +38,7 @@ user.$type = .$types.Person
 name.$length = [3, 50]
 name.$pattern = "^[A-Za-z]+$"
 
-# Number constraints  
+# Number constraints
 age.$range = [0, 150]
 price.$exclusive-min = true
 
@@ -76,7 +76,7 @@ $$variant-repr = { tag = "type" }
 @ $$variants.create
 name = .string
 
-@ $$variants.delete  
+@ $$variants.delete
 id = .number
 
 # Usage

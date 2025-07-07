@@ -1,6 +1,6 @@
 use eure_tree::constructors::terminals;
 use eure_tree::{CstNode, constructors::*, node_kind::TerminalKind, tree::ConcreteSyntaxTree};
-use eure_value::value::{Array, Code, KeyCmpValue, Map, TypedString, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Value, Variant};
 use indexmap::IndexMap;
 
 /// Format a Value as EURE syntax using CST construction
@@ -261,11 +261,27 @@ fn build_value(value: &Value) -> ValueNode {
         Value::U64(u) => build_integer_value(&u.to_string()),
         Value::F32(f) => build_integer_value(&format!("{f}")),
         Value::F64(f) => build_integer_value(&format!("{f}")),
-        Value::String(s) => build_string_value(s, None),
-        Value::TypedString(TypedString { type_name, value }) => {
-            build_string_value(value, Some(type_name))
+        Value::String(s) => {
+            let str_token = terminals::str(&format!("\"{}\"", escape_string(s)));
+            let str_node = StrConstructor::builder().str(str_token).build().build();
+            let strings_list = StringsListConstructor::empty();
+            let strings_node = StringsConstructor::builder()
+                .str(str_node)
+                .strings_list(strings_list)
+                .build()
+                .build();
+            ValueConstructor::Strings(strings_node).build()
         }
         Value::Code(Code { language, content }) => {
+            // Build named code using the named_code terminal
+            let named_code = terminals::named_code(&format!("{language}`{content}`"));
+            let named_code_node = NamedCodeConstructor::builder()
+                .named_code(named_code)
+                .build()
+                .build();
+            ValueConstructor::NamedCode(named_code_node).build()
+        }
+        Value::CodeBlock(Code { language, content }) => {
             let code_block = terminals::code_block(&format!("```{language}\n{content}\n```"));
             let code_node = CodeBlockConstructor::builder()
                 .code_block(code_block)
@@ -324,48 +340,30 @@ fn build_integer_value(text: &str) -> ValueNode {
     ValueConstructor::Integer(int_node).build()
 }
 
-fn build_string_value(s: &str, type_name: Option<&String>) -> ValueNode {
-    let escaped = escape_string(s);
-    let str_content = if let Some(ty) = type_name {
-        format!("{ty}\"{escaped}\"")
-    } else {
-        format!("\"{escaped}\"")
-    };
-
-    let str_token = terminals::str(&str_content);
-    let str_node = StrConstructor::builder().str(str_token).build().build();
-    let strings_list = StringsListConstructor::empty();
-    let strings_node = StringsConstructor::builder()
-        .str(str_node)
-        .strings_list(strings_list)
-        .build()
-        .build();
-    ValueConstructor::Strings(strings_node).build()
-}
 
 fn build_tuple_value(values: &[Value]) -> ValueNode {
     let lparen = terminals::l_paren();
     let l_paren_node = LParenConstructor::builder().l_paren(lparen).build().build();
-    
+
     let tuple_opt = if values.is_empty() {
         TupleOptConstructor::builder().build().build()
     } else {
         // Build tuple elements recursively from right to left
         let mut tuple_elements_opt = TupleElementsOptConstructor::builder().build().build();
-        
+
         for (_idx, value) in values.iter().enumerate().skip(1).rev() {
             let comma = terminals::comma();
             let comma_node = CommaConstructor::builder().comma(comma).build().build();
-            
+
             let value_node = build_value(value);
-            
+
             // Build tuple elements for this value
             let elements = TupleElementsConstructor::builder()
                 .value(value_node)
                 .tuple_elements_opt(tuple_elements_opt)
                 .build()
                 .build();
-            
+
             // Build tail with comma and elements
             let tail = TupleElementsTailConstructor::builder()
                 .comma(comma_node)
@@ -377,14 +375,14 @@ fn build_tuple_value(values: &[Value]) -> ValueNode {
                 )
                 .build()
                 .build();
-            
+
             // Update tuple_elements_opt for next iteration
             tuple_elements_opt = TupleElementsOptConstructor::builder()
                 .tuple_elements_tail(tail)
                 .build()
                 .build();
         }
-        
+
         // Build the first element
         let first_value = build_value(&values[0]);
         let elements = TupleElementsConstructor::builder()
@@ -392,23 +390,23 @@ fn build_tuple_value(values: &[Value]) -> ValueNode {
             .tuple_elements_opt(tuple_elements_opt)
             .build()
             .build();
-        
+
         TupleOptConstructor::builder()
             .tuple_elements(elements)
             .build()
             .build()
     };
-    
+
     let rparen = terminals::r_paren();
     let r_paren_node = RParenConstructor::builder().r_paren(rparen).build().build();
-    
+
     let tuple_node = TupleConstructor::builder()
         .l_paren(l_paren_node)
         .tuple_opt(tuple_opt)
         .r_paren(r_paren_node)
         .build()
         .build();
-        
+
     ValueConstructor::Tuple(tuple_node).build()
 }
 
@@ -619,14 +617,14 @@ fn escape_string(s: &str) -> String {
 
 fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
     use eure_value::value::PathSegment;
-    
+
     // Build the dot token
     let dot_token = terminals::dot();
     let dot = DotConstructor::builder().dot(dot_token).build().build();
-    
+
     // Build keys from path segments
     let mut keys_list = KeysListConstructor::empty();
-    
+
     // Process segments in reverse order for proper list building
     for segment in path.0.iter().skip(1).rev() {
         let (key_base, array_marker_opt) = match segment {
@@ -794,13 +792,13 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         ).build()
                     }
                 };
-                
+
                 // Build array marker with optional index
                 let array_begin = ArrayBeginConstructor::builder()
                     .l_bracket(terminals::l_bracket())
                     .build()
                     .build();
-                
+
                 let array_marker_opt = if let Some(idx) = index {
                     // Build index value
                     let index_str = match idx {
@@ -821,19 +819,19 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                     // No index specified
                     ArrayMarkerOptConstructor::builder().build().build()
                 };
-                
+
                 let array_end = ArrayEndConstructor::builder()
                     .r_bracket(terminals::r_bracket())
                     .build()
                     .build();
-                
+
                 let array_marker = ArrayMarkerConstructor::builder()
                     .array_begin(array_begin)
                     .array_marker_opt(array_marker_opt)
                     .array_end(array_end)
                     .build()
                     .build();
-                
+
                 // Return key_base and array marker separately
                 (key_base, Some(array_marker))
             }
@@ -845,7 +843,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                 (key_base, None)
             }
         };
-        
+
         // Build the key with optional array marker
         let key = if let Some(array_marker) = array_marker_opt {
             KeyConstructor::builder()
@@ -863,10 +861,10 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                 .build()
                 .build()
         };
-            
+
         let dot_for_list = terminals::dot();
         let dot_node = DotConstructor::builder().dot(dot_for_list).build().build();
-        
+
         keys_list = KeysListConstructor::builder()
             .dot(dot_node)
             .key(key)
@@ -874,7 +872,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
             .build()
             .build();
     }
-    
+
     // Build the first key
     if let Some(first_segment) = path.0.first() {
         let first_key_base = match first_segment {
@@ -892,26 +890,26 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                 ).build()
             }
         };
-        
+
         let key_opt = KeyOptConstructor::builder().build().build();
         let first_key = KeyConstructor::builder()
             .key_base(first_key_base)
             .key_opt(key_opt)
             .build()
             .build();
-            
+
         let keys = KeysConstructor::builder()
             .key(first_key)
             .keys_list(keys_list)
             .build()
             .build();
-            
+
         let path_node = PathConstructor::builder()
             .dot(dot)
             .keys(keys)
             .build()
             .build();
-            
+
         ValueConstructor::Path(path_node).build()
     } else {
         // Empty path - just a dot
@@ -929,13 +927,13 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
             .keys_list(KeysListConstructor::empty())
             .build()
             .build();
-            
+
         let path_node = PathConstructor::builder()
             .dot(dot)
             .keys(keys)
             .build()
             .build();
-            
+
         ValueConstructor::Path(path_node).build()
     }
 }

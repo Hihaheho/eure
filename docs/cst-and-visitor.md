@@ -200,6 +200,85 @@ fn visit(cst: &Cst) -> Result<(), CstConstructError> {
 
 The combination of auto-generated, type-safe node access (`Handle` and `View`) and the flexible `CstVisitor` trait provides a powerful foundation for interacting with Eure CSTs.
 
+## ValueVisitor: Extracting Values from CST
+
+While the `CstVisitor` trait provides a generic way to traverse the CST, the `ValueVisitor` struct (in `value_visitor.rs`) provides a specialized implementation for extracting structured values from Eure documents.
+
+### Overview
+
+`ValueVisitor` implements `CstVisitor` to build an `EureDocument<Value>` - a path-based document structure that represents the hierarchical data in your Eure file. This visitor handles all the complexity of:
+
+- Building paths from keys (including array syntax like `items[0]`)
+- Managing nested sections and bindings
+- Handling extensions (`$variant`, `$$meta`)
+- Converting CST nodes to appropriate value types
+- Variant transformation for external representation
+
+### Basic Usage
+
+```rust
+use eure_tree::value_visitor::ValueVisitor;
+
+// Create a visitor with your input text
+let mut visitor = ValueVisitor::new(input);
+
+// Visit the CST (typically done by the parser)
+visitor.visit_eure(eure_handle, eure_view, &tree)?;
+
+// Extract the final document
+let document: EureDocument<Value> = visitor.into_document();
+
+// The document can be converted to a Value for further processing
+let value = document_to_value(document);
+```
+
+### Key Features
+
+1. **Path-Based Construction**: Instead of manually building nested structures, `ValueVisitor` uses `EureDocument`'s path-based API:
+   ```rust
+   // Internally, bindings like `user.name = "Alice"` become:
+   document.insert_node(vec![PathSegment::Ident("user"), PathSegment::Ident("name")], Value::String("Alice"))
+   ```
+
+2. **Array Syntax Handling**: Array access syntax `items[0]` is automatically converted to path segments:
+   ```rust
+   // `items[0] = "first"` becomes:
+   vec![PathSegment::Ident("items"), PathSegment::ArrayIndex(0)]
+   ```
+
+3. **Section Management**: Nested sections are handled with a document stack:
+   ```rust
+   // @ database.postgres { ... } creates a nested document
+   // that gets merged into the parent at the appropriate path
+   ```
+
+4. **Variant Transformation**: Values with `$variant` fields are automatically transformed:
+   ```rust
+   // { $variant: "Point", x: 1, y: 2 } becomes:
+   // { Point: { x: 1, y: 2 } }
+   ```
+
+### Implementation Details
+
+The new `ValueVisitor` is significantly simpler than previous implementations:
+
+- **Single Struct Design**: Everything is contained in `ValueVisitor` - no separate `Values` struct
+- **Direct Document Building**: Uses `EureDocument::insert_node()` for all insertions
+- **Minimal State**: Only caches values when needed for references
+- **No Post-Processing**: Variants and extensions are handled during traversal
+
+### Comparison with Direct CstVisitor Implementation
+
+While you could implement `CstVisitor` directly for value extraction, `ValueVisitor` provides:
+
+- Pre-built path segment construction from keys
+- Automatic handling of array syntax
+- Section and binding context management
+- Value type conversion (strings, numbers, arrays, etc.)
+- Extension and variant handling
+
+This makes `ValueVisitor` the recommended approach for extracting structured data from Eure documents.
+
 ### Advanced Use Case: Custom Facade and Dependency Graphs
 
 The `CstVisitor` trait is generic over `F: CstFacade`. While `Cst` is typically used, you can implement `CstFacade` on your own type for advanced scenarios, like building a dependency graph during traversal.

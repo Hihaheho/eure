@@ -10,12 +10,14 @@ mod utils;
 mod value_schema;
 mod value_validator;
 mod tree_validator;
+mod document_schema;
 
 pub use schema::*;
 pub use value_validator::{ValidationError, ValidationErrorKind, Severity};
 pub use builder::{FieldSchemaBuilder, TypeBuilder, ObjectSchemaBuilder, VariantSchemaBuilder};
 pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, path_to_display_string, path_segments_to_display_string};
 pub use value_schema::{value_to_schema, is_pure_schema, SchemaError};
+pub use document_schema::{document_to_schema, is_pure_schema_node};
 pub use value_validator::validate_document;
 pub use eure_value::value::{PathSegment, KeyCmpValue};
 
@@ -239,22 +241,9 @@ mod tests {
         let schema = DocumentSchema::default();
         assert!(schema.types.is_empty());
         assert!(schema.root.fields.is_empty());
-        assert!(schema.cascade_type.is_none());
+        assert!(schema.cascade_types.is_empty());
     }
 
-    #[test]
-    fn test_type_from_path() {
-        assert_eq!(Type::from_path(".string"), Some(Type::String));
-        assert_eq!(Type::from_path(".number"), Some(Type::Number));
-        assert_eq!(Type::from_path(".boolean"), Some(Type::Boolean));
-        assert_eq!(Type::from_path(".null"), Some(Type::Null));
-        assert_eq!(Type::from_path(".any"), Some(Type::Any));
-        assert_eq!(Type::from_path(".path"), Some(Type::Path));
-        assert_eq!(Type::from_path(".typed-string.email"), Some(Type::TypedString(TypedStringKind::Email)));
-        assert_eq!(Type::from_path(".code.javascript"), Some(Type::Code("javascript".to_string())));
-        assert_eq!(Type::from_path(".$types.UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));
-        assert_eq!(Type::from_path(".UserType"), Some(Type::TypeRef(KeyCmpValue::String("UserType".to_string()))));  // Uppercase = type ref
-    }
 
     #[test]
     fn test_rename_rules() {

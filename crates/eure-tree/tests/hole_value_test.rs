@@ -15,13 +15,12 @@ fn test_parse_hole_value() {
 
     let tree = eure_parol::parse(input).expect("Failed to parse");
     
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input, &mut values);
+    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
 
-    // Get the document value
-    let root_view = tree.root_handle().get_view(&tree).unwrap();
-    let doc_value = values.get_eure(&root_view.eure).expect("Failed to get document value");
+    // Get the document
+    let document = visitor.into_document();
+    let doc_value = eure_tree::value_visitor::document_to_value(document);
     
     // Verify holes are present
     match doc_value {
@@ -68,11 +67,10 @@ fn test_hole_in_different_contexts() {
     ];
 
     for (input, description) in test_cases {
-        let tree = eure_parol::parse(input).expect(&format!("Failed to parse: {}", description));
+        let tree = eure_parol::parse(input).unwrap_or_else(|_| panic!("Failed to parse: {description}"));
         
-        let mut values = eure_tree::value_visitor::Values::default();
-        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input, &mut values);
-        tree.visit_from_root(&mut visitor).expect(&format!("Failed to visit tree: {}", description));
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
+        tree.visit_from_root(&mut visitor).unwrap_or_else(|_| panic!("Failed to visit tree: {description}"));
         
         // Just verify parsing succeeds - the important thing is that holes are recognized and don't cause parse errors
     }
@@ -84,18 +82,17 @@ fn test_hole_value_type() {
     
     let tree = eure_parol::parse(input).expect("Failed to parse");
     
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input, &mut values);
+    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
     
-    let root_view = tree.root_handle().get_view(&tree).unwrap();
-    let doc_value = values.get_eure(&root_view.eure).expect("Failed to get document value");
+    let document = visitor.into_document();
+    let doc_value = eure_tree::value_visitor::document_to_value(document);
     
     match doc_value {
         Value::Map(map) => {
             let test_value = map.0.get(&eure_value::value::KeyCmpValue::String("test".to_string()))
                 .expect("test field not found");
-            assert!(matches!(test_value, Value::Hole), "Expected test value to be a hole, got {:?}", test_value);
+            assert!(matches!(test_value, Value::Hole), "Expected test value to be a hole, got {test_value:?}");
         }
         _ => panic!("Expected document to be a map"),
     }

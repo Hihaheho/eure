@@ -14,8 +14,8 @@ pub enum Value {
     F32(f32),
     F64(f64),
     String(String),
-    TypedString(TypedString),
     Code(Code),
+    CodeBlock(Code),
     Array(Array),
     Tuple(Tuple<Value>),
     Map(Map),
@@ -33,10 +33,6 @@ pub enum KeyCmpValue {
     I64(i64),
     U64(u64),
     String(String),
-    /// Extension identifier (e.g., $type, $serde)
-    Extension(String),
-    /// Meta-extension identifier (e.g., $$meta)
-    MetaExtension(String),
     Tuple(Tuple<KeyCmpValue>),
     Unit,
     Hole,
@@ -45,7 +41,7 @@ pub enum KeyCmpValue {
 #[derive(Debug, Clone, PartialEq, Plural)]
 pub struct Path(pub Vec<PathSegment>);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PathSegment {
     /// Regular identifiers like id, description
     Ident(Identifier),
@@ -58,28 +54,18 @@ pub enum PathSegment {
     /// Tuple element index (0-255)
     TupleIndex(u8),
     /// Array element access
-    Array {
-        key: Value,
-        index: Option<Value>,
-    },
+    ArrayIndex(u8),
 }
 
 // A simplified path representation that can be used as a HashMap key
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PathKey(pub Vec<PathKeySegment>);
+pub struct PathKey(pub Vec<PathSegment>);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PathKeySegment {
-    Ident(String),
-    Extension(String),
-    TupleIndex(u8),
-    Array { key: String, index: Option<usize> },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TypedString {
-    pub type_name: String,
-    pub value: String,
+impl PathKey {
+    /// Create a PathKey from PathSegments
+    pub fn from_segments(segments: &[PathSegment]) -> Self {
+        PathKey(segments.to_vec())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

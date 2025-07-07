@@ -48,7 +48,7 @@ Value: Object | Array | Tuple | Integer | Boolean | Null | Strings | Hole | Code
   Path: Dot Keys ;
 
 Strings: Str { Continue Str } ;
-Str: /([a-zA-Z0-9-_]+)?"([^"]|\\")*"/ ;
+Str: /"([^"]|\\")*"/ ;
 
 // No escape character in text
 Text: <Text>/[^\r\n]*/ ;

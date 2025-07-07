@@ -1,8 +1,9 @@
 //! Schema representation types for EURE documents
 
 use eure_tree::tree::InputSpan;
-use eure_value::value::KeyCmpValue;
+use eure_value::value::{KeyCmpValue, PathSegment, PathKey};
 use indexmap::IndexMap;
+use std::collections::HashMap;
 
 /// Core type representation in EURE schema
 #[derive(Debug, Clone, PartialEq)]
@@ -15,15 +16,15 @@ pub enum Type {
     Any,
     Path,
 
-    // Typed strings
-    TypedString(TypedStringKind),
-
-    // Code blocks
-    Code(String), // language identifier
+    // Code type (for both inline/named code and code blocks)
+    Code(Option<String>), // language identifier is optional
 
     // Collection types
     Array(Box<Type>),
     Object(ObjectSchema),
+    
+    // Tuple type - fixed-length array with specific types for each position
+    Tuple(Vec<Type>),
 
     // Union types
     Union(Vec<Type>),        // Untagged union
@@ -36,16 +37,6 @@ pub enum Type {
     CascadeType(Box<Type>), // Type that cascades to descendants
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypedStringKind {
-    Email,
-    Url,
-    Uuid,
-    Date,
-    DateTime,
-    Regex,
-    Semver,
-}
 
 /// Schema for object types
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -189,8 +180,8 @@ pub struct DocumentSchema {
     pub types: IndexMap<KeyCmpValue, FieldSchema>,
     /// Schema for root object
     pub root: ObjectSchema,
-    /// Type that cascades to all descendants
-    pub cascade_type: Option<Type>,
+    /// Types that cascade at specific paths (empty PathKey = root)
+    pub cascade_types: HashMap<PathKey, Type>,
     /// Global serde options
     pub serde_options: SerdeOptions,
     /// Reference to external schema (from $schema key)
@@ -208,51 +199,56 @@ pub struct ExtractedSchema {
 
 
 impl Type {
-    /// Parse a type from a path string (e.g., ".string", ".$types.username")
-    pub fn from_path(path: &str) -> Option<Self> {
-        let path = path.strip_prefix('.')?;
-
-        // Check for type references
-        if let Some(path) = path.strip_prefix("$types.") {
-            return Some(Type::TypeRef(KeyCmpValue::String(path.to_string())));
+    /// Parse a type from path segments (preserves type information)
+    pub fn from_path_segments(segments: &[PathSegment]) -> Option<Self> {
+        if segments.is_empty() {
+            return None;
         }
 
-        // Check primitive types
-        match path {
-            "string" => Some(Type::String),
-            "number" => Some(Type::Number),
-            "boolean" => Some(Type::Boolean),
-            "null" => Some(Type::Null),
-            "any" => Some(Type::Any),
-            "path" => Some(Type::Path),
-            "array" => Some(Type::Array(Box::new(Type::Any))),
-            "object" => Some(Type::Object(ObjectSchema::default())),
-            _ => {
-                // Check typed strings
-                if let Some(path) = path.strip_prefix("typed-string.") {
-                    let kind = match path {
-                        "email" => TypedStringKind::Email,
-                        "url" => TypedStringKind::Url,
-                        "uuid" => TypedStringKind::Uuid,
-                        "date" => TypedStringKind::Date,
-                        "datetime" => TypedStringKind::DateTime,
-                        "regex" => TypedStringKind::Regex,
-                        "semver" => TypedStringKind::Semver,
-                        _ => return None,
-                    };
-                    Some(Type::TypedString(kind))
-                } else if let Some(path) = path.strip_prefix("code.") {
-                    Some(Type::Code(path.to_string()))
-                } else {
-                    // If it starts with uppercase, treat it as a type reference
-                    // This allows .Action to be shorthand for .$types.Action
-                    if path.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-                        Some(Type::TypeRef(KeyCmpValue::String(path.to_string())))
-                    } else {
-                        None
+        match &segments[0] {
+            // Check for type references: $types.TypeName
+            PathSegment::Extension(ext) if ext.as_ref() == "types" => {
+                if segments.len() >= 2
+                    && let PathSegment::Ident(type_name) = &segments[1] {
+                        return Some(Type::TypeRef(KeyCmpValue::String(type_name.to_string())));
+                    }
+                None
+            }
+            // Check for primitive types and code types
+            PathSegment::Ident(ident) => {
+                match ident.as_ref() {
+                    "string" => Some(Type::String),
+                    "number" => Some(Type::Number),
+                    "boolean" => Some(Type::Boolean),
+                    "null" => Some(Type::Null),
+                    "any" => Some(Type::Any),
+                    "path" => Some(Type::Path),
+                    "array" => Some(Type::Array(Box::new(Type::Any))),
+                    "object" => Some(Type::Object(ObjectSchema::default())),
+                    "code" => {
+                        // Check if there's a language specifier
+                        if segments.len() >= 2 {
+                            if let PathSegment::Ident(lang) = &segments[1] {
+                                Some(Type::Code(Some(lang.to_string())))
+                            } else {
+                                Some(Type::Code(None))
+                            }
+                        } else {
+                            Some(Type::Code(None))
+                        }
+                    }
+                    name => {
+                        // If it starts with uppercase, treat it as a type reference
+                        // This allows .Action to be shorthand for .$types.Action
+                        if name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                            Some(Type::TypeRef(KeyCmpValue::String(name.to_string())))
+                        } else {
+                            None
+                        }
                     }
                 }
             }
+            _ => None,
         }
     }
 

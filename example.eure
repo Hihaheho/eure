@@ -8,6 +8,8 @@ $eure {
 $eure.id = "aaa"
 id = "aaa"
 description = "aaa"
+text = "This field is not in the schema"
+aaa = "This field is also not in the schema"
 
 @ script.actions[]
 $variant: set-text

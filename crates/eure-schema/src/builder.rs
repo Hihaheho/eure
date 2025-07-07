@@ -2,7 +2,7 @@
 
 use crate::{
     FieldSchema, Type, ObjectSchema, VariantSchema, VariantRepr, 
-    Constraints, Preferences, SerdeOptions, TypedStringKind
+    Constraints, Preferences, SerdeOptions
 };
 use eure_value::value::KeyCmpValue;
 use indexmap::IndexMap;
@@ -142,35 +142,19 @@ impl TypeBuilder {
         Type::Path
     }
     
-    /// Create a typed string
-    pub fn typed_string(kind: TypedStringKind) -> Type {
-        Type::TypedString(kind)
+    /// Create a code type with optional language
+    pub fn code() -> Type {
+        Type::Code(None)
     }
     
-    /// Create an email type
-    pub fn email() -> Type {
-        Type::TypedString(TypedStringKind::Email)
+    /// Create a code type with a specific language
+    pub fn code_with_lang(language: impl Into<String>) -> Type {
+        Type::Code(Some(language.into()))
     }
     
-    /// Create a URL type
-    pub fn url() -> Type {
-        Type::TypedString(TypedStringKind::Url)
-    }
     
-    /// Create a UUID type
-    pub fn uuid() -> Type {
-        Type::TypedString(TypedStringKind::Uuid)
-    }
     
-    /// Create a date type
-    pub fn date() -> Type {
-        Type::TypedString(TypedStringKind::Date)
-    }
     
-    /// Create a datetime type
-    pub fn datetime() -> Type {
-        Type::TypedString(TypedStringKind::DateTime)
-    }
     
     /// Create an array type
     pub fn array(item_type: Type) -> Type {
@@ -344,7 +328,7 @@ mod tests {
             .field_with("name", |f| f.type_expr(TypeBuilder::string()))
             .field_with("age", |f| f.type_expr(TypeBuilder::number()).optional(true))
             .field_with("email", |f| {
-                f.type_expr(TypeBuilder::email())
+                f.type_expr(TypeBuilder::string())
                     .pattern(r"^[^@]+@[^@]+\.[^@]+$")
             })
             .build_type();

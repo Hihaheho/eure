@@ -1,6 +1,6 @@
 use crate::{Config, Error};
 use eure_value::value::{
-    Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, TypedString, Value, Variant, VariantRepr,
+    Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant, VariantRepr,
 };
 use serde_yaml::{Mapping, Value as YamlValue};
 
@@ -33,14 +33,14 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
             }
         }
         Value::String(s) => Ok(YamlValue::String(s.clone())),
-        Value::TypedString(TypedString {
-            type_name: _,
-            value,
+        Value::Code(Code {
+            language: _,
+            content,
         }) => {
             // Type information is lost in YAML conversion
-            Ok(YamlValue::String(value.clone()))
+            Ok(YamlValue::String(content.clone()))
         }
-        Value::Code(Code { language, content }) => {
+        Value::CodeBlock(Code { language, content }) => {
             // Format as markdown code block
             let formatted = if language.is_empty() {
                 format!("`{content}`")
@@ -76,7 +76,7 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
                     KeyCmpValue::Unit => YamlValue::String("unit".to_string()),
                     KeyCmpValue::Hole => {
                         return Err(Error::ConversionError(
-                            "Cannot use hole value (!) as YAML map key".to_string()
+                            "Cannot use hole value (!) as YAML map key".to_string(),
                         ));
                     }
                     _ => {
@@ -97,11 +97,15 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
         Value::Hole => {
             // Holes cannot be meaningfully converted to YAML
             // Return an error
-            Err(Error::ConversionError("Cannot convert hole value (!) to YAML - holes must be filled with actual values".to_string()))
+            Err(Error::ConversionError(
+                "Cannot convert hole value (!) to YAML - holes must be filled with actual values"
+                    .to_string(),
+            ))
         }
         Value::Path(Path(segments)) => {
             // Paths represented as dot-separated strings
-            let path_str = segments.iter()
+            let path_str = segments
+                .iter()
                 .map(|seg| match seg {
                     PathSegment::Ident(id) => id.as_ref().to_string(),
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
@@ -268,7 +272,7 @@ fn parse_code_block(s: &str) -> Option<Value> {
     // Check for inline code
     if s.starts_with('`') && s.ends_with('`') && s.len() > 2 && !s[1..s.len() - 1].contains('`') {
         let content = &s[1..s.len() - 1];
-        return Some(Value::Code(Code {
+        return Some(Value::CodeBlock(Code {
             language: String::new(),
             content: content.to_string(),
         }));
@@ -284,7 +288,7 @@ fn parse_code_block(s: &str) -> Option<Value> {
             if !first_line.is_empty() && !first_line.contains(' ') {
                 let language = first_line.to_string();
                 let code_content = lines[1..].join("\n");
-                return Some(Value::Code(Code {
+                return Some(Value::CodeBlock(Code {
                     language,
                     content: code_content,
                 }));
@@ -292,7 +296,7 @@ fn parse_code_block(s: &str) -> Option<Value> {
         }
 
         // No language specified
-        return Some(Value::Code(Code {
+        return Some(Value::CodeBlock(Code {
             language: String::new(),
             content: content.to_string(),
         }));
