@@ -171,17 +171,16 @@ pub fn validate_with_tree(
     schema: DocumentSchema,
     tree: &eure_tree::tree::ConcreteSyntaxTree<eure_tree::node_kind::TerminalKind, eure_tree::node_kind::NonTerminalKind>,
 ) -> Result<Vec<ValidationError>, Box<dyn std::error::Error>> {
-    use eure_tree::value_visitor::{ValueVisitor, Values};
-    
+    use eure_tree::value_visitor::ValueVisitor;
     use crate::tree_validator::SchemaValidator;
     
-    // First pass: Extract values using ValueVisitor
-    let mut values = Values::default();
-    let mut value_visitor = ValueVisitor::new(input, &mut values);
+    // First pass: Extract document using ValueVisitor
+    let mut value_visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut value_visitor)?;
+    let document = value_visitor.into_document();
     
     // Second pass: Validate with span tracking
-    let mut validator = SchemaValidator::new(input, &schema, &values);
+    let mut validator = SchemaValidator::new(input, &schema, &document);
     tree.visit_from_root(&mut validator)?;
     
     // Finalize validation by checking for missing required fields

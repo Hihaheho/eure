@@ -6,10 +6,10 @@
 use crate::schema::*;
 use crate::value_validator::{Severity, ValidationError, ValidationErrorKind};
 use eure_tree::{
+    document::EureDocument,
     nodes::{BindingRhsView, SectionBodyView, SectionHandle, SectionView},
     prelude::*,
     tree::{CstNodeData, InputSpan, NonTerminalData, RecursiveView, TerminalData},
-    value_visitor::Values,
 };
 use eure_value::identifier::Identifier;
 use eure_value::value::{KeyCmpValue, Map, PathSegment, Value, PathKey};
@@ -22,7 +22,7 @@ use std::str::FromStr;
 pub struct SchemaValidator<'a> {
     _input: &'a str,
     schema: &'a DocumentSchema,
-    values: &'a Values,
+    document: &'a EureDocument,
     errors: Vec<ValidationError>,
     current_path: Vec<PathSegment>,
     seen_fields: HashMap<PathKey, HashSet<KeyCmpValue>>,
@@ -36,11 +36,11 @@ pub struct SchemaValidator<'a> {
 
 impl<'a> SchemaValidator<'a> {
     /// Create a new schema validator
-    pub fn new(input: &'a str, schema: &'a DocumentSchema, values: &'a Values) -> Self {
+    pub fn new(input: &'a str, schema: &'a DocumentSchema, document: &'a EureDocument) -> Self {
         Self {
             _input: input,
             schema,
-            values,
+            document,
             errors: Vec::new(),
             current_path: Vec::new(),
             seen_fields: HashMap::new(),

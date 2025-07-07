@@ -202,17 +202,33 @@ The combination of auto-generated, type-safe node access (`Handle` and `View`) a
 
 ## ValueVisitor: Extracting Values from CST
 
-While the `CstVisitor` trait provides a generic way to traverse the CST, the `ValueVisitor` struct (in `value_visitor.rs`) provides a specialized implementation for extracting structured values from Eure documents.
+While the `CstVisitor` trait provides a generic way to traverse the CST, the `ValueVisitor` struct (in `value_visitor.rs`) provides a specialized implementation for extracting structured data from Eure documents.
 
 ### Overview
 
-`ValueVisitor` implements `CstVisitor` to build an `EureDocument<Value>` - a path-based document structure that represents the hierarchical data in your Eure file. This visitor handles all the complexity of:
+`ValueVisitor` implements `CstVisitor` to build an `EureDocument` - a path-based document structure that represents the hierarchical data in your Eure file. The key architectural point is that **`ValueVisitor` produces `EureDocument`, not `Value` directly**. This design preserves CST handles for span tracking and error reporting.
+
+The visitor handles all the complexity of:
 
 - Building paths from keys (including array syntax like `items[0]`)
 - Managing nested sections and bindings
 - Handling extensions (`$variant`, `$$meta`)
 - Converting CST nodes to appropriate value types
 - Variant transformation for external representation
+- **Preserving CST handles** in the `EureDocument` for span tracking
+
+### Architecture
+
+The correct data flow is:
+
+1. **ValueVisitor traverses the CST** and builds an `EureDocument`
+2. **EureDocument preserves CST handles** for span tracking and diagnostics
+3. **EureDocument can be converted to Value** when spans aren't needed
+
+This architecture ensures that:
+- Error messages can point to exact locations in the source
+- The schema validator can track field spans for diagnostics
+- The conversion to `Value` is explicit and intentional
 
 ### Basic Usage
 
@@ -225,11 +241,14 @@ let mut visitor = ValueVisitor::new(input);
 // Visit the CST (typically done by the parser)
 visitor.visit_eure(eure_handle, eure_view, &tree)?;
 
-// Extract the final document
-let document: EureDocument<Value> = visitor.into_document();
+// Extract the final document (NOT a Value!)
+let document: EureDocument = visitor.into_document();
 
-// The document can be converted to a Value for further processing
+// When you need a Value (losing span information):
 let value = document_to_value(document);
+
+// Or use the document directly for operations that need spans:
+schema_validator.validate(&document); // Can report exact error locations
 ```
 
 ### Key Features

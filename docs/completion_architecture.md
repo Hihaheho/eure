@@ -110,7 +110,28 @@ enum CompletionPosition {
 // For full value extraction, use the new ValueVisitor API:
 //   let mut visitor = ValueVisitor::new(input);
 //   visitor.visit_eure(handle, view, tree)?;
-//   let document = visitor.into_document();
+//   let document: EureDocument = visitor.into_document();
+//
+// IMPORTANT: EURE uses a two-type system for representing parsed data:
+//
+// 1. EureDocument - The span-aware representation with CST handles
+//    - Contains source location information (spans)
+//    - Preserves all formatting and whitespace
+//    - Essential for IDE features (completions, diagnostics, go-to-definition)
+//    - Used by the LSP server and editor support
+//
+// 2. Value - The simplified representation without spans
+//    - Pure data structure focusing on semantic content
+//    - No source location information
+//    - Used for data processing, serialization, and business logic
+//    - More memory efficient for large documents
+//
+// Conversion between types:
+//   let document: EureDocument = visitor.into_document();
+//   let value: Value = document.into();  // Explicit conversion loses span info
+//
+// The conversion is intentional and one-way - you cannot recover spans once
+// converted to Value. Choose the appropriate type based on your use case.
 
 struct CompletionVisitor<'a> {
     input: &'a str,
