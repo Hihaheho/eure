@@ -15,13 +15,12 @@ fn test_inline_code_vs_typed_string() {
         let document = format!("test = {input}");
         let tree = eure_parol::parse(&document).unwrap_or_else(|_| panic!("Failed to parse: {input}"));
 
-        let mut values = eure_tree::value_visitor::Values::default();
-        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(&document, &mut values);
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(&document);
         tree.visit_from_root(&mut visitor)
             .unwrap_or_else(|_| panic!("Failed to visit tree for: {input}"));
 
-        let root_view = tree.root_handle().get_view(&tree).unwrap();
-        let eure_value = values.get_eure(&root_view.eure).unwrap();
+        let doc = visitor.into_document();
+        let eure_value = eure_tree::value_visitor::document_to_value(doc);
         if let Value::Map(map) = eure_value {
             let test_value = map
                 .0
@@ -50,13 +49,12 @@ fn test_inline_code_vs_typed_string() {
         let document = format!("test = {input}");
         let tree = eure_parol::parse(&document).unwrap_or_else(|_| panic!("Failed to parse: {input}"));
 
-        let mut values = eure_tree::value_visitor::Values::default();
-        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(&document, &mut values);
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(&document);
         tree.visit_from_root(&mut visitor)
             .unwrap_or_else(|_| panic!("Failed to visit tree for: {input}"));
 
-        let root_view = tree.root_handle().get_view(&tree).unwrap();
-        let eure_value = values.get_eure(&root_view.eure).unwrap();
+        let doc = visitor.into_document();
+        let eure_value = eure_tree::value_visitor::document_to_value(doc);
         if let Value::Map(map) = eure_value {
             let test_value = map
                 .0
@@ -89,13 +87,12 @@ fn main() {
 
     let tree = eure_parol::parse(document).expect("Failed to parse code blocks");
 
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(document, &mut values);
+    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(document);
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
-    let root_view = tree.root_handle().get_view(&tree).unwrap();
-    let eure_value = values.get_eure(&root_view.eure).unwrap();
+    let doc = visitor.into_document();
+    let eure_value = eure_tree::value_visitor::document_to_value(doc);
     if let Value::Map(map) = eure_value {
         // Check code1
         let code1 = map
@@ -121,13 +118,12 @@ plain code
 
     let tree = eure_parol::parse(document).expect("Failed to parse code block");
 
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(document, &mut values);
+    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(document);
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
-    let root_view = tree.root_handle().get_view(&tree).unwrap();
-    let eure_value = values.get_eure(&root_view.eure).unwrap();
+    let doc = visitor.into_document();
+    let eure_value = eure_tree::value_visitor::document_to_value(doc);
 
     if let Value::Map(map) = eure_value {
         let code = map

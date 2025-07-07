@@ -3,7 +3,7 @@ use eure_tree::{
     constructors::*,
     node_kind::TerminalKind,
     tree::{ConcreteSyntaxTree, NonTerminalHandle},
-    value_visitor::{ValueVisitor, Values},
+    value_visitor::ValueVisitor,
 };
 use eure_value::value::{KeyCmpValue, Map, Value as EureValue};
 
@@ -114,19 +114,13 @@ fn test_constructor_complete_tree() {
     );
 
     // Visit the tree to extract the value
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new("", &mut values);
+    let mut visitor = ValueVisitor::new("");
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
-    // Get the root value
-    let root_handle = tree.root_handle();
-    let root_view = root_handle
-        .get_view(&tree)
-        .expect("Failed to get root view");
-    let document = values
-        .get_eure(&root_view.eure)
-        .expect("Failed to get document value");
+    // Get the document value
+    let doc = visitor.into_document();
+    let document = eure_tree::value_visitor::document_to_value(doc);
 
     // Verify the value
     match document {
@@ -317,19 +311,13 @@ fn test_constructor_array() {
     tree.set_root(root_id);
 
     // Visit the tree to extract the value
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new("", &mut values);
+    let mut visitor = ValueVisitor::new("");
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
-    // Get the root value
-    let root_handle = tree.root_handle();
-    let root_view = root_handle
-        .get_view(&tree)
-        .expect("Failed to get root view");
-    let document = values
-        .get_eure(&root_view.eure)
-        .expect("Failed to get document value");
+    // Get the document value
+    let doc = visitor.into_document();
+    let document = eure_tree::value_visitor::document_to_value(doc);
 
     // Verify the value
     match document {
@@ -477,19 +465,13 @@ fn test_constructor_all_value_types() {
         tree.set_root(root_id);
 
         // Visit the tree to extract the value
-        let mut values = Values::default();
-        let mut visitor = ValueVisitor::new("", &mut values);
+        let mut visitor = ValueVisitor::new("");
         tree.visit_from_root(&mut visitor)
             .expect("Failed to visit tree");
 
-        // Get the root value
-        let root_handle = tree.root_handle();
-        let root_view = root_handle
-            .get_view(&tree)
-            .expect("Failed to get root view");
-        let document = values
-            .get_eure(&root_view.eure)
-            .expect("Failed to get document value");
+        // Get the document value
+        let doc = visitor.into_document();
+        let document = eure_tree::value_visitor::document_to_value(doc);
 
         // Verify the value
         match document {
@@ -724,19 +706,13 @@ fn test_constructor_nested_object() {
     );
 
     // Visit the tree to extract the value
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new("", &mut values);
+    let mut visitor = ValueVisitor::new("");
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
-    // Get the root value
-    let root_handle = tree.root_handle();
-    let root_view = root_handle
-        .get_view(&tree)
-        .expect("Failed to get root view");
-    let document = values
-        .get_eure(&root_view.eure)
-        .expect("Failed to get document value");
+    // Get the document value
+    let doc = visitor.into_document();
+    let document = eure_tree::value_visitor::document_to_value(doc);
 
     // Verify the nested object structure
     match document {

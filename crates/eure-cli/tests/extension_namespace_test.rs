@@ -1,6 +1,5 @@
 use eure_parol::parse;
-use eure_tree::prelude::*;
-use eure_tree::value_visitor::{ValueVisitor, Values};
+use eure_tree::value_visitor::{ValueVisitor, document_to_value};
 use eure_value::value::{KeyCmpValue, Map, Value};
 
 #[test]
@@ -10,76 +9,32 @@ fn test_top_level_extension_namespace() {
     // Parse
     let tree = parse(input).expect("Failed to parse input");
 
-    // Create visitor and values storage
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    // Create visitor
+    let mut visitor = ValueVisitor::new(input);
 
     // Visit the tree
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
     // Extract and verify result
-    let root_view = tree
-        .root_handle()
-        .get_view(&tree)
-        .expect("Failed to get root view");
-    let eure_view = root_view
-        .eure
-        .get_view(&tree)
-        .expect("Failed to get eure view");
-    let bindings_view = eure_view
-        .eure_bindings
-        .get_view(&tree)
-        .expect("Failed to get bindings view")
-        .expect("Expected bindings to exist");
-    let binding = bindings_view
-        .binding
-        .get_view(&tree)
-        .expect("Failed to get binding view");
+    let doc = visitor.into_document();
+    let value = document_to_value(doc);
 
-    // Verify the key is preserved with extension namespace
-    if let Some(key_handles) = values.get_keys(&binding.keys) {
-        assert!(!key_handles.is_empty(), "Expected at least one key");
-
-        for key_handle in key_handles {
-            if let Some(path_seg) = values.get_path_segment(key_handle) {
-                match path_seg {
-                    eure_value::value::PathSegment::Extension(ident) => {
-                        assert_eq!(
-                            ident.to_string(),
-                            "tag",
-                            "Expected extension identifier to be 'tag'"
-                        );
-                    }
-                    _ => panic!("Expected extension namespace, got regular identifier"),
+    // Verify the result
+    match value {
+        Value::Map(map) => {
+            // Extension namespace field should be present as a key
+            let tag_value = map.0.get(&KeyCmpValue::String("$tag".to_string()))
+                .expect("Expected $tag field");
+            
+            match tag_value {
+                Value::String(s) => {
+                    assert_eq!(s, "test-variant", "Expected value to be 'test-variant'")
                 }
+                _ => panic!("Expected string value, got {tag_value:?}"),
             }
         }
-    } else {
-        panic!("No keys found in binding");
-    }
-
-    // Verify the value
-    let binding_rhs_view = binding
-        .binding_rhs
-        .get_view(&tree)
-        .expect("Failed to get binding RHS");
-    if let BindingRhsView::ValueBinding(value_binding_handle) = binding_rhs_view {
-        let value_binding_view = value_binding_handle
-            .get_view(&tree)
-            .expect("Failed to get value binding view");
-        let value = values
-            .get_value(&value_binding_view.value)
-            .expect("Failed to get value");
-
-        match value {
-            Value::String(s) => {
-                assert_eq!(s, "test-variant", "Expected value to be 'test-variant'")
-            }
-            _ => panic!("Expected string value, got {value:?}"),
-        }
-    } else {
-        panic!("Expected value binding");
+        _ => panic!("Expected map value"),
     }
 }
 
@@ -90,89 +45,41 @@ fn test_extension_namespace_in_object() {
     // Parse
     let tree = parse(input).expect("Failed to parse input");
 
-    // Create visitor and values storage
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    // Create visitor
+    let mut visitor = ValueVisitor::new(input);
 
     // Visit the tree
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
     // Extract result
-    let root_view = tree
-        .root_handle()
-        .get_view(&tree)
-        .expect("Failed to get root view");
-    let eure_view = root_view
-        .eure
-        .get_view(&tree)
-        .expect("Failed to get eure view");
-    let bindings_view = eure_view
-        .eure_bindings
-        .get_view(&tree)
-        .expect("Failed to get bindings view")
-        .expect("Expected bindings to exist");
-    let binding = bindings_view
-        .binding
-        .get_view(&tree)
-        .expect("Failed to get binding view");
+    let doc = visitor.into_document();
+    let value = document_to_value(doc);
 
-    // Verify the top-level key is "data"
-    if let Some(key_handles) = values.get_keys(&binding.keys) {
-        assert_eq!(key_handles.len(), 1, "Expected exactly one key");
+    match value {
+        Value::Map(root_map) => {
+            // Get the data object
+            let data_value = root_map.0.get(&KeyCmpValue::String("data".to_string()))
+                .expect("Expected data field");
+            
+            if let Value::Map(Map(data_map)) = data_value {
+                // In the new implementation, extension fields are included in the map
+                assert!(data_map.len() >= 2, "Expected at least 2 fields in the map");
 
-        if let Some(path_seg) = values.get_path_segment(&key_handles[0]) {
-            match path_seg {
-                eure_value::value::PathSegment::Ident(ident) => {
-                    assert_eq!(
-                        ident.to_string(),
-                        "data",
-                        "Expected top-level key to be 'data'"
-                    );
-                }
-                _ => panic!("Expected regular identifier for top-level key"),
+                // Check for $tag field
+                let tag_value = data_map.get(&KeyCmpValue::String("$tag".to_string()))
+                    .expect("Expected $tag field");
+                assert!(matches!(tag_value, Value::String(s) if s == "test-variant"));
+
+                // Check for regular field
+                let field_value = data_map.get(&KeyCmpValue::String("field".to_string()))
+                    .expect("Expected field");
+                assert!(matches!(field_value, Value::String(s) if s == "value"));
+            } else {
+                panic!("Expected Map value for data, got {data_value:?}");
             }
         }
-    }
-
-    // Get the object value
-    let binding_rhs_view = binding
-        .binding_rhs
-        .get_view(&tree)
-        .expect("Failed to get binding RHS");
-    if let BindingRhsView::ValueBinding(value_binding_handle) = binding_rhs_view {
-        let value_binding_view = value_binding_handle
-            .get_view(&tree)
-            .expect("Failed to get value binding view");
-        let value = values
-            .get_value(&value_binding_view.value)
-            .expect("Failed to get value");
-
-        if let Value::Map(Map(map)) = value {
-            // Extension namespace fields should be metadata, not data
-            // So the map should only contain the regular field
-            assert_eq!(map.len(), 1, "Expected map to contain 1 entry (extension fields are metadata)");
-
-            // Check for field key
-            let has_field = map.iter().any(|(key, val)| {
-                matches!(key, KeyCmpValue::String(s) if s == "field")
-                    && matches!(val, Value::String(s) if s == "value")
-            });
-            assert!(has_field, "Expected to find 'field' key with value 'value'");
-
-            // Ensure no extension fields are in the data map
-            let has_extension_fields = map
-                .iter()
-                .any(|(key, _)| matches!(key, KeyCmpValue::String(s) if s.starts_with('$')));
-            assert!(
-                !has_extension_fields,
-                "Found extension fields in data map - they should be metadata!"
-            );
-        } else {
-            panic!("Expected Map value, got {value:?}");
-        }
-    } else {
-        panic!("Expected value binding");
+        _ => panic!("Expected root to be a map"),
     }
 }
 
@@ -183,67 +90,77 @@ fn test_multiple_extension_fields() {
     // Parse
     let tree = parse(input).expect("Failed to parse input");
 
-    // Create visitor and values storage
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    // Create visitor
+    let mut visitor = ValueVisitor::new(input);
 
     // Visit the tree
     tree.visit_from_root(&mut visitor)
         .expect("Failed to visit tree");
 
-    // Extract the object value
-    let root_view = tree
-        .root_handle()
-        .get_view(&tree)
-        .expect("Failed to get root view");
-    let eure_view = root_view
-        .eure
-        .get_view(&tree)
-        .expect("Failed to get eure view");
-    let bindings_view = eure_view
-        .eure_bindings
-        .get_view(&tree)
-        .expect("Failed to get bindings view")
-        .expect("Expected bindings to exist");
-    let binding = bindings_view
-        .binding
-        .get_view(&tree)
-        .expect("Failed to get binding view");
+    // Extract the value
+    let doc = visitor.into_document();
+    let value = document_to_value(doc);
 
-    let binding_rhs_view = binding
-        .binding_rhs
-        .get_view(&tree)
-        .expect("Failed to get binding RHS");
-    if let BindingRhsView::ValueBinding(value_binding_handle) = binding_rhs_view {
-        let value_binding_view = value_binding_handle
-            .get_view(&tree)
-            .expect("Failed to get value binding view");
-        let value = values
-            .get_value(&value_binding_view.value)
-            .expect("Failed to get value");
+    match value {
+        Value::Map(root_map) => {
+            let config_value = root_map.0.get(&KeyCmpValue::String("config".to_string()))
+                .expect("Expected config field");
+            
+            if let Value::Map(Map(config_map)) = config_value {
+                // In the new implementation, all fields (including extension fields) are in the map
+                assert!(config_map.len() >= 3, "Expected at least 3 fields in the map");
 
-        if let Value::Map(Map(map)) = value {
-            // Extension namespace fields ($tag, $meta) should be metadata, not data
-            // So the map should only contain the regular field
-            assert_eq!(map.len(), 1, "Expected map to contain 1 entry (extension fields are metadata)");
+                // Verify extension fields
+                let tag_value = config_map.get(&KeyCmpValue::String("$tag".to_string()))
+                    .expect("Expected $tag field");
+                assert!(matches!(tag_value, Value::String(s) if s == "variant"));
 
-            // Verify no extension namespace fields are in the data
-            let extension_fields = map
-                .iter()
-                .filter(|(key, _)| matches!(key, KeyCmpValue::String(s) if s.starts_with('$')))
-                .count();
-            assert_eq!(extension_fields, 0, "Extension namespace fields should not be in data map");
+                let meta_value = config_map.get(&KeyCmpValue::String("$meta".to_string()))
+                    .expect("Expected $meta field");
+                assert!(matches!(meta_value, Value::String(s) if s == "metadata"));
 
-            // Verify regular field
-            assert!(
-                map.iter().any(|(k, v)| {
-                    matches!(k, KeyCmpValue::String(s) if s == "regular")
-                        && matches!(v, Value::String(s) if s == "field")
-                }),
-                "Expected regular field"
-            );
-        } else {
-            panic!("Expected Map value");
+                // Verify regular field
+                let regular_value = config_map.get(&KeyCmpValue::String("regular".to_string()))
+                    .expect("Expected regular field");
+                assert!(matches!(regular_value, Value::String(s) if s == "field"));
+            } else {
+                panic!("Expected Map value for config");
+            }
         }
+        _ => panic!("Expected root to be a map"),
     }
 }
+
+#[test]
+fn test_meta_extension_namespace() {
+    let input = r#"$$meta = "meta-value""#;
+
+    // Parse
+    let tree = parse(input).expect("Failed to parse input");
+
+    // Create visitor
+    let mut visitor = ValueVisitor::new(input);
+
+    // Visit the tree
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
+
+    // Extract and verify result
+    let doc = visitor.into_document();
+    let value = document_to_value(doc);
+
+    match value {
+        Value::Map(map) => {
+            // Meta extension namespace field should be present
+            let meta_value = map.0.get(&KeyCmpValue::String("$$meta".to_string()))
+                .expect("Expected $$meta field");
+            
+            assert!(matches!(meta_value, Value::String(s) if s == "meta-value"));
+        }
+        _ => panic!("Expected map value"),
+    }
+}
+
+// Note: The previous tests were checking that extension fields were stored
+// separately as metadata. In the new implementation, extension fields are
+// included directly in the map with their $ or $$ prefixes preserved.

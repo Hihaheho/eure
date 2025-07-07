@@ -592,7 +592,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
 
 // Convert EureDocument to Value, handling variants
-fn document_to_value(doc: EureDocument<Value>) -> Value {
+pub fn document_to_value(doc: EureDocument<Value>) -> Value {
     let root = doc.get_root();
     let value = node_to_value(&doc, root);
     
@@ -648,7 +648,7 @@ fn node_to_value(doc: &EureDocument<Value>, node: &eure_value::document::Node<Va
             let mut map = AHashMap::new();
             
             // Check if this is a tuple (all keys are TupleIndex)
-            let is_tuple = entries.iter().all(|(k, _)| matches!(k, DocumentKey::TupleIndex(_)));
+            let is_tuple = !entries.is_empty() && entries.iter().all(|(k, _)| matches!(k, DocumentKey::TupleIndex(_)));
             
             if is_tuple {
                 // Convert to tuple
@@ -712,4 +712,5 @@ fn node_to_value(doc: &EureDocument<Value>, node: &eure_value::document::Node<Va
         }
     }
 }
+
 
