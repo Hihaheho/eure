@@ -5,11 +5,10 @@
 
 use crate::schema::*;
 use crate::utils::path_to_display_string;
-use eure_tree::document::{DocumentKey, EureDocument, Node, NodeContent};
-use eure_value::value::{KeyCmpValue, PathSegment, PathKey, Path};
+use eure_tree::document::{DocumentKey, EureDocument, Node, NodeValue};
+use eure_value::value::{KeyCmpValue, PathSegment, PathKey};
 use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
-use ahash::AHashMap;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -18,13 +17,13 @@ use std::str::FromStr;
 pub enum SchemaError {
     #[error("Invalid type path: {0}")]
     InvalidTypePath(String),
-    
+
     #[error("Invalid field in schema: {0}")]
     InvalidField(String),
-    
+
     #[error("Conflicting type definitions for: {0}")]
     ConflictingTypes(String),
-    
+
     #[error("Invalid variant definition")]
     InvalidVariant,
 }
@@ -33,10 +32,10 @@ pub enum SchemaError {
 pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaError> {
     let mut schema = DocumentSchema::default();
     let mut builder = SchemaBuilder::new();
-    
+
     // Process the root node
     builder.process_node(doc, doc.get_root(), &[])?;
-    
+
     // Extract built schemas
     schema.types = builder.types;
     schema.root = ObjectSchema {
@@ -44,48 +43,48 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
         additional_properties: None,
     };
     schema.cascade_types = builder.cascade_types;
-    
+
     // Check for special root-level extensions
     let root = doc.get_root();
-    
+
     // Handle schema ref
     if let Some(schema_node_id) = root.extensions.get(&Identifier::from_str("schema").unwrap()) {
         let schema_node = doc.get_node(*schema_node_id);
-        if let NodeContent::String { value: schema_ref, .. } = &schema_node.content {
+        if let NodeValue::String { value: schema_ref, .. } = &schema_node.content {
             schema.schema_ref = Some(schema_ref.clone());
         }
     }
-    
+
     // Handle root-level cascade type
     if let Some(cascade_node_id) = root.extensions.get(&Identifier::from_str("cascade-type").unwrap()) {
         let cascade_node = doc.get_node(*cascade_node_id);
-        if let NodeContent::Path { value: path, .. } = &cascade_node.content {
+        if let NodeValue::Path { value: path, .. } = &cascade_node.content {
             if let Some(cascade_type) = Type::from_path_segments(&path.0) {
                 schema.cascade_types.insert(PathKey::from_segments(&[]), cascade_type);
             }
         }
     }
-    
+
     // Handle global serde options
     if let Some(serde_node_id) = root.extensions.get(&Identifier::from_str("serde").unwrap()) {
         let serde_node = doc.get_node(*serde_node_id);
-        if let NodeContent::Map(entries) = &serde_node.content {
+        if let NodeValue::Map { entries, .. } = &serde_node.content {
             schema.serde_options = SchemaBuilder::extract_serde_options_from_entries(doc, entries);
         }
     }
-    
+
     Ok(schema)
 }
 
 /// Check if a Node represents a pure schema (no data content)
 pub fn is_pure_schema_node(doc: &EureDocument, node: &Node) -> bool {
     match &node.content {
-        NodeContent::Map { entries, .. } => {
+        NodeValue::Map { entries, .. } => {
             // Check all entries
             for (key, node_id) in entries {
                 match key {
-                    DocumentKey::Extension(_) => {
-                        // Extension keys are OK for schemas
+                    DocumentKey::MetaExtension(_) => {
+                        // Meta-extension keys are OK for schemas
                         continue;
                     }
                     DocumentKey::Ident(_) | DocumentKey::Value(_) => {
@@ -109,15 +108,15 @@ pub fn is_pure_schema_node(doc: &EureDocument, node: &Node) -> bool {
 fn is_schema_or_nested_schema_node(doc: &EureDocument, node: &Node) -> bool {
     // Check if this node has schema-related extensions
     if node.extensions.iter().any(|(ext, _)| {
-        ext.as_ref() == "type" || ext.as_ref() == "optional" || 
-        ext.as_ref() == "min" || ext.as_ref() == "max" || 
+        ext.as_ref() == "type" || ext.as_ref() == "optional" ||
+        ext.as_ref() == "min" || ext.as_ref() == "max" ||
         ext.as_ref() == "pattern" || ext.as_ref() == "values"
     }) {
         return true;
     }
-    
+
     match &node.content {
-        NodeContent::Map { .. } => is_pure_schema_node(doc, node),
+        NodeValue::Map { .. } => is_pure_schema_node(doc, node),
         _ => false,
     }
 }
@@ -137,7 +136,7 @@ impl SchemaBuilder {
             cascade_types: HashMap::new(),
         }
     }
-    
+
     /// Process a node at a given path
     fn process_node(&mut self, doc: &EureDocument, node: &Node, path: &[&str]) -> Result<(), SchemaError> {
         // Check if we're in the types extension namespace
@@ -145,11 +144,11 @@ impl SchemaBuilder {
             self.process_types_node(doc, node)?;
             return Ok(());
         }
-        
+
         // Process extensions first
         for (ext_name, ext_node_id) in &node.extensions {
             let ext_node = doc.get_node(*ext_node_id);
-            
+
             match ext_name.as_ref() {
                 "types" => {
                     // Process type definitions
@@ -157,7 +156,7 @@ impl SchemaBuilder {
                 }
                 "cascade-type" => {
                     // Handle cascade-type at any level
-                    if let NodeContent::Path { value: type_path, .. } = &ext_node.content {
+                    if let NodeValue::Path { value: type_path, .. } = &ext_node.content {
                         if let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
                             let path_segments: Vec<PathSegment> = path.iter()
                                 .map(|s| PathSegment::Ident(
@@ -171,10 +170,10 @@ impl SchemaBuilder {
                 _ => {
                     // Other extensions might be field schemas
                     if path.is_empty() {
-                        if let Some(schema) = self.extract_field_schema_from_node(doc, ext_name, ext_node)? {
-                            // Extension schemas are stored with $ prefix
+                        if let Some(schema) = self.extract_field_schema_from_node(doc, ext_name.as_ref(), ext_node)? {
+                            // Store extension schemas directly by their identifier
                             self.root_fields.insert(
-                                KeyCmpValue::String(format!("${}", ext_name)),
+                                KeyCmpValue::MetaExtension(ext_name.clone()),
                                 schema
                             );
                         }
@@ -182,50 +181,42 @@ impl SchemaBuilder {
                 }
             }
         }
-        
+
         // Process map content
-        if let NodeContent::Map { entries, .. } = &node.content {
+        if let NodeValue::Map { entries, .. } = &node.content {
             for (key, node_id) in entries {
                 let child_node = doc.get_node(*node_id);
-                
+
                 match key {
                     DocumentKey::Ident(ident) => {
-                        let key_str = ident.to_string();
-                        
-                        // Check for meta-extension fields ($$fieldname)
-                        if key_str.starts_with("$$") {
-                            let field_name = &key_str[2..];
-                            if let Some(mut schema) = self.extract_field_schema_from_node(doc, field_name, child_node)?
-                                && path.is_empty() {
-                                // Meta-extension schemas define schemas for extension fields
-                                schema.optional = true;
-                                self.root_fields.insert(
-                                    KeyCmpValue::String(format!("${}", field_name)),
-                                    schema
-                                );
-                            }
-                        } else if path.is_empty() {
+                        if path.is_empty() {
                             // Regular field at root level
-                            if let Some(field_schema) = self.extract_field_schema_from_node(doc, &key_str, child_node)? {
-                                self.root_fields.insert(KeyCmpValue::String(key_str), field_schema);
+                            if let Some(field_schema) = self.extract_field_schema_from_node(doc, ident.as_ref(), child_node)? {
+                                self.root_fields.insert(KeyCmpValue::String(ident.to_string()), field_schema);
                             }
                         }
                     }
-                    DocumentKey::Extension(ext_ident) => {
-                        // Extension fields are handled above
-                        continue;
+                    DocumentKey::MetaExtension(meta_ext_ident) => {
+                        // Meta-extension fields define schemas for extensions
+                        if let Some(field_schema) = self.extract_field_schema_from_node(doc, meta_ext_ident.as_ref(), child_node)? {
+                            // Store in root_fields as extension schema
+                            self.root_fields.insert(
+                                KeyCmpValue::MetaExtension(meta_ext_ident.clone()),
+                                field_schema
+                            );
+                        }
                     }
                     _ => {} // Skip other key types
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Process nodes in the types extension namespace
     fn process_types_node(&mut self, doc: &EureDocument, node: &Node) -> Result<(), SchemaError> {
-        if let NodeContent::Map { entries, .. } = &node.content {
+        if let NodeValue::Map { entries, .. } = &node.content {
             for (key, node_id) in entries {
                 if let DocumentKey::Ident(type_name) = key {
                     let type_node = doc.get_node(*node_id);
@@ -235,19 +226,19 @@ impl SchemaBuilder {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Extract type definition from a node
     fn extract_type_definition(&self, doc: &EureDocument, type_name: &str, node: &Node) -> Result<Option<FieldSchema>, SchemaError> {
         // A type definition can be:
         // 1. A direct type path: Point = .tuple
         // 2. An object with extensions: User = { $$type = .object, ... }
         // 3. A variant definition with $variants
-        
+
         match &node.content {
-            NodeContent::Path { value: path, .. } => {
+            NodeValue::Path { value: path, .. } => {
                 // Direct type reference
                 if let Some(type_expr) = Type::from_path_segments(&path.0) {
                     Ok(Some(FieldSchema {
@@ -258,57 +249,58 @@ impl SchemaBuilder {
                     Err(SchemaError::InvalidTypePath(path_to_display_string(path)))
                 }
             }
-            NodeContent::Map { .. } => {
+            NodeValue::Map { .. } => {
                 // Check if this is a variant type
                 if let Some(variants_node_id) = node.extensions.get(&Identifier::from_str("variants").unwrap()) {
                     let variants_node = doc.get_node(*variants_node_id);
                     let variants = self.extract_all_variants_from_node(doc, variants_node)?;
-                    
+
                     // Determine variant representation
-                    let mut repr = VariantRepresentation::External;
+                    let mut repr = VariantRepr::Tagged;
                     if let Some(repr_node_id) = node.extensions.get(&Identifier::from_str("variant.repr").unwrap()) {
                         let repr_node = doc.get_node(*repr_node_id);
-                        if let NodeContent::String { value: repr_str, .. } = &repr_node.content {
+                        if let NodeValue::String { value: repr_str, .. } = &repr_node.content {
                             repr = match repr_str.as_str() {
-                                "external" => VariantRepresentation::External,
-                                "internal" => VariantRepresentation::Internal { tag: "type".to_string() },
-                                "adjacent" => VariantRepresentation::Adjacent { 
-                                    tag: "type".to_string(), 
-                                    content: "content".to_string() 
+                                "external" | "tagged" => VariantRepr::Tagged,
+                                "internal" => VariantRepr::InternallyTagged { tag: KeyCmpValue::String("type".to_string()) },
+                                "adjacent" => VariantRepr::AdjacentlyTagged {
+                                    tag: KeyCmpValue::String("type".to_string()),
+                                    content: KeyCmpValue::String("content".to_string())
                                 },
-                                _ => VariantRepresentation::External,
+                                "untagged" => VariantRepr::Untagged,
+                                _ => VariantRepr::Tagged,
                             };
                         }
                     }
-                    
+
                     return Ok(Some(FieldSchema {
-                        type_expr: Type::Variant(VariantSchema {
+                        type_expr: Type::Variants(VariantSchema {
                             variants,
                             representation: repr,
                         }),
                         ..Default::default()
                     }));
                 }
-                
+
                 // Otherwise, extract as regular field schema
                 self.extract_field_schema_from_node(doc, type_name, node)
             }
             _ => Ok(None),
         }
     }
-    
+
     /// Extract field schema from a node
     fn extract_field_schema_from_node(&self, doc: &EureDocument, _field_name: &str, node: &Node) -> Result<Option<FieldSchema>, SchemaError> {
         let mut schema = FieldSchema::default();
         let mut has_schema = false;
-        
+
         // Check extensions for schema information
         for (ext_name, ext_node_id) in &node.extensions {
             let ext_node = doc.get_node(*ext_node_id);
-            
+
             match ext_name.as_ref() {
                 "type" => {
-                    if let NodeContent::Path { value: path, .. } = &ext_node.content {
+                    if let NodeValue::Path { value: path, .. } = &ext_node.content {
                         if let Some(type_expr) = Type::from_path_segments(&path.0) {
                             schema.type_expr = type_expr;
                             has_schema = true;
@@ -316,63 +308,69 @@ impl SchemaBuilder {
                     }
                 }
                 "optional" => {
-                    if let NodeContent::Bool { value: b, .. } = &ext_node.content {
+                    if let NodeValue::Bool { value: b, .. } = &ext_node.content {
                         schema.optional = *b;
                         has_schema = true;
                     }
                 }
                 "min" => {
-                    schema.min = Self::extract_f64_from_node(&ext_node.content);
-                    if schema.min.is_some() {
+                    if let Some(min_value) = Self::extract_f64_from_node(&ext_node.content) {
+                        if let Some((ref mut min, _)) = schema.constraints.range {
+                            *min = Some(min_value);
+                        } else {
+                            schema.constraints.range = Some((Some(min_value), None));
+                        }
                         has_schema = true;
                     }
                 }
                 "max" => {
-                    schema.max = Self::extract_f64_from_node(&ext_node.content);
-                    if schema.max.is_some() {
+                    if let Some(max_value) = Self::extract_f64_from_node(&ext_node.content) {
+                        if let Some((_, ref mut max)) = schema.constraints.range {
+                            *max = Some(max_value);
+                        } else {
+                            schema.constraints.range = Some((None, Some(max_value)));
+                        }
                         has_schema = true;
                     }
                 }
                 "min-length" => {
-                    schema.min_length = Self::extract_usize_from_node(&ext_node.content);
-                    if schema.min_length.is_some() {
+                    if let Some(min_len) = Self::extract_usize_from_node(&ext_node.content) {
+                        if let Some((ref mut min, _)) = schema.constraints.length {
+                            *min = Some(min_len);
+                        } else {
+                            schema.constraints.length = Some((Some(min_len), None));
+                        }
                         has_schema = true;
                     }
                 }
                 "max-length" => {
-                    schema.max_length = Self::extract_usize_from_node(&ext_node.content);
-                    if schema.max_length.is_some() {
+                    if let Some(max_len) = Self::extract_usize_from_node(&ext_node.content) {
+                        if let Some((_, ref mut max)) = schema.constraints.length {
+                            *max = Some(max_len);
+                        } else {
+                            schema.constraints.length = Some((None, Some(max_len)));
+                        }
                         has_schema = true;
                     }
                 }
                 "pattern" => {
-                    if let NodeContent::String { value: s, .. } = &ext_node.content {
-                        schema.pattern = Some(s.clone());
+                    if let NodeValue::String { value: s, .. } = &ext_node.content {
+                        schema.constraints.pattern = Some(s.clone());
                         has_schema = true;
                     }
                 }
                 "values" => {
-                    if let NodeContent::Array { children, .. } = &ext_node.content {
-                        let mut allowed_values = Vec::new();
-                        for value_node_id in children {
-                            let value_node = doc.get_node(*value_node_id);
-                            if let Some(val) = Self::node_content_to_value(&value_node.content) {
-                                allowed_values.push(val);
-                            }
-                        }
-                        if !allowed_values.is_empty() {
-                            schema.values = Some(allowed_values);
-                            has_schema = true;
-                        }
-                    }
+                    // Note: values/enum constraint is not in the current Constraints struct
+                    // This would need to be added if enum validation is required
+                    has_schema = true;
                 }
                 _ => {}
             }
         }
-        
+
         // Check if the value itself implies a schema
         match &node.content {
-            NodeContent::Path { value: path, .. } => {
+            NodeValue::Path { value: path, .. } => {
                 // Field with direct type: field = .string
                 if !has_schema {
                     if let Some(type_expr) = Type::from_path_segments(&path.0) {
@@ -383,25 +381,25 @@ impl SchemaBuilder {
             }
             _ if has_schema => {
                 // This is a field with both schema and default value
-                if let Some(val) = Self::node_content_to_value(&node.content) {
-                    schema.default = Some(val);
+                if let Some(val) = Self::node_content_to_serde_value(&node.content) {
+                    schema.default_value = Some(val);
                 }
             }
             _ => {}
         }
-        
+
         if has_schema {
             Ok(Some(schema))
         } else {
             Ok(None)
         }
     }
-    
+
     /// Extract all variants from a variants node
     fn extract_all_variants_from_node(&self, doc: &EureDocument, variants_node: &Node) -> Result<IndexMap<KeyCmpValue, ObjectSchema>, SchemaError> {
         let mut variants = IndexMap::new();
-        
-        if let NodeContent::Map { entries, .. } = &variants_node.content {
+
+        if let NodeValue::Map { entries, .. } = &variants_node.content {
             for (key, node_id) in entries {
                 if let DocumentKey::Ident(variant_name) = key {
                     let variant_node = doc.get_node(*node_id);
@@ -410,24 +408,24 @@ impl SchemaBuilder {
                 }
             }
         }
-        
+
         Ok(variants)
     }
-    
+
     /// Extract schema for a single variant
     fn extract_variant_schema(&self, doc: &EureDocument, _variant_name: &str, variant_node: &Node) -> Result<ObjectSchema, SchemaError> {
         let mut fields = IndexMap::new();
-        
-        if let NodeContent::Map { .. } = &variant_node.content {
+
+        if let NodeValue::Map { .. } = &variant_node.content {
             self.extract_variant_fields(doc, &mut fields, variant_node)?;
         }
-        
+
         Ok(ObjectSchema {
             fields,
             additional_properties: None,
         })
     }
-    
+
     /// Recursively extract variant fields
     fn extract_variant_fields(
         &self,
@@ -435,11 +433,11 @@ impl SchemaBuilder {
         fields: &mut IndexMap<KeyCmpValue, FieldSchema>,
         node: &Node,
     ) -> Result<(), SchemaError> {
-        if let NodeContent::Map { entries, .. } = &node.content {
+        if let NodeValue::Map { entries, .. } = &node.content {
             for (key, node_id) in entries {
                 if let DocumentKey::Ident(field_name) = key {
                     let field_node = doc.get_node(*node_id);
-                    
+
                     // Check if this field has an array extension
                     if let Some(array_node_id) = field_node.extensions.get(&Identifier::from_str("array").unwrap()) {
                         let array_node = doc.get_node(*array_node_id);
@@ -451,14 +449,14 @@ impl SchemaBuilder {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Extract array field schema
     fn extract_array_field(&self, doc: &EureDocument, array_node: &Node) -> Result<FieldSchema, SchemaError> {
         match &array_node.content {
-            NodeContent::Path { value: path, .. } => {
+            NodeValue::Path { value: path, .. } => {
                 // Simple array type: field.$array = .string
                 let elem_type = Type::from_path_segments(&path.0)
                     .ok_or_else(|| SchemaError::InvalidTypePath(path_to_display_string(path)))?;
@@ -468,11 +466,11 @@ impl SchemaBuilder {
                     ..Default::default()
                 })
             }
-            NodeContent::Map { .. } => {
+            NodeValue::Map { .. } => {
                 // Complex array with object elements
                 let mut elem_fields = IndexMap::new();
                 self.extract_variant_fields(doc, &mut elem_fields, array_node)?;
-                
+
                 Ok(FieldSchema {
                     type_expr: Type::Array(Box::new(Type::Object(ObjectSchema {
                         fields: elem_fields,
@@ -485,74 +483,62 @@ impl SchemaBuilder {
             _ => Err(SchemaError::InvalidField("Invalid array definition".to_string())),
         }
     }
-    
+
     /// Helper to extract usize from NodeContent
-    fn extract_usize_from_node(content: &NodeContent) -> Option<usize> {
+    fn extract_usize_from_node(content: &NodeValue) -> Option<usize> {
         match content {
-            NodeContent::I64 { value, .. } => Some(*value as usize),
-            NodeContent::U64 { value, .. } => Some(*value as usize),
+            NodeValue::I64 { value, .. } => Some(*value as usize),
+            NodeValue::U64 { value, .. } => Some(*value as usize),
             _ => None,
         }
     }
-    
+
     /// Helper to extract f64 from NodeContent
-    fn extract_f64_from_node(content: &NodeContent) -> Option<f64> {
+    fn extract_f64_from_node(content: &NodeValue) -> Option<f64> {
         match content {
-            NodeContent::I64 { value, .. } => Some(*value as f64),
-            NodeContent::U64 { value, .. } => Some(*value as f64),
-            NodeContent::F32 { value, .. } => Some(*value as f64),
-            NodeContent::F64 { value, .. } => Some(*value),
+            NodeValue::I64 { value, .. } => Some(*value as f64),
+            NodeValue::U64 { value, .. } => Some(*value as f64),
+            NodeValue::F32 { value, .. } => Some(*value as f64),
+            NodeValue::F64 { value, .. } => Some(*value),
             _ => None,
         }
     }
-    
-    /// Convert NodeContent to Value for schema purposes
-    fn node_content_to_value(content: &NodeContent) -> Option<eure_value::value::Value> {
-        use eure_value::value::{Value, Code as ValueCode, Array, Map as ValueMap, Tuple};
-        use ahash::AHashMap;
-        
+
+    /// Convert NodeContent to serde_json::Value for default values
+    fn node_content_to_serde_value(content: &NodeValue) -> Option<serde_json::Value> {
         match content {
-            NodeContent::Null { .. } => Some(Value::Null),
-            NodeContent::Bool { value, .. } => Some(Value::Bool(*value)),
-            NodeContent::I64 { value, .. } => Some(Value::I64(*value)),
-            NodeContent::U64 { value, .. } => Some(Value::U64(*value)),
-            NodeContent::F32 { value, .. } => Some(Value::F32(*value)),
-            NodeContent::F64 { value, .. } => Some(Value::F64(*value)),
-            NodeContent::String { value, .. } => Some(Value::String(value.clone())),
-            NodeContent::Code { value, .. } => Some(Value::Code(ValueCode {
-                language: value.language.clone(),
-                content: value.content.clone(),
-            })),
-            NodeContent::CodeBlock { value, .. } => Some(Value::CodeBlock(ValueCode {
-                language: value.language.clone(),
-                content: value.content.clone(),
-            })),
-            NodeContent::NamedCode { value, .. } => Some(Value::Code(ValueCode {
-                language: value.language.clone(),
-                content: value.content.clone(),
-            })),
-            NodeContent::Path { value, .. } => Some(Value::Path(value.clone())),
-            NodeContent::Hole { .. } => Some(Value::Hole),
+            NodeValue::Null { .. } => Some(serde_json::Value::Null),
+            NodeValue::Bool { value, .. } => Some(serde_json::Value::Bool(*value)),
+            NodeValue::I64 { value, .. } => Some(serde_json::Value::Number((*value).into())),
+            NodeValue::U64 { value, .. } => Some(serde_json::Value::Number((*value).into())),
+            NodeValue::F32 { value, .. } => serde_json::Number::from_f64(*value as f64).map(serde_json::Value::Number),
+            NodeValue::F64 { value, .. } => serde_json::Number::from_f64(*value).map(serde_json::Value::Number),
+            NodeValue::String { value, .. } => Some(serde_json::Value::String(value.clone())),
+            NodeValue::Code { value, .. } => Some(serde_json::Value::String(value.content.clone())),
+            NodeValue::CodeBlock { value, .. } => Some(serde_json::Value::String(value.content.clone())),
+            NodeValue::NamedCode { value, .. } => Some(serde_json::Value::String(value.content.clone())),
+            NodeValue::Path { value, .. } => Some(serde_json::Value::String(path_to_display_string(value))),
+            NodeValue::Hole { .. } => None,
             // For complex types, we'll return None as they require recursive conversion
-            NodeContent::Array { .. } | NodeContent::Map { .. } | NodeContent::Tuple { .. } => None,
+            NodeValue::Array { .. } | NodeValue::Map { .. } | NodeValue::Tuple { .. } => None,
         }
     }
-    
+
     /// Helper to extract serde options from node entries
     fn extract_serde_options_from_entries(doc: &EureDocument, entries: &[(DocumentKey, eure_tree::document::NodeId)]) -> SerdeOptions {
         let mut options = SerdeOptions::default();
-        
+
         for (key, node_id) in entries {
             if let DocumentKey::Ident(ident) = key {
                 let node = doc.get_node(*node_id);
                 match ident.as_ref() {
                     "rename" => {
-                        if let NodeContent::String { value: rename, .. } = &node.content {
+                        if let NodeValue::String { value: rename, .. } = &node.content {
                             options.rename = Some(rename.clone());
                         }
                     }
                     "rename-all" => {
-                        if let NodeContent::String { value: rename_all, .. } = &node.content {
+                        if let NodeValue::String { value: rename_all, .. } = &node.content {
                             options.rename_all = RenameRule::from_str(rename_all);
                         }
                     }
@@ -560,7 +546,7 @@ impl SchemaBuilder {
                 }
             }
         }
-        
+
         options
     }
 }

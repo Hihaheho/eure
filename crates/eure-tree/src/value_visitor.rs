@@ -1,6 +1,8 @@
 use crate::{
-    document::{EureDocument, InsertError, NodeContent, 
-               ArrayConstructionHandle, MapConstructionHandle, StringConstructionHandle},
+    document::{
+        ArrayConstructionHandle, EureDocument, InsertError, MapConstructionHandle, NodeValue,
+        StringConstructionHandle,
+    },
     prelude::*,
     tree::CstFacade,
 };
@@ -160,7 +162,7 @@ impl<'a> ValueVisitor<'a> {
                 } else {
                     return Err(ValueVisitorError::InvalidInteger(text.to_string()));
                 };
-                
+
                 // Return both the base segment and the array index
                 Ok(vec![base_segment, PathSegment::ArrayIndex(index)])
             } else {
@@ -182,7 +184,7 @@ impl<'a> ValueVisitor<'a> {
     ) -> Result<(), ValueVisitorError> {
         match value_view {
             ValueView::Null(null_handle) => {
-                let content = NodeContent::Null {
+                let content = NodeValue::Null {
                     handle: null_handle,
                 };
                 let mut full_path = self.current_path();
@@ -195,7 +197,7 @@ impl<'a> ValueVisitor<'a> {
                     BooleanView::True(_) => true,
                     BooleanView::False(_) => false,
                 };
-                let content = NodeContent::Bool {
+                let content = NodeValue::Bool {
                     handle: boolean_handle,
                     value,
                 };
@@ -209,9 +211,15 @@ impl<'a> ValueVisitor<'a> {
                 let text = tree.get_str(data, self.input).unwrap();
 
                 let content = if let Ok(i) = text.parse::<i64>() {
-                    NodeContent::I64 { handle: integer_handle, value: i }
+                    NodeValue::I64 {
+                        handle: integer_handle,
+                        value: i,
+                    }
                 } else if let Ok(u) = text.parse::<u64>() {
-                    NodeContent::U64 { handle: integer_handle, value: u }
+                    NodeValue::U64 {
+                        handle: integer_handle,
+                        value: u,
+                    }
                 } else {
                     return Err(ValueVisitorError::InvalidInteger(text.to_string()));
                 };
@@ -243,7 +251,7 @@ impl<'a> ValueVisitor<'a> {
                     }
                 }
 
-                let content = NodeContent::String {
+                let content = NodeValue::String {
                     handle: StringConstructionHandle::Strings(strings_handle),
                     value: result,
                 };
@@ -253,11 +261,12 @@ impl<'a> ValueVisitor<'a> {
             }
             ValueView::Object(object_handle) => {
                 // First insert an empty map node at this path
-                let content = NodeContent::Map {
+                let content = NodeValue::Map {
                     handle: MapConstructionHandle::ObjectLiteral(object_handle),
                     entries: vec![],
                 };
-                self.document.insert_node(path.clone().into_iter(), content)?;
+                self.document
+                    .insert_node(path.clone().into_iter(), content)?;
 
                 // Now process each key-value pair
                 let object_view = object_handle.get_view(tree)?;
@@ -266,7 +275,7 @@ impl<'a> ValueVisitor<'a> {
                         // Get the key
                         let key_view = object_list.key.get_view(tree)?;
                         let key_segments = self.build_path_segments(key_view, tree)?;
-                        
+
                         // Build the full path for this entry
                         let mut entry_path = path.clone();
                         entry_path.extend(key_segments);
@@ -285,11 +294,12 @@ impl<'a> ValueVisitor<'a> {
             }
             ValueView::Array(array_handle) => {
                 // First insert an empty array node at this path
-                let content = NodeContent::Array {
+                let content = NodeValue::Array {
                     handle: ArrayConstructionHandle::ArrayLiteral(array_handle),
                     children: vec![],
                 };
-                self.document.insert_node(path.clone().into_iter(), content)?;
+                self.document
+                    .insert_node(path.clone().into_iter(), content)?;
 
                 // Now process each array element
                 let array_view = array_handle.get_view(tree)?;
@@ -297,7 +307,7 @@ impl<'a> ValueVisitor<'a> {
 
                 if let Some(array_elements) = array_view.array_opt.get_view(tree)? {
                     let array_elements_view = array_elements.get_view(tree)?;
-                    
+
                     // First element
                     let mut element_path = path.clone();
                     element_path.push(PathSegment::ArrayIndex(index));
@@ -309,16 +319,18 @@ impl<'a> ValueVisitor<'a> {
                     if let Some(mut tail) = array_elements_view.array_elements_opt.get_view(tree)? {
                         loop {
                             let tail_view = tail.get_view(tree)?;
-                            
-                            if let Some(next_elements) = tail_view.array_elements_tail_opt.get_view(tree)? {
+
+                            if let Some(next_elements) =
+                                tail_view.array_elements_tail_opt.get_view(tree)?
+                            {
                                 let next_view = next_elements.get_view(tree)?;
-                                
+
                                 let mut element_path = path.clone();
                                 element_path.push(PathSegment::ArrayIndex(index));
                                 let value_view = next_view.value.get_view(tree)?;
                                 self.process_value_at_path(element_path, value_view, tree)?;
                                 index += 1;
-                                
+
                                 match next_view.array_elements_opt.get_view(tree)? {
                                     Some(next_tail) => tail = next_tail,
                                     None => break,
@@ -336,7 +348,7 @@ impl<'a> ValueVisitor<'a> {
                 let text = tree.get_str(data, self.input).unwrap();
 
                 let content = text[1..text.len() - 1].to_string();
-                let node_content = NodeContent::Code {
+                let node_content = NodeValue::Code {
                     handle: code_handle,
                     value: Code {
                         language: String::new(),
@@ -367,7 +379,7 @@ impl<'a> ValueVisitor<'a> {
                     String::new()
                 };
 
-                let node_content = NodeContent::CodeBlock {
+                let node_content = NodeValue::CodeBlock {
                     handle: code_block_handle,
                     value: Code { language, content },
                 };
@@ -382,14 +394,14 @@ impl<'a> ValueVisitor<'a> {
                 let language = text[..backtick_pos].to_string();
                 let content = text[backtick_pos + 1..text.len() - 1].to_string();
 
-                let node_content = NodeContent::NamedCode {
+                let node_content = NodeValue::NamedCode {
                     handle: named_code_handle,
                     value: Code { language, content },
                 };
                 self.document.insert_node(path.into_iter(), node_content)?;
             }
             ValueView::Hole(hole_handle) => {
-                let content = NodeContent::Hole {
+                let content = NodeValue::Hole {
                     handle: hole_handle,
                 };
                 let mut full_path = self.current_path();
@@ -419,7 +431,7 @@ impl<'a> ValueVisitor<'a> {
                     }
                 }
 
-                let content = NodeContent::Path {
+                let content = NodeValue::Path {
                     handle: path_handle,
                     value: Path(segments),
                 };
@@ -429,11 +441,12 @@ impl<'a> ValueVisitor<'a> {
             }
             ValueView::Tuple(tuple_handle) => {
                 // First insert an empty tuple node at this path
-                let content = NodeContent::Tuple {
+                let content = NodeValue::Tuple {
                     handle: tuple_handle,
                     children: vec![],
                 };
-                self.document.insert_node(path.clone().into_iter(), content)?;
+                self.document
+                    .insert_node(path.clone().into_iter(), content)?;
 
                 // Now process each tuple element
                 let tuple_view = tuple_handle.get_view(tree)?;
@@ -441,7 +454,7 @@ impl<'a> ValueVisitor<'a> {
 
                 if let Ok(Some(tuple_elements)) = tuple_view.tuple_opt.get_view(tree) {
                     let tuple_elements_view = tuple_elements.get_view(tree)?;
-                    
+
                     // First element
                     let mut element_path = path.clone();
                     element_path.push(PathSegment::TupleIndex(index));
@@ -450,19 +463,23 @@ impl<'a> ValueVisitor<'a> {
                     index += 1;
 
                     // Rest of the elements
-                    if let Ok(Some(mut tail)) = tuple_elements_view.tuple_elements_opt.get_view(tree) {
+                    if let Ok(Some(mut tail)) =
+                        tuple_elements_view.tuple_elements_opt.get_view(tree)
+                    {
                         loop {
                             let tail_view = tail.get_view(tree)?;
-                            
-                            if let Some(next_elements) = tail_view.tuple_elements_tail_opt.get_view(tree)? {
+
+                            if let Some(next_elements) =
+                                tail_view.tuple_elements_tail_opt.get_view(tree)?
+                            {
                                 let next_view = next_elements.get_view(tree)?;
-                                
+
                                 let mut element_path = path.clone();
                                 element_path.push(PathSegment::TupleIndex(index));
                                 let value_view = next_view.value.get_view(tree)?;
                                 self.process_value_at_path(element_path, value_view, tree)?;
                                 index += 1;
-                                
+
                                 match next_view.tuple_elements_opt.get_view(tree)? {
                                     Some(next_tail) => tail = next_tail,
                                     None => break,
@@ -480,7 +497,7 @@ impl<'a> ValueVisitor<'a> {
 }
 
 /// Convert an EureDocument to a Value, discarding span information
-/// 
+///
 /// This is a convenience function that calls document.to_value()
 pub fn document_to_value(document: EureDocument) -> eure_value::value::Value {
     document.to_value()
@@ -508,7 +525,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         // Build path from keys
         let mut path = Vec::new();
-        
+
         if let Ok(keys_view) = view.keys.get_view(tree) {
             // First key
             let key_view = keys_view.key.get_view(tree)?;
@@ -539,7 +556,10 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let text_binding_view = text_binding_handle.get_view(tree)?;
                 let text = if let Ok(text_view) = text_binding_view.text.get_view(tree) {
                     if let Ok(data) = text_view.text.get_data(tree) {
-                        tree.get_str(data, self.input).unwrap_or("").trim().to_string()
+                        tree.get_str(data, self.input)
+                            .unwrap_or("")
+                            .trim()
+                            .to_string()
                     } else {
                         String::new()
                     }
@@ -547,7 +567,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     String::new()
                 };
 
-                let content = NodeContent::String {
+                let content = NodeValue::String {
                     handle: StringConstructionHandle::TextBinding(text_binding_handle),
                     value: text,
                 };
@@ -557,13 +577,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
             Ok(BindingRhsView::SectionBinding(section_binding_handle)) => {
                 // First insert a map node for this section
-                let content = NodeContent::Map {
+                let content = NodeValue::Map {
                     handle: MapConstructionHandle::SectionBinding(section_binding_handle),
                     entries: vec![],
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path.clone());
-                self.document.insert_node(full_path.clone().into_iter(), content)?;
+                self.document
+                    .insert_node(full_path.clone().into_iter(), content)?;
 
                 // Push this path onto the stack for nested content
                 self.path_stack.push(full_path);
@@ -581,7 +602,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
             _ => {}
         }
-        
+
         Ok(())
     }
 
@@ -593,7 +614,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         // Build path from keys
         let mut path = Vec::new();
-        
+
         if let Ok(keys_view) = view.keys.get_view(tree) {
             // First key
             let key_view = keys_view.key.get_view(tree)?;
@@ -614,13 +635,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         }
 
         // Create a map node for this section
-        let content = NodeContent::Map {
+        let content = NodeValue::Map {
             handle: MapConstructionHandle::Section(handle),
             entries: vec![],
         };
         let mut full_path = self.current_path();
         full_path.extend(path.clone());
-        self.document.insert_node(full_path.clone().into_iter(), content)?;
+        self.document
+            .insert_node(full_path.clone().into_iter(), content)?;
 
         // Push this section's path onto the stack
         self.path_stack.push(full_path);

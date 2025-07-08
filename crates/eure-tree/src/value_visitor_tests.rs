@@ -22,11 +22,11 @@ mod tests {
         // Test creating an empty document
         let visitor = ValueVisitor::new("");
         let doc = visitor.into_document();
-        
+
         // The document should have a root node that is an empty map
         let root = doc.get_root();
         match &root.content {
-            crate::document::NodeContent::Map { entries, .. } => {
+            crate::document::NodeValue::Map { entries, .. } => {
                 assert!(entries.is_empty(), "Expected empty map at root");
             }
             _ => panic!("Expected Map node at root"),

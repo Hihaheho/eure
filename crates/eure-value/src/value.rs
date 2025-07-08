@@ -36,6 +36,8 @@ pub enum KeyCmpValue {
     Tuple(Tuple<KeyCmpValue>),
     Unit,
     Hole,
+    /// Meta-extension key ($$-prefixed fields)
+    MetaExtension(Identifier),
 }
 
 #[derive(Debug, Clone, PartialEq, Plural)]
