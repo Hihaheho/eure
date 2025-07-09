@@ -1,15 +1,12 @@
 //! Schema validation support for EURE editor integration
 
 use eure_schema::{
-    DocumentSchema, Severity, ValidationError, ValidationErrorKind,
+    DocumentSchema, PathSegment, Severity, ValidationError, ValidationErrorKind,
     extract_schema_from_value, validate_self_describing_with_tree, validate_with_tree,
-    PathSegment,
 };
 use eure_tree::Cst;
 use eure_tree::tree::LineNumbers;
-use lsp_types::{
-    Diagnostic, DiagnosticSeverity, Position, Range,
-};
+use lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -40,12 +37,13 @@ impl SchemaManager {
     pub fn load_schema(&mut self, uri: &str, input: &str, _tree: &Cst) -> Result<(), String> {
         let extracted = extract_schema_from_value(input)
             .map_err(|e| format!("Failed to extract schema: {e}"))?;
-        
+
         // We don't reject schemas with non-schema content anymore
         // A schema file can contain examples, documentation, etc.
         // The important thing is that it contains schema definitions
-        
-        self.schemas.insert(uri.to_string(), extracted.document_schema);
+
+        self.schemas
+            .insert(uri.to_string(), extracted.document_schema);
         Ok(())
     }
 
@@ -56,7 +54,8 @@ impl SchemaManager {
 
     /// Associate a document with a schema
     pub fn set_document_schema(&mut self, doc_uri: &str, schema_uri: &str) {
-        self.schema_paths.insert(doc_uri.to_string(), schema_uri.to_string());
+        self.schema_paths
+            .insert(doc_uri.to_string(), schema_uri.to_string());
     }
 
     /// Get the schema URI for a document
@@ -76,24 +75,30 @@ pub fn validate_document(
 
     // Create line numbers helper for span conversion
     let line_numbers = LineNumbers::new(input);
-    
+
     // Check if there's an external schema to use
     if let Some(schema_uri) = schema_manager.get_document_schema_uri(uri)
-        && let Some(schema) = schema_manager.get_schema(schema_uri) {
-            // Validate against the external schema
-            match validate_with_tree(input, schema.clone(), tree) {
-                Ok(errors) => {
-                    for error in errors {
-                        diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers, input));
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Validation error: {e}");
+        && let Some(schema) = schema_manager.get_schema(schema_uri)
+    {
+        // Validate against the external schema
+        match validate_with_tree(input, schema.clone(), tree) {
+            Ok(errors) => {
+                for error in errors {
+                    diagnostics.push(validation_error_to_diagnostic(
+                        &error,
+                        uri,
+                        &line_numbers,
+                        input,
+                    ));
                 }
             }
-            return diagnostics;
+            Err(e) => {
+                eprintln!("Validation error: {e}");
+            }
         }
-    
+        return diagnostics;
+    }
+
     // If no external schema, fall back to self-describing validation
     let validation_result = match validate_self_describing_with_tree(input, tree) {
         Ok(result) => result,
@@ -102,15 +107,20 @@ pub fn validate_document(
             return diagnostics;
         }
     };
-    
+
     // If it's a pure schema, we don't need to validate it
     if validation_result.schema.is_pure_schema {
         return diagnostics;
     }
-    
+
     // Convert validation errors to diagnostics
     for error in validation_result.errors {
-        diagnostics.push(validation_error_to_diagnostic(&error, uri, &line_numbers, input));
+        diagnostics.push(validation_error_to_diagnostic(
+            &error,
+            uri,
+            &line_numbers,
+            input,
+        ));
     }
 
     diagnostics
@@ -125,28 +135,25 @@ pub fn validate_and_extract_schema(
 }
 
 /// Find a schema file for a document
-pub fn find_schema_for_document(
-    doc_path: &Path,
-    workspace_root: Option<&Path>,
-) -> Option<PathBuf> {
+pub fn find_schema_for_document(doc_path: &Path, workspace_root: Option<&Path>) -> Option<PathBuf> {
     // Check for .schema.eure file with same base name
     let doc_stem = doc_path.file_stem()?;
     let schema_name = format!("{}.schema.eure", doc_stem.to_str()?);
-    
+
     // 1. Check same directory
     if let Some(parent) = doc_path.parent() {
         let schema_path = parent.join(&schema_name);
         if schema_path.exists() {
             return Some(schema_path);
         }
-        
+
         // 2. Check for generic schema.eure in same directory
         let generic_schema = parent.join("schema.eure");
         if generic_schema.exists() {
             return Some(generic_schema);
         }
     }
-    
+
     // 3. Walk up parent directories
     let mut current = doc_path.parent();
     while let Some(dir) = current {
@@ -154,21 +161,22 @@ pub fn find_schema_for_document(
         if schema_path.exists() {
             return Some(schema_path);
         }
-        
+
         let generic_schema = dir.join("schema.eure");
         if generic_schema.exists() {
             return Some(generic_schema);
         }
-        
+
         // Stop at workspace root if provided
         if let Some(root) = workspace_root
-            && dir == root {
-                break;
-            }
-        
+            && dir == root
+        {
+            break;
+        }
+
         current = dir.parent();
     }
-    
+
     // 4. Check workspace .eure/schemas directory
     if let Some(root) = workspace_root {
         let schemas_dir = root.join(".eure").join("schemas");
@@ -177,7 +185,7 @@ pub fn find_schema_for_document(
             if schema_path.exists() {
                 return Some(schema_path);
             }
-            
+
             // Check for default.schema.eure
             let default_schema = schemas_dir.join("default.schema.eure");
             if default_schema.exists() {
@@ -185,7 +193,7 @@ pub fn find_schema_for_document(
             }
         }
     }
-    
+
     None
 }
 
@@ -198,38 +206,40 @@ fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
         eure_schema::KeyCmpValue::Bool(b) => b.to_string(),
         eure_schema::KeyCmpValue::Null => "null".to_string(),
         eure_schema::KeyCmpValue::Unit => "()".to_string(),
-        eure_schema::KeyCmpValue::Tuple(_) => "<tuple>".to_string(),
-        eure_schema::KeyCmpValue::Extension(ext) => format!("${ext}"),
+        eure_schema::KeyCmpValue::Tuple(_) => todo!(),
         eure_schema::KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
         eure_schema::KeyCmpValue::Hole => "!".to_string(),
     }
 }
 
 /// Adjust a span to exclude leading and trailing whitespace
-fn trim_span_whitespace(span: eure_tree::tree::InputSpan, input: &str) -> eure_tree::tree::InputSpan {
+fn trim_span_whitespace(
+    span: eure_tree::tree::InputSpan,
+    input: &str,
+) -> eure_tree::tree::InputSpan {
     let mut start = span.start as usize;
     let mut end = span.end as usize;
-    
+
     // Safety check
     if start >= input.len() || end > input.len() || start >= end {
         return span;
     }
-    
+
     // Trim leading whitespace
     let span_text = &input[start..end];
     let leading_ws = span_text.len() - span_text.trim_start().len();
     start += leading_ws;
-    
-    // Trim trailing whitespace  
+
+    // Trim trailing whitespace
     let trimmed_text = &input[start..end];
     let trailing_ws = trimmed_text.len() - trimmed_text.trim_end().len();
     end -= trailing_ws;
-    
+
     // Ensure we didn't trim everything
     if start >= end {
         return span;
     }
-    
+
     eure_tree::tree::InputSpan {
         start: start as u32,
         end: end as u32,
@@ -237,18 +247,26 @@ fn trim_span_whitespace(span: eure_tree::tree::InputSpan, input: &str) -> eure_t
 }
 
 /// Convert a ValidationError to an LSP Diagnostic
-pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_numbers: &LineNumbers, input: &str) -> Diagnostic {
+pub fn validation_error_to_diagnostic(
+    error: &ValidationError,
+    _uri: &str,
+    line_numbers: &LineNumbers,
+    input: &str,
+) -> Diagnostic {
     // Convert byte offsets to line/column positions
     let (start_info, end_info) = if let Some(span) = error.span {
         // Adjust span to exclude leading whitespace
         let adjusted_span = trim_span_whitespace(span, input);
-        (line_numbers.get_char_info(adjusted_span.start), line_numbers.get_char_info(adjusted_span.end))
+        (
+            line_numbers.get_char_info(adjusted_span.start),
+            line_numbers.get_char_info(adjusted_span.end),
+        )
     } else {
         // Default to beginning of file if no span
         let default_info = line_numbers.get_char_info(0);
         (default_info, default_info)
     };
-    
+
     let range = Range {
         start: Position {
             line: start_info.line_number,
@@ -278,7 +296,11 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
                 format!(" at {}", eure_schema::path_segments_to_display_string(path))
             };
             (
-                format!("Required field '{}' is missing{}", format_field_key(field), path_str),
+                format!(
+                    "Required field '{}' is missing{}",
+                    format_field_key(field),
+                    path_str
+                ),
                 Some("eure-schema-required".to_string()),
                 None,
             )
@@ -403,7 +425,8 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
             None,
         ),
         ValidationErrorKind::HoleExists { path } => {
-            let path_str = path.iter()
+            let path_str = path
+                .iter()
                 .map(|seg| match seg {
                     PathSegment::Ident(id) => id.as_ref().to_string(),
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
@@ -421,11 +444,13 @@ pub fn validation_error_to_diagnostic(error: &ValidationError, _uri: &str, line_
                 .collect::<Vec<_>>()
                 .join(".");
             (
-                format!("Hole value (!) found at '{path_str}' - holes must be filled with actual values"),
+                format!(
+                    "Hole value (!) found at '{path_str}' - holes must be filled with actual values"
+                ),
                 Some("eure-schema-hole-exists".to_string()),
                 None,
             )
-        },
+        }
     };
 
     let severity = match error.severity {
@@ -470,7 +495,7 @@ pub fn resolve_schema_reference(
             .parent()
             .ok_or_else(|| "Document has no parent directory".to_string())?;
         let schema_path = base.join(schema_ref);
-        
+
         // Try to canonicalize, but if it fails (file doesn't exist yet), just return the path
         Ok(schema_path.canonicalize().unwrap_or(schema_path))
     }
@@ -488,11 +513,11 @@ mod tests {
     #[test]
     fn test_validation_error_to_diagnostic() {
         use eure_tree::tree::InputSpan;
-        
+
         // Create a test input with specific content at known positions
         let input = "line1\nline2 with error\nline3";
         let line_numbers = LineNumbers::new(input);
-        
+
         let error = ValidationError {
             kind: ValidationErrorKind::TypeMismatch {
                 expected: "string".to_string(),
@@ -502,18 +527,27 @@ mod tests {
             span: Some(InputSpan::new(12, 16)),
             severity: Severity::Error,
         };
-        
-        let diagnostic = validation_error_to_diagnostic(&error, "file:///test.eure", &line_numbers, input);
-        
+
+        let diagnostic =
+            validation_error_to_diagnostic(&error, "file:///test.eure", &line_numbers, input);
+
         assert_eq!(diagnostic.severity, Some(DiagnosticSeverity::ERROR));
         assert_eq!(diagnostic.source, Some("eure-schema".to_string()));
-        assert_eq!(diagnostic.message, "Type mismatch: expected string, found number");
-        assert_eq!(diagnostic.code, Some(lsp_types::NumberOrString::String("eure-schema-type".to_string())));
-        
+        assert_eq!(
+            diagnostic.message,
+            "Type mismatch: expected string, found number"
+        );
+        assert_eq!(
+            diagnostic.code,
+            Some(lsp_types::NumberOrString::String(
+                "eure-schema-type".to_string()
+            ))
+        );
+
         // Check range (line_numbers returns 0-based positions)
         assert_eq!(diagnostic.range.start.line, 1); // Line 2 (0-based)
         assert_eq!(diagnostic.range.start.character, 6); // Column 6 (0-based)
-        assert_eq!(diagnostic.range.end.line, 1); // Line 2 
+        assert_eq!(diagnostic.range.end.line, 1); // Line 2
         assert_eq!(diagnostic.range.end.character, 10); // Column 10
     }
 }

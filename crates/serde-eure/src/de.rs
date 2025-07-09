@@ -481,14 +481,21 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::Hole => {
                 // Holes should be caught and reported during validation
                 // For now, return an error during deserialization
-                Err(Error::Message("Cannot deserialize hole value (!) - holes must be filled with actual values".to_string()))
-            },
+                Err(Error::Message(
+                    "Cannot deserialize hole value (!) - holes must be filled with actual values"
+                        .to_string(),
+                ))
+            }
             Value::Path(path) => {
                 // Convert path to string representation
-                let path_str = path.0.iter()
+                let path_str = path
+                    .0
+                    .iter()
                     .map(|seg| match seg {
                         eure_value::value::PathSegment::Ident(id) => id.as_ref().to_string(),
-                        eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
+                        eure_value::value::PathSegment::Extension(id) => {
+                            format!("${}", id.as_ref())
+                        }
                         eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
                         eure_value::value::PathSegment::Value(v) => format!("{v:?}"),
                         eure_value::value::PathSegment::TupleIndex(idx) => idx.to_string(),
@@ -784,7 +791,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                 if values.len() != len {
                     return Err(Error::InvalidType(format!(
                         "expected tuple of length {}, found {}",
-                        len, values.len()
+                        len,
+                        values.len()
                     )));
                 }
                 visitor.visit_seq(SeqDeserializer::new(values))
@@ -793,7 +801,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                 if values.len() != len {
                     return Err(Error::InvalidType(format!(
                         "expected tuple of length {}, found array of length {}",
-                        len, values.len()
+                        len,
+                        values.len()
                     )));
                 }
                 visitor.visit_seq(SeqDeserializer::new(values))
@@ -1112,8 +1121,7 @@ fn key_cmp_to_value(key: KeyCmpValue) -> Value {
             Value::Tuple(eure_value::value::Tuple(values))
         }
         KeyCmpValue::Unit => Value::Unit,
-        KeyCmpValue::Extension(ext) => Value::String(format!("${ext}")),
-        KeyCmpValue::MetaExtension(meta) => Value::String(format!("$${meta}")),
+        KeyCmpValue::MetaExtension(meta) => todo!("This function must return Option"),
         KeyCmpValue::Hole => Value::Hole,
     }
 }

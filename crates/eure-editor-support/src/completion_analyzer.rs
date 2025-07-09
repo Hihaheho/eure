@@ -1,10 +1,10 @@
-use lsp_types::{CompletionItem, CompletionItemKind, Position};
-use eure_parol::ParseResult;
 use crate::cst_path_extractor::CstPathExtractor;
 use crate::schema_validation::SchemaManager;
+use eure_parol::ParseResult;
 use eure_schema::{DocumentSchema, ObjectSchema};
-use eure_value::value::PathSegment;
 use eure_value::identifier::Identifier;
+use eure_value::value::PathSegment;
+use lsp_types::{CompletionItem, CompletionItemKind, Position};
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
@@ -31,8 +31,8 @@ fn get_cst_ref(parse_result: &ParseResult) -> &eure_tree::Cst {
 
 impl<'a> CompletionAnalyzer<'a> {
     pub fn new(
-        input: String, 
-        parse_result: ParseResult, 
+        input: String,
+        parse_result: ParseResult,
         cursor_position: Position,
         schema_manager: &'a SchemaManager,
         uri: &'a str,
@@ -45,11 +45,11 @@ impl<'a> CompletionAnalyzer<'a> {
             uri,
         }
     }
-    
+
     pub fn analyze(&self) -> Vec<CompletionItem> {
         // Convert position to byte offset
         let byte_offset = self.position_to_byte_offset();
-        
+
         // Check what's immediately before the cursor
         let context = self.analyze_context_before_cursor(byte_offset);
         // Check if we have a parse error at cursor position
@@ -60,22 +60,22 @@ impl<'a> CompletionAnalyzer<'a> {
                 match context {
                     CompletionContextType::AfterDot => {
                         // Extract the path up to this point
-                        let mut path_extractor = CstPathExtractor::new(
-                            self.input.clone(),
-                            byte_offset as u32,
-                        );
+                        let mut path_extractor =
+                            CstPathExtractor::new(self.input.clone(), byte_offset as u32);
                         let path = path_extractor.extract_path(get_cst_ref(&self.parse_result));
-                        
+
                         // Get schema completions for this path
-                        if let Some(schema_uri) = self.schema_manager.get_document_schema_uri(self.uri)
-                            && let Some(schema) = self.schema_manager.get_schema(schema_uri) {
-                                return self.get_field_completions_for_path(&path, schema);
-                            }
-                        
+                        if let Some(schema_uri) =
+                            self.schema_manager.get_document_schema_uri(self.uri)
+                            && let Some(schema) = self.schema_manager.get_schema(schema_uri)
+                        {
+                            return self.get_field_completions_for_path(&path, schema);
+                        }
+
                         return vec![];
                     }
                     CompletionContextType::AfterEquals => {
-return vec![
+                        return vec![
                             CompletionItem {
                                 label: "true".to_string(),
                                 kind: Some(CompletionItemKind::VALUE),
@@ -97,55 +97,59 @@ return vec![
                 }
             }
         }
-        
+
         // If no error, check if we're in a partial identifier context
         if self.parse_result.error().is_none() && context == CompletionContextType::Unknown {
-            // Check if we're typing a partial key after @ 
+            // Check if we're typing a partial key after @
             if let Some(partial) = self.get_partial_identifier_at_cursor(byte_offset) {
                 // Get root-level field completions
                 if let Some(schema_uri) = self.schema_manager.get_document_schema_uri(self.uri)
-                    && let Some(schema) = self.schema_manager.get_schema(schema_uri) {
-                        return self.get_field_completions_for_path(&[], schema)
-                            .into_iter()
-                            .filter(|c| c.label.starts_with(&partial))
-                            .collect();
-                    }
+                    && let Some(schema) = self.schema_manager.get_schema(schema_uri)
+                {
+                    return self
+                        .get_field_completions_for_path(&[], schema)
+                        .into_iter()
+                        .filter(|c| c.label.starts_with(&partial))
+                        .collect();
+                }
             }
         }
-        
-vec![]
+
+        vec![]
     }
-    
+
     fn get_partial_identifier_at_cursor(&self, byte_offset: usize) -> Option<String> {
         let input_bytes = self.input.as_bytes();
-        
+
         // Find start of identifier by going backwards
         let mut start = byte_offset;
-        while start > 0 && (input_bytes[start - 1].is_ascii_alphanumeric() || input_bytes[start - 1] == b'_') {
+        while start > 0
+            && (input_bytes[start - 1].is_ascii_alphanumeric() || input_bytes[start - 1] == b'_')
+        {
             start -= 1;
         }
-        
+
         if start < byte_offset {
             Some(self.input[start..byte_offset].to_string())
         } else {
             None
         }
     }
-    
+
     fn analyze_context_before_cursor(&self, byte_offset: usize) -> CompletionContextType {
         if byte_offset == 0 {
             return CompletionContextType::Unknown;
         }
-        
+
         // Look at the character just before the cursor
         let input_bytes = self.input.as_bytes();
-        
+
         // Skip whitespace backwards
         let mut pos = byte_offset.saturating_sub(1);
         while pos > 0 && input_bytes[pos].is_ascii_whitespace() {
             pos = pos.saturating_sub(1);
         }
-        
+
         // Check what non-whitespace character we found
         if input_bytes[pos] == b'.' {
             CompletionContextType::AfterDot
@@ -155,11 +159,11 @@ vec![]
             CompletionContextType::Unknown
         }
     }
-    
+
     fn position_to_byte_offset(&self) -> usize {
         let mut offset = 0;
         let lines: Vec<&str> = self.input.lines().collect();
-        
+
         for (i, line) in lines.iter().enumerate() {
             if i < self.cursor_position.line as usize {
                 offset += line.len() + 1; // +1 for newline
@@ -168,22 +172,27 @@ vec![]
                 break;
             }
         }
-        
+
         offset
     }
-    
+
     fn is_at_error_position(&self, byte_offset: usize) -> bool {
         // For now, just check if we're at the end of input
         // In a real implementation, we'd check the actual error location
         byte_offset == self.input.len()
     }
-    
-    fn get_field_completions_for_path(&self, path: &[String], schema: &DocumentSchema) -> Vec<CompletionItem> {
+
+    fn get_field_completions_for_path(
+        &self,
+        path: &[String],
+        schema: &DocumentSchema,
+    ) -> Vec<CompletionItem> {
         // Convert string path to PathSegments
-        let path_segments: Vec<PathSegment> = path.iter()
+        let path_segments: Vec<PathSegment> = path
+            .iter()
             .filter_map(|s| Identifier::from_str(s).ok().map(PathSegment::Ident))
             .collect();
-        
+
         // Look up the schema at this path
         let object_schema = if path_segments.is_empty() {
             &schema.root
@@ -193,14 +202,13 @@ vec![]
                 None => return vec![],
             }
         };
-        
+
         // Generate completions from the fields
         let mut completions = vec![];
         for (field_name, field_schema) in &object_schema.fields {
             let label = match field_name {
                 eure_value::value::KeyCmpValue::String(s) => s.clone(),
-                eure_value::value::KeyCmpValue::Extension(s) => format!("${s}"),
-                eure_value::value::KeyCmpValue::MetaExtension(s) => format!("$${s}"),
+                eure_value::value::KeyCmpValue::MetaExtension(s) => format!("${s}"),
                 _ => continue, // Skip non-string keys for completion
             };
             completions.push(CompletionItem {
@@ -215,18 +223,22 @@ vec![]
                 ..Default::default()
             });
         }
-        
+
         completions
     }
-    
-    fn lookup_schema_at_path<'b>(&self, path: &[PathSegment], schema: &'b ObjectSchema) -> Option<&'b ObjectSchema> {
+
+    fn lookup_schema_at_path<'b>(
+        &self,
+        path: &[PathSegment],
+        schema: &'b ObjectSchema,
+    ) -> Option<&'b ObjectSchema> {
         if path.is_empty() {
             return Some(schema);
         }
-        
+
         let segment = &path[0];
         let remaining = &path[1..];
-        
+
         match segment {
             PathSegment::Ident(field_name) => {
                 let key = eure_value::value::KeyCmpValue::String(field_name.to_string());

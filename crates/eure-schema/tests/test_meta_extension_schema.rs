@@ -1,5 +1,6 @@
 use eure_schema::{extract_schema_from_value, validate_with_schema_value};
-use eure_value::value::KeyCmpValue;
+use eure_value::{identifier::Identifier, value::KeyCmpValue};
+use std::str::FromStr;
 
 #[test]
 fn test_meta_extensions_treated_uniformly() {
@@ -16,14 +17,19 @@ $$another.$type = .string
 name.$type = .string
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Should be detected as pure schema
     assert!(extracted.is_pure_schema);
-    
+
     // Should have the config field
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("config".to_string())));
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("config".to_string()))
+    );
 }
 
 #[test]
@@ -44,18 +50,35 @@ name.$type = .string
 name.$rename = "userName"  # This should be valid string
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Verify it's a pure schema
     assert!(extracted.is_pure_schema);
-    
+
     // The document schema should contain the field, not the meta-extensions
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("field".to_string())));
-    
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("field".to_string()))
+    );
+
     // Meta-extensions themselves should not appear in document schema
-    assert!(!extracted.document_schema.root.fields.contains_key(&KeyCmpValue::MetaExtension("rename".to_string())));
-    assert!(!extracted.document_schema.root.fields.contains_key(&KeyCmpValue::MetaExtension("priority".to_string())));
+    assert!(
+        !extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::MetaExtension("rename".to_string()))
+    );
+    assert!(
+        !extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::MetaExtension("priority".to_string()))
+    );
 }
 
 #[test]
@@ -64,7 +87,7 @@ fn test_meta_extensions_not_special_cased() {
     let schema_input = r#"
 # All these meta-extensions should be handled identically
 $$type = .string
-$$optional = .boolean  
+$$optional = .boolean
 $$array = .path
 $$mycustom = .number
 $$anothercustom.$type = .string
@@ -76,15 +99,22 @@ age.$type = .number
 age.$optional = true
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Should extract the person schema
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("person".to_string())));
-    
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("person".to_string()))
+    );
+
     // None of the meta-extensions should appear in the document schema
     for key in extracted.document_schema.root.fields.keys() {
-        if let KeyCmpValue::MetaExtension(_) = key { panic!("Meta-extension {key:?} should not be in document schema") }
+        if let KeyCmpValue::MetaExtension(_) = key {
+            panic!("Meta-extension {key:?} should not be in document schema")
+        }
     }
 }
 
@@ -96,7 +126,7 @@ fn test_path_with_meta_extension() {
 # Define schema for fields that will hold path values
 @ paths
 path1.$type = .path
-path2.$type = .path 
+path2.$type = .path
 path3.$type = .path
 
 # Meta-extensions define schemas for extensions
@@ -108,20 +138,47 @@ $$another = .boolean
 name.$type = .string
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // This is a pure schema
     assert!(extracted.is_pure_schema);
-    
+
     // The schema fields should be present
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("paths".to_string())));
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("config".to_string())));
-    
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("paths".to_string()))
+    );
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("config".to_string()))
+    );
+
     // Meta-extensions should not appear in document schema
-    assert!(!extracted.document_schema.root.fields.contains_key(&KeyCmpValue::MetaExtension("myext".to_string())));
-    assert!(!extracted.document_schema.root.fields.contains_key(&KeyCmpValue::MetaExtension("another".to_string())));
-    
+    assert!(
+        !extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::MetaExtension(
+                Identifier::from_str("myext").unwrap()
+            ))
+    );
+    assert!(
+        !extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::MetaExtension(
+                Identifier::from_str("another").unwrap()
+            ))
+    );
+
     // Now test a document with path values containing meta-extensions
     let doc_input = r#"
 @ paths
@@ -132,12 +189,16 @@ path3 = .$$custom.nested.path
 @ config
 name = "test"
 "#;
-    
+
     // The document should validate - path values with meta-extensions are valid
     let errors = validate_with_schema_value(doc_input, extracted.document_schema)
         .expect("Failed to validate");
-    
-    assert_eq!(errors.len(), 0, "Document with meta-extension paths should validate");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Document with meta-extension paths should validate"
+    );
 }
 
 #[test]
@@ -159,12 +220,25 @@ $$mode {
 name.$type = .string
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Should have config but not $$mode
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("config".to_string())));
-    assert!(!extracted.document_schema.root.fields.contains_key(&KeyCmpValue::MetaExtension("mode".to_string())));
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("config".to_string()))
+    );
+    assert!(
+        !extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::MetaExtension(
+                Identifier::from_str("mode").unwrap()
+            ))
+    );
 }
 
 #[test]
@@ -181,40 +255,60 @@ $$custom.field = .number
 name.$type = .string
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Check that extension schemas were created
-    let optional_schema = extracted.document_schema.root.fields
-        .get(&KeyCmpValue::Extension("optional".to_string()))
+    let optional_schema = extracted
+        .document_schema
+        .root
+        .fields
+        .get(&KeyCmpValue::MetaExtension(
+            eure_value::identifier::Identifier::from_str("optional").unwrap(),
+        ))
         .expect("Should have schema for $optional extension");
-    
+
     assert_eq!(optional_schema.type_expr, eure_schema::Type::Boolean);
-    
-    let type_schema = extracted.document_schema.root.fields
-        .get(&KeyCmpValue::Extension("type".to_string()))
+
+    let type_schema = extracted
+        .document_schema
+        .root
+        .fields
+        .get(&KeyCmpValue::MetaExtension(
+            eure_value::identifier::Identifier::from_str("type").unwrap(),
+        ))
         .expect("Should have schema for $type extension");
-    
+
     assert_eq!(type_schema.type_expr, eure_schema::Type::String);
-    
+
     // Meta-extension with nested field should create object schema
-    let custom_schema = extracted.document_schema.root.fields
-        .get(&KeyCmpValue::Extension("custom".to_string()))
+    let custom_schema = extracted
+        .document_schema
+        .root
+        .fields
+        .get(&KeyCmpValue::MetaExtension(
+            eure_value::identifier::Identifier::from_str("custom").unwrap(),
+        ))
         .expect("Should have schema for $custom extension");
-    
+
     match &custom_schema.type_expr {
         eure_schema::Type::Object(obj) => {
-            let field_schema = obj.fields
+            let field_schema = obj
+                .fields
                 .get(&KeyCmpValue::String("field".to_string()))
                 .expect("Should have field in custom extension");
             assert_eq!(field_schema.type_expr, eure_schema::Type::Number);
         }
-        _ => panic!("$custom extension should have object type")
+        _ => panic!("$custom extension should have object type"),
     }
-    
+
     // Regular field should still work
-    assert!(extracted.document_schema.root.fields
-        .contains_key(&KeyCmpValue::String("person".to_string())));
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("person".to_string()))
+    );
 }
 
 #[test]
@@ -239,13 +333,12 @@ name = "John Doe"
 "#;
 
     // Extract schema
-    let schema = extract_schema_from_value(schema_doc)
-        .expect("Failed to extract schema");
-    
+    let schema = extract_schema_from_value(schema_doc).expect("Failed to extract schema");
+
     // Validate document - the $serde.rename extension should be allowed
-    let errors = validate_with_schema_value(test_doc, schema.document_schema)
-        .expect("Failed to validate");
-    
+    let errors =
+        validate_with_schema_value(test_doc, schema.document_schema).expect("Failed to validate");
+
     // Debug: print errors if any
     if !errors.is_empty() {
         println!("Validation errors:");
@@ -253,7 +346,7 @@ name = "John Doe"
             println!("  - {error:?}");
         }
     }
-    
+
     // Should validate successfully
     assert_eq!(errors.len(), 0, "Document should validate against schema");
 }

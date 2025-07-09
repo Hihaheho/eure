@@ -74,23 +74,23 @@ pub fn value_to_json_with_config(
         Value::Hole => {
             // Holes cannot be meaningfully converted to JSON
             // Return an error or a special marker
-            Err(Error::UnsupportedValue("Cannot convert hole value (!) to JSON - holes must be filled with actual values".to_string()))
-        },
+            Err(Error::UnsupportedValue(
+                "Cannot convert hole value (!) to JSON - holes must be filled with actual values"
+                    .to_string(),
+            ))
+        }
         Value::Path(Path(segments)) => {
             // Paths represented as dot-separated strings
-            let path_str = segments.iter()
+            let path_str = segments
+                .iter()
                 .map(|seg| match seg {
                     PathSegment::Ident(id) => id.as_ref().to_string(),
                     PathSegment::Extension(id) => format!("${}", id.as_ref()),
                     PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
                     PathSegment::Value(v) => format!("[{v:?}]"),
                     PathSegment::TupleIndex(idx) => idx.to_string(),
-                    PathSegment::Array { key, index } => {
-                        if let Some(idx) = index {
-                            format!("{key:?}[{idx:?}]")
-                        } else {
-                            format!("{key:?}[]")
-                        }
+                    PathSegment::ArrayIndex(idx) => {
+                        format!("[{idx}]")
                     }
                 })
                 .collect::<Vec<_>>()
@@ -160,8 +160,9 @@ fn key_to_string(key: &KeyCmpValue) -> Result<String, Error> {
         KeyCmpValue::Tuple(_) => Err(Error::UnsupportedValue(
             "Tuple keys cannot be converted to JSON object keys".to_string(),
         )),
-        KeyCmpValue::Extension(ext) => Ok(format!("${ext}")),
-        KeyCmpValue::MetaExtension(meta) => Ok(format!("$${meta}")),
+        KeyCmpValue::MetaExtension(meta) => Err(Error::UnsupportedValue(
+            "MetaExtension keys cannot be converted to JSON object keys".to_string(),
+        )),
     }
 }
 
