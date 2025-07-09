@@ -77,25 +77,44 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
         Value::Path(path) => {
             // Format path with dot notation
             output.push('.');
-            let segments: Vec<String> = path
-                .0
-                .iter()
-                .map(|seg| match seg {
-                    eure_value::value::PathSegment::Ident(id) => id.as_ref().to_string(),
-                    eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
-                    eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
-                    eure_value::value::PathSegment::Value(v) => format!("{v:?}"),
-                    eure_value::value::PathSegment::TupleIndex(idx) => idx.to_string(),
-                    eure_value::value::PathSegment::Array { key, index } => {
-                        if let Some(idx) = index {
-                            format!("{key:?}[{idx:?}]")
+            let mut path_parts = Vec::new();
+            let mut i = 0;
+            
+            while i < path.0.len() {
+                match &path.0[i] {
+                    eure_value::value::PathSegment::Ident(id) => {
+                        // Check if next segment is ArrayIndex
+                        if i + 1 < path.0.len() {
+                            if let eure_value::value::PathSegment::ArrayIndex(idx) = &path.0[i + 1] {
+                                // Combine identifier with array index
+                                if let Some(index) = idx {
+                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                                } else {
+                                    path_parts.push(format!("{}[]", id.as_ref()));
+                                }
+                                i += 2; // Skip the ArrayIndex segment
+                                continue;
+                            }
+                        }
+                        path_parts.push(id.as_ref().to_string());
+                    }
+                    eure_value::value::PathSegment::Extension(id) => path_parts.push(format!("${}", id.as_ref())),
+                    eure_value::value::PathSegment::MetaExt(id) => path_parts.push(format!("$${}", id.as_ref())),
+                    eure_value::value::PathSegment::Value(v) => path_parts.push(format!("{v:?}")),
+                    eure_value::value::PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
+                    eure_value::value::PathSegment::ArrayIndex(idx) => {
+                        // Standalone array index (shouldn't normally happen after an ident)
+                        if let Some(index) = idx {
+                            path_parts.push(format!("[{}]", index));
                         } else {
-                            format!("{key:?}[]")
+                            path_parts.push("[]".to_string());
                         }
                     }
-                })
-                .collect();
-            output.push_str(&segments.join("."));
+                }
+                i += 1;
+            }
+            
+            output.push_str(&path_parts.join("."));
         }
     }
 }

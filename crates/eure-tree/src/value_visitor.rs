@@ -164,11 +164,10 @@ impl<'a> ValueVisitor<'a> {
                 };
 
                 // Return both the base segment and the array index
-                Ok(vec![base_segment, PathSegment::ArrayIndex(index)])
+                Ok(vec![base_segment, PathSegment::ArrayIndex(Some(index))])
             } else {
                 // Empty brackets [] means append/next index
-                // For now, use 0 as placeholder
-                Ok(vec![base_segment, PathSegment::ArrayIndex(0)])
+                Ok(vec![base_segment, PathSegment::ArrayIndex(None)])
             }
         } else {
             Ok(vec![base_segment])
@@ -310,7 +309,7 @@ impl<'a> ValueVisitor<'a> {
 
                     // First element
                     let mut element_path = path.clone();
-                    element_path.push(PathSegment::ArrayIndex(index));
+                    element_path.push(PathSegment::ArrayIndex(Some(index)));
                     let value_view = array_elements_view.value.get_view(tree)?;
                     self.process_value_at_path(element_path, value_view, tree)?;
                     index += 1;
@@ -326,7 +325,7 @@ impl<'a> ValueVisitor<'a> {
                                 let next_view = next_elements.get_view(tree)?;
 
                                 let mut element_path = path.clone();
-                                element_path.push(PathSegment::ArrayIndex(index));
+                                element_path.push(PathSegment::ArrayIndex(Some(index)));
                                 let value_view = next_view.value.get_view(tree)?;
                                 self.process_value_at_path(element_path, value_view, tree)?;
                                 index += 1;

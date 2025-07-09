@@ -425,24 +425,44 @@ pub fn validation_error_to_diagnostic(
             None,
         ),
         ValidationErrorKind::HoleExists { path } => {
-            let path_str = path
-                .iter()
-                .map(|seg| match seg {
-                    PathSegment::Ident(id) => id.as_ref().to_string(),
-                    PathSegment::Extension(id) => format!("${}", id.as_ref()),
-                    PathSegment::MetaExt(id) => format!("$${}", id.as_ref()),
-                    PathSegment::Value(v) => format!("[{v:?}]"),
-                    PathSegment::TupleIndex(idx) => format!("[{idx}]"),
-                    PathSegment::Array { key, index } => {
-                        if let Some(idx) = index {
-                            format!("{key:?}[{idx:?}]")
+            let mut path_parts = Vec::new();
+            let mut i = 0;
+            
+            while i < path.len() {
+                match &path[i] {
+                    PathSegment::Ident(id) => {
+                        // Check if next segment is ArrayIndex
+                        if i + 1 < path.len() {
+                            if let PathSegment::ArrayIndex(idx) = &path[i + 1] {
+                                // Combine identifier with array index
+                                if let Some(index) = idx {
+                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                                } else {
+                                    path_parts.push(format!("{}[]", id.as_ref()));
+                                }
+                                i += 2; // Skip the ArrayIndex segment
+                                continue;
+                            }
+                        }
+                        path_parts.push(id.as_ref().to_string());
+                    }
+                    PathSegment::Extension(id) => path_parts.push(format!("${}", id.as_ref())),
+                    PathSegment::MetaExt(id) => path_parts.push(format!("$${}", id.as_ref())),
+                    PathSegment::Value(v) => path_parts.push(format!("[{v:?}]")),
+                    PathSegment::TupleIndex(idx) => path_parts.push(format!("[{idx}]")),
+                    PathSegment::ArrayIndex(idx) => {
+                        // Standalone array index (shouldn't normally happen after an ident)
+                        if let Some(index) = idx {
+                            path_parts.push(format!("[{}]", index));
                         } else {
-                            format!("{key:?}[]")
+                            path_parts.push("[]".to_string());
                         }
                     }
-                })
-                .collect::<Vec<_>>()
-                .join(".");
+                }
+                i += 1;
+            }
+            
+            let path_str = path_parts.join(".");
             (
                 format!(
                     "Hole value (!) found at '{path_str}' - holes must be filled with actual values"

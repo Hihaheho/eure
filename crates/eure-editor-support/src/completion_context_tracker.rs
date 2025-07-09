@@ -8,7 +8,8 @@ use eure_tree::{
     prelude::*,
     tree::{CstFacade, CstNodeId, InputSpan, CstNodeData, TerminalData, NonTerminalData, RecursiveView},
     nodes::{BindingView, SectionView, SectionBodyView, BindingRhsView, ValueBindingView, ObjectView},
-    value_visitor::Values,
+    value_visitor::ValueVisitor,
+    document::EureDocument,
     Cst,
 };
 use eure_value::value::{PathSegment, Value as EureValue};
@@ -142,11 +143,10 @@ impl<'a> CompletionContextTracker<'a> {
         let mut frame = self.context_stack.last().cloned().unwrap_or_default();
         frame.in_array = true;
         frame.array_index = index;
-        // Add array segment to path
-        frame.path.push(PathSegment::Array { 
-            key: EureValue::Null, // No key for array access
-            index: index.map(|idx| EureValue::I64(idx as i64))
-        });
+        // Add array index segment to path
+        frame.path.push(PathSegment::ArrayIndex(
+            index.map(|idx| idx as u8)
+        ));
         self.context_stack.push(frame);
     }
     
@@ -743,9 +743,9 @@ fn path_to_string(path: &[PathSegment]) -> String {
             PathSegment::Ident(id) => id.as_ref().to_string(),
             PathSegment::Extension(ext) => format!("${}", ext.as_ref()),
             PathSegment::MetaExt(meta) => format!("$${}", meta.as_ref()),
-            PathSegment::Array { index, .. } => {
-                if let Some(EureValue::I64(idx)) = index {
-                    format!("[{idx}]")
+            PathSegment::ArrayIndex(idx) => {
+                if let Some(index) = idx {
+                    format!("[{}]", index)
                 } else {
                     "[]".to_string()
                 }

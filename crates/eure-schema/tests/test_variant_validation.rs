@@ -534,13 +534,14 @@ invalid2: another_text
         && matches!(&path[0], eure_value::value::PathSegment::Ident(id) if id.as_ref() == "root")
     ));
     
-    // Verify invalid2 is reported with correct path [root, nested[]]
+    // Verify invalid2 is reported with correct path [root, nested, []]
     let has_invalid2 = errors.iter().any(|e| matches!(&e.kind,
         ValidationErrorKind::UnexpectedField { field, path }
         if matches!(field, KeyCmpValue::String(s) if s == "invalid2")
-        && path.len() == 2
+        && path.len() == 3
         && matches!(&path[0], eure_value::value::PathSegment::Ident(id) if id.as_ref() == "root")
-        && matches!(&path[1], eure_value::value::PathSegment::Array { .. })
+        && matches!(&path[1], eure_value::value::PathSegment::Ident(id) if id.as_ref() == "nested")
+        && matches!(&path[2], eure_value::value::PathSegment::ArrayIndex(None))
     ));
     
     assert!(has_invalid1, "Should report 'invalid1' as unexpected with path [root]");

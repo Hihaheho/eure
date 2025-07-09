@@ -81,20 +81,50 @@ pub fn value_to_json_with_config(
         }
         Value::Path(Path(segments)) => {
             // Paths represented as dot-separated strings
-            let path_str = segments
-                .iter()
-                .map(|seg| match seg {
-                    PathSegment::Ident(id) => id.as_ref().to_string(),
-                    PathSegment::Extension(id) => format!("${}", id.as_ref()),
-                    PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
-                    PathSegment::Value(v) => format!("[{v:?}]"),
-                    PathSegment::TupleIndex(idx) => idx.to_string(),
-                    PathSegment::ArrayIndex(idx) => {
-                        format!("[{idx}]")
+            let mut path_parts = Vec::new();
+            let mut i = 0;
+            
+            while i < segments.len() {
+                match &segments[i] {
+                    PathSegment::Ident(id) => {
+                        // Check if next segment is ArrayIndex
+                        if i + 1 < segments.len() {
+                            if let PathSegment::ArrayIndex(idx) = &segments[i + 1] {
+                                // Combine identifier with array index
+                                if let Some(index) = idx {
+                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                                } else {
+                                    path_parts.push(format!("{}[]", id.as_ref()));
+                                }
+                                i += 2; // Skip the ArrayIndex segment
+                                continue;
+                            }
+                        }
+                        path_parts.push(id.as_ref().to_string());
                     }
-                })
-                .collect::<Vec<_>>()
-                .join(".");
+                    PathSegment::Extension(_) => {
+                        // Extensions are metadata, not data - skip in serialization
+                        continue;
+                    }
+                    PathSegment::MetaExt(_) => {
+                        // Meta-extensions are metadata, not data - skip in serialization
+                        continue;
+                    }
+                    PathSegment::Value(v) => path_parts.push(format!("[{v:?}]")),
+                    PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
+                    PathSegment::ArrayIndex(idx) => {
+                        // Standalone array index (shouldn't normally happen after an ident)
+                        if let Some(index) = idx {
+                            path_parts.push(format!("[{}]", index));
+                        } else {
+                            path_parts.push("[]".to_string());
+                        }
+                    }
+                }
+                i += 1;
+            }
+            
+            let path_str = path_parts.join(".");
             Ok(serde_json::Value::String(format!(".{path_str}")))
         }
     }
@@ -160,7 +190,7 @@ fn key_to_string(key: &KeyCmpValue) -> Result<String, Error> {
         KeyCmpValue::Tuple(_) => Err(Error::UnsupportedValue(
             "Tuple keys cannot be converted to JSON object keys".to_string(),
         )),
-        KeyCmpValue::MetaExtension(meta) => Err(Error::UnsupportedValue(
+        KeyCmpValue::MetaExtension(_meta) => Err(Error::UnsupportedValue(
             "MetaExtension keys cannot be converted to JSON object keys".to_string(),
         )),
     }
