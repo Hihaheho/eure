@@ -28,6 +28,8 @@ age.$optional = true  # Fields are required by default
 - `name.$type = .string` - Correct: defines the type of the field
 - `name = .string` - Wrong: assigns the path value `.string` as data
 
+**Note:** Extensions are metadata, not data - they won't appear in serialized output (JSON, YAML, etc.).
+
 ### $types
 
 Namespace for defining custom types.

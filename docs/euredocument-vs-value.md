@@ -55,7 +55,7 @@ This guide helps you understand when to use `EureDocument` versus `Value` in the
 2. **Schema Validation with Error Reporting**
    ```rust
    // Validation errors include exact source locations
-   let validator = SchemaValidator::new(input, schema, &document);
+   let validator = SchemaValidator::new(input, schema, &tree);
    let errors = validator.validate(); // Errors have InputSpan
    ```
 
@@ -123,8 +123,28 @@ let document: EureDocument = parse_and_build_document(input)?;
 let value: Value = document.to_value();
 ```
 
+**Example**: Extensions are stripped during conversion:
+```eure
+# Input EURE document
+@ config
+debug = true
+debug.$description = "Enable debug mode"
+debug.$since = "v1.0"
+```
+
+Results in:
+```rust
+// After document.to_value()
+Value::Map(map!{
+    "config" => Value::Map(map!{
+        "debug" => Value::Bool(true)
+        // Note: $description and $since are gone
+    })
+})
+```
+
 **Note**: The `to_value()` method:
-- Merges extension namespaces into regular map fields
+- Skips extension namespaces entirely (extensions are metadata, not data)
 - Loses all handle information
 - Converts `NodeContent` variants to corresponding `Value` variants
 - Recursively processes arrays and maps
@@ -136,6 +156,7 @@ Converting from `Value` to `EureDocument` requires synthetic handle creation:
 ```rust
 // This is typically done during parsing, not direct conversion
 // Values are built into EureDocument during the parsing phase
+let tree = parse(input)?;
 let mut visitor = ValueVisitor::new(input);
 tree.visit_from_root(&mut visitor)?;
 let document = visitor.into_document();
@@ -183,7 +204,7 @@ pub fn validate_with_diagnostics(input: &str) -> Vec<Diagnostic> {
     tree.visit_from_root(&mut visitor)?;
     let document = visitor.into_document();
     
-    let validator = SchemaValidator::new(input, &schema, &document);
+    let validator = SchemaValidator::new(input, schema, &tree);
     validator.validate()
         .into_iter()
         .map(|error| Diagnostic {
