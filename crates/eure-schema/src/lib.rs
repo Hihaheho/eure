@@ -12,7 +12,7 @@ mod document_schema;
 mod schema_document;
 
 pub use schema::*;
-pub use document_validator::{validate_document, ValidationError, ValidationErrorKind};
+pub use document_validator::{validate_document, ValidationError, ValidationErrorKind, Severity};
 pub use builder::{FieldSchemaBuilder, TypeBuilder, ObjectSchemaBuilder, VariantSchemaBuilder};
 pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, path_to_display_string, path_segments_to_display_string};
 pub use document_schema::{document_to_schema, is_pure_schema_node, SchemaError};

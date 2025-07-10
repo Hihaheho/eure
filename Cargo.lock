@@ -1804,6 +1804,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "eure-editor-support",
+ "eure-schema",
  "eure-tree",
  "lsp-server",
  "lsp-types",

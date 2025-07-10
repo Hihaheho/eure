@@ -1,4 +1,6 @@
-use eure_schema::{extract_schema_from_value, validate_with_tree, ValidationErrorKind, KeyCmpValue, Type};
+use eure_schema::{document_to_schema, validate_document, ValidationErrorKind, KeyCmpValue, Type};
+use eure_tree::value_visitor::ValueVisitor;
+use eure_tree::prelude::CstFacade;
 
 #[test]
 fn test_variant_validation() {
@@ -24,8 +26,11 @@ tasks.$array = .$types.Task
 tasks.$optional = true
 "#;
     
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
+    let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
+    let mut schema_visitor = ValueVisitor::new(schema_input);
+    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    let schema_doc = schema_visitor.into_document();
+    let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
     
     // Test 1: Valid variant with all required fields
     let valid_doc = r#"
@@ -37,15 +42,17 @@ description = "Create a test file"
 "#;
     
     let tree = eure_parol::parse(valid_doc).expect("Failed to parse document");
-    let errors = validate_with_tree(valid_doc, extracted.document_schema.clone(), &tree)
-        .expect("Failed to validate");
+    let mut visitor = ValueVisitor::new(valid_doc);
+    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    let document = visitor.into_document();
+    let errors = validate_document(&document, &schema);
     
     // Debug: print schema structure
-    println!("Schema types: {:?}", extracted.document_schema.types.keys().collect::<Vec<_>>());
-    println!("Root fields: {:?}", extracted.document_schema.root.fields.keys().collect::<Vec<_>>());
+    println!("Schema types: {:?}", schema.types.keys().collect::<Vec<_>>());
+    println!("Root fields: {:?}", schema.root.fields.keys().collect::<Vec<_>>());
     
     // Print the tasks field details
-    if let Some(tasks_field) = extracted.document_schema.root.fields.get(&KeyCmpValue::String("tasks".to_string())) {
+    if let Some(tasks_field) = schema.root.fields.get(&KeyCmpValue::String("tasks".to_string())) {
         println!("Tasks field type: {:?}", tasks_field.type_expr);
     }
     
@@ -151,7 +158,7 @@ content = "data"
         .expect("Failed to validate");
     
     let has_missing_tag = errors6.iter().any(|e| matches!(&e.kind,
-        ValidationErrorKind::MissingVariantTag
+        ValidationErrorKind::UnknownVariant { .. }
     ));
     
     // TODO: This might not work if the validator doesn't check for variant tags properly
@@ -250,8 +257,11 @@ description.$optional = true
 actions.$array = .$types.Action
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
+    let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
+    let mut schema_visitor = ValueVisitor::new(schema_input);
+    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    let schema_doc = schema_visitor.into_document();
+    let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
 
     // Debug: Check if choice field is properly extracted
     println!("\nSchema types:");
@@ -409,8 +419,11 @@ $types.Action {
 actions.$array = .$types.Action
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
+    let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
+    let mut schema_visitor = ValueVisitor::new(schema_input);
+    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    let schema_doc = schema_visitor.into_document();
+    let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
     
     // Test block syntax with nested sections containing valid variant fields
     let doc = r#"
@@ -500,8 +513,11 @@ fn test_text_binding_validation() {
 }
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
+    let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
+    let mut schema_visitor = ValueVisitor::new(schema_input);
+    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    let schema_doc = schema_visitor.into_document();
+    let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
     
     // Test document with text bindings at different levels
     let doc = r#"

@@ -4,7 +4,6 @@ use eure_json::{
     Config as JsonConfig, VariantRepr, format_eure_bindings, json_to_value_with_config,
     value_to_json_with_config,
 };
-use eure_tree::tree::NonTerminalHandle;
 use eure_yaml::{Config as YamlConfig, value_to_yaml_with_config, yaml_to_value_with_config};
 use std::fs;
 use std::io::{self, Read};
@@ -278,7 +277,7 @@ fn main() {
 }
 
 fn handle_to_json(args: ToJson) {
-    use eure_tree::value_visitor::{ValueVisitor, Values};
+    use eure_tree::value_visitor::ValueVisitor;
 
     // Read input
     let contents = if args.file == "-" {
@@ -308,8 +307,7 @@ fn handle_to_json(args: ToJson) {
     };
 
     // Extract values using ValueVisitor
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(&contents, &mut values);
+    let mut visitor = ValueVisitor::new(&contents);
 
     // Visit the tree
     if let Err(e) = tree.visit_from_root(&mut visitor) {
@@ -317,15 +315,9 @@ fn handle_to_json(args: ToJson) {
         return;
     }
 
-    // Extract the main value from the document
-    let value = if let Ok(root_view) = tree.root_handle().get_view(&tree)
-        && let Some(eure_value) = values.get_eure(&root_view.eure)
-    {
-        eure_value.clone()
-    } else {
-        eprintln!("Error: Could not extract document value");
-        return;
-    };
+    // Convert document to value
+    let document = visitor.into_document();
+    let value = document.to_value();
 
     // Configure variant representation
     let variant_repr = match args.variant {
@@ -427,7 +419,7 @@ fn handle_from_json(args: FromJson) {
 }
 
 fn handle_to_yaml(args: ToYaml) {
-    use eure_tree::value_visitor::{ValueVisitor, Values};
+    use eure_tree::value_visitor::ValueVisitor;
 
     // Read input
     let contents = if args.file == "-" {
@@ -457,8 +449,7 @@ fn handle_to_yaml(args: ToYaml) {
     };
 
     // Extract values using ValueVisitor
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(&contents, &mut values);
+    let mut visitor = ValueVisitor::new(&contents);
 
     // Visit the tree
     if let Err(e) = tree.visit_from_root(&mut visitor) {
@@ -466,15 +457,9 @@ fn handle_to_yaml(args: ToYaml) {
         return;
     }
 
-    // Extract the main value from the document
-    let value = if let Ok(root_view) = tree.root_handle().get_view(&tree)
-        && let Some(eure_value) = values.get_eure(&root_view.eure)
-    {
-        eure_value.clone()
-    } else {
-        eprintln!("Error: Could not extract document value");
-        return;
-    };
+    // Convert document to value
+    let document = visitor.into_document();
+    let value = document.to_value();
 
     // Configure variant representation
     let variant_repr = match args.variant {

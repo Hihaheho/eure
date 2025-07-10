@@ -1,8 +1,8 @@
 //! Schema validation support for EURE editor integration
 
 use eure_schema::{
-    DocumentSchema, PathSegment, Severity, ValidationError, ValidationErrorKind,
-    extract_schema_from_value, validate_self_describing_with_tree, validate_with_tree,
+    DocumentSchema, PathSegment, ValidationError, ValidationErrorKind, Severity,
+    validate_document as validate_with_schema, document_to_schema,
 };
 use eure_tree::Cst;
 use eure_tree::tree::LineNumbers;
@@ -34,16 +34,19 @@ impl SchemaManager {
     }
 
     /// Load a schema from a file
-    pub fn load_schema(&mut self, uri: &str, input: &str, _tree: &Cst) -> Result<(), String> {
-        let extracted = extract_schema_from_value(input)
+    pub fn load_schema(&mut self, uri: &str, input: &str, tree: &Cst) -> Result<(), String> {
+        // Parse to EureDocument
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
+        tree.visit_from_root(&mut visitor)
+            .map_err(|e| format!("Failed to visit tree: {e}"))?;
+        let document = visitor.into_document();
+        
+        // Extract schema from document
+        let schema = document_to_schema(&document)
             .map_err(|e| format!("Failed to extract schema: {e}"))?;
 
-        // We don't reject schemas with non-schema content anymore
-        // A schema file can contain examples, documentation, etc.
-        // The important thing is that it contains schema definitions
-
         self.schemas
-            .insert(uri.to_string(), extracted.document_schema);
+            .insert(uri.to_string(), schema);
         Ok(())
     }
 
@@ -76,63 +79,54 @@ pub fn validate_document(
     // Create line numbers helper for span conversion
     let line_numbers = LineNumbers::new(input);
 
+    // Parse to EureDocument first
+    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
+    if let Err(e) = tree.visit_from_root(&mut visitor) {
+        eprintln!("Failed to visit tree: {e}");
+        return diagnostics;
+    }
+    let document = visitor.into_document();
+
     // Check if there's an external schema to use
     if let Some(schema_uri) = schema_manager.get_document_schema_uri(uri)
         && let Some(schema) = schema_manager.get_schema(schema_uri)
     {
         // Validate against the external schema
-        match validate_with_tree(input, schema.clone(), tree) {
-            Ok(errors) => {
-                for error in errors {
-                    diagnostics.push(validation_error_to_diagnostic(
-                        &error,
-                        uri,
-                        &line_numbers,
-                        input,
-                    ));
-                }
-            }
-            Err(e) => {
-                eprintln!("Validation error: {e}");
-            }
+        let errors = validate_with_schema(&document, schema);
+        for error in errors {
+            diagnostics.push(validation_error_to_diagnostic(
+                &error,
+                uri,
+                &line_numbers,
+                input,
+            ));
         }
         return diagnostics;
     }
 
-    // If no external schema, fall back to self-describing validation
-    let validation_result = match validate_self_describing_with_tree(input, tree) {
-        Ok(result) => result,
+    // If no external schema, try to extract schema from the document itself
+    match document_to_schema(&document) {
+        Ok(schema) => {
+            // Validate document against its own schema
+            let errors = validate_with_schema(&document, &schema);
+            for error in errors {
+                diagnostics.push(validation_error_to_diagnostic(
+                    &error,
+                    uri,
+                    &line_numbers,
+                    input,
+                ));
+            }
+        }
         Err(e) => {
-            eprintln!("Self-describing validation error: {e}");
-            return diagnostics;
+            // Document doesn't define a schema - that's okay
+            eprintln!("No schema found in document: {e}");
         }
-    };
-
-    // If it's a pure schema, we don't need to validate it
-    if validation_result.schema.is_pure_schema {
-        return diagnostics;
-    }
-
-    // Convert validation errors to diagnostics
-    for error in validation_result.errors {
-        diagnostics.push(validation_error_to_diagnostic(
-            &error,
-            uri,
-            &line_numbers,
-            input,
-        ));
     }
 
     diagnostics
 }
 
-/// Validate a document and return the extracted schema info
-pub fn validate_and_extract_schema(
-    input: &str,
-    tree: &Cst,
-) -> Result<eure_schema::ValidationResult, Box<dyn std::error::Error>> {
-    validate_self_describing_with_tree(input, tree)
-}
 
 /// Find a schema file for a document
 pub fn find_schema_for_document(doc_path: &Path, workspace_root: Option<&Path>) -> Option<PathBuf> {
@@ -253,19 +247,10 @@ pub fn validation_error_to_diagnostic(
     line_numbers: &LineNumbers,
     input: &str,
 ) -> Diagnostic {
-    // Convert byte offsets to line/column positions
-    let (start_info, end_info) = if let Some(span) = error.span {
-        // Adjust span to exclude leading whitespace
-        let adjusted_span = trim_span_whitespace(span, input);
-        (
-            line_numbers.get_char_info(adjusted_span.start),
-            line_numbers.get_char_info(adjusted_span.end),
-        )
-    } else {
-        // Default to beginning of file if no span
-        let default_info = line_numbers.get_char_info(0);
-        (default_info, default_info)
-    };
+    // For now, we don't have span information from node_id
+    // TODO: Pass document to get span from node_id
+    let default_info = line_numbers.get_char_info(0);
+    let (start_info, end_info) = (default_info, default_info);
 
     let range = Range {
         start: Position {
@@ -317,7 +302,7 @@ pub fn validation_error_to_diagnostic(
                 None,
             )
         }
-        ValidationErrorKind::StringLengthViolation { min, max, actual } => {
+        ValidationErrorKind::LengthViolation { min, max, length } => {
             let constraint = match (min, max) {
                 (Some(min), Some(max)) => format!("between {min} and {max}"),
                 (Some(min), None) => format!("at least {min}"),
@@ -325,22 +310,22 @@ pub fn validation_error_to_diagnostic(
                 (None, None) => "unknown".to_string(),
             };
             (
-                format!("String length {actual} does not meet constraint: {constraint}"),
+                format!("String length {length} does not meet constraint: {constraint}"),
                 Some("eure-schema-length".to_string()),
                 None,
             )
         }
-        ValidationErrorKind::StringPatternViolation { pattern, value } => (
+        ValidationErrorKind::PatternMismatch { pattern, value } => (
             format!("Value '{value}' does not match pattern: {pattern}"),
             Some("eure-schema-pattern".to_string()),
             None,
         ),
-        ValidationErrorKind::InvalidSchemaPattern { pattern, error } => (
-            format!("Invalid regex pattern '{pattern}': {error}"),
+        ValidationErrorKind::InvalidValue(msg) if msg.contains("pattern") => (
+            format!("Invalid value: {msg}"),
             Some("eure-schema-invalid-pattern".to_string()),
             None,
         ),
-        ValidationErrorKind::NumberRangeViolation { min, max, actual } => {
+        ValidationErrorKind::RangeViolation { min, max, value } => {
             let constraint = match (min, max) {
                 (Some(min), Some(max)) => format!("between {min} and {max}"),
                 (Some(min), None) => format!("at least {min}"),
@@ -348,29 +333,11 @@ pub fn validation_error_to_diagnostic(
                 (None, None) => "unknown".to_string(),
             };
             (
-                format!("Number {actual} is not {constraint}"),
+                format!("Number {value} is not {constraint}"),
                 Some("eure-schema-range".to_string()),
                 None,
             )
         }
-        ValidationErrorKind::ArrayLengthViolation { min, max, actual } => {
-            let constraint = match (min, max) {
-                (Some(min), Some(max)) => format!("between {min} and {max} items"),
-                (Some(min), None) => format!("at least {min} items"),
-                (None, Some(max)) => format!("at most {max} items"),
-                (None, None) => "unknown".to_string(),
-            };
-            (
-                format!("Array has {actual} items, expected {constraint}"),
-                Some("eure-schema-array-length".to_string()),
-                None,
-            )
-        }
-        ValidationErrorKind::ArrayUniqueViolation { duplicate } => (
-            format!("Array contains duplicate value: {duplicate}"),
-            Some("eure-schema-unique".to_string()),
-            None,
-        ),
         ValidationErrorKind::UnknownVariant { variant, available } => {
             let available_str = if available.is_empty() {
                 "none defined".to_string()
@@ -383,45 +350,9 @@ pub fn validation_error_to_diagnostic(
                 None,
             )
         }
-        ValidationErrorKind::MissingVariantTag => (
-            "Missing variant tag".to_string(),
-            Some("eure-schema-variant-tag".to_string()),
-            None,
-        ),
-        ValidationErrorKind::PreferSection { path } => (
-            format!(
-                "Consider using section syntax for '{}' instead of inline binding",
-                eure_schema::path_segments_to_display_string(path)
-            ),
-            Some("eure-schema-prefer-section".to_string()),
-            None,
-        ),
-        ValidationErrorKind::PreferArraySyntax { path } => (
-            format!(
-                "Consider using array syntax [] for '{}' instead of repeated fields",
-                eure_schema::path_segments_to_display_string(path)
-            ),
-            Some("eure-schema-prefer-array".to_string()),
-            None,
-        ),
-        ValidationErrorKind::VariantDiscriminatorMissing => (
-            "Variant discriminator field '$variant' is missing".to_string(),
-            Some("eure-schema-variant-discriminator".to_string()),
-            None,
-        ),
-        ValidationErrorKind::InvalidVariantDiscriminator(value) => (
-            format!("Invalid variant discriminator: {value}"),
-            Some("eure-schema-invalid-discriminator".to_string()),
-            None,
-        ),
         ValidationErrorKind::InvalidValue(msg) => (
             format!("Invalid value: {msg}"),
             Some("eure-schema-invalid-value".to_string()),
-            None,
-        ),
-        ValidationErrorKind::InternalError(msg) => (
-            format!("Internal error: {msg}"),
-            Some("eure-schema-internal-error".to_string()),
             None,
         ),
         ValidationErrorKind::HoleExists { path } => {
@@ -435,7 +366,7 @@ pub fn validation_error_to_diagnostic(
                         if i + 1 < path.len() {
                             if let PathSegment::ArrayIndex(idx) = &path[i + 1] {
                                 // Combine identifier with array index
-                                if let Some(index) = idx {
+                                if let Some(index) = *idx {
                                     path_parts.push(format!("{}[{}]", id.as_ref(), index));
                                 } else {
                                     path_parts.push(format!("{}[]", id.as_ref()));
@@ -452,7 +383,7 @@ pub fn validation_error_to_diagnostic(
                     PathSegment::TupleIndex(idx) => path_parts.push(format!("[{idx}]")),
                     PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
-                        if let Some(index) = idx {
+                        if let Some(index) = *idx {
                             path_parts.push(format!("[{}]", index));
                         } else {
                             path_parts.push("[]".to_string());

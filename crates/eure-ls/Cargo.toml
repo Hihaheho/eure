@@ -12,6 +12,7 @@ keywords = ["eure", "language-server", "lsp", "ide"]
 [dependencies]
 eure-editor-support = { workspace = true }
 eure-tree = { workspace = true }
+eure-schema = { workspace = true }
 
 lsp-server = "0.7.6"
 lsp-types = "0.97.0"

@@ -1,6 +1,4 @@
-use eure_value::value::{
-    Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant,
-};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant};
 
 /// Format a Value as EURE syntax
 pub fn format_eure(value: &Value) -> String {
@@ -59,22 +57,22 @@ pub fn format_eure(value: &Value) -> String {
             // Format path as dot-separated string
             let mut path_parts = Vec::new();
             let mut i = 0;
-            
+
             while i < segments.len() {
                 match &segments[i] {
                     PathSegment::Ident(id) => {
                         // Check if next segment is ArrayIndex
-                        if i + 1 < segments.len() {
-                            if let PathSegment::ArrayIndex(idx) = &segments[i + 1] {
-                                // Combine identifier with array index
-                                if let Some(index) = idx {
-                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
-                                } else {
-                                    path_parts.push(format!("{}[]", id.as_ref()));
-                                }
-                                i += 2; // Skip the ArrayIndex segment
-                                continue;
+                        if i + 1 < segments.len()
+                            && let PathSegment::ArrayIndex(idx) = &segments[i + 1]
+                        {
+                            // Combine identifier with array index
+                            if let Some(index) = *idx {
+                                path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                            } else {
+                                path_parts.push(format!("{}[]", id.as_ref()));
                             }
+                            i += 2; // Skip the ArrayIndex segment
+                            continue;
                         }
                         path_parts.push(id.as_ref().to_string());
                     }
@@ -84,8 +82,8 @@ pub fn format_eure(value: &Value) -> String {
                     PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
                     PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
-                        if let Some(index) = idx {
-                            path_parts.push(format!("[{}]", index));
+                        if let Some(index) = *idx {
+                            path_parts.push(format!("[{index}]"));
                         } else {
                             path_parts.push("[]".to_string());
                         }
@@ -93,7 +91,7 @@ pub fn format_eure(value: &Value) -> String {
                 }
                 i += 1;
             }
-            
+
             let path_str = path_parts.join(".");
             format!(".{path_str}")
         }
