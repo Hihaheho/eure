@@ -1,4 +1,5 @@
-use eure_tree::value_visitor::{ValueVisitor, Values};
+use eure_tree::value_visitor::ValueVisitor;
+use eure_tree::prelude::CstFacade;
 use eure_tree::prelude::*;
 use eure_value::value::Value;
 

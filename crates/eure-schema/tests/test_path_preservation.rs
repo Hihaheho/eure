@@ -1,4 +1,5 @@
-use eure_tree::value_visitor::{ValueVisitor, Values};
+use eure_tree::value_visitor::ValueVisitor;
+use eure_tree::prelude::CstFacade;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue, PathSegment, Path};
 
@@ -12,15 +13,10 @@ test3 = .$$meta.extension
 "#;
 
     let tree = eure_parol::parse(input).expect("Parse should succeed");
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Visit should succeed");
-    
-    let doc = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document = visitor.into_document();
+    let doc = document.to_value();
     
     println!("Document: {doc:#?}");
     
@@ -65,15 +61,10 @@ nested.field = .$types.User
 "#;
 
     let tree = eure_parol::parse(input).expect("Parse should succeed");
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Visit should succeed");
-    
-    let doc = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document = visitor.into_document();
+    let doc = document.to_value();
     
     println!("\nNested document: {doc:#?}");
     

@@ -1,4 +1,5 @@
-use eure_tree::value_visitor::{ValueVisitor, Values};
+use eure_tree::value_visitor::ValueVisitor;
+use eure_tree::prelude::CstFacade;
 use eure_tree::prelude::*;
 use eure_value::value::{Value, KeyCmpValue};
 
@@ -10,15 +11,10 @@ test = .$types.User
 "#;
     
     let tree1 = eure_parol::parse(input1).expect("Parse should succeed");
-    let mut values1 = Values::default();
-    let mut visitor1 = ValueVisitor::new(input1, &mut values1);
+    let mut visitor1 = ValueVisitor::new(input1);
     tree1.visit_from_root(&mut visitor1).expect("Visit should succeed");
-    
-    let doc1 = if let Ok(root_view) = tree1.root_handle().get_view(&tree1) {
-        values1.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document1 = visitor1.into_document();
+    let doc1 = document1.to_value();
     
     println!("Test 1 - No sections:");
     if let Value::Map(map) = doc1
@@ -36,15 +32,10 @@ test = .$types.User
 "#;
     
     let tree2 = eure_parol::parse(input2).expect("Parse should succeed");
-    let mut values2 = Values::default();
-    let mut visitor2 = ValueVisitor::new(input2, &mut values2);
+    let mut visitor2 = ValueVisitor::new(input2);
     tree2.visit_from_root(&mut visitor2).expect("Visit should succeed");
-    
-    let doc2 = if let Ok(root_view) = tree2.root_handle().get_view(&tree2) {
-        values2.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document2 = visitor2.into_document();
+    let doc2 = document2.to_value();
     
     println!("\nTest 2 - With unrelated section:");
     if let Value::Map(map) = doc2
@@ -63,15 +54,10 @@ test = .$types.User
 "#;
     
     let tree3 = eure_parol::parse(input3).expect("Parse should succeed");
-    let mut values3 = Values::default();
-    let mut visitor3 = ValueVisitor::new(input3, &mut values3);
+    let mut visitor3 = ValueVisitor::new(input3);
     tree3.visit_from_root(&mut visitor3).expect("Visit should succeed");
-    
-    let doc3 = if let Ok(root_view) = tree3.root_handle().get_view(&tree3) {
-        values3.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document3 = visitor3.into_document();
+    let doc3 = document3.to_value();
     
     println!("\nTest 3 - With $types section:");
     if let Value::Map(map) = doc3 {

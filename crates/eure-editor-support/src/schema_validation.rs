@@ -366,7 +366,7 @@ pub fn validation_error_to_diagnostic(
                         if i + 1 < path.len() {
                             if let PathSegment::ArrayIndex(idx) = &path[i + 1] {
                                 // Combine identifier with array index
-                                if let Some(index) = *idx {
+                                if let Some(index) = idx {
                                     path_parts.push(format!("{}[{}]", id.as_ref(), index));
                                 } else {
                                     path_parts.push(format!("{}[]", id.as_ref()));
@@ -474,9 +474,8 @@ mod tests {
                 expected: "string".to_string(),
                 actual: "number".to_string(),
             },
-            // Span from "with" (chars 12-16) on line 2
-            span: Some(InputSpan::new(12, 16)),
             severity: Severity::Error,
+            node_id: eure_tree::document::NodeId(0),
         };
 
         let diagnostic =

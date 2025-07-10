@@ -1,8 +1,10 @@
 //! Integration tests that validate EURE documents against generated schemas
 
 use eure_derive::Eure;
-use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_with_tree, has_errors};
+use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_document as validate_eure_document, Severity};
 use eure_value::value::PathKey;
+use eure_tree::value_visitor::ValueVisitor;
+use eure_tree::prelude::CstFacade;
 use serde::{Serialize, Deserialize};
 
 // Type alias to simplify complex type signature
@@ -62,15 +64,20 @@ fn validate_document_with_types<T: ToEureSchema>(
     }
     
     
-    // Validate the document using tree-based validation
-    let errors = validate_with_tree(document, doc_schema.clone(), &parsed);
+    // Convert CST to EureDocument
+    let mut visitor = ValueVisitor::new(document);
+    parsed.visit_from_root(&mut visitor).map_err(|e| format!("Failed to visit tree: {e:?}"))?;
+    let eure_document = visitor.into_document();
     
-    match errors {
-        Ok(errors) if !has_errors(&errors) => Ok(()),
-        Ok(errors) => {
-            let error_messages: Vec<String> = errors.iter()
-                .filter(|e| e.severity == eure_schema::Severity::Error)
-                .map(|e| format!("{:?}", e.kind))
+    // Validate the document
+    let errors = validate_eure_document(&eure_document, &doc_schema);
+    
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        let error_messages: Vec<String> = errors.iter()
+            .filter(|e| e.severity == Severity::Error)
+            .map(|e| format!("{:?}", e.kind))
             .collect();
         eprintln!("Document schema root fields: {:?}", doc_schema.root.fields.keys().collect::<Vec<_>>());
         eprintln!("Document schema types: {:?}", doc_schema.types.keys().collect::<Vec<_>>());
@@ -78,8 +85,6 @@ fn validate_document_with_types<T: ToEureSchema>(
         eprintln!("Validation errors: {error_messages:?}");
         eprintln!("Full errors: {errors:#?}");
         Err(format!("Validation errors: {}", error_messages.join(", ")))
-        },
-        Err(e) => Err(format!("Validation error: {e:?}"))
     }
 }
 

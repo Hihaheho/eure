@@ -66,7 +66,7 @@ pub fn format_eure(value: &Value) -> String {
                             && let PathSegment::ArrayIndex(idx) = &segments[i + 1]
                         {
                             // Combine identifier with array index
-                            if let Some(index) = *idx {
+                            if let Some(index) = idx {
                                 path_parts.push(format!("{}[{}]", id.as_ref(), index));
                             } else {
                                 path_parts.push(format!("{}[]", id.as_ref()));
@@ -82,7 +82,7 @@ pub fn format_eure(value: &Value) -> String {
                     PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
                     PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
-                        if let Some(index) = *idx {
+                        if let Some(index) = idx {
                             path_parts.push(format!("[{index}]"));
                         } else {
                             path_parts.push("[]".to_string());
