@@ -10,6 +10,7 @@ use eure_value::value::{KeyCmpValue, PathSegment, PathKey};
 use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
+use std::fmt;
 
 /// Severity level for validation errors
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,7 +52,12 @@ pub enum ValidationErrorKind {
         max: Option<f64>,
         value: f64,
     },
-    LengthViolation {
+    StringLengthViolation {
+        min: Option<usize>,
+        max: Option<usize>,
+        length: usize,
+    },
+    ArrayLengthViolation {
         min: Option<usize>,
         max: Option<usize>,
         length: usize,
@@ -196,7 +202,7 @@ impl<'a> DocumentValidator<'a> {
             // Validate against field schema
             let mut field_path = path.to_vec();
             field_path.push(PathSegment::Ident(field_name.clone()));
-            self.validate_type(node_id, &field_path, &field_schema.type_expr);
+            self.validate_type_with_constraints(node_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
         } else {
             // Additional properties are handled at the object level, not field level
             // For now, disallow unexpected fields
@@ -278,6 +284,182 @@ impl<'a> DocumentValidator<'a> {
             Type::CascadeType(inner_type) => {
                 // Cascade types validate the inner type
                 self.validate_type(node_id, path, inner_type);
+            }
+        }
+    }
+
+    fn validate_type_with_constraints(
+        &mut self,
+        node_id: NodeId,
+        path: &[PathSegment],
+        expected_type: &Type,
+        constraints: &Constraints,
+    ) {
+        // First validate the type
+        self.validate_type(node_id, path, expected_type);
+        
+        // Then apply constraints
+        let node = self.document.get_node(node_id);
+        match (&node.content, expected_type) {
+            (NodeValue::String { value, .. }, Type::String) => {
+                // Check string length constraints
+                if let Some((min, max)) = &constraints.length {
+                    let len = value.len();
+                    if let Some(min_len) = min {
+                        if len < *min_len {
+                            self.add_error(
+                                node_id,
+                                ValidationErrorKind::StringLengthViolation {
+                                    min: Some(*min_len),
+                                    max: *max,
+                                    length: len,
+                                },
+                            );
+                            return;
+                        }
+                    }
+                    if let Some(max_len) = max {
+                        if len > *max_len {
+                            self.add_error(
+                                node_id,
+                                ValidationErrorKind::StringLengthViolation {
+                                    min: *min,
+                                    max: Some(*max_len),
+                                    length: len,
+                                },
+                            );
+                            return;
+                        }
+                    }
+                }
+                
+                // Check pattern constraint
+                if let Some(pattern) = &constraints.pattern {
+                    let re = match regex::Regex::new(pattern) {
+                        Ok(re) => re,
+                        Err(_) => {
+                            self.add_error(
+                                node_id,
+                                ValidationErrorKind::InvalidValue(
+                                    format!("Invalid regex pattern: {}", pattern)
+                                ),
+                            );
+                            return;
+                        }
+                    };
+                    if !re.is_match(value) {
+                        self.add_error(
+                            node_id,
+                            ValidationErrorKind::PatternMismatch {
+                                pattern: pattern.clone(),
+                                value: value.clone(),
+                            },
+                        );
+                    }
+                }
+            }
+            (NodeValue::Array { children, .. }, Type::Array(_)) => {
+                // Check array length constraints
+                let len = children.len();
+                if let Some(min_items) = constraints.min_items {
+                    if len < min_items {
+                        self.add_error(
+                            node_id,
+                            ValidationErrorKind::ArrayLengthViolation {
+                                min: Some(min_items),
+                                max: constraints.max_items,
+                                length: len,
+                            },
+                        );
+                        return;
+                    }
+                }
+                if let Some(max_items) = constraints.max_items {
+                    if len > max_items {
+                        self.add_error(
+                            node_id,
+                            ValidationErrorKind::ArrayLengthViolation {
+                                min: constraints.min_items,
+                                max: Some(max_items),
+                                length: len,
+                            },
+                        );
+                        return;
+                    }
+                }
+            }
+            (NodeValue::I64 { value, .. }, Type::Number) => {
+                self.check_number_constraints(node_id, *value as f64, constraints);
+            }
+            (NodeValue::U64 { value, .. }, Type::Number) => {
+                self.check_number_constraints(node_id, *value as f64, constraints);
+            }
+            (NodeValue::F32 { value, .. }, Type::Number) => {
+                self.check_number_constraints(node_id, *value as f64, constraints);
+            }
+            (NodeValue::F64 { value, .. }, Type::Number) => {
+                self.check_number_constraints(node_id, *value, constraints);
+            }
+            _ => {
+                // No constraints to check for other types
+            }
+        }
+    }
+    
+    fn check_number_constraints(&mut self, node_id: NodeId, value: f64, constraints: &Constraints) {
+        // Check range constraints
+        if let Some((min, max)) = &constraints.range {
+            if let Some(min_val) = min {
+                if value < *min_val {
+                    self.add_error(
+                        node_id,
+                        ValidationErrorKind::RangeViolation {
+                            min: Some(*min_val),
+                            max: *max,
+                            value,
+                        },
+                    );
+                    return;
+                }
+            }
+            if let Some(max_val) = max {
+                if value > *max_val {
+                    self.add_error(
+                        node_id,
+                        ValidationErrorKind::RangeViolation {
+                            min: *min,
+                            max: Some(*max_val),
+                            value,
+                        },
+                    );
+                    return;
+                }
+            }
+        }
+        
+        // Check exclusive constraints
+        if let Some(min_exclusive) = constraints.exclusive_min {
+            if value <= min_exclusive {
+                self.add_error(
+                    node_id,
+                    ValidationErrorKind::RangeViolation {
+                        min: Some(min_exclusive),
+                        max: None,
+                        value,
+                    },
+                );
+            }
+        }
+        if let Some(max_exclusive) = constraints.exclusive_max {
+            if value >= max_exclusive {
+                self.add_error(
+                    node_id,
+                    ValidationErrorKind::RangeViolation {
+                        min: None,
+                        max: Some(max_exclusive),
+                        value,
+                    },
+                );
             }
         }
     }
@@ -668,5 +850,64 @@ impl<'a> DocumentValidator<'a> {
             severity: Severity::Error,
             node_id,
         });
+    }
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl fmt::Display for ValidationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ValidationErrorKind::*;
+        match self {
+            TypeMismatch { expected, actual } => {
+                write!(f, "Type mismatch: expected {}, but got {}", expected, actual)
+            }
+            RequiredFieldMissing { field, .. } => {
+                write!(f, "Required field '{:?}' is missing", field)
+            }
+            UnexpectedField { field, .. } => {
+                write!(f, "Unexpected field '{:?}'", field)
+            }
+            InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
+            PatternMismatch { pattern, value } => {
+                write!(f, "Value '{}' does not match pattern '{}'", value, pattern)
+            }
+            RangeViolation { min, max, value } => {
+                match (min, max) {
+                    (Some(min), Some(max)) => write!(f, "Value {} is outside range [{}, {}]", value, min, max),
+                    (Some(min), None) => write!(f, "Value {} is less than minimum {}", value, min),
+                    (None, Some(max)) => write!(f, "Value {} is greater than maximum {}", value, max),
+                    (None, None) => write!(f, "Value {} violates range constraint", value),
+                }
+            }
+            StringLengthViolation { min, max, length } => {
+                match (min, max) {
+                    (Some(min), Some(max)) => write!(f, "String must have between {} and {} characters, but has {}", min, max, length),
+                    (Some(min), None) => write!(f, "String must have at least {} characters, but has {}", min, length),
+                    (None, Some(max)) => write!(f, "String must have at most {} characters, but has {}", max, length),
+                    (None, None) => write!(f, "String length {} violates constraint", length),
+                }
+            }
+            ArrayLengthViolation { min, max, length } => {
+                match (min, max) {
+                    (Some(min), Some(max)) => write!(f, "Array must have between {} and {} items, but has {}", min, max, length),
+                    (Some(min), None) => write!(f, "Array must have at least {} items, but has {}", min, length),
+                    (None, Some(max)) => write!(f, "Array must have at most {} items, but has {}", max, length),
+                    (None, None) => write!(f, "Array length {} violates constraint", length),
+                }
+            }
+            UnknownType(type_name) => write!(f, "Unknown type: {}", type_name),
+            UnknownVariant { variant, available } => {
+                write!(f, "Unknown variant '{}'. Available variants: {}", variant, available.join(", "))
+            }
+            HoleExists { path } => {
+                let path_str = crate::utils::path_segments_to_display_string(path);
+                write!(f, "Hole (!) exists at path: {}", path_str)
+            }
+        }
     }
 }

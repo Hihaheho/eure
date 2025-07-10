@@ -111,10 +111,10 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
                 match &segments[i] {
                     PathSegment::Ident(id) => {
                         // Check if next segment is ArrayIndex
-                        if i + 1 < segments.len()
-                            && let PathSegment::ArrayIndex(idx) = &segments[i + 1]
-                        {
+                        if i + 1 < segments.len() {
+                            if let PathSegment::ArrayIndex(ref idx) = segments[i + 1] {
                             // Combine identifier with array index
+                            // idx is &Option<u8>
                             if let Some(index) = idx {
                                 path_parts.push(format!("{}[{}]", id.as_ref(), index));
                             } else {
@@ -122,6 +122,7 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
                             }
                             i += 2; // Skip the ArrayIndex segment
                             continue;
+                            }
                         }
                         path_parts.push(id.as_ref().to_string());
                     }

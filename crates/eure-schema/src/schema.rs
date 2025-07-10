@@ -188,14 +188,6 @@ pub struct DocumentSchema {
     pub schema_ref: Option<String>,
 }
 
-/// Result of schema extraction
-#[derive(Debug)]
-pub struct ExtractedSchema {
-    /// The extracted document schema
-    pub document_schema: DocumentSchema,
-    /// Whether this is a pure schema document (no data, only definitions)
-    pub is_pure_schema: bool,
-}
 
 
 impl Type {

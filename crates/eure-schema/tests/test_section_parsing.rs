@@ -19,17 +19,13 @@ users.$array = .$types.User
     let tree = eure_parol::parse(input).expect("Parse should succeed");
     
     // Extract to Value
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    let mut visitor = ValueVisitor::new(input);
     
     tree.visit_from_root(&mut visitor).expect("Visit should succeed");
     
     // Get document value
-    let doc_value = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document = visitor.into_document();
+    let doc_value = document.to_value();
     
     // Check structure
     if let Value::Map(map) = doc_value {
@@ -66,17 +62,13 @@ users.$array = .$types.User
     let tree = eure_parol::parse(input).expect("Parse should succeed");
     
     // Extract to Value
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    let mut visitor = ValueVisitor::new(input);
     
     tree.visit_from_root(&mut visitor).expect("Visit should succeed");
     
     // Get document value
-    let doc_value = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document = visitor.into_document();
+    let doc_value = document.to_value();
     
     // Check structure
     if let Value::Map(map) = doc_value {

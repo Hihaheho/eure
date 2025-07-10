@@ -264,7 +264,7 @@ email.$pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0].kind,
-            ValidationErrorKind::StringPatternViolation { .. }
+            ValidationErrorKind::PatternMismatch { .. }
         ));
     }
 
@@ -287,7 +287,7 @@ age.$range = [18, 150]
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0].kind,
-            ValidationErrorKind::NumberRangeViolation { .. }
+            ValidationErrorKind::RangeViolation { .. }
         ));
 
         // Too high
@@ -296,7 +296,7 @@ age.$range = [18, 150]
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0].kind,
-            ValidationErrorKind::NumberRangeViolation { .. }
+            ValidationErrorKind::RangeViolation { .. }
         ));
     }
 
@@ -336,7 +336,7 @@ tags.$type = .$types.StringArray
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0].kind,
-            ValidationErrorKind::ArrayLengthViolation { .. }
+            ValidationErrorKind::StringLengthViolation { .. }
         ));
 
         // Too many items
@@ -348,7 +348,7 @@ tags.$type = .$types.StringArray
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0].kind,
-            ValidationErrorKind::ArrayLengthViolation { .. }
+            ValidationErrorKind::StringLengthViolation { .. }
         ));
     }
 }
@@ -756,7 +756,7 @@ email = "user@example.com"
 
         // Check that we have a required field missing error for "name"
         let has_name_missing = errors.iter().any(|e|
-            matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if field == &KeyCmpValue::String("name".to_string()))
+            matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if matches!(field, KeyCmpValue::String(s) if s == "name"))
         );
         assert!(
             has_name_missing,
@@ -787,7 +787,7 @@ extra = "not allowed"
         // doesn't handle inline schemas during validation.
         // For now, we'll just check that "extra" is flagged as unexpected
         let has_extra_error = errors.iter().any(|e|
-            matches!(&e.kind, ValidationErrorKind::UnexpectedField { field, .. } if field == &KeyCmpValue::String("extra".to_string()))
+            matches!(&e.kind, ValidationErrorKind::UnexpectedField { field, .. } if matches!(field, KeyCmpValue::String(s) if s == "extra"))
         );
         assert!(
             has_extra_error,
@@ -868,7 +868,7 @@ zip = "invalid"
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0].kind,
-            ValidationErrorKind::StringPatternViolation { .. }
+            ValidationErrorKind::PatternMismatch { .. }
         ));
     }
 

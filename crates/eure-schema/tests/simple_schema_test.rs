@@ -26,10 +26,10 @@ $types.Action {
 }
 
 @ script
-id = .string
-description = .string
+id.$type = .string
+description.$type = .string
 description.$optional = true
-actions.$array = .Action
+actions.$array = .$types.Action
 "#;
 
     // Test document matching the schema
@@ -67,12 +67,17 @@ value = "b"
     // Extract schema
     let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
 
+    // Debug print
+    eprintln!("Extracted types: {:?}", extracted.document_schema.types.keys().collect::<Vec<_>>());
+    eprintln!("Extracted root fields: {:?}", extracted.document_schema.root.fields.keys().collect::<Vec<_>>());
+
     // The schema should contain type definitions
     assert!(
         extracted
             .document_schema
             .types
-            .contains_key(&KeyCmpValue::String("Action".to_string()))
+            .contains_key(&KeyCmpValue::String("Action".to_string())),
+        "Expected 'Action' type to be defined"
     );
 
     // The schema should have root fields defined
@@ -81,7 +86,8 @@ value = "b"
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("script".to_string()))
+            .contains_key(&KeyCmpValue::String("script".to_string())),
+        "Expected 'script' to be in root fields"
     );
 
     // Validate document against schema

@@ -257,7 +257,7 @@ impl SchemaBuilder {
 
                     // Determine variant representation
                     let mut repr = VariantRepr::Tagged;
-                    if let Some(repr_node_id) = node.extensions.get(&Identifier::from_str("variant.repr").unwrap()) {
+                    if let Some(repr_node_id) = node.extensions.get(&Identifier::from_str("variant-repr").unwrap()) {
                         let repr_node = doc.get_node(*repr_node_id);
                         if let NodeValue::String { value: repr_str, .. } = &repr_node.content {
                             repr = match repr_str.as_str() {

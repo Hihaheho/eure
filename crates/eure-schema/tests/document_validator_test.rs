@@ -5,11 +5,9 @@ use eure_schema::{
     ValidationError, ValidationErrorKind, Severity, DocumentSchema,
     ObjectSchema, FieldSchema, Type, VariantSchema, VariantRepr, Constraints
 };
-use eure_tree::document::{EureDocument, NodeId};
+use eure_tree::document::EureDocument;
 use eure_tree::value_visitor::ValueVisitor;
-use eure_tree::prelude::CstFacade;
 use eure_value::value::KeyCmpValue;
-use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
 
 /// Helper function to parse a document and extract EureDocument
@@ -152,8 +150,8 @@ items = ["a", "b", "c", "d"]
     assert_eq!(errors.len(), 1, "Should have one error");
     assert!(matches!(
         &errors[0].kind,
-        ValidationErrorKind::ArrayLengthViolation { max, actual, .. }
-        if *max == Some(3) && *actual == 4
+        ValidationErrorKind::LengthViolation { max, length, .. }
+        if *max == Some(3) && *length == 4
     ));
 }
 

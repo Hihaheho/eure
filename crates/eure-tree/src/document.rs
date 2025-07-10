@@ -241,9 +241,9 @@ impl EureDocument {
                         self.get_or_insert_extension_child(current_id, id.clone(), current_path)?;
                 }
                 ArrayIndex(idx) => {
-                    if let Some(index) = idx {
+                    if let Some(index) = *idx {
                         current_id =
-                            self.get_or_insert_array_child(current_id, *index as usize, current_path)?;
+                            self.get_or_insert_array_child(current_id, index as usize, current_path)?;
                     } else {
                         // ArrayIndex(None) means unindexed array access like []
                         // This might need special handling depending on the use case

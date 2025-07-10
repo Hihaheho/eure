@@ -1,7 +1,8 @@
 use eure_tree::value_visitor::ValueVisitor;
-use eure_tree::prelude::CstFacade;
-use eure_tree::prelude::*;
-use eure_value::value::{Value, KeyCmpValue};
+use eure_tree::document::{NodeValue, DocumentKey};
+use eure_value::value::KeyCmpValue;
+use eure_value::identifier::Identifier;
+use std::str::FromStr;
 
 #[test]
 fn test_nested_section_extraction() {
@@ -18,30 +19,41 @@ users.$array = .$types.User
     // Parse to CST
     let tree = eure_parol::parse(input).expect("Parse should succeed");
     
-    // Extract to Value
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
-    
+    // Use the new API
+    let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Visit should succeed");
     
-    // Get document value
-    let doc_value = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    // Get document
+    let document = visitor.into_document();
     
-    println!("Full document: {doc_value:#?}");
+    println!("Document root has {} entries", document.get_root().content.as_map().map(|e| e.len()).unwrap_or(0));
     
     // Check if users.$array has the correct Path value
-    if let Value::Map(map) = doc_value
-        && let Some(Value::Map(users_map)) = map.0.get(&KeyCmpValue::String("users".to_string()))
-            && let Some(array_value) = users_map.0.get(&KeyCmpValue::String("$array".to_string())) {
-                println!("\nusers.$array value: {array_value:?}");
-                match array_value {
-                    Value::Path(_) => println!("SUCCESS: $array has Path value"),
-                    Value::Map(_) => println!("FAIL: $array has Map value instead of Path"),
-                    _ => println!("FAIL: $array has unexpected value type"),
+    let root = document.get_root();
+    if let NodeValue::Map { entries, .. } = &root.content {
+        // Find "users" entry
+        let users_key = DocumentKey::Ident(Identifier::from_str("users").unwrap());
+        if let Some(users_node_id) = entries.iter().find(|(k, _)| k == &users_key).map(|(_, id)| id) {
+            let users_node = document.get_node(*users_node_id);
+            println!("\nFound users node");
+            
+            if let NodeValue::Map { entries: users_entries, .. } = &users_node.content {
+                // Check for $array extension
+                let array_ext = Identifier::from_str("array").unwrap();
+                if let Some(array_node_id) = users_node.extensions.get(&array_ext) {
+                    let array_node = document.get_node(*array_node_id);
+                    println!("users.$array value: {:?}", array_node.content);
+                    match &array_node.content {
+                        NodeValue::Path { .. } => println!("SUCCESS: $array has Path value"),
+                        NodeValue::Map { .. } => println!("FAIL: $array has Map value instead of Path"),
+                        _ => println!("FAIL: $array has unexpected value type"),
+                    }
+                } else {
+                    println!("No $array extension found on users node");
                 }
             }
+        } else {
+            println!("No users field found in root");
+        }
+    }
 }

@@ -1,7 +1,8 @@
 use eure_tree::value_visitor::ValueVisitor;
-use eure_tree::prelude::CstFacade;
-use eure_tree::prelude::*;
-use eure_value::value::{Value, KeyCmpValue};
+use eure_tree::document::{NodeValue, DocumentKey};
+use eure_value::value::KeyCmpValue;
+use eure_value::identifier::Identifier;
+use std::str::FromStr;
 
 #[test]
 fn test_section_with_value_assignment() {
@@ -13,20 +14,24 @@ fn test_section_with_value_assignment() {
 "#;
 
     let tree = eure_parol::parse(input).expect("Parse should succeed");
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Visit should succeed");
     
-    let doc = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document = visitor.into_document();
+    let root = document.get_root();
     
-    println!("Document structure: {doc:#?}");
+    println!("Document structure:");
     
-    if let Value::Map(map) = doc {
-        println!("\nTop-level keys: {:?}", map.0.keys().collect::<Vec<_>>());
+    if let NodeValue::Map { entries, .. } = &root.content {
+        println!("\nTop-level keys: {} entries", entries.len());
+        for (key, _) in entries {
+            match key {
+                DocumentKey::Ident(ident) => println!("  - Ident: {}", ident),
+                DocumentKey::MetaExtension(ident) => println!("  - MetaExtension: {}", ident),
+                DocumentKey::Value(val) => println!("  - Value: {:?}", val),
+                DocumentKey::TupleIndex(idx) => println!("  - TupleIndex: {}", idx),
+            }
+        }
         
         // These should create sections, but the value assignment might not work
         // as the grammar shows SectionBody can be "Bind Value" but the visitor
@@ -47,29 +52,35 @@ users.$array = .$types.User
 "#;
 
     let tree = eure_parol::parse(input).expect("Parse should succeed");
-    let mut values = Values::default();
-    let mut visitor = ValueVisitor::new(input, &mut values);
+    let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor).expect("Visit should succeed");
     
-    let doc = if let Ok(root_view) = tree.root_handle().get_view(&tree) {
-        values.get_eure(&root_view.eure).expect("Should have eure value")
-    } else {
-        panic!("Invalid document structure");
-    };
+    let document = visitor.into_document();
+    let root = document.get_root();
     
-    println!("\nActual structure from failing test: {doc:#?}");
-    
-    if let Value::Map(map) = doc {
-        println!("\nTop-level keys: {:?}", map.0.keys().collect::<Vec<_>>());
+    // Navigate the document structure
+    if let NodeValue::Map { entries, .. } = &root.content {
+        println!("Found {} root entries", entries.len());
         
-        // Check if there's a section named "users.$array"
-        for (key, value) in &map.0 {
-            match key {
-                KeyCmpValue::String(s) if s.contains("users") => {
-                    println!("Found key containing 'users': {s:?} -> {value:?}");
+        // Look for users field
+        let users_key = DocumentKey::Ident(Identifier::from_str("users").unwrap());
+        if let Some(users_node_id) = entries.iter().find(|(k, _)| k == &users_key).map(|(_, id)| id) {
+            let users_node = document.get_node(*users_node_id);
+            println!("Found users node with extensions: {:?}", users_node.extensions.keys().collect::<Vec<_>>());
+            
+            // Check if $array extension has the correct value
+            if let Some(array_node_id) = users_node.extensions.get(&Identifier::from_str("array").unwrap()) {
+                let array_node = document.get_node(*array_node_id);
+                match &array_node.content {
+                    NodeValue::Path { value, .. } => {
+                        println!("SUCCESS: users.$array is a Path: {:?}", value);
+                    }
+                    _ => {
+                        println!("FAIL: users.$array is not a Path but: {:?}", array_node.content);
+                    }
                 }
-                _ => {}
             }
         }
     }
+    
 }

@@ -83,8 +83,8 @@ pub fn path_to_display_string(path: &Path) -> String {
             PathSegment::TupleIndex(idx) => parts.push(format!("[{idx}]")),
             PathSegment::Value(val) => parts.push(format!("{val:?}")),
             PathSegment::ArrayIndex(idx) => {
-                if let Some(index) = idx {
-                    parts.push(format!("[{}]", index));
+                if let Some(index) = *idx {
+                    parts.push(format!("[{index}]"));
                 } else {
                     parts.push("[]".to_string());
                 }
@@ -106,8 +106,8 @@ pub fn path_segments_to_display_string(segments: &[PathSegment]) -> String {
             PathSegment::TupleIndex(idx) => format!("[{idx}]"),
             PathSegment::Value(val) => format!("{val:?}"),
             PathSegment::ArrayIndex(idx) => {
-                if let Some(index) = idx {
-                    format!("[{}]", index)
+                if let Some(index) = *idx {
+                    format!("[{index}]")
                 } else {
                     "[]".to_string()
                 }

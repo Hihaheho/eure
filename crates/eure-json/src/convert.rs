@@ -93,7 +93,7 @@ pub fn value_to_json_with_config(
                         {
                             // Combine identifier with array index
                             if let Some(index) = idx {
-                                path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                                path_parts.push(format!("{}[{}]", id.as_ref(), *index));
                             } else {
                                 path_parts.push(format!("{}[]", id.as_ref()));
                             }

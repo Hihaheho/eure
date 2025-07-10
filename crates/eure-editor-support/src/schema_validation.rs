@@ -366,7 +366,7 @@ pub fn validation_error_to_diagnostic(
                         if i + 1 < path.len() {
                             if let PathSegment::ArrayIndex(idx) = &path[i + 1] {
                                 // Combine identifier with array index
-                                if let Some(index) = idx {
+                                if let Some(index) = *idx {
                                     path_parts.push(format!("{}[{}]", id.as_ref(), index));
                                 } else {
                                     path_parts.push(format!("{}[]", id.as_ref()));
@@ -384,7 +384,7 @@ pub fn validation_error_to_diagnostic(
                     PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
                         if let Some(index) = *idx {
-                            path_parts.push(format!("[{}]", index));
+                            path_parts.push(format!("[{index}]"));
                         } else {
                             path_parts.push("[]".to_string());
                         }

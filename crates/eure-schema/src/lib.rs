@@ -10,6 +10,7 @@ mod utils;
 mod document_validator;
 mod document_schema;
 mod schema_document;
+mod value_api;
 
 pub use schema::*;
 pub use document_validator::{validate_document, ValidationError, ValidationErrorKind, Severity};
@@ -18,6 +19,7 @@ pub use utils::{to_camel_case, to_snake_case, to_pascal_case, to_kebab_case, pat
 pub use document_schema::{document_to_schema, is_pure_schema_node, SchemaError};
 pub use schema_document::{EureSchema, SchemaNode, SchemaValue};
 pub use eure_value::value::{PathSegment, KeyCmpValue};
+pub use value_api::{extract_schema_from_value, validate_with_schema_value, validate_self_describing, validate_with_tree, ExtractedSchema, ValidationResult};
 
 // Re-export the derive macro if the feature is enabled
 #[cfg(feature = "derive")]
