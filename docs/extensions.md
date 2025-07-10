@@ -144,47 +144,6 @@ $variant = "type-a"
 "$price" = 99.99
 ```
 
-## Path Representation for Arrays
-
-Array access in EURE is represented using two separate path segments:
-
-1. The field identifier: `PathSegment::Ident("fieldname")`
-2. The array index: `PathSegment::ArrayIndex(Option<u8>)`
-
-For example, the path `users[0]` is represented as:
-```rust
-vec![
-    PathSegment::Ident(Identifier("users")),
-    PathSegment::ArrayIndex(Some(0))
-]
-```
-
-And `items[]` (unindexed array access) is:
-```rust
-vec![
-    PathSegment::Ident(Identifier("items")),
-    PathSegment::ArrayIndex(None)
-]
-```
-
-This design separates the semantic concerns of field naming from array indexing, making path manipulation more predictable.
-
-### ArrayIndex Details
-
-The `PathSegment::ArrayIndex(Option<u8>)` type serves two purposes:
-
-- `Some(n)` where n is 0-255: Represents indexed access to a specific array element
-  - Example: `users[0]`, `items[42]`
-  - Limited to 256 elements per array level (0-255)
-  
-- `None`: Represents unindexed array access, typically used for:
-  - Array append operations: `items[]`
-  - Array type definitions in schemas: `@ root.nested[]`
-  - Pattern matching on all array elements
-
-When formatting paths for display, ArrayIndex segments are combined with their preceding identifier:
-- `[Ident("users"), ArrayIndex(Some(0))]` → `"users[0]"`
-- `[Ident("items"), ArrayIndex(None)]` → `"items[]"`
 
 ## Design Rationale
 

@@ -33,7 +33,7 @@ This guide helps you understand when to use `EureDocument` versus `Value` in the
 | **Source Location Tracking** | ✅ Full CST handles with spans | ❌ No source information |
 | **Memory Efficiency** | ✅ Node-based with shared references | ❌ Recursive enum structure |
 | **Path-Based Updates** | ✅ Efficient insertion and traversal | ❌ Requires full traversal |
-| **Extension Namespaces** | ✅ Separate storage for `$` fields | ❌ Merged into regular maps |
+| **Extension Namespaces** | ✅ Separate storage for `$` fields | ❌ Not included |
 | **Construction Metadata** | ✅ Preserves how values were created | ❌ Only final values |
 | **Type Safety** | ✅ Typed handles for each construct | ✅ Enum variants |
 | **Serialization** | ❌ Requires conversion | ✅ Direct serialization |
@@ -144,7 +144,7 @@ Value::Map(map!{
 ```
 
 **Note**: The `to_value()` method:
-- Skips extension namespaces entirely (extensions are metadata, not data)
+- Skips extension namespaces entirely (see [extensions.md](./extensions.md#extensions-are-not-data))
 - Loses all handle information
 - Converts `NodeContent` variants to corresponding `Value` variants
 - Recursively processes arrays and maps
