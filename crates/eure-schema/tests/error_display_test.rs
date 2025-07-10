@@ -5,6 +5,7 @@ use eure_value::value::KeyCmpValue;
 use eure_schema::{ValidationError, ValidationErrorKind, Severity};
 use eure_value::value::PathSegment;
 use eure_value::identifier::Identifier;
+use eure_tree::document::NodeId;
 use std::str::FromStr;
 
 #[test]
@@ -117,7 +118,7 @@ fn test_validation_error_display() {
             actual: "string".to_string(),
         },
         severity: Severity::Error,
-        span: None,
+        node_id: NodeId::from(0),
     };
     assert_eq!(
         error.to_string(),

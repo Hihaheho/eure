@@ -340,7 +340,6 @@ fn build_integer_value(text: &str) -> ValueNode {
     ValueConstructor::Integer(int_node).build()
 }
 
-
 fn build_tuple_value(values: &[Value]) -> ValueNode {
     let lparen = terminals::l_paren();
     let l_paren_node = LParenConstructor::builder().l_paren(lparen).build().build();
@@ -624,15 +623,72 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
 
     // Build keys from path segments
     let mut keys_list = KeysListConstructor::empty();
-
-    // Process segments in reverse order for proper list building
-    for segment in path.0.iter().skip(1).rev() {
+    
+    // Convert segments iterator to vector so we can look ahead
+    let segments: Vec<_> = path.0.iter().collect();
+    
+    // Process segments in reverse order for proper list building, but skip array indices
+    // as they'll be handled together with their preceding identifier
+    let mut i = segments.len();
+    while i > 1 {
+        i -= 1;
+        
+        // Skip if this is an ArrayIndex (it was already processed with its identifier)
+        if matches!(segments[i], PathSegment::ArrayIndex(_)) {
+            continue;
+        }
+        
+        let segment = segments[i];
         let (key_base, array_marker_opt) = match segment {
             PathSegment::Ident(id) => {
                 let ident = terminals::ident(id.as_ref());
-                (KeyBaseConstructor::Ident(
-                    IdentConstructor::builder().ident(ident).build().build()
-                ).build(), None)
+                let key_base = KeyBaseConstructor::Ident(
+                    IdentConstructor::builder().ident(ident).build().build(),
+                )
+                .build();
+                
+                // Check if next segment is ArrayIndex
+                let array_marker_opt = if i + 1 < segments.len() {
+                    if let PathSegment::ArrayIndex(idx) = segments[i + 1] {
+                        // Build array marker
+                        let array_begin = ArrayBeginConstructor::builder()
+                            .l_bracket(terminals::l_bracket())
+                            .build()
+                            .build();
+                        
+                        let array_marker_opt = if let Some(index) = idx {
+                            let integer_token = terminals::integer(&index.to_string());
+                            let integer_node = IntegerConstructor::builder()
+                                .integer(integer_token)
+                                .build()
+                                .build();
+                            ArrayMarkerOptConstructor::builder()
+                                .integer(integer_node)
+                                .build()
+                                .build()
+                        } else {
+                            ArrayMarkerOptConstructor::builder().build().build()
+                        };
+                        
+                        let array_end = ArrayEndConstructor::builder()
+                            .r_bracket(terminals::r_bracket())
+                            .build()
+                            .build();
+                        
+                        Some(ArrayMarkerConstructor::builder()
+                            .array_begin(array_begin)
+                            .array_marker_opt(array_marker_opt)
+                            .array_end(array_end)
+                            .build()
+                            .build())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                
+                (key_base, array_marker_opt)
             }
             PathSegment::Extension(id) => {
                 let ext_token = terminals::dollar();
@@ -643,11 +699,17 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                     .ident(IdentConstructor::builder().ident(ident).build().build())
                     .build()
                     .build();
-                (KeyBaseConstructor::ExtensionNameSpace(ext_namespace).build(), None)
+                (
+                    KeyBaseConstructor::ExtensionNameSpace(ext_namespace).build(),
+                    None,
+                )
             }
             PathSegment::MetaExt(id) => {
                 let meta_ext_token = terminals::dollar_dollar();
-                let meta_ext_node = MetaExtConstructor::builder().dollar_dollar(meta_ext_token).build().build();
+                let meta_ext_node = MetaExtConstructor::builder()
+                    .dollar_dollar(meta_ext_token)
+                    .build()
+                    .build();
                 let ident = terminals::ident(id.as_ref());
                 let meta_ext_key = MetaExtKeyConstructor::builder()
                     .meta_ext(meta_ext_node)
@@ -662,13 +724,15 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         if is_valid_identifier(s) {
                             let ident = terminals::ident(s);
                             KeyBaseConstructor::Ident(
-                                IdentConstructor::builder().ident(ident).build().build()
-                            ).build()
+                                IdentConstructor::builder().ident(ident).build().build(),
+                            )
+                            .build()
                         } else {
                             let str_token = terminals::str(&format!("\"{}\"", escape_string(s)));
                             KeyBaseConstructor::Str(
-                                StrConstructor::builder().str(str_token).build().build()
-                            ).build()
+                                StrConstructor::builder().str(str_token).build().build(),
+                            )
+                            .build()
                         }
                     }
                     KeyCmpValue::I64(i) => {
@@ -677,8 +741,9 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             IntegerConstructor::builder()
                                 .integer(int_token)
                                 .build()
-                                .build()
-                        ).build()
+                                .build(),
+                        )
+                        .build()
                     }
                     KeyCmpValue::U64(u) => {
                         let int_token = terminals::integer(&u.to_string());
@@ -686,159 +751,83 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             IntegerConstructor::builder()
                                 .integer(int_token)
                                 .build()
-                                .build()
-                        ).build()
+                                .build(),
+                        )
+                        .build()
                     }
                     KeyCmpValue::Bool(b) => {
                         if *b {
                             KeyBaseConstructor::True(
-                                TrueConstructor::builder().r#true(terminals::r#true()).build().build()
-                            ).build()
+                                TrueConstructor::builder()
+                                    .r#true(terminals::r#true())
+                                    .build()
+                                    .build(),
+                            )
+                            .build()
                         } else {
                             KeyBaseConstructor::False(
-                                FalseConstructor::builder().r#false(terminals::r#false()).build().build()
-                            ).build()
+                                FalseConstructor::builder()
+                                    .r#false(terminals::r#false())
+                                    .build()
+                                    .build(),
+                            )
+                            .build()
                         }
                     }
-                    KeyCmpValue::Null => {
-                        KeyBaseConstructor::Null(
-                            NullConstructor::builder().null(terminals::null()).build().build()
-                        ).build()
-                    }
+                    KeyCmpValue::Null => KeyBaseConstructor::Null(
+                        NullConstructor::builder()
+                            .null(terminals::null())
+                            .build()
+                            .build(),
+                    )
+                    .build(),
                     KeyCmpValue::Unit => {
                         // Unit is not a valid key, use null as fallback
                         KeyBaseConstructor::Null(
-                            NullConstructor::builder().null(terminals::null()).build().build()
-                        ).build()
+                            NullConstructor::builder()
+                                .null(terminals::null())
+                                .build()
+                                .build(),
+                        )
+                        .build()
                     }
                     KeyCmpValue::Tuple(_) => {
-                        // Tuples cannot be used as keys in paths
-                        // Use a descriptive string
-                        let str_token = terminals::str("\"<tuple>\"");
-                        KeyBaseConstructor::Str(
-                            StrConstructor::builder().str(str_token).build().build()
-                        ).build()
-                    }
-                    KeyCmpValue::Extension(_) => {
-                        // Extension keys should not appear in regular value paths
-                        // Use a descriptive string
-                        let str_token = terminals::str("\"<extension>\"");
-                        KeyBaseConstructor::Str(
-                            StrConstructor::builder().str(str_token).build().build()
-                        ).build()
+                        todo!()
                     }
                     KeyCmpValue::MetaExtension(_) => {
-                        // Meta-extension keys should not appear in regular value paths
-                        // Use a descriptive string
-                        let str_token = terminals::str("\"<meta-extension>\"");
-                        KeyBaseConstructor::Str(
-                            StrConstructor::builder().str(str_token).build().build()
-                        ).build()
+                        todo!("This must be serialization error, not supported type to serialize")
                     }
                     KeyCmpValue::Hole => {
-                        // Holes cannot be used as keys in paths
-                        // Use a descriptive string
-                        let str_token = terminals::str("\"<hole>\"");
-                        KeyBaseConstructor::Str(
-                            StrConstructor::builder().str(str_token).build().build()
-                        ).build()
+                        todo!("This must be serialization error, not supported type to serialize")
                     }
                 };
                 (key_base, None)
             }
-            PathSegment::Array { key, index } => {
-                // Build key with array marker
-                let key_base = match key {
-                    Value::String(s) if is_valid_identifier(s) => {
-                        let ident = terminals::ident(s);
-                        KeyBaseConstructor::Ident(
-                            IdentConstructor::builder().ident(ident).build().build()
-                        ).build()
-                    }
-                    Value::String(s) => {
-                        let str_token = terminals::str(&format!("\"{}\"", escape_string(s)));
-                        KeyBaseConstructor::Str(
-                            StrConstructor::builder().str(str_token).build().build()
-                        ).build()
-                    }
-                    Value::I64(i) => {
-                        let int_token = terminals::integer(&i.to_string());
-                        KeyBaseConstructor::Integer(
-                            IntegerConstructor::builder()
-                                .integer(int_token)
-                                .build()
-                                .build()
-                        ).build()
-                    }
-                    Value::U64(u) => {
-                        let int_token = terminals::integer(&u.to_string());
-                        KeyBaseConstructor::Integer(
-                            IntegerConstructor::builder()
-                                .integer(int_token)
-                                .build()
-                                .build()
-                        ).build()
-                    }
-                    _ => {
-                        // For other types, convert to string representation
-                        let str_representation = match key {
-                            Value::Bool(b) => b.to_string(),
-                            Value::Null => "null".to_string(),
-                            _ => "<complex-value>".to_string(),
-                        };
-                        let str_token = terminals::str(&format!("\"{str_representation}\""));
-                        KeyBaseConstructor::Str(
-                            StrConstructor::builder().str(str_token).build().build()
-                        ).build()
-                    }
-                };
-
-                // Build array marker with optional index
-                let array_begin = ArrayBeginConstructor::builder()
-                    .l_bracket(terminals::l_bracket())
-                    .build()
-                    .build();
-
-                let array_marker_opt = if let Some(idx) = index {
-                    // Build index value
-                    let index_str = match idx {
-                        Value::I64(i) => i.to_string(),
-                        Value::U64(u) => u.to_string(),
-                        _ => "0".to_string(), // Default to 0 for non-numeric indices
-                    };
-                    let integer_token = terminals::integer(&index_str);
-                    let integer_node = IntegerConstructor::builder()
-                        .integer(integer_token)
-                        .build()
-                        .build();
-                    ArrayMarkerOptConstructor::builder()
-                        .integer(integer_node)
-                        .build()
-                        .build()
+            PathSegment::ArrayIndex(idx) => {
+                // This shouldn't happen in isolation - array indices should follow identifiers
+                // But if it does, treat it as a numeric key
+                let index_str = if let Some(index) = idx {
+                    index.to_string()
                 } else {
-                    // No index specified
-                    ArrayMarkerOptConstructor::builder().build().build()
+                    "0".to_string()
                 };
-
-                let array_end = ArrayEndConstructor::builder()
-                    .r_bracket(terminals::r_bracket())
-                    .build()
-                    .build();
-
-                let array_marker = ArrayMarkerConstructor::builder()
-                    .array_begin(array_begin)
-                    .array_marker_opt(array_marker_opt)
-                    .array_end(array_end)
-                    .build()
-                    .build();
-
-                // Return key_base and array marker separately
-                (key_base, Some(array_marker))
+                let integer = terminals::integer(&index_str);
+                let key_base = KeyBaseConstructor::Integer(
+                    IntegerConstructor::builder()
+                        .integer(integer)
+                        .build()
+                        .build(),
+                )
+                .build();
+                (key_base, None)
             }
             PathSegment::TupleIndex(idx) => {
                 // Tuple indices are represented as simple integer keys
                 let integer = terminals::integer(&idx.to_string());
-                let integer_node = IntegerConstructor::builder().integer(integer).build().build();
+                let integer_node = IntegerConstructor::builder()
+                    .integer(integer)
+                    .build()
+                    .build();
                 let key_base = KeyBaseConstructor::Integer(integer_node).build();
                 (key_base, None)
             }
@@ -848,10 +837,12 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
         let key = if let Some(array_marker) = array_marker_opt {
             KeyConstructor::builder()
                 .key_base(key_base)
-                .key_opt(KeyOptConstructor::builder()
-                    .array_marker(array_marker)
-                    .build()
-                    .build())
+                .key_opt(
+                    KeyOptConstructor::builder()
+                        .array_marker(array_marker)
+                        .build()
+                        .build(),
+                )
                 .build()
                 .build()
         } else {
@@ -875,23 +866,77 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
 
     // Build the first key
     if let Some(first_segment) = path.0.first() {
-        let first_key_base = match first_segment {
+        let (first_key_base, array_marker_opt) = match first_segment {
             PathSegment::Ident(id) => {
                 let ident = terminals::ident(id.as_ref());
-                KeyBaseConstructor::Ident(
+                let key_base = KeyBaseConstructor::Ident(
                     IdentConstructor::builder().ident(ident).build().build()
-                ).build()
+                )
+                .build();
+                
+                // Check if second segment is ArrayIndex
+                let array_marker_opt = if path.0.len() > 1 {
+                    if let PathSegment::ArrayIndex(idx) = &path.0[1] {
+                        // Build array marker
+                        let array_begin = ArrayBeginConstructor::builder()
+                            .l_bracket(terminals::l_bracket())
+                            .build()
+                            .build();
+                        
+                        let array_marker_opt = if let Some(index) = idx {
+                            let integer_token = terminals::integer(&index.to_string());
+                            let integer_node = IntegerConstructor::builder()
+                                .integer(integer_token)
+                                .build()
+                                .build();
+                            ArrayMarkerOptConstructor::builder()
+                                .integer(integer_node)
+                                .build()
+                                .build()
+                        } else {
+                            ArrayMarkerOptConstructor::builder().build().build()
+                        };
+                        
+                        let array_end = ArrayEndConstructor::builder()
+                            .r_bracket(terminals::r_bracket())
+                            .build()
+                            .build();
+                        
+                        Some(ArrayMarkerConstructor::builder()
+                            .array_begin(array_begin)
+                            .array_marker_opt(array_marker_opt)
+                            .array_end(array_end)
+                            .build()
+                            .build())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                
+                (key_base, array_marker_opt)
             }
             _ => {
                 // Paths should typically start with an identifier
                 let ident = terminals::ident("path");
-                KeyBaseConstructor::Ident(
+                let key_base = KeyBaseConstructor::Ident(
                     IdentConstructor::builder().ident(ident).build().build()
-                ).build()
+                )
+                .build();
+                (key_base, None)
             }
         };
 
-        let key_opt = KeyOptConstructor::builder().build().build();
+        let key_opt = if let Some(array_marker) = array_marker_opt {
+            KeyOptConstructor::builder()
+                .array_marker(array_marker)
+                .build()
+                .build()
+        } else {
+            KeyOptConstructor::builder().build().build()
+        };
+        
         let first_key = KeyConstructor::builder()
             .key_base(first_key_base)
             .key_opt(key_opt)
@@ -914,16 +959,21 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
     } else {
         // Empty path - just a dot
         let keys = KeysConstructor::builder()
-            .key(KeyConstructor::builder()
-                .key_base(KeyBaseConstructor::Ident(
-                    IdentConstructor::builder()
-                        .ident(terminals::ident("empty"))
-                        .build()
-                        .build()
-                ).build())
-                .key_opt(KeyOptConstructor::builder().build().build())
-                .build()
-                .build())
+            .key(
+                KeyConstructor::builder()
+                    .key_base(
+                        KeyBaseConstructor::Ident(
+                            IdentConstructor::builder()
+                                .ident(terminals::ident("empty"))
+                                .build()
+                                .build(),
+                        )
+                        .build(),
+                    )
+                    .key_opt(KeyOptConstructor::builder().build().build())
+                    .build()
+                    .build(),
+            )
             .keys_list(KeysListConstructor::empty())
             .build()
             .build();

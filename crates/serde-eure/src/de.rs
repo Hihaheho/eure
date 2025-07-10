@@ -290,84 +290,90 @@ fn process_path_recursive(
 
     if let Some(path_seg) = values.get_path_segment(current_handle) {
         match path_seg {
-            PathSegment::Array { key, index: None } => {
-                let key_cmp = match key {
-                    Value::String(s) => KeyCmpValue::String(s.clone()),
-                    Value::I64(i) => KeyCmpValue::I64(*i),
-                    Value::U64(u) => KeyCmpValue::U64(*u),
-                    _ => KeyCmpValue::String("array".to_string()),
-                };
+            PathSegment::Ident(ident) if !remaining_path.is_empty() => {
+                // Check if the next segment is an ArrayIndex
+                if let Some(next_handle) = remaining_path.first() {
+                    if let Some(PathSegment::ArrayIndex(idx)) = values.get_path_segment(next_handle) {
+                        // This is an array field
+                        let key_cmp = KeyCmpValue::String(ident.to_string());
+                        
+                        // Check if we have more array indices in the remaining path
+                        let has_more_arrays = remaining_path[1..].iter().any(|h| {
+                            if let Some(seg) = values.get_path_segment(h) {
+                                matches!(seg, PathSegment::ArrayIndex(_))
+                            } else {
+                                false
+                            }
+                        });
+                        
+                        // Skip the ArrayIndex segment since we're handling it here
+                        let remaining_after_array = &remaining_path[1..];
 
-                let has_more_arrays = remaining_path.iter().any(|h| {
-                    if let Some(seg) = values.get_path_segment(h) {
-                        matches!(seg, PathSegment::Array { .. })
-                    } else {
-                        false
-                    }
-                });
-
-                if has_more_arrays && !remaining_path.is_empty() {
-                    match current_map.entry(key_cmp) {
-                        std::collections::hash_map::Entry::Occupied(mut entry) => {
-                            match entry.get_mut() {
-                                Value::Array(Array(arr)) => {
-                                    if arr.is_empty() {
-                                        arr.push(Value::Map(Map(ahash::AHashMap::new())));
-                                    }
-                                    if let Some(Value::Map(Map(last_element))) = arr.last_mut() {
-                                        process_path_recursive(
-                                            last_element,
-                                            remaining_path,
-                                            value,
-                                            values,
-                                        );
+                        if has_more_arrays && !remaining_after_array.is_empty() {
+                            match current_map.entry(key_cmp) {
+                                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                                    match entry.get_mut() {
+                                        Value::Array(Array(arr)) => {
+                                            if arr.is_empty() {
+                                                arr.push(Value::Map(Map(ahash::AHashMap::new())));
+                                            }
+                                            if let Some(Value::Map(Map(last_element))) = arr.last_mut() {
+                                                process_path_recursive(
+                                                    last_element,
+                                                    remaining_after_array,
+                                                    value,
+                                                    values,
+                                                );
+                                            }
+                                        }
+                                        _ => {
+                                            let mut nested_map = ahash::AHashMap::new();
+                                            process_path_recursive(
+                                                &mut nested_map,
+                                                remaining_after_array,
+                                                value,
+                                                values,
+                                            );
+                                            entry.insert(Value::Array(Array(vec![Value::Map(Map(
+                                                nested_map,
+                                            ))])));
+                                        }
                                     }
                                 }
-                                _ => {
+                                std::collections::hash_map::Entry::Vacant(entry) => {
                                     let mut nested_map = ahash::AHashMap::new();
-                                    process_path_recursive(
-                                        &mut nested_map,
-                                        remaining_path,
-                                        value,
-                                        values,
-                                    );
-                                    entry.insert(Value::Array(Array(vec![Value::Map(Map(
-                                        nested_map,
-                                    ))])));
+                                    process_path_recursive(&mut nested_map, remaining_after_array, value, values);
+                                    entry.insert(Value::Array(Array(vec![Value::Map(Map(nested_map))])));
                                 }
                             }
-                        }
-                        std::collections::hash_map::Entry::Vacant(entry) => {
-                            let mut nested_map = ahash::AHashMap::new();
-                            process_path_recursive(&mut nested_map, remaining_path, value, values);
-                            entry.insert(Value::Array(Array(vec![Value::Map(Map(nested_map))])));
-                        }
-                    }
-                } else {
-                    let element_value = if remaining_path.is_empty() {
-                        value
-                    } else {
-                        let mut nested_map = ahash::AHashMap::new();
-                        process_path_recursive(&mut nested_map, remaining_path, value, values);
-                        Value::Map(Map(nested_map))
-                    };
+                        } else {
+                            let element_value = if remaining_after_array.is_empty() {
+                                value
+                            } else {
+                                let mut nested_map = ahash::AHashMap::new();
+                                process_path_recursive(&mut nested_map, remaining_after_array, value, values);
+                                Value::Map(Map(nested_map))
+                            };
 
-                    match current_map.entry(key_cmp) {
-                        std::collections::hash_map::Entry::Occupied(mut entry) => {
-                            match entry.get_mut() {
-                                Value::Array(Array(arr)) => {
-                                    arr.push(element_value);
+                            match current_map.entry(key_cmp) {
+                                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                                    match entry.get_mut() {
+                                        Value::Array(Array(arr)) => {
+                                            arr.push(element_value);
+                                        }
+                                        _ => {
+                                            let existing = entry.get().clone();
+                                            entry
+                                                .insert(Value::Array(Array(vec![existing, element_value])));
+                                        }
+                                    }
                                 }
-                                _ => {
-                                    let existing = entry.get().clone();
-                                    entry
-                                        .insert(Value::Array(Array(vec![existing, element_value])));
+                                std::collections::hash_map::Entry::Vacant(entry) => {
+                                    entry.insert(Value::Array(Array(vec![element_value])));
                                 }
                             }
                         }
-                        std::collections::hash_map::Entry::Vacant(entry) => {
-                            entry.insert(Value::Array(Array(vec![element_value])));
-                        }
+                        return; // We've handled the array case, return early
                     }
                 }
             }
@@ -481,27 +487,59 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::Hole => {
                 // Holes should be caught and reported during validation
                 // For now, return an error during deserialization
-                Err(Error::Message("Cannot deserialize hole value (!) - holes must be filled with actual values".to_string()))
-            },
+                Err(Error::Message(
+                    "Cannot deserialize hole value (!) - holes must be filled with actual values"
+                        .to_string(),
+                ))
+            }
             Value::Path(path) => {
-                // Convert path to string representation
-                let path_str = path.0.iter()
-                    .map(|seg| match seg {
-                        eure_value::value::PathSegment::Ident(id) => id.as_ref().to_string(),
-                        eure_value::value::PathSegment::Extension(id) => format!("${}", id.as_ref()),
-                        eure_value::value::PathSegment::MetaExt(id) => format!("$̄{}", id.as_ref()),
-                        eure_value::value::PathSegment::Value(v) => format!("{v:?}"),
-                        eure_value::value::PathSegment::TupleIndex(idx) => idx.to_string(),
-                        eure_value::value::PathSegment::Array { key, index } => {
-                            if let Some(idx) = index {
-                                format!("{key:?}[{idx:?}]")
+                // Convert path to string representation, skipping extensions
+                let mut path_parts = Vec::new();
+                let mut i = 0;
+                
+                while i < path.0.len() {
+                    match &path.0[i] {
+                        eure_value::value::PathSegment::Ident(id) => {
+                            // Check if next segment is ArrayIndex
+                            if i + 1 < path.0.len() {
+                                if let eure_value::value::PathSegment::ArrayIndex(idx) = &path.0[i + 1] {
+                                    // Combine identifier with array index
+                                    if let Some(index) = idx {
+                                        path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                                    } else {
+                                        path_parts.push(format!("{}[]", id.as_ref()));
+                                    }
+                                    i += 2; // Skip the ArrayIndex segment
+                                    continue;
+                                }
+                            }
+                            path_parts.push(id.as_ref().to_string());
+                        }
+                        eure_value::value::PathSegment::Extension(_) => {
+                            // Extensions are metadata, not data - skip in serialization
+                            i += 1;
+                            continue;
+                        }
+                        eure_value::value::PathSegment::MetaExt(_) => {
+                            // Meta-extensions are metadata, not data - skip in serialization
+                            i += 1;
+                            continue;
+                        }
+                        eure_value::value::PathSegment::Value(v) => path_parts.push(format!("{v:?}")),
+                        eure_value::value::PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
+                        eure_value::value::PathSegment::ArrayIndex(idx) => {
+                            // Standalone array index (shouldn't normally happen after an ident)
+                            if let Some(index) = idx {
+                                path_parts.push(format!("[{}]", index));
                             } else {
-                                format!("{key:?}[]")
+                                path_parts.push("[]".to_string());
                             }
                         }
-                    })
-                    .collect::<Vec<_>>()
-                    .join(".");
+                    }
+                    i += 1;
+                }
+                
+                let path_str = path_parts.join(".");
                 visitor.visit_string(format!(".{path_str}"))
             }
         }
@@ -784,7 +822,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                 if values.len() != len {
                     return Err(Error::InvalidType(format!(
                         "expected tuple of length {}, found {}",
-                        len, values.len()
+                        len,
+                        values.len()
                     )));
                 }
                 visitor.visit_seq(SeqDeserializer::new(values))
@@ -793,7 +832,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                 if values.len() != len {
                     return Err(Error::InvalidType(format!(
                         "expected tuple of length {}, found array of length {}",
-                        len, values.len()
+                        len,
+                        values.len()
                     )));
                 }
                 visitor.visit_seq(SeqDeserializer::new(values))
@@ -1112,8 +1152,7 @@ fn key_cmp_to_value(key: KeyCmpValue) -> Value {
             Value::Tuple(eure_value::value::Tuple(values))
         }
         KeyCmpValue::Unit => Value::Unit,
-        KeyCmpValue::Extension(ext) => Value::String(format!("${ext}")),
-        KeyCmpValue::MetaExtension(meta) => Value::String(format!("$${meta}")),
+        KeyCmpValue::MetaExtension(meta) => todo!("This function must return Option"),
         KeyCmpValue::Hole => Value::Hole,
     }
 }

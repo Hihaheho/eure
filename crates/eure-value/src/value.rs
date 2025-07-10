@@ -36,6 +36,8 @@ pub enum KeyCmpValue {
     Tuple(Tuple<KeyCmpValue>),
     Unit,
     Hole,
+    /// Meta-extension key ($$-prefixed fields)
+    MetaExtension(Identifier),
 }
 
 #[derive(Debug, Clone, PartialEq, Plural)]
@@ -54,7 +56,7 @@ pub enum PathSegment {
     /// Tuple element index (0-255)
     TupleIndex(u8),
     /// Array element access
-    ArrayIndex(u8),
+    ArrayIndex(Option<u8>),
 }
 
 // A simplified path representation that can be used as a HashMap key

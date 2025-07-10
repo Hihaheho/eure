@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use super::super::value_visitor::*;
-    use eure_value::value::Value;
 
     #[test]
     fn test_value_visitor_new() {
@@ -19,18 +18,18 @@ mod tests {
     }
 
     #[test]
-    fn test_document_to_value() {
-        // Test the document_to_value function with an empty document
+    fn test_empty_document() {
+        // Test creating an empty document
         let visitor = ValueVisitor::new("");
         let doc = visitor.into_document();
-        let value = document_to_value(doc);
-        
-        // Should produce an empty map
-        match value {
-            Value::Map(map) => {
-                assert!(map.0.is_empty(), "Expected empty map");
+
+        // The document should have a root node that is an empty map
+        let root = doc.get_root();
+        match &root.content {
+            crate::document::NodeValue::Map { entries, .. } => {
+                assert!(entries.is_empty(), "Expected empty map at root");
             }
-            _ => panic!("Expected Map value"),
+            _ => panic!("Expected Map node at root"),
         }
     }
 }

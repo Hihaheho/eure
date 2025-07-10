@@ -28,6 +28,8 @@ age.$optional = true  # Fields are required by default
 - `name.$type = .string` - Correct: defines the type of the field
 - `name = .string` - Wrong: assigns the path value `.string` as data
 
+For more about extensions as metadata, see [extensions.md](./extensions.md#extensions-are-not-data).
+
 ### $types
 
 Namespace for defining custom types.
@@ -317,130 +319,51 @@ $json-schema = json```
 ## Complete Example
 
 ```eure
-# Schema for a configuration file
-@ $types.log-level
-@ $union[]
-$literal = "debug"
-@ $union[]
-$literal = "info"
-@ $union[]
-$literal = "warn"
-@ $union[]
-$literal = "error"
+# Define a custom type
+$types.log-level {
+  $union = ["debug", "info", "warn", "error"]
+}
 
-@ $types.port
-$type = .number
-$range = [1, 65535]
+# Define the main schema
+@ config
+name.$type = .string
+port.$type = .number
+port.$range = [1, 65535]
 
-@ $types.host
-$union = [.string, .code.url]  # String or URL
+logging.level.$type = .$types.log-level
 
-# Feature type using inline style
-$types.feature {
+features.$array = {
   id.$type = .string
-  id.$pattern = regex"^[a-z-]+$"
-
   enabled.$type = .boolean
-
-  config.$type = .object
-  config.$optional = true
+  enabled.$optional = true
 }
-
-# Document schema with serde hints
-@ app
-$serde.rename-all = "camelCase"
-
-name.$type = .string
-version.$type = .code.semver
-
-@ server
-$prefer.section = true
-host.$type = .$types.host
-port.$type = .$types.port
-port.$serde.rename = "serverPort"  # Override rename-all
-
-@ logging
-level.$type = .$types.log-level
-
-features.$array = .$types.feature
 ```
 
-## Common Mistakes and Best Practices
+This example shows:
+- Custom type definition with union
+- Basic field types and constraints
+- Nested structure
+- Array with inline type definition
 
-### Schema Definition vs Data Binding
+## Common Mistakes
 
-The most common mistake is confusing schema definitions with data bindings:
+### The #1 Mistake: Confusing Schema with Data
 
 ```eure
-# WRONG - This creates data bindings, not schema definitions
-@ person
-name = .string          # Assigns the path value `.string` to field `name`
-age = .number          # Assigns the path value `.number` to field `age`
-email = .code.email
+# WRONG - Creates data, not schema
+name = .string          # Sets field 'name' to the path value '.string'
 
-# CORRECT - Use $type extension for schema definitions
-@ person
-name.$type = .string
-age.$type = .number
-email.$type = .code.email
+# CORRECT - Defines schema  
+name.$type = .string    # Defines that 'name' must be a string
 ```
 
-When you write `name = .string`, you're creating a data entry where the field `name` contains the path value `.string`. This is valid EURE but not what you want for schema definitions.
+Remember:
+- Use `.$type` for type definitions
+- Use `.$array` for arrays (not `.$type = .array`)
+- Keep schemas separate from data files
 
-### Arrays
+## Meta-Schema
 
-```eure
-# WRONG
-items.$type = .array    # Invalid - there's no .array type
+The EURE Schema system is self-hosted using meta-extensions (`$$` prefix) to define what extensions are available. For details about meta-extensions and how they work, see [extensions.md](./extensions.md#meta-extensions).
 
-# CORRECT
-items.$array = .string  # Array of strings
-```
-
-### Mixed Schema and Data
-
-Be careful not to mix schema definitions with data in the same document:
-
-```eure
-# PROBLEMATIC - Mixing schema and data
-@ config
-debug = true                    # Data
-debug.$type = .boolean         # Schema - but debug already has data!
-
-# BETTER - Separate schema from data
-# schema.eure
-@ config
-debug.$type = .boolean
-
-# config.eure
-$schema = "schema.eure"
-@ config
-debug = true
-```
-
-## Meta-Schema Insights
-
-The meta-schema (eure-schema.schema.eure) reveals the extension hierarchy:
-
-```eure
-# Global extension definitions
-$$optional = .boolean
-$$optional.$optional = true  # optional is itself optional
-
-$$prefer {
-  section = .boolean
-  section.$optional = true
-  $optional = true  # The entire prefer block is optional
-}
-
-# Serde extensions
-$$serde.rename = .string
-$$serde.rename-all.$union[].$literal = "camelCase"
-# ... other naming conventions
-
-# Type definitions with meta-extensions
-@ $union[].$$union.$array = .$types.type  # Union as array of types
-@ $union[].$$cascade-type = .$types.type
-```
-
-This self-hosting design ensures all extensions are formally defined and validated.
+The complete meta-schema can be found in `eure-schema.schema.eure`.

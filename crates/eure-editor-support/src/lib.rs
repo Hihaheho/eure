@@ -1,5 +1,5 @@
 pub mod completion_analyzer;
-pub mod completion_context_tracker;
+// pub mod completion_context_tracker; // TODO: Update to work without Values struct
 pub mod completions;
 pub mod cst_path_extractor;
 pub mod diagnostics;

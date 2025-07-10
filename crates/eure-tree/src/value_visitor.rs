@@ -1,16 +1,17 @@
-use ahash::AHashMap;
-use eure_value::{
-    document::{EureDocument, InsertError},
-    identifier::Identifier,
-    value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value},
-};
-use std::str::FromStr;
-use thiserror::Error;
-
 use crate::{
+    document::{
+        ArrayConstructionHandle, EureDocument, InsertError, MapConstructionHandle, NodeValue,
+        StringConstructionHandle,
+    },
     prelude::*,
     tree::CstFacade,
 };
+use eure_value::{
+    identifier::Identifier,
+    value::{Code, KeyCmpValue, Path, PathSegment},
+};
+use std::str::FromStr;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ValueVisitorError {
@@ -21,17 +22,15 @@ pub enum ValueVisitorError {
     #[error("Failed to parse integer: {0}")]
     InvalidInteger(String),
     #[error("Document insert error: {0}")]
-    DocumentInsert(#[from] InsertError<Value>),
+    DocumentInsert(#[from] InsertError),
 }
 
 pub struct ValueVisitor<'a> {
     input: &'a str,
     // Main document being built
-    document: EureDocument<Value>,
-    // Stack for nested sections
-    section_stack: Vec<EureDocument<Value>>,
-    // Temporary value cache for references
-    value_cache: AHashMap<ValueHandle, Value>,
+    document: EureDocument,
+    // Stack of paths for nested sections
+    path_stack: Vec<Vec<PathSegment>>,
 }
 
 impl<'a> ValueVisitor<'a> {
@@ -39,18 +38,17 @@ impl<'a> ValueVisitor<'a> {
         Self {
             input,
             document: EureDocument::new(),
-            section_stack: Vec::new(),
-            value_cache: AHashMap::new(),
+            path_stack: vec![vec![]], // Start with empty root path
         }
     }
 
-    pub fn into_document(self) -> EureDocument<Value> {
+    pub fn into_document(self) -> EureDocument {
         self.document
     }
 
-    /// Get the current document to insert into (either main or section)
-    fn current_document(&mut self) -> &mut EureDocument<Value> {
-        self.section_stack.last_mut().unwrap_or(&mut self.document)
+    /// Get the current base path from the path stack
+    fn current_path(&self) -> Vec<PathSegment> {
+        self.path_stack.last().cloned().unwrap_or_default()
     }
 
     /// Parse a string literal, removing quotes and handling escape sequences
@@ -90,7 +88,7 @@ impl<'a> ValueVisitor<'a> {
         result
     }
 
-    /// Build path segments from a key view (may return multiple segments for array syntax)
+    /// Build path segments from a key view
     fn build_path_segments<F: CstFacade>(
         &mut self,
         key_view: KeyView,
@@ -164,46 +162,69 @@ impl<'a> ValueVisitor<'a> {
                 } else {
                     return Err(ValueVisitorError::InvalidInteger(text.to_string()));
                 };
-                
+
                 // Return both the base segment and the array index
-                Ok(vec![base_segment, PathSegment::ArrayIndex(index)])
+                Ok(vec![base_segment, PathSegment::ArrayIndex(Some(index))])
             } else {
                 // Empty brackets [] means append/next index
-                // For now, use 0 as placeholder
-                Ok(vec![base_segment, PathSegment::ArrayIndex(0)])
+                Ok(vec![base_segment, PathSegment::ArrayIndex(None)])
             }
         } else {
             Ok(vec![base_segment])
         }
     }
 
-    /// Build a value from a value view
-    fn build_value<F: CstFacade>(
+    /// Process a value and insert it at the given path
+    fn process_value_at_path<F: CstFacade>(
         &mut self,
+        path: Vec<PathSegment>,
         value_view: ValueView,
         tree: &F,
-    ) -> Result<Value, ValueVisitorError> {
+    ) -> Result<(), ValueVisitorError> {
         match value_view {
-            ValueView::Null(_) => Ok(Value::Null),
+            ValueView::Null(null_handle) => {
+                let content = NodeValue::Null {
+                    handle: null_handle,
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
+            }
             ValueView::Boolean(boolean_handle) => {
                 let boolean_view = boolean_handle.get_view(tree)?;
-                match boolean_view {
-                    BooleanView::True(_) => Ok(Value::Bool(true)),
-                    BooleanView::False(_) => Ok(Value::Bool(false)),
-                }
+                let value = match boolean_view {
+                    BooleanView::True(_) => true,
+                    BooleanView::False(_) => false,
+                };
+                let content = NodeValue::Bool {
+                    handle: boolean_handle,
+                    value,
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
             }
             ValueView::Integer(integer_handle) => {
                 let integer_view = integer_handle.get_view(tree)?;
                 let data = integer_view.integer.get_data(tree)?;
                 let text = tree.get_str(data, self.input).unwrap();
 
-                if let Ok(i) = text.parse::<i64>() {
-                    Ok(Value::I64(i))
+                let content = if let Ok(i) = text.parse::<i64>() {
+                    NodeValue::I64 {
+                        handle: integer_handle,
+                        value: i,
+                    }
                 } else if let Ok(u) = text.parse::<u64>() {
-                    Ok(Value::U64(u))
+                    NodeValue::U64 {
+                        handle: integer_handle,
+                        value: u,
+                    }
                 } else {
-                    Err(ValueVisitorError::InvalidInteger(text.to_string()))
-                }
+                    return Err(ValueVisitorError::InvalidInteger(text.to_string()));
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
             }
             ValueView::Strings(strings_handle) => {
                 let strings_view = strings_handle.get_view(tree)?;
@@ -229,36 +250,39 @@ impl<'a> ValueVisitor<'a> {
                     }
                 }
 
-                Ok(Value::String(result))
+                let content = NodeValue::String {
+                    handle: StringConstructionHandle::Strings(strings_handle),
+                    value: result,
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
             }
             ValueView::Object(object_handle) => {
-                let object_view = object_handle.get_view(tree)?;
-                let mut map = AHashMap::new();
+                // First insert an empty map node at this path
+                let content = NodeValue::Map {
+                    handle: MapConstructionHandle::ObjectLiteral(object_handle),
+                    entries: vec![],
+                };
+                self.document
+                    .insert_node(path.clone().into_iter(), content)?;
 
+                // Now process each key-value pair
+                let object_view = object_handle.get_view(tree)?;
                 if let Some(mut object_list) = object_view.object_list.get_view(tree)? {
                     loop {
                         // Get the key
                         let key_view = object_list.key.get_view(tree)?;
                         let key_segments = self.build_path_segments(key_view, tree)?;
-                        
-                        // For object literals, we only support single segment keys
-                        if key_segments.len() != 1 {
-                            continue; // Skip array syntax in object literals
-                        }
-                        
-                        // Convert to KeyCmpValue
-                        let key_cmp = match &key_segments[0] {
-                            PathSegment::Ident(ident) => KeyCmpValue::String(ident.to_string()),
-                            PathSegment::Value(val) => val.clone(),
-                            _ => continue, // Skip extension keys in object literals
-                        };
 
-                        // Get the value
+                        // Build the full path for this entry
+                        let mut entry_path = path.clone();
+                        entry_path.extend(key_segments);
+
+                        // Process the value at this path
                         let value_handle = object_list.value;
                         let value_view = value_handle.get_view(tree)?;
-                        let value = self.build_value(value_view, tree)?;
-                        
-                        map.insert(key_cmp, value);
+                        self.process_value_at_path(entry_path, value_view, tree)?;
 
                         match object_list.object_list.get_view(tree)? {
                             Some(next) => object_list = next,
@@ -266,30 +290,46 @@ impl<'a> ValueVisitor<'a> {
                         }
                     }
                 }
-
-                Ok(Value::Map(Map(map)))
             }
             ValueView::Array(array_handle) => {
+                // First insert an empty array node at this path
+                let content = NodeValue::Array {
+                    handle: ArrayConstructionHandle::ArrayLiteral(array_handle),
+                    children: vec![],
+                };
+                self.document
+                    .insert_node(path.clone().into_iter(), content)?;
+
+                // Now process each array element
                 let array_view = array_handle.get_view(tree)?;
-                let mut elements = Vec::new();
+                let mut index = 0;
 
                 if let Some(array_elements) = array_view.array_opt.get_view(tree)? {
                     let array_elements_view = array_elements.get_view(tree)?;
-                    
+
                     // First element
+                    let mut element_path = path.clone();
+                    element_path.push(PathSegment::ArrayIndex(Some(index)));
                     let value_view = array_elements_view.value.get_view(tree)?;
-                    elements.push(self.build_value(value_view, tree)?);
+                    self.process_value_at_path(element_path, value_view, tree)?;
+                    index += 1;
 
                     // Rest of the elements
                     if let Some(mut tail) = array_elements_view.array_elements_opt.get_view(tree)? {
                         loop {
                             let tail_view = tail.get_view(tree)?;
-                            
-                            if let Some(next_elements) = tail_view.array_elements_tail_opt.get_view(tree)? {
+
+                            if let Some(next_elements) =
+                                tail_view.array_elements_tail_opt.get_view(tree)?
+                            {
                                 let next_view = next_elements.get_view(tree)?;
+
+                                let mut element_path = path.clone();
+                                element_path.push(PathSegment::ArrayIndex(Some(index)));
                                 let value_view = next_view.value.get_view(tree)?;
-                                elements.push(self.build_value(value_view, tree)?);
-                                
+                                self.process_value_at_path(element_path, value_view, tree)?;
+                                index += 1;
+
                                 match next_view.array_elements_opt.get_view(tree)? {
                                     Some(next_tail) => tail = next_tail,
                                     None => break,
@@ -300,8 +340,6 @@ impl<'a> ValueVisitor<'a> {
                         }
                     }
                 }
-
-                Ok(Value::Array(Array(elements)))
             }
             ValueView::Code(code_handle) => {
                 let code_view = code_handle.get_view(tree)?;
@@ -309,10 +347,14 @@ impl<'a> ValueVisitor<'a> {
                 let text = tree.get_str(data, self.input).unwrap();
 
                 let content = text[1..text.len() - 1].to_string();
-                Ok(Value::CodeBlock(Code {
-                    language: String::new(),
-                    content,
-                }))
+                let node_content = NodeValue::Code {
+                    handle: code_handle,
+                    value: Code {
+                        language: String::new(),
+                        content,
+                    },
+                };
+                self.document.insert_node(path.into_iter(), node_content)?;
             }
             ValueView::CodeBlock(code_block_handle) => {
                 let code_block_view = code_block_handle.get_view(tree)?;
@@ -336,7 +378,11 @@ impl<'a> ValueVisitor<'a> {
                     String::new()
                 };
 
-                Ok(Value::CodeBlock(Code { language, content }))
+                let node_content = NodeValue::CodeBlock {
+                    handle: code_block_handle,
+                    value: Code { language, content },
+                };
+                self.document.insert_node(path.into_iter(), node_content)?;
             }
             ValueView::NamedCode(named_code_handle) => {
                 let named_code_view = named_code_handle.get_view(tree)?;
@@ -347,9 +393,20 @@ impl<'a> ValueVisitor<'a> {
                 let language = text[..backtick_pos].to_string();
                 let content = text[backtick_pos + 1..text.len() - 1].to_string();
 
-                Ok(Value::Code(Code { language, content }))
+                let node_content = NodeValue::NamedCode {
+                    handle: named_code_handle,
+                    value: Code { language, content },
+                };
+                self.document.insert_node(path.into_iter(), node_content)?;
             }
-            ValueView::Hole(_) => Ok(Value::Hole),
+            ValueView::Hole(hole_handle) => {
+                let content = NodeValue::Hole {
+                    handle: hole_handle,
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
+            }
             ValueView::Path(path_handle) => {
                 let path_view = path_handle.get_view(tree)?;
                 let mut segments = Vec::new();
@@ -373,29 +430,55 @@ impl<'a> ValueVisitor<'a> {
                     }
                 }
 
-                Ok(Value::Path(Path(segments)))
+                let content = NodeValue::Path {
+                    handle: path_handle,
+                    value: Path(segments),
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
             }
             ValueView::Tuple(tuple_handle) => {
+                // First insert an empty tuple node at this path
+                let content = NodeValue::Tuple {
+                    handle: tuple_handle,
+                    children: vec![],
+                };
+                self.document
+                    .insert_node(path.clone().into_iter(), content)?;
+
+                // Now process each tuple element
                 let tuple_view = tuple_handle.get_view(tree)?;
-                let mut elements = Vec::new();
+                let mut index = 0u8;
 
                 if let Ok(Some(tuple_elements)) = tuple_view.tuple_opt.get_view(tree) {
                     let tuple_elements_view = tuple_elements.get_view(tree)?;
-                    
+
                     // First element
+                    let mut element_path = path.clone();
+                    element_path.push(PathSegment::TupleIndex(index));
                     let value_view = tuple_elements_view.value.get_view(tree)?;
-                    elements.push(self.build_value(value_view, tree)?);
+                    self.process_value_at_path(element_path, value_view, tree)?;
+                    index += 1;
 
                     // Rest of the elements
-                    if let Ok(Some(mut tail)) = tuple_elements_view.tuple_elements_opt.get_view(tree) {
+                    if let Ok(Some(mut tail)) =
+                        tuple_elements_view.tuple_elements_opt.get_view(tree)
+                    {
                         loop {
                             let tail_view = tail.get_view(tree)?;
-                            
-                            if let Some(next_elements) = tail_view.tuple_elements_tail_opt.get_view(tree)? {
+
+                            if let Some(next_elements) =
+                                tail_view.tuple_elements_tail_opt.get_view(tree)?
+                            {
                                 let next_view = next_elements.get_view(tree)?;
+
+                                let mut element_path = path.clone();
+                                element_path.push(PathSegment::TupleIndex(index));
                                 let value_view = next_view.value.get_view(tree)?;
-                                elements.push(self.build_value(value_view, tree)?);
-                                
+                                self.process_value_at_path(element_path, value_view, tree)?;
+                                index += 1;
+
                                 match next_view.tuple_elements_opt.get_view(tree)? {
                                     Some(next_tail) => tail = next_tail,
                                     None => break,
@@ -406,11 +489,17 @@ impl<'a> ValueVisitor<'a> {
                         }
                     }
                 }
-
-                Ok(Value::Tuple(Tuple(elements)))
             }
         }
+        Ok(())
     }
+}
+
+/// Convert an EureDocument to a Value, discarding span information
+///
+/// This is a convenience function that calls document.to_value()
+pub fn document_to_value(document: EureDocument) -> eure_value::value::Value {
+    document.to_value()
 }
 
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
@@ -427,18 +516,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
-    fn visit_value(
-        &mut self,
-        handle: ValueHandle,
-        view: ValueView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        // Build and cache the value
-        let value = self.build_value(view, tree)?;
-        self.value_cache.insert(handle, value);
-        Ok(())
-    }
-
     fn visit_binding(
         &mut self,
         _handle: BindingHandle,
@@ -447,7 +524,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         // Build path from keys
         let mut path = Vec::new();
-        
+
         if let Ok(keys_view) = view.keys.get_view(tree) {
             // First key
             let key_view = keys_view.key.get_view(tree)?;
@@ -467,30 +544,49 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
         }
 
-        // Get the value to bind
-        let value = match view.binding_rhs.get_view(tree) {
+        // Process the binding based on its type
+        match view.binding_rhs.get_view(tree) {
             Ok(BindingRhsView::ValueBinding(value_binding_handle)) => {
                 let value_binding_view = value_binding_handle.get_view(tree)?;
                 let value_view = value_binding_view.value.get_view(tree)?;
-                self.build_value(value_view, tree)?
+                self.process_value_at_path(path, value_view, tree)?;
             }
             Ok(BindingRhsView::TextBinding(text_binding_handle)) => {
                 let text_binding_view = text_binding_handle.get_view(tree)?;
-                if let Ok(text_view) = text_binding_view.text.get_view(tree) {
+                let text = if let Ok(text_view) = text_binding_view.text.get_view(tree) {
                     if let Ok(data) = text_view.text.get_data(tree) {
-                        let text = tree.get_str(data, self.input).unwrap_or("").trim();
-                        Value::String(text.to_string())
+                        tree.get_str(data, self.input)
+                            .unwrap_or("")
+                            .trim()
+                            .to_string()
                     } else {
-                        Value::String(String::new())
+                        String::new()
                     }
                 } else {
-                    Value::String(String::new())
-                }
+                    String::new()
+                };
+
+                let content = NodeValue::String {
+                    handle: StringConstructionHandle::TextBinding(text_binding_handle),
+                    value: text,
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
             }
             Ok(BindingRhsView::SectionBinding(section_binding_handle)) => {
-                // Create new document for the section
-                let section_document = EureDocument::new();
-                self.section_stack.push(section_document);
+                // First insert a map node for this section
+                let content = NodeValue::Map {
+                    handle: MapConstructionHandle::SectionBinding(section_binding_handle),
+                    entries: vec![],
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path.clone());
+                self.document
+                    .insert_node(full_path.clone().into_iter(), content)?;
+
+                // Push this path onto the stack for nested content
+                self.path_stack.push(full_path);
 
                 // Process section binding
                 if let Ok(section_binding_view) = section_binding_handle.get_view(tree)
@@ -500,31 +596,24 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     self.visit_eure(section_binding_view.eure, eure_view, tree)?;
                 }
 
-                // Pop the section document and convert to value
-                if let Some(section_doc) = self.section_stack.pop() {
-                    document_to_value(section_doc)
-                } else {
-                    Value::Null
-                }
+                // Pop the path from the stack
+                self.path_stack.pop();
             }
-            _ => Value::Null,
-        };
+            _ => {}
+        }
 
-        // Insert the value into the document at the given path
-        self.current_document().insert_node(path.into_iter(), value)?;
-        
         Ok(())
     }
 
     fn visit_section(
         &mut self,
-        _handle: SectionHandle,
+        handle: SectionHandle,
         view: SectionView,
         tree: &F,
     ) -> Result<(), Self::Error> {
         // Build path from keys
         let mut path = Vec::new();
-        
+
         if let Ok(keys_view) = view.keys.get_view(tree) {
             // First key
             let key_view = keys_view.key.get_view(tree)?;
@@ -544,8 +633,18 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
         }
 
-        // Create new document for this section
-        let mut section_document = EureDocument::new();
+        // Create a map node for this section
+        let content = NodeValue::Map {
+            handle: MapConstructionHandle::Section(handle),
+            entries: vec![],
+        };
+        let mut full_path = self.current_path();
+        full_path.extend(path.clone());
+        self.document
+            .insert_node(full_path.clone().into_iter(), content)?;
+
+        // Push this section's path onto the stack
+        self.path_stack.push(full_path);
 
         // Process section body
         if let Ok(section_body) = view.section_body.get_view(tree) {
@@ -554,163 +653,29 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     if let Ok(binding_view) = binding_handle.get_view(tree)
                         && let Ok(eure_view) = binding_view.eure.get_view(tree)
                     {
-                        self.section_stack.push(section_document);
-
-                        // Visit the eure content
+                        // Visit the eure content within this section's context
                         if let Ok(Some(bindings)) = eure_view.eure_bindings.get_view(tree) {
                             self.visit_eure_bindings(eure_view.eure_bindings, bindings, tree)?;
                         }
                         if let Ok(Some(sections)) = eure_view.eure_sections.get_view(tree) {
                             self.visit_eure_sections(eure_view.eure_sections, sections, tree)?;
                         }
-
-                        section_document = self.section_stack.pop().unwrap();
                     }
                 }
                 SectionBodyView::SectionBodyList(body_list_handle) => {
-                    self.section_stack.push(section_document);
-
                     if let Ok(Some(body_list)) = body_list_handle.get_view(tree) {
                         self.visit_section_body_list(body_list_handle, body_list, tree)?;
                     }
-
-                    section_document = self.section_stack.pop().unwrap();
                 }
                 SectionBodyView::Bind(_) => {
-                    // Direct assignment not fully supported
+                    // Direct assignment not fully supported yet
                 }
             }
         }
 
-        // Convert section document to value and insert into parent document
-        let section_value = document_to_value(section_document);
-        self.current_document().insert_node(path.into_iter(), section_value)?;
+        // Pop the section path from the stack
+        self.path_stack.pop();
 
         Ok(())
     }
 }
-
-
-// Convert EureDocument to Value, handling variants
-pub fn document_to_value(doc: EureDocument<Value>) -> Value {
-    let root = doc.get_root();
-    let value = node_to_value(&doc, root);
-    
-    // Check if this is a variant (has $variant field)
-    if let Value::Map(Map(mut map)) = value {
-        if let Some(Value::String(variant_name)) = map.get(&KeyCmpValue::String("$variant".to_string())) {
-            let variant_name = variant_name.clone();
-            
-            // Remove $variant and $variant.repr fields
-            map.remove(&KeyCmpValue::String("$variant".to_string()));
-            map.remove(&KeyCmpValue::String("$variant.repr".to_string()));
-            
-            // Create variant structure
-            let mut variant_map = AHashMap::new();
-            variant_map.insert(KeyCmpValue::String(variant_name), Value::Map(Map(map)));
-            Value::Map(Map(variant_map))
-        } else {
-            Value::Map(Map(map))
-        }
-    } else {
-        value
-    }
-}
-
-fn node_to_value(doc: &EureDocument<Value>, node: &eure_value::document::Node<Value>) -> Value {
-    use eure_value::document::{DocumentKey, NodeContent};
-    
-    match &node.content {
-        NodeContent::Value(v) => {
-            // If this node has extensions, create a map with extensions
-            if !node.extensions.is_empty() {
-                let mut map = AHashMap::new();
-                
-                // Store the actual value under _value key
-                map.insert(KeyCmpValue::String("_value".to_string()), v.clone());
-                
-                // Add extensions
-                for (ext_name, ext_node_id) in &node.extensions {
-                    let ext_node = doc.get_node(*ext_node_id);
-                    let ext_value = node_to_value(doc, ext_node);
-                    map.insert(
-                        KeyCmpValue::String(format!("${}", ext_name)),
-                        ext_value,
-                    );
-                }
-                
-                Value::Map(Map(map))
-            } else {
-                v.clone()
-            }
-        }
-        NodeContent::Map(entries) => {
-            let mut map = AHashMap::new();
-            
-            // Check if this is a tuple (all keys are TupleIndex)
-            let is_tuple = !entries.is_empty() && entries.iter().all(|(k, _)| matches!(k, DocumentKey::TupleIndex(_)));
-            
-            if is_tuple {
-                // Convert to tuple
-                let mut tuple_elements: Vec<(u8, Value)> = entries
-                    .iter()
-                    .filter_map(|(key, node_id)| {
-                        if let DocumentKey::TupleIndex(idx) = key {
-                            let child_node = doc.get_node(*node_id);
-                            let child_value = node_to_value(doc, child_node);
-                            Some((*idx, child_value))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                
-                // Sort by index
-                tuple_elements.sort_by_key(|(idx, _)| *idx);
-                
-                // Extract values in order
-                let values: Vec<Value> = tuple_elements.into_iter().map(|(_, v)| v).collect();
-                Value::Tuple(Tuple(values))
-            } else {
-                // Regular map
-                for (key, node_id) in entries {
-                    let child_node = doc.get_node(*node_id);
-                    let child_value = node_to_value(doc, child_node);
-                    
-                    let key_cmp = match key {
-                        DocumentKey::Ident(id) => KeyCmpValue::String(id.to_string()),
-                        DocumentKey::Extension(id) => KeyCmpValue::String(format!("${}", id)),
-                        DocumentKey::Value(v) => v.clone(),
-                        DocumentKey::TupleIndex(idx) => KeyCmpValue::U64(*idx as u64),
-                    };
-                    
-                    map.insert(key_cmp, child_value);
-                }
-                
-                // Add extensions
-                for (ext_name, ext_node_id) in &node.extensions {
-                    let ext_node = doc.get_node(*ext_node_id);
-                    let ext_value = node_to_value(doc, ext_node);
-                    map.insert(
-                        KeyCmpValue::String(format!("${}", ext_name)),
-                        ext_value,
-                    );
-                }
-                
-                Value::Map(Map(map))
-            }
-        }
-        NodeContent::Array(node_ids) => {
-            let elements: Vec<Value> = node_ids
-                .iter()
-                .map(|node_id| {
-                    let child_node = doc.get_node(*node_id);
-                    node_to_value(doc, child_node)
-                })
-                .collect();
-            Value::Array(Array(elements))
-        }
-    }
-}
-
-
