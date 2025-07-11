@@ -241,9 +241,9 @@ impl EureDocument {
                         self.get_or_insert_extension_child(current_id, id.clone(), current_path)?;
                 }
                 ArrayIndex(idx) => {
-                    if let Some(index) = *idx {
+                    if let Some(index) = idx {
                         current_id =
-                            self.get_or_insert_array_child(current_id, index as usize, current_path)?;
+                            self.get_or_insert_array_child(current_id, *index as usize, current_path)?;
                     } else {
                         // ArrayIndex(None) means unindexed array access like []
                         // This might need special handling depending on the use case
@@ -751,7 +751,7 @@ mod tests {
         // Insert into an array
         let path1 = vec![
             PathSegment::Ident(make_ident("items")),
-            PathSegment::ArrayIndex(0),
+            PathSegment::ArrayIndex(Some(0)),
         ];
         let content1 = NodeValue::String {
             handle: StringConstructionHandle::String(StrHandle(crate::tree::CstNodeId(0))),
@@ -836,7 +836,7 @@ mod tests {
             {
                 assert_eq!(field_entries.len(), 1);
                 let (key, _) = &field_entries[0];
-                assert!(matches!(key, DocumentKey::Extension(_)));
+                assert!(matches!(key, DocumentKey::MetaExtension(_)));
             }
         }
     }
@@ -890,7 +890,7 @@ mod tests {
         let mut doc = EureDocument::new();
         let path = vec![
             PathSegment::Ident(make_ident("items")),
-            PathSegment::ArrayIndex(0),
+            PathSegment::ArrayIndex(Some(0)),
         ];
 
         let content1 = NodeValue::String {
@@ -903,7 +903,7 @@ mod tests {
         // Insert at index 2 (should create intermediate empty nodes)
         let path2 = vec![
             PathSegment::Ident(make_ident("items")),
-            PathSegment::ArrayIndex(2),
+            PathSegment::ArrayIndex(Some(2)),
         ];
 
         let content2 = NodeValue::String {
@@ -959,7 +959,7 @@ mod tests {
         // Insert without index (should append)
         let path1 = vec![
             PathSegment::Ident(make_ident("list")),
-            PathSegment::ArrayIndex(0),
+            PathSegment::ArrayIndex(Some(0)),
         ];
         let content1 = NodeValue::String {
             handle: StringConstructionHandle::String(StrHandle(crate::tree::CstNodeId(0))),
@@ -970,7 +970,7 @@ mod tests {
 
         let path2 = vec![
             PathSegment::Ident(make_ident("list")),
-            PathSegment::ArrayIndex(1),
+            PathSegment::ArrayIndex(Some(1)),
         ];
         let content2 = NodeValue::String {
             handle: StringConstructionHandle::String(StrHandle(crate::tree::CstNodeId(0))),
@@ -1201,7 +1201,7 @@ mod tests {
 
         // Add array elements
         let mut array_elem_path = path_array.clone();
-        array_elem_path.push(PathSegment::ArrayIndex(0));
+        array_elem_path.push(PathSegment::ArrayIndex(Some(0)));
         let array_elem_content = NodeValue::I64 {
             handle: IntegerHandle(crate::tree::CstNodeId(5)),
             value: 10,

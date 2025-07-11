@@ -150,7 +150,7 @@ items = ["a", "b", "c", "d"]
     assert_eq!(errors.len(), 1, "Should have one error");
     assert!(matches!(
         &errors[0].kind,
-        ValidationErrorKind::LengthViolation { max, length, .. }
+        ValidationErrorKind::StringLengthViolation { max, length, .. }
         if *max == Some(3) && *length == 4
     ));
 }

@@ -6,9 +6,9 @@ use crate::schema_validation::SchemaManager;
 
 pub fn get_completions(
     text: &str,
-    cst: &Cst,
+    _cst: &Cst,
     position: Position,
-    trigger_character: Option<String>,
+    _trigger_character: Option<String>,
     uri: &str,
     schema_manager: &SchemaManager,
 ) -> Vec<CompletionItem> {

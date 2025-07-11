@@ -43,20 +43,20 @@ fn test_required_field_missing_display() {
 
 #[test]
 fn test_string_length_violation_display() {
-    let error = ValidationErrorKind::LengthViolation {
+    let error = ValidationErrorKind::StringLengthViolation {
         min: Some(3),
         max: Some(10),
-        actual: 15,
+        length: 15,
     };
     assert_eq!(
         error.to_string(),
         "String length must be between 3 and 10 characters, but got 15"
     );
     
-    let error_min_only = ValidationErrorKind::LengthViolation {
+    let error_min_only = ValidationErrorKind::StringLengthViolation {
         min: Some(5),
         max: None,
-        actual: 2,
+        length: 2,
     };
     assert_eq!(
         error_min_only.to_string(),
@@ -69,7 +69,7 @@ fn test_number_range_violation_display() {
     let error = ValidationErrorKind::RangeViolation {
         min: Some(0.0),
         max: Some(100.0),
-        actual: 150.0,
+        value: 150.0,
     };
     assert_eq!(
         error.to_string(),
@@ -118,7 +118,7 @@ fn test_validation_error_display() {
             actual: "string".to_string(),
         },
         severity: Severity::Error,
-        node_id: NodeId::from(0),
+        node_id: NodeId(0),
     };
     assert_eq!(
         error.to_string(),

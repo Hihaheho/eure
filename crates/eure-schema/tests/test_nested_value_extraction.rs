@@ -26,7 +26,10 @@ users.$array = .$types.User
     // Get document
     let document = visitor.into_document();
     
-    println!("Document root has {} entries", document.get_root().content.as_map().map(|e| e.len()).unwrap_or(0));
+    println!("Document root has {} entries", match &document.get_root().content {
+        NodeValue::Map { entries, .. } => entries.len(),
+        _ => 0
+    });
     
     // Check if users.$array has the correct Path value
     let root = document.get_root();

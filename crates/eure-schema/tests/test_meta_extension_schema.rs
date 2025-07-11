@@ -70,14 +70,14 @@ name.$rename = "userName"  # This should be valid string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension("rename".to_string()))
+            .contains_key(&KeyCmpValue::MetaExtension(Identifier::from_str("rename").unwrap()))
     );
     assert!(
         !extracted
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension("priority".to_string()))
+            .contains_key(&KeyCmpValue::MetaExtension(Identifier::from_str("priority").unwrap()))
     );
 }
 

@@ -66,7 +66,7 @@ pub fn format_eure(value: &Value) -> String {
                             && let PathSegment::ArrayIndex(idx) = &segments[i + 1]
                         {
                             // Combine identifier with array index
-                            match idx {
+                            match *idx {
                                 Some(index) => path_parts.push(format!("{}[{}]", id.as_ref(), index)),
                                 None => path_parts.push(format!("{}[]", id.as_ref())),
                             }
@@ -81,7 +81,7 @@ pub fn format_eure(value: &Value) -> String {
                     PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
                     PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
-                        match idx {
+                        match *idx {
                             Some(index) => path_parts.push(format!("[{index}]")),
                             None => path_parts.push("[]".to_string()),
                         }

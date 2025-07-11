@@ -302,7 +302,7 @@ pub fn validation_error_to_diagnostic(
                 None,
             )
         }
-        ValidationErrorKind::LengthViolation { min, max, length } => {
+        ValidationErrorKind::StringLengthViolation { min, max, length } => {
             let constraint = match (min, max) {
                 (Some(min), Some(max)) => format!("between {min} and {max}"),
                 (Some(min), None) => format!("at least {min}"),
@@ -399,6 +399,19 @@ pub fn validation_error_to_diagnostic(
                     "Hole value (!) found at '{path_str}' - holes must be filled with actual values"
                 ),
                 Some("eure-schema-hole-exists".to_string()),
+                None,
+            )
+        }
+        ValidationErrorKind::ArrayLengthViolation { min, max, length } => {
+            let constraint = match (min, max) {
+                (Some(min), Some(max)) => format!("between {min} and {max} items"),
+                (Some(min), None) => format!("at least {min} items"),
+                (None, Some(max)) => format!("at most {max} items"),
+                (None, None) => "unknown".to_string(),
+            };
+            (
+                format!("Array length {length} does not meet constraint: {constraint}"),
+                Some("eure-schema-array-length".to_string()),
                 None,
             )
         }
