@@ -43,11 +43,12 @@ tasks.$optional = true
     
     // Test 1: Valid variant with all required fields
     let valid_doc = r#"
-@ tasks[]
-$variant: create-file
-path = "/tmp/test.txt"
-content = "Hello, world!"
-description = "Create a test file"
+@ tasks[] {
+  $variant: create-file
+  path = "/tmp/test.txt"
+  content = "Hello, world!"
+  description = "Create a test file"
+}
 "#;
     
     let tree = eure_parol::parse(valid_doc).expect("Failed to parse document");
@@ -72,10 +73,11 @@ description = "Create a test file"
     
     // Test 2: Variant missing required fields (should error)
     let missing_required = r#"
-@ tasks[]
-$variant: create-file
-path = "/tmp/test.txt"
-# Missing required 'content' field
+@ tasks[] {
+  $variant: create-file
+  path = "/tmp/test.txt"
+  # Missing required 'content' field
+}
 "#;
     
     let tree2 = eure_parol::parse(missing_required).expect("Failed to parse document");
@@ -97,10 +99,11 @@ path = "/tmp/test.txt"
     
     // Test 3: Variant with unexpected fields
     let unexpected_field = r#"
-@ tasks[]
-$variant: run-command
-command = "ls -la"
-invalid_field = "should be reported"
+@ tasks[] {
+  $variant: run-command
+  command = "ls -la"
+  invalid_field = "should be reported"
+}
 "#;
     
     let tree3 = eure_parol::parse(unexpected_field).expect("Failed to parse document");
@@ -119,10 +122,11 @@ invalid_field = "should be reported"
     
     // Test 4: Valid variant-specific fields should NOT be reported as unexpected
     let valid_variant_fields = r#"
-@ tasks[]
-$variant: run-command
-command = "sleep 5"
-timeout = 1000
+@ tasks[] {
+  $variant: run-command
+  command = "sleep 5"
+  timeout = 1000
+}
 "#;
     
     let tree4 = eure_parol::parse(valid_variant_fields).expect("Failed to parse document");
@@ -142,9 +146,10 @@ timeout = 1000
     
     // Test 5: Invalid variant name
     let invalid_variant = r#"
-@ tasks[]
-$variant: invalid-variant
-some_field = "value"
+@ tasks[] {
+  $variant: invalid-variant
+  some_field = "value"
+}
 "#;
     
     let tree5 = eure_parol::parse(invalid_variant).expect("Failed to parse document");
@@ -164,10 +169,11 @@ some_field = "value"
     
     // Test 6: Missing $variant tag
     let missing_variant_tag = r#"
-@ tasks[]
-# No $variant field
-path = "/tmp/test.txt"
-content = "data"
+@ tasks[] {
+  # No $variant field
+  path = "/tmp/test.txt"
+  content = "data"
+}
 "#;
     
     let tree6 = eure_parol::parse(missing_variant_tag).expect("Failed to parse document");

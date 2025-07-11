@@ -105,8 +105,21 @@ impl<'a> DocumentValidator<'a> {
     }
 
     fn validate(&mut self) {
-        // Start validation from the root
+        // Check if there's a cascade type for the root
+        let root_path_key = PathKey::from_segments(&[]);
         let root_id = self.document.get_root_id();
+        
+        if let Some(cascade_type) = self.schema.cascade_types.get(&root_path_key) {
+            // Check if it's a variant cascade type
+            if let Type::Variants(variant_schema) = cascade_type {
+                // For any variant cascade type at root, validate as variant
+                let root_node = self.document.get_node(root_id);
+                self.validate_variant(root_id, root_node, &[], variant_schema);
+                return;
+            }
+        }
+        
+        // Normal object validation
         self.validate_object_fields(root_id, &[], &self.schema.root);
 
         // Check for missing required fields
@@ -240,7 +253,7 @@ impl<'a> DocumentValidator<'a> {
             }
             Type::TypeRef(type_name) => {
                 if let Some(referenced_type) = self.schema.types.get(type_name) {
-                    self.validate_type(node_id, path, &referenced_type.type_expr);
+                    self.validate_type_with_constraints(node_id, path, &referenced_type.type_expr, &referenced_type.constraints);
                 } else {
                     self.add_error(
                         node_id,
@@ -625,6 +638,9 @@ impl<'a> DocumentValidator<'a> {
     ) {
         // Use the general object validation which handles fields
         self.validate_object_fields(node_id, path, object_schema);
+        
+        // Check for missing required fields
+        self.check_missing_fields(path, &object_schema.fields);
     }
 
     fn validate_variant(
@@ -636,8 +652,68 @@ impl<'a> DocumentValidator<'a> {
     ) {
         let path_key = PathKey::from_segments(path);
 
-        // Try to determine the variant
-        let variant_name = match &variant_schema.representation {
+        // Check if variant was already determined via $variant extension
+        let variant_name = if let Some(variant_from_ext) = self.variant_context.get(&path_key) {
+            // Variant already known from extension, validate it exists
+            let variant_key = KeyCmpValue::String(variant_from_ext.clone());
+            if variant_schema.variants.contains_key(&variant_key) {
+                Some(Identifier::from_str(variant_from_ext).unwrap_or_else(|_| Identifier::from_str("unknown").unwrap()))
+            } else {
+                // Invalid variant name
+                self.add_error(
+                    node_id,
+                    ValidationErrorKind::UnknownVariant {
+                        variant: variant_from_ext.clone(),
+                        available: variant_schema.variants.keys()
+                            .map(|k| match k {
+                                KeyCmpValue::String(s) => s.clone(),
+                                _ => format!("{:?}", k)
+                            })
+                            .collect(),
+                    },
+                );
+                return;
+            }
+        } else {
+            // For Tagged representation, check if there's a $variant extension at this level
+            // This handles the case where $variant is used with Tagged representation
+            if matches!(&variant_schema.representation, VariantRepr::Tagged) {
+                // Debug: Print all extensions on this node
+                eprintln!("DEBUG validate_variant: Node extensions: {:?}", 
+                    node.extensions.keys().map(|k| k.to_string()).collect::<Vec<_>>());
+                
+                if let Some(variant_ext_id) = node.extensions.get(&Identifier::from_str("variant").unwrap()) {
+                    let variant_node = self.document.get_node(*variant_ext_id);
+                    if let NodeValue::String { value, .. } = &variant_node.content {
+                        // Store variant context
+                        self.variant_context.insert(path_key.clone(), value.clone());
+                        // Validate as internally tagged (variant fields at same level)
+                        let variant_key = KeyCmpValue::String(value.clone());
+                        if let Some(variant_type) = variant_schema.variants.get(&variant_key) {
+                            self.validate_object_fields(node_id, path, variant_type);
+                            self.check_missing_fields(path, &variant_type.fields);
+                            return;
+                        } else {
+                            self.add_error(
+                                node_id,
+                                ValidationErrorKind::UnknownVariant {
+                                    variant: value.clone(),
+                                    available: variant_schema.variants.keys()
+                                        .map(|k| match k {
+                                            KeyCmpValue::String(s) => s.clone(),
+                                            _ => format!("{:?}", k)
+                                        })
+                                        .collect(),
+                                },
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // Try to determine the variant
+            match &variant_schema.representation {
             VariantRepr::Tagged => {
                 // Look for single key that matches a variant name
                 if let NodeValue::Map { entries, .. } = &node.content {
@@ -717,6 +793,7 @@ impl<'a> DocumentValidator<'a> {
                 }
                 None
             }
+        }
         };
 
         if let Some(variant_name) = variant_name {
@@ -738,8 +815,9 @@ impl<'a> DocumentValidator<'a> {
                         }
                     }
                     VariantRepr::InternallyTagged { .. } => {
-                        // Content is mixed with tag
-                        self.validate_type(node_id, path, &Type::Object(variant_type.clone()));
+                        // Content is mixed with tag - validate as object but skip the $variant field
+                        self.validate_object_fields(node_id, path, variant_type);
+                        self.check_missing_fields(path, &variant_type.fields);
                     }
                     VariantRepr::AdjacentlyTagged { content, .. } => {
                         // Content is under content field

@@ -12,6 +12,7 @@ enum SimpleEnum {
 fn test_unit_variant() {
     let unit = SimpleEnum::Unit;
     let unit_eure = to_string(&unit).unwrap();
+    eprintln!("Unit variant serialized as: {}", unit_eure);
 
     let unit_back: SimpleEnum = from_str(&unit_eure).unwrap();
     assert_eq!(unit, unit_back);

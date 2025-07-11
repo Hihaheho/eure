@@ -11,6 +11,7 @@ use std::str::FromStr;
 enum CompletionContextType {
     AfterDot,
     AfterEquals,
+    AfterAt,
     Unknown,
 }
 
@@ -52,29 +53,43 @@ impl<'a> CompletionAnalyzer<'a> {
 
         // Check what's immediately before the cursor
         let context = self.analyze_context_before_cursor(byte_offset);
+        eprintln!("DEBUG: Context type determined: {:?}", context);
+        eprintln!("DEBUG: Byte offset: {}, Input length: {}", byte_offset, self.input.len());
+        eprintln!("DEBUG: Input at cursor: {:?}", &self.input[..byte_offset]);
+        
         // Check if we have a parse error at cursor position
         if let Some(error) = self.parse_result.error() {
             // Get the error string to analyze
             let _error_str = error.to_string();
-            if self.is_at_error_position(byte_offset) {
+            eprintln!("DEBUG: Parse error detected: {}", _error_str);
+            let at_error_pos = self.is_at_error_position(byte_offset);
+            eprintln!("DEBUG: Is at error position: {}", at_error_pos);
+            
+            if at_error_pos {
                 match context {
                     CompletionContextType::AfterDot => {
+                        eprintln!("DEBUG: Handling completion after dot");
                         // Extract the path up to this point
                         let mut path_extractor =
                             CstPathExtractor::new(self.input.clone(), byte_offset as u32);
                         let path = path_extractor.extract_path(get_cst_ref(&self.parse_result));
+                        eprintln!("DEBUG: Extracted path: {:?}", path);
 
                         // Get schema completions for this path
                         if let Some(schema_uri) =
                             self.schema_manager.get_document_schema_uri(self.uri)
                             && let Some(schema) = self.schema_manager.get_schema(schema_uri)
                         {
+                            eprintln!("DEBUG: Found schema, getting field completions");
                             return self.get_field_completions_for_path(&path, schema);
+                        } else {
+                            eprintln!("DEBUG: No schema found for URI: {}", self.uri);
                         }
 
                         return vec![];
                     }
                     CompletionContextType::AfterEquals => {
+                        eprintln!("DEBUG: Handling completion after equals");
                         return vec![
                             CompletionItem {
                                 label: "true".to_string(),
@@ -93,9 +108,26 @@ impl<'a> CompletionAnalyzer<'a> {
                             },
                         ];
                     }
-                    CompletionContextType::Unknown => {}
+                    CompletionContextType::AfterAt => {
+                        eprintln!("DEBUG: Handling completion after @");
+                        // Get root-level field completions
+                        if let Some(schema_uri) = self.schema_manager.get_document_schema_uri(self.uri)
+                            && let Some(schema) = self.schema_manager.get_schema(schema_uri)
+                        {
+                            eprintln!("DEBUG: Found schema, getting root field completions");
+                            return self.get_field_completions_for_path(&[], schema);
+                        } else {
+                            eprintln!("DEBUG: No schema found for URI: {}", self.uri);
+                        }
+                        return vec![];
+                    }
+                    CompletionContextType::Unknown => {
+                        eprintln!("DEBUG: Unknown context type in error handling");
+                    }
                 }
             }
+        } else {
+            eprintln!("DEBUG: No parse error detected");
         }
 
         // If no error, check if we're in a partial identifier context
@@ -138,6 +170,7 @@ impl<'a> CompletionAnalyzer<'a> {
 
     fn analyze_context_before_cursor(&self, byte_offset: usize) -> CompletionContextType {
         if byte_offset == 0 {
+            eprintln!("DEBUG analyze_context: byte_offset is 0, returning Unknown");
             return CompletionContextType::Unknown;
         }
 
@@ -146,16 +179,27 @@ impl<'a> CompletionAnalyzer<'a> {
 
         // Skip whitespace backwards
         let mut pos = byte_offset.saturating_sub(1);
+        eprintln!("DEBUG analyze_context: Starting pos: {}", pos);
         while pos > 0 && input_bytes[pos].is_ascii_whitespace() {
+            eprintln!("DEBUG analyze_context: Skipping whitespace at pos {}", pos);
             pos = pos.saturating_sub(1);
         }
 
         // Check what non-whitespace character we found
+        eprintln!("DEBUG analyze_context: Final pos: {}, char: {:?} ({})", 
+                 pos, input_bytes[pos] as char, input_bytes[pos]);
+        
         if input_bytes[pos] == b'.' {
+            eprintln!("DEBUG analyze_context: Found dot, returning AfterDot");
             CompletionContextType::AfterDot
         } else if input_bytes[pos] == b'=' {
+            eprintln!("DEBUG analyze_context: Found equals, returning AfterEquals");
             CompletionContextType::AfterEquals
+        } else if input_bytes[pos] == b'@' {
+            eprintln!("DEBUG analyze_context: Found at symbol, returning AfterAt");
+            CompletionContextType::AfterAt
         } else {
+            eprintln!("DEBUG analyze_context: Found other char, returning Unknown");
             CompletionContextType::Unknown
         }
     }
@@ -179,7 +223,10 @@ impl<'a> CompletionAnalyzer<'a> {
     fn is_at_error_position(&self, byte_offset: usize) -> bool {
         // For now, just check if we're at the end of input
         // In a real implementation, we'd check the actual error location
-        byte_offset == self.input.len()
+        let result = byte_offset == self.input.len();
+        eprintln!("DEBUG is_at_error_position: byte_offset={}, input.len()={}, result={}", 
+                 byte_offset, self.input.len(), result);
+        result
     }
 
     fn get_field_completions_for_path(
@@ -187,30 +234,42 @@ impl<'a> CompletionAnalyzer<'a> {
         path: &[String],
         schema: &DocumentSchema,
     ) -> Vec<CompletionItem> {
+        eprintln!("DEBUG get_field_completions: path = {:?}", path);
+        
         // Convert string path to PathSegments
         let path_segments: Vec<PathSegment> = path
             .iter()
             .filter_map(|s| Identifier::from_str(s).ok().map(PathSegment::Ident))
             .collect();
+        eprintln!("DEBUG get_field_completions: path_segments = {:?}", path_segments);
 
         // Look up the schema at this path
         let object_schema = if path_segments.is_empty() {
+            eprintln!("DEBUG get_field_completions: Using root schema");
             &schema.root
         } else {
             match self.lookup_schema_at_path(&path_segments, &schema.root) {
-                Some(obj) => obj,
-                None => return vec![],
+                Some(obj) => {
+                    eprintln!("DEBUG get_field_completions: Found schema at path");
+                    obj
+                },
+                None => {
+                    eprintln!("DEBUG get_field_completions: No schema found at path");
+                    return vec![];
+                },
             }
         };
 
         // Generate completions from the fields
         let mut completions = vec![];
+        eprintln!("DEBUG get_field_completions: Number of fields: {}", object_schema.fields.len());
         for (field_name, field_schema) in &object_schema.fields {
             let label = match field_name {
                 eure_value::value::KeyCmpValue::String(s) => s.clone(),
                 eure_value::value::KeyCmpValue::MetaExtension(s) => format!("${s}"),
                 _ => continue, // Skip non-string keys for completion
             };
+            eprintln!("DEBUG get_field_completions: Adding field: {}", label);
             completions.push(CompletionItem {
                 label,
                 kind: Some(CompletionItemKind::FIELD),
@@ -224,6 +283,7 @@ impl<'a> CompletionAnalyzer<'a> {
             });
         }
 
+        eprintln!("DEBUG get_field_completions: Returning {} completions", completions.len());
         completions
     }
 
@@ -232,6 +292,12 @@ impl<'a> CompletionAnalyzer<'a> {
         path: &[PathSegment],
         schema: &'b ObjectSchema,
     ) -> Option<&'b ObjectSchema> {
+        eprintln!("DEBUG lookup_schema_at_path: path = {:?}", path);
+        eprintln!("DEBUG lookup_schema_at_path: schema has {} fields", schema.fields.len());
+        for (k, _) in &schema.fields {
+            eprintln!("  - Field: {:?}", k);
+        }
+        
         if path.is_empty() {
             return Some(schema);
         }
@@ -242,7 +308,9 @@ impl<'a> CompletionAnalyzer<'a> {
         match segment {
             PathSegment::Ident(field_name) => {
                 let key = eure_value::value::KeyCmpValue::String(field_name.to_string());
+                eprintln!("DEBUG lookup_schema_at_path: Looking for field {:?}", key);
                 if let Some(field_schema) = schema.fields.get(&key) {
+                    eprintln!("DEBUG lookup_schema_at_path: Found field, type = {:?}", field_schema.type_expr);
                     match &field_schema.type_expr {
                         eure_schema::Type::Object(obj) => {
                             self.lookup_schema_at_path(remaining, obj)

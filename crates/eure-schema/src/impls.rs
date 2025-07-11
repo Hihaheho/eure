@@ -133,13 +133,17 @@ impl<K: ToEureSchema, V: ToEureSchema> ToEureSchema for BTreeMap<K, V> {
 
 impl<T: ToEureSchema> ToEureSchema for HashSet<T> {
     fn eure_schema() -> FieldSchema {
-        Vec::<T>::eure_schema()
+        let mut schema = Vec::<T>::eure_schema();
+        schema.constraints.unique = Some(true);
+        schema
     }
 }
 
 impl<T: ToEureSchema> ToEureSchema for BTreeSet<T> {
     fn eure_schema() -> FieldSchema {
-        Vec::<T>::eure_schema()
+        let mut schema = Vec::<T>::eure_schema();
+        schema.constraints.unique = Some(true);
+        schema
     }
 }
 

@@ -190,10 +190,21 @@ impl SchemaBuilder {
                 match key {
                     DocumentKey::Ident(ident) => {
                         if path.is_empty() {
-                            // Regular field at root level
-                            if let Some(field_schema) = self.extract_field_schema_from_node(doc, ident.as_ref(), child_node)? {
-                                self.root_fields.insert(KeyCmpValue::String(ident.to_string()), field_schema);
+                            // Check if this is the types namespace
+                            if ident.as_ref() == "types" {
+                                // Process as types namespace
+                                self.process_types_node(doc, child_node)?;
+                            } else {
+                                // Regular field at root level
+                                if let Some(field_schema) = self.extract_field_schema_from_node(doc, ident.as_ref(), child_node)? {
+                                    self.root_fields.insert(KeyCmpValue::String(ident.to_string()), field_schema);
+                                }
                             }
+                        } else {
+                            // For nested paths, recursively process
+                            let mut new_path = path.to_vec();
+                            new_path.push(ident.as_ref());
+                            self.process_node(doc, child_node, &new_path)?;
                         }
                     }
                     DocumentKey::MetaExtension(meta_ext_ident) => {
@@ -282,8 +293,35 @@ impl SchemaBuilder {
                     }));
                 }
 
-                // Otherwise, extract as regular field schema
-                self.extract_field_schema_from_node(doc, type_name, node)
+                // Check if this is an object type definition with fields
+                let mut fields = IndexMap::new();
+                let mut has_fields = false;
+                
+                if let NodeValue::Map { entries, .. } = &node.content {
+                    for (key, field_node_id) in entries {
+                        if let DocumentKey::Ident(field_name) = key {
+                            let field_node = doc.get_node(*field_node_id);
+                            if let Some(field_schema) = self.extract_field_schema_from_node(doc, field_name.as_ref(), field_node)? {
+                                fields.insert(KeyCmpValue::String(field_name.to_string()), field_schema);
+                                has_fields = true;
+                            }
+                        }
+                    }
+                }
+                
+                if has_fields {
+                    // This is an object type with fields
+                    Ok(Some(FieldSchema {
+                        type_expr: Type::Object(ObjectSchema {
+                            fields,
+                            additional_properties: None,
+                        }),
+                        ..Default::default()
+                    }))
+                } else {
+                    // Otherwise, extract as regular field schema
+                    self.extract_field_schema_from_node(doc, type_name, node)
+                }
             }
             _ => Ok(None),
         }
@@ -364,6 +402,38 @@ impl SchemaBuilder {
                     // This would need to be added if enum validation is required
                     has_schema = true;
                 }
+                "array" => {
+                    // Handle array extension: field.$array = .type or field.$array = { inline object }
+                    match &ext_node.content {
+                        NodeValue::Path { value: path, .. } => {
+                            // Array with type reference: field.$array = .$types.Item
+                            if let Some(elem_type) = Type::from_path_segments(&path.0) {
+                                schema.type_expr = Type::Array(Box::new(elem_type));
+                                has_schema = true;
+                            }
+                        }
+                        NodeValue::Map { .. } => {
+                            // Array with inline object: field.$array = { id = .number, name = .string }
+                            let mut fields = IndexMap::new();
+                            if let NodeValue::Map { entries, .. } = &ext_node.content {
+                                for (key, field_node_id) in entries {
+                                    if let DocumentKey::Ident(field_name) = key {
+                                        let field_node = doc.get_node(*field_node_id);
+                                        if let Some(field_schema) = self.extract_field_schema_from_node(doc, field_name.as_ref(), field_node)? {
+                                            fields.insert(KeyCmpValue::String(field_name.to_string()), field_schema);
+                                        }
+                                    }
+                                }
+                            }
+                            schema.type_expr = Type::Array(Box::new(Type::Object(ObjectSchema {
+                                fields,
+                                additional_properties: None,
+                            })));
+                            has_schema = true;
+                        }
+                        _ => {}
+                    }
+                }
                 _ => {}
             }
         }
@@ -383,6 +453,32 @@ impl SchemaBuilder {
                 // This is a field with both schema and default value
                 if let Some(val) = Self::node_content_to_serde_value(&node.content) {
                     schema.default_value = Some(val);
+                }
+            }
+            NodeValue::Map { .. } if !has_schema => {
+                // Check if this is a map containing fields with schemas (i.e., an object schema)
+                let mut fields = IndexMap::new();
+                let mut has_schema_fields = false;
+                
+                if let NodeValue::Map { entries, .. } = &node.content {
+                    for (key, field_node_id) in entries {
+                        if let DocumentKey::Ident(field_name) = key {
+                            let field_node = doc.get_node(*field_node_id);
+                            if let Some(field_schema) = self.extract_field_schema_from_node(doc, field_name.as_ref(), field_node)? {
+                                fields.insert(KeyCmpValue::String(field_name.to_string()), field_schema);
+                                has_schema_fields = true;
+                            }
+                        }
+                    }
+                }
+                
+                if has_schema_fields {
+                    // This is an object with schema fields
+                    schema.type_expr = Type::Object(ObjectSchema {
+                        fields,
+                        additional_properties: None,
+                    });
+                    has_schema = true;
                 }
             }
             _ => {}

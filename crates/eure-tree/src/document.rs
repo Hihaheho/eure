@@ -177,86 +177,186 @@ impl EureDocument {
     }
 
     /// Insert a node content at the given path with recursively insert missing map nodes.
+    /// Returns the NodeId of the inserted node and the resolved path (with actual array indices)
+    pub fn insert_node_with_resolved_path(
+        &mut self,
+        path: impl Iterator<Item = PathSegment>,
+        content: NodeValue,
+    ) -> Result<(NodeId, Vec<PathSegment>), InsertError> {
+        let segments: Vec<PathSegment> = path.collect();
+        
+        // Track if we're creating a new array element
+        let _creating_array_element = segments.windows(2).any(|w| {
+            matches!(&w[1], PathSegment::ArrayIndex(None))
+        }) || matches!(segments.last(), Some(PathSegment::ArrayIndex(None)));
+        
+        let node_id = self.traverse_or_insert_path(&segments)?;
+        
+        // TODO: Build the resolved path with actual array indices
+        let resolved_path = segments.clone(); // For now, just use the original path
+        
+        self.insert_node_at_id(node_id, content, &segments)?;
+        
+        Ok((node_id, resolved_path))
+    }
+    
+    /// Insert a node content at the given path with recursively insert missing map nodes.
     pub fn insert_node(
         &mut self,
         path: impl Iterator<Item = PathSegment>,
         content: NodeValue,
     ) -> Result<NodeId, InsertError> {
-        let segments: Vec<PathSegment> = path.collect();
-        let node_id = self.traverse_or_insert_path(&segments)?;
+        let (node_id, _) = self.insert_node_with_resolved_path(path, content)?;
+        Ok(node_id)
+    }
+    
+    fn insert_node_at_id(
+        &mut self,
+        node_id: NodeId,
+        content: NodeValue,
+        segments: &[PathSegment],
+    ) -> Result<(), InsertError> {
+
+        // Check if this is an array element assignment (path ends with array index)
+        let is_array_element = segments.len() >= 2 && 
+            matches!(segments[segments.len() - 1], PathSegment::ArrayIndex(_));
 
         // If target has any existing content (not an empty map), treat as already assigned.
-        if !matches!(&self.nodes[node_id.0].content, NodeValue::Map { handle: _, entries } if entries.is_empty())
-        {
+        // Exception: for array elements, we can replace synthetic map nodes or null placeholders
+        if !matches!(&self.nodes[node_id.0].content, NodeValue::Map { handle: _, entries } if entries.is_empty()) {
+            if is_array_element {
+                // For array elements, check if it's a placeholder that can be replaced
+                match &self.nodes[node_id.0].content {
+                    NodeValue::Map { handle: MapConstructionHandle::Synthetic, entries } if entries.is_empty() && self.nodes[node_id.0].extensions.is_empty() => {
+                        // It's a synthetic empty map created for array element, safe to replace
+                        self.nodes[node_id.0].content = content;
+                        return Ok(());
+                    }
+                    NodeValue::Null { .. } => {
+                        // It's a null placeholder, safe to replace
+                        self.nodes[node_id.0].content = content;
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            
             return Err(InsertError::AlreadyAssigned {
-                path: Path(segments),
+                path: Path(segments.to_vec()),
                 key: DocumentKey::Value(KeyCmpValue::Null), // TODO: proper key
             });
         }
 
         // Otherwise assign the content (only if the current map is empty with no extensions).
         self.nodes[node_id.0].content = content;
-        Ok(node_id)
+        Ok(())
     }
 
     /// Internal helper – traverse the document following the given path, inserting
     /// intermediate nodes as necessary. Returns the `NodeId` of the final segment.
     fn traverse_or_insert_path(&mut self, segments: &[PathSegment]) -> Result<NodeId, InsertError> {
+        self.traverse_or_insert_path_from(self.root, segments, &[])
+    }
+    
+    /// Recursive helper to traverse paths with proper extension handling
+    fn traverse_or_insert_path_from(
+        &mut self, 
+        start_id: NodeId,
+        segments: &[PathSegment],
+        path_so_far: &[PathSegment],
+    ) -> Result<NodeId, InsertError> {
         use PathSegment::*;
-        let mut current_id = self.root;
-
-        for (i, segment) in segments.iter().enumerate() {
-            let current_path = &segments[..=i];
-            match segment {
-                Ident(id) => {
-                    current_id = self.get_or_insert_child_map(
-                        current_id,
+        
+        
+        if segments.is_empty() {
+            return Ok(start_id);
+        }
+        
+        let (first, rest) = segments.split_first().unwrap();
+        let mut current_path = path_so_far.to_vec();
+        current_path.push(first.clone());
+        
+        // Check if the next segment is an array index to determine if we should create an array
+        let should_create_array = rest.first().map_or(false, |next| matches!(next, ArrayIndex(_)));
+        
+        let next_id = match first {
+            Ident(id) => {
+                if should_create_array {
+                    // Create or get an array node
+                    self.get_or_insert_array_node(
+                        start_id,
                         DocumentKey::Ident(id.clone()),
-                        current_path,
-                    )?;
-                }
-                MetaExt(id) => {
-                    current_id = self.get_or_insert_child_map(
-                        current_id,
-                        DocumentKey::MetaExtension(id.clone()),
-                        current_path,
-                    )?;
-                }
-                Value(key_val) => {
-                    current_id = self.get_or_insert_child_map(
-                        current_id,
-                        DocumentKey::Value(key_val.clone()),
-                        current_path,
-                    )?;
-                }
-                TupleIndex(idx) => {
-                    current_id = self.get_or_insert_child_map(
-                        current_id,
-                        DocumentKey::TupleIndex(*idx),
-                        current_path,
-                    )?;
-                }
-                Extension(id) => {
-                    current_id =
-                        self.get_or_insert_extension_child(current_id, id.clone(), current_path)?;
-                }
-                ArrayIndex(idx) => {
-                    if let Some(index) = idx {
-                        current_id =
-                            self.get_or_insert_array_child(current_id, *index as usize, current_path)?;
-                    } else {
-                        // ArrayIndex(None) means unindexed array access like []
-                        // This might need special handling depending on the use case
-                        return Err(InsertError::PathConflict {
-                            path: Path(current_path.to_vec()),
-                            found: "unindexed array access",
-                        });
-                    }
+                        &current_path,
+                    )?
+                } else {
+                    self.get_or_insert_child_map(
+                        start_id,
+                        DocumentKey::Ident(id.clone()),
+                        &current_path,
+                    )?
                 }
             }
-        }
-
-        Ok(current_id)
+            MetaExt(id) => {
+                self.get_or_insert_child_map(
+                    start_id,
+                    DocumentKey::MetaExtension(id.clone()),
+                    &current_path,
+                )?
+            }
+            Value(key_val) => {
+                if should_create_array {
+                    // Create or get an array node
+                    self.get_or_insert_array_node(
+                        start_id,
+                        DocumentKey::Value(key_val.clone()),
+                        &current_path,
+                    )?
+                } else {
+                    self.get_or_insert_child_map(
+                        start_id,
+                        DocumentKey::Value(key_val.clone()),
+                        &current_path,
+                    )?
+                }
+            }
+            TupleIndex(idx) => {
+                self.get_or_insert_child_map(
+                    start_id,
+                    DocumentKey::TupleIndex(*idx),
+                    &current_path,
+                )?
+            }
+            Extension(id) => {
+                // Get or create extension node
+                let parent_node = &self.nodes[start_id.0];
+                if let Some(&existing_id) = parent_node.extensions.get(id) {
+                    existing_id
+                } else {
+                    // Create new extension node
+                    let new_node_id = NodeId(self.nodes.len());
+                    self.nodes.push(Node {
+                        content: NodeValue::Map {
+                            handle: MapConstructionHandle::Synthetic,
+                            entries: vec![],
+                        },
+                        extensions: AHashMap::new(),
+                    });
+                    self.nodes[start_id.0].extensions.insert(id.clone(), new_node_id);
+                    new_node_id
+                }
+            }
+            ArrayIndex(idx) => {
+                
+                if let Some(index) = idx {
+                    self.get_or_insert_array_child(start_id, *index as usize, &current_path)?
+                } else {
+                    self.get_or_insert_array_append(start_id, &current_path)?
+                }
+            }
+        };
+        
+        // Recursively process the rest of the path
+        self.traverse_or_insert_path_from(next_id, rest, &current_path)
     }
 
     /// Ensure the current node is a map and return the `NodeId` of the child under the given key.
@@ -343,37 +443,6 @@ impl EureDocument {
         Ok(new_node_id)
     }
 
-    /// Similar to `get_or_insert_child_map` but for extension namespace – utilises the
-    /// `extensions` hashmap on each node instead of the map content.
-    fn get_or_insert_extension_child(
-        &mut self,
-        parent_id: NodeId,
-        name: Identifier,
-        _path: &[PathSegment],
-    ) -> Result<NodeId, InsertError> {
-        // Check if existing child exists
-        {
-            let parent_node = &self.nodes[parent_id.0];
-            if let Some(child_id) = parent_node.extensions.get(&name).copied() {
-                return Ok(child_id);
-            }
-        }
-
-        // Create new child node.
-        let new_node_id = NodeId(self.nodes.len());
-        self.nodes.push(Node {
-            content: NodeValue::Map {
-                handle: MapConstructionHandle::Synthetic,
-                entries: vec![],
-            },
-            extensions: AHashMap::new(),
-        });
-
-        // Insert into the extensions map.
-        self.nodes[parent_id.0].extensions.insert(name, new_node_id);
-
-        Ok(new_node_id)
-    }
 
     /// Ensure the current node is an array and return the `NodeId` of the element at the given
     /// index, creating intermediate elements as necessary. If `index` is `None`, a new element is
@@ -465,9 +534,8 @@ impl EureDocument {
             while get_len(&self.nodes, parent_id) <= index {
                 let new_node_id = NodeId(self.nodes.len());
                 self.nodes.push(Node {
-                    content: NodeValue::Map {
-                        handle: MapConstructionHandle::Synthetic,
-                        entries: vec![],
+                    content: NodeValue::Null {
+                        handle: NullHandle(crate::tree::CstNodeId(0)),
                     },
                     extensions: AHashMap::new(),
                 });
@@ -496,6 +564,197 @@ impl EureDocument {
         };
 
         Ok(resolved_id)
+    }
+    
+    /// Get or insert an array node at the given key
+    fn get_or_insert_array_node(
+        &mut self,
+        parent_id: NodeId,
+        key: DocumentKey,
+        current_path: &[PathSegment],
+    ) -> Result<NodeId, InsertError> {
+        
+        // First, check if the parent is already a non-map value - if so, error
+        let conflict_path = if current_path.is_empty() {
+            current_path
+        } else {
+            &current_path[..current_path.len() - 1]
+        };
+
+        match &self.nodes[parent_id.0].content {
+            NodeValue::Null { .. }
+            | NodeValue::Bool { .. }
+            | NodeValue::I64 { .. }
+            | NodeValue::U64 { .. }
+            | NodeValue::F32 { .. }
+            | NodeValue::F64 { .. }
+            | NodeValue::String { .. }
+            | NodeValue::Code { .. }
+            | NodeValue::CodeBlock { .. }
+            | NodeValue::NamedCode { .. }
+            | NodeValue::Path { .. }
+            | NodeValue::Hole { .. } => {
+                return Err(InsertError::PathConflict {
+                    path: Path(conflict_path.to_vec()),
+                    found: "value",
+                });
+            }
+            NodeValue::Array { .. } => {
+                return Err(InsertError::PathConflict {
+                    path: Path(conflict_path.to_vec()),
+                    found: "array",
+                });
+            }
+            NodeValue::Tuple { .. } => {
+                return Err(InsertError::PathConflict {
+                    path: Path(conflict_path.to_vec()),
+                    found: "tuple",
+                });
+            }
+            NodeValue::Map { .. } => {
+                // This is fine, continue
+            }
+        }
+
+        // Find existing child
+        let existing_child = if let NodeValue::Map {
+            handle: _,
+            ref entries,
+        } = self.nodes[parent_id.0].content
+        {
+            entries.iter().find(|(k, _)| k == &key).map(|(_, id)| *id)
+        } else {
+            None
+        };
+
+        if let Some(child_id) = existing_child {
+            // Child exists - ensure it's an array or can be converted
+            match &self.nodes[child_id.0].content {
+                NodeValue::Array { .. } => Ok(child_id),
+                NodeValue::Map { handle: _, entries } if entries.is_empty() => {
+                    // Convert empty map to array
+                    self.nodes[child_id.0].content = NodeValue::Array {
+                        handle: ArrayConstructionHandle::ArrayMarker(ArrayMarkerHandle(
+                            crate::tree::CstNodeId(0),
+                        )),
+                        children: vec![],
+                    };
+                    Ok(child_id)
+                }
+                _ => Err(InsertError::PathConflict {
+                    path: Path(current_path.to_vec()),
+                    found: "non-array value",
+                }),
+            }
+        } else {
+            // Create new array node
+            let new_node_id = NodeId(self.nodes.len());
+            self.nodes.push(Node {
+                content: NodeValue::Array {
+                    handle: ArrayConstructionHandle::ArrayMarker(ArrayMarkerHandle(
+                        crate::tree::CstNodeId(0),
+                    )),
+                    children: vec![],
+                },
+                extensions: AHashMap::new(),
+            });
+
+            // Insert into parent map
+            if let NodeValue::Map {
+                handle: _,
+                ref mut entries,
+            } = self.nodes[parent_id.0].content
+            {
+                entries.push((key, new_node_id));
+            } else {
+                // Parent should be a map at this point
+                self.nodes[parent_id.0].content = NodeValue::Map {
+                    handle: MapConstructionHandle::Synthetic,
+                    entries: vec![(key, new_node_id)],
+                };
+            }
+
+            Ok(new_node_id)
+        }
+    }
+    
+    /// Append a new element to an array node
+    fn get_or_insert_array_append(
+        &mut self,
+        parent_id: NodeId,
+        current_path: &[PathSegment],
+    ) -> Result<NodeId, InsertError> {
+        
+        // The conflict is at the parent path (excluding the current array segment)
+        let conflict_path = if current_path.is_empty() {
+            current_path
+        } else {
+            &current_path[..current_path.len() - 1]
+        };
+
+        // Check if the parent is already a non-array value - if so, error
+        match &self.nodes[parent_id.0].content {
+            NodeValue::Null { .. }
+            | NodeValue::Bool { .. }
+            | NodeValue::I64 { .. }
+            | NodeValue::U64 { .. }
+            | NodeValue::F32 { .. }
+            | NodeValue::F64 { .. }
+            | NodeValue::String { .. }
+            | NodeValue::Code { .. }
+            | NodeValue::CodeBlock { .. }
+            | NodeValue::NamedCode { .. }
+            | NodeValue::Path { .. }
+            | NodeValue::Hole { .. } => {
+                return Err(InsertError::PathConflict {
+                    path: Path(conflict_path.to_vec()),
+                    found: "value",
+                });
+            }
+            NodeValue::Map { handle: _, entries } if !entries.is_empty() => {
+                return Err(InsertError::PathConflict {
+                    path: Path(conflict_path.to_vec()),
+                    found: "map",
+                });
+            }
+            NodeValue::Tuple { .. } => {
+                return Err(InsertError::PathConflict {
+                    path: Path(conflict_path.to_vec()),
+                    found: "tuple",
+                });
+            }
+            NodeValue::Array { .. } | NodeValue::Map { .. } => {
+                // This is fine, continue
+            }
+        }
+
+        // Ensure the parent content is an array
+        if !matches!(&self.nodes[parent_id.0].content, NodeValue::Array { .. }) {
+            // Use a dummy handle for synthetic arrays
+            self.nodes[parent_id.0].content = NodeValue::Array {
+                handle: ArrayConstructionHandle::ArrayMarker(ArrayMarkerHandle(
+                    crate::tree::CstNodeId(0),
+                )),
+                children: vec![],
+            };
+        }
+
+        // Create new child node
+        let new_node_id = NodeId(self.nodes.len());
+        self.nodes.push(Node {
+            content: NodeValue::Map {
+                handle: MapConstructionHandle::Synthetic,
+                entries: vec![],
+            },
+            extensions: AHashMap::new(),
+        });
+
+        // Append to the array
+        if let NodeValue::Array { handle: _, children } = &mut self.nodes[parent_id.0].content {
+            children.push(new_node_id);
+        }
+
+        Ok(new_node_id)
     }
 }
 

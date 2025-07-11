@@ -21,6 +21,14 @@ fn get_completions_with_schema(input: &str, schema_text: &str) -> Vec<Completion
     schema_manager.load_schema("test://schema", schema_text, &schema_cst).unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
     
+    // Debug: print the loaded schema
+    if let Some(schema) = schema_manager.get_schema("test://schema") {
+        eprintln!("DEBUG test: Loaded schema has {} root fields", schema.root.fields.len());
+        for (k, _) in &schema.root.fields {
+            eprintln!("  - Root field: {:?}", k);
+        }
+    }
+    
     get_completions(
         input,
         &cst,

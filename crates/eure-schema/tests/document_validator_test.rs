@@ -65,6 +65,14 @@ fn test_missing_required_field() {
             ..Default::default()
         }
     );
+    schema.root.fields.insert(
+        KeyCmpValue::String("age".to_string()),
+        FieldSchema {
+            type_expr: Type::Number,
+            optional: true,
+            ..Default::default()
+        }
+    );
     
     // Document missing required field
     let invalid_doc = r#"

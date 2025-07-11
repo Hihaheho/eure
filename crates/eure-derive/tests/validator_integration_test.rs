@@ -170,8 +170,8 @@ fn test_constraints_validation() {
     let valid = r#"
 username = "john_doe"
 age = 25
-@ tags[0] = "developer"
-@ tags[1] = "rust"
+tags[0] = "developer"
+tags[1] = "rust"
 "#;
     
     match validate_document::<User>(valid) {
@@ -183,7 +183,7 @@ age = 25
     let short_username = r#"
 username = "jo"
 age = 25
-@ tags[0] = "developer"
+tags[0] = "developer"
 "#;
     
     let result = validate_document::<User>(short_username);
@@ -196,7 +196,7 @@ age = 25
     let invalid_pattern = r#"
 username = "john-doe!"
 age = 25
-@ tags[0] = "developer"
+tags[0] = "developer"
 "#;
     
     let result = validate_document::<User>(invalid_pattern);
@@ -208,24 +208,24 @@ age = 25
     let invalid_age = r#"
 username = "john_doe"
 age = 150
-@ tags[0] = "developer"
+tags[0] = "developer"
 "#;
     
     let result = validate_document::<User>(invalid_age);
     assert!(result.is_err());
     let err_msg = result.unwrap_err();
-    assert!(err_msg.contains("range") || err_msg.contains("NumberRangeViolation"));
+    assert!(err_msg.contains("RangeViolation") || err_msg.contains("range"));
     
     // Too many tags
     let too_many_tags = r#"
 username = "john_doe"
 age = 25
-@ tags[0] = "one"
-@ tags[1] = "two"
-@ tags[2] = "three"
-@ tags[3] = "four"
-@ tags[4] = "five"
-@ tags[5] = "six"
+tags[0] = "one"
+tags[1] = "two"
+tags[2] = "three"
+tags[3] = "four"
+tags[4] = "five"
+tags[5] = "six"
 "#;
     
     let result = validate_document::<User>(too_many_tags);
@@ -308,7 +308,13 @@ name = "Acme Corp"
 }
 "#;
     
-    assert!(validate_document_with_types::<Company>(missing_nested, type_defs).is_err());
+    match validate_document_with_types::<Company>(missing_nested, type_defs) {
+        Ok(_) => panic!("Expected validation to fail for missing nested field"),
+        Err(e) => {
+            println!("Got expected error: {e}");
+            assert!(e.contains("city") || e.contains("City"), "Expected error about missing 'city' field, got: {e}");
+        }
+    }
 }
 
 #[test]
@@ -404,9 +410,9 @@ fn test_array_validation() {
     // Valid array
     let valid = r#"
 title = "Shopping List"
-@ items[0] = "Milk"
-@ items[1] = "Bread"
-@ items[2] = "Eggs"
+items[0] = "Milk"
+items[1] = "Bread"
+items[2] = "Eggs"
 "#;
     
     assert!(validate_document::<TodoList>(valid).is_ok());

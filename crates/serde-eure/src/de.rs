@@ -299,6 +299,17 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::String(s) => visitor.visit_str(s),
             Value::Code(Code { content, .. }) => visitor.visit_str(content),
             Value::CodeBlock(Code { content, .. }) => visitor.visit_str(content),
+            // Special handling for wrapped values (e.g., "value = ...")
+            Value::Map(map) if map.0.len() == 1 => {
+                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string())) {
+                    visitor.visit_str(s)
+                } else {
+                    Err(Error::InvalidType(format!(
+                        "expected string, found {:?}",
+                        self.value
+                    )))
+                }
+            }
             _ => Err(Error::InvalidType(format!(
                 "expected string, found {:?}",
                 self.value
@@ -314,6 +325,17 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::String(s) => visitor.visit_string(s.clone()),
             Value::Code(Code { content, .. }) => visitor.visit_string(content.clone()),
             Value::CodeBlock(Code { content, .. }) => visitor.visit_string(content.clone()),
+            // Special handling for wrapped values (e.g., "value = ...")
+            Value::Map(map) if map.0.len() == 1 => {
+                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string())) {
+                    visitor.visit_string(s.clone())
+                } else {
+                    Err(Error::InvalidType(format!(
+                        "expected string, found {:?}",
+                        self.value
+                    )))
+                }
+            }
             _ => Err(Error::InvalidType(format!(
                 "expected string, found {:?}",
                 self.value
