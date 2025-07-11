@@ -58,11 +58,10 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
     // Handle root-level cascade type
     if let Some(cascade_node_id) = root.extensions.get(&Identifier::from_str("cascade-type").unwrap()) {
         let cascade_node = doc.get_node(*cascade_node_id);
-        if let NodeValue::Path { value: path, .. } = &cascade_node.content {
-            if let Some(cascade_type) = Type::from_path_segments(&path.0) {
+        if let NodeValue::Path { value: path, .. } = &cascade_node.content
+            && let Some(cascade_type) = Type::from_path_segments(&path.0) {
                 schema.cascade_types.insert(PathKey::from_segments(&[]), cascade_type);
             }
-        }
     }
 
     // Handle global serde options
@@ -156,8 +155,8 @@ impl SchemaBuilder {
                 }
                 "cascade-type" => {
                     // Handle cascade-type at any level
-                    if let NodeValue::Path { value: type_path, .. } = &ext_node.content {
-                        if let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
+                    if let NodeValue::Path { value: type_path, .. } = &ext_node.content
+                        && let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
                             let path_segments: Vec<PathSegment> = path.iter()
                                 .map(|s| PathSegment::Ident(
                                     Identifier::from_str(s).unwrap_or_else(|_| Identifier::from_str("unknown").unwrap())
@@ -165,19 +164,17 @@ impl SchemaBuilder {
                                 .collect();
                             self.cascade_types.insert(PathKey::from_segments(&path_segments), cascade_type);
                         }
-                    }
                 }
                 _ => {
                     // Other extensions might be field schemas
-                    if path.is_empty() {
-                        if let Some(schema) = self.extract_field_schema_from_node(doc, ext_name.as_ref(), ext_node)? {
+                    if path.is_empty()
+                        && let Some(schema) = self.extract_field_schema_from_node(doc, ext_name.as_ref(), ext_node)? {
                             // Store extension schemas directly by their identifier
                             self.root_fields.insert(
                                 KeyCmpValue::MetaExtension(ext_name.clone()),
                                 schema
                             );
                         }
-                    }
                 }
             }
         }
@@ -338,12 +335,11 @@ impl SchemaBuilder {
 
             match ext_name.as_ref() {
                 "type" => {
-                    if let NodeValue::Path { value: path, .. } = &ext_node.content {
-                        if let Some(type_expr) = Type::from_path_segments(&path.0) {
+                    if let NodeValue::Path { value: path, .. } = &ext_node.content
+                        && let Some(type_expr) = Type::from_path_segments(&path.0) {
                             schema.type_expr = type_expr;
                             has_schema = true;
                         }
-                    }
                 }
                 "optional" => {
                     if let NodeValue::Bool { value: b, .. } = &ext_node.content {
@@ -442,12 +438,11 @@ impl SchemaBuilder {
         match &node.content {
             NodeValue::Path { value: path, .. } => {
                 // Field with direct type: field = .string
-                if !has_schema {
-                    if let Some(type_expr) = Type::from_path_segments(&path.0) {
+                if !has_schema
+                    && let Some(type_expr) = Type::from_path_segments(&path.0) {
                         schema.type_expr = type_expr;
                         has_schema = true;
                     }
-                }
             }
             _ if has_schema => {
                 // This is a field with both schema and default value

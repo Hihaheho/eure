@@ -20,7 +20,7 @@ fn test_no_hardcoded_completions_without_schema() {
         position,
         Some(".".to_string()),
         "test.eure",
-        &schema_manager,
+        &schema_manager, None,
     );
     
     // Should not have any hardcoded values
@@ -62,7 +62,7 @@ fn test_completions_come_from_schema() {
         position,
         Some(".".to_string()),
         "test.eure",
-        &schema_manager,
+        &schema_manager, None,
     );
     
     // Should have completions from schema
@@ -95,7 +95,7 @@ fn test_partial_key_without_schema_returns_empty() {
         position,
         None,
         "test.eure",
-        &schema_manager,
+        &schema_manager, None,
     );
     
     // Should not have any completions without schema

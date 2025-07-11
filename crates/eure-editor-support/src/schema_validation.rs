@@ -4,7 +4,7 @@ use eure_schema::{
     DocumentSchema, PathSegment, ValidationError, ValidationErrorKind, Severity,
     validate_document as validate_with_schema, document_to_schema,
 };
-use eure_tree::Cst;
+use eure_tree::{Cst, document::EureDocument};
 use eure_tree::tree::LineNumbers;
 use lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range};
 use std::collections::HashMap;
@@ -73,26 +73,53 @@ pub fn validate_document(
     input: &str,
     tree: &Cst,
     schema_manager: &SchemaManager,
+    cached_document: Option<&EureDocument>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     // Create line numbers helper for span conversion
     let line_numbers = LineNumbers::new(input);
 
-    // Parse to EureDocument first
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
-    if let Err(e) = tree.visit_from_root(&mut visitor) {
-        eprintln!("Failed to visit tree: {e}");
-        return diagnostics;
+    // Try to parse to EureDocument, or use cached if parsing fails
+    let using_cached = cached_document.is_some();
+    
+    // Either use cached document or parse a new one
+    let parsed_document;
+    let document = if let Some(cached_doc) = cached_document {
+        // Use cached document if provided (typically when there are parse errors)
+        cached_doc
+    } else {
+        // Parse to EureDocument
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
+        if let Err(e) = tree.visit_from_root(&mut visitor) {
+            eprintln!("Failed to visit tree: {e}");
+            return diagnostics;
+        }
+        parsed_document = visitor.into_document();
+        &parsed_document
+    };
+    
+    // Add info diagnostic if using cached document
+    if using_cached {
+        diagnostics.push(Diagnostic {
+            range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+            severity: Some(DiagnosticSeverity::INFORMATION),
+            code: Some(lsp_types::NumberOrString::String("eure-cached-validation".to_string())),
+            code_description: None,
+            source: Some("eure-schema".to_string()),
+            message: "Schema validation using last valid document structure due to syntax errors".to_string(),
+            related_information: None,
+            tags: None,
+            data: None,
+        });
     }
-    let document = visitor.into_document();
 
     // Check if there's an external schema to use
     if let Some(schema_uri) = schema_manager.get_document_schema_uri(uri)
         && let Some(schema) = schema_manager.get_schema(schema_uri)
     {
         // Validate against the external schema
-        let errors = validate_with_schema(&document, schema);
+        let errors = validate_with_schema(document, schema);
         for error in errors {
             diagnostics.push(validation_error_to_diagnostic(
                 &error,
@@ -105,10 +132,10 @@ pub fn validate_document(
     }
 
     // If no external schema, try to extract schema from the document itself
-    match document_to_schema(&document) {
+    match document_to_schema(document) {
         Ok(schema) => {
             // Validate document against its own schema
-            let errors = validate_with_schema(&document, &schema);
+            let errors = validate_with_schema(document, &schema);
             for error in errors {
                 diagnostics.push(validation_error_to_diagnostic(
                     &error,
@@ -329,8 +356,8 @@ pub fn validation_error_to_diagnostic(
                 match &path[i] {
                     PathSegment::Ident(id) => {
                         // Check if next segment is ArrayIndex
-                        if i + 1 < path.len() {
-                            if let PathSegment::ArrayIndex(idx) = &path[i + 1] {
+                        if i + 1 < path.len()
+                            && let PathSegment::ArrayIndex(idx) = &path[i + 1] {
                                 // Combine identifier with array index
                                 if let Some(index) = *idx {
                                     path_parts.push(format!("{}[{}]", id.as_ref(), index));
@@ -340,7 +367,6 @@ pub fn validation_error_to_diagnostic(
                                 i += 2; // Skip the ArrayIndex segment
                                 continue;
                             }
-                        }
                         path_parts.push(id.as_ref().to_string());
                     }
                     PathSegment::Extension(id) => path_parts.push(format!("${}", id.as_ref())),

@@ -663,8 +663,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 array_path.pop(); // Remove the ArrayIndex(None)
                 
                 // Get the array node to find the index of the element we just created
-                if let Ok(array_node) = self.document.get_node_mut_or_insert(array_path.iter().cloned()) {
-                    if let NodeValue::Array { children, .. } = &array_node.content {
+                if let Ok(array_node) = self.document.get_node_mut_or_insert(array_path.iter().cloned())
+                    && let NodeValue::Array { children, .. } = &array_node.content {
                         // The element we just created should be the last one
                         let actual_index = children.len().saturating_sub(1);
                         
@@ -716,7 +716,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
                         return Ok(());
                     }
-                }
             }
         }
 

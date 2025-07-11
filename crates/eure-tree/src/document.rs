@@ -277,7 +277,7 @@ impl EureDocument {
         current_path.push(first.clone());
         
         // Check if the next segment is an array index to determine if we should create an array
-        let should_create_array = rest.first().map_or(false, |next| matches!(next, ArrayIndex(_)));
+        let should_create_array = rest.first().is_some_and(|next| matches!(next, ArrayIndex(_)));
         
         let next_id = match first {
             Ident(id) => {

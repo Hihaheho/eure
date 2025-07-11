@@ -35,7 +35,7 @@ fn get_completions_with_schema(input: &str, schema_text: &str) -> Vec<Completion
         position,
         None,
         "test.eure",
-        &schema_manager,
+        &schema_manager, None,
     )
 }
 

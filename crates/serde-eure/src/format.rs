@@ -84,8 +84,8 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
                 match &path.0[i] {
                     eure_value::value::PathSegment::Ident(id) => {
                         // Check if next segment is ArrayIndex
-                        if i + 1 < path.0.len() {
-                            if let eure_value::value::PathSegment::ArrayIndex(idx) = &path.0[i + 1] {
+                        if i + 1 < path.0.len()
+                            && let eure_value::value::PathSegment::ArrayIndex(idx) = &path.0[i + 1] {
                                 // Combine identifier with array index
                                 if let Some(index) = idx {
                                     path_parts.push(format!("{}[{}]", id.as_ref(), index));
@@ -95,7 +95,6 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
                                 i += 2; // Skip the ArrayIndex segment
                                 continue;
                             }
-                        }
                         path_parts.push(id.as_ref().to_string());
                     }
                     eure_value::value::PathSegment::Extension(id) => path_parts.push(format!("${}", id.as_ref())),
@@ -105,7 +104,7 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
                     eure_value::value::PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
                         if let Some(index) = idx {
-                            path_parts.push(format!("[{}]", index));
+                            path_parts.push(format!("[{index}]"));
                         } else {
                             path_parts.push("[]".to_string());
                         }

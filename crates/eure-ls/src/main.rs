@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use eure_editor_support::{completions, diagnostics, parser, schema_validation, semantic_tokens};
-use eure_tree::Cst;
+use eure_tree::{Cst, document::EureDocument};
 use lsp_types::notification::{Notification as _, PublishDiagnostics};
 use lsp_types::request::{Completion, DocumentDiagnosticRequest, SemanticTokensFullRequest};
 use lsp_types::{
@@ -91,11 +91,34 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Cached document information for maintaining last valid state
+pub struct DocumentCache {
+    /// Current CST (may contain errors)
+    pub cst: Option<Cst>,
+    /// Current document content
+    pub content: String,
+    /// Last successfully parsed EureDocument (without errors)
+    pub last_valid_document: Option<EureDocument>,
+    /// Document version for tracking changes
+    pub version: Option<i32>,
+}
+
+impl DocumentCache {
+    fn new(cst: Option<Cst>, content: String, version: Option<i32>) -> Self {
+        Self {
+            cst,
+            content,
+            last_valid_document: None,
+            version,
+        }
+    }
+}
+
 pub struct ServerContext {
     connection: Connection,
     #[allow(dead_code)]
     params: InitializeParams,
-    documents: HashMap<String, (Option<Cst>, String)>, // Store (CST, Content) by document URI
+    documents: HashMap<String, DocumentCache>,         // Store DocumentCache by document URI
     legend: SemanticTokensLegend,                      // Store the legend
     schema_manager: schema_validation::SchemaManager,  // Schema management
     diagnostics: HashMap<String, Vec<Diagnostic>>,     // Store diagnostics by document URI
@@ -217,12 +240,40 @@ impl ServerContext {
             }
         };
 
-        // Store document in our map
-        let cst_clone = cst.clone();
-        self.documents
-            .insert(uri_string.clone(), (cst, text.clone()));
+        // Remove the old cache and preserve last valid document if it exists
+        let last_valid_doc = self.documents.remove(&uri_string)
+            .and_then(|mut cache| cache.last_valid_document.take());
+        
+        // Create new document cache
+        let mut doc_cache = DocumentCache::new(cst.clone(), text.clone(), version);
+        
+        // Try to create EureDocument if we have a valid CST and no parse errors
+        if let Some(ref cst) = cst {
+            if diagnostics.is_empty() {
+                // No parse errors, try to create EureDocument
+                use eure_tree::value_visitor::ValueVisitor;
+                let mut visitor = ValueVisitor::new(&text);
+                if let Ok(()) = cst.visit_from_root(&mut visitor) {
+                    let document = visitor.into_document();
+                    // Update last valid document
+                    doc_cache.last_valid_document = Some(document);
+                }
+            } else if let Some(doc) = last_valid_doc {
+                // There are parse errors, preserve the last valid document
+                doc_cache.last_valid_document = Some(doc);
+            }
+        }
+        
+        // Update document cache
+        doc_cache.cst = cst.clone();
+        doc_cache.content = text.clone();
+        doc_cache.version = version;
+        
+        // Store updated cache
+        self.documents.insert(uri_string.clone(), doc_cache);
 
-        // If we have a valid CST, perform schema validation
+        // Perform schema validation using either current CST or cached EureDocument
+        let cst_clone = cst.clone();
         if let Some(ref cst) = cst_clone {
             // Check if this is a schema file itself
             if uri_string.contains(".schema.eure") {
@@ -354,12 +405,21 @@ impl ServerContext {
                     }
                 }
 
+                // Get cached document if we have parse errors
+                let cached_doc = if !diagnostics.is_empty() {
+                    self.documents.get(&uri_string)
+                        .and_then(|cache| cache.last_valid_document.as_ref())
+                } else {
+                    None
+                };
+                
                 // Run schema validation
                 let schema_diagnostics = schema_validation::validate_document(
                     &uri_string,
                     &text,
                     cst,
                     &self.schema_manager,
+                    cached_doc,
                 );
 
                 // Merge diagnostics
@@ -409,10 +469,10 @@ impl ServerContext {
         let uri = params.text_document.uri.to_string();
 
         // Lookup document in our store
-        if let Some((cst_opt, text)) = self.documents.get(&uri) {
-            if let Some(cst) = cst_opt {
+        if let Some(doc_cache) = self.documents.get(&uri) {
+            if let Some(ref cst) = doc_cache.cst {
                 // Generate tokens if we have a CST
-                match semantic_tokens::semantic_tokens(text, cst, &self.legend) {
+                match semantic_tokens::semantic_tokens(&doc_cache.content, cst, &self.legend) {
                     Some(tokens) => Ok(Some(Some(SemanticTokensResult::Tokens(tokens)))),
                     None => Ok(Some(None)),
                 }
@@ -464,17 +524,18 @@ impl ServerContext {
 
         eprintln!("Completion request at {position:?} in {uri}, trigger: {trigger_character:?}");
 
-        // Get the document and CST
-        if let Some((cst_opt, text)) = self.documents.get(&uri) {
-            if let Some(cst) = cst_opt {
+        // Get the document cache
+        if let Some(doc_cache) = self.documents.get(&uri) {
+            if let Some(ref cst) = doc_cache.cst {
                 // Get completions from the completions module
                 let items = completions::get_completions(
-                    text,
+                    &doc_cache.content,
                     cst,
                     position,
                     trigger_character,
                     &uri,
                     &self.schema_manager,
+                    doc_cache.last_valid_document.as_ref(),
                 );
 
                 if items.is_empty() {
