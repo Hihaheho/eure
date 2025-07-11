@@ -2,8 +2,10 @@
 
 use eure_tree::tree::InputSpan;
 use eure_value::value::{KeyCmpValue, PathSegment, PathKey};
+use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 /// Core type representation in EURE schema
 #[derive(Debug, Clone, PartialEq)]
@@ -31,7 +33,7 @@ pub enum Type {
     Variants(VariantSchema), // Tagged union with $variant
 
     // Type reference
-    TypeRef(KeyCmpValue), // Reference to $types.name
+    TypeRef(Identifier), // Reference to $types.name
 
     // Special types
     CascadeType(Box<Type>), // Type that cascades to descendants
@@ -202,7 +204,7 @@ impl Type {
             PathSegment::Extension(ext) if ext.as_ref() == "types" => {
                 if segments.len() >= 2
                     && let PathSegment::Ident(type_name) = &segments[1] {
-                        return Some(Type::TypeRef(KeyCmpValue::String(type_name.to_string())));
+                        return Some(Type::TypeRef(type_name.clone()));
                     }
                 None
             }
@@ -233,7 +235,7 @@ impl Type {
                         // If it starts with uppercase, treat it as a type reference
                         // This allows .Action to be shorthand for .$types.Action
                         if name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-                            Some(Type::TypeRef(KeyCmpValue::String(name.to_string())))
+                            Some(Type::TypeRef(ident.clone()))
                         } else {
                             None
                         }
@@ -270,7 +272,7 @@ pub trait ToEureSchema {
         // By default, check if this is a named type and return a TypeRef
         if let Some(name) = Self::type_name() {
             FieldSchema {
-                type_expr: Type::TypeRef(KeyCmpValue::String(name.to_string())),
+                type_expr: Type::TypeRef(Identifier::from_str(name).unwrap_or_else(|_| Identifier::from_str("Unknown").unwrap())),
                 optional: false,
                 constraints: Default::default(),
                 preferences: Default::default(),

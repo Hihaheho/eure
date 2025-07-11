@@ -252,12 +252,14 @@ impl<'a> DocumentValidator<'a> {
                 self.validate_variant(node_id, node, path, variant_schema);
             }
             Type::TypeRef(type_name) => {
-                if let Some(referenced_type) = self.schema.types.get(type_name) {
+                // Convert Identifier to KeyCmpValue for lookup
+                let type_key = KeyCmpValue::String(type_name.to_string());
+                if let Some(referenced_type) = self.schema.types.get(&type_key) {
                     self.validate_type_with_constraints(node_id, path, &referenced_type.type_expr, &referenced_type.constraints);
                 } else {
                     self.add_error(
                         node_id,
-                        ValidationErrorKind::UnknownType(format!("{type_name:?}")),
+                        ValidationErrorKind::UnknownType(type_name.to_string()),
                     );
                 }
             }

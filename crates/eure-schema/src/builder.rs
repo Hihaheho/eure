@@ -5,6 +5,7 @@ use crate::{
     Constraints, Preferences, SerdeOptions
 };
 use eure_value::value::KeyCmpValue;
+use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
 
 /// Builder for creating FieldSchema instances
@@ -177,8 +178,8 @@ impl TypeBuilder {
     }
     
     /// Create a type reference
-    pub fn type_ref(name: impl Into<String>) -> Type {
-        Type::TypeRef(KeyCmpValue::String(name.into()))
+    pub fn type_ref(name: Identifier) -> Type {
+        Type::TypeRef(name)
     }
     
     /// Create a cascade type

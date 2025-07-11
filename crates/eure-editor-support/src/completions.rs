@@ -329,17 +329,8 @@ fn generate_variant_completions(
                         
                         
                         // Look up the referenced type
-                        // First check if it's a path like .$types.Action
-                        let type_key = if let KeyCmpValue::String(s) = type_ref {
-                            if s.starts_with("$types.") {
-                                // Extract the type name after $types.
-                                KeyCmpValue::String(s[7..].to_string())
-                            } else {
-                                type_ref.clone()
-                            }
-                        } else {
-                            type_ref.clone()
-                        };
+                        // Convert Identifier to KeyCmpValue for lookup
+                        let type_key = KeyCmpValue::String(type_ref.to_string());
                         
                         
                         
