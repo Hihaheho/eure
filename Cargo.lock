@@ -1734,6 +1734,7 @@ dependencies = [
 name = "eure-derive"
 version = "0.1.0"
 dependencies = [
+ "convert_case 0.6.0",
  "eure-parol",
  "eure-schema",
  "eure-tree",
@@ -1841,6 +1842,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "chrono",
+ "convert_case 0.6.0",
  "eure-derive",
  "eure-parol",
  "eure-tree",

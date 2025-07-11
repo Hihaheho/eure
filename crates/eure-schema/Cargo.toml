@@ -18,6 +18,7 @@ eure-parol = { path = "../eure-parol" }
 indexmap = { version = "2.0", features = ["serde"] }
 thiserror = "1.0"
 ahash = "0.8"
+convert_case = "0.6"
 
 # Optional dependencies for external crate support
 chrono = { version = "0.4", optional = true }
