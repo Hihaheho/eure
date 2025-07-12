@@ -934,16 +934,19 @@ environment = "#;
     // Create schema with enum constraint
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ config {
-    @ environment
-    $type = .string
-    $enum = ["development", "staging", "production"]
+    @ environment {
+        $type = .string
+        $enum = ["development", "staging", "production"]
+    }
     
-    @ log_level
-    $type = .string
-    $enum = ["debug", "info", "warn", "error", "fatal"]
+    @ log_level {
+        $type = .string
+        $enum = ["debug", "info", "warn", "error", "fatal"]
+    }
     
-    @ port
-    $type = .number
+    @ port {
+        $type = .number
+    }
 }"#;
     
     match parse_document(schema_text) {
@@ -999,22 +1002,26 @@ fn test_completion_with_default_values() {
     // Create schema with default values
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ database {
-    @ host
-    $type = .string
-    $default = "localhost"
+    @ host {
+        $type = .string
+        $default = "localhost"
+    }
     
-    @ port
-    $type = .number
-    $default = 5432
+    @ port {
+        $type = .number
+        $default = 5432
+    }
     
-    @ ssl_enabled
-    $type = .boolean
-    $default = true
+    @ ssl_enabled {
+        $type = .boolean
+        $default = true
+    }
     
-    @ connection_timeout
-    $type = .number
-    $default = 30
-    $optional = true
+    @ connection_timeout {
+        $type = .number
+        $default = 30
+        $optional = true
+    }
 }"#;
     
     match parse_document(schema_text) {

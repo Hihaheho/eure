@@ -264,8 +264,10 @@ impl<'a> ValueVisitor<'a> {
                     handle: MapConstructionHandle::ObjectLiteral(object_handle),
                     entries: vec![],
                 };
+                let mut full_path = self.current_path();
+                full_path.extend(path.clone());
                 self.document
-                    .insert_node(path.clone().into_iter(), content)?;
+                    .insert_node(full_path.into_iter(), content)?;
 
                 // Now process each key-value pair
                 let object_view = object_handle.get_view(tree)?;
@@ -297,8 +299,10 @@ impl<'a> ValueVisitor<'a> {
                     handle: ArrayConstructionHandle::ArrayLiteral(array_handle),
                     children: vec![],
                 };
+                let mut full_path = self.current_path();
+                full_path.extend(path.clone());
                 self.document
-                    .insert_node(path.clone().into_iter(), content)?;
+                    .insert_node(full_path.into_iter(), content)?;
 
                 // Now process each array element
                 let array_view = array_handle.get_view(tree)?;
@@ -354,7 +358,9 @@ impl<'a> ValueVisitor<'a> {
                         content,
                     },
                 };
-                self.document.insert_node(path.into_iter(), node_content)?;
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), node_content)?;
             }
             ValueView::CodeBlock(code_block_handle) => {
                 let code_block_view = code_block_handle.get_view(tree)?;
@@ -382,7 +388,9 @@ impl<'a> ValueVisitor<'a> {
                     handle: code_block_handle,
                     value: Code { language, content },
                 };
-                self.document.insert_node(path.into_iter(), node_content)?;
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), node_content)?;
             }
             ValueView::NamedCode(named_code_handle) => {
                 let named_code_view = named_code_handle.get_view(tree)?;
@@ -397,7 +405,9 @@ impl<'a> ValueVisitor<'a> {
                     handle: named_code_handle,
                     value: Code { language, content },
                 };
-                self.document.insert_node(path.into_iter(), node_content)?;
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), node_content)?;
             }
             ValueView::Hole(hole_handle) => {
                 let content = NodeValue::Hole {
@@ -444,8 +454,10 @@ impl<'a> ValueVisitor<'a> {
                     handle: tuple_handle,
                     children: vec![],
                 };
+                let mut full_path = self.current_path();
+                full_path.extend(path.clone());
                 self.document
-                    .insert_node(path.clone().into_iter(), content)?;
+                    .insert_node(full_path.into_iter(), content)?;
 
                 // Now process each tuple element
                 let tuple_view = tuple_handle.get_view(tree)?;
