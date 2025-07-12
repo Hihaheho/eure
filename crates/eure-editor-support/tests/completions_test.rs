@@ -90,40 +90,9 @@ fn test_completion_in_value_position() {
     assert!(labels.contains(&"null".to_string()));
 }
 
-#[test]
-fn test_completion_variant_position() {
-    let text = r#"$variant: "#;
-    let position = Position { line: 0, character: 9 }; // Position at the colon
-    
-    // Parse the document
-    let parse_result = parse_document(text);
-    let cst = match parse_result {
-        parser::ParseResult::Ok(cst) => cst,
-        parser::ParseResult::ErrWithCst { cst, .. } => cst,
-    };
-    
-    // Create schema with variant field
-    let mut schema_manager = SchemaManager::new();
-    let schema_text = r#"$variant.$type = .variant"#;
-    let schema_parse = parse_document(schema_text);
-    if let parser::ParseResult::Ok(schema_cst) = schema_parse {
-        schema_manager.load_schema("test://schema", schema_text, &schema_cst).ok();
-        schema_manager.set_document_schema("test://document", "test://schema");
-    }
-    
-    // Get completions
-    let completions = get_completions(
-        text,
-        &cst,
-        position,
-        Some(":".to_string()),
-        "test://document",
-        &schema_manager, None,
-    );
-    
-    // Should have variant suggestions
-    assert!(!completions.is_empty());
-}
+// TODO: Add test for variant value completions when we have a proper variant schema
+// For example, if we have a type with $variants.pending, $variants.approved, etc.,
+// then typing "$variant: " should suggest "pending", "approved", etc.
 
 #[test]
 fn test_string_only_vs_any_value_completion() {

@@ -237,6 +237,19 @@ impl<'a> DocumentValidator<'a> {
     ) {
         let node = self.document.get_node(node_id);
 
+        // Check for holes first - holes are always invalid except for Type::Any
+        if matches!(node.content, NodeValue::Hole { .. }) {
+            if !matches!(expected_type, Type::Any) {
+                self.add_error(
+                    node_id,
+                    ValidationErrorKind::HoleExists {
+                        path: path.to_vec(),
+                    },
+                );
+                return;
+            }
+        }
+
         match expected_type {
             Type::Null => self.validate_null(node_id, node),
             Type::Boolean => self.validate_bool(node_id, node),

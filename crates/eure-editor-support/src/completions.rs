@@ -90,7 +90,7 @@ enum CompletionContext {
 fn analyze_context_at_position(
     text: &str,
     position: Position,
-    _cached_document: Option<&EureDocument>,
+    cached_document: Option<&EureDocument>,
 ) -> CompletionContext {
     let lines: Vec<&str> = text.lines().collect();
     
@@ -165,6 +165,16 @@ fn analyze_context_at_position(
             CompletionContext::Unknown
         }
     } else {
+        // Check if we're inside a section by looking at previous lines
+        if let Some(section_path) = find_section_context(text, position) {
+            // We're inside a section on an empty line
+            return CompletionContext::AfterAt { 
+                path: section_path, 
+                partial_field: None, 
+                prepend_at: false 
+            };
+        }
+        
         CompletionContext::Unknown
     }
 }
@@ -214,6 +224,22 @@ fn generate_field_completions(
     };
     
     let mut completions = vec![];
+    
+    // At root level, also add $types if there are any types defined
+    if path.is_empty() && !schema.types.is_empty() {
+        if partial_field.is_none() || "$types".starts_with(partial_field.unwrap_or("")) {
+            completions.push(CompletionItem {
+                label: "$types".to_string(),
+                kind: Some(CompletionItemKind::MODULE),
+                detail: Some("Type definitions namespace".to_string()),
+                documentation: Some(lsp_types::Documentation::MarkupContent(lsp_types::MarkupContent {
+                    kind: lsp_types::MarkupKind::Markdown,
+                    value: "Access type definitions using `$types.TypeName`".to_string(),
+                })),
+                ..Default::default()
+            });
+        }
+    }
     
     for (key, field_schema) in &object_schema.fields {
         let field_name = match key {
@@ -573,6 +599,42 @@ fn get_field_type_at_path<'a>(
     };
     
     object.fields.get(&key).map(|field| &field.type_expr)
+}
+
+fn find_section_context(text: &str, position: Position) -> Option<Vec<String>> {
+    let lines: Vec<&str> = text.lines().collect();
+    
+    // Look backwards from current position for @ section declaration
+    for i in (0..=position.line as usize).rev() {
+        if i >= lines.len() {
+            continue;
+        }
+        
+        let line = lines[i].trim();
+        if line.starts_with('@') && !line.contains('=') {
+            // This looks like a section declaration
+            let section_part = line.trim_start_matches('@').trim();
+            
+            // Parse the section path
+            if !section_part.is_empty() {
+                let path_parts: Vec<String> = section_part
+                    .split('.')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty() && !s.contains('['))
+                    .collect();
+                
+                if !path_parts.is_empty() {
+                    return Some(path_parts);
+                }
+            }
+        } else if !line.is_empty() && !line.starts_with('#') {
+            // Hit a non-empty, non-comment line that's not a section
+            // We're not inside a section context
+            break;
+        }
+    }
+    
+    None
 }
 
 fn find_array_context(text: &str, position: Position) -> Option<Vec<String>> {

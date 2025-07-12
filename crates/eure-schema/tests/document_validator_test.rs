@@ -158,7 +158,7 @@ items = ["a", "b", "c", "d"]
     assert_eq!(errors.len(), 1, "Should have one error");
     assert!(matches!(
         &errors[0].kind,
-        ValidationErrorKind::StringLengthViolation { max, length, .. }
+        ValidationErrorKind::ArrayLengthViolation { max, length, .. }
         if *max == Some(3) && *length == 4
     ));
 }
@@ -330,13 +330,12 @@ value = !
 fn test_schema_extraction_and_validation() {
     // Test schema extraction from document
     let schema_doc = r#"
-$types.User {
-    name = .string
+@ $types.User {
+    name.$type = .string
     age.$type = .number
     age.$optional = true
 }
 
-@ root
 users.$array = .$types.User
 "#;
     
@@ -355,6 +354,14 @@ name = "Bob"
     
     let document = parse_to_document(doc);
     let errors = validate_document(&document, &schema);
+    
+    // Debug: print the errors
+    if !errors.is_empty() {
+        eprintln!("Schema extraction test - found {} errors:", errors.len());
+        for (i, error) in errors.iter().enumerate() {
+            eprintln!("  Error {}: {:?}", i + 1, error.kind);
+        }
+    }
     
     assert_eq!(errors.len(), 0, "Document should be valid against extracted schema");
 }

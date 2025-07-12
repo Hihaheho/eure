@@ -393,6 +393,19 @@ impl SchemaBuilder {
                         has_schema = true;
                     }
                 }
+                "range" => {
+                    // Handle $range = [min, max]
+                    if let NodeValue::Array { children, .. } = &ext_node.content {
+                        if children.len() == 2 {
+                            let min_node = doc.get_node(children[0]);
+                            let max_node = doc.get_node(children[1]);
+                            let min_value = Self::extract_f64_from_node(&min_node.content);
+                            let max_value = Self::extract_f64_from_node(&max_node.content);
+                            schema.constraints.range = Some((min_value, max_value));
+                            has_schema = true;
+                        }
+                    }
+                }
                 "values" => {
                     // Note: values/enum constraint is not in the current Constraints struct
                     // This would need to be added if enum validation is required
@@ -428,6 +441,31 @@ impl SchemaBuilder {
                             has_schema = true;
                         }
                         _ => {}
+                    }
+                }
+                "prefer" => {
+                    // Handle $prefer extensions
+                    if let NodeValue::Map { entries, .. } = &ext_node.content {
+                        for (key, pref_node_id) in entries {
+                            if let DocumentKey::Ident(pref_name) = key {
+                                let pref_node = doc.get_node(*pref_node_id);
+                                match pref_name.as_ref() {
+                                    "section" => {
+                                        if let NodeValue::Bool { value: b, .. } = &pref_node.content {
+                                            schema.preferences.section = Some(*b);
+                                            has_schema = true;
+                                        }
+                                    }
+                                    "array" => {
+                                        if let NodeValue::Bool { value: b, .. } = &pref_node.content {
+                                            schema.preferences.array = Some(*b);
+                                            has_schema = true;
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                     }
                 }
                 _ => {}
