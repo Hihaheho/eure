@@ -1,5 +1,7 @@
 use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant};
+use eure_value::identifier::Identifier;
 use std::fmt::Write;
+use std::str::FromStr;
 
 /// Format a Value as EURE syntax
 pub fn format_eure(value: &Value) -> String {
@@ -134,19 +136,9 @@ fn format_key(output: &mut String, key: &KeyCmpValue) {
     }
 }
 
+/// Check if a string can be used as an unquoted identifier in EURE syntax
 fn is_valid_identifier(s: &str) -> bool {
-    if s.is_empty() {
-        return false;
-    }
-    let mut chars = s.chars();
-    if let Some(first) = chars.next()
-        && !first.is_alphabetic()
-        && first != '_'
-        && first != '$'
-    {
-        return false;
-    }
-    chars.all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '$')
+    Identifier::from_str(s).is_ok()
 }
 
 fn escape_string(s: &str) -> String {
