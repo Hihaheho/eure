@@ -129,8 +129,6 @@ fn test_array_validation() {
             type_expr: Type::Array(Box::new(Type::String)),
             optional: false,
             constraints: Constraints {
-                min_items: Some(1),
-                max_items: Some(3),
                 ..Default::default()
             },
             ..Default::default()
@@ -147,19 +145,18 @@ items = ["a", "b"]
     
     assert_eq!(errors.len(), 0, "Valid array should have no errors");
     
-    // Array too long
+    // Array with wrong element type
     let invalid_doc = r#"
-items = ["a", "b", "c", "d"]
+items = ["a", 123, "c"]
 "#;
     
     let document = parse_to_document(invalid_doc);
     let errors = validate_document(&document, &schema);
     
-    assert_eq!(errors.len(), 1, "Should have one error");
+    assert_eq!(errors.len(), 1, "Should have one error for type mismatch");
     assert!(matches!(
         &errors[0].kind,
-        ValidationErrorKind::ArrayLengthViolation { max, length, .. }
-        if *max == Some(3) && *length == 4
+        ValidationErrorKind::TypeMismatch { .. }
     ));
 }
 
@@ -336,7 +333,8 @@ fn test_schema_extraction_and_validation() {
     age.$optional = true
 }
 
-users.$array = .$types.User
+@ users
+$array = .$types.User
 "#;
     
     let schema_document = parse_to_document(schema_doc);

@@ -471,7 +471,11 @@ impl<'a> ValueVisitor<'a> {
                     element_path.push(PathSegment::TupleIndex(index));
                     let value_view = tuple_elements_view.value.get_view(tree)?;
                     self.process_value_at_path(element_path, value_view, tree)?;
-                    index += 1;
+                    
+                    // Check for overflow before incrementing (though unlikely for first element)
+                    if index < 255 {
+                        index += 1;
+                    }
 
                     // Rest of the elements
                     if let Ok(Some(mut tail)) =
@@ -489,6 +493,12 @@ impl<'a> ValueVisitor<'a> {
                                 element_path.push(PathSegment::TupleIndex(index));
                                 let value_view = next_view.value.get_view(tree)?;
                                 self.process_value_at_path(element_path, value_view, tree)?;
+                                
+                                // Check for overflow before incrementing
+                                if index == 255 {
+                                    // Skip remaining elements to avoid overflow
+                                    break;
+                                }
                                 index += 1;
 
                                 match next_view.tuple_elements_opt.get_view(tree)? {

@@ -66,6 +66,7 @@ fn test_dollar_in_field_names() {
     };
 
     let serialized = to_string(&data).unwrap();
+    eprintln!("Serialized: {}", serialized);
     assert!(serialized.contains("$id"));
     assert!(serialized.contains("$type"));
     assert!(serialized.contains("$meta"));

@@ -31,7 +31,20 @@ pub fn from_value<'a, T>(value: Value) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = Deserializer::new(value);
+    // Handle the special case where EURE wraps bare values in a root binding
+    let unwrapped_value = if let Value::Map(Map(ref map)) = value {
+        if map.len() == 1 && map.contains_key(&KeyCmpValue::String("value".to_string())) {
+            // If we have a single "value" binding at the root, unwrap it
+            map.get(&KeyCmpValue::String("value".to_string())).cloned()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    let final_value = unwrapped_value.unwrap_or(value);
+    let mut deserializer = Deserializer::new(final_value);
     T::deserialize(&mut deserializer)
 }
 
@@ -700,13 +713,19 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
 
     fn unit_variant(self) -> Result<()> {
         // For map-based enums, the map should only contain $variant for unit variants
-        if let Value::Map(Map(map)) = &self.value
-            && map.len() == 1
-            && map.contains_key(&KeyCmpValue::String("$variant".to_string()))
-        {
-            return Ok(());
+        match &self.value {
+            Value::Map(Map(map))
+                if map.len() == 1
+                    && map.contains_key(&KeyCmpValue::String("$variant".to_string())) =>
+            {
+                Ok(())
+            }
+            Value::Unit | Value::Null => Ok(()),
+            _ => Err(Error::InvalidType(format!(
+                "expected unit variant, found {:?}",
+                self.value
+            ))),
         }
-        Ok(())
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>

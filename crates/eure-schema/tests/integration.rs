@@ -217,7 +217,7 @@ mod constraint_validation {
     fn test_string_length_constraints() {
         let schema_doc = r#"
 username.$type = .string
-username.$length = [3, 20]
+username.$length = (3, 20)
 "#;
         let schema = extract(schema_doc).document_schema;
 
@@ -272,7 +272,7 @@ email.$pattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
     fn test_number_range_constraints() {
         let schema_doc = r#"
 age.$type = .number
-age.$range = [18, 150]
+age.$range = (18, 150)
 "#;
         let schema = extract(schema_doc).document_schema;
 
@@ -300,57 +300,8 @@ age.$range = [18, 150]
         ));
     }
 
-    #[test]
-    fn test_array_length_constraints() {
-        let schema_doc = r#"
-@ $types.StringArray
-$array = .string
-$min-items = 1
-$max-items = 5
-"#;
-        let schema = extract(schema_doc).document_schema;
-
-        // Valid array length with inline type
-        let valid_doc = r#"
-tags = ["rust", "eure"]
-tags.$type = .$types.StringArray
-"#;
-        let errors = validate_with_inline(valid_doc, schema.clone());
-        assert!(errors.is_empty());
-
-        // Too few items
-        let invalid_empty = r#"
-tags = []
-tags.$type = .$types.StringArray
-"#;
-        let errors = validate_with_inline(invalid_empty, schema.clone());
-        if errors.len() != 1 {
-            eprintln!(
-                "Array length test - expected 1 error, got {}:",
-                errors.len()
-            );
-            for err in &errors {
-                eprintln!("  - {:?}", err.kind);
-            }
-        }
-        assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0].kind,
-            ValidationErrorKind::StringLengthViolation { .. }
-        ));
-
-        // Too many items
-        let invalid_many = r#"
-tags = ["a", "b", "c", "d", "e", "f"]
-tags.$type = .$types.StringArray
-"#;
-        let errors = validate_with_inline(invalid_many, schema.clone());
-        assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0].kind,
-            ValidationErrorKind::StringLengthViolation { .. }
-        ));
-    }
+    // Removed test_array_length_constraints as $min-items and $max-items 
+    // have been removed from the constraint system per language designer's request.
 }
 
 #[cfg(test)]
@@ -596,11 +547,11 @@ age.$type = .number
         let doc = r#"
 username = "alice"
 username.$type = .string
-username.$length = [3, 20]
+username.$length = (3, 20)
 
 score = 85
 score.$type = .number
-score.$range = [0, 100]
+score.$range = (0, 100)
 "#;
         let result = validate_self(doc);
 
@@ -619,7 +570,7 @@ score.$range = [0, 100]
         let invalid_doc = r#"
 username = "ab"
 username.$type = .string
-username.$length = [3, 20]
+username.$length = (3, 20)
 "#;
         let result = validate_self(invalid_doc);
 
@@ -689,7 +640,7 @@ mod preference_and_serde_tests {
 $type = .object
 @ $types.User.first_name
 $type = .string
-$serde.rename = "firstName"
+$rename = "firstName"
 "#;
         let schema = extract(schema_doc);
 
@@ -709,11 +660,11 @@ $serde.rename = "firstName"
     #[test]
     fn test_serde_rename_all() {
         let schema_doc = r#"
-$serde.rename-all = "camelCase"
+$rename-all = "camelCase"
 
 @ $types.Person
 $type = .object
-$serde.rename-all = "snake_case"
+$rename-all = "snake_case"
 "#;
         let schema = extract(schema_doc);
 
@@ -881,7 +832,7 @@ $type = .object
 $type = .string
 @ $types.DatabaseConfig.port
 $type = .number
-$range = [1, 65535]
+$range = (1, 65535)
 @ $types.DatabaseConfig.username
 $type = .string
 @ $types.DatabaseConfig.password
@@ -895,7 +846,7 @@ $type = .string
 $pattern = "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}:[0-9]+$"
 @ $types.ServerConfig.workers
 $type = .number
-$range = [1, 100]
+$range = (1, 100)
 
 @ $types.AppConfig
 $type = .object
@@ -933,7 +884,7 @@ username = "app_user"
 @ $types.Event
 @ $types.Event.$variants.user-created.username
 $type = .string
-$length = [3, 20]
+$length = (3, 20)
 @ $types.Event.$variants.user-created.email
 $type = .code.email
 @ $types.Event.$variants.user-deleted.user-id

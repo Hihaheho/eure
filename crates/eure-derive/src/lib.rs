@@ -706,21 +706,7 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                 });
             }
             
-            // Handle min_items = X
-            if meta.path.is_ident("min_items") {
-                let value: syn::LitInt = meta.value()?.parse()?;
-                tokens.push(quote! {
-                    schema.constraints.min_items = Some(#value);
-                });
-            }
-            
-            // Handle max_items = X
-            if meta.path.is_ident("max_items") {
-                let value: syn::LitInt = meta.value()?.parse()?;
-                tokens.push(quote! {
-                    schema.constraints.max_items = Some(#value);
-                });
-            }
+            // min_items and max_items have been removed per language designer
             
             // Handle unique = true/false
             if meta.path.is_ident("unique") {

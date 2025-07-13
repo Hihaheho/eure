@@ -152,19 +152,52 @@ impl<'a> DocumentValidator<'a> {
                             self.handle_meta_extension(*child_id, path, ident);
                         }
                         DocumentKey::Value(key_value) => {
-                            // Handle dynamic keys
-                            if let Some(additional_properties) = &object_schema.additional_properties {
-                                let mut child_path = path.to_vec();
-                                child_path.push(PathSegment::Value(key_value.clone()));
-                                self.validate_type(*child_id, &child_path, additional_properties);
+                            // Check if this is a quoted field name that matches a schema field
+                            if let KeyCmpValue::String(field_str) = key_value {
+                                // Check if this quoted field name matches an expected field
+                                if let Some(field_schema) = object_schema.fields.get(&KeyCmpValue::String(field_str.clone())) {
+                                    // This is a known field with a quoted name
+                                    // Track that we've seen this field
+                                    let path_key = PathKey::from_segments(path);
+                                    self.seen_fields
+                                        .entry(path_key)
+                                        .or_default()
+                                        .insert(KeyCmpValue::String(field_str.clone()));
+                                    
+                                    // Validate the field value
+                                    let mut field_path = path.to_vec();
+                                    field_path.push(PathSegment::Value(key_value.clone()));
+                                    self.validate_type_with_constraints(*child_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
+                                } else if let Some(additional_properties) = &object_schema.additional_properties {
+                                    // Not a known field, check additional properties
+                                    let mut child_path = path.to_vec();
+                                    child_path.push(PathSegment::Value(key_value.clone()));
+                                    self.validate_type(*child_id, &child_path, additional_properties);
+                                } else {
+                                    // Unexpected field
+                                    self.add_error(
+                                        node_id,
+                                        ValidationErrorKind::UnexpectedField {
+                                            field: key_value.clone(),
+                                            path: path.to_vec(),
+                                        },
+                                    );
+                                }
                             } else {
-                                self.add_error(
-                                    node_id,
-                                    ValidationErrorKind::UnexpectedField {
-                                        field: key_value.clone(),
-                                        path: path.to_vec(),
-                                    },
-                                );
+                                // Non-string value keys
+                                if let Some(additional_properties) = &object_schema.additional_properties {
+                                    let mut child_path = path.to_vec();
+                                    child_path.push(PathSegment::Value(key_value.clone()));
+                                    self.validate_type(*child_id, &child_path, additional_properties);
+                                } else {
+                                    self.add_error(
+                                        node_id,
+                                        ValidationErrorKind::UnexpectedField {
+                                            field: key_value.clone(),
+                                            path: path.to_vec(),
+                                        },
+                                    );
+                                }
                             }
                         }
                         DocumentKey::TupleIndex(_) => {
@@ -217,15 +250,23 @@ impl<'a> DocumentValidator<'a> {
             field_path.push(PathSegment::Ident(field_name.clone()));
             self.validate_type_with_constraints(node_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
         } else {
-            // Additional properties are handled at the object level, not field level
-            // For now, disallow unexpected fields
-            self.add_error(
-                node_id,
-                ValidationErrorKind::UnexpectedField {
-                    field: KeyCmpValue::String(field_name.to_string()),
-                    path: path.to_vec(),
-                },
-            );
+            // Check if there's a cascade type for this path
+            let path_key = PathKey::from_segments(path);
+            if let Some(cascade_type) = self.schema.cascade_types.get(&path_key) {
+                // Validate against cascade type
+                let mut field_path = path.to_vec();
+                field_path.push(PathSegment::Ident(field_name.clone()));
+                self.validate_type(node_id, &field_path, cascade_type);
+            } else {
+                // No cascade type, field is unexpected
+                self.add_error(
+                    node_id,
+                    ValidationErrorKind::UnexpectedField {
+                        field: KeyCmpValue::String(field_name.to_string()),
+                        path: path.to_vec(),
+                    },
+                );
+            }
         }
     }
 
@@ -384,32 +425,8 @@ impl<'a> DocumentValidator<'a> {
                     }
                 }
             }
-            (NodeValue::Array { children, .. }, Type::Array(_)) => {
-                // Check array length constraints
-                let len = children.len();
-                if let Some(min_items) = constraints.min_items
-                    && len < min_items {
-                        self.add_error(
-                            node_id,
-                            ValidationErrorKind::ArrayLengthViolation {
-                                min: Some(min_items),
-                                max: constraints.max_items,
-                                length: len,
-                            },
-                        );
-                        return;
-                    }
-                if let Some(max_items) = constraints.max_items
-                    && len > max_items {
-                        self.add_error(
-                            node_id,
-                            ValidationErrorKind::ArrayLengthViolation {
-                                min: constraints.min_items,
-                                max: Some(max_items),
-                                length: len,
-                            },
-                        );
-                    }
+            (NodeValue::Array { .. }, Type::Array(_)) => {
+                // Array constraints removed - no length constraints for arrays
             }
             (NodeValue::I64 { value, .. }, Type::Number) => {
                 self.check_number_constraints(node_id, *value as f64, constraints);
@@ -619,7 +636,9 @@ impl<'a> DocumentValidator<'a> {
                     children.iter().zip(tuple_types).enumerate()
                 {
                     let mut item_path = path.to_vec();
-                    item_path.push(PathSegment::TupleIndex(index as u8));
+                    // Clamp to u8::MAX to avoid overflow
+                    let tuple_index = if index > 255 { 255 } else { index as u8 };
+                    item_path.push(PathSegment::TupleIndex(tuple_index));
                     self.validate_type(*child_id, &item_path, expected_type);
                 }
             }
@@ -936,7 +955,10 @@ impl<'a> DocumentValidator<'a> {
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.kind)
+        match self.severity {
+            Severity::Error => write!(f, "error: {}", self.kind),
+            Severity::Warning => write!(f, "warning: {}", self.kind),
+        }
     }
 }
 
@@ -947,29 +969,35 @@ impl fmt::Display for ValidationErrorKind {
             TypeMismatch { expected, actual } => {
                 write!(f, "Type mismatch: expected {expected}, but got {actual}")
             }
-            RequiredFieldMissing { field, .. } => {
-                write!(f, "Required field '{field:?}' is missing")
+            RequiredFieldMissing { field, path } => {
+                if path.is_empty() {
+                    write!(f, "Required field {field:?} is missing")
+                } else {
+                    let path_str = crate::utils::path_segments_to_display_string(path);
+                    write!(f, "Required field {field:?} is missing at {path_str}")
+                }
             }
-            UnexpectedField { field, .. } => {
-                write!(f, "Unexpected field '{field:?}'")
+            UnexpectedField { field, path } => {
+                let path_str = crate::utils::path_segments_to_display_string(path);
+                write!(f, "Unexpected field {field:?} at {path_str} not defined in schema")
             }
             InvalidValue(msg) => write!(f, "Invalid value: {msg}"),
             PatternMismatch { pattern, value } => {
-                write!(f, "Value '{value}' does not match pattern '{pattern}'")
+                write!(f, "String '{value}' does not match pattern /{pattern}/")
             }
             RangeViolation { min, max, value } => {
                 match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "Value {value} is outside range [{min}, {max}]"),
-                    (Some(min), None) => write!(f, "Value {value} is less than minimum {min}"),
-                    (None, Some(max)) => write!(f, "Value {value} is greater than maximum {max}"),
-                    (None, None) => write!(f, "Value {value} violates range constraint"),
+                    (Some(min), Some(max)) => write!(f, "Number must be between {min} and {max}, but got {value}"),
+                    (Some(min), None) => write!(f, "Number must be at least {min}, but got {value}"),
+                    (None, Some(max)) => write!(f, "Number must be at most {max}, but got {value}"),
+                    (None, None) => write!(f, "Number {value} violates range constraint"),
                 }
             }
             StringLengthViolation { min, max, length } => {
                 match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "String must have between {min} and {max} characters, but has {length}"),
-                    (Some(min), None) => write!(f, "String must have at least {min} characters, but has {length}"),
-                    (None, Some(max)) => write!(f, "String must have at most {max} characters, but has {length}"),
+                    (Some(min), Some(max)) => write!(f, "String length must be between {min} and {max} characters, but got {length}"),
+                    (Some(min), None) => write!(f, "String must be at least {min} characters long, but got {length}"),
+                    (None, Some(max)) => write!(f, "String must be at most {max} characters long, but got {length}"),
                     (None, None) => write!(f, "String length {length} violates constraint"),
                 }
             }
@@ -983,7 +1011,11 @@ impl fmt::Display for ValidationErrorKind {
             }
             UnknownType(type_name) => write!(f, "Unknown type: {type_name}"),
             UnknownVariant { variant, available } => {
-                write!(f, "Unknown variant '{}'. Available variants: {}", variant, available.join(", "))
+                if available.is_empty() {
+                    write!(f, "Unknown variant '{}'", variant)
+                } else {
+                    write!(f, "Unknown variant '{}'. Available variants: {}", variant, available.join(", "))
+                }
             }
             HoleExists { path } => {
                 let path_str = crate::utils::path_segments_to_display_string(path);

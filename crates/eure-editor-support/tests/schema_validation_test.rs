@@ -36,7 +36,7 @@ fn test_self_describing_validation() {
 # Pure schema document (no data mixed in)
 @ $types.Person {
     name.$type = .string
-    name.$length = [1, 50]
+    name.$length = (1, 50)
     
     age.$type = .number
     age.$optional = true

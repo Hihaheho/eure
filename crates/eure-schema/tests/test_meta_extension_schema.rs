@@ -42,7 +42,7 @@ $$rename.$optional = true
 
 # Another meta-extension with type
 $$priority.$type = .string
-$$priority.$length = [1, 10]
+$$priority.$length = (1, 10)
 
 # Use the extensions in regular schema
 @ field

@@ -53,9 +53,8 @@ fn test_number_constraints() {
 fn test_array_constraints() {
     #[derive(Eure, Serialize, Deserialize)]
     struct Config {
-        #[eure(min_items = 1, max_items = 10, unique = true)]
+        #[eure(unique = true)]
         tags: Vec<String>,
-        #[eure(min_items = 0, max_items = 100)]
         items: Vec<i32>,
     }
     
@@ -63,13 +62,9 @@ fn test_array_constraints() {
     
     if let Type::Object(obj_schema) = &schema.type_expr {
         let tags_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("tags")];
-        assert_eq!(tags_field.constraints.min_items, Some(1));
-        assert_eq!(tags_field.constraints.max_items, Some(10));
         assert_eq!(tags_field.constraints.unique, Some(true));
         
         let items_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("items")];
-        assert_eq!(items_field.constraints.min_items, Some(0));
-        assert_eq!(items_field.constraints.max_items, Some(100));
         assert_eq!(items_field.constraints.unique, None);
     } else {
         panic!("Expected object schema");

@@ -37,7 +37,7 @@ Namespace for defining custom types.
 ```eure
 @ $types.username
 $type = .string
-$length = [3, 20]  # Min and max length
+$length = (3, 20)  # Min and max length
 $pattern = regex"^[a-z0-9_]+$"
 
 # Using the custom type
@@ -97,8 +97,6 @@ features.$array = .$types.feature  # Array of feature type
 @ user
 tags.$array = .string  # Array of strings
 tags.$unique = true    # No duplicate values
-tags.$min-items = 1
-tags.$max-items = 10
 ```
 
 **Important:**
@@ -137,7 +135,7 @@ bio.$optional = true  # This field can be omitted
 ```eure
 $types.username {
   $type = .string
-  $length = [3, 20]         # Array with [min, max]
+  $length = (3, 20)         # Tuple with (min, max)
   $pattern = regex"^[a-z]+" # Regex pattern
   $format = "email"         # Format validation
 }
@@ -148,7 +146,7 @@ $types.username {
 ```eure
 $types.age {
   $type = .number
-  $range = [0, 150]    # Inclusive range
+  $range = (0, 150)    # Inclusive range
   $minimum = 0         # Alternative: just minimum
   $maximum = 150       # Alternative: just maximum
   $exclusive-min = 0   # Exclusive minimum
@@ -162,8 +160,6 @@ $types.age {
 @ config
 tags.$array = .string
 tags.$unique = true       # No duplicates
-tags.$min-items = 1
-tags.$max-items = 10
 tags.$contains = "required-tag"  # Must contain this value
 ```
 
@@ -256,25 +252,25 @@ $literal = "inactive"
 $type = .$types.status  # Only "active" or "inactive"
 ```
 
-## Serialization Extensions (Serde)
+## Serialization Extensions
 
-### $serde.rename
+### $rename
 
 Rename a field when serializing/deserializing.
 
 ```eure
 @ user_name
 $type = .string
-$serde.rename = "userName"  # Different name in serialized form
+$rename = "userName"  # Different name in serialized form
 ```
 
-### $serde.rename-all
+### $rename-all
 
 Apply naming convention to all fields.
 
 ```eure
 @ config
-$serde.rename-all = "camelCase"  # Convert all to camelCase
+$rename-all = "camelCase"  # Convert all to camelCase
 
 # Available conventions:
 # - "camelCase"    user_name → userName
@@ -328,7 +324,7 @@ $types.log-level {
 @ config
 name.$type = .string
 port.$type = .number
-port.$range = [1, 65535]
+port.$range = (1, 65535)
 
 logging.level.$type = .$types.log-level
 

@@ -162,24 +162,14 @@ fn test_section_snippet_generation() {
     
     // Create a schema with section preference
     let mut schema_manager = SchemaManager::new();
-    let schema_text = r#"@ user {
-    $prefer.section = true
-    
-    @ name {
-        @ first
-        $type = .string
-        
-        @ last  
-        $type = .string
-        
-        @ middle
-        $type = .string
-        $optional = true
-    }
-    
-    @ age
-    $type = .number
-}"#;
+    let schema_text = r#"
+user.$prefer.section = true
+user.name.first.$type = .string
+user.name.last.$type = .string
+user.name.middle.$type = .string
+user.name.middle.$optional = true
+user.age.$type = .number
+"#;
     
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
@@ -245,12 +235,10 @@ fn test_no_snippet_for_non_object_fields() {
     };
     
     let mut schema_manager = SchemaManager::new();
-    let schema_text = r#"@ user {
-    $prefer.section = true
-    
-    @ age
-    $type = .number
-}"#;
+    // Use the working inline schema format from deep_nesting_test
+    let schema_text = r#"
+user.age.$type = .number
+"#;
     
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
@@ -970,28 +958,17 @@ fn test_completion_with_default_values() {
     
     // Create schema with default values
     let mut schema_manager = SchemaManager::new();
-    let schema_text = r#"@ database {
-    @ host {
-        $type = .string
-        $default = "localhost"
-    }
-    
-    @ port {
-        $type = .number
-        $default = 5432
-    }
-    
-    @ ssl_enabled {
-        $type = .boolean
-        $default = true
-    }
-    
-    @ connection_timeout {
-        $type = .number
-        $default = 30
-        $optional = true
-    }
-}"#;
+    let schema_text = r#"
+database.host.$type = .string
+database.host.$default = "localhost"
+database.port.$type = .number
+database.port.$default = 5432
+database.ssl_enabled.$type = .boolean
+database.ssl_enabled.$default = true
+database.connection_timeout.$type = .number
+database.connection_timeout.$default = 30
+database.connection_timeout.$optional = true
+"#;
     
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {

@@ -28,18 +28,18 @@ This guide helps you understand when to use `EureDocument` versus `Value` in the
 
 ## Detailed Comparison Table
 
-| Feature | EureDocument | Value |
-|---------|--------------|-------|
-| **Source Location Tracking** | ✅ Full CST handles with spans | ❌ No source information |
-| **Memory Efficiency** | ✅ Node-based with shared references | ❌ Recursive enum structure |
-| **Path-Based Updates** | ✅ Efficient insertion and traversal | ❌ Requires full traversal |
-| **Extension Namespaces** | ✅ Separate storage for `$` fields | ❌ Not included |
-| **Construction Metadata** | ✅ Preserves how values were created | ❌ Only final values |
-| **Type Safety** | ✅ Typed handles for each construct | ✅ Enum variants |
-| **Serialization** | ❌ Requires conversion | ✅ Direct serialization |
-| **Pattern Matching** | ❌ Requires node access | ✅ Direct enum matching |
-| **Schema Validation** | ✅ With span information | ✅ Without spans |
-| **Editor Support** | ✅ Completions, diagnostics | ❌ Limited support |
+| Feature                      | EureDocument                        | Value                      |
+| ---------------------------- | ----------------------------------- | -------------------------- |
+| **Source Location Tracking** | ✅ Full CST handles with spans       | ❌ No source information    |
+| **Memory Efficiency**        | ✅ Node-based with shared references | ❌ Recursive enum structure |
+| **Path-Based Updates**       | ✅ Efficient insertion and traversal | ❌ Requires full traversal  |
+| **Extension Namespaces**     | ✅ Separate storage for extensions   | ❌ Not included             |
+| **Construction Metadata**    | ✅ Preserves how values were created | ❌ Only final values        |
+| **Type Safety**              | ✅ Typed handles for each construct  | ✅ Enum variants            |
+| **Serialization**            | ❌ Requires conversion               | ✅ Direct serialization     |
+| **Pattern Matching**         | ❌ Requires node access              | ✅ Direct enum matching     |
+| **Schema Validation**        | ✅ With span information             | ✅ Without spans            |
+| **Editor Support**           | ✅ Completions, diagnostics          | ❌ Limited support          |
 
 ## Use Case Examples
 
@@ -203,7 +203,7 @@ pub fn validate_with_diagnostics(input: &str) -> Vec<Diagnostic> {
     let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor)?;
     let document = visitor.into_document();
-    
+
     let validator = SchemaValidator::new(input, schema, &tree);
     validator.validate()
         .into_iter()
@@ -243,24 +243,24 @@ impl ConfigManager {
         let segments = path.iter()
             .map(|s| PathSegment::Ident(Identifier::from_str(s)?))
             .collect::<Vec<_>>();
-        
+
         self.document.insert_node(
             segments.into_iter(),
-            NodeContent::String { 
+            NodeContent::String {
                 handle: StringConstructionHandle::Synthetic,
-                value: value.to_string() 
+                value: value.to_string()
             }
         )?;
-        
+
         // Can provide exact location where setting was updated
         Ok(())
     }
 }
 
-// Using Value for config without source tracking  
+// Using Value for config without source tracking
 pub fn load_config(content: &str) -> Result<Config, Error> {
     let value: Value = parse_to_value(content)?;
-    
+
     // Simple extraction without source info
     if let Value::Map(map) = value {
         Ok(Config {
@@ -280,7 +280,7 @@ pub fn load_config(content: &str) -> Result<Config, Error> {
 pub fn get_completions(document: &EureDocument, cursor: Position) -> Vec<Completion> {
     let node = document.get_node_at_position(cursor);
     let context = analyze_node_context(node);
-    
+
     match context {
         Context::MapKey(partial) => suggest_map_keys(partial),
         Context::Value(type_hint) => suggest_values_for_type(type_hint),
@@ -296,7 +296,7 @@ pub fn get_completions(document: &EureDocument, cursor: Position) -> Vec<Complet
 
 ### Choose EureDocument when:
 1. Building development tools (LSP, linters, formatters)
-2. Providing detailed error messages with source locations  
+2. Providing detailed error messages with source locations
 3. Implementing incremental updates or transformations
 4. Preserving source formatting and structure
 5. Working with extension namespaces extensively
@@ -327,10 +327,10 @@ impl EureProcessor {
         tree.visit_from_root(&mut visitor)?;
         let document = visitor.into_document();
         let value = document.to_value();
-        
+
         Ok(Self { document, value })
     }
-    
+
     pub fn get_with_span(&self, path: &[&str]) -> Option<(&Value, InputSpan)> {
         // Use value for data, document for spans
         let value = self.get_value_at_path(&self.value, path)?;
