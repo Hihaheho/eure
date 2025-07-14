@@ -686,7 +686,16 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                 while !content.is_empty() {
                     let ident: syn::Ident = content.parse()?;
                     content.parse::<syn::Token![=]>()?;
-                    let value: syn::LitFloat = content.parse()?;
+                    
+                    // Try to parse as either integer or float literal
+                    let value = if content.peek(syn::LitInt) {
+                        let int_val: syn::LitInt = content.parse()?;
+                        let float_val = int_val.base10_parse::<f64>()?;
+                        quote! { #float_val }
+                    } else {
+                        let float_val: syn::LitFloat = content.parse()?;
+                        quote! { #float_val }
+                    };
                     
                     if ident == "min" {
                         min = Some(value);
