@@ -1,25 +1,31 @@
-use eure_schema::{DocumentSchema, FieldSchema, KeyCmpValue, ObjectSchema, Type};
-use eure_tree::Cst;
-use eure_tree::value_visitor::ValueVisitor;
-use eure_value::value::PathSegment;
-use indexmap::IndexMap;
-use lsp_types::{
-    CompletionItem, CompletionItemKind, Documentation, InsertTextFormat, MarkupContent, MarkupKind,
-    Position,
-};
+use eure_tree::{Cst, document::EureDocument, tree::{CstFacade, CstNodeData, CstNodeId, TerminalData, NonTerminalData, InputSpan}, node_kind::{NonTerminalKind, TerminalKind}};
+use lsp_types::{CompletionItem, CompletionItemKind, InsertTextFormat, Position};
 
 use crate::completion_analyzer::CompletionAnalyzer;
-use crate::completion_context_tracker::{CompletionContext, CompletionContextTracker};
 use crate::schema_validation::SchemaManager;
+use eure_schema::{DocumentSchema, FieldSchema, ObjectSchema, Type, VariantSchema};
+use eure_value::value::KeyCmpValue;
+use eure_value::identifier::Identifier;
+use std::collections::HashSet;
+use std::str::FromStr;
 
 pub fn get_completions(
     text: &str,
     cst: &Cst,
     position: Position,
-    trigger_character: Option<String>,
+    _trigger_character: Option<String>,
     uri: &str,
     schema_manager: &SchemaManager,
+    cached_document: Option<&EureDocument>,
 ) -> Vec<CompletionItem> {
+    // Try handle-based completion first if we have a cached document
+    if let Some(document) = cached_document {
+        if let Some(handle_completions) = get_handle_based_completions(
+            text, cst, position, uri, schema_manager, document
+        ) {
+            return handle_completions;
+        }
+    }
     // First try error-based completion
     let parse_result = eure_parol::parse_tolerant(text);
     let analyzer = CompletionAnalyzer::new(
@@ -30,645 +36,1080 @@ pub fn get_completions(
         uri,
     );
 
-    let error_completions = analyzer.analyze();
-    if !error_completions.is_empty() {
-        return error_completions;
-    }
+    let _error_completions = analyzer.analyze();
 
     // Get the schema for this document
     let schema_uri = schema_manager.get_document_schema_uri(uri);
     let schema = match schema_uri.and_then(|uri| schema_manager.get_schema(uri)) {
         Some(s) => s,
-        None => return vec![], // No schema, no completions
+        None => return _error_completions, // No schema, use error-based completions
     };
 
-    // Extract completion context using the new tracker
-    let mut value_visitor = ValueVisitor::new(text);
-    let _ = cst.visit_from_root(&mut value_visitor);
-
-    let context_tracker = CompletionContextTracker::new(text, &values, position);
-    let context = match context_tracker.track_context(cst) {
-        Some(ctx) => ctx,
-        None => return vec![], // Couldn't determine context
-    };
-
-    generate_completions(&context, schema, trigger_character)
-}
-
-fn generate_completions(
-    context: &CompletionContext,
-    schema: &DocumentSchema,
-    trigger_character: Option<String>,
-) -> Vec<CompletionItem> {
-    let mut completions = Vec::new();
-
-    if context.is_in_key_position {
-        // Get fields at the current path
-        let fields = match lookup_fields_at_path(
-            &context.path_segments,
-            schema,
-            &context.variant_contexts,
-        ) {
-            Some(fields) => fields,
-            None => return vec![], // Invalid path, no completions
-        };
-
-        // Generate completion items for each field
-        for (key, field_schema) in fields {
-            let label = format_key(key);
-
-            // Skip if field is already used
-            if context.used_fields.contains(&label) {
-                continue;
-            }
-
-            // Skip if partial field is specified and doesn't match
-            if let Some(ref partial) = context.partial_field
-                && !label.starts_with(partial)
-            {
-                continue;
-            }
-
-            let documentation = field_schema.description.as_ref().map(|desc| {
-                Documentation::MarkupContent(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: desc.clone(),
-                })
-            });
-
-            let mut completion_item = CompletionItem {
-                label: label.clone(),
-                kind: Some(CompletionItemKind::FIELD),
-                detail: Some(format_type_detail(&field_schema.type_expr)),
-                documentation,
-                deprecated: Some(false),
-                preselect: Some(false),
-                ..Default::default()
-            };
-
-            // Add snippet for object fields with required children
-            if trigger_character.as_deref() == Some(".")
-                && let Type::Object(ref obj_schema) = field_schema.type_expr
-                && let Some(snippet) = generate_section_snippet(&label, obj_schema)
-            {
-                completion_item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-                completion_item.insert_text = Some(snippet);
-            }
-
-            completions.push(completion_item);
-        }
-    } else if context.is_in_value_position {
-        if context.is_variant_position {
-            // Get variant completions for the current field
-            let variant_type = find_variant_type_at_path(&context.path_segments, schema);
-            if let Some(Type::Variants(variants)) = variant_type {
-                for (variant_key, variant_obj) in &variants.variants {
-                    if let KeyCmpValue::String(variant_name) = variant_key {
-                        let field_info = if variant_obj.fields.is_empty() {
-                            "No fields".to_string()
-                        } else {
-                            let field_names: Vec<String> =
-                                variant_obj.fields.keys().map(format_key).collect();
-                            format!("Fields: {}", field_names.join(", "))
-                        };
-
-                        completions.push(CompletionItem {
-                            label: variant_name.clone(),
-                            kind: Some(CompletionItemKind::ENUM_MEMBER),
-                            detail: Some(format!("Variant: {variant_name}")),
-                            documentation: Some(Documentation::MarkupContent(MarkupContent {
-                                kind: MarkupKind::Markdown,
-                                value: field_info,
-                            })),
-                            deprecated: Some(false),
-                            preselect: Some(false),
-                            ..Default::default()
-                        });
+    // Analyze the context at cursor position
+    let context = analyze_context_at_position(text, position, cached_document);
+    eprintln!("DEBUG: Schema-based context: {:?}", context);
+    
+    let schema_completions = match context {
+        CompletionContext::AfterAt { path, partial_field, prepend_at } => {
+            let mut completions = generate_field_completions(&path, schema, partial_field.as_deref(), &HashSet::new());
+            if prepend_at && path.is_empty() {
+                // Prepend @ only for empty documents where user hasn't typed @ yet
+                for completion in &mut completions {
+                    completion.label = format!("@ {}", completion.label);
+                    if let Some(insert_text) = &mut completion.insert_text {
+                        *insert_text = format!("@ {}", insert_text);
+                    } else {
+                        completion.insert_text = Some(format!("@ {}", completion.label));
                     }
                 }
             }
+            completions
+        }
+        CompletionContext::AfterDot { path, partial_field } => {
+            generate_field_completions(&path, schema, partial_field.as_deref(), &HashSet::new())
+        }
+        CompletionContext::AfterEquals { path, field_name } => {
+            // Extensions like $variant need special handling since they're not schema fields
+            if field_name == "$variant" {
+                generate_variant_completions(&path, schema)
+            } else {
+                generate_value_completions(&path, &field_name, schema, false)
+            }
+        }
+        CompletionContext::AfterColon { path, field_name } => {
+            // After colon, only string values are allowed
+            // TODO: This should be determined by AST, but for now we need string-based detection
+            // because extensions like $variant are not stored in schema.fields but in Node.extensions
+            if field_name == "$variant" {
+                generate_variant_completions(&path, schema)
+            } else {
+                vec![] // No completions for string-only context
+            }
+        }
+        CompletionContext::Unknown => vec![],
+    };
+    
+    // For now, always prefer schema completions when we have a schema
+    // The error-based completions don't properly track paths yet
+    schema_completions
+}
+
+#[derive(Debug)]
+enum CompletionContext {
+    AfterAt { path: Vec<String>, partial_field: Option<String>, prepend_at: bool },
+    AfterDot { path: Vec<String>, partial_field: Option<String> },
+    AfterEquals { path: Vec<String>, field_name: String },
+    AfterColon { path: Vec<String>, field_name: String },
+    Unknown,
+}
+
+fn analyze_context_at_position(
+    text: &str,
+    position: Position,
+    cached_document: Option<&EureDocument>,
+) -> CompletionContext {
+    let lines: Vec<&str> = text.lines().collect();
+    
+    // Handle empty document
+    if text.is_empty() || (lines.is_empty() && position.line == 0 && position.character == 0) {
+        // Empty document - suggest root fields with @ prefix
+        return CompletionContext::AfterAt { path: vec![], partial_field: None, prepend_at: true };
+    }
+    
+    // Handle position beyond last line (e.g., on empty line after content)
+    if position.line as usize >= lines.len() {
+        // Check if we're in a section context
+        if let Some(section_path) = find_section_context(text, position) {
+            return CompletionContext::AfterAt { 
+                path: section_path, 
+                partial_field: None, 
+                prepend_at: false 
+            };
+        }
+        return CompletionContext::Unknown;
+    }
+    
+    let current_line = lines[position.line as usize];
+    let char_pos = position.character.min(current_line.len() as u32) as usize;
+    let line_before_cursor = &current_line[..char_pos];
+    
+    // Check what's immediately before cursor
+    let trimmed = line_before_cursor.trim_end();
+    
+    // Handle empty line
+    if trimmed.is_empty() && char_pos == 0 {
+        // Check if we're inside a section first
+        if let Some(section_path) = find_section_context(text, position) {
+            return CompletionContext::AfterAt { 
+                path: section_path, 
+                partial_field: None, 
+                prepend_at: false 
+            };
+        }
+        // Beginning of line - suggest root fields with @ prefix
+        return CompletionContext::AfterAt { path: vec![], partial_field: None, prepend_at: true };
+    }
+    
+    if trimmed.ends_with('@') {
+        // Extract path from line if present
+        let path = extract_path_from_line(trimmed);
+        // User already typed @, don't prepend
+        CompletionContext::AfterAt { path, partial_field: None, prepend_at: false }
+    } else if trimmed.ends_with('.') {
+        // Extract path including the part before the dot
+        let path = extract_path_from_line(trimmed);
+        CompletionContext::AfterDot { path, partial_field: None }
+    } else if trimmed.ends_with('=') {
+        // Extract the field name and path
+        let parts: Vec<&str> = trimmed.trim_end_matches('=').trim().split_whitespace().collect();
+        if let Some(field_part) = parts.last() {
+            let (path, field_name) = parse_field_reference(field_part);
+            CompletionContext::AfterEquals { path, field_name }
         } else {
-            // Generate value completions based on expected type
-            let field_type = find_field_type_at_path(&context.path_segments, schema);
-            completions.extend(generate_value_completions(
-                field_type,
-                context.is_string_only,
-            ));
+            CompletionContext::Unknown
+        }
+    } else if trimmed.ends_with(':') {
+        // Extract the field name and path, accounting for context
+        let parts: Vec<&str> = trimmed.trim_end_matches(':').trim().split_whitespace().collect();
+        if let Some(field_part) = parts.last() {
+            let (mut path, field_name) = parse_field_reference(field_part);
+            
+            // If path is empty, check if we're inside a section context
+            if path.is_empty() {
+                if let Some(section_path) = find_section_context(text, position) {
+                    path = section_path;
+                }
+            }
+            
+            CompletionContext::AfterColon { path, field_name }
+        } else {
+            CompletionContext::Unknown
+        }
+    } else if trimmed.contains('@') && !trimmed.contains('=') && !trimmed.contains(':') {
+        // Partial field after @
+        if let Some(at_pos) = trimmed.rfind('@') {
+            let after_at = &trimmed[at_pos + 1..].trim();
+            let path = extract_path_from_line(&trimmed[..at_pos]);
+            let partial_field = if after_at.is_empty() { None } else { Some(after_at.to_string()) };
+            // User already typed @, don't prepend
+            CompletionContext::AfterAt { path, partial_field, prepend_at: false }
+        } else {
+            CompletionContext::Unknown
+        }
+    } else {
+        // Check if we're inside a section by looking at previous lines
+        if let Some(section_path) = find_section_context(text, position) {
+            // We're inside a section on an empty line
+            return CompletionContext::AfterAt { 
+                path: section_path, 
+                partial_field: None, 
+                prepend_at: false 
+            };
+        }
+        
+        CompletionContext::Unknown
+    }
+}
+
+fn extract_path_from_line(line: &str) -> Vec<String> {
+    // Extract path up to the final dot
+    let trimmed = line.trim_start().trim_end_matches('.');
+    
+    if trimmed.is_empty() {
+        vec![]
+    } else if trimmed.starts_with('@') {
+        let path = trimmed[1..].split('.').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        path
+    } else {
+        let path = trimmed.split('.').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        path
+    }
+}
+
+fn parse_field_reference(field_ref: &str) -> (Vec<String>, String) {
+    let parts: Vec<&str> = field_ref.split('.').collect();
+    if parts.len() > 1 {
+        let path = parts[..parts.len()-1].iter().map(|s| s.to_string()).collect();
+        let field = parts.last().unwrap().to_string();
+        (path, field)
+    } else {
+        (vec![], field_ref.to_string())
+    }
+}
+
+fn generate_field_completions(
+    path: &[String],
+    schema: &DocumentSchema,
+    partial_field: Option<&str>,
+    used_fields: &HashSet<String>,
+) -> Vec<CompletionItem> {
+    eprintln!("DEBUG generate_field_completions: path={:?}", path);
+    eprintln!("DEBUG: Root schema has {} fields", schema.root.fields.len());
+    for (k, v) in schema.root.fields.iter() {
+        eprintln!("  Root field: {:?} -> type {:?}", k, v.type_expr);
+    }
+    
+    // Find the schema at the current path
+    let object_schema = match lookup_schema_at_path(path, &schema.root) {
+        Some(obj) => obj,
+        None => {
+            eprintln!("DEBUG: No schema found for path {:?}", path);
+            return vec![];
+        }
+    };
+    
+    let mut completions = vec![];
+    
+    // At root level, also add $types if there are any types defined
+    if path.is_empty() && !schema.types.is_empty() {
+        if partial_field.is_none() || "$types".starts_with(partial_field.unwrap_or("")) {
+            completions.push(CompletionItem {
+                label: "$types".to_string(),
+                kind: Some(CompletionItemKind::MODULE),
+                detail: Some("Type definitions namespace".to_string()),
+                documentation: Some(lsp_types::Documentation::MarkupContent(lsp_types::MarkupContent {
+                    kind: lsp_types::MarkupKind::Markdown,
+                    value: "Access type definitions using `$types.TypeName`".to_string(),
+                })),
+                ..Default::default()
+            });
         }
     }
-
+    
+    for (key, field_schema) in &object_schema.fields {
+        let field_name = match key {
+            KeyCmpValue::String(s) => s.clone(),
+            KeyCmpValue::MetaExtension(s) => format!("${}", s),
+            _ => continue,
+        };
+        
+        // Skip already used fields
+        if used_fields.contains(&field_name) {
+            continue;
+        }
+        
+        // Filter by partial field if present
+        if let Some(partial) = partial_field {
+            if !field_name.starts_with(partial) {
+                continue;
+            }
+        }
+        
+        // Check if this field should generate a snippet
+        let (insert_text, insert_format) = if should_generate_snippet(field_schema) {
+            let snippet = generate_field_snippet(&field_name, field_schema, path);
+            (Some(snippet), Some(InsertTextFormat::SNIPPET))
+        } else {
+            (None, None)
+        };
+        
+        completions.push(CompletionItem {
+            label: field_name,
+            kind: Some(CompletionItemKind::FIELD),
+            detail: field_schema.description.clone(),
+            documentation: field_schema.description.as_ref().map(|desc| {
+                lsp_types::Documentation::MarkupContent(lsp_types::MarkupContent {
+                    kind: lsp_types::MarkupKind::Markdown,
+                    value: desc.clone(),
+                })
+            }),
+            insert_text,
+            insert_text_format: insert_format,
+            ..Default::default()
+        });
+    }
+    
+    
     completions
 }
 
-/// Navigate through the schema to find fields at the given path
-fn lookup_fields_at_path<'a>(
-    path: &[PathSegment],
-    schema: &'a DocumentSchema,
-    variant_contexts: &std::collections::HashMap<String, String>,
-) -> Option<&'a IndexMap<KeyCmpValue, FieldSchema>> {
-    let mut current_fields = &schema.root.fields;
-    let mut current_path = Vec::new();
-
-    for (i, segment) in path.iter().enumerate() {
-        match segment {
-            PathSegment::Ident(id) => {
-                let field_name = id.as_ref();
-
-                // Look up the field
-                let field = current_fields
-                    .iter()
-                    .find(|(key, _)| matches_key(key, field_name))
-                    .map(|(_, field)| field)?;
-
-                current_path.push(segment.clone());
-
-                // Navigate based on field type
-                match &field.type_expr {
-                    Type::Object(obj) => {
-                        current_fields = &obj.fields;
-                    }
-                    Type::Array(elem_type) => {
-                        // If next segment is array access, handle it
-                        if i + 1 < path.len() && matches!(path[i + 1], PathSegment::ArrayIndex(_)) {
-                            // Skip to element type
-                            match elem_type.as_ref() {
-                                Type::Object(obj) => {
-                                    current_fields = &obj.fields;
-                                }
-                                Type::TypeRef(type_name) => {
-                                    current_fields = resolve_type_fields(
-                                        type_name,
-                                        schema,
-                                        &current_path,
-                                        variant_contexts,
-                                    )?;
-                                }
-                                Type::Variants(_) => {
-                                    // Need variant context for array of variants
-                                    let path_key = path_to_string(&current_path);
-                                    let variant = variant_contexts.get(&path_key)?;
-                                    current_fields =
-                                        resolve_variant_fields(elem_type, variant, schema)?;
-                                }
-                                _ => return None,
-                            }
-                        } else {
-                            return None; // Array field but no array access
-                        }
-                    }
-                    Type::TypeRef(type_name) => {
-                        current_fields = resolve_type_fields(
-                            type_name,
-                            schema,
-                            &current_path,
-                            variant_contexts,
-                        )?;
-                    }
-                    Type::Variants(variants) => {
-                        // Get variant context for this path
-                        let path_key = path_to_string(&current_path);
-                        let variant = variant_contexts.get(&path_key)?;
-                        let variant_obj = variants
-                            .variants
-                            .get(&KeyCmpValue::String(variant.clone()))?;
-                        current_fields = &variant_obj.fields;
-                    }
-                    _ => return None, // Primitive type, no nested fields
-                }
-            }
-            PathSegment::ArrayIndex(_) => {
-                // Array access already handled in previous iteration
-                current_path.push(segment.clone());
-            }
-            PathSegment::Extension(ext) => {
-                let field_name = format!("${}", ext.as_ref());
-
-                // Look up extension field
-                let field = current_fields
-                    .iter()
-                    .find(|(key, _)| matches_key(key, &field_name))
-                    .map(|(_, field)| field)?;
-
-                current_path.push(segment.clone());
-
-                // Navigate based on field type
-                match &field.type_expr {
-                    Type::Object(obj) => {
-                        current_fields = &obj.fields;
-                    }
-                    Type::TypeRef(type_name) => {
-                        current_fields = resolve_type_fields(
-                            type_name,
-                            schema,
-                            &current_path,
-                            variant_contexts,
-                        )?;
-                    }
-                    _ => return None,
-                }
-            }
-            PathSegment::MetaExt(meta) => {
-                let field_name = format!("$${}", meta.as_ref());
-
-                // Look up meta extension field
-                let field = current_fields
-                    .iter()
-                    .find(|(key, _)| matches_key(key, &field_name))
-                    .map(|(_, field)| field)?;
-
-                current_path.push(segment.clone());
-
-                // Navigate based on field type
-                match &field.type_expr {
-                    Type::Object(obj) => {
-                        current_fields = &obj.fields;
-                    }
-                    Type::TypeRef(type_name) => {
-                        current_fields = resolve_type_fields(
-                            type_name,
-                            schema,
-                            &current_path,
-                            variant_contexts,
-                        )?;
-                    }
-                    _ => return None,
-                }
-            }
-            _ => return None, // Other segment types not supported in paths
-        }
+fn generate_value_completions(
+    path: &[String],
+    field_name: &str,
+    schema: &DocumentSchema,
+    is_string_only: bool,
+) -> Vec<CompletionItem> {
+    // For string-only contexts (after :), don't suggest boolean/null
+    if is_string_only {
+        return vec![];
     }
-
-    Some(current_fields)
+    
+    // Find the field type
+    if let Some(field_type) = get_field_type_at_path(path, field_name, &schema.root) {
+        return generate_values_for_type(field_type);
+    }
+    
+    // Default value completions for any type
+    vec![
+        CompletionItem {
+            label: "true".to_string(),
+            kind: Some(CompletionItemKind::VALUE),
+            ..Default::default()
+        },
+        CompletionItem {
+            label: "false".to_string(),
+            kind: Some(CompletionItemKind::VALUE),
+            ..Default::default()
+        },
+        CompletionItem {
+            label: "null".to_string(),
+            kind: Some(CompletionItemKind::VALUE),
+            ..Default::default()
+        },
+    ]
 }
 
-/// Resolve fields for a type reference
-fn resolve_type_fields<'a>(
-    type_name: &KeyCmpValue,
-    schema: &'a DocumentSchema,
-    current_path: &[PathSegment],
-    variant_contexts: &std::collections::HashMap<String, String>,
-) -> Option<&'a IndexMap<KeyCmpValue, FieldSchema>> {
-    let type_def = schema.types.get(type_name)?;
-
-    match &type_def.type_expr {
-        Type::Object(obj) => Some(&obj.fields),
-        Type::Variants(variants) => {
-            // Need variant context
-            let path_key = path_to_string(current_path);
-            let variant = variant_contexts.get(&path_key)?;
-            let variant_obj = variants
-                .variants
-                .get(&KeyCmpValue::String(variant.clone()))?;
-            Some(&variant_obj.fields)
-        }
-        _ => None,
-    }
-}
-
-/// Resolve fields for a variant type
-fn resolve_variant_fields<'a>(
-    variant_type: &'a Type,
-    variant_name: &str,
-    schema: &'a DocumentSchema,
-) -> Option<&'a IndexMap<KeyCmpValue, FieldSchema>> {
-    match variant_type {
-        Type::Variants(variants) => {
-            let variant_obj = variants
-                .variants
-                .get(&KeyCmpValue::String(variant_name.to_string()))?;
-            Some(&variant_obj.fields)
-        }
-        Type::TypeRef(type_name) => {
-            let type_def = schema.types.get(type_name)?;
-            resolve_variant_fields(&type_def.type_expr, variant_name, schema)
-        }
-        _ => None,
-    }
-}
-
-/// Find the variant type at the current path (for $variant completion)
-fn find_variant_type_at_path<'a>(
-    path: &[PathSegment],
-    schema: &'a DocumentSchema,
-) -> Option<&'a Type> {
-    if path.is_empty() {
-        return None;
-    }
-
-    // Remove the last segment (which should be $variant)
-    let parent_path = &path[..path.len() - 1];
-
-    // Navigate to the parent and get its type
-    let mut current_type: Option<&Type> = None;
-
-    // Start from root if no parent path
-    if parent_path.is_empty() {
-        // Looking for $variant at root level
-        let variant_field = schema
-            .root
-            .fields
-            .iter()
-            .find(|(key, _)| matches_key(key, "$variant"))
-            .map(|(_, field)| field)?;
-        return Some(&variant_field.type_expr);
-    }
-
-    // Navigate through the parent path
-    let mut current_obj = &schema.root;
-
-    for (i, segment) in parent_path.iter().enumerate() {
-        match segment {
-            PathSegment::Ident(id) => {
-                let field_name = id.as_ref();
-                let field = current_obj
-                    .fields
-                    .iter()
-                    .find(|(key, _)| matches_key(key, field_name))
-                    .map(|(_, field)| field)?;
-
-                match &field.type_expr {
-                    Type::Object(obj) => {
-                        current_obj = obj;
-                    }
-                    Type::TypeRef(type_name) => {
-                        let type_def = schema.types.get(type_name)?;
-                        match &type_def.type_expr {
-                            Type::Object(obj) => {
-                                current_obj = obj;
+fn generate_variant_completions(
+    path: &[String],
+    schema: &DocumentSchema,
+) -> Vec<CompletionItem> {
+    
+    
+    // If path is not empty, we might be looking at an array element
+    // Need to check the parent path for the array type
+    if !path.is_empty() {
+        let parent_path = &path[..path.len()-1];
+        let field_name = &path[path.len()-1];
+        
+        
+        
+        if let Some(parent_obj) = lookup_schema_at_path(parent_path, &schema.root) {
+            
+            
+            // Look for the field in the parent
+            let field_key = KeyCmpValue::String(field_name.clone());
+            if let Some(field_schema) = parent_obj.fields.get(&field_key) {
+                
+                
+                // Check if it's an array
+                if let Type::Array(elem_type) = &field_schema.type_expr {
+                    
+                    
+                    // Check if the element type is a variant type reference
+                    if let Type::TypeRef(type_ref) = elem_type.as_ref() {
+                        
+                        
+                        // Look up the referenced type
+                        // Convert Identifier to KeyCmpValue for lookup
+                        let type_key = KeyCmpValue::String(type_ref.to_string());
+                        
+                        
+                        
+                        if let Some(type_field) = schema.types.get(&type_key) {
+                            
+                            
+                            
+                            // Check if the type itself is a Variants type
+                            if let Type::Variants(variant_schema) = &type_field.type_expr {
+                                
+                                return generate_variant_completion_items(variant_schema);
                             }
-                            Type::Variants(_) => {
-                                // This is the variant type we're looking for
-                                current_type = Some(&type_def.type_expr);
-                            }
-                            _ => return None,
-                        }
-                    }
-                    Type::Array(elem_type) => {
-                        // Check if next segment is array access
-                        if i + 1 < parent_path.len()
-                            && matches!(parent_path[i + 1], PathSegment::ArrayIndex(_))
-                        {
-                            match elem_type.as_ref() {
-                                Type::Object(obj) => {
-                                    current_obj = obj;
-                                }
-                                Type::TypeRef(type_name) => {
-                                    let type_def = schema.types.get(type_name)?;
-                                    match &type_def.type_expr {
-                                        Type::Object(obj) => {
-                                            current_obj = obj;
-                                        }
-                                        Type::Variants(_) => {
-                                            current_type = Some(&type_def.type_expr);
-                                        }
-                                        _ => return None,
+                            
+                            // Or if it's an Object with $variants field
+                            if let Type::Object(type_obj) = &type_field.type_expr {
+                                
+                                // Check if this type has $variants
+                                let variants_key = KeyCmpValue::MetaExtension(Identifier::from_str("variants").unwrap());
+                                if let Some(variants_field) = type_obj.fields.get(&variants_key) {
+                                    
+                                    
+                                    if let Type::Variants(variant_schema) = &variants_field.type_expr {
+                                        
+                                        return generate_variant_completion_items(variant_schema);
                                     }
                                 }
-                                Type::Variants(_) => {
-                                    current_type = Some(elem_type);
-                                }
-                                _ => return None,
                             }
-                        } else {
-                            return None;
                         }
                     }
-                    Type::Variants(_) => {
-                        // Found variant type
-                        current_type = Some(&field.type_expr);
-                    }
-                    _ => return None,
                 }
             }
-            PathSegment::ArrayIndex(_) => {
-                // Array access already handled above
-                continue;
-            }
-            _ => {} // Skip other segments
         }
     }
-
-    // If we found a variant type during traversal, return it
-    if let Some(vtype) = current_type {
-        return Some(vtype);
+    
+    // Look up the variant schema at the path
+    if let Some(variant_schema) = lookup_variant_schema_at_path(path, &schema.root) {
+        return generate_variant_completion_items(variant_schema);
     }
+    
+    vec![]
+}
 
-    // Check if the field we're completing is a variant type
-    if let Some(PathSegment::Extension(ext)) = path.last() {
-        if ext.as_ref() == "variant" {
-            // Look for the parent field that should be a variant
-            let parent_field = current_obj.fields.iter()
-                .find(|(_key, field)| {
-                    matches!(field.type_expr, Type::Variants(_)) ||
-                    matches!(&field.type_expr, Type::TypeRef(tn) if schema.types.get(tn).map(|t| matches!(&t.type_expr, Type::Variants(_))).unwrap_or(false))
-                })
-                .map(|(_, field)| field)?;
+fn generate_variant_completion_items(variant_schema: &VariantSchema) -> Vec<CompletionItem> {
+    let mut completions = vec![];
+    
+    for variant_name in variant_schema.variants.keys() {
+        let label = match variant_name {
+            KeyCmpValue::String(s) => s.clone(),
+            _ => continue,
+        };
+        
+        completions.push(CompletionItem {
+            label: label.clone(),
+            kind: Some(CompletionItemKind::ENUM_MEMBER),
+            detail: Some(format!("Variant: {}", label)),
+            ..Default::default()
+        });
+    }
+    
+    
+    completions
+}
 
-            match &parent_field.type_expr {
-                Type::Variants(_) => Some(&parent_field.type_expr),
-                Type::TypeRef(type_name) => {
-                    let type_def = schema.types.get(type_name)?;
-                    Some(&type_def.type_expr)
+fn generate_values_for_type(field_type: &Type) -> Vec<CompletionItem> {
+    match field_type {
+        Type::Boolean => vec![
+            CompletionItem {
+                label: "true".to_string(),
+                kind: Some(CompletionItemKind::VALUE),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "false".to_string(),
+                kind: Some(CompletionItemKind::VALUE),
+                ..Default::default()
+            },
+        ],
+        Type::Null => vec![
+            CompletionItem {
+                label: "null".to_string(),
+                kind: Some(CompletionItemKind::VALUE),
+                ..Default::default()
+            },
+        ],
+        Type::Union(types) => {
+            // Generate completions for all types in the union
+            let mut completions = vec![];
+            let mut seen = HashSet::new();
+            
+            for t in types {
+                for item in generate_values_for_type(t) {
+                    if seen.insert(item.label.clone()) {
+                        completions.push(item);
+                    }
                 }
-                _ => None,
+            }
+            
+            completions
+        }
+        _ => {
+            // For other types, provide generic completions
+            vec![
+                CompletionItem {
+                    label: "true".to_string(),
+                    kind: Some(CompletionItemKind::VALUE),
+                    ..Default::default()
+                },
+                CompletionItem {
+                    label: "false".to_string(),
+                    kind: Some(CompletionItemKind::VALUE),
+                    ..Default::default()
+                },
+                CompletionItem {
+                    label: "null".to_string(),
+                    kind: Some(CompletionItemKind::VALUE),
+                    ..Default::default()
+                },
+            ]
+        }
+    }
+}
+
+
+fn should_generate_snippet(field_schema: &FieldSchema) -> bool {
+    // Generate snippets for object fields that have required sub-fields
+    if let Type::Object(obj) = &field_schema.type_expr {
+        // Check if this object has any required fields
+        let has_required_fields = obj.fields.values().any(|f| !f.optional);
+        return has_required_fields;
+    }
+    false
+}
+
+fn generate_field_snippet(
+    field_name: &str,
+    field_schema: &FieldSchema,
+    parent_path: &[String],
+) -> String {
+    if let Type::Object(obj) = &field_schema.type_expr {
+        let mut snippet = String::new();
+        
+        // Build the full path for the section
+        let mut path_parts = parent_path.to_vec();
+        path_parts.push(field_name.to_string());
+        let full_path = path_parts.join(".");
+        
+        snippet.push_str(&full_path);
+        snippet.push_str(" {\n");
+        
+        // Add required fields
+        let mut tab_index = 1;
+        for (key, sub_field) in &obj.fields {
+            if sub_field.optional {
+                continue; // Skip optional fields in snippet
+            }
+            
+            let sub_field_name = match key {
+                KeyCmpValue::String(s) => s,
+                _ => continue,
+            };
+            
+            snippet.push_str("    ");
+            snippet.push_str(sub_field_name);
+            snippet.push_str(" = ${");
+            snippet.push_str(&tab_index.to_string());
+            snippet.push_str(":!}\n");
+            tab_index += 1;
+        }
+        
+        snippet.push_str("}\n$0"); // Final cursor position
+        snippet
+    } else {
+        field_name.to_string()
+    }
+}
+
+fn lookup_schema_at_path<'a>(
+    path: &[String],
+    root: &'a ObjectSchema,
+) -> Option<&'a ObjectSchema> {
+    let mut current = root;
+    
+    for segment in path {
+        // Look up the field
+        let key = KeyCmpValue::String(segment.clone());
+        if let Some(field) = current.fields.get(&key) {
+            match &field.type_expr {
+                Type::Object(obj) => {
+                    current = obj;
+                }
+                Type::Array(elem_type) => {
+                    // For arrays, look at the element type
+                    if let Type::Object(obj) = elem_type.as_ref() {
+                        current = obj;
+                    } else {
+                        return None;
+                    }
+                }
+                _ => {
+                    return None;
+                }
             }
         } else {
+            return None;
+        }
+    }
+    
+    Some(current)
+}
+
+fn lookup_variant_schema_at_path<'a>(
+    path: &[String],
+    root: &'a ObjectSchema,
+) -> Option<&'a VariantSchema> {
+    let object = lookup_schema_at_path(path, root)?;
+    
+    // Look for $variants field
+    let variants_key = KeyCmpValue::MetaExtension(Identifier::from_str("variants").ok()?);
+    if let Some(field) = object.fields.get(&variants_key) {
+        if let Type::Variants(variant_schema) = &field.type_expr {
+            return Some(variant_schema);
+        }
+    }
+    
+    None
+}
+
+fn get_field_type_at_path<'a>(
+    path: &[String],
+    field_name: &str,
+    root: &'a ObjectSchema,
+) -> Option<&'a Type> {
+    let object = lookup_schema_at_path(path, root)?;
+    
+    // Handle extensions vs meta-extensions vs regular fields
+    if field_name.starts_with("$$") {
+        // Meta-extensions ($$name) are stored as KeyCmpValue::MetaExtension
+        if let Ok(id) = Identifier::from_str(&field_name[2..]) {
+            let key = KeyCmpValue::MetaExtension(id);
+            object.fields.get(&key).map(|field| &field.type_expr)
+        } else {
             None
+        }
+    } else if field_name.starts_with('$') {
+        // Regular extensions ($variant) are stored in Node.extensions, not schema.fields
+        // They should not be looked up here at all
+        None
+    } else {
+        // Regular data fields use String keys
+        let key = KeyCmpValue::String(field_name.to_string());
+        object.fields.get(&key).map(|field| &field.type_expr)
+    }
+}
+
+fn find_section_context(text: &str, position: Position) -> Option<Vec<String>> {
+    let lines: Vec<&str> = text.lines().collect();
+    
+    // Look backwards from current position for @ section declaration
+    for i in (0..=position.line as usize).rev() {
+        if i >= lines.len() {
+            continue;
+        }
+        
+        let line = lines[i].trim();
+        
+        if line.starts_with('@') && !line.contains('=') {
+            // This looks like a section declaration
+            let section_part = line.trim_start_matches('@').trim();
+            
+            // Parse the section path
+            if !section_part.is_empty() {
+                let path_parts: Vec<String> = section_part
+                    .split('.')
+                    .map(|s| {
+                        // Remove array brackets but keep the identifier
+                        s.trim().replace("[]", "").trim().to_string()
+                    })
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                
+                if !path_parts.is_empty() {
+                    return Some(path_parts);
+                }
+            }
+        } else if !line.is_empty() && !line.starts_with('#') && i != position.line as usize {
+            // Hit a non-empty, non-comment line that's not a section
+            // We're not inside a section context
+            break;
+        }
+    }
+    
+    None
+}
+
+fn find_array_context(text: &str, position: Position) -> Option<Vec<String>> {
+    let lines: Vec<&str> = text.lines().collect();
+    
+    // Look backwards from current position for @ section[] pattern
+    for i in (0..=position.line as usize).rev() {
+        if i >= lines.len() {
+            continue;
+        }
+        
+        let line = lines[i].trim();
+        if line.starts_with('@') && line.ends_with("[]") {
+            // Extract the section path
+            let section_part = line[1..].trim_end_matches("[]").trim();
+            let path: Vec<String> = section_part.split('.').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            return Some(path);
+        }
+    }
+    
+    None
+}
+
+// CST-Based Position Analysis Functions
+
+/// Convert LSP Position to byte offset in text
+fn position_to_byte_offset(text: &str, position: Position) -> usize {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut offset = 0;
+    
+    // Add bytes for complete lines before the target line
+    for i in 0..(position.line as usize).min(lines.len()) {
+        offset += lines[i].len() + 1; // +1 for newline character
+    }
+    
+    // Add bytes for characters on the target line
+    if let Some(line) = lines.get(position.line as usize) {
+        offset += (position.character as usize).min(line.len());
+    }
+    
+    // Subtract 1 if we counted a newline that doesn't exist (at end of file)
+    if position.line as usize >= lines.len() && !text.is_empty() && !text.ends_with('\n') {
+        offset = offset.saturating_sub(1);
+    }
+    
+    offset.min(text.len())
+}
+
+/// Find the CST node that contains the given byte position
+fn find_node_at_position(cst: &Cst, position_byte: usize) -> Option<CstNodeId> {
+    find_node_at_position_recursive(cst, cst.root(), position_byte)
+}
+
+fn find_node_at_position_recursive(cst: &Cst, node_id: CstNodeId, position_byte: usize) -> Option<CstNodeId> {
+    // Check if this node contains the position
+    if let Some(span) = get_node_span(cst, node_id) {
+        if position_byte < span.start as usize || position_byte > span.end as usize {
+            return None; // Position is outside this node
+        }
+    }
+    
+    // Check all children to find the most specific node
+    let mut best_match = Some(node_id);
+    for child_id in cst.children(node_id) {
+        if let Some(child_match) = find_node_at_position_recursive(cst, child_id, position_byte) {
+            best_match = Some(child_match);
+        }
+    }
+    
+    best_match
+}
+
+/// Extract the InputSpan from a CST node if it has one
+fn get_node_span(cst: &Cst, node_id: CstNodeId) -> Option<InputSpan> {
+    if let Some(node_data) = cst.node_data(node_id) {
+        match node_data {
+            CstNodeData::Terminal { data: TerminalData::Input(span), .. } => Some(span),
+            CstNodeData::NonTerminal { data: NonTerminalData::Input(span), .. } => Some(span),
+            _ => None,
         }
     } else {
         None
     }
 }
 
-/// Find the expected type for a field at the current path
-fn find_field_type_at_path<'a>(
-    path: &[PathSegment],
-    schema: &'a DocumentSchema,
-) -> Option<&'a Type> {
-    if path.is_empty() {
-        return None;
-    }
+// CST-Based Context Analysis
 
-    // The last segment is the field being assigned
-    let field_path = &path[..path.len() - 1];
-    let field_name = match path.last()? {
-        PathSegment::Ident(id) => id.as_ref(),
-        PathSegment::Extension(_ext) => return None, // Can't determine type for extensions here
-        _ => return None,
-    };
+#[derive(Debug, PartialEq)]
+enum CompletionContextType {
+    /// Completing extension names after $ (e.g., $variant)
+    Extension,
+    /// Completing meta-extension names after $$ (e.g., $$variants)
+    MetaExtension,
+    /// Completing field names in object context
+    Field,
+    /// Completing values after = or :
+    Value,
+    /// Unknown context
+    Unknown,
+}
 
-    // Navigate to the parent
-    let fields = if field_path.is_empty() {
-        &schema.root.fields
+/// Analyze the CST context at the given position to determine completion type
+fn analyze_cst_context(cst: &Cst, position: Position, text: &str) -> (CompletionContextType, Vec<String>) {
+    let position_byte = position_to_byte_offset(text, position);
+    
+    if let Some(node_id) = find_node_at_position(cst, position_byte) {
+        // Walk up the CST to find the context
+        let context_type = determine_context_type(cst, node_id);
+        let path = extract_document_path_from_cst(cst, node_id);
+        
+        (context_type, path)
     } else {
-        lookup_fields_at_path(field_path, schema, &Default::default())?
-    };
-
-    // Find the field
-    let field = fields
-        .iter()
-        .find(|(key, _)| matches_key(key, field_name))
-        .map(|(_, field)| field)?;
-
-    Some(&field.type_expr)
-}
-
-/// Check if a key matches a field name
-fn matches_key(key: &KeyCmpValue, field_name: &str) -> bool {
-    match key {
-        KeyCmpValue::String(s) => s == field_name,
-        KeyCmpValue::I64(n) => n.to_string() == field_name,
-        KeyCmpValue::U64(n) => n.to_string() == field_name,
-        KeyCmpValue::MetaExtension(m) => format!("${m}") == field_name,
-        _ => false,
+        (CompletionContextType::Unknown, vec![])
     }
 }
 
-/// Format a key for display
-fn format_key(key: &KeyCmpValue) -> String {
-    match key {
-        KeyCmpValue::String(s) => s.clone(),
-        KeyCmpValue::I64(n) => n.to_string(),
-        KeyCmpValue::U64(n) => n.to_string(),
-        KeyCmpValue::MetaExtension(m) => format!("${m}"),
-        KeyCmpValue::Bool(b) => b.to_string(),
-        KeyCmpValue::Null => "null".to_string(),
-        KeyCmpValue::Unit => "()".to_string(),
-        KeyCmpValue::Tuple(_) => "<tuple>".to_string(),
-        KeyCmpValue::Hole => "!".to_string(),
-    }
-}
-
-/// Format type information for display
-fn format_type_detail(type_expr: &Type) -> String {
-    match type_expr {
-        Type::String => "string".to_string(),
-        Type::Number => "number".to_string(),
-        Type::Boolean => "boolean".to_string(),
-        Type::Object(_) => "object".to_string(),
-        Type::Array(elem) => format!("array<{}>", format_type_detail(elem)),
-        Type::TypeRef(name) => format!("type {}", format_key(name)),
-        Type::Variants(_) => "variant".to_string(),
-        Type::Code(lang) => {
-            if let Some(lang) = lang {
-                format!("code.{lang}")
-            } else {
-                "code".to_string()
+/// Determine the completion context type based on CST node
+fn determine_context_type(cst: &Cst, node_id: CstNodeId) -> CompletionContextType {
+    // Check this node and its ancestors for context clues
+    let mut current_id = Some(node_id);
+    
+    while let Some(id) = current_id {
+        if let Some(node_data) = cst.node_data(id) {
+            match node_data {
+                CstNodeData::NonTerminal { kind: NonTerminalKind::Ext, .. } => {
+                    // We're in an extension context ($variant)
+                    return CompletionContextType::Extension;
+                }
+                CstNodeData::NonTerminal { kind: NonTerminalKind::MetaExt, .. } => {
+                    // We're in a meta-extension context ($$variants)
+                    return CompletionContextType::MetaExtension;
+                }
+                CstNodeData::Terminal { kind: TerminalKind::Dollar, .. } => {
+                    // Found a $ token, likely extension context
+                    return CompletionContextType::Extension;
+                }
+                CstNodeData::Terminal { kind: TerminalKind::DollarDollar, .. } => {
+                    // Found a $$ token, meta-extension context
+                    return CompletionContextType::MetaExtension;
+                }
+                CstNodeData::Terminal { kind: TerminalKind::Bind, .. } => {
+                    // Found = token, value context
+                    return CompletionContextType::Value;
+                }
+                _ => {}
             }
         }
-        Type::Any => "any".to_string(),
-        Type::Null => "null".to_string(),
-        Type::Path => "path".to_string(),
-        Type::Union(types) => format!("union<{}>", types.len()),
-        Type::CascadeType(inner) => format!("cascade<{}>", format_type_detail(inner)),
-        Type::Tuple(types) => {
-            let type_strs: Vec<String> = types.iter().map(format_type_detail).collect();
-            format!("({})", type_strs.join(", "))
+        
+        // Move to parent
+        current_id = cst.parent(id);
+    }
+    
+    // Default to field completion if no specific context found
+    CompletionContextType::Field
+}
+
+/// Extract document path from CST context (placeholder implementation)
+fn extract_document_path_from_cst(cst: &Cst, node_id: CstNodeId) -> Vec<String> {
+    // TODO: Implement proper path extraction from CST
+    // For now, fall back to the existing string-based approach
+    vec![]
+}
+
+/// Generate completions using CST-based context analysis
+fn get_cst_based_completions(
+    cst: &Cst,
+    position: Position,
+    text: &str,
+    schema: &DocumentSchema,
+) -> Vec<CompletionItem> {
+    let (context_type, path) = analyze_cst_context(cst, position, text);
+    
+    eprintln!("DEBUG CST: Context type: {:?}, Path: {:?}", context_type, path);
+    
+    match context_type {
+        CompletionContextType::Extension => {
+            // Generate extension completions (like $variant)
+            generate_extension_completions(&path, schema)
+        }
+        CompletionContextType::MetaExtension => {
+            // Generate meta-extension completions (like $$variants)
+            generate_meta_extension_completions(&path, schema)
+        }
+        CompletionContextType::Field => {
+            // Generate field completions
+            generate_field_completions(&path, schema, None, &HashSet::new())
+        }
+        CompletionContextType::Value => {
+            // Generate value completions - need to determine field name from CST
+            // For now, fall back to empty
+            vec![]
+        }
+        CompletionContextType::Unknown => {
+            // Fall back to string-based approach
+            vec![]
         }
     }
 }
 
-/// Generate value completions based on type
-fn generate_value_completions(field_type: Option<&Type>, string_only: bool) -> Vec<CompletionItem> {
-    let mut completions = Vec::new();
-
-    match field_type {
-        Some(Type::Boolean) if !string_only => {
-            completions.push(CompletionItem {
-                label: "true".to_string(),
-                kind: Some(CompletionItemKind::VALUE),
-                detail: Some("Boolean value".to_string()),
-                ..Default::default()
-            });
-            completions.push(CompletionItem {
-                label: "false".to_string(),
-                kind: Some(CompletionItemKind::VALUE),
-                detail: Some("Boolean value".to_string()),
-                ..Default::default()
-            });
-        }
-        Some(Type::Null) if !string_only => {
-            completions.push(CompletionItem {
-                label: "null".to_string(),
-                kind: Some(CompletionItemKind::VALUE),
-                detail: Some("Null value".to_string()),
-                ..Default::default()
-            });
-        }
-        _ => {
-            // Generic completions
-            if !string_only {
-                completions.push(CompletionItem {
-                    label: "true".to_string(),
-                    kind: Some(CompletionItemKind::VALUE),
-                    detail: Some("Boolean value".to_string()),
-                    ..Default::default()
-                });
-                completions.push(CompletionItem {
-                    label: "false".to_string(),
-                    kind: Some(CompletionItemKind::VALUE),
-                    detail: Some("Boolean value".to_string()),
-                    ..Default::default()
-                });
-                completions.push(CompletionItem {
-                    label: "null".to_string(),
-                    kind: Some(CompletionItemKind::VALUE),
-                    detail: Some("Null value".to_string()),
-                    ..Default::default()
-                });
-            }
-        }
+/// Generate extension completions (for $ context)
+fn generate_extension_completions(path: &[String], schema: &DocumentSchema) -> Vec<CompletionItem> {
+    let mut completions = vec![];
+    
+    // Add standard extensions
+    completions.push(CompletionItem {
+        label: "variant".to_string(),
+        kind: Some(CompletionItemKind::PROPERTY),
+        detail: Some("Extension: variant selection".to_string()),
+        documentation: Some(lsp_types::Documentation::String(
+            "Specify the variant for sum types".to_string()
+        )),
+        ..Default::default()
+    });
+    
+    // Check if we're in a variant context and can provide variant names
+    if let Some(variant_schema) = lookup_variant_schema_at_path(path, &schema.root) {
+        // For $variant specifically, provide the variant names as values
+        let variant_completions = generate_variant_completion_items(variant_schema);
+        completions.extend(variant_completions);
     }
-
+    
     completions
 }
 
-/// Generate a snippet for a section with required fields
-fn generate_section_snippet(field_name: &str, object_schema: &ObjectSchema) -> Option<String> {
-    let required_fields: Vec<(&KeyCmpValue, &FieldSchema)> = object_schema
-        .fields
-        .iter()
-        .filter(|(_, field)| !field.optional)
-        .collect();
-
-    if required_fields.is_empty() {
-        return None;
-    }
-
-    let mut snippet = String::new();
-    let mut tab_stop = 1;
-
-    snippet.push_str(field_name);
-    snippet.push('\n');
-
-    for (key, _) in required_fields.iter() {
-        let key_str = format_key(key);
-        snippet.push_str(&format!("{key_str} = ${{{tab_stop}:!}}\n"));
-        tab_stop += 1;
-    }
-
-    snippet.push_str("$0");
-
-    Some(snippet)
+/// Generate meta-extension completions (for $$ context)
+fn generate_meta_extension_completions(path: &[String], _schema: &DocumentSchema) -> Vec<CompletionItem> {
+    let mut completions = vec![];
+    
+    // Add standard meta-extensions
+    completions.push(CompletionItem {
+        label: "variants".to_string(),
+        kind: Some(CompletionItemKind::PROPERTY),
+        detail: Some("Meta-extension: variant definitions".to_string()),
+        ..Default::default()
+    });
+    
+    completions
 }
 
-/// Convert path segments to a string key
-fn path_to_string(path: &[PathSegment]) -> String {
-    path.iter()
-        .map(|seg| match seg {
-            PathSegment::Ident(id) => id.as_ref().to_string(),
-            PathSegment::Extension(ext) => format!("${}", ext.as_ref()),
-            PathSegment::MetaExt(meta) => format!("$${}", meta.as_ref()),
-            PathSegment::ArrayIndex(idx) => {
-                if let Some(index) = idx {
-                    format!("[{}]", index)
-                } else {
-                    "[]".to_string()
+/// Handle-based completion using the EureDocument index
+fn get_handle_based_completions(
+    text: &str,
+    cst: &Cst,
+    position: Position,
+    uri: &str,
+    schema_manager: &SchemaManager,
+    document: &EureDocument,
+) -> Option<Vec<CompletionItem>> {
+    // Convert position to byte offset
+    let byte_offset = position_to_byte_offset(text, position);
+    
+    // Find CST node at cursor position
+    let cst_node_id = find_node_at_position(cst, byte_offset)?;
+    
+    eprintln!("DEBUG handle-based completion: found CST node {:?} at position {}", cst_node_id, byte_offset);
+    
+    // Try to find the document node by CST handle
+    if let Some(document_node) = document.get_node_by_cst_id(cst_node_id) {
+        eprintln!("DEBUG handle-based completion: found document node with content: {:?}", document_node.content);
+        
+        // Get the path to this node
+        if let Some(path) = document.get_path_by_cst_id(cst_node_id) {
+            eprintln!("DEBUG handle-based completion: path to node: {:?}", path);
+            
+            // Get schema
+            let schema_uri = schema_manager.get_document_schema_uri(uri)?;
+            let schema = schema_manager.get_schema(schema_uri)?;
+            
+            // Convert PathSegment to String for compatibility
+            let string_path: Vec<String> = path.iter().filter_map(|seg| {
+                match seg {
+                    eure_value::value::PathSegment::Ident(id) => Some(id.as_ref().to_string()),
+                    _ => None, // For now, only handle identifier segments
+                }
+            }).collect();
+            
+            // Determine completion context based on position and CST
+            let context = analyze_handle_completion_context(cst, cst_node_id, byte_offset, text);
+            eprintln!("DEBUG handle-based completion: context: {:?}", context);
+            
+            // Generate completions based on context
+            match context {
+                HandleCompletionContext::FieldPosition { parent_path: _ } => {
+                    // Complete field names at the current location
+                    eprintln!("DEBUG handle-based completion: generating field completions for path: {:?}", string_path);
+                    Some(generate_field_completions(&string_path, schema, None, &HashSet::new()))
+                }
+                HandleCompletionContext::ValuePosition { field_path: _, field_name } => {
+                    // Complete values for the specific field
+                    eprintln!("DEBUG handle-based completion: generating value completions for field: {}", field_name);
+                    if field_name == "variant" {
+                        // Special case for variant completions
+                        Some(generate_variant_completions(&string_path, schema))
+                    } else {
+                        Some(generate_value_completions(&string_path, &field_name, schema, false))
+                    }
+                }
+                HandleCompletionContext::ExtensionPosition { parent_path: _ } => {
+                    // Complete extension names like $variant
+                    eprintln!("DEBUG handle-based completion: generating extension completions");
+                    Some(generate_extension_completions(&string_path, schema))
+                }
+                HandleCompletionContext::Unknown => {
+                    eprintln!("DEBUG handle-based completion: unknown context");
+                    None
                 }
             }
-            PathSegment::Value(v) => format!("{v:?}"),
-            PathSegment::TupleIndex(idx) => format!("[{idx}]"),
-        })
-        .collect::<Vec<_>>()
-        .join(".")
+        } else {
+            eprintln!("DEBUG handle-based completion: could not get path to node");
+            None
+        }
+    } else {
+        eprintln!("DEBUG handle-based completion: could not find document node for CST node");
+        
+        // Try to find the nearest parent node and infer context
+        let parent_cst_id = find_nearest_parent_with_document_node(cst, cst_node_id, document)?;
+        eprintln!("DEBUG handle-based completion: found parent CST node: {:?}", parent_cst_id);
+        
+        if let Some(parent_path) = document.get_path_by_cst_id(parent_cst_id) {
+            eprintln!("DEBUG handle-based completion: parent path: {:?}", parent_path);
+            
+            // Convert PathSegment to String for compatibility
+            let string_path: Vec<String> = parent_path.iter().filter_map(|seg| {
+                match seg {
+                    eure_value::value::PathSegment::Ident(id) => Some(id.as_ref().to_string()),
+                    _ => None, // For now, only handle identifier segments
+                }
+            }).collect();
+            
+            // Get schema
+            let schema_uri = schema_manager.get_document_schema_uri(uri)?;
+            let schema = schema_manager.get_schema(schema_uri)?;
+            
+            // Infer that we're in field position within the parent
+            eprintln!("DEBUG handle-based completion: generating field completions for parent path");
+            Some(generate_field_completions(&string_path, schema, None, &HashSet::new()))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+enum HandleCompletionContext {
+    /// Completing field names at the given parent path
+    FieldPosition { parent_path: Vec<String> },
+    /// Completing values for a specific field
+    ValuePosition { field_path: Vec<String>, field_name: String },
+    /// Completing extension names (like $variant)
+    ExtensionPosition { parent_path: Vec<String> },
+    /// Unknown context
+    Unknown,
+}
+
+/// Analyze the completion context based on CST structure and cursor position
+fn analyze_handle_completion_context(
+    cst: &Cst,
+    node_id: CstNodeId,
+    byte_offset: usize,
+    text: &str,
+) -> HandleCompletionContext {
+    // Look at the cursor position in the text to understand context
+    let line_start = text[..byte_offset].rfind('\n').map(|pos| pos + 1).unwrap_or(0);
+    let line_end = text[byte_offset..].find('\n').map(|pos| byte_offset + pos).unwrap_or(text.len());
+    let line = &text[line_start..line_end];
+    let cursor_in_line = byte_offset - line_start;
+    let before_cursor = &line[..cursor_in_line];
+    
+    eprintln!("DEBUG analyze_handle_completion_context: line = {:?}, before_cursor = {:?}", line, before_cursor);
+    
+    // Check what's immediately before cursor
+    let trimmed = before_cursor.trim_end();
+    
+    if trimmed.ends_with('=') || trimmed.ends_with(':') {
+        // We're in value position
+        // Extract field name from the line
+        if let Some(field_name) = extract_field_name_before_operator(trimmed) {
+            eprintln!("DEBUG analyze_handle_completion_context: extracted field name: {}", field_name);
+            // For now, use empty path - we'd need more sophisticated analysis for nested paths
+            HandleCompletionContext::ValuePosition { 
+                field_path: vec![], 
+                field_name 
+            }
+        } else {
+            HandleCompletionContext::Unknown
+        }
+    } else if trimmed.ends_with('@') || trimmed.is_empty() || before_cursor.ends_with(' ') {
+        // We're in field position
+        HandleCompletionContext::FieldPosition { parent_path: vec![] }
+    } else if trimmed.starts_with('$') {
+        // We're potentially in extension position
+        HandleCompletionContext::ExtensionPosition { parent_path: vec![] }
+    } else {
+        HandleCompletionContext::Unknown
+    }
+}
+
+/// Extract field name from text before = or : operator
+fn extract_field_name_before_operator(text: &str) -> Option<String> {
+    let without_operator = if text.ends_with('=') {
+        &text[..text.len()-1]
+    } else if text.ends_with(':') {
+        &text[..text.len()-1]
+    } else {
+        text
+    };
+    
+    // Find the last word (field name)
+    let parts: Vec<&str> = without_operator.trim().split_whitespace().collect();
+    parts.last().map(|s| s.to_string())
+}
+
+/// Find the nearest parent CST node that has a corresponding document node
+fn find_nearest_parent_with_document_node(
+    cst: &Cst, 
+    start_node: CstNodeId, 
+    document: &EureDocument
+) -> Option<CstNodeId> {
+    let mut current = Some(start_node);
+    
+    while let Some(node_id) = current {
+        if document.get_node_by_cst_id(node_id).is_some() {
+            return Some(node_id);
+        }
+        current = cst.parent(node_id);
+    }
+    
+    None
 }

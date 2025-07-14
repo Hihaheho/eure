@@ -15,13 +15,13 @@ where
     let tree = eure_parol::parse(s).map_err(|e| Error::ParseError(e.to_string()))?;
 
     // Extract values using ValueVisitor
-    let mut values = eure_tree::value_visitor::Values::default();
-    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(s, &mut values);
+    let mut visitor = eure_tree::value_visitor::ValueVisitor::new(s);
     tree.visit_from_root(&mut visitor)
         .map_err(|e| Error::ValueVisitorError(e.to_string()))?;
+    let document = visitor.into_document();
 
-    // Extract the main value from the document
-    let value = extract_document_value(&tree, &values, s);
+    // Convert document to value
+    let value = document.to_value();
 
     // Deserialize from Value
     from_value(value)
@@ -31,434 +31,26 @@ pub fn from_value<'a, T>(value: Value) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = Deserializer::new(value);
+    // Handle the special case where EURE wraps bare values in a root binding
+    let unwrapped_value = if let Value::Map(Map(ref map)) = value {
+        if map.len() == 1 && map.contains_key(&KeyCmpValue::String("value".to_string())) {
+            // If we have a single "value" binding at the root, unwrap it
+            map.get(&KeyCmpValue::String("value".to_string())).cloned()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    let final_value = unwrapped_value.unwrap_or(value);
+    let mut deserializer = Deserializer::new(final_value);
     T::deserialize(&mut deserializer)
 }
 
 impl Deserializer {
     fn new(value: Value) -> Self {
         Deserializer { value }
-    }
-}
-
-// Helper function to extract values from the parsed EURE document (same as in eure-cli)
-fn extract_document_value(
-    tree: &eure_tree::Cst,
-    values: &eure_tree::value_visitor::Values,
-    input: &str,
-) -> Value {
-    use eure_tree::prelude::*;
-    use eure_value::value::{Map, Value};
-
-    let mut result_map = ahash::AHashMap::new();
-
-    if let Ok(root_view) = tree.root_handle().get_view(tree)
-        && let Ok(eure_view) = root_view.eure.get_view(tree)
-    {
-        if let Ok(Some(bindings_view)) = eure_view.eure_bindings.get_view(tree) {
-            collect_bindings(&mut result_map, bindings_view, values, tree, input);
-        }
-
-        if let Ok(Some(sections_view)) = eure_view.eure_sections.get_view(tree) {
-            process_sections(&mut result_map, sections_view, values, tree, input);
-        }
-    }
-
-    let transformed = transform_variants(Value::Map(Map(result_map)));
-
-    // Check if this is a synthetic "value" binding (for non-map top-level values)
-    if let Value::Map(Map(ref map)) = transformed
-        && map.len() == 1
-        && map.contains_key(&KeyCmpValue::String("value".to_string()))
-    {
-        // Unwrap the synthetic binding
-        return map
-            .get(&KeyCmpValue::String("value".to_string()))
-            .cloned()
-            .unwrap_or(Value::Null);
-    }
-
-    transformed
-}
-
-// Helper functions from eure-cli
-fn collect_bindings<F: eure_tree::prelude::CstFacade>(
-    map: &mut ahash::AHashMap<KeyCmpValue, Value>,
-    bindings_view: eure_tree::nodes::EureBindingsView,
-    values: &eure_tree::value_visitor::Values,
-    tree: &F,
-    input: &str,
-) {
-    use eure_tree::prelude::*;
-
-    if let Ok(binding_view) = bindings_view.binding.get_view(tree)
-        && let Some(key_handles) = values.get_keys(&binding_view.keys)
-        && !key_handles.is_empty()
-    {
-        let binding_value = match binding_view.binding_rhs.get_view(tree) {
-            Ok(BindingRhsView::ValueBinding(value_binding_handle)) => {
-                if let Ok(value_binding_view) = value_binding_handle.get_view(tree) {
-                    values.get_value(&value_binding_view.value).cloned()
-                } else {
-                    None
-                }
-            }
-            Ok(BindingRhsView::TextBinding(text_binding_handle)) => {
-                if let Ok(text_binding_view) = text_binding_handle.get_view(tree) {
-                    if let Ok(text_view) = text_binding_view.text.get_view(tree) {
-                        if let Ok(data) = text_view.text.get_data(tree) {
-                            let text = tree.get_str(data, input).unwrap_or("").trim();
-                            Some(Value::String(text.to_string()))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            Ok(BindingRhsView::SectionBinding(section_binding_handle)) => {
-                if let Ok(section_binding_view) = section_binding_handle.get_view(tree) {
-                    if let Ok(eure_view) = section_binding_view.eure.get_view(tree) {
-                        let mut section_map = ahash::AHashMap::new();
-
-                        if let Ok(Some(bindings_view)) = eure_view.eure_bindings.get_view(tree) {
-                            collect_bindings(&mut section_map, bindings_view, values, tree, input);
-                        }
-
-                        if let Ok(Some(sections_view)) = eure_view.eure_sections.get_view(tree) {
-                            process_sections(&mut section_map, sections_view, values, tree, input);
-                        }
-
-                        Some(Value::Map(Map(section_map)))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        if let Some(value) = binding_value {
-            process_path_recursive(map, key_handles, value, values);
-        }
-    }
-
-    if let Ok(more_bindings) = bindings_view.eure_bindings.get_view(tree)
-        && let Some(more) = more_bindings
-    {
-        collect_bindings(map, more, values, tree, input);
-    }
-}
-
-fn process_sections<F: eure_tree::prelude::CstFacade>(
-    map: &mut ahash::AHashMap<KeyCmpValue, Value>,
-    sections_view: eure_tree::nodes::EureSectionsView,
-    values: &eure_tree::value_visitor::Values,
-    tree: &F,
-    input: &str,
-) {
-    use eure_tree::prelude::*;
-
-    if let Ok(section_view) = sections_view.section.get_view(tree)
-        && let Some(path_handles) = values.get_keys(&section_view.keys)
-        && !path_handles.is_empty()
-    {
-        let mut section_map = ahash::AHashMap::new();
-
-        if let Ok(section_body) = section_view.section_body.get_view(tree) {
-            match section_body {
-                SectionBodyView::SectionBinding(binding_handle) => {
-                    if let Ok(binding_view) = binding_handle.get_view(tree)
-                        && let Ok(eure_view) = binding_view.eure.get_view(tree)
-                        && let Ok(Some(bindings_view)) = eure_view.eure_bindings.get_view(tree)
-                    {
-                        collect_bindings(&mut section_map, bindings_view, values, tree, input);
-                    }
-                }
-                SectionBodyView::SectionBodyList(body_list_handle) => {
-                    process_section_body_list(
-                        &mut section_map,
-                        body_list_handle,
-                        values,
-                        tree,
-                        input,
-                    );
-                }
-                SectionBodyView::Bind(bind_handle) => {
-                    // Handle "Bind Value" case - this is a value assignment to the section
-                    if let Ok(_bind_view) = bind_handle.get_view(tree) {
-                        // The section itself has a value, treat it as a special key
-                        // This would be something like: @ section = value
-                        // For now, we'll skip this case as it's not commonly used
-                    }
-                }
-            }
-        }
-
-        process_section_path(map, path_handles, Value::Map(Map(section_map)), values);
-    }
-
-    if let Ok(Some(more_sections)) = sections_view.eure_sections.get_view(tree) {
-        process_sections(map, more_sections, values, tree, input);
-    }
-}
-
-fn process_section_body_list<F: eure_tree::prelude::CstFacade>(
-    map: &mut ahash::AHashMap<KeyCmpValue, Value>,
-    body_list_handle: eure_tree::nodes::SectionBodyListHandle,
-    values: &eure_tree::value_visitor::Values,
-    tree: &F,
-    input: &str,
-) {
-    use eure_tree::prelude::*;
-    use eure_value::value::PathSegment;
-
-    if let Ok(Some(body_list_view)) = body_list_handle.get_view(tree) {
-        if let Ok(binding_view) = body_list_view.binding.get_view(tree)
-            && let Some(key_handles) = values.get_keys(&binding_view.keys)
-            && let Some(first_key) = key_handles.first()
-            && let Some(path_seg) = values.get_path_segment(first_key)
-        {
-            let key = match path_seg {
-                PathSegment::Ident(ident) => KeyCmpValue::String(ident.to_string()),
-                PathSegment::Extension(ident) => KeyCmpValue::String(format!("${ident}")),
-                PathSegment::Value(val) => val.clone(),
-                _ => KeyCmpValue::String("unknown".to_string()),
-            };
-
-            if let Ok(binding_rhs_view) = binding_view.binding_rhs.get_view(tree) {
-                match binding_rhs_view {
-                    BindingRhsView::ValueBinding(value_binding_handle) => {
-                        if let Ok(value_binding_view) = value_binding_handle.get_view(tree)
-                            && let Some(value) = values.get_value(&value_binding_view.value)
-                        {
-                            map.insert(key, value.clone());
-                        }
-                    }
-                    BindingRhsView::TextBinding(text_binding_handle) => {
-                        if let Ok(text_binding_view) = text_binding_handle.get_view(tree)
-                            && let Ok(text_view) = text_binding_view.text.get_view(tree)
-                            && let Ok(data) = text_view.text.get_data(tree)
-                        {
-                            let text = tree.get_str(data, input).unwrap_or("").trim();
-                            map.insert(key, Value::String(text.to_string()));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        if body_list_view.section_body_list.node_id() != body_list_handle.node_id() {
-            process_section_body_list(map, body_list_view.section_body_list, values, tree, input);
-        }
-    }
-}
-
-fn process_section_path(
-    map: &mut ahash::AHashMap<KeyCmpValue, Value>,
-    path_handles: &[eure_tree::nodes::KeyHandle],
-    section_value: Value,
-    values: &eure_tree::value_visitor::Values,
-) {
-    if path_handles.is_empty() {
-        return;
-    }
-
-    process_path_recursive(map, path_handles, section_value, values);
-}
-
-fn process_path_recursive(
-    current_map: &mut ahash::AHashMap<KeyCmpValue, Value>,
-    path_handles: &[eure_tree::nodes::KeyHandle],
-    value: Value,
-    values: &eure_tree::value_visitor::Values,
-) {
-    use eure_value::value::{Array, PathSegment};
-
-    if path_handles.is_empty() {
-        return;
-    }
-
-    let current_handle = &path_handles[0];
-    let remaining_path = &path_handles[1..];
-
-    if let Some(path_seg) = values.get_path_segment(current_handle) {
-        match path_seg {
-            PathSegment::Ident(ident) if !remaining_path.is_empty() => {
-                // Check if the next segment is an ArrayIndex
-                if let Some(next_handle) = remaining_path.first() {
-                    if let Some(PathSegment::ArrayIndex(idx)) = values.get_path_segment(next_handle) {
-                        // This is an array field
-                        let key_cmp = KeyCmpValue::String(ident.to_string());
-                        
-                        // Check if we have more array indices in the remaining path
-                        let has_more_arrays = remaining_path[1..].iter().any(|h| {
-                            if let Some(seg) = values.get_path_segment(h) {
-                                matches!(seg, PathSegment::ArrayIndex(_))
-                            } else {
-                                false
-                            }
-                        });
-                        
-                        // Skip the ArrayIndex segment since we're handling it here
-                        let remaining_after_array = &remaining_path[1..];
-
-                        if has_more_arrays && !remaining_after_array.is_empty() {
-                            match current_map.entry(key_cmp) {
-                                std::collections::hash_map::Entry::Occupied(mut entry) => {
-                                    match entry.get_mut() {
-                                        Value::Array(Array(arr)) => {
-                                            if arr.is_empty() {
-                                                arr.push(Value::Map(Map(ahash::AHashMap::new())));
-                                            }
-                                            if let Some(Value::Map(Map(last_element))) = arr.last_mut() {
-                                                process_path_recursive(
-                                                    last_element,
-                                                    remaining_after_array,
-                                                    value,
-                                                    values,
-                                                );
-                                            }
-                                        }
-                                        _ => {
-                                            let mut nested_map = ahash::AHashMap::new();
-                                            process_path_recursive(
-                                                &mut nested_map,
-                                                remaining_after_array,
-                                                value,
-                                                values,
-                                            );
-                                            entry.insert(Value::Array(Array(vec![Value::Map(Map(
-                                                nested_map,
-                                            ))])));
-                                        }
-                                    }
-                                }
-                                std::collections::hash_map::Entry::Vacant(entry) => {
-                                    let mut nested_map = ahash::AHashMap::new();
-                                    process_path_recursive(&mut nested_map, remaining_after_array, value, values);
-                                    entry.insert(Value::Array(Array(vec![Value::Map(Map(nested_map))])));
-                                }
-                            }
-                        } else {
-                            let element_value = if remaining_after_array.is_empty() {
-                                value
-                            } else {
-                                let mut nested_map = ahash::AHashMap::new();
-                                process_path_recursive(&mut nested_map, remaining_after_array, value, values);
-                                Value::Map(Map(nested_map))
-                            };
-
-                            match current_map.entry(key_cmp) {
-                                std::collections::hash_map::Entry::Occupied(mut entry) => {
-                                    match entry.get_mut() {
-                                        Value::Array(Array(arr)) => {
-                                            arr.push(element_value);
-                                        }
-                                        _ => {
-                                            let existing = entry.get().clone();
-                                            entry
-                                                .insert(Value::Array(Array(vec![existing, element_value])));
-                                        }
-                                    }
-                                }
-                                std::collections::hash_map::Entry::Vacant(entry) => {
-                                    entry.insert(Value::Array(Array(vec![element_value])));
-                                }
-                            }
-                        }
-                        return; // We've handled the array case, return early
-                    }
-                }
-            }
-            _ => {
-                let key = match path_seg {
-                    PathSegment::Ident(ident) => KeyCmpValue::String(ident.to_string()),
-                    PathSegment::Extension(ident) => KeyCmpValue::String(format!("${ident}")),
-                    PathSegment::Value(val) => val.clone(),
-                    _ => KeyCmpValue::String("key".to_string()),
-                };
-
-                if remaining_path.is_empty() {
-                    current_map.insert(key, value);
-                } else {
-                    match current_map.entry(key) {
-                        std::collections::hash_map::Entry::Occupied(mut entry) => {
-                            match entry.get_mut() {
-                                Value::Map(Map(nested_map)) => {
-                                    process_path_recursive(
-                                        nested_map,
-                                        remaining_path,
-                                        value,
-                                        values,
-                                    );
-                                }
-                                _ => {
-                                    let mut nested_map = ahash::AHashMap::new();
-                                    process_path_recursive(
-                                        &mut nested_map,
-                                        remaining_path,
-                                        value,
-                                        values,
-                                    );
-                                    entry.insert(Value::Map(Map(nested_map)));
-                                }
-                            }
-                        }
-                        std::collections::hash_map::Entry::Vacant(entry) => {
-                            let mut nested_map = ahash::AHashMap::new();
-                            process_path_recursive(&mut nested_map, remaining_path, value, values);
-                            entry.insert(Value::Map(Map(nested_map)));
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn transform_variants(value: Value) -> Value {
-    match value {
-        Value::Map(Map(mut map)) => {
-            let variant_name = map
-                .get(&KeyCmpValue::String("$variant".to_string()))
-                .and_then(|v| match v {
-                    Value::String(s) => Some(s.clone()),
-                    _ => None,
-                });
-
-            if let Some(name) = variant_name {
-                map.remove(&KeyCmpValue::String("$variant".to_string()));
-                map.remove(&KeyCmpValue::String("$variant.repr".to_string()));
-
-                let mut transformed_map = ahash::AHashMap::new();
-                for (key, val) in map {
-                    transformed_map.insert(key, transform_variants(val));
-                }
-
-                Value::Variant(Variant {
-                    tag: name,
-                    content: Box::new(Value::Map(Map(transformed_map))),
-                })
-            } else {
-                let mut transformed_map = ahash::AHashMap::new();
-                for (key, val) in map {
-                    transformed_map.insert(key, transform_variants(val));
-                }
-                Value::Map(Map(transformed_map))
-            }
-        }
-        Value::Array(Array(items)) => {
-            let transformed_items = items.into_iter().map(transform_variants).collect();
-            Value::Array(Array(transformed_items))
-        }
-        other => other,
     }
 }
 
@@ -496,22 +88,23 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                 // Convert path to string representation, skipping extensions
                 let mut path_parts = Vec::new();
                 let mut i = 0;
-                
+
                 while i < path.0.len() {
                     match &path.0[i] {
                         eure_value::value::PathSegment::Ident(id) => {
                             // Check if next segment is ArrayIndex
-                            if i + 1 < path.0.len() {
-                                if let eure_value::value::PathSegment::ArrayIndex(idx) = &path.0[i + 1] {
-                                    // Combine identifier with array index
-                                    if let Some(index) = idx {
-                                        path_parts.push(format!("{}[{}]", id.as_ref(), index));
-                                    } else {
-                                        path_parts.push(format!("{}[]", id.as_ref()));
-                                    }
-                                    i += 2; // Skip the ArrayIndex segment
-                                    continue;
+                            if i + 1 < path.0.len()
+                                && let eure_value::value::PathSegment::ArrayIndex(idx) =
+                                    &path.0[i + 1]
+                            {
+                                // Combine identifier with array index
+                                if let Some(index) = idx {
+                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                                } else {
+                                    path_parts.push(format!("{}[]", id.as_ref()));
                                 }
+                                i += 2; // Skip the ArrayIndex segment
+                                continue;
                             }
                             path_parts.push(id.as_ref().to_string());
                         }
@@ -525,12 +118,16 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                             i += 1;
                             continue;
                         }
-                        eure_value::value::PathSegment::Value(v) => path_parts.push(format!("{v:?}")),
-                        eure_value::value::PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
+                        eure_value::value::PathSegment::Value(v) => {
+                            path_parts.push(format!("{v:?}"))
+                        }
+                        eure_value::value::PathSegment::TupleIndex(idx) => {
+                            path_parts.push(idx.to_string())
+                        }
                         eure_value::value::PathSegment::ArrayIndex(idx) => {
                             // Standalone array index (shouldn't normally happen after an ident)
                             if let Some(index) = idx {
-                                path_parts.push(format!("[{}]", index));
+                                path_parts.push(format!("[{index}]"));
                             } else {
                                 path_parts.push("[]".to_string());
                             }
@@ -538,7 +135,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                     }
                     i += 1;
                 }
-                
+
                 let path_str = path_parts.join(".");
                 visitor.visit_string(format!(".{path_str}"))
             }
@@ -715,6 +312,17 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::String(s) => visitor.visit_str(s),
             Value::Code(Code { content, .. }) => visitor.visit_str(content),
             Value::CodeBlock(Code { content, .. }) => visitor.visit_str(content),
+            // Special handling for wrapped values (e.g., "value = ...")
+            Value::Map(map) if map.0.len() == 1 => {
+                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string())) {
+                    visitor.visit_str(s)
+                } else {
+                    Err(Error::InvalidType(format!(
+                        "expected string, found {:?}",
+                        self.value
+                    )))
+                }
+            }
             _ => Err(Error::InvalidType(format!(
                 "expected string, found {:?}",
                 self.value
@@ -730,6 +338,17 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::String(s) => visitor.visit_string(s.clone()),
             Value::Code(Code { content, .. }) => visitor.visit_string(content.clone()),
             Value::CodeBlock(Code { content, .. }) => visitor.visit_string(content.clone()),
+            // Special handling for wrapped values (e.g., "value = ...")
+            Value::Map(map) if map.0.len() == 1 => {
+                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string())) {
+                    visitor.visit_string(s.clone())
+                } else {
+                    Err(Error::InvalidType(format!(
+                        "expected string, found {:?}",
+                        self.value
+                    )))
+                }
+            }
             _ => Err(Error::InvalidType(format!(
                 "expected string, found {:?}",
                 self.value
@@ -1094,13 +713,19 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
 
     fn unit_variant(self) -> Result<()> {
         // For map-based enums, the map should only contain $variant for unit variants
-        if let Value::Map(Map(map)) = &self.value
-            && map.len() == 1
-            && map.contains_key(&KeyCmpValue::String("$variant".to_string()))
-        {
-            return Ok(());
+        match &self.value {
+            Value::Map(Map(map))
+                if map.len() == 1
+                    && map.contains_key(&KeyCmpValue::String("$variant".to_string())) =>
+            {
+                Ok(())
+            }
+            Value::Unit | Value::Null => Ok(()),
+            _ => Err(Error::InvalidType(format!(
+                "expected unit variant, found {:?}",
+                self.value
+            ))),
         }
-        Ok(())
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
@@ -1152,7 +777,7 @@ fn key_cmp_to_value(key: KeyCmpValue) -> Value {
             Value::Tuple(eure_value::value::Tuple(values))
         }
         KeyCmpValue::Unit => Value::Unit,
-        KeyCmpValue::MetaExtension(meta) => todo!("This function must return Option"),
+        KeyCmpValue::MetaExtension(_meta) => todo!("This function must return Option"),
         KeyCmpValue::Hole => Value::Hole,
     }
 }

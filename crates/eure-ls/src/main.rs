@@ -1,19 +1,17 @@
-// Comment out the module since it's empty
-// mod semantic_tokens;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use eure_editor_support::{completions, diagnostics, parser, schema_validation, semantic_tokens};
-use eure_tree::Cst;
+use eure_tree::{Cst, document::EureDocument};
 use lsp_types::notification::{Notification as _, PublishDiagnostics};
 use lsp_types::request::{Completion, DocumentDiagnosticRequest, SemanticTokensFullRequest};
 use lsp_types::{
-    CompletionList, CompletionOptions, CompletionParams, CompletionResponse,
-    Diagnostic, DocumentDiagnosticParams, DocumentDiagnosticReport,
-    DocumentDiagnosticReportResult, FullDocumentDiagnosticReport, InitializeParams,
-    PublishDiagnosticsParams, RelatedFullDocumentDiagnosticReport, SemanticTokensFullOptions,
-    SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult, ServerCapabilities, Uri,
+    CompletionList, CompletionOptions, CompletionParams, CompletionResponse, Diagnostic,
+    DocumentDiagnosticParams, DocumentDiagnosticReport, DocumentDiagnosticReportResult,
+    FullDocumentDiagnosticReport, InitializeParams, PublishDiagnosticsParams,
+    RelatedFullDocumentDiagnosticReport, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, SemanticTokensResult, ServerCapabilities, Uri,
 };
 
 use lsp_server::{
@@ -52,7 +50,12 @@ fn main() -> anyhow::Result<()> {
         // Add completion capability
         completion_provider: Some(CompletionOptions {
             resolve_provider: Some(false),
-            trigger_characters: Some(vec!["@".to_string(), ".".to_string(), "=".to_string(), ":".to_string()]),
+            trigger_characters: Some(vec![
+                "@".to_string(),
+                ".".to_string(),
+                "=".to_string(),
+                ":".to_string(),
+            ]),
             all_commit_characters: None,
             work_done_progress_options: Default::default(),
             completion_item: None,
@@ -88,11 +91,34 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Cached document information for maintaining last valid state
+pub struct DocumentCache {
+    /// Current CST (may contain errors)
+    pub cst: Option<Cst>,
+    /// Current document content
+    pub content: String,
+    /// Last successfully parsed EureDocument (without errors)
+    pub last_valid_document: Option<EureDocument>,
+    /// Document version for tracking changes
+    pub version: Option<i32>,
+}
+
+impl DocumentCache {
+    fn new(cst: Option<Cst>, content: String, version: Option<i32>) -> Self {
+        Self {
+            cst,
+            content,
+            last_valid_document: None,
+            version,
+        }
+    }
+}
+
 pub struct ServerContext {
     connection: Connection,
     #[allow(dead_code)]
     params: InitializeParams,
-    documents: HashMap<String, (Option<Cst>, String)>, // Store (CST, Content) by document URI
+    documents: HashMap<String, DocumentCache>,         // Store DocumentCache by document URI
     legend: SemanticTokensLegend,                      // Store the legend
     schema_manager: schema_validation::SchemaManager,  // Schema management
     diagnostics: HashMap<String, Vec<Diagnostic>>,     // Store diagnostics by document URI
@@ -137,10 +163,7 @@ impl ServerContext {
 
                     // Handle Completion request
                     if self
-                        .handle_request::<Completion>(
-                            req.clone(),
-                            Self::handle_completion,
-                        )?
+                        .handle_request::<Completion>(req.clone(), Self::handle_completion)?
                         .is_some()
                     {
                         continue; // Request was handled
@@ -217,11 +240,40 @@ impl ServerContext {
             }
         };
 
-        // Store document in our map
-        let cst_clone = cst.clone();
-        self.documents.insert(uri_string.clone(), (cst, text.clone()));
+        // Remove the old cache and preserve last valid document if it exists
+        let last_valid_doc = self.documents.remove(&uri_string)
+            .and_then(|mut cache| cache.last_valid_document.take());
+        
+        // Create new document cache
+        let mut doc_cache = DocumentCache::new(cst.clone(), text.clone(), version);
+        
+        // Try to create EureDocument if we have a valid CST and no parse errors
+        if let Some(ref cst) = cst {
+            if diagnostics.is_empty() {
+                // No parse errors, try to create EureDocument
+                use eure_tree::value_visitor::ValueVisitor;
+                let mut visitor = ValueVisitor::new(&text);
+                if let Ok(()) = cst.visit_from_root(&mut visitor) {
+                    let document = visitor.into_document();
+                    // Update last valid document
+                    doc_cache.last_valid_document = Some(document);
+                }
+            } else if let Some(doc) = last_valid_doc {
+                // There are parse errors, preserve the last valid document
+                doc_cache.last_valid_document = Some(doc);
+            }
+        }
+        
+        // Update document cache
+        doc_cache.cst = cst.clone();
+        doc_cache.content = text.clone();
+        doc_cache.version = version;
+        
+        // Store updated cache
+        self.documents.insert(uri_string.clone(), doc_cache);
 
-        // If we have a valid CST, perform schema validation
+        // Perform schema validation using either current CST or cached EureDocument
+        let cst_clone = cst.clone();
         if let Some(ref cst) = cst_clone {
             // Check if this is a schema file itself
             if uri_string.contains(".schema.eure") {
@@ -230,33 +282,56 @@ impl ServerContext {
                     eprintln!("Failed to load schema from {uri_string}: {e}");
                 }
             } else {
-                // First, extract schema and check for $schema reference
-                if let Ok(validation_result) = schema_validation::validate_and_extract_schema(&text, cst) {
-                    // Check if document has a $schema reference
-                    if let Some(schema_ref) = &validation_result.schema.document_schema.schema_ref
-                    && let Some(doc_path) = uri_to_path(&uri) {
+                // First, try to extract schema from the document itself
+                use eure_tree::value_visitor::ValueVisitor;
+                let mut visitor = ValueVisitor::new(&text);
+                if let Ok(()) = cst.visit_from_root(&mut visitor) {
+                    let document = visitor.into_document();
+                    if let Ok(schema) = eure_schema::document_to_schema(&document)
+                        && let Some(schema_ref) = &schema.schema_ref
+                        && let Some(doc_path) = uri_to_path(&uri)
+                    {
                         let workspace_root = self.get_workspace_root();
-                        match schema_validation::resolve_schema_reference(&doc_path, schema_ref, workspace_root.as_deref()) {
+                        match schema_validation::resolve_schema_reference(
+                            &doc_path,
+                            schema_ref,
+                            workspace_root.as_deref(),
+                        ) {
                             Ok(schema_path) => {
                                 // Load the schema if we haven't already
                                 let schema_uri = format!("file://{}", schema_path.display());
                                 if self.schema_manager.get_schema(&schema_uri).is_none() {
                                     // Need to parse and load the schema
-                                    if let Ok(schema_content) = std::fs::read_to_string(&schema_path)
-                                        && let parser::ParseResult::Ok(schema_cst) = parser::parse_document(&schema_content) {
-                                            if let Err(e) = self.schema_manager.load_schema(&schema_uri, &schema_content, &schema_cst) {
-                                                eprintln!("Failed to load schema from {schema_uri}: {e}");
-                                                eprintln!("Schema path: {}", schema_path.display());
-                                            } else {
-                                                eprintln!("Successfully loaded schema from {schema_uri}");
-                                                // Associate document with schema
-                                                self.schema_manager.set_document_schema(&uri_string, &schema_uri);
-                                                eprintln!("Associated {uri_string} with schema {schema_uri}");
-                                            }
+                                    if let Ok(schema_content) =
+                                        std::fs::read_to_string(&schema_path)
+                                        && let parser::ParseResult::Ok(schema_cst) =
+                                            parser::parse_document(&schema_content)
+                                    {
+                                        if let Err(e) = self.schema_manager.load_schema(
+                                            &schema_uri,
+                                            &schema_content,
+                                            &schema_cst,
+                                        ) {
+                                            eprintln!(
+                                                "Failed to load schema from {schema_uri}: {e}"
+                                            );
+                                            eprintln!("Schema path: {}", schema_path.display());
+                                        } else {
+                                            eprintln!(
+                                                "Successfully loaded schema from {schema_uri}"
+                                            );
+                                            // Associate document with schema
+                                            self.schema_manager
+                                                .set_document_schema(&uri_string, &schema_uri);
+                                            eprintln!(
+                                                "Associated {uri_string} with schema {schema_uri}"
+                                            );
                                         }
+                                    }
                                 } else {
                                     // Schema already loaded, just associate
-                                    self.schema_manager.set_document_schema(&uri_string, &schema_uri);
+                                    self.schema_manager
+                                        .set_document_schema(&uri_string, &schema_uri);
                                 }
                             }
                             Err(e) => {
@@ -268,38 +343,75 @@ impl ServerContext {
                     // No $schema reference, fall back to convention-based discovery
                     if let Some(path) = uri_to_path(&uri) {
                         let workspace_root = self.get_workspace_root();
-                        if let Some(schema_path) = schema_validation::find_schema_for_document(&path, workspace_root.as_deref()) {
-                            eprintln!("Found schema by convention for {}: {}", uri_string, schema_path.display());
+                        if let Some(schema_path) = schema_validation::find_schema_for_document(
+                            &path,
+                            workspace_root.as_deref(),
+                        ) {
+                            eprintln!(
+                                "Found schema by convention for {}: {}",
+                                uri_string,
+                                schema_path.display()
+                            );
                             // Load the schema if we haven't already
                             let schema_uri = format!("file://{}", schema_path.display());
                             if self.schema_manager.get_schema(&schema_uri).is_none() {
                                 // Need to parse and load the schema
                                 if let Ok(schema_content) = std::fs::read_to_string(&schema_path) {
-                                    if let parser::ParseResult::Ok(schema_cst) = parser::parse_document(&schema_content) {
-                                        if let Err(e) = self.schema_manager.load_schema(&schema_uri, &schema_content, &schema_cst) {
-                                            eprintln!("Failed to load schema from {schema_uri}: {e}");
+                                    if let parser::ParseResult::Ok(schema_cst) =
+                                        parser::parse_document(&schema_content)
+                                    {
+                                        if let Err(e) = self.schema_manager.load_schema(
+                                            &schema_uri,
+                                            &schema_content,
+                                            &schema_cst,
+                                        ) {
+                                            eprintln!(
+                                                "Failed to load schema from {schema_uri}: {e}"
+                                            );
                                         } else {
-                                            eprintln!("Successfully loaded schema from {schema_uri}");
+                                            eprintln!(
+                                                "Successfully loaded schema from {schema_uri}"
+                                            );
                                             // Associate document with schema
-                                            self.schema_manager.set_document_schema(&uri_string, &schema_uri);
-                                            eprintln!("Associated {uri_string} with schema {schema_uri}");
+                                            self.schema_manager
+                                                .set_document_schema(&uri_string, &schema_uri);
+                                            eprintln!(
+                                                "Associated {uri_string} with schema {schema_uri}"
+                                            );
                                         }
                                     } else {
-                                        eprintln!("Failed to parse schema file: {}", schema_path.display());
+                                        eprintln!(
+                                            "Failed to parse schema file: {}",
+                                            schema_path.display()
+                                        );
                                     }
                                 } else {
-                                    eprintln!("Failed to read schema file: {}", schema_path.display());
+                                    eprintln!(
+                                        "Failed to read schema file: {}",
+                                        schema_path.display()
+                                    );
                                 }
                             } else {
-                                eprintln!("Schema already loaded, associating {uri_string} with {schema_uri}");
+                                eprintln!(
+                                    "Schema already loaded, associating {uri_string} with {schema_uri}"
+                                );
                                 // Schema already loaded, just associate
-                                self.schema_manager.set_document_schema(&uri_string, &schema_uri);
+                                self.schema_manager
+                                    .set_document_schema(&uri_string, &schema_uri);
                             }
                         } else {
                             eprintln!("No schema found by convention for {uri_string}");
                         }
                     }
                 }
+
+                // Get cached document if we have parse errors
+                let cached_doc = if !diagnostics.is_empty() {
+                    self.documents.get(&uri_string)
+                        .and_then(|cache| cache.last_valid_document.as_ref())
+                } else {
+                    None
+                };
                 
                 // Run schema validation
                 let schema_diagnostics = schema_validation::validate_document(
@@ -307,8 +419,9 @@ impl ServerContext {
                     &text,
                     cst,
                     &self.schema_manager,
+                    cached_doc,
                 );
-                
+
                 // Merge diagnostics
                 diagnostics.extend(schema_diagnostics);
             }
@@ -328,8 +441,9 @@ impl ServerContext {
         version: Option<i32>,
     ) -> anyhow::Result<()> {
         // Store diagnostics for pull-based requests
-        self.diagnostics.insert(uri.to_string(), diagnostics.clone());
-        
+        self.diagnostics
+            .insert(uri.to_string(), diagnostics.clone());
+
         let params = PublishDiagnosticsParams {
             uri,
             diagnostics,
@@ -355,10 +469,10 @@ impl ServerContext {
         let uri = params.text_document.uri.to_string();
 
         // Lookup document in our store
-        if let Some((cst_opt, text)) = self.documents.get(&uri) {
-            if let Some(cst) = cst_opt {
+        if let Some(doc_cache) = self.documents.get(&uri) {
+            if let Some(ref cst) = doc_cache.cst {
                 // Generate tokens if we have a CST
-                match semantic_tokens::semantic_tokens(text, cst, &self.legend) {
+                match semantic_tokens::semantic_tokens(&doc_cache.content, cst, &self.legend) {
                     Some(tokens) => Ok(Some(Some(SemanticTokensResult::Tokens(tokens)))),
                     None => Ok(Some(None)),
                 }
@@ -378,29 +492,24 @@ impl ServerContext {
         params: DocumentDiagnosticParams,
     ) -> anyhow::Result<Option<DocumentDiagnosticReportResult>> {
         let uri = params.text_document.uri.to_string();
-        
+
         // Get stored diagnostics for this document
-        let diagnostics = self.diagnostics
-            .get(&uri)
-            .cloned()
-            .unwrap_or_default();
-        
+        let diagnostics = self.diagnostics.get(&uri).cloned().unwrap_or_default();
+
         // Create a full diagnostic report
         let report = FullDocumentDiagnosticReport {
             items: diagnostics,
             result_id: None, // We don't support result IDs yet
         };
-        
+
         // Wrap in the required response types
-        let result = DocumentDiagnosticReportResult::Report(
-            DocumentDiagnosticReport::Full(
-                RelatedFullDocumentDiagnosticReport {
-                    related_documents: None, // We don't track related documents yet
-                    full_document_diagnostic_report: report,
-                }
-            )
-        );
-        
+        let result = DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
+            RelatedFullDocumentDiagnosticReport {
+                related_documents: None, // We don't track related documents yet
+                full_document_diagnostic_report: report,
+            },
+        ));
+
         Ok(Some(result))
     }
 
@@ -412,22 +521,23 @@ impl ServerContext {
         let uri = params.text_document_position.text_document.uri.to_string();
         let position = params.text_document_position.position;
         let trigger_character = params.context.and_then(|ctx| ctx.trigger_character);
-        
+
         eprintln!("Completion request at {position:?} in {uri}, trigger: {trigger_character:?}");
-        
-        // Get the document and CST
-        if let Some((cst_opt, text)) = self.documents.get(&uri) {
-            if let Some(cst) = cst_opt {
+
+        // Get the document cache
+        if let Some(doc_cache) = self.documents.get(&uri) {
+            if let Some(ref cst) = doc_cache.cst {
                 // Get completions from the completions module
                 let items = completions::get_completions(
-                    text,
+                    &doc_cache.content,
                     cst,
                     position,
                     trigger_character,
                     &uri,
                     &self.schema_manager,
+                    doc_cache.last_valid_document.as_ref(),
                 );
-                
+
                 if items.is_empty() {
                     eprintln!("No completions found");
                     Ok(Some(None))
@@ -512,10 +622,7 @@ impl ServerContext {
             .and_then(|folder| uri_to_path(&folder.uri))
             .or_else(|| {
                 #[allow(deprecated)]
-                self.params
-                    .root_uri
-                    .as_ref()
-                    .and_then(uri_to_path)
+                self.params.root_uri.as_ref().and_then(uri_to_path)
             })
     }
 }
@@ -527,20 +634,20 @@ fn uri_to_path(uri: &Uri) -> Option<PathBuf> {
     if !uri_str.starts_with("file://") {
         return None;
     }
-    
+
     // Remove the file:// prefix and decode the path
     let path_str = &uri_str[7..]; // Skip "file://"
-    
+
     // On Windows, file URIs might have an extra slash (file:///C:/...)
     let path_str = if cfg!(windows) && path_str.starts_with('/') {
         &path_str[1..]
     } else {
         path_str
     };
-    
+
     // Decode percent-encoded characters
     let decoded = percent_decode(path_str).ok()?;
-    
+
     Some(PathBuf::from(decoded))
 }
 
@@ -548,7 +655,7 @@ fn uri_to_path(uri: &Uri) -> Option<PathBuf> {
 fn percent_decode(s: &str) -> Result<String, ()> {
     let mut result = String::with_capacity(s.len());
     let mut chars = s.chars();
-    
+
     while let Some(ch) = chars.next() {
         if ch == '%' {
             let hex1 = chars.next().ok_or(())?;
@@ -559,6 +666,6 @@ fn percent_decode(s: &str) -> Result<String, ()> {
             result.push(ch);
         }
     }
-    
+
     Ok(result)
 }

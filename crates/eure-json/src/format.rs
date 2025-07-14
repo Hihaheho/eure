@@ -656,7 +656,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             .build()
                             .build();
                         
-                        let array_marker_opt = if let Some(index) = idx {
+                        let array_marker_opt = if let Some(index) = *idx {
                             let integer_token = terminals::integer(&index.to_string());
                             let integer_node = IntegerConstructor::builder()
                                 .integer(integer_token)
@@ -806,7 +806,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
             PathSegment::ArrayIndex(idx) => {
                 // This shouldn't happen in isolation - array indices should follow identifiers
                 // But if it does, treat it as a numeric key
-                let index_str = if let Some(index) = idx {
+                let index_str = if let Some(index) = *idx {
                     index.to_string()
                 } else {
                     "0".to_string()
@@ -883,7 +883,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             .build()
                             .build();
                         
-                        let array_marker_opt = if let Some(index) = idx {
+                        let array_marker_opt = if let Some(index) = *idx {
                             let integer_token = terminals::integer(&index.to_string());
                             let integer_node = IntegerConstructor::builder()
                                 .integer(integer_token)

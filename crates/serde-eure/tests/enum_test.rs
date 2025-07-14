@@ -12,6 +12,7 @@ enum SimpleEnum {
 fn test_unit_variant() {
     let unit = SimpleEnum::Unit;
     let unit_eure = to_string(&unit).unwrap();
+    eprintln!("Unit variant serialized as: {}", unit_eure);
 
     let unit_back: SimpleEnum = from_str(&unit_eure).unwrap();
     assert_eq!(unit, unit_back);
@@ -23,6 +24,7 @@ fn test_newtype_variant() {
     // But the deserializer expects the newtype content directly, not wrapped in a map
     let newtype = SimpleEnum::Newtype("hello".to_string());
     let newtype_eure = to_string(&newtype).unwrap();
+    eprintln!("Newtype variant serialized as: {}", newtype_eure);
 
     let newtype_back: SimpleEnum = from_str(&newtype_eure).unwrap();
     assert_eq!(newtype, newtype_back);

@@ -46,7 +46,7 @@ age.$type = .number
     match &users_field.type_expr {
         eure_schema::Type::Array(elem_type) => {
             match elem_type.as_ref() {
-                eure_schema::Type::TypeRef(name) => assert_eq!(name, &KeyCmpValue::String("User".to_string())),
+                eure_schema::Type::TypeRef(name) => assert_eq!(name.to_string(), "User"),
                 _ => panic!("Array element should be a TypeRef to User"),
             }
         }

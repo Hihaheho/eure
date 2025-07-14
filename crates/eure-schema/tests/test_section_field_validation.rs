@@ -25,7 +25,7 @@ invalid_field = "should be reported"
     
     let tree = eure_parol::parse(doc_input).expect("Failed to parse document");
     
-    let errors = validate_with_tree(doc_input, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, doc_input, extracted.document_schema)
         .expect("Failed to validate");
     
     // Should only have one error for the invalid field
@@ -51,7 +51,7 @@ age = 25
     let extracted2 = extract_schema_from_value(schema_input)
         .expect("Failed to extract schema");
     
-    let errors2 = validate_with_tree(valid_doc, extracted2.document_schema, &tree2)
+    let errors2 = validate_with_tree(&tree2, valid_doc, extracted2.document_schema)
         .expect("Failed to validate");
     
     assert_eq!(errors2.len(), 0, "Should have no errors for valid document");

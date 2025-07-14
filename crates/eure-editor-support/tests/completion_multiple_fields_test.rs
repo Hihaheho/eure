@@ -6,18 +6,25 @@ use lsp_types::{CompletionItemKind, Position};
 fn test_completion_suggests_all_root_fields() {
     // Schema with multiple root-level fields
     let schema_text = r#"
-script.type = .string
+@ script
+$type = .string
 
-name.type = .string
+@ name
+$type = .string
 
-version.type = .number
+@ version
+$type = .number
 
-settings {
-    debug.type = .boolean
-    timeout.type = .number
+@ settings {
+    @ debug
+    $type = .boolean
+    
+    @ timeout
+    $type = .number
 }
 
-users.$type.$array = .string
+@ users
+$array = .string
 "#;
 
     // Test completion at root level
@@ -40,7 +47,7 @@ users.$type.$array = .string
         .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
-    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager);
+    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager, None);
 
     // Should suggest all root-level fields
     assert!(
@@ -83,13 +90,17 @@ users.$type.$array = .string
 fn test_partial_completion_filters_correctly() {
     // Schema with multiple root-level fields
     let schema_text = r#"
-script.type = .string
+@ script
+$type = .string
 
-screen.type = .string
+@ screen
+$type = .string
 
-settings.type = .object
+@ settings
+$type = .object
 
-users.type = .array
+@ users
+$type = .array
 "#;
 
     // Test completion with partial text
@@ -112,7 +123,7 @@ users.type = .array
         .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
-    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager);
+    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager, None);
 
     // Should only suggest fields starting with "scr"
     assert!(

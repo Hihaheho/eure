@@ -83,22 +83,22 @@ pub fn value_to_json_with_config(
             // Paths represented as dot-separated strings
             let mut path_parts = Vec::new();
             let mut i = 0;
-            
+
             while i < segments.len() {
                 match &segments[i] {
                     PathSegment::Ident(id) => {
                         // Check if next segment is ArrayIndex
-                        if i + 1 < segments.len() {
-                            if let PathSegment::ArrayIndex(idx) = &segments[i + 1] {
-                                // Combine identifier with array index
-                                if let Some(index) = idx {
-                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
-                                } else {
-                                    path_parts.push(format!("{}[]", id.as_ref()));
-                                }
-                                i += 2; // Skip the ArrayIndex segment
-                                continue;
+                        if i + 1 < segments.len()
+                            && let PathSegment::ArrayIndex(idx) = &segments[i + 1]
+                        {
+                            // Combine identifier with array index
+                            if let Some(index) = idx {
+                                path_parts.push(format!("{}[{}]", id.as_ref(), *index));
+                            } else {
+                                path_parts.push(format!("{}[]", id.as_ref()));
                             }
+                            i += 2; // Skip the ArrayIndex segment
+                            continue;
                         }
                         path_parts.push(id.as_ref().to_string());
                     }
@@ -115,7 +115,7 @@ pub fn value_to_json_with_config(
                     PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
                         if let Some(index) = idx {
-                            path_parts.push(format!("[{}]", index));
+                            path_parts.push(format!("[{index}]"));
                         } else {
                             path_parts.push("[]".to_string());
                         }
@@ -123,7 +123,7 @@ pub fn value_to_json_with_config(
                 }
                 i += 1;
             }
-            
+
             let path_str = path_parts.join(".");
             Ok(serde_json::Value::String(format!(".{path_str}")))
         }

@@ -23,16 +23,9 @@ fn test_top_level_extension_namespace() {
     // Verify the result
     match value {
         Value::Map(map) => {
-            // Extension namespace field should be present as a key
-            let tag_value = map.0.get(&KeyCmpValue::String("$tag".to_string()))
-                .expect("Expected $tag field");
-            
-            match tag_value {
-                Value::String(s) => {
-                    assert_eq!(s, "test-variant", "Expected value to be 'test-variant'")
-                }
-                _ => panic!("Expected string value, got {tag_value:?}"),
-            }
+            // Extensions are metadata and should NOT appear in the Value
+            // A top-level extension creates an empty root map
+            assert!(map.0.is_empty(), "Expected empty map since $tag is an extension");
         }
         _ => panic!("Expected map value"),
     }
@@ -63,18 +56,17 @@ fn test_extension_namespace_in_object() {
                 .expect("Expected data field");
             
             if let Value::Map(Map(data_map)) = data_value {
-                // In the new implementation, extension fields are included in the map
-                assert!(data_map.len() >= 2, "Expected at least 2 fields in the map");
-
-                // Check for $tag field
-                let tag_value = data_map.get(&KeyCmpValue::String("$tag".to_string()))
-                    .expect("Expected $tag field");
-                assert!(matches!(tag_value, Value::String(s) if s == "test-variant"));
+                // Extensions are metadata and should NOT appear in the Value
+                assert_eq!(data_map.len(), 1, "Expected only 1 field (extensions excluded)");
 
                 // Check for regular field
                 let field_value = data_map.get(&KeyCmpValue::String("field".to_string()))
                     .expect("Expected field");
                 assert!(matches!(field_value, Value::String(s) if s == "value"));
+                
+                // $tag should NOT be in the value
+                assert!(!data_map.contains_key(&KeyCmpValue::String("$tag".to_string())),
+                    "$tag extension should not appear in Value");
             } else {
                 panic!("Expected Map value for data, got {data_value:?}");
             }
@@ -107,22 +99,19 @@ fn test_multiple_extension_fields() {
                 .expect("Expected config field");
             
             if let Value::Map(Map(config_map)) = config_value {
-                // In the new implementation, all fields (including extension fields) are in the map
-                assert!(config_map.len() >= 3, "Expected at least 3 fields in the map");
-
-                // Verify extension fields
-                let tag_value = config_map.get(&KeyCmpValue::String("$tag".to_string()))
-                    .expect("Expected $tag field");
-                assert!(matches!(tag_value, Value::String(s) if s == "variant"));
-
-                let meta_value = config_map.get(&KeyCmpValue::String("$meta".to_string()))
-                    .expect("Expected $meta field");
-                assert!(matches!(meta_value, Value::String(s) if s == "metadata"));
+                // Extensions are metadata and should NOT appear in the Value
+                assert_eq!(config_map.len(), 1, "Expected only 1 field (extensions excluded)");
 
                 // Verify regular field
                 let regular_value = config_map.get(&KeyCmpValue::String("regular".to_string()))
                     .expect("Expected regular field");
                 assert!(matches!(regular_value, Value::String(s) if s == "field"));
+                
+                // Extension fields should NOT be in the value
+                assert!(!config_map.contains_key(&KeyCmpValue::String("$tag".to_string())),
+                    "$tag extension should not appear in Value");
+                assert!(!config_map.contains_key(&KeyCmpValue::String("$meta".to_string())),
+                    "$meta extension should not appear in Value");
             } else {
                 panic!("Expected Map value for config");
             }
@@ -151,9 +140,13 @@ fn test_meta_extension_namespace() {
 
     match value {
         Value::Map(map) => {
-            // Meta extension namespace field should be present
-            let meta_value = map.0.get(&KeyCmpValue::String("$$meta".to_string()))
-                .expect("Expected $$meta field");
+            // Meta extensions should appear in the Value as KeyCmpValue::MetaExtension
+            use eure_value::identifier::Identifier;
+            use std::str::FromStr;
+            
+            let meta_value = map.0.get(&KeyCmpValue::MetaExtension(
+                Identifier::from_str("meta").unwrap()
+            )).expect("Expected $$meta field as MetaExtension key");
             
             assert!(matches!(meta_value, Value::String(s) if s == "meta-value"));
         }

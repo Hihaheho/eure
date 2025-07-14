@@ -42,7 +42,7 @@ $$rename.$optional = true
 
 # Another meta-extension with type
 $$priority.$type = .string
-$$priority.$length = [1, 10]
+$$priority.$length = (1, 10)
 
 # Use the extensions in regular schema
 @ field
@@ -64,20 +64,20 @@ name.$rename = "userName"  # This should be valid string
             .contains_key(&KeyCmpValue::String("field".to_string()))
     );
 
-    // Meta-extensions themselves should not appear in document schema
+    // Meta-extensions should appear in document schema as they define schemas for extensions
     assert!(
-        !extracted
+        extracted
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension("rename".to_string()))
+            .contains_key(&KeyCmpValue::MetaExtension(Identifier::from_str("rename").unwrap()))
     );
     assert!(
-        !extracted
+        extracted
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension("priority".to_string()))
+            .contains_key(&KeyCmpValue::MetaExtension(Identifier::from_str("priority").unwrap()))
     );
 }
 
@@ -110,12 +110,12 @@ age.$optional = true
             .contains_key(&KeyCmpValue::String("person".to_string()))
     );
 
-    // None of the meta-extensions should appear in the document schema
-    for key in extracted.document_schema.root.fields.keys() {
-        if let KeyCmpValue::MetaExtension(_) = key {
-            panic!("Meta-extension {key:?} should not be in document schema")
-        }
-    }
+    // Meta-extensions should appear in the document schema
+    // Check that we have the expected meta-extensions
+    let meta_extension_count = extracted.document_schema.root.fields.keys()
+        .filter(|key| matches!(key, KeyCmpValue::MetaExtension(_)))
+        .count();
+    assert!(meta_extension_count > 0, "Should have meta-extensions in document schema");
 }
 
 #[test]
@@ -316,13 +316,15 @@ fn test_document_with_extension_values() {
     // Test a document that uses extensions defined by meta-extensions
     let schema_doc = r#"
 # Define extension schemas
-$$serde.rename = .string
-$$serde.rename-all.$union = [.string]
+$$rename = .string
+$$rename.$optional = true
+$$rename-all.$union = [.string]
+$$rename-all.$optional = true
 
 # Document schema
 @ user
 name.$type = .string
-name.$serde.rename = "userName"
+name.$rename = "userName"
 "#;
 
     let test_doc = r#"

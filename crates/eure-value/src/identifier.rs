@@ -23,6 +23,24 @@ impl IdentifierParser {
     }
 
     pub fn parse(&self, s: &str) -> Result<Identifier, IdentifierError> {
+        // Check for reserved keywords first
+        match s {
+            "true" | "false" | "null" => {
+                return Err(IdentifierError::ReservedKeyword {
+                    keyword: s.to_string(),
+                });
+            }
+            _ => {}
+        }
+        
+        // Check if starts with $ (would be parsed as extension)
+        if s.starts_with('$') {
+            return Err(IdentifierError::InvalidChar {
+                at: 0,
+                invalid_char: '$',
+            });
+        }
+        
         let Some(matches) = self.0.find(s) else {
             if let Some(c) = s.chars().next() {
                 return Err(IdentifierError::InvalidChar {
@@ -67,6 +85,8 @@ pub enum IdentifierError {
         /// the invalid character
         invalid_char: char,
     },
+    #[error("Reserved keyword cannot be used as identifier: {keyword}")]
+    ReservedKeyword { keyword: String },
 }
 
 impl Display for Identifier {
@@ -143,5 +163,46 @@ mod tests {
     #[test]
     fn test_identifier_error_empty() {
         assert_eq!(Identifier::from_str(""), Err(IdentifierError::Empty));
+    }
+
+    #[test]
+    fn test_identifier_reject_true() {
+        assert_eq!(
+            Identifier::from_str("true"),
+            Err(IdentifierError::ReservedKeyword {
+                keyword: "true".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_identifier_reject_false() {
+        assert_eq!(
+            Identifier::from_str("false"),
+            Err(IdentifierError::ReservedKeyword {
+                keyword: "false".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_identifier_reject_null() {
+        assert_eq!(
+            Identifier::from_str("null"),
+            Err(IdentifierError::ReservedKeyword {
+                keyword: "null".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_identifier_reject_dollar_prefix() {
+        assert_eq!(
+            Identifier::from_str("$id"),
+            Err(IdentifierError::InvalidChar {
+                at: 0,
+                invalid_char: '$'
+            })
+        );
     }
 }

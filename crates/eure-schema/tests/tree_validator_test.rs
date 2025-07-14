@@ -79,7 +79,7 @@ value = "b"
     let tree = eure_parol::parse(doc_input).expect("Failed to parse example.eure");
     
     // Validate the document against the schema
-    let errors = validate_with_tree(doc_input, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, doc_input, extracted.document_schema)
         .expect("Failed to validate");
     
     // Print all errors for debugging
@@ -140,7 +140,7 @@ last = "Doe"
 
     let tree = eure_parol::parse(doc_input).expect("Failed to parse document");
     
-    let errors = validate_with_tree(doc_input, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, doc_input, extracted.document_schema)
         .expect("Failed to validate");
     
     // Should not have any "Required field 'user' is missing" errors
@@ -181,7 +181,7 @@ email = "alice@example.com"
 
     let tree = eure_parol::parse(doc_input).expect("Failed to parse document");
     
-    let errors = validate_with_tree(doc_input, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, doc_input, extracted.document_schema)
         .expect("Failed to validate");
     
     // Should have exactly one error about missing 'age' field

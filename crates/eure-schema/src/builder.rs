@@ -5,6 +5,7 @@ use crate::{
     Constraints, Preferences, SerdeOptions
 };
 use eure_value::value::KeyCmpValue;
+use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
 
 /// Builder for creating FieldSchema instances
@@ -57,13 +58,15 @@ impl FieldSchemaBuilder {
     
     /// Set minimum items for arrays
     pub fn min_items(mut self, min: usize) -> Self {
-        self.constraints.min_items = Some(min);
+        let (_, max) = self.constraints.length.unwrap_or((None, None));
+        self.constraints.length = Some((Some(min), max));
         self
     }
     
     /// Set maximum items for arrays
     pub fn max_items(mut self, max: usize) -> Self {
-        self.constraints.max_items = Some(max);
+        let (min, _) = self.constraints.length.unwrap_or((None, None));
+        self.constraints.length = Some((min, Some(max)));
         self
     }
     
@@ -177,8 +180,8 @@ impl TypeBuilder {
     }
     
     /// Create a type reference
-    pub fn type_ref(name: impl Into<String>) -> Type {
-        Type::TypeRef(KeyCmpValue::String(name.into()))
+    pub fn type_ref(name: Identifier) -> Type {
+        Type::TypeRef(name)
     }
     
     /// Create a cascade type

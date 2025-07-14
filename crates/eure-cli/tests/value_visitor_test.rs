@@ -1,6 +1,8 @@
 use eure_parol::parse;
 use eure_tree::value_visitor::{ValueVisitor, document_to_value};
-use eure_value::value::{Value, KeyCmpValue};
+use eure_value::value::{Value, KeyCmpValue, Map};
+use eure_value::identifier::Identifier;
+use std::str::FromStr;
 
 #[test]
 fn test_simple_bindings() {
@@ -147,10 +149,10 @@ mixed = ["text", 42, true]
 
 #[test]
 fn test_extension_fields() {
+    // Test that extensions can be added to any node type
     let input = r#"
 name = "test"
 name.$type = .string
-name.$$optional = true
 "#;
 
     let tree = parse(input).expect("Failed to parse extension fields");
@@ -162,11 +164,46 @@ name.$$optional = true
 
     match value {
         Value::Map(map) => {
-            // The new implementation handles extensions differently
-            // Extension fields are stored as separate keys
+            // Extensions are metadata and should NOT appear in the Value
             assert!(map.0.contains_key(&KeyCmpValue::String("name".to_string())));
-            assert!(map.0.contains_key(&KeyCmpValue::String("name.$type".to_string())));
-            assert!(map.0.contains_key(&KeyCmpValue::String("name.$$optional".to_string())));
+            // Extensions should not be in the value
+            assert!(!map.0.contains_key(&KeyCmpValue::String("name.$type".to_string())));
+            
+            // The value should just be the string
+            let name_value = map.0.get(&KeyCmpValue::String("name".to_string())).unwrap();
+            assert!(matches!(name_value, Value::String(s) if s == "test"));
+        }
+        _ => panic!("Expected root to be a map"),
+    }
+}
+
+#[test]
+fn test_meta_extension_on_map() {
+    // Test that meta-extensions work on map nodes
+    let input = r#"
+config = {}
+config.$$meta = "value"
+"#;
+
+    let tree = parse(input).expect("Failed to parse meta extension");
+    let mut visitor = ValueVisitor::new(input);
+    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+
+    let doc = visitor.into_document();
+    let value = document_to_value(doc);
+
+    match value {
+        Value::Map(root_map) => {
+            let config_value = root_map.0.get(&KeyCmpValue::String("config".to_string())).unwrap();
+            match config_value {
+                Value::Map(config_map) => {
+                    // Meta-extensions should appear in the Value as KeyCmpValue::MetaExtension
+                    assert!(config_map.0.contains_key(&KeyCmpValue::MetaExtension(
+                        Identifier::from_str("meta").unwrap()
+                    )));
+                }
+                _ => panic!("Expected config to be a map"),
+            }
         }
         _ => panic!("Expected root to be a map"),
     }

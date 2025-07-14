@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Data, Fields, Attribute, Lit};
+use convert_case::{Case, Casing};
 
 /// Derive macro for generating ToEureSchema implementations
 /// 
@@ -705,21 +706,7 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                 });
             }
             
-            // Handle min_items = X
-            if meta.path.is_ident("min_items") {
-                let value: syn::LitInt = meta.value()?.parse()?;
-                tokens.push(quote! {
-                    schema.constraints.min_items = Some(#value);
-                });
-            }
-            
-            // Handle max_items = X
-            if meta.path.is_ident("max_items") {
-                let value: syn::LitInt = meta.value()?.parse()?;
-                tokens.push(quote! {
-                    schema.constraints.max_items = Some(#value);
-                });
-            }
+            // min_items and max_items have been removed per language designer
             
             // Handle unique = true/false
             if meta.path.is_ident("unique") {
@@ -950,10 +937,10 @@ fn apply_rename_rule(
     
     if let Some(rule) = rename_all {
         match rule.as_str() {
-            "camelCase" => to_camel_case(name),
-            "snake_case" => to_snake_case(name),
-            "kebab-case" => to_kebab_case(name),
-            "PascalCase" => to_pascal_case(name),
+            "camelCase" => name.to_case(Case::Camel),
+            "snake_case" => name.to_case(Case::Snake),
+            "kebab-case" => name.to_case(Case::Kebab),
+            "PascalCase" => name.to_case(Case::Pascal),
             "lowercase" => name.to_lowercase(),
             "UPPERCASE" => name.to_uppercase(),
             _ => name.to_string(),
@@ -963,69 +950,5 @@ fn apply_rename_rule(
     }
 }
 
-// Case conversion helpers - duplicated from eure-schema because proc-macro crates
-// cannot depend on the main crate. These are kept in sync with the utils module.
-fn to_camel_case(s: &str) -> String {
-    let mut result = String::new();
-    let mut capitalize_next = false;
-
-    for (i, ch) in s.chars().enumerate() {
-        if ch == '_' || ch == '-' {
-            capitalize_next = true;
-        } else if capitalize_next {
-            result.push(ch.to_uppercase().next().unwrap());
-            capitalize_next = false;
-        } else if i == 0 {
-            result.push(ch.to_lowercase().next().unwrap());
-        } else {
-            result.push(ch);
-        }
-    }
-
-    result
-}
-
-fn to_snake_case(s: &str) -> String {
-    let mut result = String::new();
-
-    for (i, ch) in s.chars().enumerate() {
-        if i > 0 && ch.is_uppercase() {
-            result.push('_');
-        }
-        result.push(ch.to_lowercase().next().unwrap());
-    }
-
-    result.replace('-', "_")
-}
-
-fn to_pascal_case(s: &str) -> String {
-    let mut result = String::new();
-    let mut capitalize_next = true;
-
-    for ch in s.chars() {
-        if ch == '_' || ch == '-' {
-            capitalize_next = true;
-        } else if capitalize_next {
-            result.push(ch.to_uppercase().next().unwrap());
-            capitalize_next = false;
-        } else {
-            result.push(ch);
-        }
-    }
-
-    result
-}
-
-fn to_kebab_case(s: &str) -> String {
-    let mut result = String::new();
-
-    for (i, ch) in s.chars().enumerate() {
-        if i > 0 && ch.is_uppercase() {
-            result.push('-');
-        }
-        result.push(ch.to_lowercase().next().unwrap());
-    }
-
-    result.replace('_', "-")
-}
+// Case conversion is now handled by the convert_case crate
 

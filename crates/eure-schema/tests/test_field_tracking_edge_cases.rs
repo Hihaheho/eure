@@ -35,7 +35,7 @@ name = "test"
 
     // Document 1 should have error - missing required field "$variant"
     let tree1 = eure_parol::parse(document1).expect("Failed to parse document1");
-    let errors1 = validate_with_tree(document1, extracted.document_schema.clone(), &tree1)
+    let errors1 = validate_with_tree(&tree1, document1, extracted.document_schema.clone())
         .expect("Validation failed");
 
     assert!(
@@ -49,7 +49,7 @@ name = "test"
 
     // Document 2 should be valid
     let tree2 = eure_parol::parse(document2).expect("Failed to parse document2");
-    let errors2 = validate_with_tree(document2, extracted.document_schema, &tree2)
+    let errors2 = validate_with_tree(&tree2, document2, extracted.document_schema)
         .expect("Validation failed");
 
     assert!(
@@ -90,7 +90,7 @@ c = "nested-field"
 
     // Document 1 should be valid
     let tree1 = eure_parol::parse(document1).expect("Failed to parse document1");
-    let errors1 = validate_with_tree(document1, extracted.document_schema.clone(), &tree1)
+    let errors1 = validate_with_tree(&tree1, document1, extracted.document_schema.clone())
         .expect("Validation failed");
 
     assert!(
@@ -100,7 +100,7 @@ c = "nested-field"
 
     // Document 2 should have error - missing required field "a.b.c"
     let tree2 = eure_parol::parse(document2).expect("Failed to parse document2");
-    let errors2 = validate_with_tree(document2, extracted.document_schema, &tree2)
+    let errors2 = validate_with_tree(&tree2, document2, extracted.document_schema)
         .expect("Validation failed");
 
     assert!(
@@ -137,7 +137,7 @@ actions.$array = .string          # Array field
 
     // Document 1 should have the array field but missing the bracket-named field
     let tree1 = eure_parol::parse(document1).expect("Failed to parse document1");
-    let errors1 = validate_with_tree(document1, extracted.document_schema.clone(), &tree1)
+    let errors1 = validate_with_tree(&tree1, document1, extracted.document_schema.clone())
         .expect("Validation failed");
 
     assert!(
@@ -151,7 +151,7 @@ actions.$array = .string          # Array field
 
     // Document 2 should have the bracket-named field but missing the array field
     let tree2 = eure_parol::parse(document2).expect("Failed to parse document2");
-    let errors2 = validate_with_tree(document2, extracted.document_schema, &tree2)
+    let errors2 = validate_with_tree(&tree2, document2, extracted.document_schema)
         .expect("Validation failed");
 
     assert!(
@@ -173,15 +173,15 @@ actions.$array = .string
 "#;
 
     let document = r#"
-@ a.b.c.d.e.f.actions[]
-# Array element
+@ a.b.c.d.e.f
+actions = ["test string"]
 "#;
 
     let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
 
     let tree = eure_parol::parse(document).expect("Failed to parse document");
     let errors =
-        validate_with_tree(document, extracted.document_schema, &tree).expect("Validation failed");
+        validate_with_tree(&tree, document, extracted.document_schema).expect("Validation failed");
 
     // Should be valid - the deeply nested array field exists
     assert!(

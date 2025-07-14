@@ -28,7 +28,7 @@ lines = ["Hello", "World"]
     let tree = eure_parol::parse(document)
         .expect("Failed to parse document");
 
-    let errors = validate_with_tree(document, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, document, extracted.document_schema)
         .expect("Validation failed");
 
     assert!(errors.is_empty(), "Expected no validation errors, got: {errors:?}");
@@ -60,7 +60,7 @@ speaker = "Alice"
     let tree = eure_parol::parse(document)
         .expect("Failed to parse document");
 
-    let errors = validate_with_tree(document, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, document, extracted.document_schema)
         .expect("Validation failed");
 
     // Should have error for missing required field
@@ -98,7 +98,7 @@ lines = [123, 456]  # Wrong type - numbers instead of strings
     let tree = eure_parol::parse(document)
         .expect("Failed to parse document");
 
-    let errors = validate_with_tree(document, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, document, extracted.document_schema)
         .expect("Validation failed");
 
     // Should have type errors
@@ -147,7 +147,7 @@ choices = [
     let tree = eure_parol::parse(document)
         .expect("Failed to parse document");
 
-    let errors = validate_with_tree(document, extracted.document_schema, &tree)
+    let errors = validate_with_tree(&tree, document, extracted.document_schema)
         .expect("Validation failed");
 
     assert!(errors.is_empty(), "Expected no validation errors, got: {errors:?}");

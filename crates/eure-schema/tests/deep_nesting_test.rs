@@ -163,15 +163,14 @@ org.division.team.size.$type = .number
     fn test_deep_nesting_with_constraints() {
         let doc = r#"
 api.v1.endpoints.users.rateLimit.$type = .number
-api.v1.endpoints.users.rateLimit.$range = [0, 1000]
+api.v1.endpoints.users.rateLimit.$range = (0, 1000)
 api.v1.endpoints.users.path.$type = .string
 api.v1.endpoints.users.path.$pattern = "^/api/v1/users.*$"
 "#;
-        let result = validate_self(doc);
+        let extracted = extract(doc);
 
         // Extract the deeply nested field
-        let api = &result
-            .schema
+        let api = &extracted
             .document_schema
             .root
             .fields
@@ -223,9 +222,6 @@ api.v1.endpoints.users.path.$pattern = "^/api/v1/users.*$"
         } else {
             panic!("api should be an object");
         }
-
-        // No validation errors
-        assert!(result.errors.is_empty());
     }
 
     #[test]
@@ -360,7 +356,7 @@ person.age.$type = .number
 
 # Three levels
 company.info.founded.$type = .number
-company.info.founded.$range = [1800, 2100]
+company.info.founded.$range = (1800, 2100)
 
 # Four levels
 system.modules.core.version.major.$type = .number
@@ -510,8 +506,8 @@ $type = .$types.Version
                         .unwrap();
                     if let Type::TypeRef(type_ref) = &version.type_expr {
                         assert_eq!(
-                            type_ref,
-                            &eure_value::value::KeyCmpValue::String("Version".to_string())
+                            type_ref.to_string(),
+                            "Version"
                         );
                     } else {
                         panic!("version should be a type reference");

@@ -150,7 +150,7 @@ fn test_nested_types() {
         if let Type::Array(inner) = &addresses_field.type_expr {
             // With recursive type detection, Address is now a TypeRef
             if let Type::TypeRef(type_name) = &**inner {
-                assert_eq!(type_name, "Address");
+                assert_eq!(type_name.as_ref(), "Address");
             } else {
                 panic!("Expected TypeRef for Address, got: {inner:?}");
             }

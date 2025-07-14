@@ -1,5 +1,5 @@
 use eure_derive::Eure;
-use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_with_schema, has_errors};
+use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_with_schema_value};
 use serde::{Serialize, Deserialize};
 
 #[derive(Eure, Serialize, Deserialize)]
@@ -35,10 +35,10 @@ fn validate_document<T: ToEureSchema>(document: &str) -> Result<(), String> {
     println!("Document schema root fields: {:?}", doc_schema.root.fields.keys().collect::<Vec<_>>());
     
     // Validate the document
-    let errors = validate_with_schema(document, doc_schema);
+    let errors = validate_with_schema_value(document, doc_schema);
     
     match errors {
-        Ok(errors) if !has_errors(&errors) => Ok(()),
+        Ok(errors) if errors.is_empty() => Ok(()),
         Ok(errors) => {
             let error_messages: Vec<String> = errors.iter()
                 .filter(|e| e.severity == eure_schema::Severity::Error)

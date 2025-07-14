@@ -2,8 +2,10 @@
 
 use eure_tree::tree::InputSpan;
 use eure_value::value::{KeyCmpValue, PathSegment, PathKey};
+use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 /// Core type representation in EURE schema
 #[derive(Debug, Clone, PartialEq)]
@@ -31,7 +33,7 @@ pub enum Type {
     Variants(VariantSchema), // Tagged union with $variant
 
     // Type reference
-    TypeRef(KeyCmpValue), // Reference to $types.name
+    TypeRef(Identifier), // Reference to $types.name
 
     // Special types
     CascadeType(Box<Type>), // Type that cascades to descendants
@@ -112,8 +114,6 @@ pub struct Constraints {
     pub exclusive_max: Option<f64>,
 
     // Array constraints
-    pub min_items: Option<usize>,
-    pub max_items: Option<usize>,
     pub unique: Option<bool>,
     pub contains: Option<serde_json::Value>,
 }
@@ -188,14 +188,6 @@ pub struct DocumentSchema {
     pub schema_ref: Option<String>,
 }
 
-/// Result of schema extraction
-#[derive(Debug)]
-pub struct ExtractedSchema {
-    /// The extracted document schema
-    pub document_schema: DocumentSchema,
-    /// Whether this is a pure schema document (no data, only definitions)
-    pub is_pure_schema: bool,
-}
 
 
 impl Type {
@@ -210,7 +202,7 @@ impl Type {
             PathSegment::Extension(ext) if ext.as_ref() == "types" => {
                 if segments.len() >= 2
                     && let PathSegment::Ident(type_name) = &segments[1] {
-                        return Some(Type::TypeRef(KeyCmpValue::String(type_name.to_string())));
+                        return Some(Type::TypeRef(type_name.clone()));
                     }
                 None
             }
@@ -241,11 +233,21 @@ impl Type {
                         // If it starts with uppercase, treat it as a type reference
                         // This allows .Action to be shorthand for .$types.Action
                         if name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-                            Some(Type::TypeRef(KeyCmpValue::String(name.to_string())))
+                            Some(Type::TypeRef(ident.clone()))
                         } else {
                             None
                         }
                     }
+                }
+            }
+            // Handle path segments that are values (like .null, .true, .false)
+            PathSegment::Value(val) => {
+                match val {
+                    KeyCmpValue::Null => Some(Type::Null),
+                    KeyCmpValue::Bool(_) => Some(Type::Boolean),
+                    KeyCmpValue::I64(_) | KeyCmpValue::U64(_) => Some(Type::Number),
+                    KeyCmpValue::String(_) => Some(Type::String),
+                    _ => None,
                 }
             }
             _ => None,
@@ -278,7 +280,7 @@ pub trait ToEureSchema {
         // By default, check if this is a named type and return a TypeRef
         if let Some(name) = Self::type_name() {
             FieldSchema {
-                type_expr: Type::TypeRef(KeyCmpValue::String(name.to_string())),
+                type_expr: Type::TypeRef(Identifier::from_str(name).unwrap_or_else(|_| Identifier::from_str("Unknown").unwrap())),
                 optional: false,
                 constraints: Default::default(),
                 preferences: Default::default(),
