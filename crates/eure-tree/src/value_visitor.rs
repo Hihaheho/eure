@@ -46,6 +46,51 @@ impl<'a> ValueVisitor<'a> {
         self.document
     }
 
+    /// Resolve ArrayIndex(None) in paths to actual indices based on TOML semantics
+    /// ArrayIndex(None) in the middle of a path refers to the last element in the array
+    fn resolve_array_indices(&mut self, path: Vec<PathSegment>) -> Result<Vec<PathSegment>, ValueVisitorError> {
+        let mut resolved = Vec::new();
+        let mut current_path = Vec::new();
+        
+        for (i, segment) in path.iter().enumerate() {
+            match segment {
+                PathSegment::ArrayIndex(None) if i < path.len() - 1 => {
+                    // ArrayIndex(None) in the middle of the path - resolve to last element
+                    // Get the array node at the current path
+                    if let Ok(node) = self.document.get_node_mut_or_insert(current_path.iter().cloned()) {
+                        if let NodeValue::Array { children, .. } = &node.content {
+                            if children.is_empty() {
+                                // Empty array - this will create element 0
+                                resolved.push(PathSegment::ArrayIndex(Some(0)));
+                                current_path.push(PathSegment::ArrayIndex(Some(0)));
+                            } else {
+                                // Use the last element index
+                                let last_index = (children.len() - 1) as u8;
+                                resolved.push(PathSegment::ArrayIndex(Some(last_index)));
+                                current_path.push(PathSegment::ArrayIndex(Some(last_index)));
+                            }
+                        } else {
+                            // Not an array yet - keep ArrayIndex(None) which will create it
+                            resolved.push(segment.clone());
+                            current_path.push(segment.clone());
+                        }
+                    } else {
+                        // Node doesn't exist yet - keep ArrayIndex(None)
+                        resolved.push(segment.clone());
+                        current_path.push(segment.clone());
+                    }
+                }
+                _ => {
+                    // Keep other segments as-is
+                    resolved.push(segment.clone());
+                    current_path.push(segment.clone());
+                }
+            }
+        }
+        
+        Ok(resolved)
+    }
+
     /// Get the current base path from the path stack
     fn current_path(&self) -> Vec<PathSegment> {
         self.path_stack.last().cloned().unwrap_or_default()
@@ -142,9 +187,9 @@ impl<'a> ValueVisitor<'a> {
                     .map_err(|_| ValueVisitorError::InvalidIdentifier(text.to_string()))?;
                 PathSegment::MetaExt(identifier)
             }
-            KeyBaseView::Null(_) => PathSegment::Ident(Identifier::from_str("null").unwrap()),
-            KeyBaseView::True(_) => PathSegment::Ident(Identifier::from_str("true").unwrap()),
-            KeyBaseView::False(_) => PathSegment::Ident(Identifier::from_str("false").unwrap()),
+            KeyBaseView::Null(_) => PathSegment::Value(KeyCmpValue::Null),
+            KeyBaseView::True(_) => PathSegment::Value(KeyCmpValue::Bool(true)),
+            KeyBaseView::False(_) => PathSegment::Value(KeyCmpValue::Bool(false)),
         };
 
         // Handle array indexing if present
@@ -659,6 +704,10 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         let mut full_path = self.current_path();
         full_path.extend(path.clone());
+        
+        // Resolve ArrayIndex(None) in the middle of the path to actual indices
+        // This implements TOML-like semantics where arrays[] refers to the last element
+        full_path = self.resolve_array_indices(full_path)?;
 
 
         // Check what kind of section body we have

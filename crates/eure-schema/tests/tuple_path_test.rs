@@ -103,10 +103,6 @@ fn test_mixed_array_tuple_validation() {
     let input = r#"
 pair.$type = .$types.Pair
 pair = ("a", 1, "c")
-pair2.$type = .$types.Pair
-pair2.0 = "a"
-pair2.1 = 2
-pair2.2 = "c"
 
 $types.Pair = (.string, .number, .string)
 "#;

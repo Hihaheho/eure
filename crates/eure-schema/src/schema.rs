@@ -240,6 +240,16 @@ impl Type {
                     }
                 }
             }
+            // Handle path segments that are values (like .null, .true, .false)
+            PathSegment::Value(val) => {
+                match val {
+                    KeyCmpValue::Null => Some(Type::Null),
+                    KeyCmpValue::Bool(_) => Some(Type::Boolean),
+                    KeyCmpValue::I64(_) | KeyCmpValue::U64(_) => Some(Type::Number),
+                    KeyCmpValue::String(_) => Some(Type::String),
+                    _ => None,
+                }
+            }
             _ => None,
         }
     }

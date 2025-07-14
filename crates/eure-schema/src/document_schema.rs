@@ -251,23 +251,13 @@ impl SchemaBuilder {
                         }
                     }
                     DocumentKey::MetaExtension(meta_ext_ident) => {
-                        // Check if this is $types.TypeName pattern
-                        let name = meta_ext_ident.as_ref();
-                        if name.starts_with("types.") {
-                            // This is a type definition using $types.TypeName syntax
-                            let type_name = &name[6..]; // Skip "types."
-                            if let Some(type_schema) = self.extract_type_definition(doc, type_name, child_node)? {
-                                self.types.insert(KeyCmpValue::String(type_name.to_string()), type_schema);
-                            }
-                        } else {
-                            // Regular meta-extension fields define schemas for extensions
-                            if let Some(field_schema) = self.extract_field_schema_from_node(doc, meta_ext_ident.as_ref(), child_node)? {
-                                // Store in root_fields as extension schema
-                                self.root_fields.insert(
-                                    KeyCmpValue::MetaExtension(meta_ext_ident.clone()),
-                                    field_schema
-                                );
-                            }
+                        // Meta-extensions define schemas for extensions
+                        if let Some(field_schema) = self.extract_field_schema_from_node(doc, meta_ext_ident.as_ref(), child_node)? {
+                            // Store as meta-extension schema
+                            self.root_fields.insert(
+                                KeyCmpValue::MetaExtension(meta_ext_ident.clone()),
+                                field_schema
+                            );
                         }
                     }
                     DocumentKey::Value(val) => {

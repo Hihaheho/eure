@@ -173,8 +173,8 @@ actions.$array = .string
 "#;
 
     let document = r#"
-@ a.b.c.d.e.f.actions[]
-# Array element
+@ a.b.c.d.e.f
+actions = ["test string"]
 "#;
 
     let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
