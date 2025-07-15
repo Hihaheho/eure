@@ -121,9 +121,6 @@ impl<'a> DocumentValidator<'a> {
         
         // Normal object validation
         self.validate_object_fields(root_id, &[], &self.schema.root);
-
-        // Check for missing required fields
-        self.check_missing_fields(&[], &self.schema.root.fields);
     }
 
     fn validate_object_fields(
@@ -667,9 +664,6 @@ impl<'a> DocumentValidator<'a> {
     ) {
         // Use the general object validation which handles fields
         self.validate_object_fields(node_id, path, object_schema);
-        
-        // Check for missing required fields
-        self.check_missing_fields(path, &object_schema.fields);
     }
 
     fn validate_variant(
@@ -720,7 +714,6 @@ impl<'a> DocumentValidator<'a> {
                         let variant_key = KeyCmpValue::String(value.clone());
                         if let Some(variant_type) = variant_schema.variants.get(&variant_key) {
                             self.validate_object_fields(node_id, path, variant_type);
-                            self.check_missing_fields(path, &variant_type.fields);
                             return;
                         } else {
                             self.add_error(
@@ -845,7 +838,6 @@ impl<'a> DocumentValidator<'a> {
                     VariantRepr::InternallyTagged { .. } => {
                         // Content is mixed with tag - validate as object but skip the $variant field
                         self.validate_object_fields(node_id, path, variant_type);
-                        self.check_missing_fields(path, &variant_type.fields);
                     }
                     VariantRepr::AdjacentlyTagged { content, .. } => {
                         // Content is under content field
