@@ -90,12 +90,11 @@ name = 123
         None,
     );
     
-    // Remove debug output
     // Debug: print all diagnostics and extracted schema
-    // println!("Diagnostics count: {}", diagnostics.len());
-    // for (i, diag) in diagnostics.iter().enumerate() {
-    //     println!("Diagnostic {}: {}", i, diag.message);
-    // }
+    println!("Diagnostics count: {}", diagnostics.len());
+    for (i, diag) in diagnostics.iter().enumerate() {
+        println!("Diagnostic {}: {}", i, diag.message);
+    }
     
     // Should have validation errors
     assert!(!diagnostics.is_empty(), "Expected validation errors");

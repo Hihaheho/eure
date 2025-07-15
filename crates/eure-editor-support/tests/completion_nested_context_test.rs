@@ -3,7 +3,6 @@ use eure_editor_support::schema_validation::SchemaManager;
 use lsp_types::Position;
 
 #[test]
-#[ignore = "Context-aware completions not yet implemented"]
 fn test_completion_in_nested_section_should_suggest_nested_fields() {
     // Schema with nested structure
     let schema_text = r#"
@@ -116,7 +115,6 @@ username = "admin"
 }
 
 #[test]
-#[ignore = "Context-aware completions not yet implemented"]
 fn test_completion_in_deeply_nested_array_element() {
     // Schema with arrays containing nested objects
     let schema_text = r#"
@@ -221,7 +219,6 @@ created_at = "2024-01-01"
 }
 
 #[test]
-#[ignore = "Context-aware completions not yet implemented"]
 fn test_completion_with_variants_in_nested_context() {
     // Schema with variants in nested structure
     let schema_text = r#"

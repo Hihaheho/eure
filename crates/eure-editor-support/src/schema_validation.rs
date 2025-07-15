@@ -126,6 +126,8 @@ pub fn validate_document(
                 uri,
                 &line_numbers,
                 input,
+                document,
+                tree,
             ));
         }
         return diagnostics;
@@ -142,6 +144,8 @@ pub fn validate_document(
                     uri,
                     &line_numbers,
                     input,
+                    document,
+                    tree,
                 ));
             }
         }
@@ -233,27 +237,100 @@ fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
     }
 }
 
+/// Default range when we can't determine the actual span
+fn default_range(_line_numbers: &LineNumbers) -> Range {
+    // Default to beginning of document
+    Range {
+        start: Position {
+            line: 0,
+            character: 0,
+        },
+        end: Position {
+            line: 0,
+            character: 0,
+        },
+    }
+}
+
+/// Get the span for a CST node
+fn get_node_span(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> Option<eure_tree::tree::InputSpan> {
+    // Get the node data using CstFacade
+    let node_data = cst.node_data(node_id)?;
+    
+    match node_data {
+        eure_tree::tree::CstNodeData::Terminal { data, .. } => {
+            match data {
+                eure_tree::tree::TerminalData::Input(span) => Some(span),
+                eure_tree::tree::TerminalData::Dynamic(_) => None,
+            }
+        }
+        eure_tree::tree::CstNodeData::NonTerminal { data, .. } => {
+            match data {
+                eure_tree::tree::NonTerminalData::Input(span) => Some(span),
+                eure_tree::tree::NonTerminalData::Dynamic => {
+                    // For dynamic non-terminals, we need to calculate the span from children
+                    calculate_span_from_children(cst, node_id)
+                }
+            }
+        }
+    }
+}
+
+/// Calculate span from the first and last children of a node
+fn calculate_span_from_children(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> Option<eure_tree::tree::InputSpan> {
+    let children: Vec<_> = cst.children(node_id).collect();
+    if children.is_empty() {
+        return None;
+    }
+    
+    // Get span of first child
+    let first_span = get_node_span(cst, children[0])?;
+    
+    // If only one child, return its span
+    if children.len() == 1 {
+        return Some(first_span);
+    }
+    
+    // Get span of last child
+    let last_span = get_node_span(cst, children[children.len() - 1])?;
+    
+    // Merge spans
+    Some(first_span.merge(last_span))
+}
+
 /// Convert a ValidationError to an LSP Diagnostic
 pub fn validation_error_to_diagnostic(
     error: &ValidationError,
     _uri: &str,
     line_numbers: &LineNumbers,
     _input: &str,
+    document: &eure_tree::document::EureDocument,
+    cst: &eure_tree::Cst,
 ) -> Diagnostic {
-    // For testing purposes, use a hard-coded span
-    // In real usage, we would need to pass the document or span info
-    let start_info = line_numbers.get_char_info(6); // "line2" starts at position 6
-    let end_info = line_numbers.get_char_info(10);   // Arbitrary span end
-
-    let range = Range {
-        start: Position {
-            line: start_info.line_number,
-            character: start_info.column_number,
-        },
-        end: Position {
-            line: end_info.line_number,
-            character: end_info.column_number,
-        },
+    // Try to get the actual span from the node
+    let range = if let Some(cst_node_id) = document.get_cst_node_id(error.node_id) {
+        // Get the span for this CST node
+        let span = get_node_span(cst, cst_node_id);
+        
+        if let Some(span) = span {
+            // Convert span to range
+            let start_info = line_numbers.get_char_info(span.start);
+            let end_info = line_numbers.get_char_info(span.end);
+            Range {
+                start: Position {
+                    line: start_info.line_number,
+                    character: start_info.column_number,
+                },
+                end: Position {
+                    line: end_info.line_number,
+                    character: end_info.column_number,
+                },
+            }
+        } else {
+            default_range(line_numbers)
+        }
+    } else {
+        default_range(line_numbers)
     };
 
     let (message, code, related_info) = match &error.kind {
@@ -482,8 +559,15 @@ mod tests {
             node_id: eure_tree::document::NodeId(0),
         };
 
+        // For testing, create a dummy document and CST
+        let parse_result = eure_parol::parse_tolerant(input);
+        let cst = parse_result.cst();
+        let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
+        let _ = cst.visit_from_root(&mut visitor);
+        let document = visitor.into_document();
+
         let diagnostic =
-            validation_error_to_diagnostic(&error, "file:///test.eure", &line_numbers, input);
+            validation_error_to_diagnostic(&error, "file:///test.eure", &line_numbers, input, &document, &cst);
 
         assert_eq!(diagnostic.severity, Some(DiagnosticSeverity::ERROR));
         assert_eq!(diagnostic.source, Some("eure-schema".to_string()));

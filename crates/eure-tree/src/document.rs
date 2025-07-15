@@ -103,6 +103,13 @@ pub enum NodeValue {
     },
 }
 
+impl NodeValue {
+    /// Get the CST node ID from the handle in this node value
+    pub fn get_cst_node_id(&self) -> Option<crate::tree::CstNodeId> {
+        EureDocument::extract_cst_id(self)
+    }
+}
+
 
 #[derive(Debug, thiserror::Error)]
 pub enum InsertError {
@@ -223,6 +230,12 @@ impl EureDocument {
         } else {
             None
         }
+    }
+
+    /// Get the CST node ID for a document node
+    pub fn get_cst_node_id(&self, node_id: NodeId) -> Option<crate::tree::CstNodeId> {
+        self.nodes.get(node_id.0)
+            .and_then(|node| node.content.get_cst_node_id())
     }
 
     /// Get the path from root to a specific node

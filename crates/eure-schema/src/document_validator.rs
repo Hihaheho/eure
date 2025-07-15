@@ -215,6 +215,10 @@ impl<'a> DocumentValidator<'a> {
                 for (ext_ident, ext_node_id) in &node.extensions {
                     self.handle_extension(*ext_node_id, path, ext_ident);
                 }
+
+                // Check for missing required fields after processing all present fields
+                // This should only be done for valid object nodes
+                self.check_missing_fields(path, &object_schema.fields);
             }
             _ => {
                 // Non-map at root or object position
