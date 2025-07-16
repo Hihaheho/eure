@@ -298,6 +298,38 @@ fn calculate_span_from_children(cst: &eure_tree::Cst, node_id: eure_tree::tree::
     Some(first_span.merge(last_span))
 }
 
+/// Get a more precise span for value nodes, excluding structural elements
+fn get_value_span(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> Option<eure_tree::tree::InputSpan> {
+    // Try to find the actual value content within the node
+    // by looking for specific node types that represent values
+    
+    // First check if this node is already a terminal (leaf) node
+    if let Some(node_data) = cst.node_data(node_id) {
+        if matches!(node_data, eure_tree::tree::CstNodeData::Terminal { .. }) {
+            return get_node_span(cst, node_id);
+        }
+    }
+    
+    // For non-terminals, try to find the value part
+    // This is a heuristic approach - we look for children that are likely to be the actual value
+    let children: Vec<_> = cst.children(node_id).collect();
+    
+    // Skip leading whitespace/structural nodes and find the actual value
+    for child_id in children {
+        if let Some(child_data) = cst.node_data(child_id) {
+            // Check if this looks like a value node (string, number, etc.)
+            if matches!(child_data, eure_tree::tree::CstNodeData::Terminal { .. }) {
+                if let Some(span) = get_node_span(cst, child_id) {
+                    return Some(span);
+                }
+            }
+        }
+    }
+    
+    // Fall back to the original span
+    get_node_span(cst, node_id)
+}
+
 /// Convert a ValidationError to an LSP Diagnostic
 pub fn validation_error_to_diagnostic(
     error: &ValidationError,
@@ -312,14 +344,49 @@ pub fn validation_error_to_diagnostic(
         // Get the span for this CST node
         let span = get_node_span(cst, cst_node_id);
         
-        if let Some(span) = span {
+        if let Some(mut span) = span {
+            // For certain error types, we might need to refine the span
+            // to exclude leading/trailing whitespace
+            match &error.kind {
+                ValidationErrorKind::TypeMismatch { .. } => {
+                    // For type mismatches, try to get a more precise span
+                    // by looking at the actual value node
+                    if let Some(refined_span) = get_value_span(cst, cst_node_id) {
+                        span = refined_span;
+                    }
+                }
+                _ => {}
+            }
+            
             // Convert span to range
             let start_info = line_numbers.get_char_info(span.start);
             let end_info = line_numbers.get_char_info(span.end);
+            
+            // For certain error types, try to refine the position to exclude leading whitespace
+            let refined_start = match &error.kind {
+                ValidationErrorKind::TypeMismatch { .. } => {
+                    // Skip leading whitespace in the span
+                    let start_offset = span.start as usize;
+                    let end_offset = (span.end as usize).min(_input.len());
+                    if start_offset < end_offset {
+                        let span_text = &_input[start_offset..end_offset];
+                        let trimmed_offset = span_text.len() - span_text.trim_start().len();
+                        if trimmed_offset > 0 {
+                            line_numbers.get_char_info(span.start + trimmed_offset as u32)
+                        } else {
+                            start_info
+                        }
+                    } else {
+                        start_info
+                    }
+                }
+                _ => start_info,
+            };
+            
             Range {
                 start: Position {
-                    line: start_info.line_number,
-                    character: start_info.column_number,
+                    line: refined_start.line_number,
+                    character: refined_start.column_number,
                 },
                 end: Position {
                     line: end_info.line_number,

@@ -28,7 +28,6 @@ fn test_schema_discovery() {
 }
 
 #[test]
-#[ignore = "Schema extraction needs to handle mixed schema and data"]
 fn test_self_describing_validation() {
     // TODO: Fix schema extraction to handle mixed schema and data
     // Currently, data values overwrite schema definitions
@@ -66,7 +65,6 @@ fn test_self_describing_validation() {
 }
 
 #[test]
-#[ignore = "Schema validation behavior needs review"]
 fn test_validation_with_errors() {
     let input = r#"
 # Self-describing document with inline schema  

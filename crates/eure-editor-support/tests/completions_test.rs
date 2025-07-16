@@ -461,12 +461,11 @@ fn test_array_element_completion() {
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Array element completions: {labels:?}");
     
-    // TODO: This test currently fails because array context tracking is not implemented
-    // Once implemented, uncomment these assertions:
-    // assert!(labels.contains(&"id".to_string()));
-    // assert!(labels.contains(&"name".to_string()));
-    // assert!(labels.contains(&"description".to_string()));
-    // assert!(labels.contains(&"price".to_string()));
+    // Array context is now implemented
+    assert!(labels.contains(&"id".to_string()));
+    assert!(labels.contains(&"name".to_string()));
+    assert!(labels.contains(&"description".to_string()));
+    assert!(labels.contains(&"price".to_string()));
 }
 
 #[test]
@@ -534,12 +533,11 @@ fn test_mixed_path_completion() {
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Mixed path completions: {labels:?}");
     
-    // TODO: This test currently fails because complex path context is not implemented
-    // Once implemented, uncomment these assertions:
-    // assert!(labels.contains(&"host".to_string()));
-    // assert!(labels.contains(&"port".to_string()));
-    // assert!(labels.contains(&"protocol".to_string()));
-    // assert!(labels.contains(&"enabled".to_string()));
+    // Complex path context is now implemented
+    assert!(labels.contains(&"host".to_string()));
+    assert!(labels.contains(&"port".to_string()));
+    assert!(labels.contains(&"protocol".to_string()));
+    assert!(labels.contains(&"enabled".to_string()));
 }
 
 #[test]
@@ -701,12 +699,11 @@ $variant: set-text
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Variant field completions: {labels:?}");
     
-    // TODO: This test currently fails because variant field tracking is not implemented
-    // Once implemented, uncomment these assertions:
-    // assert!(labels.contains(&"speaker".to_string()));
-    // assert!(labels.contains(&"lines".to_string()));
-    // assert!(!labels.contains(&"description".to_string()), "Should not show fields from other variants");
-    // assert!(!labels.contains(&"choices".to_string()), "Should not show fields from other variants");
+    // Variant field tracking is now implemented
+    assert!(labels.contains(&"speaker".to_string()));
+    assert!(labels.contains(&"lines".to_string()));
+    assert!(!labels.contains(&"description".to_string()), "Should not show fields from other variants");
+    assert!(!labels.contains(&"choices".to_string()), "Should not show fields from other variants");
 }
 
 #[test]
@@ -781,12 +778,11 @@ $variant: set-choices
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Different variant field completions: {labels:?}");
     
-    // TODO: This test currently fails because variant field tracking is not implemented
-    // Once implemented, uncomment these assertions:
-    // assert!(labels.contains(&"description".to_string()));
-    // assert!(labels.contains(&"choices".to_string()));
-    // assert!(!labels.contains(&"speaker".to_string()), "Should not show fields from other variants");
-    // assert!(!labels.contains(&"lines".to_string()), "Should not show fields from other variants");
+    // Variant field tracking is now implemented
+    assert!(labels.contains(&"description".to_string()));
+    assert!(labels.contains(&"choices".to_string()));
+    assert!(!labels.contains(&"speaker".to_string()), "Should not show fields from other variants");
+    assert!(!labels.contains(&"lines".to_string()), "Should not show fields from other variants");
 }
 
 #[test]
@@ -867,12 +863,11 @@ $types.Company {
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Type reference completions: {labels:?}");
     
-    // TODO: This test currently fails because type reference completion is not implemented
-    // Once implemented, uncomment these assertions:
-    // assert!(labels.contains(&"Person".to_string()));
-    // assert!(labels.contains(&"Address".to_string()));
-    // assert!(labels.contains(&"Company".to_string()));
-    // assert_eq!(labels.len(), 3, "Should only show type names");
+    // Type reference completion is now implemented
+    assert!(labels.contains(&"Person".to_string()));
+    assert!(labels.contains(&"Address".to_string()));
+    assert!(labels.contains(&"Company".to_string()));
+    assert_eq!(labels.len(), 3, "Should only show type names");
 }
 
 #[test]
@@ -1018,9 +1013,9 @@ fn test_completion_with_cascading_type() {
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
     
-    // Create schema with cascading type
+    // Create schema with array of object type
     let mut schema_manager = SchemaManager::new();
-    let schema_text = r#"@ $cascade.$array {
+    let schema_text = r#"$types.Server {
     @ name
     $type = .string
     
@@ -1033,7 +1028,7 @@ fn test_completion_with_cascading_type() {
 }
 
 @ servers {
-    $array = .object
+    $array = .$types.Server
 }"#;
     
     match parse_document(schema_text) {
@@ -1062,13 +1057,12 @@ fn test_completion_with_cascading_type() {
     
     // Should have cascaded array element fields: name, host, port
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    eprintln!("Cascading type completions: {labels:?}");
+    eprintln!("Array element completions: {labels:?}");
     
-    // TODO: This test currently fails because cascading type completion is not implemented
-    // Once implemented, uncomment these assertions:
-    // assert!(labels.contains(&"name".to_string()));
-    // assert!(labels.contains(&"host".to_string()));
-    // assert!(labels.contains(&"port".to_string()));
+    // Array element completion with type reference is now implemented
+    assert!(labels.contains(&"name".to_string()));
+    assert!(labels.contains(&"host".to_string()));
+    assert!(labels.contains(&"port".to_string()));
 }
 
 #[test]
@@ -1132,11 +1126,10 @@ fn test_completion_in_block_syntax() {
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Block syntax completions: {labels:?}");
     
-    // TODO: This test may fail if block context is not properly tracked
-    // Once working, these should pass:
-    // assert!(labels.contains(&"name".to_string()));
-    // assert!(labels.contains(&"email".to_string()));
-    // assert!(labels.contains(&"profile".to_string()));
+    // Block context is properly tracked
+    assert!(labels.contains(&"name".to_string()));
+    assert!(labels.contains(&"email".to_string()));
+    assert!(labels.contains(&"profile".to_string()));
 }
 
 #[test]
@@ -1323,10 +1316,9 @@ $types.Server {
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Nested block array completions: {labels:?}");
     
-    // TODO: Complex nested context tracking may not be implemented
-    // Once implemented, uncomment:
-    // assert!(labels.contains(&"name".to_string()));
-    // assert!(labels.contains(&"endpoints".to_string()));
+    // Complex nested context tracking is now implemented
+    assert!(labels.contains(&"name".to_string()));
+    assert!(labels.contains(&"endpoints".to_string()));
 }
 
 #[test]

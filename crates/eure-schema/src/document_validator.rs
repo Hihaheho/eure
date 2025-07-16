@@ -237,20 +237,28 @@ impl<'a> DocumentValidator<'a> {
         field_name: &Identifier,
         expected_fields: &IndexMap<KeyCmpValue, FieldSchema>,
     ) {
-        // Track that we've seen this field
-        let path_key = PathKey::from_segments(path);
-        self.seen_fields
-            .entry(path_key)
-            .or_default()
-            .insert(KeyCmpValue::String(field_name.to_string()));
+        // Check if this is a schema-only field (has schema extensions but no data content)
+        let node = self.document.get_node(node_id);
+        let is_schema_only = self.is_schema_only_node(node);
+        
+        // Only track fields that have actual data content
+        if !is_schema_only {
+            let path_key = PathKey::from_segments(path);
+            self.seen_fields
+                .entry(path_key)
+                .or_default()
+                .insert(KeyCmpValue::String(field_name.to_string()));
+        }
 
         let field_key = KeyCmpValue::String(field_name.to_string());
         if let Some(field_schema) = expected_fields.get(&field_key) {
-            // Validate against field schema
-            let mut field_path = path.to_vec();
-            field_path.push(PathSegment::Ident(field_name.clone()));
-            self.validate_type_with_constraints(node_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
-        } else {
+            // Only validate against field schema if this is not a schema-only field
+            if !is_schema_only {
+                let mut field_path = path.to_vec();
+                field_path.push(PathSegment::Ident(field_name.clone()));
+                self.validate_type_with_constraints(node_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
+            }
+        } else if !is_schema_only {
             // Check if there's a cascade type for this path
             let path_key = PathKey::from_segments(path);
             if let Some(cascade_type) = self.schema.cascade_types.get(&path_key) {
@@ -919,6 +927,32 @@ impl<'a> DocumentValidator<'a> {
                     },
                 );
             }
+        }
+    }
+
+    fn is_schema_only_node(&self, node: &Node) -> bool {
+        // A node is schema-only if it has schema extensions but no actual data content
+        let has_schema_extensions = node.extensions.iter().any(|(ext, _)| {
+            matches!(ext.as_ref(), 
+                "type" | "optional" | "min" | "max" | "pattern" | 
+                "min-length" | "max-length" | "length" | "range" |
+                "union" | "variants" | "cascade-type" | "array" |
+                "enum" | "values" | "default" | "unique" | "contains"
+            )
+        });
+        
+        if !has_schema_extensions {
+            return false;
+        }
+        
+        // Check if the node has non-schema content
+        match &node.content {
+            NodeValue::Map { entries, .. } => {
+                // A map with only extension entries is schema-only
+                entries.is_empty()
+            }
+            NodeValue::Null { .. } => true, // Null with schema extensions is schema-only
+            _ => false, // Other content types with data are not schema-only
         }
     }
 

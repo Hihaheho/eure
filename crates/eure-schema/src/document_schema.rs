@@ -84,6 +84,18 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
     Ok(schema)
 }
 
+/// Check if a node has any schema-defining extensions
+fn has_schema_extensions(node: &Node) -> bool {
+    node.extensions.iter().any(|(ext, _)| {
+        matches!(ext.as_ref(), 
+            "type" | "optional" | "min" | "max" | "pattern" | 
+            "min-length" | "max-length" | "length" | "range" |
+            "union" | "variants" | "cascade-type" | "array" |
+            "enum" | "values" | "default" | "unique" | "contains"
+        )
+    })
+}
+
 /// Check if a Node represents a pure schema (no data content)
 pub fn is_pure_schema_node(doc: &EureDocument, node: &Node) -> bool {
     match &node.content {
@@ -239,8 +251,17 @@ impl SchemaBuilder {
                                 self.process_types_node(doc, child_node)?;
                             } else {
                                 // Regular field at root level
+                                // Always check if there's a schema for this field, regardless of whether it has data
                                 if let Some(field_schema) = self.extract_field_schema_from_node(doc, ident.as_ref(), child_node)? {
                                     self.root_fields.insert(KeyCmpValue::String(ident.to_string()), field_schema);
+                                } else if has_schema_extensions(child_node) {
+                                    // If the node has schema extensions but extract_field_schema_from_node returned None,
+                                    // it might be because the node also has data content
+                                    // In this case, we should still extract the schema
+                                    let mut field_schema = FieldSchema::default();
+                                    if self.extract_schema_from_extensions(doc, child_node, &mut field_schema)? {
+                                        self.root_fields.insert(KeyCmpValue::String(ident.to_string()), field_schema);
+                                    }
                                 }
                             }
                         } else {
@@ -420,6 +441,114 @@ impl SchemaBuilder {
             }
             _ => Ok(None),
         }
+    }
+
+    /// Extract schema information from node extensions only
+    fn extract_schema_from_extensions(&self, doc: &EureDocument, node: &Node, schema: &mut FieldSchema) -> Result<bool, SchemaError> {
+        let mut has_schema = false;
+
+        // Check extensions for schema information
+        for (ext_name, ext_node_id) in &node.extensions {
+            let ext_node = doc.get_node(*ext_node_id);
+
+            match ext_name.as_ref() {
+                "type" => {
+                    match &ext_node.content {
+                        NodeValue::Path { value: path, .. } => {
+                            if let Some(type_expr) = Type::from_path_segments(&path.0) {
+                                schema.type_expr = type_expr;
+                                has_schema = true;
+                            }
+                        }
+                        NodeValue::Tuple { children, .. } => {
+                            // Handle tuple type like matrix.$type = (.number, .number)
+                            let mut element_types = Vec::new();
+                            let mut valid = true;
+                            
+                            for child_id in children {
+                                let child_node = doc.get_node(*child_id);
+                                match &child_node.content {
+                                    NodeValue::Path { value: path, .. } => {
+                                        if let Some(element_type) = Type::from_path_segments(&path.0) {
+                                            element_types.push(element_type);
+                                        } else {
+                                            valid = false;
+                                            break;
+                                        }
+                                    }
+                                    _ => {
+                                        valid = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if valid && !element_types.is_empty() {
+                                schema.type_expr = Type::Tuple(element_types);
+                                has_schema = true;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                "optional" => {
+                    if let NodeValue::Bool { value: b, .. } = &ext_node.content {
+                        schema.optional = *b;
+                        has_schema = true;
+                    }
+                }
+                "min" => {
+                    if let Some(min_value) = Self::extract_f64_from_node(&ext_node.content) {
+                        if let Some((ref mut min, _)) = schema.constraints.range {
+                            *min = Some(min_value);
+                        } else {
+                            schema.constraints.range = Some((Some(min_value), None));
+                        }
+                        has_schema = true;
+                    }
+                }
+                "max" => {
+                    if let Some(max_value) = Self::extract_f64_from_node(&ext_node.content) {
+                        if let Some((_, ref mut max)) = schema.constraints.range {
+                            *max = Some(max_value);
+                        } else {
+                            schema.constraints.range = Some((None, Some(max_value)));
+                        }
+                        has_schema = true;
+                    }
+                }
+                "min-length" => {
+                    if let Some(min_len) = Self::extract_usize_from_node(&ext_node.content) {
+                        if let Some((ref mut min, _)) = schema.constraints.length {
+                            *min = Some(min_len);
+                        } else {
+                            schema.constraints.length = Some((Some(min_len), None));
+                        }
+                        has_schema = true;
+                    }
+                }
+                "max-length" => {
+                    if let Some(max_len) = Self::extract_usize_from_node(&ext_node.content) {
+                        if let Some((_, ref mut max)) = schema.constraints.length {
+                            *max = Some(max_len);
+                        } else {
+                            schema.constraints.length = Some((None, Some(max_len)));
+                        }
+                        has_schema = true;
+                    }
+                }
+                "pattern" => {
+                    if let NodeValue::String { value: s, .. } = &ext_node.content {
+                        schema.constraints.pattern = Some(s.clone());
+                        has_schema = true;
+                    }
+                }
+                // Add other extension handlers as needed...
+                _ => {}
+            }
+        }
+
+        Ok(has_schema)
     }
 
     /// Extract field schema from a node
