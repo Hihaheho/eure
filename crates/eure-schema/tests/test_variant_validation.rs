@@ -87,15 +87,15 @@ tasks.$optional = true
     let errors2 = validate_document(&document2, &schema);
     
     // This should have an error for missing 'content' field
-    let _has_missing_content = errors2.iter().any(|e| matches!(&e.kind, 
+    let has_missing_content = errors2.iter().any(|e| matches!(&e.kind, 
         ValidationErrorKind::RequiredFieldMissing { field, .. } 
         if matches!(field, KeyCmpValue::String(s) if s == "content")
     ));
     
-    // TODO: Required field validation for variants is not yet implemented
-    // assert!(has_missing_content, 
-    //     "Should have error for missing required 'content' field in create-file variant, but got errors: {:?}", 
-    //     errors2);
+    // Required field validation for variants is now working
+    assert!(has_missing_content, 
+        "Should have error for missing required 'content' field in create-file variant, but got errors: {:?}", 
+        errors2);
     
     // Test 3: Variant with unexpected fields
     let unexpected_field = r#"

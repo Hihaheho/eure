@@ -153,14 +153,13 @@ fn test_unexpected_field_display() {
 
 // InvalidSchemaPattern is not in the new implementation
 
-// TODO: Add VariantDiscriminatorMissing variant if needed
-// #[test]
-// fn test_variant_discriminator_missing_display() {
-//     let error = ValidationErrorKind::VariantDiscriminatorMissing;
-//     assert_eq!(
-//         error.to_string(),
-//         "Variant discriminator field '$variant' is missing"
-//     );
-// }
+#[test]
+fn test_variant_discriminator_missing_display() {
+    let error = ValidationErrorKind::VariantDiscriminatorMissing;
+    assert_eq!(
+        error.to_string(),
+        "Variant discriminator field '$variant' is missing"
+    );
+}
 
 // Preference warnings are not implemented in the new value-based validator

@@ -67,6 +67,7 @@ pub enum ValidationErrorKind {
         variant: String,
         available: Vec<String>,
     },
+    VariantDiscriminatorMissing,
     HoleExists {
         path: Vec<PathSegment>,
     },
@@ -862,14 +863,10 @@ impl<'a> DocumentValidator<'a> {
                 }
             }
         } else {
+            // No variant could be determined - discriminator is missing
             self.add_error(
                 node_id,
-                ValidationErrorKind::UnknownVariant {
-                    variant: "unknown".to_string(),
-                    available: variant_schema.variants.keys()
-                        .map(|k| format!("{k:?}"))
-                        .collect(),
-                },
+                ValidationErrorKind::VariantDiscriminatorMissing,
             );
         }
     }
@@ -1046,6 +1043,9 @@ impl fmt::Display for ValidationErrorKind {
                 } else {
                     write!(f, "Unknown variant '{}'. Available variants: {}", variant, available.join(", "))
                 }
+            }
+            VariantDiscriminatorMissing => {
+                write!(f, "Variant discriminator field '$variant' is missing")
             }
             HoleExists { path } => {
                 let path_str = crate::utils::path_segments_to_display_string(path);
