@@ -5,6 +5,7 @@
 
 !.gitignore
 !README.md
+!CLAUDE.md
 !docs/**/*.md
 
 !crates/**/*.rs
