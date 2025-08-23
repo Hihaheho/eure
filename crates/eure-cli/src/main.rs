@@ -35,8 +35,8 @@ enum Commands {
 
 #[derive(Args)]
 struct Inspect {
-    /// Path to EURE file to inspect
-    file: String,
+    /// Path to EURE file to inspect (use '-' or omit for stdin)
+    file: Option<String>,
 }
 
 #[derive(Args)]
@@ -140,11 +140,22 @@ fn main() {
 
     match cli.command {
         Commands::Inspect(Inspect { file }) => {
-            let contents = match fs::read_to_string(&file) {
-                Ok(contents) => contents,
-                Err(e) => {
-                    eprintln!("Error reading file: {e}");
-                    return;
+            let contents = match file.as_deref() {
+                None | Some("-") => {
+                    // Read from stdin
+                    let mut buffer = String::new();
+                    if let Err(e) = io::stdin().read_to_string(&mut buffer) {
+                        eprintln!("Error reading from stdin: {e}");
+                        std::process::exit(1);
+                    }
+                    buffer
+                }
+                Some(path) => match fs::read_to_string(path) {
+                    Ok(contents) => contents,
+                    Err(e) => {
+                        eprintln!("Error reading file: {e}");
+                        return;
+                    }
                 }
             };
 
