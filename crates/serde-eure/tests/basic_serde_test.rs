@@ -95,11 +95,13 @@ fn test_tuples() {
     assert!(tuple_eure.contains("hello"));
     assert!(tuple_eure.contains("true"));
 
-    // Note: Tuple deserialization appears to have issues with the current implementation
-    // The serialized format includes a wrapper field that prevents direct deserialization
-    // TODO: Fix tuple round-trip once the serialization format is stabilized
-
-    // Test value round-trip instead
+    // Test direct round-trip
+    let deserialized: (i32, String, bool) = from_str(&tuple_eure).unwrap();
+    assert_eq!(deserialized.0, tuple.0);
+    assert_eq!(deserialized.1, tuple.1);
+    assert_eq!(deserialized.2, tuple.2);
+    
+    // Test value round-trip as well
     let value = to_value(&tuple).unwrap();
     let from_value: (i32, String, bool) = from_value(value).unwrap();
     assert_eq!(from_value.0, tuple.0);

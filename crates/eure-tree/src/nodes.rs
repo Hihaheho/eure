@@ -1443,6 +1443,49 @@ pub struct FalseView {
 }
 impl FalseView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FloatHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for FloatHandle {
+    type View = FloatView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Float)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Float
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::Float)],
+            |[float], visit_ignored| Ok(
+                visit(FloatView { float: Float(float) }, visit_ignored),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FloatView {
+    pub float: Float,
+}
+impl FloatView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GrammarNewlineHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for GrammarNewlineHandle {
     type View = GrammarNewlineView;
@@ -1741,6 +1784,9 @@ impl NonTerminalHandle for KeyBaseHandle {
             NodeKind::NonTerminal(NonTerminalKind::False) => {
                 KeyBaseView::False(FalseHandle(child))
             }
+            NodeKind::NonTerminal(NonTerminalKind::Hole) => {
+                KeyBaseView::Hole(HoleHandle(child))
+            }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -1768,6 +1814,7 @@ pub enum KeyBaseView {
     Null(NullHandle),
     True(TrueHandle),
     False(FalseHandle),
+    Hole(HoleHandle),
 }
 impl KeyBaseView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3561,6 +3608,9 @@ impl NonTerminalHandle for ValueHandle {
             NodeKind::NonTerminal(NonTerminalKind::Tuple) => {
                 ValueView::Tuple(TupleHandle(child))
             }
+            NodeKind::NonTerminal(NonTerminalKind::Float) => {
+                ValueView::Float(FloatHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 ValueView::Integer(IntegerHandle(child))
             }
@@ -3610,6 +3660,7 @@ pub enum ValueView {
     Object(ObjectHandle),
     Array(ArrayHandle),
     Tuple(TupleHandle),
+    Float(FloatHandle),
     Integer(IntegerHandle),
     Boolean(BooleanHandle),
     Null(NullHandle),
@@ -3796,6 +3847,16 @@ impl TerminalHandle for BlockComment {
     }
     fn kind(&self) -> TerminalKind {
         TerminalKind::BlockComment
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Float(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Float {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Float
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

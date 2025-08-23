@@ -31,7 +31,7 @@ Section: At Keys SectionBody ;
   ExtensionNameSpace: Ext Ident ;
   MetaExtKey: MetaExt Ident ;
 
-Value: Object | Array | Tuple | Integer | Boolean | Null | Strings | Hole | CodeBlock | NamedCode | Code | Path ;
+Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | NamedCode | Code | Path ;
   Object: Begin { Key Bind Value [ Comma ] } End ;
   Array: ArrayBegin [ ArrayElements ] ArrayEnd ;
   ArrayElements: Value [ ArrayElementsTail ] ;
@@ -39,6 +39,7 @@ Value: Object | Array | Tuple | Integer | Boolean | Null | Strings | Hole | Code
   Tuple: LParen [ TupleElements ] RParen ;
   TupleElements: Value [ TupleElementsTail ] ;
   TupleElementsTail: Comma [ TupleElements ] ;
+  Float: /[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
   Integer: /\d[\d_]*/ ;
   Boolean: True | False ;
   True: 'true' ;

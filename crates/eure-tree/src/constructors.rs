@@ -1,5 +1,22 @@
 use crate::builder::{CstBuilder, BuilderNodeId};
 use crate::node_kind::{NonTerminalKind, TerminalKind};
+///Branded type for Float terminal
+#[derive(Debug, Clone)]
+pub struct FloatToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl FloatToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<FloatToken> for BuilderNodeId {
+    fn from(token: FloatToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for Integer terminal
 #[derive(Debug, Clone)]
 pub struct IntegerToken {
@@ -932,6 +949,23 @@ impl FalseNode {
 }
 impl From<FalseNode> for BuilderNodeId {
     fn from(node: FalseNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for Float non-terminal
+#[derive(Debug, Clone)]
+pub struct FloatNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl FloatNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<FloatNode> for BuilderNodeId {
+    fn from(node: FloatNode) -> Self {
         node.node_id
     }
 }
@@ -2104,6 +2138,18 @@ impl FalseConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct FloatConstructor {
+    float: FloatToken,
+}
+impl FloatConstructor {
+    pub fn build(self) -> FloatNode {
+        let mut builder = CstBuilder::new();
+        let float = builder.embed(self.float.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::Float, vec![float]);
+        FloatNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct GrammarNewlineConstructor {
     grammar_newline: GrammarNewlineToken,
 }
@@ -2179,6 +2225,7 @@ pub enum KeyBaseConstructor {
     Null(NullNode),
     True(TrueNode),
     False(FalseNode),
+    Hole(HoleNode),
 }
 impl KeyBaseConstructor {
     pub fn build(self) -> KeyBaseNode {
@@ -2192,6 +2239,7 @@ impl KeyBaseConstructor {
             Self::Null(node) => builder.embed(node.builder),
             Self::True(node) => builder.embed(node.builder),
             Self::False(node) => builder.embed(node.builder),
+            Self::Hole(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::KeyBase, vec![child_id]);
         KeyBaseNode { node_id, builder }
@@ -2775,6 +2823,7 @@ pub enum ValueConstructor {
     Object(ObjectNode),
     Array(ArrayNode),
     Tuple(TupleNode),
+    Float(FloatNode),
     Integer(IntegerNode),
     Boolean(BooleanNode),
     Null(NullNode),
@@ -2792,6 +2841,7 @@ impl ValueConstructor {
             Self::Object(node) => builder.embed(node.builder),
             Self::Array(node) => builder.embed(node.builder),
             Self::Tuple(node) => builder.embed(node.builder),
+            Self::Float(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
             Self::Boolean(node) => builder.embed(node.builder),
             Self::Null(node) => builder.embed(node.builder),
@@ -2850,6 +2900,11 @@ impl RootConstructor {
 }
 pub mod terminals {
     use super::*;
+    pub fn float() -> FloatToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::Float, "");
+        FloatToken { node_id, builder }
+    }
     pub fn integer(value: &str) -> IntegerToken {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::Integer, value);

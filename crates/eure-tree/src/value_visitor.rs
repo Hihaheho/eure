@@ -21,6 +21,8 @@ pub enum ValueVisitorError {
     InvalidIdentifier(String),
     #[error("Failed to parse integer: {0}")]
     InvalidInteger(String),
+    #[error("Failed to parse float: {0}")]
+    InvalidFloat(String),
     #[error("Document insert error: {0}")]
     DocumentInsert(#[from] InsertError),
 }
@@ -190,6 +192,7 @@ impl<'a> ValueVisitor<'a> {
             KeyBaseView::Null(_) => PathSegment::Value(KeyCmpValue::Null),
             KeyBaseView::True(_) => PathSegment::Value(KeyCmpValue::Bool(true)),
             KeyBaseView::False(_) => PathSegment::Value(KeyCmpValue::Bool(false)),
+            KeyBaseView::Hole(_) => PathSegment::Value(KeyCmpValue::Hole),
         };
 
         // Handle array indexing if present
@@ -244,6 +247,38 @@ impl<'a> ValueVisitor<'a> {
                 let content = NodeValue::Bool {
                     handle: boolean_handle,
                     value,
+                };
+                let mut full_path = self.current_path();
+                full_path.extend(path);
+                self.document.insert_node(full_path.into_iter(), content)?;
+            }
+            ValueView::Float(float_handle) => {
+                let float_view = float_handle.get_view(tree)?;
+                let data = float_view.float.get_data(tree)?;
+                let text = tree.get_str(data, self.input).unwrap();
+
+                let content = if text.eq_ignore_ascii_case("inf") {
+                    NodeValue::F64 {
+                        handle: IntegerHandle(float_handle.0),
+                        value: f64::INFINITY,
+                    }
+                } else if text.eq_ignore_ascii_case("-inf") {
+                    NodeValue::F64 {
+                        handle: IntegerHandle(float_handle.0),
+                        value: f64::NEG_INFINITY,
+                    }
+                } else if text.eq_ignore_ascii_case("nan") {
+                    NodeValue::F64 {
+                        handle: IntegerHandle(float_handle.0),
+                        value: f64::NAN,
+                    }
+                } else if let Ok(f) = text.parse::<f64>() {
+                    NodeValue::F64 {
+                        handle: IntegerHandle(float_handle.0),
+                        value: f,
+                    }
+                } else {
+                    return Err(ValueVisitorError::InvalidFloat(text.to_string()));
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path);

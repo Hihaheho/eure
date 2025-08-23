@@ -270,6 +270,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
         match &self.value {
             Value::F32(f) => visitor.visit_f32(*f),
             Value::F64(f) => visitor.visit_f32(*f as f32),
+            Value::I64(i) => visitor.visit_f32(*i as f32),
+            Value::U64(u) => visitor.visit_f32(*u as f32),
             _ => Err(Error::InvalidType(format!(
                 "expected f32, found {:?}",
                 self.value
@@ -284,6 +286,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
         match &self.value {
             Value::F64(f) => visitor.visit_f64(*f),
             Value::F32(f) => visitor.visit_f64(*f as f64),
+            Value::I64(i) => visitor.visit_f64(*i as f64),
+            Value::U64(u) => visitor.visit_f64(*u as f64),
             _ => Err(Error::InvalidType(format!(
                 "expected f64, found {:?}",
                 self.value
@@ -401,6 +405,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
     {
         match &self.value {
             Value::Unit | Value::Null => visitor.visit_unit(),
+            Value::Tuple(Tuple(values)) if values.is_empty() => visitor.visit_unit(),
             _ => Err(Error::InvalidType(format!(
                 "expected unit, found {:?}",
                 self.value
@@ -438,7 +443,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
     {
         match std::mem::replace(&mut self.value, Value::Null) {
             Value::Tuple(Tuple(values)) => {
-                if values.len() != len {
+                if len != 0 && values.len() != len {
                     return Err(Error::InvalidType(format!(
                         "expected tuple of length {}, found {}",
                         len,
@@ -746,6 +751,13 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
     where
         V: Visitor<'de>,
     {
+        // For map-based enums with $values, extract it
+        if let Value::Map(Map(map)) = &self.value
+            && let Some(values) = map.get(&KeyCmpValue::String("$values".to_string()))
+        {
+            let values_value = values.clone();
+            self.value = values_value;
+        }
         de::Deserializer::deserialize_tuple(self, len, visitor)
     }
 

@@ -16,8 +16,32 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
         Value::Bool(b) => output.push_str(if *b { "true" } else { "false" }),
         Value::I64(i) => write!(output, "{i}").unwrap(),
         Value::U64(u) => write!(output, "{u}").unwrap(),
-        Value::F32(f) => write!(output, "{f}").unwrap(),
-        Value::F64(f) => write!(output, "{f}").unwrap(),
+        Value::F32(f) => {
+            if f.is_nan() {
+                output.push_str("NaN");
+            } else if f.is_infinite() {
+                if f.is_sign_positive() {
+                    output.push_str("inf");
+                } else {
+                    output.push_str("-inf");
+                }
+            } else {
+                write!(output, "{f}").unwrap();
+            }
+        }
+        Value::F64(f) => {
+            if f.is_nan() {
+                output.push_str("NaN");
+            } else if f.is_infinite() {
+                if f.is_sign_positive() {
+                    output.push_str("inf");
+                } else {
+                    output.push_str("-inf");
+                }
+            } else {
+                write!(output, "{f}").unwrap();
+            }
+        }
         Value::String(s) => write!(output, "\"{}\"", escape_string(s)).unwrap(),
         Value::Code(Code { language, content }) => {
             write!(output, "{}`{}`", language, escape_string(content)).unwrap()

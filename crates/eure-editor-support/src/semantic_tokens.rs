@@ -125,7 +125,7 @@ fn process_terminal(
     // Map terminal kind to semantic token type
     let token_type = match kind {
         TerminalKind::True | TerminalKind::False | TerminalKind::Null => SemanticTokenType::KEYWORD,
-        TerminalKind::Integer => SemanticTokenType::NUMBER,
+        TerminalKind::Integer | TerminalKind::Float => SemanticTokenType::NUMBER,
         TerminalKind::Str | TerminalKind::Text => SemanticTokenType::STRING,
         TerminalKind::NamedCode => {
             let code_pos = text[span.start as usize..span.end as usize]

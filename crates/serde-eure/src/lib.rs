@@ -407,8 +407,10 @@ mod tests {
         // Very large numbers
         assert!(from_str::<i8>("value = 999999999999999999999").is_err());
 
-        // Float overflow
-        assert!(from_str::<f32>("value = 1e400").is_err());
+        // Float overflow becomes infinity, not an error
+        let overflow_result = from_str::<f32>("value = 1e400");
+        assert!(overflow_result.is_ok());
+        assert!(overflow_result.unwrap().is_infinite());
 
         // Empty string key
         let eure = r#"

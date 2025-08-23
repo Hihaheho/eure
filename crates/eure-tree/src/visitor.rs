@@ -232,6 +232,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_false_super(handle, view, tree)
     }
+    fn visit_float(
+        &mut self,
+        handle: FloatHandle,
+        view: FloatView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_float_super(handle, view, tree)
+    }
     fn visit_grammar_newline(
         &mut self,
         handle: GrammarNewlineHandle,
@@ -599,6 +607,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_block_comment_terminal_super(terminal, data, tree)
+    }
+    fn visit_float_terminal(
+        &mut self,
+        terminal: Float,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_float_terminal_super(terminal, data, tree)
     }
     fn visit_integer_terminal(
         &mut self,
@@ -1117,6 +1133,13 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: FalseView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_float_handle(&mut self, handle: FloatHandle, tree: &F) -> Result<(), E>;
+    fn visit_float_super(
+        &mut self,
+        handle: FloatHandle,
+        view: FloatView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_grammar_newline_handle(
         &mut self,
         handle: GrammarNewlineHandle,
@@ -1520,6 +1543,12 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_block_comment_terminal_super(
         &mut self,
         terminal: BlockComment,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_float_terminal_super(
+        &mut self,
+        terminal: Float,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -2961,6 +2990,49 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_false(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_float_handle(
+        &mut self,
+        handle: FloatHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_float(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -5402,6 +5474,30 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_false_terminal(r#false, data, tree)?;
         Ok(())
     }
+    fn visit_float_super(
+        &mut self,
+        handle: FloatHandle,
+        view_param: FloatView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let FloatView { float } = view_param;
+        let data = match float.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        float.0,
+                        NodeKind::Terminal(float.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_float_terminal(float, data, tree)?;
+        Ok(())
+    }
     fn visit_grammar_newline_super(
         &mut self,
         handle: GrammarNewlineHandle,
@@ -5541,6 +5637,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
             KeyBaseView::False(item) => {
                 self.visit_false_handle(item, tree)?;
+            }
+            KeyBaseView::Hole(item) => {
+                self.visit_hole_handle(item, tree)?;
             }
         }
         Ok(())
@@ -6059,6 +6158,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             ValueView::Tuple(item) => {
                 self.visit_tuple_handle(item, tree)?;
             }
+            ValueView::Float(item) => {
+                self.visit_float_handle(item, tree)?;
+            }
             ValueView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
             }
@@ -6166,6 +6268,15 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     fn visit_block_comment_terminal_super(
         &mut self,
         terminal: BlockComment,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_float_terminal_super(
+        &mut self,
+        terminal: Float,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -6584,6 +6695,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = FalseHandle(id);
                         self.visit_false_handle(handle, tree)?;
                     }
+                    NonTerminalKind::Float => {
+                        let handle = FloatHandle(id);
+                        self.visit_float_handle(handle, tree)?;
+                    }
                     NonTerminalKind::GrammarNewline => {
                         let handle = GrammarNewlineHandle(id);
                         self.visit_grammar_newline_handle(handle, tree)?;
@@ -6771,6 +6886,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     TerminalKind::BlockComment => {
                         let terminal = BlockComment(id);
                         self.visit_block_comment_terminal(terminal, data, tree)?;
+                    }
+                    TerminalKind::Float => {
+                        let terminal = Float(id);
+                        self.visit_float_terminal(terminal, data, tree)?;
                     }
                     TerminalKind::Integer => {
                         let terminal = Integer(id);
