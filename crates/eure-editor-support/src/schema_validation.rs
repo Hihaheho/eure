@@ -556,6 +556,11 @@ pub fn validation_error_to_diagnostic(
             Some("eure-schema-variant-discriminator".to_string()),
             None,
         ),
+        ValidationErrorKind::MaxDepthExceeded { depth, max_depth } => (
+            format!("Maximum validation depth of {max_depth} exceeded at depth {depth} - possible circular reference"),
+            Some("eure-schema-max-depth".to_string()),
+            None,
+        ),
     };
 
     let severity = match error.severity {
