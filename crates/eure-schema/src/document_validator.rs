@@ -3,6 +3,7 @@
 //! This module provides validation of EureDocument against schemas
 //! using a simple recursive approach without CST visitors.
 
+use crate::identifiers;
 use crate::schema::*;
 use eure_tree::document::{EureDocument, Node, NodeValue, NodeId, DocumentKey};
 use eure_value::identifier::Identifier;
@@ -689,7 +690,7 @@ impl<'a> DocumentValidator<'a> {
             // Variant already known from extension, validate it exists
             let variant_key = KeyCmpValue::String(variant_from_ext.clone());
             if variant_schema.variants.contains_key(&variant_key) {
-                Some(Identifier::from_str(variant_from_ext).unwrap_or_else(|_| Identifier::from_str("unknown").unwrap()))
+                Some(Identifier::from_str(variant_from_ext).unwrap_or_else(|_| identifiers::UNKNOWN.clone()))
             } else {
                 // Invalid variant name
                 self.add_error(
@@ -710,11 +711,7 @@ impl<'a> DocumentValidator<'a> {
             // For Tagged representation, check if there's a $variant extension at this level
             // This handles the case where $variant is used with Tagged representation
             if matches!(&variant_schema.representation, VariantRepr::Tagged) {
-                // Debug: Print all extensions on this node
-                eprintln!("DEBUG validate_variant: Node extensions: {:?}", 
-                    node.extensions.keys().map(|k| k.to_string()).collect::<Vec<_>>());
-                
-                if let Some(variant_ext_id) = node.extensions.get(&Identifier::from_str("variant").unwrap()) {
+                if let Some(variant_ext_id) = node.extensions.get(&identifiers::VARIANT) {
                     let variant_node = self.document.get_node(*variant_ext_id);
                     if let NodeValue::String { value, .. } = &variant_node.content {
                         // Store variant context

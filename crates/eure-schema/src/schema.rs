@@ -1,5 +1,6 @@
 //! Schema representation types for EURE documents
 
+use crate::identifiers;
 use eure_tree::tree::InputSpan;
 use eure_value::value::{KeyCmpValue, PathSegment, PathKey};
 use eure_value::identifier::Identifier;
@@ -280,7 +281,7 @@ pub trait ToEureSchema {
         // By default, check if this is a named type and return a TypeRef
         if let Some(name) = Self::type_name() {
             FieldSchema {
-                type_expr: Type::TypeRef(Identifier::from_str(name).unwrap_or_else(|_| Identifier::from_str("Unknown").unwrap())),
+                type_expr: Type::TypeRef(Identifier::from_str(name).unwrap_or_else(|_| identifiers::UNKNOWN_CAPS.clone())),
                 optional: false,
                 constraints: Default::default(),
                 preferences: Default::default(),

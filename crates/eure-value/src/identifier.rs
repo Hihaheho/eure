@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::string::ToString;
 use core::{
@@ -52,7 +53,7 @@ impl IdentifierParser {
             }
         };
         if matches.len() == s.len() {
-            Ok(Identifier(matches.as_str().to_string()))
+            Ok(Identifier(Cow::Owned(matches.as_str().to_string())))
         } else {
             Err(IdentifierError::InvalidChar {
                 at: matches.end(),
@@ -72,7 +73,7 @@ impl FromStr for Identifier {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Identifier(String);
+pub struct Identifier(Cow<'static, str>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum IdentifierError {
@@ -87,6 +88,20 @@ pub enum IdentifierError {
     },
     #[error("Reserved keyword cannot be used as identifier: {keyword}")]
     ReservedKeyword { keyword: String },
+}
+
+impl Identifier {
+    /// Creates a new Identifier without validation.
+    /// 
+    /// # Safety
+    /// The caller must ensure that the string is a valid identifier according to EURE rules:
+    /// - Must start with XID_Start character or underscore
+    /// - Can contain XID_Continue characters or hyphens
+    /// - Must not be a reserved keyword (true, false, null)
+    /// - Must not start with $
+    pub const unsafe fn new_unchecked(s: &'static str) -> Self {
+        Identifier(Cow::Borrowed(s))
+    }
 }
 
 impl Display for Identifier {
@@ -119,14 +134,14 @@ mod tests {
     fn test_identifier() {
         assert_eq!(
             Identifier::from_str("hello"),
-            Ok(Identifier("hello".to_string()))
+            Ok(Identifier(Cow::Owned("hello".to_string())))
         );
     }
     #[test]
     fn test_identifier_with_hyphen() {
         assert_eq!(
             Identifier::from_str("hello-world"),
-            Ok(Identifier("hello-world".to_string()))
+            Ok(Identifier(Cow::Owned("hello-world".to_string())))
         );
     }
 
@@ -134,7 +149,7 @@ mod tests {
     fn test_identifier_おーい() {
         assert_eq!(
             Identifier::from_str("おーい"),
-            Ok(Identifier("おーい".to_string()))
+            Ok(Identifier(Cow::Owned("おーい".to_string())))
         );
     }
 
@@ -204,5 +219,16 @@ mod tests {
                 invalid_char: '$'
             })
         );
+    }
+
+    #[test]
+    fn test_identifier_new_unchecked() {
+        // This test verifies that const construction works
+        const TEST_ID: Identifier = unsafe { Identifier::new_unchecked("test-const") };
+        assert_eq!(TEST_ID.as_ref(), "test-const");
+        
+        // Verify it's using borrowed variant
+        let id = unsafe { Identifier::new_unchecked("borrowed") };
+        assert_eq!(id.as_ref(), "borrowed");
     }
 }

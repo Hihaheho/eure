@@ -3,6 +3,7 @@
 //! This module provides functionality to extract schema information from
 //! EURE documents using the new EureDocument structure.
 
+use crate::identifiers;
 use crate::schema::*;
 use crate::utils::path_to_display_string;
 use eure_tree::document::{DocumentKey, EureDocument, Node, NodeValue};
@@ -48,7 +49,7 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
     let root = doc.get_root();
 
     // Handle schema ref
-    if let Some(schema_node_id) = root.extensions.get(&Identifier::from_str("schema").unwrap()) {
+    if let Some(schema_node_id) = root.extensions.get(&identifiers::SCHEMA) {
         let schema_node = doc.get_node(*schema_node_id);
         if let NodeValue::String { value: schema_ref, .. } = &schema_node.content {
             schema.schema_ref = Some(schema_ref.clone());
@@ -56,7 +57,7 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
     }
 
     // Handle root-level cascade type
-    if let Some(cascade_node_id) = root.extensions.get(&Identifier::from_str("cascade-type").unwrap()) {
+    if let Some(cascade_node_id) = root.extensions.get(&identifiers::CASCADE_TYPE) {
         let cascade_node = doc.get_node(*cascade_node_id);
         if let NodeValue::Path { value: path, .. } = &cascade_node.content
             && let Some(cascade_type) = Type::from_path_segments(&path.0) {
@@ -66,7 +67,7 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
 
     // Handle global serde options
     // Check for $rename extension
-    if let Some(rename_node_id) = root.extensions.get(&Identifier::from_str("rename").unwrap()) {
+    if let Some(rename_node_id) = root.extensions.get(&identifiers::RENAME) {
         let rename_node = doc.get_node(*rename_node_id);
         if let NodeValue::String { value: rename, .. } = &rename_node.content {
             schema.serde_options.rename = Some(rename.clone());
@@ -74,7 +75,7 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
     }
     
     // Check for $rename-all extension
-    if let Some(rename_all_node_id) = root.extensions.get(&Identifier::from_str("rename-all").unwrap()) {
+    if let Some(rename_all_node_id) = root.extensions.get(&identifiers::RENAME_ALL) {
         let rename_all_node = doc.get_node(*rename_all_node_id);
         if let NodeValue::String { value: rename_all, .. } = &rename_all_node.content {
             schema.serde_options.rename_all = RenameRule::from_str(rename_all);
@@ -217,7 +218,7 @@ impl SchemaBuilder {
                         && let Some(cascade_type) = Type::from_path_segments(&type_path.0) {
                             let path_segments: Vec<PathSegment> = path.iter()
                                 .map(|s| PathSegment::Ident(
-                                    Identifier::from_str(s).unwrap_or_else(|_| Identifier::from_str("unknown").unwrap())
+                                    Identifier::from_str(s).unwrap_or_else(|_| identifiers::UNKNOWN.clone())
                                 ))
                                 .collect();
                             self.cascade_types.insert(PathKey::from_segments(&path_segments), cascade_type);
@@ -336,13 +337,13 @@ impl SchemaBuilder {
             }
             NodeValue::Map { .. } => {
                 // Check if this is a variant type
-                if let Some(variants_node_id) = node.extensions.get(&Identifier::from_str("variants").unwrap()) {
+                if let Some(variants_node_id) = node.extensions.get(&identifiers::VARIANTS) {
                     let variants_node = doc.get_node(*variants_node_id);
                     let variants = self.extract_all_variants_from_node(doc, variants_node)?;
 
                     // Determine variant representation
                     let mut repr = VariantRepr::Tagged;
-                    if let Some(repr_node_id) = node.extensions.get(&Identifier::from_str("variant-repr").unwrap()) {
+                    if let Some(repr_node_id) = node.extensions.get(&identifiers::VARIANT_REPR) {
                         let repr_node = doc.get_node(*repr_node_id);
                         if let NodeValue::String { value: repr_str, .. } = &repr_node.content {
                             repr = match repr_str.as_str() {
@@ -901,7 +902,7 @@ impl SchemaBuilder {
                         let field_node = doc.get_node(*node_id);
 
                         // Check if this field has an array extension
-                        if let Some(array_node_id) = field_node.extensions.get(&Identifier::from_str("array").unwrap()) {
+                        if let Some(array_node_id) = field_node.extensions.get(&identifiers::ARRAY) {
                             let array_node = doc.get_node(*array_node_id);
                             let array_field = self.extract_array_field(doc, array_node)?;
                             fields.insert(KeyCmpValue::String(field_name.to_string()), array_field);
