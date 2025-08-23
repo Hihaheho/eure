@@ -816,6 +816,23 @@ impl From<ContinueNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for DirectBind non-terminal
+#[derive(Debug, Clone)]
+pub struct DirectBindNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl DirectBindNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<DirectBindNode> for BuilderNodeId {
+    fn from(node: DirectBindNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for Dot non-terminal
 #[derive(Debug, Clone)]
 pub struct DotNode {
@@ -1999,6 +2016,21 @@ impl ContinueConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct DirectBindConstructor {
+    bind: BindNode,
+    value: ValueNode,
+}
+impl DirectBindConstructor {
+    pub fn build(self) -> DirectBindNode {
+        let mut builder = CstBuilder::new();
+        let bind = builder.embed(self.bind.builder);
+        let value = builder.embed(self.value.builder);
+        let node_id = builder
+            .non_terminal(NonTerminalKind::DirectBind, vec![bind, value]);
+        DirectBindNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct DotConstructor {
     dot: DotToken,
 }
@@ -2495,7 +2527,7 @@ impl SectionBindingConstructor {
 pub enum SectionBodyConstructor {
     SectionBodyList(SectionBodyListNode),
     SectionBinding(SectionBindingNode),
-    Bind(BindNode),
+    DirectBind(DirectBindNode),
 }
 impl SectionBodyConstructor {
     pub fn build(self) -> SectionBodyNode {
@@ -2503,7 +2535,7 @@ impl SectionBodyConstructor {
         let child_id = match self {
             Self::SectionBodyList(node) => builder.embed(node.builder),
             Self::SectionBinding(node) => builder.embed(node.builder),
-            Self::Bind(node) => builder.embed(node.builder),
+            Self::DirectBind(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::SectionBody, vec![child_id]);
         SectionBodyNode {

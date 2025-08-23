@@ -168,6 +168,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_continue_super(handle, view, tree)
     }
+    fn visit_direct_bind(
+        &mut self,
+        handle: DirectBindHandle,
+        view: DirectBindView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_direct_bind_super(handle, view, tree)
+    }
     fn visit_dot(
         &mut self,
         handle: DotHandle,
@@ -1063,6 +1071,17 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: ContinueHandle,
         view: ContinueView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_direct_bind_handle(
+        &mut self,
+        handle: DirectBindHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_direct_bind_super(
+        &mut self,
+        handle: DirectBindHandle,
+        view: DirectBindView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_dot_handle(&mut self, handle: DotHandle, tree: &F) -> Result<(), E>;
@@ -2639,6 +2658,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 tree,
                 |view, visit: &mut Self| (
                     visit.visit_continue(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_direct_bind_handle(
+        &mut self,
+        handle: DirectBindHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_direct_bind(handle, view, tree),
                     visit,
                 ),
                 self,
@@ -5330,6 +5395,18 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_esc_terminal(esc, data, tree)?;
         Ok(())
     }
+    fn visit_direct_bind_super(
+        &mut self,
+        handle: DirectBindHandle,
+        view_param: DirectBindView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DirectBindView { bind, value } = view_param;
+        self.visit_bind_handle(bind, tree)?;
+        self.visit_value_handle(value, tree)?;
+        Ok(())
+    }
     fn visit_dot_super(
         &mut self,
         handle: DotHandle,
@@ -5901,8 +5978,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             SectionBodyView::SectionBinding(item) => {
                 self.visit_section_binding_handle(item, tree)?;
             }
-            SectionBodyView::Bind(item) => {
-                self.visit_bind_handle(item, tree)?;
+            SectionBodyView::DirectBind(item) => {
+                self.visit_direct_bind_handle(item, tree)?;
             }
         }
         Ok(())
@@ -6662,6 +6739,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::Continue => {
                         let handle = ContinueHandle(id);
                         self.visit_continue_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::DirectBind => {
+                        let handle = DirectBindHandle(id);
+                        self.visit_direct_bind_handle(handle, tree)?;
                     }
                     NonTerminalKind::Dot => {
                         let handle = DotHandle(id);

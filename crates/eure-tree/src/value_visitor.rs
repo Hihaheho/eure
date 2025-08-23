@@ -5,6 +5,7 @@ use crate::{
     },
     prelude::*,
     tree::CstFacade,
+    nodes::DirectBindView,
 };
 use eure_value::{
     identifier::Identifier,
@@ -744,14 +745,34 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // This implements TOML-like semantics where arrays[] refers to the last element
         full_path = self.resolve_array_indices(full_path)?;
 
-
-        // Check what kind of section body we have
-        let is_direct_bind = matches!(
-            view.section_body.get_view(tree),
-            Ok(SectionBodyView::Bind(_))
-        );
-
-        if !is_direct_bind {
+        // Process section body based on its type
+        match view.section_body.get_view(tree) {
+            Ok(SectionBodyView::DirectBind(direct_bind_handle)) => {
+                // Direct value assignment: @ path = value
+                if let Ok(DirectBindView { value, .. }) = direct_bind_handle.get_view(tree) {
+                    if let Ok(value_view) = value.get_view(tree) {
+                        // Push the path for processing the value
+                        self.path_stack.push(full_path.clone());
+                        
+                        // Process the value at the section path
+                        self.process_value_at_path(vec![], value_view, tree)?;
+                        
+                        // Pop the path
+                        self.path_stack.pop();
+                    }
+                }
+                return Ok(());
+            }
+            Ok(SectionBodyView::SectionBinding(_)) | Ok(SectionBodyView::SectionBodyList(_)) => {
+                // Sections with braces { } - continue with existing logic below
+            }
+            Err(_) => {
+                // Failed to parse section body
+                return Ok(());
+            }
+        }
+        
+        {
             // For sections with braces { }, create a map node
             // This handles both regular sections and array element sections like @ employees[0] { ... }
             let content = NodeValue::Map {
@@ -804,11 +825,10 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                                         self.visit_section_body_list(body_list_handle, body_list, tree)?;
                                     }
                                 }
-                                SectionBodyView::Bind(_bind_handle) => {
-                                    // Direct assignment to section - e.g., @ items[0] = "value"
-                                    // TODO: This case is not fully implemented in the grammar yet
-                                    // For now, this should not occur in practice since the test case
-                                    // uses section binding syntax with braces: @ employees[0] { ... }
+                                SectionBodyView::DirectBind(_) => {
+                                    // Direct bind is handled in the outer match, this branch shouldn't be reached
+                                    // due to the early return
+                                    return Ok(());
                                 }
                             },
                             Err(_) => {
@@ -853,12 +873,10 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                         self.visit_section_body_list(body_list_handle, body_list, tree)?;
                     }
                 }
-                SectionBodyView::Bind(_bind_handle) => {
-                    // Processing direct Bind (not implemented)");
-                    // Direct assignment to section - e.g., @ items[0] = "value"
-                    // TODO: This case is not fully implemented in the grammar yet
-                    // For now, this should not occur in practice since the test case
-                    // uses section binding syntax with braces: @ employees[0] { ... }
+                SectionBodyView::DirectBind(_) => {
+                    // Direct bind is handled in the outer match, this branch shouldn't be reached
+                    // due to the early return
+                    return Ok(());
                 }
             },
             Err(_) => {

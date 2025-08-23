@@ -22,7 +22,8 @@ Binding: Keys BindingRhs ;
   TextBinding: TextStart [Ws^] Text [GrammarNewline] ;
 
 Section: At Keys SectionBody ;
-  SectionBody: { Binding } | SectionBinding | Bind Value ;
+  SectionBody: { Binding } | SectionBinding | DirectBind ;
+  DirectBind: Bind Value ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
