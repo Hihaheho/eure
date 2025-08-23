@@ -997,6 +997,59 @@ pub struct ContinueView {
 }
 impl ContinueView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DirectBindHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for DirectBindHandle {
+    type View = DirectBindView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::DirectBind)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::DirectBind
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::Bind),
+                NodeKind::NonTerminal(NonTerminalKind::Value),
+            ],
+            |[bind, value], visit_ignored| Ok(
+                visit(
+                    DirectBindView {
+                        bind: BindHandle(bind),
+                        value: ValueHandle(value),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DirectBindView {
+    pub bind: BindHandle,
+    pub value: ValueHandle,
+}
+impl DirectBindView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DotHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for DotHandle {
     type View = DotView;
@@ -1741,6 +1794,9 @@ impl NonTerminalHandle for KeyBaseHandle {
             NodeKind::NonTerminal(NonTerminalKind::False) => {
                 KeyBaseView::False(FalseHandle(child))
             }
+            NodeKind::NonTerminal(NonTerminalKind::Hole) => {
+                KeyBaseView::Hole(HoleHandle(child))
+            }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -1768,6 +1824,7 @@ pub enum KeyBaseView {
     Null(NullHandle),
     True(TrueHandle),
     False(FalseHandle),
+    Hole(HoleHandle),
 }
 impl KeyBaseView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -2650,8 +2707,8 @@ impl NonTerminalHandle for SectionBodyHandle {
             NodeKind::NonTerminal(NonTerminalKind::SectionBinding) => {
                 SectionBodyView::SectionBinding(SectionBindingHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Bind) => {
-                SectionBodyView::Bind(BindHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::DirectBind) => {
+                SectionBodyView::DirectBind(DirectBindHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -2674,7 +2731,7 @@ impl NonTerminalHandle for SectionBodyHandle {
 pub enum SectionBodyView {
     SectionBodyList(SectionBodyListHandle),
     SectionBinding(SectionBindingHandle),
-    Bind(BindHandle),
+    DirectBind(DirectBindHandle),
 }
 impl SectionBodyView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
