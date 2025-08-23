@@ -551,6 +551,11 @@ pub fn validation_error_to_diagnostic(
                 None,
             )
         }
+        ValidationErrorKind::VariantDiscriminatorMissing => (
+            "Variant discriminator field is missing".to_string(),
+            Some("eure-schema-variant-discriminator".to_string()),
+            None,
+        ),
     };
 
     let severity = match error.severity {
