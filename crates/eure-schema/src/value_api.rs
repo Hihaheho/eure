@@ -6,22 +6,25 @@
 use crate::schema::*;
 use crate::document_schema::{document_to_schema, is_pure_schema_node};
 use crate::document_validator::{validate_document, ValidationError};
+use crate::error::ValueError;
 use eure_tree::value_visitor::ValueVisitor;
 
 /// Result of schema extraction from a value
+#[derive(Debug)]
 pub struct ExtractedSchema {
     pub document_schema: DocumentSchema,
     pub is_pure_schema: bool,
 }
 
 /// Result of validation, including the extracted schema
+#[derive(Debug)]
 pub struct ValidationResult {
     pub schema: ExtractedSchema,
     pub errors: Vec<ValidationError>,
 }
 
 /// Extract schema from a string value
-pub fn extract_schema_from_value(input: &str) -> Result<ExtractedSchema, Box<dyn std::error::Error>> {
+pub fn extract_schema_from_value(input: &str) -> Result<ExtractedSchema, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
     
@@ -48,7 +51,7 @@ pub fn extract_schema_from_value(input: &str) -> Result<ExtractedSchema, Box<dyn
 pub fn validate_with_schema_value(
     input: &str,
     schema: DocumentSchema,
-) -> Result<Vec<ValidationError>, Box<dyn std::error::Error>> {
+) -> Result<Vec<ValidationError>, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
     
@@ -64,7 +67,7 @@ pub fn validate_with_schema_value(
 }
 
 /// Validate a document that contains its own schema reference
-pub fn validate_self_describing(input: &str) -> Result<ValidationResult, Box<dyn std::error::Error>> {
+pub fn validate_self_describing(input: &str) -> Result<ValidationResult, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
     
@@ -98,7 +101,7 @@ pub fn validate_self_describing(input: &str) -> Result<ValidationResult, Box<dyn
 /// This function combines schema extraction and validation, which is useful
 /// for documents that contain both schema definitions and data that should
 /// be validated against that schema.
-pub fn validate_and_extract_schema(input: &str) -> Result<ValidationResult, Box<dyn std::error::Error>> {
+pub fn validate_and_extract_schema(input: &str) -> Result<ValidationResult, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
     
@@ -132,7 +135,7 @@ pub fn validate_with_tree(
     tree: &eure_tree::Cst,
     input: &str,
     schema: DocumentSchema,
-) -> Result<Vec<ValidationError>, Box<dyn std::error::Error>> {
+) -> Result<Vec<ValidationError>, ValueError> {
     // Create visitor and visit the tree
     let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor)?;
