@@ -1,4 +1,4 @@
-use eure_schema::{document_to_schema, validate_document, ValidationErrorKind, KeyCmpValue, Type};
+use eure_schema::{document_to_schema, validate_document, ValidationErrorKind, KeyCmpValue};
 use eure_tree::value_visitor::ValueVisitor;
 
 // NOTE: These tests are currently failing due to issues in the schema extraction logic:
@@ -57,17 +57,7 @@ tasks.$optional = true
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
     
-    // Debug: print schema structure
-    println!("Schema types: {:?}", schema.types.keys().collect::<Vec<_>>());
-    println!("Root fields: {:?}", schema.root.fields.keys().collect::<Vec<_>>());
-    
-    // Print the tasks field details
-    if let Some(tasks_field) = schema.root.fields.get(&KeyCmpValue::String("tasks".to_string())) {
-        println!("Tasks field type: {:?}", tasks_field.type_expr);
-    }
-    
-    // TODO: Remove debug output after fixing
-    println!("Errors: {errors:?}");
+    // Validation should succeed for valid variant
     
     assert_eq!(errors.len(), 0, "Valid variant should have no errors, but got: {errors:?}");
     
@@ -163,7 +153,6 @@ tasks.$optional = true
         if variant == "invalid-variant"
     ));
     
-    // TODO: This might not work if variant validation is not reaching the variant check
     assert!(has_unknown_variant || !errors5.is_empty(), 
         "Should have error for unknown variant 'invalid-variant', but got errors: {errors5:?}");
     
@@ -186,7 +175,6 @@ tasks.$optional = true
         ValidationErrorKind::UnknownVariant { .. }
     ));
     
-    // TODO: This might not work if the validator doesn't check for variant tags properly
     assert!(has_missing_tag || !errors6.is_empty(), 
         "Should have error for missing $variant tag, but got errors: {errors6:?}");
 }
@@ -226,7 +214,6 @@ unexpected_field = "this should be reported as unexpected"
         if matches!(field, KeyCmpValue::String(s) if s == "unexpected_field")
     ));
     
-    println!("Errors for unexpected field test: {errors:?}");
     assert!(has_unexpected, 
         "Should report 'unexpected_field' as unexpected in set-text variant");
     
@@ -255,7 +242,6 @@ code1 = rust`println!("test");`
         if matches!(field, KeyCmpValue::String(s) if ["speaker", "lines", "code1"].contains(&s.as_str()))
     ));
     
-    println!("Errors for valid fields test: {errors2:?}");
     assert!(!has_false_positives, 
         "Should not report valid variant fields as unexpected");
 }
@@ -295,20 +281,9 @@ actions.$array = .$types.Action
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
 
-    // Debug: Check if choice field is properly extracted
-    println!("\nSchema types:");
-    for (key, field) in &schema.types {
-        println!("  {:?}: {:?}", key, field.type_expr);
-        if let Type::Variants(variant_schema) = &field.type_expr {
-            println!("  All variant keys: {:?}", variant_schema.variants.keys().collect::<Vec<_>>());
-            for (variant_key, variant_obj) in &variant_schema.variants {
-                println!("    Variant {:?}: has {} fields", variant_key, variant_obj.fields.len());
-                for (field_key, field_schema) in &variant_obj.fields {
-                    println!("      - {:?}: {:?}", field_key, field_schema.type_expr);
-                }
-            }
-        }
-    }
+    // Verify schema was extracted correctly
+    assert!(schema.types.contains_key(&KeyCmpValue::String("Action".to_string())),
+            "Schema should contain Action type");
     
     // Test case 1: Flat syntax with separate sections
     let flat_syntax = r#"
@@ -335,23 +310,7 @@ value = "b"
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
 
-    // Debug output
-    println!("Flat syntax errors: {errors:?}");
-    
-    // Also debug the schema structure
-    println!("\nSchema types:");
-    for (key, field) in &schema.types {
-        println!("  {:?}: {:?}", key, field.type_expr);
-        if let Type::Variants(variant_schema) = &field.type_expr {
-            println!("  All variant keys: {:?}", variant_schema.variants.keys().collect::<Vec<_>>());
-            for (variant_key, variant_obj) in &variant_schema.variants {
-                println!("    Variant {:?}: has {} fields", variant_key, variant_obj.fields.len());
-                for (field_key, field_schema) in &variant_obj.fields {
-                    println!("      - {:?}: {:?}", field_key, field_schema.type_expr);
-                }
-            }
-        }
-    }
+    // Flat syntax should have no validation errors
 
     // Check that valid fields are not reported as unexpected
     let unexpected_errors: Vec<_> = errors.iter()
@@ -387,8 +346,6 @@ actions = []
     let document2 = visitor2.into_document();
     let errors2 = validate_document(&document2, &schema);
 
-    // Debug output
-    println!("Block syntax errors: {errors2:?}");
 
     // Check that valid fields are not reported as unexpected
     let unexpected_errors2: Vec<_> = errors2.iter()

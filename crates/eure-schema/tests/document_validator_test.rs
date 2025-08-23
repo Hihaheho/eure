@@ -1,8 +1,7 @@
 //! Tests for document-based validation
 
 use eure_schema::{
-    document_to_schema, validate_document, 
-    ValidationError, ValidationErrorKind, Severity, DocumentSchema,
+    document_to_schema, validate_document, ValidationErrorKind, DocumentSchema,
     ObjectSchema, FieldSchema, Type, VariantSchema, VariantRepr, Constraints
 };
 use eure_tree::document::EureDocument;

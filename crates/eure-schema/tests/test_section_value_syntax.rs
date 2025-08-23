@@ -1,6 +1,5 @@
 use eure_tree::value_visitor::ValueVisitor;
 use eure_tree::document::{NodeValue, DocumentKey};
-use eure_value::value::KeyCmpValue;
 use eure_value::identifier::Identifier;
 use std::str::FromStr;
 

@@ -1,5 +1,4 @@
 use eure_tree::value_visitor::{ValueVisitor, document_to_value};
-use eure_tree::prelude::*;
 use eure_value::value::Value;
 
 #[test]

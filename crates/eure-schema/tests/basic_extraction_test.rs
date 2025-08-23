@@ -1,8 +1,6 @@
 //! Basic tests for schema extraction
 
 use eure_schema::{extract_schema_from_value, KeyCmpValue};
-use eure_tree::value_visitor::ValueVisitor;
-use eure_parol::parse;
 
 #[test]
 fn test_basic_field_extraction() {

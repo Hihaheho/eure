@@ -1,6 +1,5 @@
 use eure_tree::value_visitor::ValueVisitor;
 use eure_tree::document::{NodeValue, DocumentKey};
-use eure_value::value::KeyCmpValue;
 use eure_value::identifier::Identifier;
 use std::str::FromStr;
 
@@ -40,7 +39,7 @@ users.$array = .$types.User
             let users_node = document.get_node(*users_node_id);
             println!("\nFound users node");
             
-            if let NodeValue::Map { entries: users_entries, .. } = &users_node.content {
+            if let NodeValue::Map { entries: _users_entries, .. } = &users_node.content {
                 // Check for $array extension
                 let array_ext = Identifier::from_str("array").unwrap();
                 if let Some(array_node_id) = users_node.extensions.get(&array_ext) {

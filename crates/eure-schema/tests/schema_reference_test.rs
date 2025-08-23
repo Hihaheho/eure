@@ -1,14 +1,10 @@
 //! Integration tests for $schema references and external schema validation
-//! 
+//!
 //! These tests use the new value-based API
 
 use eure_schema::{
-    extract_schema_from_value, 
-    validate_with_schema_value, 
-    validate_self_describing,
-    validate_and_extract_schema,
-    ValidationErrorKind,
-    KeyCmpValue,
+    KeyCmpValue, ValidationErrorKind, extract_schema_from_value, validate_and_extract_schema,
+    validate_self_describing, validate_with_schema_value,
 };
 
 #[test]
@@ -38,14 +34,19 @@ people.$array = .$types.Person
 
     let result = extract_schema_from_value(input);
     assert!(result.is_ok(), "Should extract schema successfully");
-    
+
     let schema = result.unwrap();
-    assert!(!schema.is_pure_schema, "Document contains both schema and data");
-    
+    assert!(
+        !schema.is_pure_schema,
+        "Document contains both schema and data"
+    );
+
     // Verify the schema has the expected Person type
     let person_type_key = KeyCmpValue::String("Person".to_string());
-    assert!(schema.document_schema.types.contains_key(&person_type_key), 
-            "Schema should contain Person type");
+    assert!(
+        schema.document_schema.types.contains_key(&person_type_key),
+        "Schema should contain Person type"
+    );
 }
 
 #[test]
@@ -68,11 +69,14 @@ config.debug = true
 
     let result = validate_self_describing(input);
     assert!(result.is_ok(), "Should validate self-describing document");
-    
+
     let validation = result.unwrap();
-    assert_eq!(validation.errors.len(), 0, 
-               "Valid document should have no errors, but got: {:?}", 
-               validation.errors);
+    assert_eq!(
+        validation.errors.len(),
+        0,
+        "Valid document should have no errors, but got: {:?}",
+        validation.errors
+    );
     assert!(!validation.schema.is_pure_schema, "Document contains data");
 }
 
@@ -94,23 +98,33 @@ config.host = 123  # Should be string
 
     let result = validate_self_describing(input);
     assert!(result.is_ok(), "Should parse and validate even with errors");
-    
+
     let validation = result.unwrap();
     assert!(validation.errors.len() > 0, "Should have validation errors");
-    
+
     // Check for type mismatch error (actual is reported as "i64" not "number")
-    let has_type_mismatch = validation.errors.iter().any(|e| matches!(&e.kind, 
-        ValidationErrorKind::TypeMismatch { expected, actual } 
-        if expected == "string" && actual == "i64"
-    ));
-    assert!(has_type_mismatch, "Should have type mismatch error for host field");
-    
+    let has_type_mismatch = validation.errors.iter().any(|e| {
+        matches!(&e.kind,
+            ValidationErrorKind::TypeMismatch { expected, actual }
+            if expected == "string" && actual == "i64"
+        )
+    });
+    assert!(
+        has_type_mismatch,
+        "Should have type mismatch error for host field"
+    );
+
     // Check for missing required field
-    let has_missing_field = validation.errors.iter().any(|e| matches!(&e.kind,
-        ValidationErrorKind::RequiredFieldMissing { field, .. }
-        if matches!(field, KeyCmpValue::String(s) if s == "port")
-    ));
-    assert!(has_missing_field, "Should have error for missing port field");
+    let has_missing_field = validation.errors.iter().any(|e| {
+        matches!(&e.kind,
+            ValidationErrorKind::RequiredFieldMissing { field, .. }
+            if matches!(field, KeyCmpValue::String(s) if s == "port")
+        )
+    });
+    assert!(
+        has_missing_field,
+        "Should have error for missing port field"
+    );
 }
 
 #[test]
@@ -146,16 +160,25 @@ tasks.$array = .$types.Task
 
     let result = validate_and_extract_schema(input);
     assert!(result.is_ok(), "Should extract and validate successfully");
-    
+
     let validation = result.unwrap();
-    assert_eq!(validation.errors.len(), 0, 
-               "Valid document should have no errors, but got: {:?}",
-               validation.errors);
-    
+    assert_eq!(
+        validation.errors.len(),
+        0,
+        "Valid document should have no errors, but got: {:?}",
+        validation.errors
+    );
+
     // Verify schema contains Task type
     let task_type_key = KeyCmpValue::String("Task".to_string());
-    assert!(validation.schema.document_schema.types.contains_key(&task_type_key),
-            "Schema should contain Task type");
+    assert!(
+        validation
+            .schema
+            .document_schema
+            .types
+            .contains_key(&task_type_key),
+        "Schema should contain Task type"
+    );
 }
 
 #[test]
@@ -181,22 +204,28 @@ posts.$array = .$types.Post
 
     let result = extract_schema_from_value(input);
     assert!(result.is_ok(), "Should extract schema successfully");
-    
+
     let schema = result.unwrap();
-    assert!(schema.is_pure_schema, "Document should be identified as pure schema");
-    
+    assert!(
+        schema.is_pure_schema,
+        "Document should be identified as pure schema"
+    );
+
     // Verify both types are present
     let user_type_key = KeyCmpValue::String("User".to_string());
     let post_type_key = KeyCmpValue::String("Post".to_string());
-    assert!(schema.document_schema.types.contains_key(&user_type_key),
-            "Schema should contain User type");
-    assert!(schema.document_schema.types.contains_key(&post_type_key),
-            "Schema should contain Post type");
+    assert!(
+        schema.document_schema.types.contains_key(&user_type_key),
+        "Schema should contain User type"
+    );
+    assert!(
+        schema.document_schema.types.contains_key(&post_type_key),
+        "Schema should contain Post type"
+    );
 }
 
-// TODO: This test has syntax parsing issues with the section array syntax
-// The core functionality works but the test needs to be rewritten with correct EURE syntax
-#[ignore = "Syntax parsing issue with section arrays - needs correct EURE syntax"]
+// Note: Using integer cents instead of float dollars since EURE parser
+// doesn't support floating point literals yet
 #[test]
 fn test_external_schema_validation() {
     // First, extract a schema from a pure schema document
@@ -215,18 +244,18 @@ products.$array = .$types.Product
     let schema_result = extract_schema_from_value(schema_doc);
     assert!(schema_result.is_ok(), "Should extract schema");
     let schema = schema_result.unwrap().document_schema;
-    
+
     // Now validate a separate document against this schema
     let data_doc = r#"
 @ products[] {
   name = "Widget"
-  price = 19.99
+  price = 1999  # Using cents instead of dollars due to lack of float support
   in_stock = true
 }
 
 @ products[] {
   name = "Gadget"
-  price = 29.99
+  price = 2999  # Using cents instead of dollars due to lack of float support
   description = "A useful gadget"
   in_stock = false
 }
@@ -234,11 +263,14 @@ products.$array = .$types.Product
 
     let validation_result = validate_with_schema_value(data_doc, schema);
     assert!(validation_result.is_ok(), "Should validate document");
-    
+
     let errors = validation_result.unwrap();
-    assert_eq!(errors.len(), 0, 
-               "Valid document should have no errors, but got: {:?}",
-               errors);
+    assert_eq!(
+        errors.len(),
+        0,
+        "Valid document should have no errors, but got: {:?}",
+        errors
+    );
 }
 
 #[test]
@@ -259,17 +291,18 @@ field4 = 42
 
     let result = validate_self_describing(input);
     assert!(result.is_ok(), "Should validate cascade type document");
-    
+
     let validation = result.unwrap();
-    assert_eq!(validation.errors.len(), 0,
-               "Valid document should have no errors, but got: {:?}",
-               validation.errors);
+    assert_eq!(
+        validation.errors.len(),
+        0,
+        "Valid document should have no errors, but got: {:?}",
+        validation.errors
+    );
 }
 
-// TODO: This test has syntax parsing issues with the section array syntax
-// The core functionality for variant validation works (proven in test_variant_validation.rs)
-// but this test needs to be rewritten with correct EURE syntax
-#[ignore = "Syntax parsing issue with section arrays - needs correct EURE syntax"]
+// Note: Using integer milliseconds instead of float seconds since EURE parser
+// doesn't support floating point literals yet
 #[test]
 fn test_array_of_variants() {
     let input = r#"
@@ -306,15 +339,18 @@ actions.$array = .$types.Action
 
 @ actions[] {
   $variant: wait
-  seconds = 2.5
+  seconds = 2500  # Using milliseconds instead of seconds due to lack of float support
 }
 "#;
 
     let result = validate_and_extract_schema(input);
     assert!(result.is_ok(), "Should validate array of variants");
-    
+
     let validation = result.unwrap();
-    assert_eq!(validation.errors.len(), 0,
-               "Valid document should have no errors, but got: {:?}",
-               validation.errors);
+    assert_eq!(
+        validation.errors.len(),
+        0,
+        "Valid document should have no errors, but got: {:?}",
+        validation.errors
+    );
 }
