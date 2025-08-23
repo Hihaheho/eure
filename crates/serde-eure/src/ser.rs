@@ -433,6 +433,7 @@ fn value_to_key_cmp(value: Value) -> Result<KeyCmpValue> {
         }
         Value::Unit => Ok(KeyCmpValue::Unit),
         Value::Hole => Ok(KeyCmpValue::Hole),
+        Value::MetaExtension(meta) => Ok(KeyCmpValue::MetaExtension(meta)),
         _ => Err(Error::InvalidType(format!(
             "cannot use {value:?} as map key"
         ))),

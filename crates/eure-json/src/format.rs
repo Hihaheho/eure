@@ -1,7 +1,25 @@
 use eure_tree::constructors::terminals;
 use eure_tree::{CstNode, constructors::*, node_kind::TerminalKind, tree::ConcreteSyntaxTree};
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant};
 use indexmap::IndexMap;
+
+/// Convert KeyCmpValue to Value for formatting purposes
+fn key_cmp_to_value(key: KeyCmpValue) -> Value {
+    match key {
+        KeyCmpValue::Null => Value::Null,
+        KeyCmpValue::Bool(b) => Value::Bool(b),
+        KeyCmpValue::I64(i) => Value::I64(i),
+        KeyCmpValue::U64(u) => Value::U64(u),
+        KeyCmpValue::String(s) => Value::String(s),
+        KeyCmpValue::Tuple(Tuple(keys)) => {
+            let values = keys.into_iter().map(key_cmp_to_value).collect();
+            Value::Tuple(Tuple(values))
+        }
+        KeyCmpValue::Unit => Value::Unit,
+        KeyCmpValue::MetaExtension(meta) => Value::MetaExtension(meta),
+        KeyCmpValue::Hole => Value::Hole,
+    }
+}
 
 /// Format a Value as EURE syntax using CST construction
 pub fn format_eure(value: &Value) -> String {
@@ -327,6 +345,11 @@ fn build_value(value: &Value) -> ValueNode {
             let hole_token = terminals::hole();
             let hole_node = HoleConstructor::builder().hole(hole_token).build().build();
             ValueConstructor::Hole(hole_node).build()
+        }
+        Value::MetaExtension(meta) => {
+            // Build a path with a single MetaExt segment to represent the meta-extension value
+            let path = Path(vec![PathSegment::MetaExt(meta.clone())]);
+            build_path_value(&path)
         }
     }
 }
@@ -791,14 +814,41 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         )
                         .build()
                     }
-                    KeyCmpValue::Tuple(_) => {
-                        todo!()
+                    KeyCmpValue::Tuple(tuple) => {
+                        // Tuples as keys are complex - EURE doesn't directly support tuple keys
+                        // Convert tuple elements to values for formatting
+                        let values: Vec<Value> = tuple.0.iter().map(|k| key_cmp_to_value(k.clone())).collect();
+                        // Format as a string representation for now
+                        // This is a limitation - tuple keys aren't well supported in AST
+                        let tuple_str = format!("\"({:?})\"", tuple);
+                        let str_token = terminals::str(&tuple_str);
+                        KeyBaseConstructor::Str(
+                            StrConstructor::builder().str(str_token).build().build()
+                        ).build()
                     }
-                    KeyCmpValue::MetaExtension(_) => {
-                        todo!("This must be serialization error, not supported type to serialize")
+                    KeyCmpValue::MetaExtension(meta) => {
+                        // MetaExtension as a map key value (not as a field name)
+                        // This represents a value that is a meta-extension being used as a key
+                        // Build it as a MetaExtKey
+                        let meta_ext_token = terminals::dollar_dollar();
+                        let meta_ext_node = MetaExtConstructor::builder()
+                            .dollar_dollar(meta_ext_token)
+                            .build()
+                            .build();
+                        let ident = terminals::ident(meta.as_ref());
+                        let meta_ext_key = MetaExtKeyConstructor::builder()
+                            .meta_ext(meta_ext_node)
+                            .ident(IdentConstructor::builder().ident(ident).build().build())
+                            .build()
+                            .build();
+                        KeyBaseConstructor::MetaExtKey(meta_ext_key).build()
                     }
                     KeyCmpValue::Hole => {
-                        todo!("This must be serialization error, not supported type to serialize")
+                        // Hole as a map key
+                        let hole_token = terminals::hole();
+                        KeyBaseConstructor::Hole(
+                            HoleConstructor::builder().hole(hole_token).build().build()
+                        ).build()
                     }
                 };
                 (key_base, None)

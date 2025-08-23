@@ -23,6 +23,8 @@ pub enum Value {
     Unit,
     Path(Path),
     Hole,
+    /// Meta-extension (Ident with $$ grammar token)
+    MetaExtension(Identifier),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

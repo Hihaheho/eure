@@ -53,6 +53,10 @@ pub fn format_eure(value: &Value) -> String {
             format!("$variant: {}\n{}", format_string(tag), format_eure(content))
         }
         Value::Unit => "()".to_string(),
+        Value::MetaExtension(meta) => {
+            // Format meta-extension with $$ prefix  
+            format!("$${}", meta)
+        }
         Value::Path(Path(segments)) => {
             // Format path as dot-separated string
             let mut path_parts = Vec::new();

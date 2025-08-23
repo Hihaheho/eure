@@ -84,6 +84,10 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
                         .to_string(),
                 ))
             }
+            Value::MetaExtension(meta) => {
+                // MetaExtensions serialize as strings with $$ prefix
+                visitor.visit_string(format!("$${}", meta))
+            }
             Value::Path(path) => {
                 // Convert path to string representation, skipping extensions
                 let mut path_parts = Vec::new();
@@ -789,7 +793,7 @@ fn key_cmp_to_value(key: KeyCmpValue) -> Value {
             Value::Tuple(eure_value::value::Tuple(values))
         }
         KeyCmpValue::Unit => Value::Unit,
-        KeyCmpValue::MetaExtension(_meta) => todo!("This function must return Option"),
+        KeyCmpValue::MetaExtension(meta) => Value::MetaExtension(meta),
         KeyCmpValue::Hole => Value::Hole,
     }
 }

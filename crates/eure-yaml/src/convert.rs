@@ -102,6 +102,12 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
                     .to_string(),
             ))
         }
+        Value::MetaExtension(_meta) => {
+            // MetaExtensions are metadata and cannot be converted to YAML values
+            Err(Error::ConversionError(
+                "MetaExtension values are metadata and cannot be converted to YAML".to_string(),
+            ))
+        }
         Value::Path(Path(segments)) => {
             // Paths represented as dot-separated strings
             let mut path_parts = Vec::new();

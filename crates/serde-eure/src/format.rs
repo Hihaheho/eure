@@ -100,6 +100,10 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
         }
         Value::Unit => output.push_str("()"),
         Value::Hole => output.push('!'),
+        Value::MetaExtension(meta) => {
+            // Format meta-extension with $$ prefix
+            write!(output, "$${}", meta).unwrap()
+        }
         Value::Path(path) => {
             // Format path with dot notation
             output.push('.');

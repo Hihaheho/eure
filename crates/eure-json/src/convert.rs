@@ -79,6 +79,12 @@ pub fn value_to_json_with_config(
                     .to_string(),
             ))
         }
+        Value::MetaExtension(_meta) => {
+            // MetaExtensions are metadata and cannot be converted to JSON values
+            Err(Error::UnsupportedValue(
+                "MetaExtension values are metadata and cannot be converted to JSON".to_string(),
+            ))
+        }
         Value::Path(Path(segments)) => {
             // Paths represented as dot-separated strings
             let mut path_parts = Vec::new();
