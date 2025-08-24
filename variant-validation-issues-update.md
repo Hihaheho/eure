@@ -1,7 +1,7 @@
 # Variant Validation Issues Update
 
 ## Summary
-After applying simple fixes, we've improved from 7/18 to 12/18 tests passing.
+After applying simple fixes, we've improved from 7/18 to 14/18 tests passing.
 
 ## Fixes Applied
 
@@ -13,6 +13,10 @@ After applying simple fixes, we've improved from 7/18 to 12/18 tests passing.
 - Modified validator to not report `VariantDiscriminatorMissing` for untagged variants
 - Simplified untagged variant matching to accept first variant with required fields
 
+### 3. Adjacently Tagged Missing Content Field
+- Added validation to report `RequiredFieldMissing` when content field is absent
+- Fixed proper error reporting for adjacently tagged variants
+
 ## Remaining Complex Issues
 
 ### 1. Untagged Variant Detection Still Failing (3 tests)
@@ -20,27 +24,22 @@ After applying simple fixes, we've improved from 7/18 to 12/18 tests passing.
 **Root Cause**: The detection logic isn't properly identifying untagged variants in all contexts
 **Complexity**: Requires deeper integration between variant detection and validation flow
 
-### 2. Adjacently Tagged Missing Content
-**Problem**: When content field is missing, validation doesn't properly report the error
-**Root Cause**: Adjacently tagged validation logic doesn't check for required content field
-**Complexity**: Needs special handling for adjacently tagged representation
-
-### 3. Internally Tagged Invalid Tag Value  
+### 2. Internally Tagged Invalid Tag Value  
 **Problem**: Invalid tag values don't produce proper `UnknownVariant` errors
 **Root Cause**: Tag value validation happens too late in the process
 **Complexity**: Requires restructuring when tag values are validated
 
-### 4. Variant Cascade Type Interaction
+### 3. Variant Cascade Type Interaction
 **Problem**: Cascade types within variants report unexpected fields
 **Root Cause**: Variant context not properly propagated through cascade type validation
 **Complexity**: Requires careful context management across type boundaries
 
-### 5. Complex Array Types in Variants
+### 4. Complex Array Types in Variants
 **Problem**: Arrays within variants get type mismatch (expected object, got array)
 **Root Cause**: Variant validation assumes object content, doesn't handle array variants
 **Complexity**: Fundamental assumption in variant validation needs revision
 
-### 6. No Match Error for Untagged
+### 5. No Match Error for Untagged
 **Problem**: When no untagged variant matches, wrong error is reported
 **Root Cause**: Error reporting logic doesn't distinguish between "no match" and "missing discriminator"
 **Complexity**: Needs different error types for different failure modes
@@ -99,7 +98,7 @@ Current issues:
 | test_internally_tagged_missing_tag | ✅ | - |
 | test_internally_tagged_invalid_tag_value | ❌ | Tag value validation |
 | test_adjacently_tagged_variant_basic | ✅ | - |
-| test_adjacently_tagged_missing_content | ❌ | Content field check |
+| test_adjacently_tagged_missing_content | ✅ | - |
 | test_untagged_variant_basic | ❌ | Detection in sections |
 | test_untagged_variant_ambiguous | ✅ | - |
 | test_untagged_variant_no_match | ❌ | Wrong error type |

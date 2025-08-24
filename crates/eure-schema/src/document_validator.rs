@@ -1077,12 +1077,22 @@ impl<'a> DocumentValidator<'a> {
                 }
                 VariantRepr::AdjacentlyTagged { content, .. } => {
                     // Content is under content field
-                    if let NodeValue::Map { entries, .. } = &node.content
-                        && let Some((_, content_id)) = entries.iter()
+                    if let NodeValue::Map { entries, .. } = &node.content {
+                        if let Some((_, content_id)) = entries.iter()
                             .find(|(k, _)| matches!(k, DocumentKey::Ident(id) if KeyCmpValue::String(id.to_string()) == *content))
                         {
                             self.validate_type(*content_id, path, &Type::Object(variant_type.clone()));
+                        } else {
+                            // Content field is missing - report error
+                            self.add_error(
+                                node_id,
+                                ValidationErrorKind::RequiredFieldMissing {
+                                    field: content.clone(),
+                                    path: path.to_vec(),
+                                },
+                            );
                         }
+                    }
                 }
                 VariantRepr::Untagged => {
                     // Content validation for untagged variant
