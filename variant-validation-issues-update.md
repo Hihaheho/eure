@@ -1,7 +1,7 @@
 # Variant Validation Issues Update
 
 ## Summary
-After applying simple fixes, we've improved from 7/18 to 14/18 tests passing.
+After applying simple fixes, we've improved from 7/18 to 15/18 tests passing.
 
 ## Fixes Applied
 
@@ -17,6 +17,10 @@ After applying simple fixes, we've improved from 7/18 to 14/18 tests passing.
 - Added validation to report `RequiredFieldMissing` when content field is absent
 - Fixed proper error reporting for adjacently tagged variants
 
+### 4. Internally Tagged Invalid Tag Value
+- Added check for tag fields with invalid variant values
+- Now properly reports `UnknownVariant` instead of `VariantDiscriminatorMissing`
+
 ## Remaining Complex Issues
 
 ### 1. Untagged Variant Detection Still Failing (3 tests)
@@ -24,22 +28,17 @@ After applying simple fixes, we've improved from 7/18 to 14/18 tests passing.
 **Root Cause**: The detection logic isn't properly identifying untagged variants in all contexts
 **Complexity**: Requires deeper integration between variant detection and validation flow
 
-### 2. Internally Tagged Invalid Tag Value  
-**Problem**: Invalid tag values don't produce proper `UnknownVariant` errors
-**Root Cause**: Tag value validation happens too late in the process
-**Complexity**: Requires restructuring when tag values are validated
-
-### 3. Variant Cascade Type Interaction
+### 2. Variant Cascade Type Interaction
 **Problem**: Cascade types within variants report unexpected fields
 **Root Cause**: Variant context not properly propagated through cascade type validation
 **Complexity**: Requires careful context management across type boundaries
 
-### 4. Complex Array Types in Variants
+### 3. Complex Array Types in Variants
 **Problem**: Arrays within variants get type mismatch (expected object, got array)
 **Root Cause**: Variant validation assumes object content, doesn't handle array variants
 **Complexity**: Fundamental assumption in variant validation needs revision
 
-### 5. No Match Error for Untagged
+### 4. No Match Error for Untagged
 **Problem**: When no untagged variant matches, wrong error is reported
 **Root Cause**: Error reporting logic doesn't distinguish between "no match" and "missing discriminator"
 **Complexity**: Needs different error types for different failure modes
@@ -72,8 +71,8 @@ Current issues:
 ## Recommended Next Steps
 
 ### Short Term (Quick Fixes)
-1. Fix adjacently tagged content field validation
-2. Add proper error for invalid tag values
+1. ~~Fix adjacently tagged content field validation~~ ✅
+2. ~~Add proper error for invalid tag values~~ ✅
 3. Improve untagged "no match" error reporting
 
 ### Medium Term (Structural Changes)
@@ -96,7 +95,7 @@ Current issues:
 | test_empty_variant | ✅ | - |
 | test_internally_tagged_variant_basic | ✅ | - |
 | test_internally_tagged_missing_tag | ✅ | - |
-| test_internally_tagged_invalid_tag_value | ❌ | Tag value validation |
+| test_internally_tagged_invalid_tag_value | ✅ | - |
 | test_adjacently_tagged_variant_basic | ✅ | - |
 | test_adjacently_tagged_missing_content | ✅ | - |
 | test_untagged_variant_basic | ❌ | Detection in sections |

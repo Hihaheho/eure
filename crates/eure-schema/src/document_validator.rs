@@ -1162,12 +1162,53 @@ impl<'a> DocumentValidator<'a> {
                                 .collect(),
                         },
                     );
-                } else if !matches!(variant_schema.representation, VariantRepr::Untagged) {
-                    // Only report missing discriminator for non-untagged variants
-                    self.add_error(
-                        node_id,
-                        ValidationErrorKind::VariantDiscriminatorMissing,
-                    );
+                } else {
+                    // Check if this is an internally tagged or adjacently tagged variant with an invalid tag value
+                    let has_invalid_tag = match &variant_schema.representation {
+                        VariantRepr::InternallyTagged { tag } | VariantRepr::AdjacentlyTagged { tag, .. } => {
+                            // Check if tag field exists with an invalid value
+                            if let NodeValue::Map { entries, .. } = &node.content {
+                                entries.iter().any(|(key, child_id)| {
+                                    if let DocumentKey::Ident(field_name) = key {
+                                        if KeyCmpValue::String(field_name.to_string()) == *tag {
+                                            let tag_node = self.document.get_node(*child_id);
+                                            if let NodeValue::String { value, .. } = &tag_node.content {
+                                                let variant_key = KeyCmpValue::String(value.clone());
+                                                if !variant_schema.variants.contains_key(&variant_key) {
+                                                    // Tag exists but value is invalid
+                                                    self.add_error(
+                                                        node_id,
+                                                        ValidationErrorKind::UnknownVariant {
+                                                            variant: value.clone(),
+                                                            available: variant_schema.variants.keys()
+                                                                .map(|k| match k {
+                                                                    KeyCmpValue::String(s) => s.clone(),
+                                                                    _ => format!("{k:?}")
+                                                                })
+                                                                .collect(),
+                                                        },
+                                                    );
+                                                    return true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    false
+                                })
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false
+                    };
+                    
+                    if !has_invalid_tag && !matches!(variant_schema.representation, VariantRepr::Untagged) {
+                        // Only report missing discriminator for non-untagged variants
+                        self.add_error(
+                            node_id,
+                            ValidationErrorKind::VariantDiscriminatorMissing,
+                        );
+                    }
                 }
             }
         }
