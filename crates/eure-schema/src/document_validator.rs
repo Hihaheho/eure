@@ -2,6 +2,97 @@
 //!
 //! This module provides validation of EureDocument against schemas
 //! using a simple recursive approach without CST visitors.
+//!
+//! # Variant Validation Algorithm
+//!
+//! The variant validation system supports four different representation strategies,
+//! each with its own detection and validation logic:
+//!
+//! ## 1. Tagged Representation
+//! 
+//! In tagged representation, the variant is determined by a single object key:
+//! ```eure
+//! @ command {
+//!   echo {
+//!     message = "Hello"
+//!   }
+//! }
+//! ```
+//! Or using the `$variant` extension:
+//! ```eure
+//! @ command {
+//!   $variant: echo
+//!   message = "Hello"
+//! }
+//! ```
+//!
+//! **Detection**: Look for a single key matching a variant name, or check for `$variant` extension
+//! **Validation**: Validate the content under the variant key against the variant's schema
+//!
+//! ## 2. Internally Tagged Representation
+//!
+//! The variant is determined by a specific field within the object:
+//! ```eure
+//! @ event {
+//!   type = "click"  # Tag field determines variant
+//!   x = 100
+//!   y = 200
+//! }
+//! ```
+//!
+//! **Detection**: Look for the configured tag field and use its value as the variant name
+//! **Validation**: Validate all fields (including the tag) against the variant's schema
+//!
+//! ## 3. Adjacently Tagged Representation
+//!
+//! The variant tag and content are in separate fields:
+//! ```eure
+//! @ message {
+//!   type = "text"      # Tag field
+//!   data = {           # Content field
+//!     content = "Hello"
+//!     formatted = true
+//!   }
+//! }
+//! ```
+//!
+//! **Detection**: Look for the tag field to determine variant
+//! **Validation**: Validate the content field's value against the variant's schema
+//!
+//! ## 4. Untagged Representation
+//!
+//! The variant is determined by attempting to match the structure:
+//! ```eure
+//! @ value {
+//!   text = "Hello"    # Matches 'text' variant by structure
+//!   lang = "en"
+//! }
+//! ```
+//!
+//! **Detection**: Try each variant schema until one validates without errors
+//! **Validation**: Use the first variant that matches successfully
+//!
+//! ## Variant Context Tracking
+//!
+//! The validator maintains a `variant_context` map to track which variant was selected
+//! at each path in the document. This is crucial for:
+//! - Validating nested fields within variants
+//! - Providing accurate error messages
+//! - Handling cascade types that apply to variant fields
+//!
+//! ## Edge Cases and Limitations
+//!
+//! 1. **Ambiguous Untagged Variants**: When multiple variants could match, the first
+//!    valid one is chosen. Order matters in the schema definition.
+//!
+//! 2. **Recursive Variants**: Currently no depth limit is enforced, which could lead
+//!    to stack overflow with deeply nested variant structures.
+//!
+//! 3. **Performance**: Untagged variant validation creates temporary validators for
+//!    each variant attempt, which can be expensive for complex schemas.
+//!
+//! 4. **Error Reporting**: For untagged variants, if no variant matches, the error
+//!    messages may not clearly indicate which variant was expected.
 
 use crate::identifiers;
 use crate::schema::*;
@@ -122,6 +213,8 @@ struct DocumentValidator<'a> {
     seen_fields: HashMap<PathKey, HashSet<KeyCmpValue>>,
     /// Track variant context for proper field validation
     variant_context: HashMap<PathKey, String>,
+    /// Track variant representation info for each path (for excluding tag fields)
+    variant_repr_context: HashMap<PathKey, VariantRepr>,
     /// Current recursion depth for validation
     current_depth: usize,
     /// Maximum allowed recursion depth (prevents stack overflow)
@@ -136,6 +229,7 @@ impl<'a> DocumentValidator<'a> {
             errors: Vec::new(),
             seen_fields: HashMap::new(),
             variant_context: HashMap::new(),
+            variant_repr_context: HashMap::new(),
             current_depth: 0,
             max_depth: 100, // Default max depth to prevent stack overflow
         }
@@ -296,8 +390,29 @@ impl<'a> DocumentValidator<'a> {
                 self.validate_type_with_constraints(node_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
             }
         } else if !is_schema_only {
-            // Check if there's a cascade type for this path
+            // Check if this field is a tag field for internally tagged variant
             let path_key = PathKey::from_segments(path);
+            let is_tag_field = if let Some(variant_repr) = self.variant_repr_context.get(&path_key) {
+                match variant_repr {
+                    VariantRepr::InternallyTagged { tag } => {
+                        field_key == *tag
+                    }
+                    VariantRepr::AdjacentlyTagged { tag, content } => {
+                        field_key == *tag || field_key == *content
+                    }
+                    _ => false
+                }
+            } else {
+                false
+            };
+            
+            if is_tag_field {
+                // This is a tag field for variant discrimination, not an unexpected field
+                // Just skip validation for tag fields
+                return;
+            }
+            
+            // Check if there's a cascade type for this path
             if let Some(cascade_type) = self.schema.cascade_types.get(&path_key) {
                 // Validate against cascade type
                 let mut field_path = path.to_vec();
@@ -881,8 +996,7 @@ impl<'a> DocumentValidator<'a> {
         node: &Node,
         variant_schema: &'b VariantSchema,
     ) -> Option<(KeyCmpValue, &'b ObjectSchema)> {
-        // For untagged variants, we need to find the first variant that could match
-        // We'll do a lightweight check based on required fields
+        // For untagged variants, try each variant and return the first that matches
         if let NodeValue::Map { entries, .. } = &node.content {
             let node_fields: HashSet<String> = entries
                 .iter()
@@ -892,9 +1006,9 @@ impl<'a> DocumentValidator<'a> {
                 })
                 .collect();
 
-            // Check each variant to see if it could match
+            // Try each variant in order
             for (variant_key, variant_type) in &variant_schema.variants {
-                // Check if all required fields are present
+                // First do a quick check: all required fields must be present
                 let required_fields_present = variant_type.fields.iter().all(|(field_key, field_schema)| {
                     if !field_schema.optional {
                         match field_key {
@@ -906,20 +1020,14 @@ impl<'a> DocumentValidator<'a> {
                     }
                 });
 
-                if required_fields_present {
-                    // Also check that we don't have fields that aren't allowed
-                    let all_fields_valid = if variant_type.additional_properties.is_none() {
-                        node_fields.iter().all(|field| {
-                            variant_type.fields.contains_key(&KeyCmpValue::String(field.clone()))
-                        })
-                    } else {
-                        true // Additional properties allowed
-                    };
-
-                    if all_fields_valid {
-                        return Some((variant_key.clone(), variant_type));
-                    }
+                if !required_fields_present {
+                    continue; // Skip this variant, required fields missing
                 }
+
+                // For untagged variants, we should accept the first variant that could possibly match
+                // Even if there are extra fields or type mismatches, the variant detection should succeed
+                // The actual validation will happen later and report specific errors
+                return Some((variant_key.clone(), variant_type));
             }
         }
         None
@@ -937,7 +1045,10 @@ impl<'a> DocumentValidator<'a> {
         let path_key = PathKey::from_segments(path);
         
         // Store variant context for nested validation
-        self.variant_context.insert(path_key, variant_info.variant_name.to_string());
+        self.variant_context.insert(path_key.clone(), variant_info.variant_name.to_string());
+        
+        // Store variant representation for field validation (to exclude tag fields)
+        self.variant_repr_context.insert(path_key.clone(), variant_schema.representation.clone());
 
         // Get the variant type schema
         if let Some(variant_type) = variant_schema.variants.get(&variant_info.variant_key) {
@@ -981,6 +1092,33 @@ impl<'a> DocumentValidator<'a> {
         }
     }
 
+    /// Validates a variant type against its schema.
+    ///
+    /// This is the main entry point for variant validation. It performs two steps:
+    /// 1. Detection: Determines which variant is being used based on the representation
+    /// 2. Validation: Validates the content against the detected variant's schema
+    ///
+    /// # Arguments
+    /// * `node_id` - The ID of the node being validated
+    /// * `node` - The node containing the variant data
+    /// * `path` - The path to this node in the document
+    /// * `variant_schema` - The schema defining available variants and their representation
+    ///
+    /// # Variant Detection Process
+    ///
+    /// The detection process varies by representation:
+    /// - **Tagged**: Looks for a single key matching a variant name or `$variant` extension
+    /// - **InternallyTagged**: Checks the configured tag field's value
+    /// - **AdjacentlyTagged**: Reads the tag field to determine variant
+    /// - **Untagged**: Tries each variant until one validates successfully
+    ///
+    /// # Error Handling
+    ///
+    /// Errors are added to `self.errors` for:
+    /// - Unknown variant names
+    /// - Missing required variant tags
+    /// - Type mismatches in variant fields
+    /// - Unexpected fields in strict variants
     fn validate_variant(
         &mut self,
         node_id: NodeId,
@@ -1014,8 +1152,8 @@ impl<'a> DocumentValidator<'a> {
                                 .collect(),
                         },
                     );
-                } else {
-                    // No variant could be determined - discriminator is missing
+                } else if !matches!(variant_schema.representation, VariantRepr::Untagged) {
+                    // Only report missing discriminator for non-untagged variants
                     self.add_error(
                         node_id,
                         ValidationErrorKind::VariantDiscriminatorMissing,

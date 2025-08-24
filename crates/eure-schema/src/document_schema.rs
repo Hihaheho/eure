@@ -345,18 +345,57 @@ impl SchemaBuilder {
                     let mut repr = VariantRepr::Tagged;
                     if let Some(repr_node_id) = node.extensions.get(&identifiers::VARIANT_REPR) {
                         let repr_node = doc.get_node(*repr_node_id);
-                        if let NodeValue::String { value: repr_str, .. } = &repr_node.content {
-                            repr = match repr_str.as_str() {
-                                "external" | "tagged" => VariantRepr::Tagged,
-                                "internal" => VariantRepr::InternallyTagged { tag: KeyCmpValue::String("type".to_string()) },
-                                "adjacent" => VariantRepr::AdjacentlyTagged {
-                                    tag: KeyCmpValue::String("type".to_string()),
-                                    content: KeyCmpValue::String("content".to_string())
-                                },
-                                "untagged" => VariantRepr::Untagged,
-                                _ => VariantRepr::Tagged,
-                            };
-                        }
+                        repr = match &repr_node.content {
+                            NodeValue::String { value: repr_str, .. } => {
+                                match repr_str.as_str() {
+                                    "untagged" => VariantRepr::Untagged,
+                                    "external" => VariantRepr::Tagged,
+                                    _ => VariantRepr::Tagged,
+                                }
+                            }
+                            NodeValue::Map { entries, .. } => {
+                                // Parse object notation for internally/adjacently tagged
+                                let tag_key = DocumentKey::Ident(identifiers::TAG.clone());
+                                let content_key = DocumentKey::Ident(identifiers::CONTENT.clone());
+                                
+                                let tag_value = entries.iter()
+                                    .find(|(k, _)| k == &tag_key)
+                                    .and_then(|(_, id)| {
+                                        let node = doc.get_node(*id);
+                                        if let NodeValue::String { value, .. } = &node.content {
+                                            Some(value.clone())
+                                        } else {
+                                            None
+                                        }
+                                    });
+                                let content_value = entries.iter()
+                                    .find(|(k, _)| k == &content_key)
+                                    .and_then(|(_, id)| {
+                                        let node = doc.get_node(*id);
+                                        if let NodeValue::String { value, .. } = &node.content {
+                                            Some(value.clone())
+                                        } else {
+                                            None
+                                        }
+                                    });
+                                
+                                match (tag_value, content_value) {
+                                    (Some(tag), Some(content)) => {
+                                        VariantRepr::AdjacentlyTagged {
+                                            tag: KeyCmpValue::String(tag),
+                                            content: KeyCmpValue::String(content),
+                                        }
+                                    }
+                                    (Some(tag), None) => {
+                                        VariantRepr::InternallyTagged {
+                                            tag: KeyCmpValue::String(tag),
+                                        }
+                                    }
+                                    _ => VariantRepr::Tagged,
+                                }
+                            }
+                            _ => VariantRepr::Tagged,
+                        };
                     }
 
                     return Ok(Some(FieldSchema {

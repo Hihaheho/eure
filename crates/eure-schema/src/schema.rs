@@ -83,17 +83,100 @@ pub struct VariantSchema {
     pub representation: VariantRepr,
 }
 
-/// How variants are represented
+/// How variants are represented in EURE documents.
+///
+/// This enum defines the different strategies for encoding variant types (algebraic data types/tagged unions)
+/// in EURE documents. Each representation has different trade-offs in terms of clarity, conciseness, and compatibility.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariantRepr {
-    /// Default: uses $variant field as discriminator
+    /// Tagged representation (default): The variant is identified by an object key or `$variant` extension.
+    ///
+    /// # Examples
+    /// Using object key:
+    /// ```eure
+    /// @ command {
+    ///   echo {
+    ///     message = "Hello"
+    ///   }
+    /// }
+    /// ```
+    /// 
+    /// Using `$variant` extension:
+    /// ```eure
+    /// @ command {
+    ///   $variant: echo
+    ///   message = "Hello"
+    /// }
+    /// ```
+    ///
+    /// # Characteristics
+    /// - Clear and explicit variant identification
+    /// - Supports both nested and flat field structures
+    /// - Most idiomatic for EURE
     Tagged,
-    /// No discriminator field
+    
+    /// Untagged representation: The variant is determined by structural matching.
+    ///
+    /// # Example
+    /// ```eure
+    /// @ value {
+    ///   text = "Hello"    # Matches 'text' variant by structure
+    ///   lang = "en"
+    /// }
+    /// ```
+    ///
+    /// # Characteristics
+    /// - Most concise representation
+    /// - No explicit variant tag needed
+    /// - Can be ambiguous if variants have similar structures
+    /// - Performance cost: must try each variant until one matches
     Untagged,
-    /// Custom tag field name
-    InternallyTagged { tag: KeyCmpValue },
-    /// Separate tag and content fields
-    AdjacentlyTagged { tag: KeyCmpValue, content: KeyCmpValue },
+    
+    /// Internally tagged: The variant is identified by a field within the object.
+    ///
+    /// # Example
+    /// With tag field "type":
+    /// ```eure
+    /// @ event {
+    ///   type = "click"    # This field determines the variant
+    ///   x = 100
+    ///   y = 200
+    /// }
+    /// ```
+    ///
+    /// # Characteristics
+    /// - Compatible with many JSON APIs
+    /// - Tag is part of the variant data
+    /// - All variant fields at same level as tag
+    InternallyTagged { 
+        /// The field name that contains the variant identifier
+        tag: KeyCmpValue 
+    },
+    
+    /// Adjacently tagged: Tag and content are in separate fields.
+    ///
+    /// # Example
+    /// With tag="type" and content="data":
+    /// ```eure
+    /// @ message {
+    ///   type = "text"      # Tag field
+    ///   data = {           # Content field
+    ///     content = "Hello"
+    ///     formatted = true
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// # Characteristics
+    /// - Clear separation between metadata and content
+    /// - Compatible with envelope patterns
+    /// - More verbose than other representations
+    AdjacentlyTagged { 
+        /// The field name that contains the variant identifier
+        tag: KeyCmpValue,
+        /// The field name that contains the variant content
+        content: KeyCmpValue 
+    },
 }
 
 impl Default for VariantRepr {

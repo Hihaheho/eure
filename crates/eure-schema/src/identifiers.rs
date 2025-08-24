@@ -16,3 +16,5 @@ pub const VARIANT: Identifier = unsafe { Identifier::new_unchecked("variant") };
 pub const ARRAY: Identifier = unsafe { Identifier::new_unchecked("array") };
 pub const UNKNOWN: Identifier = unsafe { Identifier::new_unchecked("unknown") };
 pub const UNKNOWN_CAPS: Identifier = unsafe { Identifier::new_unchecked("Unknown") };
+pub const TAG: Identifier = unsafe { Identifier::new_unchecked("tag") };
+pub const CONTENT: Identifier = unsafe { Identifier::new_unchecked("content") };
