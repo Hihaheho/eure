@@ -1,4 +1,4 @@
-use eure_schema::{document_to_schema, validate_document, ValidationErrorKind, KeyCmpValue};
+use eure_schema::{KeyCmpValue, ValidationErrorKind, document_to_schema, validate_document};
 use eure_tree::value_visitor::ValueVisitor;
 
 // ============================================================================
@@ -21,13 +21,15 @@ $types.Command {
 
 commands.$array = .$types.Command
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test 1: Valid tagged variant
     let valid_doc = r#"
 commands = []
@@ -37,14 +39,19 @@ commands = []
   }
 }
 "#;
-    
+
     let tree = eure_parol::parse(valid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(valid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Valid tagged variant should have no errors, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Valid tagged variant should have no errors, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -61,13 +68,15 @@ $types.Command {
 
 commands.$array = .$types.Command
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Tagged variant with $variant extension (alternative syntax)
     let doc_with_extension = r#"
 commands = []
@@ -76,14 +85,19 @@ commands = []
   message = "Hello from extension syntax!"
 }
 "#;
-    
+
     let tree = eure_parol::parse(doc_with_extension).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(doc_with_extension);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Tagged variant with $variant extension should work, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Tagged variant with $variant extension should work, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -100,13 +114,15 @@ $types.Command {
 
 commands.$array = .$types.Command
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Tagged variant with multiple keys (should fail)
     let invalid_doc = r#"
 commands = []
@@ -119,14 +135,18 @@ commands = []
   }
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert!(!errors.is_empty(), "Tagged variant with multiple keys should produce errors");
+
+    assert!(
+        !errors.is_empty(),
+        "Tagged variant with multiple keys should produce errors"
+    );
 }
 
 // ============================================================================
@@ -151,13 +171,15 @@ $types.Event {
 
 events.$array = .$types.Event
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test 1: Valid internally tagged variant
     let valid_doc = r#"
 events = []
@@ -172,14 +194,19 @@ events = []
   shift = true
 }
 "#;
-    
+
     let tree = eure_parol::parse(valid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(valid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Valid internally tagged variants should have no errors, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Valid internally tagged variants should have no errors, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -195,13 +222,15 @@ $types.Event {
 
 events.$array = .$types.Event
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Missing tag field
     let invalid_doc = r#"
 events = []
@@ -210,14 +239,18 @@ events = []
   y = 200
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert!(!errors.is_empty(), "Missing tag field should produce errors");
+
+    assert!(
+        !errors.is_empty(),
+        "Missing tag field should produce errors"
+    );
 }
 
 #[test]
@@ -233,13 +266,15 @@ $types.Event {
 
 events.$array = .$types.Event
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Invalid tag value
     let invalid_doc = r#"
 events = []
@@ -249,19 +284,25 @@ events = []
   y = 200
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    let has_unknown_variant = errors.iter().any(|e| matches!(&e.kind,
-        ValidationErrorKind::UnknownVariant { variant, .. }
-        if variant == "invalid_variant"
-    ));
-    
-    assert!(has_unknown_variant, "Invalid tag value should produce UnknownVariant error");
+
+    let has_unknown_variant = errors.iter().any(|e| {
+        matches!(&e.kind,
+            ValidationErrorKind::UnknownVariant { variant, .. }
+            if variant == "invalid_variant"
+        )
+    });
+
+    assert!(
+        has_unknown_variant,
+        "Invalid tag value should produce UnknownVariant error"
+    );
 }
 
 // ============================================================================
@@ -287,13 +328,15 @@ $types.Message {
 
 messages.$array = .$types.Message
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Valid adjacently tagged variant
     let valid_doc = r#"
 messages = []
@@ -312,14 +355,19 @@ messages = []
   }
 }
 "#;
-    
+
     let tree = eure_parol::parse(valid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(valid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Valid adjacently tagged variants should have no errors, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Valid adjacently tagged variants should have no errors, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -334,13 +382,15 @@ $types.Message {
 
 messages.$array = .$types.Message
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Missing content field
     let invalid_doc = r#"
 messages = []
@@ -348,14 +398,18 @@ messages = []
   kind = "text"
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert!(!errors.is_empty(), "Missing content field should produce errors");
+
+    assert!(
+        !errors.is_empty(),
+        "Missing content field should produce errors"
+    );
 }
 
 // ============================================================================
@@ -384,13 +438,15 @@ $types.Value {
 
 values.$array = .$types.Value
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Valid untagged variants (determined by structure)
     let valid_doc = r#"
 values = []
@@ -406,14 +462,19 @@ values = []
   flag = true
 }
 "#;
-    
+
     let tree = eure_parol::parse(valid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(valid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Valid untagged variants should have no errors, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Valid untagged variants should have no errors, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -435,13 +496,15 @@ $types.Ambiguous {
 
 items.$array = .$types.Ambiguous
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Ambiguous untagged variant (matches first valid)
     let doc = r#"
 items = []
@@ -449,15 +512,20 @@ items = []
   field1 = "value"
 }
 "#;
-    
+
     let tree = eure_parol::parse(doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
+
     // Should match first variant that fits
-    assert_eq!(errors.len(), 0, "Should match first valid variant, but got: {errors:?}");
+    assert_eq!(
+        errors.len(),
+        0,
+        "Should match first valid variant, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -475,13 +543,15 @@ $types.Value {
 
 values.$array = .$types.Value
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: No matching variant
     let invalid_doc = r#"
 values = []
@@ -489,14 +559,18 @@ values = []
   unknown_field = "value"
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert!(!errors.is_empty(), "No matching variant should produce errors");
+
+    assert!(
+        !errors.is_empty(),
+        "No matching variant should produce errors"
+    );
 }
 
 // ============================================================================
@@ -517,13 +591,15 @@ $types.Empty {
 
 items.$array = .$types.Empty
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Empty variant
     let doc = r#"
 items = []
@@ -534,14 +610,19 @@ items = []
   $variant: with_optional
 }
 "#;
-    
+
     let tree = eure_parol::parse(doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Empty variants should be valid, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Empty variants should be valid, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -567,13 +648,15 @@ $types.Level1 {
 
 item.$type = .$types.Level1
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Deeply nested variants
     let doc = r#"
 item = {
@@ -587,14 +670,19 @@ item = {
   }
 }
 "#;
-    
+
     let tree = eure_parol::parse(doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Deeply nested variants should validate correctly, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Deeply nested variants should validate correctly, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -603,7 +691,7 @@ fn test_variant_with_complex_types() {
 $types.ComplexVariant {
   @ $variants.with_array {
     items.$array = .string
-    matrix.$array.$array = .number
+    matrix.$array = .number
   }
   @ $variants.with_map {
     config = .object
@@ -618,29 +706,36 @@ $types.ComplexVariant {
 
 complex.$type = .$types.ComplexVariant
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Variant with arrays
     let doc_array = r#"
 complex = {
   $variant = "with_array"
   items = ["a", "b", "c"]
-  matrix = [[1, 2], [3, 4]]
+  matrix = [1, 2]
 }
 "#;
-    
+
     let tree = eure_parol::parse(doc_array).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(doc_array);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Variant with complex array types should validate, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Variant with complex array types should validate, but got: {errors:?}"
+    );
 }
 
 // ============================================================================
@@ -660,13 +755,15 @@ $types.Typed {
 
 item.$type = .$types.Typed
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Type mismatches in variant fields
     let invalid_doc = r#"
 item = {
@@ -676,19 +773,25 @@ item = {
   flag = "not a boolean"
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
+
     // Should have 3 type mismatch errors
-    let type_errors: Vec<_> = errors.iter()
+    let type_errors: Vec<_> = errors
+        .iter()
         .filter(|e| matches!(&e.kind, ValidationErrorKind::TypeMismatch { .. }))
         .collect();
-    
-    assert_eq!(type_errors.len(), 3, "Should have 3 type mismatch errors, but got: {errors:?}");
+
+    assert_eq!(
+        type_errors.len(),
+        3,
+        "Should have 3 type mismatch errors, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -704,13 +807,15 @@ $types.Required {
 
 item.$type = .$types.Required
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Missing required fields
     let invalid_doc = r#"
 item = {
@@ -718,19 +823,25 @@ item = {
   field1 = "present"
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
+
     // Should have errors for missing field2 and field3
-    let missing_errors: Vec<_> = errors.iter()
+    let missing_errors: Vec<_> = errors
+        .iter()
         .filter(|e| matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { .. }))
         .collect();
-    
-    assert_eq!(missing_errors.len(), 2, "Should have 2 missing field errors, but got: {errors:?}");
+
+    assert_eq!(
+        missing_errors.len(),
+        2,
+        "Should have 2 missing field errors, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -744,13 +855,15 @@ $types.Strict {
 
 item.$type = .$types.Strict
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Unexpected fields in variant
     let invalid_doc = r#"
 item = {
@@ -760,19 +873,25 @@ item = {
   unexpected2 = 123
 }
 "#;
-    
+
     let tree = eure_parol::parse(invalid_doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(invalid_doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
+
     // Should have 2 unexpected field errors
-    let unexpected_errors: Vec<_> = errors.iter()
+    let unexpected_errors: Vec<_> = errors
+        .iter()
         .filter(|e| matches!(&e.kind, ValidationErrorKind::UnexpectedField { .. }))
         .collect();
-    
-    assert_eq!(unexpected_errors.len(), 2, "Should have 2 unexpected field errors, but got: {errors:?}");
+
+    assert_eq!(
+        unexpected_errors.len(),
+        2,
+        "Should have 2 unexpected field errors, but got: {errors:?}"
+    );
 }
 
 #[test]
@@ -787,20 +906,19 @@ $types.WithCascade {
   }
 }
 
-$cascade-type.items[] = .$types.WithCascade
-
-items.$array = .object
+$cascade-type.items.$array = .$types.WithCascade
 "#;
-    
+
     let schema_tree = eure_parol::parse(schema_input).expect("Failed to parse schema");
     let mut schema_visitor = ValueVisitor::new(schema_input);
-    schema_tree.visit_from_root(&mut schema_visitor).expect("Failed to visit schema tree");
+    schema_tree
+        .visit_from_root(&mut schema_visitor)
+        .expect("Failed to visit schema tree");
     let schema_doc = schema_visitor.into_document();
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
-    
+
     // Test: Variant with cascade type
     let doc = r#"
-items = []
 @ items[] {
   $variant: variant1
   field = "text"
@@ -810,12 +928,17 @@ items = []
   field = 42
 }
 "#;
-    
+
     let tree = eure_parol::parse(doc).expect("Failed to parse document");
     let mut visitor = ValueVisitor::new(doc);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
     let document = visitor.into_document();
     let errors = validate_document(&document, &schema);
-    
-    assert_eq!(errors.len(), 0, "Variants with cascade types should validate correctly, but got: {errors:?}");
+
+    assert_eq!(
+        errors.len(),
+        0,
+        "Variants with cascade types should validate correctly, but got: {errors:?}"
+    );
 }
