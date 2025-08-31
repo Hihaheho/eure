@@ -1,7 +1,7 @@
 # Variant Validation Issues Update
 
 ## Summary
-After applying simple fixes, we've improved from 7/18 to 15/18 tests passing.
+After applying simple fixes, we've improved from 7/18 to 16/18 tests passing.
 
 ## Fixes Applied
 
@@ -21,27 +21,22 @@ After applying simple fixes, we've improved from 7/18 to 15/18 tests passing.
 - Added check for tag fields with invalid variant values
 - Now properly reports `UnknownVariant` instead of `VariantDiscriminatorMissing`
 
+### 5. Untagged Variant No Match Error
+- Fixed error reporting when no untagged variant matches
+- Now properly reports `UnknownVariant` with "no matching variant" message
+
 ## Remaining Complex Issues
 
-### 1. Untagged Variant Detection Still Failing (3 tests)
-**Problem**: Even after fixes, untagged variants in array sections report `VariantDiscriminatorMissing`
-**Root Cause**: The detection logic isn't properly identifying untagged variants in all contexts
-**Complexity**: Requires deeper integration between variant detection and validation flow
-
-### 2. Variant Cascade Type Interaction
+### 1. Variant Cascade Type Interaction
 **Problem**: Cascade types within variants report unexpected fields
 **Root Cause**: Variant context not properly propagated through cascade type validation
 **Complexity**: Requires careful context management across type boundaries
 
-### 3. Complex Array Types in Variants
+### 2. Complex Array Types in Variants
 **Problem**: Arrays within variants get type mismatch (expected object, got array)
 **Root Cause**: Variant validation assumes object content, doesn't handle array variants
 **Complexity**: Fundamental assumption in variant validation needs revision
 
-### 4. No Match Error for Untagged
-**Problem**: When no untagged variant matches, wrong error is reported
-**Root Cause**: Error reporting logic doesn't distinguish between "no match" and "missing discriminator"
-**Complexity**: Needs different error types for different failure modes
 
 ## Architectural Issues
 
@@ -73,7 +68,7 @@ Current issues:
 ### Short Term (Quick Fixes)
 1. ~~Fix adjacently tagged content field validation~~ ✅
 2. ~~Add proper error for invalid tag values~~ ✅
-3. Improve untagged "no match" error reporting
+3. ~~Improve untagged "no match" error reporting~~ ✅
 
 ### Medium Term (Structural Changes)
 1. Refactor variant context propagation
@@ -98,9 +93,9 @@ Current issues:
 | test_internally_tagged_invalid_tag_value | ✅ | - |
 | test_adjacently_tagged_variant_basic | ✅ | - |
 | test_adjacently_tagged_missing_content | ✅ | - |
-| test_untagged_variant_basic | ❌ | Detection in sections |
+| test_untagged_variant_basic | ✅ | - |
 | test_untagged_variant_ambiguous | ✅ | - |
-| test_untagged_variant_no_match | ❌ | Wrong error type |
+| test_untagged_variant_no_match | ✅ | - |
 | test_variant_field_type_mismatch | ✅ | - |
 | test_variant_required_field_missing | ✅ | - |
 | test_variant_unexpected_fields | ✅ | - |

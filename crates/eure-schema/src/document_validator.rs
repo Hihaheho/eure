@@ -1202,12 +1202,28 @@ impl<'a> DocumentValidator<'a> {
                         _ => false
                     };
                     
-                    if !has_invalid_tag && !matches!(variant_schema.representation, VariantRepr::Untagged) {
-                        // Only report missing discriminator for non-untagged variants
-                        self.add_error(
-                            node_id,
-                            ValidationErrorKind::VariantDiscriminatorMissing,
-                        );
+                    if !has_invalid_tag {
+                        if matches!(variant_schema.representation, VariantRepr::Untagged) {
+                            // For untagged variants, report that no variant matched
+                            self.add_error(
+                                node_id,
+                                ValidationErrorKind::UnknownVariant {
+                                    variant: "no matching variant".to_string(),
+                                    available: variant_schema.variants.keys()
+                                        .map(|k| match k {
+                                            KeyCmpValue::String(s) => s.clone(),
+                                            _ => format!("{k:?}")
+                                        })
+                                        .collect(),
+                                },
+                            );
+                        } else {
+                            // For tagged variants, report missing discriminator
+                            self.add_error(
+                                node_id,
+                                ValidationErrorKind::VariantDiscriminatorMissing,
+                            );
+                        }
                     }
                 }
             }
