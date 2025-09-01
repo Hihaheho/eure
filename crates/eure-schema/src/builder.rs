@@ -183,11 +183,6 @@ impl TypeBuilder {
     pub fn type_ref(name: Identifier) -> Type {
         Type::TypeRef(name)
     }
-    
-    /// Create a cascade type
-    pub fn cascade(inner: Type) -> Type {
-        Type::CascadeType(Box::new(inner))
-    }
 }
 
 /// Builder for ObjectSchema
@@ -232,6 +227,7 @@ impl ObjectSchemaBuilder {
         ObjectSchema {
             fields: self.fields,
             additional_properties: self.additional_properties,
+            cascade_type: None,
         }
     }
     

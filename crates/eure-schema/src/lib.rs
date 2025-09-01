@@ -40,7 +40,7 @@ mod tests {
         let schema = DocumentSchema::default();
         assert!(schema.types.is_empty());
         assert!(schema.root.fields.is_empty());
-        assert!(schema.cascade_types.is_empty());
+        assert!(schema.cascade_type.is_none());
     }
 
 

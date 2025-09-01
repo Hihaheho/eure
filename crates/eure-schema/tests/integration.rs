@@ -375,8 +375,8 @@ $cascade-type = .string
 "#;
         let schema = extract(schema_doc).document_schema;
 
-        // Check cascade type was set
-        assert!(matches!(schema.cascade_types.get(&PathKey::from_segments(&[])), Some(Type::String)));
+        // Check cascade type was set on root
+        assert!(matches!(schema.root.cascade_type.as_deref(), Some(Type::String)));
 
         // All fields should accept strings by default
         let doc = r#"
@@ -508,7 +508,7 @@ age.$type = .number
         // Debug: print cascade types
         println!(
             "Cascade types: {:?}",
-            result.schema.document_schema.cascade_types
+            result.schema.document_schema.cascade_type
         );
 
         // Debug: print any errors
@@ -750,7 +750,7 @@ extra = "not allowed"
     fn test_unknown_type_reference() {
         // Create schema with cascade type to allow any field
         let mut schema = DocumentSchema::default();
-        schema.cascade_types.insert(PathKey::from_segments(&[]), Type::Any);
+        schema.cascade_type = Some(Type::Any);
 
         // Reference to non-existent type
         let doc = r#"

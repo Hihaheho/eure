@@ -237,10 +237,9 @@ impl<'a> DocumentValidator<'a> {
 
     fn validate(&mut self) {
         // Check if there's a cascade type for the root
-        let root_path_key = PathKey::from_segments(&[]);
         let root_id = self.document.get_root_id();
         
-        if let Some(cascade_type) = self.schema.cascade_types.get(&root_path_key) {
+        if let Some(cascade_type) = &self.schema.cascade_type {
             // Check if it's a variant cascade type
             if let Type::Variants(variant_schema) = cascade_type {
                 // For any variant cascade type at root, validate as variant
@@ -273,6 +272,7 @@ impl<'a> DocumentValidator<'a> {
                                 path,
                                 ident,
                                 &object_schema.fields,
+                                object_schema.cascade_type.as_deref(),
                             );
                         }
                         DocumentKey::MetaExtension(ident) => {
@@ -301,6 +301,11 @@ impl<'a> DocumentValidator<'a> {
                                     let mut child_path = path.to_vec();
                                     child_path.push(PathSegment::Value(key_value.clone()));
                                     self.validate_type(*child_id, &child_path, additional_properties);
+                                } else if let Some(cascade_type) = &object_schema.cascade_type {
+                                    // Apply cascade type to quoted field
+                                    let mut child_path = path.to_vec();
+                                    child_path.push(PathSegment::Value(key_value.clone()));
+                                    self.validate_type(*child_id, &child_path, cascade_type);
                                 } else {
                                     // Unexpected field
                                     self.add_error(
@@ -317,6 +322,11 @@ impl<'a> DocumentValidator<'a> {
                                     let mut child_path = path.to_vec();
                                     child_path.push(PathSegment::Value(key_value.clone()));
                                     self.validate_type(*child_id, &child_path, additional_properties);
+                                } else if let Some(cascade_type) = &object_schema.cascade_type {
+                                    // Apply cascade type to non-string keys
+                                    let mut child_path = path.to_vec();
+                                    child_path.push(PathSegment::Value(key_value.clone()));
+                                    self.validate_type(*child_id, &child_path, cascade_type);
                                 } else {
                                     self.add_error(
                                         node_id,
@@ -367,6 +377,7 @@ impl<'a> DocumentValidator<'a> {
         path: &[PathSegment],
         field_name: &Identifier,
         expected_fields: &IndexMap<KeyCmpValue, FieldSchema>,
+        cascade_type: Option<&Type>,
     ) {
         // Check if this is a schema-only field (has schema extensions but no data content)
         let node = self.document.get_node(node_id);
@@ -395,10 +406,10 @@ impl<'a> DocumentValidator<'a> {
             let is_tag_field = if let Some(variant_repr) = self.variant_repr_context.get(&path_key) {
                 match variant_repr {
                     VariantRepr::InternallyTagged { tag } => {
-                        field_key == *tag
+                        &field_key == tag
                     }
                     VariantRepr::AdjacentlyTagged { tag, content } => {
-                        field_key == *tag || field_key == *content
+                        &field_key == tag || &field_key == content
                     }
                     _ => false
                 }
@@ -412,9 +423,9 @@ impl<'a> DocumentValidator<'a> {
                 return;
             }
             
-            // Check if there's a cascade type for this path
-            if let Some(cascade_type) = self.schema.cascade_types.get(&path_key) {
-                // Validate against cascade type
+            // Check if there's a cascade type
+            if let Some(cascade_type) = cascade_type {
+                // All fields inherit the cascade type
                 let mut field_path = path.to_vec();
                 field_path.push(PathSegment::Ident(field_name.clone()));
                 self.validate_type(node_id, &field_path, cascade_type);
@@ -431,6 +442,7 @@ impl<'a> DocumentValidator<'a> {
         }
     }
 
+    
     fn validate_type(
         &mut self,
         node_id: NodeId,
@@ -531,10 +543,6 @@ impl<'a> DocumentValidator<'a> {
                 }
             }
             Type::Path => self.validate_path(node_id, node),
-            Type::CascadeType(inner_type) => {
-                // Cascade types validate the inner type
-                self.validate_type(node_id, path, inner_type);
-            }
         }
         
         // Decrement depth after validation
@@ -1066,7 +1074,8 @@ impl<'a> DocumentValidator<'a> {
                                 && let Some((_, content_id)) = entries.first() {
                                     let mut variant_path = path.to_vec();
                                     variant_path.push(PathSegment::Ident(variant_info.variant_name.clone()));
-                                    self.validate_type(*content_id, &variant_path, &Type::Object(variant_type.clone()));
+                                    // Validate the content node as an object with the variant's fields
+                                    self.validate_object_fields(*content_id, &variant_path, variant_type);
                                 }
                         }
                     }
@@ -1081,7 +1090,8 @@ impl<'a> DocumentValidator<'a> {
                         if let Some((_, content_id)) = entries.iter()
                             .find(|(k, _)| matches!(k, DocumentKey::Ident(id) if KeyCmpValue::String(id.to_string()) == *content))
                         {
-                            self.validate_type(*content_id, path, &Type::Object(variant_type.clone()));
+                            // Validate the content node as an object with the variant's fields
+                            self.validate_object_fields(*content_id, path, variant_type);
                         } else {
                             // Content field is missing - report error
                             self.add_error(

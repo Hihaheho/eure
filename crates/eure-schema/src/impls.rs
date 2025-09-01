@@ -110,6 +110,7 @@ impl<K: ToEureSchema, V: ToEureSchema> ToEureSchema for HashMap<K, V> {
             type_expr: Type::Object(ObjectSchema {
                 fields: IndexMap::new(),
                 additional_properties: Some(Box::new(V::eure_schema().type_expr)),
+                cascade_type: None,
             }),
             ..Default::default()
         }
@@ -123,6 +124,7 @@ impl<K: ToEureSchema, V: ToEureSchema> ToEureSchema for BTreeMap<K, V> {
             type_expr: Type::Object(ObjectSchema {
                 fields: IndexMap::new(),
                 additional_properties: Some(Box::new(V::eure_schema().type_expr)),
+                cascade_type: None,
             }),
             ..Default::default()
         }
