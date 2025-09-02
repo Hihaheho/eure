@@ -42,8 +42,25 @@ pub enum KeyCmpValue {
     MetaExtension(Identifier),
 }
 
-#[derive(Debug, Clone, PartialEq, Plural)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Plural)]
 pub struct Path(pub Vec<PathSegment>);
+
+impl Path {
+    /// Create an empty path representing the document root
+    pub fn root() -> Self {
+        Path(Vec::new())
+    }
+    
+    /// Check if this is the root path
+    pub fn is_root(&self) -> bool {
+        self.0.is_empty()
+    }
+    
+    /// Create a Path from PathSegments
+    pub fn from_segments(segments: &[PathSegment]) -> Self {
+        Path(segments.to_vec())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PathSegment {
@@ -59,17 +76,6 @@ pub enum PathSegment {
     TupleIndex(u8),
     /// Array element access
     ArrayIndex(Option<u8>),
-}
-
-// A simplified path representation that can be used as a HashMap key
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PathKey(pub Vec<PathSegment>);
-
-impl PathKey {
-    /// Create a PathKey from PathSegments
-    pub fn from_segments(segments: &[PathSegment]) -> Self {
-        PathKey(segments.to_vec())
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -188,7 +188,6 @@ fn test_nested_object_validation() {
             type_expr: Type::Object(ObjectSchema {
                 fields: user_fields,
                 additional_properties: None,
-                cascade_type: None,
             }),
             optional: false,
             ..Default::default()
@@ -228,7 +227,6 @@ fn test_variant_validation() {
         ObjectSchema {
             fields: create_fields,
             additional_properties: None,
-            cascade_type: None,
         }
     );
     
@@ -255,7 +253,6 @@ fn test_variant_validation() {
         ObjectSchema {
             fields: update_fields,
             additional_properties: None,
-            cascade_type: None,
         }
     );
     

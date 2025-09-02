@@ -7,8 +7,9 @@ use crate::identifiers;
 use crate::schema::*;
 use crate::utils::path_to_display_string;
 use eure_tree::document::{DocumentKey, EureDocument, Node, NodeValue};
-use eure_value::value::KeyCmpValue;
+use eure_value::value::{KeyCmpValue, Path};
 use indexmap::IndexMap;
+use std::collections::HashMap;
 
 /// Errors that can occur during schema extraction
 #[derive(Debug, thiserror::Error)]
@@ -39,8 +40,8 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
     schema.root = ObjectSchema {
         fields: builder.root_fields,
         additional_properties: None,
-        cascade_type: None,
     };
+    schema.cascade_types = builder.cascade_types;
 
     // Check for special root-level extensions
     let root = doc.get_root();
@@ -58,7 +59,7 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
         let cascade_node = doc.get_node(*cascade_node_id);
         if let NodeValue::Path { value: path, .. } = &cascade_node.content
             && let Some(cascade_type) = Type::from_path_segments(&path.0) {
-                schema.root.cascade_type = Some(Box::new(cascade_type));
+                schema.cascade_types.insert(Path::root(), cascade_type);
             }
     }
 
@@ -180,6 +181,7 @@ fn is_schema_or_nested_schema_node(doc: &EureDocument, node: &Node) -> bool {
 struct SchemaBuilder {
     types: IndexMap<KeyCmpValue, FieldSchema>,
     root_fields: IndexMap<KeyCmpValue, FieldSchema>,
+    cascade_types: HashMap<Path, Type>,
 }
 
 impl SchemaBuilder {
@@ -187,6 +189,7 @@ impl SchemaBuilder {
         Self {
             types: IndexMap::new(),
             root_fields: IndexMap::new(),
+            cascade_types: HashMap::new(),
         }
     }
 
@@ -254,7 +257,7 @@ impl SchemaBuilder {
                                 }
                             }
                         }
-                    } else if let NodeValue::Path { value: type_path, .. } = &ext_node.content {
+                    } else if let NodeValue::Path { value: _type_path, .. } = &ext_node.content {
                         // Direct cascade type: $cascade-type = .string
                         // This is handled by setting cascade_type on the root ObjectSchema
                     }
@@ -474,20 +477,10 @@ impl SchemaBuilder {
                 
                 if has_fields {
                     // This is an object type with fields
-                    let mut obj_schema = ObjectSchema {
+                    let obj_schema = ObjectSchema {
                         fields,
                         additional_properties: None,
-                        cascade_type: None,
                     };
-                    // Check for cascade-type extension
-                    if let Some(cascade_node_id) = node.extensions.get(&identifiers::CASCADE_TYPE) {
-                        let cascade_node = doc.get_node(*cascade_node_id);
-                        if let NodeValue::Path { value: path, .. } = &cascade_node.content {
-                            if let Some(cascade_type) = Type::from_path_segments(&path.0) {
-                                obj_schema.cascade_type = Some(Box::new(cascade_type));
-                            }
-                        }
-                    }
                     Ok(Some(FieldSchema {
                         type_expr: Type::Object(obj_schema),
                         ..Default::default()
@@ -814,8 +807,7 @@ impl SchemaBuilder {
                             schema.type_expr = Type::Array(Box::new(Type::Object(ObjectSchema {
                                 fields,
                                 additional_properties: None,
-                                cascade_type: None,
-                            })));
+                                                            })));
                             has_schema = true;
                         }
                         _ => {}
@@ -909,37 +901,16 @@ impl SchemaBuilder {
                     match &mut schema.type_expr {
                         Type::Any => {
                             // No type set yet, create an object type
-                            let mut obj_schema = ObjectSchema {
+                            let obj_schema = ObjectSchema {
                                 fields,
                                 additional_properties: None,
-                                cascade_type: None,
                             };
-                            // Check for cascade-type extension
-                            if let Some(cascade_node_id) = node.extensions.get(&identifiers::CASCADE_TYPE) {
-                                let cascade_node = doc.get_node(*cascade_node_id);
-                                if let NodeValue::Path { value: path, .. } = &cascade_node.content {
-                                    if let Some(cascade_type) = Type::from_path_segments(&path.0) {
-                                        obj_schema.cascade_type = Some(Box::new(cascade_type));
-                                    }
-                                }
-                            }
                             schema.type_expr = Type::Object(obj_schema);
                         }
                         Type::Object(existing_obj) => {
                             // Type is already Object, merge the fields
                             for (key, field_schema) in fields {
                                 existing_obj.fields.insert(key, field_schema);
-                            }
-                            // Check for cascade-type extension if not already set
-                            if existing_obj.cascade_type.is_none() {
-                                if let Some(cascade_node_id) = node.extensions.get(&identifiers::CASCADE_TYPE) {
-                                    let cascade_node = doc.get_node(*cascade_node_id);
-                                    if let NodeValue::Path { value: path, .. } = &cascade_node.content {
-                                        if let Some(cascade_type) = Type::from_path_segments(&path.0) {
-                                            existing_obj.cascade_type = Some(Box::new(cascade_type));
-                                        }
-                                    }
-                                }
                             }
                         }
                         _ => {
@@ -994,8 +965,7 @@ impl SchemaBuilder {
         Ok(ObjectSchema {
             fields,
             additional_properties: None,
-            cascade_type: None,
-        })
+                    })
     }
 
     /// Recursively extract variant fields
@@ -1059,8 +1029,7 @@ impl SchemaBuilder {
                     type_expr: Type::Array(Box::new(Type::Object(ObjectSchema {
                         fields: elem_fields,
                         additional_properties: None,
-                        cascade_type: None,
-                    }))),
+                                            }))),
                     optional: false,
                     ..Default::default()
                 })

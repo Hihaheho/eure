@@ -227,7 +227,6 @@ impl ObjectSchemaBuilder {
         ObjectSchema {
             fields: self.fields,
             additional_properties: self.additional_properties,
-            cascade_type: None,
         }
     }
     

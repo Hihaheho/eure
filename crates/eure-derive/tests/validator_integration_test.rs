@@ -2,7 +2,7 @@
 
 use eure_derive::Eure;
 use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_document as validate_eure_document, Severity};
-use eure_value::value::PathKey;
+use eure_value::value::Path;
 use eure_tree::value_visitor::ValueVisitor;
 use serde::{Serialize, Deserialize};
 
@@ -52,7 +52,7 @@ fn validate_document_with_types<T: ToEureSchema>(
             };
             
             // Set cascade type to the variant schema
-            doc_schema.cascade_types.insert(PathKey::from_segments(&[]), Type::Variants(variant_schema.clone()));
+            doc_schema.cascade_types.insert(Path::from_segments(&[]), Type::Variants(variant_schema.clone()));
         }
         _ => {
             // For other types, wrap in a single field

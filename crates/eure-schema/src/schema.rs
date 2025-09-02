@@ -2,9 +2,10 @@
 
 use crate::identifiers;
 use eure_tree::tree::InputSpan;
-use eure_value::value::{KeyCmpValue, PathSegment};
+use eure_value::value::{KeyCmpValue, PathSegment, Path};
 use eure_value::identifier::Identifier;
 use indexmap::IndexMap;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 /// Core type representation in EURE schema
@@ -42,8 +43,6 @@ pub enum Type {
 pub struct ObjectSchema {
     pub fields: IndexMap<KeyCmpValue, FieldSchema>,
     pub additional_properties: Option<Box<Type>>,
-    /// Type that cascades to all descendants at this level
-    pub cascade_type: Option<Box<Type>>,
 }
 
 /// Schema for a single field
@@ -262,8 +261,9 @@ pub struct DocumentSchema {
     pub types: IndexMap<KeyCmpValue, FieldSchema>,
     /// Schema for root object
     pub root: ObjectSchema,
-    /// Type that cascades to all descendant fields in the document
-    pub cascade_type: Option<Type>,
+    /// Cascade types mapped by their definition path
+    /// A cascade at path [a, b] applies to all descendants of a.b
+    pub cascade_types: HashMap<Path, Type>,
     /// Global serde options
     pub serde_options: SerdeOptions,
     /// Reference to external schema (from $schema key)
