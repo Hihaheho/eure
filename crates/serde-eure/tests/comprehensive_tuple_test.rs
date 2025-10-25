@@ -7,8 +7,7 @@ fn test_empty_tuple() {
     let serialized = to_string(&empty).unwrap();
     assert_eq!(serialized, "value = ()\n");
 
-    let deserialized: () = from_str(&serialized).unwrap();
-    assert_eq!(deserialized, empty);
+    let () = from_str(&serialized).unwrap();
 }
 
 #[test]
@@ -23,7 +22,7 @@ fn test_single_element_tuple() {
 
 #[test]
 fn test_mixed_type_tuple() {
-    let mixed = (1, "hello", 3.14, true);
+    let mixed = (1, "hello", std::f64::consts::PI, true);
     let serialized = to_string(&mixed).unwrap();
 
     let deserialized: (i32, String, f64, bool) = from_str(&serialized).unwrap();
@@ -100,7 +99,7 @@ fn test_tuple_struct() {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Point(f64, f64);
 
-    let point = Point(3.14, 2.71);
+    let point = Point(3.1, 2.71);
     let serialized = to_string(&point).unwrap();
 
     let deserialized: Point = from_str(&serialized).unwrap();

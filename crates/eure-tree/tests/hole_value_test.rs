@@ -1,4 +1,3 @@
-use eure_tree::prelude::*;
 use eure_value::value::Value;
 
 #[test]

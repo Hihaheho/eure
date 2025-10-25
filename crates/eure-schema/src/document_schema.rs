@@ -25,6 +25,9 @@ pub enum SchemaError {
 
     #[error("Invalid variant definition")]
     InvalidVariant,
+
+    #[error("Invalid rename rule: {0}")]
+    InvalidRenameRule(String),
 }
 
 /// Extract a schema from an EureDocument
@@ -83,7 +86,7 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
             value: rename_all, ..
         } = &rename_all_node.content
         {
-            schema.serde_options.rename_all = RenameRule::from_str(rename_all);
+            schema.serde_options.rename_all = Some(rename_all.parse()?);
         }
     }
 
@@ -289,8 +292,8 @@ impl SchemaBuilder {
                                     }
                                 } else {
                                     // Recursively handle nested objects if needed
-                                    if let Some(field_schema) = self
-                                        .extract_field_schema_from_node(
+                                    if let Some(field_schema) =
+                                        Self::extract_field_schema_from_node(
                                             doc,
                                             field_name.as_ref(),
                                             field_node,
@@ -316,7 +319,7 @@ impl SchemaBuilder {
                     // Other extensions might be field schemas
                     if path.is_empty()
                         && let Some(schema) =
-                            self.extract_field_schema_from_node(doc, ext_name.as_ref(), ext_node)?
+                            Self::extract_field_schema_from_node(doc, ext_name.as_ref(), ext_node)?
                     {
                         // Store extension schemas directly by their identifier
                         self.root_fields
@@ -341,7 +344,7 @@ impl SchemaBuilder {
                             } else {
                                 // Regular field at root level
                                 // Always check if there's a schema for this field, regardless of whether it has data
-                                if let Some(field_schema) = self.extract_field_schema_from_node(
+                                if let Some(field_schema) = Self::extract_field_schema_from_node(
                                     doc,
                                     ident.as_ref(),
                                     child_node,
@@ -376,7 +379,7 @@ impl SchemaBuilder {
                     }
                     DocumentKey::MetaExtension(meta_ext_ident) => {
                         // Meta-extensions define schemas for extensions
-                        if let Some(field_schema) = self.extract_field_schema_from_node(
+                        if let Some(field_schema) = Self::extract_field_schema_from_node(
                             doc,
                             meta_ext_ident.as_ref(),
                             child_node,
@@ -393,7 +396,7 @@ impl SchemaBuilder {
                         if path.is_empty()
                             && let KeyCmpValue::String(field_name) = val
                             && let Some(field_schema) =
-                                self.extract_field_schema_from_node(doc, field_name, child_node)?
+                                Self::extract_field_schema_from_node(doc, field_name, child_node)?
                         {
                             self.root_fields
                                 .insert(KeyCmpValue::String(field_name.clone()), field_schema);
@@ -529,7 +532,7 @@ impl SchemaBuilder {
                         match key {
                             DocumentKey::Ident(field_name) => {
                                 let field_node = doc.get_node(*field_node_id);
-                                if let Some(field_schema) = self.extract_field_schema_from_node(
+                                if let Some(field_schema) = Self::extract_field_schema_from_node(
                                     doc,
                                     field_name.as_ref(),
                                     field_node,
@@ -543,19 +546,18 @@ impl SchemaBuilder {
                             }
                             DocumentKey::Value(val) => {
                                 // Handle quoted field names in type definitions
-                                if let KeyCmpValue::String(field_name) = val {
-                                    let field_node = doc.get_node(*field_node_id);
-                                    if let Some(field_schema) = self
-                                        .extract_field_schema_from_node(
+                                if let KeyCmpValue::String(field_name) = val
+                                    && let field_node = doc.get_node(*field_node_id)
+                                    && let Some(field_schema) =
+                                        Self::extract_field_schema_from_node(
                                             doc, field_name, field_node,
                                         )?
-                                    {
-                                        fields.insert(
-                                            KeyCmpValue::String(field_name.clone()),
-                                            field_schema,
-                                        );
-                                        has_fields = true;
-                                    }
+                                {
+                                    fields.insert(
+                                        KeyCmpValue::String(field_name.clone()),
+                                        field_schema,
+                                    );
+                                    has_fields = true;
                                 }
                             }
                             _ => {}
@@ -575,7 +577,7 @@ impl SchemaBuilder {
                     }))
                 } else {
                     // Otherwise, extract as regular field schema
-                    self.extract_field_schema_from_node(doc, type_name, node)
+                    Self::extract_field_schema_from_node(doc, type_name, node)
                 }
             }
             NodeValue::Tuple { children, .. } => {
@@ -731,7 +733,6 @@ impl SchemaBuilder {
 
     /// Extract field schema from a node
     fn extract_field_schema_from_node(
-        &self,
         doc: &EureDocument,
         _field_name: &str,
         node: &Node,
@@ -903,8 +904,8 @@ impl SchemaBuilder {
                                 for (key, field_node_id) in entries {
                                     if let DocumentKey::Ident(field_name) = key {
                                         let field_node = doc.get_node(*field_node_id);
-                                        if let Some(field_schema) = self
-                                            .extract_field_schema_from_node(
+                                        if let Some(field_schema) =
+                                            Self::extract_field_schema_from_node(
                                                 doc,
                                                 field_name.as_ref(),
                                                 field_node,
@@ -967,7 +968,7 @@ impl SchemaBuilder {
                         value: rename_all, ..
                     } = &ext_node.content
                     {
-                        schema.serde.rename_all = RenameRule::from_str(rename_all);
+                        schema.serde.rename_all = Some(rename_all.parse()?);
                         has_schema = true;
                     }
                 }
@@ -994,7 +995,7 @@ impl SchemaBuilder {
                         match key {
                             DocumentKey::Ident(field_name) => {
                                 let field_node = doc.get_node(*field_node_id);
-                                if let Some(field_schema) = self.extract_field_schema_from_node(
+                                if let Some(field_schema) = Self::extract_field_schema_from_node(
                                     doc,
                                     field_name.as_ref(),
                                     field_node,
@@ -1008,19 +1009,18 @@ impl SchemaBuilder {
                             }
                             DocumentKey::Value(val) => {
                                 // Handle quoted field names
-                                if let KeyCmpValue::String(field_name) = val {
-                                    let field_node = doc.get_node(*field_node_id);
-                                    if let Some(field_schema) = self
-                                        .extract_field_schema_from_node(
+                                if let KeyCmpValue::String(field_name) = val
+                                    && let field_node = doc.get_node(*field_node_id)
+                                    && let Some(field_schema) =
+                                        Self::extract_field_schema_from_node(
                                             doc, field_name, field_node,
                                         )?
-                                    {
-                                        fields.insert(
-                                            KeyCmpValue::String(field_name.clone()),
-                                            field_schema,
-                                        );
-                                        has_schema_fields = true;
-                                    }
+                                {
+                                    fields.insert(
+                                        KeyCmpValue::String(field_name.clone()),
+                                        field_schema,
+                                    );
+                                    has_schema_fields = true;
                                 }
                             }
                             _ => {}
@@ -1132,7 +1132,7 @@ impl SchemaBuilder {
                             let array_node = doc.get_node(*array_node_id);
                             let array_field = self.extract_array_field(doc, array_node)?;
                             fields.insert(KeyCmpValue::String(field_name.to_string()), array_field);
-                        } else if let Some(field_schema) = self.extract_field_schema_from_node(
+                        } else if let Some(field_schema) = Self::extract_field_schema_from_node(
                             doc,
                             field_name.as_ref(),
                             field_node,
@@ -1143,14 +1143,12 @@ impl SchemaBuilder {
                     }
                     DocumentKey::Value(val) => {
                         // Handle quoted field names in variants
-                        if let KeyCmpValue::String(field_name) = val {
-                            let field_node = doc.get_node(*node_id);
-                            if let Some(field_schema) =
-                                self.extract_field_schema_from_node(doc, field_name, field_node)?
-                            {
-                                fields
-                                    .insert(KeyCmpValue::String(field_name.clone()), field_schema);
-                            }
+                        if let KeyCmpValue::String(field_name) = val
+                            && let field_node = doc.get_node(*node_id)
+                            && let Some(field_schema) =
+                                Self::extract_field_schema_from_node(doc, field_name, field_node)?
+                        {
+                            fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
                         }
                     }
                     _ => {}

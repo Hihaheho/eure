@@ -249,14 +249,14 @@ impl<'a> DocumentValidator<'a> {
         // Check if there's a cascade type for the root
         let root_id = self.document.get_root_id();
 
-        if let Some(cascade_type) = self.schema.cascade_types.get(&Path::root()) {
+        if let Some(cascade_type) = self.schema.cascade_types.get(&Path::root())
             // Check if it's a variant cascade type
-            if let Type::Variants(variant_schema) = cascade_type {
-                // For any variant cascade type at root, validate as variant
-                let root_node = self.document.get_node(root_id);
-                self.validate_variant(root_id, root_node, &[], variant_schema);
-                return;
-            }
+            && let Type::Variants(variant_schema) = cascade_type
+        {
+            // For any variant cascade type at root, validate as variant
+            let root_node = self.document.get_node(root_id);
+            self.validate_variant(root_id, root_node, &[], variant_schema);
+            return;
         }
 
         // Normal object validation

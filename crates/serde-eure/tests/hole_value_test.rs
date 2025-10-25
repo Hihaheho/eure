@@ -9,6 +9,7 @@ fn test_deserialize_hole_value_error() {
     "#;
 
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Person {
         name: String,
         age: u32,
@@ -31,6 +32,7 @@ fn test_deserialize_hole_in_array() {
     "#;
 
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Container {
         items: Vec<String>,
     }
@@ -58,18 +60,21 @@ fn test_deserialize_nested_hole() {
     "#;
 
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Address {
         street: String,
         city: String,
     }
 
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Person {
         name: String,
         address: Address,
     }
 
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Container {
         person: Person,
     }
@@ -95,7 +100,7 @@ fn test_parse_file_with_holes() {
             username = "admin"
             password = !  # TODO: Set password before deployment
         }
-        
+
         features = {
             logging = true
             monitoring = !  # TODO: Decide on monitoring
@@ -116,6 +121,7 @@ fn test_parse_file_with_holes() {
 
     // But deserialization to a concrete type should fail
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Database {
         host: String,
         port: u16,
@@ -124,12 +130,14 @@ fn test_parse_file_with_holes() {
     }
 
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Features {
         logging: bool,
         monitoring: bool,
     }
 
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct Config {
         database: Database,
         features: Features,

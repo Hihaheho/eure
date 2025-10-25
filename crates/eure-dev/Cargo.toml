@@ -1,7 +1,6 @@
 [package]
 name = "eure-dev"
 version = "0.1.0"
-authors = ["Ryo Hirayama <ryo12redstone@gmail.com>"]
 edition = "2024"
 publish = false
 

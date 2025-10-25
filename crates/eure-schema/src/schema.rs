@@ -1,6 +1,6 @@
 //! Schema representation types for EURE documents
 
-use crate::identifiers;
+use crate::{SchemaError, identifiers};
 use eure_tree::tree::InputSpan;
 use eure_value::identifier::Identifier;
 use eure_value::value::{KeyCmpValue, Path, PathSegment};
@@ -238,17 +238,20 @@ impl RenameRule {
             Self::Uppercase => name.to_uppercase(),
         }
     }
+}
 
-    /// Parse a rename rule from a string
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for RenameRule {
+    type Err = SchemaError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "camelCase" => Some(Self::CamelCase),
-            "snake_case" => Some(Self::SnakeCase),
-            "kebab-case" => Some(Self::KebabCase),
-            "PascalCase" => Some(Self::PascalCase),
-            "UPPERCASE" => Some(Self::Uppercase),
-            "lowercase" => Some(Self::Lowercase),
-            _ => None,
+            "camelCase" => Ok(Self::CamelCase),
+            "snake_case" => Ok(Self::SnakeCase),
+            "kebab-case" => Ok(Self::KebabCase),
+            "PascalCase" => Ok(Self::PascalCase),
+            "UPPERCASE" => Ok(Self::Uppercase),
+            "lowercase" => Ok(Self::Lowercase),
+            _ => Err(SchemaError::InvalidRenameRule(s.to_string())),
         }
     }
 }

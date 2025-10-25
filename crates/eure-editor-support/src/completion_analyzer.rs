@@ -259,7 +259,7 @@ impl<'a> CompletionAnalyzer<'a> {
             eprintln!("DEBUG get_field_completions: Using root schema");
             &schema.root
         } else {
-            match self.lookup_schema_at_path(&path_segments, &schema.root) {
+            match Self::lookup_schema_at_path(&path_segments, &schema.root) {
                 Some(obj) => {
                     eprintln!("DEBUG get_field_completions: Found schema at path");
                     obj
@@ -305,7 +305,6 @@ impl<'a> CompletionAnalyzer<'a> {
     }
 
     fn lookup_schema_at_path<'b>(
-        &self,
         path: &[PathSegment],
         schema: &'b ObjectSchema,
     ) -> Option<&'b ObjectSchema> {
@@ -336,7 +335,7 @@ impl<'a> CompletionAnalyzer<'a> {
                     );
                     match &field_schema.type_expr {
                         eure_schema::Type::Object(obj) => {
-                            self.lookup_schema_at_path(remaining, obj)
+                            Self::lookup_schema_at_path(remaining, obj)
                         }
                         _ => None,
                     }

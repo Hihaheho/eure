@@ -292,8 +292,8 @@ fn extract_path_from_line(line: &str) -> Vec<String> {
 
     if trimmed.is_empty() {
         vec![]
-    } else if trimmed.starts_with('@') {
-        trimmed[1..]
+    } else if let Some(trimmed) = trimmed.strip_prefix('@') {
+        trimmed
             .split('.')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
@@ -670,8 +670,8 @@ fn lookup_and_generate_variant_completions(
     let type_str = type_ref.as_ref();
 
     // Handle both $types.TypeName and plain TypeName references
-    let type_name = if type_str.starts_with("$types.") {
-        &type_str[7..] // Skip "$types."
+    let type_name = if let Some(type_name) = type_str.strip_prefix("$types.") {
+        type_name
     } else {
         type_str
     };
@@ -880,8 +880,8 @@ fn lookup_variant_schema<'a>(
     let type_str = type_ref.as_ref();
 
     // Handle both $types.TypeName and plain TypeName references
-    let type_name = if type_str.starts_with("$types.") {
-        &type_str[7..] // Skip "$types."
+    let type_name = if let Some(type_name) = type_str.strip_prefix("$types.") {
+        type_name
     } else {
         type_str
     };
@@ -964,8 +964,8 @@ fn resolve_type_ref<'a>(
     let type_str = type_ref.as_ref();
 
     // Handle both $types.TypeName and plain TypeName references
-    let type_name = if type_str.starts_with("$types.") {
-        &type_str[7..] // Skip "$types."
+    let type_name = if let Some(type_name) = type_str.strip_prefix("$types.") {
+        type_name
     } else {
         type_str
     };
@@ -1009,9 +1009,9 @@ fn get_field_type_at_path<'a>(
     let object = lookup_schema_at_path(path, root)?;
 
     // Handle extensions vs meta-extensions vs regular fields
-    if field_name.starts_with("$$") {
+    if let Some(field_name) = field_name.strip_prefix("$$") {
         // Meta-extensions ($$name) are stored as KeyCmpValue::MetaExtension
-        if let Ok(id) = Identifier::from_str(&field_name[2..]) {
+        if let Ok(id) = Identifier::from_str(field_name) {
             let key = KeyCmpValue::MetaExtension(id);
             object.fields.get(&key).map(|field| &field.type_expr)
         } else {
@@ -1284,8 +1284,8 @@ fn position_to_byte_offset(text: &str, position: Position) -> usize {
     let mut offset = 0;
 
     // Add bytes for complete lines before the target line
-    for i in 0..(position.line as usize).min(lines.len()) {
-        offset += lines[i].len() + 1; // +1 for newline character
+    for line in lines.iter().take(position.line as usize) {
+        offset += line.len() + 1; // +1 for newline character
     }
 
     // Add bytes for characters on the target line
@@ -1529,10 +1529,10 @@ fn analyze_handle_completion_context(byte_offset: usize, text: &str) -> HandleCo
 
 /// Extract field name from text before = or : operator
 fn extract_field_name_before_operator(text: &str) -> Option<String> {
-    let without_operator = if text.ends_with('=') {
+    let without_operator = if let Some(text) = text.strip_suffix('=') {
         &text[..text.len() - 1]
-    } else if text.ends_with(':') {
-        &text[..text.len() - 1]
+    } else if let Some(text) = text.strip_suffix(':') {
+        text
     } else {
         text
     };
