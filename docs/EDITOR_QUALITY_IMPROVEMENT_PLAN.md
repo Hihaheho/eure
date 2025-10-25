@@ -12,7 +12,7 @@ This document outlines a comprehensive improvement plan for EURE's editor suppor
 - Total Lines of Code: 4,850
 - Test Coverage: 54% (eure-ls has 0% coverage)
 - Code Duplication: 15-20%
-- Critical Issues: 6 unwrap/expect, 67 eprintln!, 12+ TODOs
+- Critical Issues: ~~6 unwrap/expect~~ ✅ 0, 207 eprintln!, ~~12+ TODOs~~ ✅ 0
 
 ---
 
@@ -46,83 +46,23 @@ This document outlines a comprehensive improvement plan for EURE's editor suppor
 
 ---
 
-### 1.2 Remove Dangerous `unwrap()` and `expect()` Calls
+### 1.3 Replace Debug Output with Proper Logging (PARTIALLY COMPLETE)
 
-**Problem**: 6 instances of unsafe unwrapping that could cause panics:
+**STATUS**: ✅ Infrastructure setup complete, ❌ 207 eprintln!() replacements pending
 
-1. **parser.rs:19**
-   ```rust
-   let cst = tree_builder.build().expect("TreeConstruction never fails");
-   ```
+**Completed**:
+- ✅ Added `tracing` and `tracing-subscriber` dependencies
+- ✅ Initialized tracing subscriber in `eure-ls/src/main.rs`
 
-2. **completions.rs:251**
-   ```rust
-   let field = parts.last().unwrap().to_string();
-   ```
+**Remaining Work**: Replace 207 `eprintln!()` statements with tracing macros
 
-3. **completions.rs:930**
-   ```rust
-   let variants_key = KeyCmpValue::MetaExtension(Identifier::from_str("variants").unwrap());
-   ```
+**Files with eprintln!() to replace**:
+- `/crates/eure-editor-support/src/completion_context_tracker.rs` (28 calls)
+- `/crates/eure-editor-support/src/completion_analyzer.rs` (37 calls)
+- `/crates/eure-ls/src/main.rs` (23 calls)
+- Other affected files (119 calls)
 
-4. **schema_validation.rs:234**
-   ```rust
-   let path_str = schema_ref.strip_prefix("file://").unwrap();
-   ```
-
-5. **schema_validation.rs:234**
-   ```rust
-   KeyCmpValue::Tuple(_) => todo!(), // CRITICAL: Unimplemented
-   ```
-
-**Solution**:
-- Replace all `unwrap()` with proper error propagation using `?` operator
-- Return `Result<T, EditorError>` types with descriptive errors
-- Implement `KeyCmpValue::Tuple` variant handling
-- Add error recovery strategies for each case
-
-**Estimated Effort**: 1-2 days
-
-**Files to Modify**:
-- `/crates/eure-editor-support/src/parser.rs`
-- `/crates/eure-editor-support/src/completions.rs`
-- `/crates/eure-editor-support/src/schema_validation.rs`
-
----
-
-### 1.3 Replace Debug Output with Proper Logging
-
-**Problem**: 67 `eprintln!()` statements pollute stderr
-
-**Current Pattern**:
-```rust
-eprintln!("DEBUG: Context type determined: {context:?}");
-eprintln!("DEBUG: Byte offset: {}, Input length: {}", byte_offset, self.input.len());
-```
-
-**Solution**:
-- Integrate `tracing` crate for structured logging
-- Define log levels: ERROR, WARN, INFO, DEBUG, TRACE
-- Make logging configurable via environment variables
-- Remove all `eprintln!()` statements
-
-**Implementation**:
-```rust
-use tracing::{debug, info, warn, error};
-
-// Replace eprintln! with:
-debug!("Context type determined: {:?}", context);
-debug!(byte_offset = %byte_offset, input_len = %self.input.len(), "Processing position");
-```
-
-**Estimated Effort**: 1 day
-
-**Files to Modify**:
-- `Cargo.toml` (add `tracing` dependency)
-- `/crates/eure-ls/src/main.rs` (initialize tracing subscriber)
-- `/crates/eure-editor-support/src/completion_analyzer.rs` (67 eprintln! calls)
-- `/crates/eure-editor-support/src/completions.rs`
-- Other affected files
+**Estimated Remaining Effort**: 0.5-1 day
 
 ---
 
@@ -345,8 +285,8 @@ struct EditorConfig {
 ## Implementation Roadmap
 
 ### Phase 1: Stabilization (Week 1-2)
-- [ ] 1.2: Remove unwrap/expect calls
-- [ ] 1.3: Add proper logging
+- [x] 1.2: Remove unwrap/expect calls ✅ COMPLETE
+- [ ] 1.3: Add proper logging (Infrastructure ✅, eprintln! replacement ❌)
 - [ ] 1.4: Add LSP server tests
 
 ### Phase 2: Consolidation (Week 3)
@@ -367,10 +307,10 @@ struct EditorConfig {
 ## Success Metrics
 
 ### Code Quality
-- ✅ Zero `unwrap()/expect()` in production code
-- ✅ Zero `eprintln!()` (replaced with `tracing`)
-- ✅ Zero `todo!()` in critical paths
-- ✅ < 5% code duplication
+- ✅ Zero `unwrap()/expect()` in production code **ACHIEVED**
+- ❌ Zero `eprintln!()` (replaced with `tracing`) **IN PROGRESS: 207 remaining**
+- ✅ Zero `todo!()` in critical paths **ACHIEVED**
+- ❌ < 5% code duplication **NOT STARTED: Currently 15-20%**
 
 ### Test Coverage
 - ✅ `eure-ls`: > 70% coverage

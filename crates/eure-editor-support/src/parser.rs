@@ -16,8 +16,21 @@ pub fn parse_document(text: &str) -> ParseResult {
     // Parse the document and capture any error
     let parse_result = parser::parse_into(text, &mut tree_builder, "document.eure", &mut actions);
 
-    let cst = tree_builder.build().expect("TreeConstruction never fails");
-    // Handle the result
+    // Build the CST
+    // According to the implementation, tree_builder.build() should never fail
+    // because it always constructs a valid CST from the parsed tokens.
+    // We use unwrap_or_else to handle the theoretically impossible error case
+    // with a clear panic message for debugging if it ever occurs.
+    let cst = tree_builder.build().unwrap_or_else(|e| {
+        panic!(
+            "CST construction unexpectedly failed. This indicates a bug in the parser.\n\
+             Error: {:?}\n\
+             Please report this issue.",
+            e
+        )
+    });
+
+    // Handle the parse result
     match parse_result {
         Ok(()) => ParseResult::Ok(cst),
         Err(err) => ParseResult::ErrWithCst { cst, error: err },

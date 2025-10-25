@@ -128,9 +128,14 @@ fn process_terminal(
         TerminalKind::Integer | TerminalKind::Float => SemanticTokenType::NUMBER,
         TerminalKind::Str | TerminalKind::Text => SemanticTokenType::STRING,
         TerminalKind::NamedCode => {
-            let code_pos = text[span.start as usize..span.end as usize]
-                .find('`')
-                .expect("This token should contain `") as u32;
+            // Find the backtick that separates the name from the code
+            let code_pos = if let Some(pos) = text[span.start as usize..span.end as usize].find('`') {
+                pos as u32
+            } else {
+                // Fallback: if backtick not found, use default position
+                // This shouldn't happen for well-formed NamedCode tokens
+                0
+            };
             push_multiple_tokens_oneline(
                 legend,
                 tokens,

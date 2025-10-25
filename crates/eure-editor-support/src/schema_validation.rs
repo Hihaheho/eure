@@ -231,7 +231,14 @@ fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
         eure_schema::KeyCmpValue::Bool(b) => b.to_string(),
         eure_schema::KeyCmpValue::Null => "null".to_string(),
         eure_schema::KeyCmpValue::Unit => "()".to_string(),
-        eure_schema::KeyCmpValue::Tuple(_) => todo!(),
+        eure_schema::KeyCmpValue::Tuple(elements) => {
+            // Format tuple as (elem1, elem2, ...)
+            let formatted_elements: Vec<String> = elements
+                .iter()
+                .map(|elem| format_field_key(elem))
+                .collect();
+            format!("({})", formatted_elements.join(", "))
+        }
         eure_schema::KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
         eure_schema::KeyCmpValue::Hole => "!".to_string(),
     }
@@ -592,7 +599,8 @@ pub fn resolve_schema_reference(
         Err("Remote schemas are not yet supported".to_string())
     } else if schema_ref.starts_with("file://") {
         // Handle file:// URLs
-        let path_str = schema_ref.strip_prefix("file://").unwrap();
+        let path_str = schema_ref.strip_prefix("file://")
+            .ok_or_else(|| format!("Failed to strip 'file://' prefix from: {}", schema_ref))?;
         let path = Path::new(path_str);
         if path.is_absolute() {
             Ok(path.to_path_buf())

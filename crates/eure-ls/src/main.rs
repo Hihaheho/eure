@@ -19,6 +19,18 @@ use lsp_server::{
 };
 
 fn main() -> anyhow::Result<()> {
+    // Initialize tracing subscriber for structured logging
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("eure_ls=debug".parse().unwrap())
+                .add_directive("eure_editor_support=debug".parse().unwrap())
+        )
+        .with_writer(std::io::stderr)
+        .init();
+
+    tracing::info!("EURE Language Server starting");
+
     let (connection, io_threads) = Connection::stdio();
 
     // Get the legend from the support crate

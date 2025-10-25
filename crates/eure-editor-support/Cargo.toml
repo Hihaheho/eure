@@ -16,3 +16,5 @@ eure-schema = { workspace = true }
 eure-value = { workspace = true }
 lsp-types = { workspace = true }
 indexmap = { version = "2.0" }
+anyhow = { workspace = true }
+tracing = "0.1"
