@@ -3,16 +3,16 @@ name = "eure-parol"
 version = "0.1.0"
 edition = "2024"
 description = "EURE parser implementation using Parol"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "parser", "serialization", "grammar"]
+license = "MIT OR Apache-2.0"
+keywords = ["eure", "grammar", "parser", "serialization"]
 
 [dependencies]
 eure-tree = { workspace = true }
-
 parol_runtime.workspace = true
+scnr2.workspace = true
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
 

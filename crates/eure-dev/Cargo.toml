@@ -8,10 +8,10 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dioxus = { version = "0.6.0", features = ["router"] }
+dioxus = { version = "0.7.0-rc.3", features = ["router"] }
 
 [features]
 default = ["desktop"]
-web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
+web = ["dioxus/web"]

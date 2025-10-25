@@ -1,46 +1,45 @@
 [workspace]
-
 resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-serde-eure = { path = "crates/serde-eure", version = "0.1.0" }
+ahash = { version = "0.8.11", default-features = false }
+anyhow = "1"
 eure = { path = "crates/eure", version = "0.1.0" }
-eure-parol = { path = "crates/eure-parol", version = "0.1.0" }
+eure-derive = { path = "crates/eure-derive", version = "0.1.0" }
+eure-editor-support = { path = "crates/eure-editor-support", version = "0.1.0" }
 eure-fmt = { path = "crates/eure-fmt", version = "0.1.0" }
 eure-json = { path = "crates/eure-json", version = "0.1.0" }
-eure-yaml = { path = "crates/eure-yaml", version = "0.1.0" }
 eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.0" }
-eure-toml = { path = "crates/eure-toml", version = "0.1.0" }
-eure-schema = { path = "crates/eure-schema", version = "0.1.0" }
 eure-lint = { path = "crates/eure-lint", version = "0.1.0" }
+eure-parol = { path = "crates/eure-parol", version = "0.1.0" }
+eure-schema = { path = "crates/eure-schema", version = "0.1.0" }
 eure-template = { path = "crates/eure-template", version = "0.1.0" }
-eure-value = { path = "crates/eure-value", version = "0.1.0" }
+eure-toml = { path = "crates/eure-toml", version = "0.1.0" }
 eure-tree = { path = "crates/eure-tree", version = "0.1.0" }
-eure-editor-support = { path = "crates/eure-editor-support", version = "0.1.0" }
-eure-derive = { path = "crates/eure-derive", version = "0.1.0" }
-
-parol_runtime = { git = "https://github.com/ryo33/parol.git", package = "parol_runtime", branch = "parse2" }
-parol = { git = "https://github.com/ryo33/parol.git", package = "parol", branch = "parse2" }
-serde = "1"
-serde_json = "1"
-anyhow = "1"
-ahash = { version = "0.8.11", default-features = false }
-thisisplural = "0.7"
-lsp-types = "0.97.0"
-thiserror = { version = "2.0", default-features = false }
+eure-value = { path = "crates/eure-value", version = "0.1.0" }
+eure-yaml = { path = "crates/eure-yaml", version = "0.1.0" }
 indexmap = "2"
+lsp-types = "0.97.0"
+parol = "4.1"
+parol_runtime = "4"
+scnr2 = "0.3.3"
+serde = "1"
+serde-eure = { path = "crates/serde-eure", version = "0.1.0" }
+serde_json = "1"
+thiserror = { version = "2.0", default-features = false }
+thisisplural = "0.7"
 
 # For faster parser generation
 [profile.dev.package.parol]
 opt-level = 3
 
-[profile.wasm-dev]
+[profile.android-dev]
 inherits = "dev"
-opt-level = 1
 
 [profile.server-dev]
 inherits = "dev"
 
-[profile.android-dev]
+[profile.wasm-dev]
 inherits = "dev"
+opt-level = 1

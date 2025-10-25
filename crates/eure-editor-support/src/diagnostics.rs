@@ -17,12 +17,17 @@ pub fn error_to_diagnostic(error: &ParolError) -> Vec<Diagnostic> {
                 return entries.iter().map(parse_error_to_diagnostic).collect();
             }
             ParserError::UnprocessedInput { .. } => {}
-            ParserError::PopOnEmptyScannerStateStack { .. } => {}
             ParserError::TooManyErrors { count } => {
                 message = format!("Too many errors: {count}");
             }
             ParserError::RecoveryFailed => {}
             ParserError::InternalError(_) => {}
+            ParserError::Unsupported {
+                context,
+                error_location,
+            } => {
+                message = format!("Unsupported: {context} at {error_location}");
+            }
         },
         ParolError::LexerError(lexer_error) => match lexer_error {
             LexerError::TokenBufferEmptyError => {}
@@ -31,7 +36,6 @@ pub fn error_to_diagnostic(error: &ParolError) -> Vec<Diagnostic> {
             LexerError::LookaheadExceedsTokenBufferLength => {}
             LexerError::ScannerStackEmptyError => {}
             LexerError::RecoveryError(_) => {}
-            LexerError::RegexError(_) => {}
         },
         ParolError::UserError(_) => {}
     }

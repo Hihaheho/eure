@@ -4,61 +4,17 @@
 // lost after next build.
 // ---------------------------------------------------------
 
-use parol_runtime::once_cell::sync::Lazy;
-use parol_runtime::parser::parse_tree_type::TreeConstruct;
-#[allow(unused_imports)]
-use parol_runtime::parser::{LLKParser, LookaheadDFA, ParseType, Production, Trans};
-use parol_runtime::{ParolError, ParseTree, TerminalIndex};
-use parol_runtime::{ScannerConfig, TokenStream, Tokenizer};
+use parol_runtime::{
+    ParolError, ParseTree, TokenStream,
+    parser::{
+        LLKParser, LookaheadDFA, ParseType, Production, Trans, parse_tree_type::TreeConstruct,
+    },
+};
+use scnr2::scanner;
 use std::path::Path;
 
 use crate::grammar::Grammar;
 use crate::grammar_trait::GrammarAuto;
-
-use parol_runtime::lexer::tokenizer::{
-    ERROR_TOKEN, NEW_LINE_TOKEN, UNMATCHABLE_TOKEN, WHITESPACE_TOKEN,
-};
-
-pub const TERMINALS: &[(&str, Option<(bool, &str)>); 34] = &[
-    /*  0 */ (UNMATCHABLE_TOKEN, None),
-    /*  1 */ (UNMATCHABLE_TOKEN, None),
-    /*  2 */ (UNMATCHABLE_TOKEN, None),
-    /*  3 */ (UNMATCHABLE_TOKEN, None),
-    /*  4 */ (UNMATCHABLE_TOKEN, None),
-    /*  5 */
-    (
-        r"[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]",
-        None,
-    ),
-    /*  6 */ (r"\d[\d_]*", None),
-    /*  7 */ (r"true", None),
-    /*  8 */ (r"false", None),
-    /*  9 */ (r"null", None),
-    /* 10 */ (r"!", None),
-    /* 11 */ (r#""([^"]|\\")*""#, None),
-    /* 12 */ (r"[^\r\n]*", None),
-    /* 13 */ (r"```[a-zA-Z0-9-_]*(\r\n|\r|\n)([^`]|[`]{1,2})*```", None),
-    /* 14 */ (r"[a-zA-Z0-9-_]+`([^`\r\n]|\\`)*`", None),
-    /* 15 */ (r"`([^`\r\n]|\\`)*`", None),
-    /* 16 */ (r"\r\n|\r|\n", None),
-    /* 17 */ (r"[\s--\r\n]+", None),
-    /* 18 */ (r"@", None),
-    /* 19 */ (r"\$\$", None),
-    /* 20 */ (r"\$", None),
-    /* 21 */ (r"\.", None),
-    /* 22 */ (r"\{", None),
-    /* 23 */ (r"\}", None),
-    /* 24 */ (r"\[", None),
-    /* 25 */ (r"\]", None),
-    /* 26 */ (r"\(", None),
-    /* 27 */ (r"\)", None),
-    /* 28 */ (r"=", None),
-    /* 29 */ (r",", None),
-    /* 30 */ (r"\\\\", None),
-    /* 31 */ (r":", None),
-    /* 32 */ (r"[\p{XID_Start}_][\p{XID_Continue}-]*", None),
-    /* 33 */ (ERROR_TOKEN, None),
-];
 
 pub const TERMINAL_NAMES: &[&str; 34] = &[
     /*  0 */ "EndOfInput",
@@ -97,59 +53,49 @@ pub const TERMINAL_NAMES: &[&str; 34] = &[
     /* 33 */ "Error",
 ];
 
-/* SCANNER_0: "INITIAL" */
-const SCANNER_0: (&[&str; 5], &[TerminalIndex; 25]) = (
-    &[
-        /*  0 */ UNMATCHABLE_TOKEN,
-        /*  1 */ NEW_LINE_TOKEN,
-        /*  2 */ WHITESPACE_TOKEN,
-        /*  3 */ r"#.*(\r\n|\r|\n)?",
-        /*  4 */ UNMATCHABLE_TOKEN,
-    ],
-    &[
-        5,  /* Float */
-        6,  /* Integer */
-        7,  /* True */
-        8,  /* False */
-        9,  /* Null */
-        10, /* Hole */
-        11, /* Str */
-        13, /* CodeBlock */
-        14, /* NamedCode */
-        15, /* Code */
-        18, /* At */
-        19, /* MetaExt */
-        20, /* Ext */
-        21, /* Dot */
-        22, /* Begin */
-        23, /* End */
-        24, /* ArrayBegin */
-        25, /* ArrayEnd */
-        26, /* LParen */
-        27, /* RParen */
-        28, /* Bind */
-        29, /* Comma */
-        30, /* Continue */
-        31, /* TextStart */
-        32, /* Ident */
-    ],
-);
-
-/* SCANNER_1: "Text" */
-const SCANNER_1: (&[&str; 5], &[TerminalIndex; 3]) = (
-    &[
-        /*  0 */ UNMATCHABLE_TOKEN,
-        /*  1 */ UNMATCHABLE_TOKEN,
-        /*  2 */ UNMATCHABLE_TOKEN,
-        /*  3 */ UNMATCHABLE_TOKEN,
-        /*  4 */ UNMATCHABLE_TOKEN,
-    ],
-    &[
-        12, /* Text */
-        16, /* GrammarNewline */
-        17, /* Ws */
-    ],
-);
+scanner! {
+    GrammarScanner {
+        mode INITIAL {
+            token r"\r\n|\r|\n" => 1; // "Newline"
+            token r"[\s--\r\n]+" => 2; // "Whitespace"
+            token r"#.*(\r\n|\r|\n)?" => 3; // "LineComment"
+            token r"[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]" => 5; // "Float"
+            token r"\d[\d_]*" => 6; // "Integer"
+            token r"true" => 7; // "True"
+            token r"false" => 8; // "False"
+            token r"null" => 9; // "Null"
+            token r"!" => 10; // "Hole"
+            token r#""([^"]|\\")*""# => 11; // "Str"
+            token r"```[a-zA-Z0-9-_]*(\r\n|\r|\n)([^`]|[`]{1,2})*```" => 13; // "CodeBlock"
+            token r"[a-zA-Z0-9-_]+`([^`\r\n]|\\`)*`" => 14; // "NamedCode"
+            token r"`([^`\r\n]|\\`)*`" => 15; // "Code"
+            token r"@" => 18; // "At"
+            token r"\$\$" => 19; // "MetaExt"
+            token r"\$" => 20; // "Ext"
+            token r"\." => 21; // "Dot"
+            token r"\{" => 22; // "Begin"
+            token r"\}" => 23; // "End"
+            token r"\[" => 24; // "ArrayBegin"
+            token r"\]" => 25; // "ArrayEnd"
+            token r"\(" => 26; // "LParen"
+            token r"\)" => 27; // "RParen"
+            token r"=" => 28; // "Bind"
+            token r"," => 29; // "Comma"
+            token r"\\\\" => 30; // "Continue"
+            token r":" => 31; // "TextStart"
+            token r"[\p{XID_Start}_][\p{XID_Continue}-]*" => 32; // "Ident"
+            token r"." => 33; // "Error"
+            on 31 enter Text;
+        }
+        mode Text {
+            token r"[^\r\n]*" => 12; // "Text"
+            token r"\r\n|\r|\n" => 16; // "GrammarNewline"
+            token r"[\s--\r\n]+" => 17; // "Ws"
+            token r"." => 33; // "Error"
+            on 12 enter INITIAL;
+        }
+    }
+}
 
 const MAX_K: usize = 1;
 
@@ -1460,21 +1406,6 @@ pub const PRODUCTIONS: &[Production; 113] = &[
     },
 ];
 
-static SCANNERS: Lazy<Vec<ScannerConfig>> = Lazy::new(|| {
-    vec![
-        ScannerConfig::new(
-            "INITIAL",
-            Tokenizer::build(TERMINALS, SCANNER_0.0, SCANNER_0.1).unwrap(),
-            &[(31 /* TextStart */, 1 /* Text */)],
-        ),
-        ScannerConfig::new(
-            "Text",
-            Tokenizer::build(TERMINALS, SCANNER_1.0, SCANNER_1.1).unwrap(),
-            &[(12 /* Text */, 0 /* INITIAL */)],
-        ),
-    ]
-});
-
 pub fn parse<'t, T>(
     input: &'t str,
     file_name: T,
@@ -1483,9 +1414,10 @@ pub fn parse<'t, T>(
 where
     T: AsRef<Path>,
 {
-    use parol_runtime::parser::parse_tree_type::SynTree;
-    use parol_runtime::parser::parser_types::SynTreeFlavor;
-    use parol_runtime::syntree::Builder;
+    use parol_runtime::{
+        parser::{parse_tree_type::SynTree, parser_types::SynTreeFlavor},
+        syntree::Builder,
+    };
     let mut builder = Builder::<SynTree, SynTreeFlavor>::new_with();
     parse_into(input, &mut builder, file_name, user_actions)?;
     Ok(builder.build()?)
@@ -1500,6 +1432,7 @@ pub fn parse_into<'t, T: TreeConstruct<'t>>(
 where
     ParolError: From<T::Error>,
 {
+    use grammar_scanner::GrammarScanner;
     let mut llk_parser = LLKParser::new(
         23,
         LOOKAHEAD_AUTOMATA,
@@ -1507,11 +1440,19 @@ where
         TERMINAL_NAMES,
         NON_TERMINALS,
     );
+    let scanner = GrammarScanner::new();
     // Initialize wrapper
     let mut user_actions = GrammarAuto::new(user_actions);
-    llk_parser.parse_into::<T>(
+    llk_parser.parse_into(
         tree_builder,
-        TokenStream::new(input, file_name, &SCANNERS, MAX_K).unwrap(),
+        TokenStream::new(
+            input,
+            file_name,
+            scanner.scanner_impl.clone(),
+            &GrammarScanner::match_function,
+            MAX_K,
+        )
+        .unwrap(),
         &mut user_actions,
     )
 }
