@@ -9,7 +9,7 @@
 //! each with its own detection and validation logic:
 //!
 //! ## 1. Tagged Representation
-//! 
+//!
 //! In tagged representation, the variant is determined by a single object key:
 //! ```eure
 //! @ command {
@@ -96,13 +96,13 @@
 
 use crate::identifiers;
 use crate::schema::*;
-use eure_tree::document::{EureDocument, Node, NodeValue, NodeId, DocumentKey};
+use eure_tree::document::{DocumentKey, EureDocument, Node, NodeId, NodeValue};
 use eure_value::identifier::Identifier;
-use eure_value::value::{KeyCmpValue, PathSegment, Path};
+use eure_value::value::{KeyCmpValue, Path, PathSegment};
 use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
 use std::fmt;
+use std::str::FromStr;
 
 /// Severity level for validation errors
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,10 +170,7 @@ pub enum ValidationErrorKind {
 }
 
 /// Validate an EureDocument against a schema
-pub fn validate_document(
-    document: &EureDocument,
-    schema: &DocumentSchema,
-) -> Vec<ValidationError> {
+pub fn validate_document(document: &EureDocument, schema: &DocumentSchema) -> Vec<ValidationError> {
     let mut validator = DocumentValidator::new(document, schema);
     validator.validate();
     validator.errors
@@ -251,7 +248,7 @@ impl<'a> DocumentValidator<'a> {
     fn validate(&mut self) {
         // Check if there's a cascade type for the root
         let root_id = self.document.get_root_id();
-        
+
         if let Some(cascade_type) = self.schema.cascade_types.get(&Path::root()) {
             // Check if it's a variant cascade type
             if let Type::Variants(variant_schema) = cascade_type {
@@ -261,7 +258,7 @@ impl<'a> DocumentValidator<'a> {
                 return;
             }
         }
-        
+
         // Normal object validation
         self.validate_object_fields(root_id, &[], &self.schema.root);
     }
@@ -280,12 +277,7 @@ impl<'a> DocumentValidator<'a> {
                 for (key, child_id) in entries {
                     match key {
                         DocumentKey::Ident(ident) => {
-                            self.validate_field(
-                                *child_id,
-                                path,
-                                ident,
-                                &object_schema.fields,
-                            );
+                            self.validate_field(*child_id, path, ident, &object_schema.fields);
                         }
                         DocumentKey::MetaExtension(ident) => {
                             // Handle meta-extension fields
@@ -295,7 +287,10 @@ impl<'a> DocumentValidator<'a> {
                             // Check if this is a quoted field name that matches a schema field
                             if let KeyCmpValue::String(field_str) = key_value {
                                 // Check if this quoted field name matches an expected field
-                                if let Some(field_schema) = object_schema.fields.get(&KeyCmpValue::String(field_str.clone())) {
+                                if let Some(field_schema) = object_schema
+                                    .fields
+                                    .get(&KeyCmpValue::String(field_str.clone()))
+                                {
                                     // This is a known field with a quoted name
                                     // Track that we've seen this field
                                     let path_key = Path::from_segments(path);
@@ -303,22 +298,35 @@ impl<'a> DocumentValidator<'a> {
                                         .entry(path_key)
                                         .or_default()
                                         .insert(KeyCmpValue::String(field_str.clone()));
-                                    
+
                                     // Validate the field value
                                     let mut field_path = path.to_vec();
                                     field_path.push(PathSegment::Value(key_value.clone()));
-                                    self.validate_type_with_constraints(*child_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
-                                } else if let Some(additional_properties) = &object_schema.additional_properties {
+                                    self.validate_type_with_constraints(
+                                        *child_id,
+                                        &field_path,
+                                        &field_schema.type_expr,
+                                        &field_schema.constraints,
+                                    );
+                                } else if let Some(additional_properties) =
+                                    &object_schema.additional_properties
+                                {
                                     // Not a known field, check additional properties
                                     let mut child_path = path.to_vec();
                                     child_path.push(PathSegment::Value(key_value.clone()));
-                                    self.validate_type(*child_id, &child_path, additional_properties);
+                                    self.validate_type(
+                                        *child_id,
+                                        &child_path,
+                                        additional_properties,
+                                    );
                                 } else {
                                     // Check for cascade type
                                     let mut child_path = path.to_vec();
                                     child_path.push(PathSegment::Value(key_value.clone()));
-                                    
-                                    if let Some(cascade_type) = self.find_cascade_type(&child_path).cloned() {
+
+                                    if let Some(cascade_type) =
+                                        self.find_cascade_type(&child_path).cloned()
+                                    {
                                         // Apply cascade type to quoted field
                                         self.validate_type(*child_id, &child_path, &cascade_type);
                                     } else {
@@ -334,16 +342,24 @@ impl<'a> DocumentValidator<'a> {
                                 }
                             } else {
                                 // Non-string value keys
-                                if let Some(additional_properties) = &object_schema.additional_properties {
+                                if let Some(additional_properties) =
+                                    &object_schema.additional_properties
+                                {
                                     let mut child_path = path.to_vec();
                                     child_path.push(PathSegment::Value(key_value.clone()));
-                                    self.validate_type(*child_id, &child_path, additional_properties);
+                                    self.validate_type(
+                                        *child_id,
+                                        &child_path,
+                                        additional_properties,
+                                    );
                                 } else {
                                     // Check for cascade type
                                     let mut child_path = path.to_vec();
                                     child_path.push(PathSegment::Value(key_value.clone()));
-                                    
-                                    if let Some(cascade_type) = self.find_cascade_type(&child_path).cloned() {
+
+                                    if let Some(cascade_type) =
+                                        self.find_cascade_type(&child_path).cloned()
+                                    {
                                         // Apply cascade type to non-string keys
                                         self.validate_type(*child_id, &child_path, &cascade_type);
                                     } else {
@@ -362,7 +378,7 @@ impl<'a> DocumentValidator<'a> {
                             self.add_error(
                                 node_id,
                                 ValidationErrorKind::InvalidValue(
-                                    "Tuple index in map context".to_string()
+                                    "Tuple index in map context".to_string(),
                                 ),
                             );
                         }
@@ -401,7 +417,7 @@ impl<'a> DocumentValidator<'a> {
         // Check if this is a schema-only field (has schema extensions but no data content)
         let node = self.document.get_node(node_id);
         let is_schema_only = self.is_schema_only_node(node);
-        
+
         // Only track fields that have actual data content
         if !is_schema_only {
             let path_key = Path::from_segments(path);
@@ -417,35 +433,39 @@ impl<'a> DocumentValidator<'a> {
             if !is_schema_only {
                 let mut field_path = path.to_vec();
                 field_path.push(PathSegment::Ident(field_name.clone()));
-                self.validate_type_with_constraints(node_id, &field_path, &field_schema.type_expr, &field_schema.constraints);
+                self.validate_type_with_constraints(
+                    node_id,
+                    &field_path,
+                    &field_schema.type_expr,
+                    &field_schema.constraints,
+                );
             }
         } else if !is_schema_only {
             // Check if this field is a tag field for internally tagged variant
             let path_key = Path::from_segments(path);
-            let is_tag_field = if let Some(variant_repr) = self.variant_repr_context.get(&path_key) {
+            let is_tag_field = if let Some(variant_repr) = self.variant_repr_context.get(&path_key)
+            {
                 match variant_repr {
-                    VariantRepr::InternallyTagged { tag } => {
-                        &field_key == tag
-                    }
+                    VariantRepr::InternallyTagged { tag } => &field_key == tag,
                     VariantRepr::AdjacentlyTagged { tag, content } => {
                         &field_key == tag || &field_key == content
                     }
-                    _ => false
+                    _ => false,
                 }
             } else {
                 false
             };
-            
+
             if is_tag_field {
                 // This is a tag field for variant discrimination, not an unexpected field
                 // Just skip validation for tag fields
                 return;
             }
-            
+
             // Check if there's a cascade type for this path
             let mut field_path = path.to_vec();
             field_path.push(PathSegment::Ident(field_name.clone()));
-            
+
             if let Some(cascade_type) = self.find_cascade_type(&field_path).cloned() {
                 // All fields inherit the cascade type
                 self.validate_type(node_id, &field_path, &cascade_type);
@@ -462,13 +482,7 @@ impl<'a> DocumentValidator<'a> {
         }
     }
 
-    
-    fn validate_type(
-        &mut self,
-        node_id: NodeId,
-        path: &[PathSegment],
-        expected_type: &Type,
-    ) {
+    fn validate_type(&mut self, node_id: NodeId, path: &[PathSegment], expected_type: &Type) {
         // Check depth limit to prevent stack overflow
         if self.current_depth >= self.max_depth {
             self.add_error(
@@ -483,7 +497,7 @@ impl<'a> DocumentValidator<'a> {
 
         // Increment depth for this validation
         self.current_depth += 1;
-        
+
         let node = self.document.get_node(node_id);
 
         // Check for holes first - holes are always invalid except for Type::Any
@@ -518,7 +532,12 @@ impl<'a> DocumentValidator<'a> {
                 // Convert Identifier to KeyCmpValue for lookup
                 let type_key = KeyCmpValue::String(type_name.to_string());
                 if let Some(referenced_type) = self.schema.types.get(&type_key) {
-                    self.validate_type_with_constraints(node_id, path, &referenced_type.type_expr, &referenced_type.constraints);
+                    self.validate_type_with_constraints(
+                        node_id,
+                        path,
+                        &referenced_type.type_expr,
+                        &referenced_type.constraints,
+                    );
                 } else {
                     self.add_error(
                         node_id,
@@ -564,7 +583,7 @@ impl<'a> DocumentValidator<'a> {
             }
             Type::Path => self.validate_path(node_id, node),
         }
-        
+
         // Decrement depth after validation
         self.current_depth -= 1;
     }
@@ -578,7 +597,7 @@ impl<'a> DocumentValidator<'a> {
     ) {
         // First validate the type
         self.validate_type(node_id, path, expected_type);
-        
+
         // Then apply constraints
         let node = self.document.get_node(node_id);
         match (&node.content, expected_type) {
@@ -587,31 +606,33 @@ impl<'a> DocumentValidator<'a> {
                 if let Some((min, max)) = &constraints.length {
                     let len = value.len();
                     if let Some(min_len) = min
-                        && len < *min_len {
-                            self.add_error(
-                                node_id,
-                                ValidationErrorKind::StringLengthViolation {
-                                    min: Some(*min_len),
-                                    max: *max,
-                                    length: len,
-                                },
-                            );
-                            return;
-                        }
+                        && len < *min_len
+                    {
+                        self.add_error(
+                            node_id,
+                            ValidationErrorKind::StringLengthViolation {
+                                min: Some(*min_len),
+                                max: *max,
+                                length: len,
+                            },
+                        );
+                        return;
+                    }
                     if let Some(max_len) = max
-                        && len > *max_len {
-                            self.add_error(
-                                node_id,
-                                ValidationErrorKind::StringLengthViolation {
-                                    min: *min,
-                                    max: Some(*max_len),
-                                    length: len,
-                                },
-                            );
-                            return;
-                        }
+                        && len > *max_len
+                    {
+                        self.add_error(
+                            node_id,
+                            ValidationErrorKind::StringLengthViolation {
+                                min: *min,
+                                max: Some(*max_len),
+                                length: len,
+                            },
+                        );
+                        return;
+                    }
                 }
-                
+
                 // Check pattern constraint
                 if let Some(pattern) = &constraints.pattern {
                     let re = match regex::Regex::new(pattern) {
@@ -619,9 +640,9 @@ impl<'a> DocumentValidator<'a> {
                         Err(_) => {
                             self.add_error(
                                 node_id,
-                                ValidationErrorKind::InvalidValue(
-                                    format!("Invalid regex pattern: {pattern}")
-                                ),
+                                ValidationErrorKind::InvalidValue(format!(
+                                    "Invalid regex pattern: {pattern}"
+                                )),
                             );
                             return;
                         }
@@ -657,59 +678,63 @@ impl<'a> DocumentValidator<'a> {
             }
         }
     }
-    
+
     fn check_number_constraints(&mut self, node_id: NodeId, value: f64, constraints: &Constraints) {
         // Check range constraints
         if let Some((min, max)) = &constraints.range {
             if let Some(min_val) = min
-                && value < *min_val {
-                    self.add_error(
-                        node_id,
-                        ValidationErrorKind::RangeViolation {
-                            min: Some(*min_val),
-                            max: *max,
-                            value,
-                        },
-                    );
-                    return;
-                }
+                && value < *min_val
+            {
+                self.add_error(
+                    node_id,
+                    ValidationErrorKind::RangeViolation {
+                        min: Some(*min_val),
+                        max: *max,
+                        value,
+                    },
+                );
+                return;
+            }
             if let Some(max_val) = max
-                && value > *max_val {
-                    self.add_error(
-                        node_id,
-                        ValidationErrorKind::RangeViolation {
-                            min: *min,
-                            max: Some(*max_val),
-                            value,
-                        },
-                    );
-                    return;
-                }
+                && value > *max_val
+            {
+                self.add_error(
+                    node_id,
+                    ValidationErrorKind::RangeViolation {
+                        min: *min,
+                        max: Some(*max_val),
+                        value,
+                    },
+                );
+                return;
+            }
         }
-        
+
         // Check exclusive constraints
         if let Some(min_exclusive) = constraints.exclusive_min
-            && value <= min_exclusive {
-                self.add_error(
-                    node_id,
-                    ValidationErrorKind::RangeViolation {
-                        min: Some(min_exclusive),
-                        max: None,
-                        value,
-                    },
-                );
-            }
+            && value <= min_exclusive
+        {
+            self.add_error(
+                node_id,
+                ValidationErrorKind::RangeViolation {
+                    min: Some(min_exclusive),
+                    max: None,
+                    value,
+                },
+            );
+        }
         if let Some(max_exclusive) = constraints.exclusive_max
-            && value >= max_exclusive {
-                self.add_error(
-                    node_id,
-                    ValidationErrorKind::RangeViolation {
-                        min: None,
-                        max: Some(max_exclusive),
-                        value,
-                    },
-                );
-            }
+            && value >= max_exclusive
+        {
+            self.add_error(
+                node_id,
+                ValidationErrorKind::RangeViolation {
+                    min: None,
+                    max: Some(max_exclusive),
+                    value,
+                },
+            );
+        }
     }
 
     fn validate_null(&mut self, node_id: NodeId, node: &Node) {
@@ -738,8 +763,10 @@ impl<'a> DocumentValidator<'a> {
 
     fn validate_number(&mut self, node_id: NodeId, node: &Node) {
         match &node.content {
-            NodeValue::I64 { .. } | NodeValue::U64 { .. } |
-            NodeValue::F32 { .. } | NodeValue::F64 { .. } => {}
+            NodeValue::I64 { .. }
+            | NodeValue::U64 { .. }
+            | NodeValue::F32 { .. }
+            | NodeValue::F64 { .. } => {}
             _ => {
                 self.add_error(
                     node_id,
@@ -954,12 +981,11 @@ impl<'a> DocumentValidator<'a> {
                                             return Some(VariantInfo {
                                                 variant_name,
                                                 variant_key,
-                                                detection_source: VariantDetectionSource::InternalTag(
-                                                    match tag {
+                                                detection_source:
+                                                    VariantDetectionSource::InternalTag(match tag {
                                                         KeyCmpValue::String(s) => s.clone(),
                                                         _ => format!("{:?}", tag),
-                                                    },
-                                                ),
+                                                    }),
                                             });
                                         }
                                     }
@@ -983,12 +1009,11 @@ impl<'a> DocumentValidator<'a> {
                                             return Some(VariantInfo {
                                                 variant_name,
                                                 variant_key,
-                                                detection_source: VariantDetectionSource::InternalTag(
-                                                    match tag {
+                                                detection_source:
+                                                    VariantDetectionSource::InternalTag(match tag {
                                                         KeyCmpValue::String(s) => s.clone(),
                                                         _ => format!("{:?}", tag),
-                                                    },
-                                                ),
+                                                    }),
                                             });
                                         }
                                     }
@@ -1001,7 +1026,9 @@ impl<'a> DocumentValidator<'a> {
             VariantRepr::Untagged => {
                 // For untagged, we'll need to check structure matching
                 // We'll implement a lightweight check here instead of full validation
-                if let Some((variant_key, _)) = self.find_matching_untagged_variant(node, variant_schema) {
+                if let Some((variant_key, _)) =
+                    self.find_matching_untagged_variant(node, variant_schema)
+                {
                     if let KeyCmpValue::String(variant_str) = &variant_key {
                         if let Ok(variant_name) = Identifier::from_str(variant_str) {
                             return Some(VariantInfo {
@@ -1037,16 +1064,17 @@ impl<'a> DocumentValidator<'a> {
             // Try each variant in order
             for (variant_key, variant_type) in &variant_schema.variants {
                 // First do a quick check: all required fields must be present
-                let required_fields_present = variant_type.fields.iter().all(|(field_key, field_schema)| {
-                    if !field_schema.optional {
-                        match field_key {
-                            KeyCmpValue::String(s) => node_fields.contains(s),
-                            _ => false,
+                let required_fields_present =
+                    variant_type.fields.iter().all(|(field_key, field_schema)| {
+                        if !field_schema.optional {
+                            match field_key {
+                                KeyCmpValue::String(s) => node_fields.contains(s),
+                                _ => false,
+                            }
+                        } else {
+                            true
                         }
-                    } else {
-                        true
-                    }
-                });
+                    });
 
                 if !required_fields_present {
                     continue; // Skip this variant, required fields missing
@@ -1071,12 +1099,14 @@ impl<'a> DocumentValidator<'a> {
         variant_info: &VariantInfo,
     ) {
         let path_key = Path::from_segments(path);
-        
+
         // Store variant context for nested validation
-        self.variant_context.insert(path_key.clone(), variant_info.variant_name.to_string());
-        
+        self.variant_context
+            .insert(path_key.clone(), variant_info.variant_name.to_string());
+
         // Store variant representation for field validation (to exclude tag fields)
-        self.variant_repr_context.insert(path_key.clone(), variant_schema.representation.clone());
+        self.variant_repr_context
+            .insert(path_key.clone(), variant_schema.representation.clone());
 
         // Get the variant type schema
         if let Some(variant_type) = variant_schema.variants.get(&variant_info.variant_key) {
@@ -1091,12 +1121,18 @@ impl<'a> DocumentValidator<'a> {
                         _ => {
                             // Content is under the variant key
                             if let NodeValue::Map { entries, .. } = &node.content
-                                && let Some((_, content_id)) = entries.first() {
-                                    let mut variant_path = path.to_vec();
-                                    variant_path.push(PathSegment::Ident(variant_info.variant_name.clone()));
-                                    // Validate the content node as an object with the variant's fields
-                                    self.validate_object_fields(*content_id, &variant_path, variant_type);
-                                }
+                                && let Some((_, content_id)) = entries.first()
+                            {
+                                let mut variant_path = path.to_vec();
+                                variant_path
+                                    .push(PathSegment::Ident(variant_info.variant_name.clone()));
+                                // Validate the content node as an object with the variant's fields
+                                self.validate_object_fields(
+                                    *content_id,
+                                    &variant_path,
+                                    variant_type,
+                                );
+                            }
                         }
                     }
                 }
@@ -1168,7 +1204,7 @@ impl<'a> DocumentValidator<'a> {
     ) {
         // Step 1: Detect which variant is being used
         let variant_info = self.detect_variant(node, path, variant_schema);
-        
+
         // Step 2: Validate based on detection result
         match variant_info {
             Some(info) => {
@@ -1184,10 +1220,12 @@ impl<'a> DocumentValidator<'a> {
                         node_id,
                         ValidationErrorKind::UnknownVariant {
                             variant: variant_from_ext.clone(),
-                            available: variant_schema.variants.keys()
+                            available: variant_schema
+                                .variants
+                                .keys()
                                 .map(|k| match k {
                                     KeyCmpValue::String(s) => s.clone(),
-                                    _ => format!("{k:?}")
+                                    _ => format!("{k:?}"),
                                 })
                                 .collect(),
                         },
@@ -1195,25 +1233,36 @@ impl<'a> DocumentValidator<'a> {
                 } else {
                     // Check if this is an internally tagged or adjacently tagged variant with an invalid tag value
                     let has_invalid_tag = match &variant_schema.representation {
-                        VariantRepr::InternallyTagged { tag } | VariantRepr::AdjacentlyTagged { tag, .. } => {
+                        VariantRepr::InternallyTagged { tag }
+                        | VariantRepr::AdjacentlyTagged { tag, .. } => {
                             // Check if tag field exists with an invalid value
                             if let NodeValue::Map { entries, .. } = &node.content {
                                 entries.iter().any(|(key, child_id)| {
                                     if let DocumentKey::Ident(field_name) = key {
                                         if KeyCmpValue::String(field_name.to_string()) == *tag {
                                             let tag_node = self.document.get_node(*child_id);
-                                            if let NodeValue::String { value, .. } = &tag_node.content {
-                                                let variant_key = KeyCmpValue::String(value.clone());
-                                                if !variant_schema.variants.contains_key(&variant_key) {
+                                            if let NodeValue::String { value, .. } =
+                                                &tag_node.content
+                                            {
+                                                let variant_key =
+                                                    KeyCmpValue::String(value.clone());
+                                                if !variant_schema
+                                                    .variants
+                                                    .contains_key(&variant_key)
+                                                {
                                                     // Tag exists but value is invalid
                                                     self.add_error(
                                                         node_id,
                                                         ValidationErrorKind::UnknownVariant {
                                                             variant: value.clone(),
-                                                            available: variant_schema.variants.keys()
+                                                            available: variant_schema
+                                                                .variants
+                                                                .keys()
                                                                 .map(|k| match k {
-                                                                    KeyCmpValue::String(s) => s.clone(),
-                                                                    _ => format!("{k:?}")
+                                                                    KeyCmpValue::String(s) => {
+                                                                        s.clone()
+                                                                    }
+                                                                    _ => format!("{k:?}"),
                                                                 })
                                                                 .collect(),
                                                         },
@@ -1229,9 +1278,9 @@ impl<'a> DocumentValidator<'a> {
                                 false
                             }
                         }
-                        _ => false
+                        _ => false,
                     };
-                    
+
                     if !has_invalid_tag {
                         if matches!(variant_schema.representation, VariantRepr::Untagged) {
                             // For untagged variants, report that no variant matched
@@ -1239,10 +1288,12 @@ impl<'a> DocumentValidator<'a> {
                                 node_id,
                                 ValidationErrorKind::UnknownVariant {
                                     variant: "no matching variant".to_string(),
-                                    available: variant_schema.variants.keys()
+                                    available: variant_schema
+                                        .variants
+                                        .keys()
                                         .map(|k| match k {
                                             KeyCmpValue::String(s) => s.clone(),
-                                            _ => format!("{k:?}")
+                                            _ => format!("{k:?}"),
                                         })
                                         .collect(),
                                 },
@@ -1266,10 +1317,11 @@ impl<'a> DocumentValidator<'a> {
                 // Handle cascade type extension
                 let node = self.document.get_node(node_id);
                 if let NodeValue::Path { value, .. } = &node.content
-                    && let Some(_cascade_type) = Type::from_path_segments(&value.0) {
-                        // This would be used to affect validation of nested fields
-                        // For now, we just acknowledge it exists
-                    }
+                    && let Some(_cascade_type) = Type::from_path_segments(&value.0)
+                {
+                    // This would be used to affect validation of nested fields
+                    // For now, we just acknowledge it exists
+                }
             }
             "variant" => {
                 // Handle variant discriminator
@@ -1285,7 +1337,12 @@ impl<'a> DocumentValidator<'a> {
         }
     }
 
-    fn handle_meta_extension(&mut self, _node_id: NodeId, _path: &[PathSegment], _ident: &Identifier) {
+    fn handle_meta_extension(
+        &mut self,
+        _node_id: NodeId,
+        _path: &[PathSegment],
+        _ident: &Identifier,
+    ) {
         // Meta-extensions are schema definitions, not validated in document validation
     }
 
@@ -1319,18 +1376,33 @@ impl<'a> DocumentValidator<'a> {
     fn is_schema_only_node(&self, node: &Node) -> bool {
         // A node is schema-only if it has schema extensions but no actual data content
         let has_schema_extensions = node.extensions.iter().any(|(ext, _)| {
-            matches!(ext.as_ref(), 
-                "type" | "optional" | "min" | "max" | "pattern" | 
-                "min-length" | "max-length" | "length" | "range" |
-                "union" | "variants" | "cascade-type" | "array" |
-                "enum" | "values" | "default" | "unique" | "contains"
+            matches!(
+                ext.as_ref(),
+                "type"
+                    | "optional"
+                    | "min"
+                    | "max"
+                    | "pattern"
+                    | "min-length"
+                    | "max-length"
+                    | "length"
+                    | "range"
+                    | "union"
+                    | "variants"
+                    | "cascade-type"
+                    | "array"
+                    | "enum"
+                    | "values"
+                    | "default"
+                    | "unique"
+                    | "contains"
             )
         });
-        
+
         if !has_schema_extensions {
             return false;
         }
-        
+
         // Check if the node has non-schema content
         match &node.content {
             NodeValue::Map { entries, .. } => {
@@ -1338,7 +1410,7 @@ impl<'a> DocumentValidator<'a> {
                 entries.is_empty()
             }
             NodeValue::Null { .. } => true, // Null with schema extensions is schema-only
-            _ => false, // Other content types with data are not schema-only
+            _ => false,                     // Other content types with data are not schema-only
         }
     }
 
@@ -1351,13 +1423,16 @@ impl<'a> DocumentValidator<'a> {
             NodeValue::F32 { .. } => "f32",
             NodeValue::F64 { .. } => "f64",
             NodeValue::String { .. } => "string",
-            NodeValue::Code { .. } | NodeValue::CodeBlock { .. } | NodeValue::NamedCode { .. } => "code",
+            NodeValue::Code { .. } | NodeValue::CodeBlock { .. } | NodeValue::NamedCode { .. } => {
+                "code"
+            }
             NodeValue::Path { .. } => "path",
             NodeValue::Hole { .. } => "hole",
             NodeValue::Array { .. } => "array",
             NodeValue::Map { .. } => "object",
             NodeValue::Tuple { .. } => "tuple",
-        }.to_string()
+        }
+        .to_string()
     }
 
     fn add_error(&mut self, node_id: NodeId, kind: ValidationErrorKind) {
@@ -1395,42 +1470,62 @@ impl fmt::Display for ValidationErrorKind {
             }
             UnexpectedField { field, path } => {
                 let path_str = crate::utils::path_segments_to_display_string(path);
-                write!(f, "Unexpected field {field:?} at {path_str} not defined in schema")
+                write!(
+                    f,
+                    "Unexpected field {field:?} at {path_str} not defined in schema"
+                )
             }
             InvalidValue(msg) => write!(f, "Invalid value: {msg}"),
             PatternMismatch { pattern, value } => {
                 write!(f, "String '{value}' does not match pattern /{pattern}/")
             }
-            RangeViolation { min, max, value } => {
-                match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "Number must be between {min} and {max}, but got {value}"),
-                    (Some(min), None) => write!(f, "Number must be at least {min}, but got {value}"),
-                    (None, Some(max)) => write!(f, "Number must be at most {max}, but got {value}"),
-                    (None, None) => write!(f, "Number {value} violates range constraint"),
+            RangeViolation { min, max, value } => match (min, max) {
+                (Some(min), Some(max)) => {
+                    write!(f, "Number must be between {min} and {max}, but got {value}")
                 }
-            }
-            StringLengthViolation { min, max, length } => {
-                match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "String length must be between {min} and {max} characters, but got {length}"),
-                    (Some(min), None) => write!(f, "String must be at least {min} characters long, but got {length}"),
-                    (None, Some(max)) => write!(f, "String must be at most {max} characters long, but got {length}"),
-                    (None, None) => write!(f, "String length {length} violates constraint"),
+                (Some(min), None) => write!(f, "Number must be at least {min}, but got {value}"),
+                (None, Some(max)) => write!(f, "Number must be at most {max}, but got {value}"),
+                (None, None) => write!(f, "Number {value} violates range constraint"),
+            },
+            StringLengthViolation { min, max, length } => match (min, max) {
+                (Some(min), Some(max)) => write!(
+                    f,
+                    "String length must be between {min} and {max} characters, but got {length}"
+                ),
+                (Some(min), None) => write!(
+                    f,
+                    "String must be at least {min} characters long, but got {length}"
+                ),
+                (None, Some(max)) => write!(
+                    f,
+                    "String must be at most {max} characters long, but got {length}"
+                ),
+                (None, None) => write!(f, "String length {length} violates constraint"),
+            },
+            ArrayLengthViolation { min, max, length } => match (min, max) {
+                (Some(min), Some(max)) => write!(
+                    f,
+                    "Array must have between {min} and {max} items, but has {length}"
+                ),
+                (Some(min), None) => {
+                    write!(f, "Array must have at least {min} items, but has {length}")
                 }
-            }
-            ArrayLengthViolation { min, max, length } => {
-                match (min, max) {
-                    (Some(min), Some(max)) => write!(f, "Array must have between {min} and {max} items, but has {length}"),
-                    (Some(min), None) => write!(f, "Array must have at least {min} items, but has {length}"),
-                    (None, Some(max)) => write!(f, "Array must have at most {max} items, but has {length}"),
-                    (None, None) => write!(f, "Array length {length} violates constraint"),
+                (None, Some(max)) => {
+                    write!(f, "Array must have at most {max} items, but has {length}")
                 }
-            }
+                (None, None) => write!(f, "Array length {length} violates constraint"),
+            },
             UnknownType(type_name) => write!(f, "Unknown type: {type_name}"),
             UnknownVariant { variant, available } => {
                 if available.is_empty() {
                     write!(f, "Unknown variant '{}'", variant)
                 } else {
-                    write!(f, "Unknown variant '{}'. Available variants: {}", variant, available.join(", "))
+                    write!(
+                        f,
+                        "Unknown variant '{}'. Available variants: {}",
+                        variant,
+                        available.join(", ")
+                    )
                 }
             }
             VariantDiscriminatorMissing => {
@@ -1441,7 +1536,10 @@ impl fmt::Display for ValidationErrorKind {
                 write!(f, "Hole (!) exists at path: {path_str}")
             }
             MaxDepthExceeded { depth, max_depth } => {
-                write!(f, "Maximum validation depth of {max_depth} exceeded at depth {depth}")
+                write!(
+                    f,
+                    "Maximum validation depth of {max_depth} exceeded at depth {depth}"
+                )
             }
         }
     }

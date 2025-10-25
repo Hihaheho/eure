@@ -1,6 +1,6 @@
 use eure_derive::Eure;
 use eure_schema::{ToEureSchema, Type};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[test]
 fn test_deny_unknown_fields() {
@@ -10,9 +10,9 @@ fn test_deny_unknown_fields() {
         host: String,
         port: u16,
     }
-    
+
     let schema = StrictConfig::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // With deny_unknown_fields, additional_properties should be None
         assert_eq!(obj_schema.additional_properties, None);
@@ -29,9 +29,9 @@ fn test_without_deny_unknown_fields() {
         host: String,
         port: u16,
     }
-    
+
     let schema = FlexibleConfig::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Without deny_unknown_fields, we still set additional_properties to None
         // This is the current default behavior
@@ -42,13 +42,13 @@ fn test_without_deny_unknown_fields() {
     }
 }
 
-#[test] 
+#[test]
 fn test_deny_unknown_fields_with_flatten() {
     #[derive(Eure, Serialize, Deserialize)]
     struct Base {
         id: u64,
     }
-    
+
     #[derive(Eure, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Extended {
@@ -56,16 +56,24 @@ fn test_deny_unknown_fields_with_flatten() {
         #[serde(flatten)]
         base: Base,
     }
-    
+
     let schema = Extended::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Note: serde doesn't support deny_unknown_fields with flatten,
         // but our schema generation still works
         assert_eq!(obj_schema.additional_properties, None);
         assert_eq!(obj_schema.fields.len(), 2); // name + id from base
-        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("name")));
-        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("id")));
+        assert!(
+            obj_schema
+                .fields
+                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+        );
+        assert!(
+            obj_schema
+                .fields
+                .contains_key(&eure_schema::KeyCmpValue::from("id"))
+        );
     } else {
         panic!("Expected object schema");
     }

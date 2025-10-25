@@ -553,7 +553,7 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
                 if self.in_array() && self.is_trailing_comma {
                     self.is_trailing_comma = false;
                 }
-                
+
                 if self.need_space_before_next {
                     // Always convert any pending whitespace to single space when we need space
                     if !self.pending_whitespaces.is_empty() {
@@ -711,12 +711,12 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let parent = tree.parent(handle.node_id()).unwrap();
-        
+
         // For multiline arrays, ] should be on its own line with proper indentation
         if self.is_current_multiline() {
             self.remove_indent(); // Decrease indent before ]
             self.is_first_token_of_new_line = true; // ] should be on new line
-            
+
             // Multiline arrays should have trailing commas
             // If we don't have one, we need to add it before the ]
             if !self.is_trailing_comma {
@@ -747,7 +747,8 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
                     self.errors.push((
                         FmtError::InvalidWhitespace {
                             id: handle.node_id(),
-                            description: "Remove space after trailing comma in inline array".to_string(),
+                            description: "Remove space after trailing comma in inline array"
+                                .to_string(),
                         },
                         commands,
                     ));
@@ -761,11 +762,11 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
                 self.pending_whitespaces.clear();
             }
         }
-        
+
         // Reset the flags for next array
         self.last_array_comma_id = None;
         self.is_trailing_comma = false;
-        
+
         // Process the ] terminal by calling super
         self.visit_array_end_super(handle, _view, tree)?;
 
@@ -787,7 +788,7 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
             // Initially assume it might be trailing
             self.is_trailing_comma = true;
         }
-        
+
         // Process the comma and ensure space after it
         self.visit_comma_super(handle, _view, tree)?;
 
@@ -845,7 +846,6 @@ impl<F: CstFacade> CstVisitor<F> for Formatter<'_> {
         self.need_space_before_next = true;
         Ok(())
     }
-
 }
 
 #[cfg(test)]

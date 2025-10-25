@@ -505,10 +505,7 @@ $type = .$types.Version
                         .get(&KeyCmpValue::String("version".to_string()))
                         .unwrap();
                     if let Type::TypeRef(type_ref) = &version.type_expr {
-                        assert_eq!(
-                            type_ref.to_string(),
-                            "Version"
-                        );
+                        assert_eq!(type_ref.to_string(), "Version");
                     } else {
                         panic!("version should be a type reference");
                     }

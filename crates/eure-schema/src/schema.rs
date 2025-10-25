@@ -2,8 +2,8 @@
 
 use crate::identifiers;
 use eure_tree::tree::InputSpan;
-use eure_value::value::{KeyCmpValue, PathSegment, Path};
 use eure_value::identifier::Identifier;
+use eure_value::value::{KeyCmpValue, Path, PathSegment};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -25,7 +25,7 @@ pub enum Type {
     // Collection types
     Array(Box<Type>),
     Object(ObjectSchema),
-    
+
     // Tuple type - fixed-length array with specific types for each position
     Tuple(Vec<Type>),
 
@@ -36,7 +36,6 @@ pub enum Type {
     // Type reference
     TypeRef(Identifier), // Reference to $types.name
 }
-
 
 /// Schema for object types
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -97,7 +96,7 @@ pub enum VariantRepr {
     ///   }
     /// }
     /// ```
-    /// 
+    ///
     /// Using `$variant` extension:
     /// ```eure
     /// @ command {
@@ -111,7 +110,7 @@ pub enum VariantRepr {
     /// - Supports both nested and flat field structures
     /// - Most idiomatic for EURE
     Tagged,
-    
+
     /// Untagged representation: The variant is determined by structural matching.
     ///
     /// # Example
@@ -128,7 +127,7 @@ pub enum VariantRepr {
     /// - Can be ambiguous if variants have similar structures
     /// - Performance cost: must try each variant until one matches
     Untagged,
-    
+
     /// Internally tagged: The variant is identified by a field within the object.
     ///
     /// # Example
@@ -145,11 +144,11 @@ pub enum VariantRepr {
     /// - Compatible with many JSON APIs
     /// - Tag is part of the variant data
     /// - All variant fields at same level as tag
-    InternallyTagged { 
+    InternallyTagged {
         /// The field name that contains the variant identifier
-        tag: KeyCmpValue 
+        tag: KeyCmpValue,
     },
-    
+
     /// Adjacently tagged: Tag and content are in separate fields.
     ///
     /// # Example
@@ -168,11 +167,11 @@ pub enum VariantRepr {
     /// - Clear separation between metadata and content
     /// - Compatible with envelope patterns
     /// - More verbose than other representations
-    AdjacentlyTagged { 
+    AdjacentlyTagged {
         /// The field name that contains the variant identifier
         tag: KeyCmpValue,
         /// The field name that contains the variant content
-        content: KeyCmpValue 
+        content: KeyCmpValue,
     },
 }
 
@@ -239,7 +238,7 @@ impl RenameRule {
             Self::Uppercase => name.to_uppercase(),
         }
     }
-    
+
     /// Parse a rename rule from a string
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -270,8 +269,6 @@ pub struct DocumentSchema {
     pub schema_ref: Option<String>,
 }
 
-
-
 impl Type {
     /// Parse a type from path segments (preserves type information)
     pub fn from_path_segments(segments: &[PathSegment]) -> Option<Self> {
@@ -283,9 +280,10 @@ impl Type {
             // Check for type references: $types.TypeName
             PathSegment::Extension(ext) if ext.as_ref() == "types" => {
                 if segments.len() >= 2
-                    && let PathSegment::Ident(type_name) = &segments[1] {
-                        return Some(Type::TypeRef(type_name.clone()));
-                    }
+                    && let PathSegment::Ident(type_name) = &segments[1]
+                {
+                    return Some(Type::TypeRef(type_name.clone()));
+                }
                 None
             }
             // Check for primitive types and code types
@@ -314,7 +312,12 @@ impl Type {
                     name => {
                         // If it starts with uppercase, treat it as a type reference
                         // This allows .Action to be shorthand for .$types.Action
-                        if name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                        if name
+                            .chars()
+                            .next()
+                            .map(|c| c.is_uppercase())
+                            .unwrap_or(false)
+                        {
                             Some(Type::TypeRef(ident.clone()))
                         } else {
                             None
@@ -323,15 +326,13 @@ impl Type {
                 }
             }
             // Handle path segments that are values (like .null, .true, .false)
-            PathSegment::Value(val) => {
-                match val {
-                    KeyCmpValue::Null => Some(Type::Null),
-                    KeyCmpValue::Bool(_) => Some(Type::Boolean),
-                    KeyCmpValue::I64(_) | KeyCmpValue::U64(_) => Some(Type::Number),
-                    KeyCmpValue::String(_) => Some(Type::String),
-                    _ => None,
-                }
-            }
+            PathSegment::Value(val) => match val {
+                KeyCmpValue::Null => Some(Type::Null),
+                KeyCmpValue::Bool(_) => Some(Type::Boolean),
+                KeyCmpValue::I64(_) | KeyCmpValue::U64(_) => Some(Type::Number),
+                KeyCmpValue::String(_) => Some(Type::String),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -351,18 +352,21 @@ impl Type {
 pub trait ToEureSchema {
     /// Generate the EURE schema for this type
     fn eure_schema() -> FieldSchema;
-    
+
     /// Optional: Return the type name for named types
     fn type_name() -> Option<&'static str> {
         None
     }
-    
+
     /// Generate schema for use as a field type (may return TypeRef to prevent recursion)
     fn eure_field_schema() -> FieldSchema {
         // By default, check if this is a named type and return a TypeRef
         if let Some(name) = Self::type_name() {
             FieldSchema {
-                type_expr: Type::TypeRef(Identifier::from_str(name).unwrap_or_else(|_| identifiers::UNKNOWN_CAPS.clone())),
+                type_expr: Type::TypeRef(
+                    Identifier::from_str(name)
+                        .unwrap_or_else(|_| identifiers::UNKNOWN_CAPS.clone()),
+                ),
                 optional: false,
                 constraints: Default::default(),
                 preferences: Default::default(),

@@ -1,6 +1,6 @@
 use eure_derive::Eure;
 use eure_schema::{ToEureSchema, Type};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[test]
 fn test_field_level_default() {
@@ -14,13 +14,13 @@ fn test_field_level_default() {
         #[serde(default)]
         timeout: u64,
     }
-    
+
     let schema = Config::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // host is required (not optional)
         assert!(!obj_schema.fields[&eure_schema::KeyCmpValue::from("host")].optional);
-        
+
         // Fields with serde(default) should be optional
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("port")].optional);
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("debug")].optional);
@@ -39,9 +39,9 @@ fn test_container_level_default() {
         value: i32,
         enabled: bool,
     }
-    
+
     let schema = Settings::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // All fields should be optional when container has #[serde(default)]
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("name")].optional);
@@ -63,24 +63,33 @@ fn test_mixed_default_and_option() {
         #[serde(default)]
         age: Option<u32>,
     }
-    
+
     let schema = User::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // id is required
         assert!(!obj_schema.fields[&eure_schema::KeyCmpValue::from("id")].optional);
-        
+
         // name has default, so it's optional
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("name")].optional);
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("name")].type_expr, Type::String);
-        
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("name")].type_expr,
+            Type::String
+        );
+
         // email is Option, so it's optional
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("email")].optional);
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("email")].type_expr, Type::String);
-        
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("email")].type_expr,
+            Type::String
+        );
+
         // age is both Option and has default, still optional
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("age")].optional);
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("age")].type_expr, Type::Number);
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("age")].type_expr,
+            Type::Number
+        );
     } else {
         panic!("Expected object schema");
     }
@@ -96,16 +105,20 @@ fn test_container_default_with_skip() {
         #[serde(skip)]
         internal: String,
     }
-    
+
     let schema = Data::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Container default makes all fields optional
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("value")].optional);
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("count")].optional);
-        
+
         // Skipped field shouldn't appear
-        assert!(!obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("internal")));
+        assert!(
+            !obj_schema
+                .fields
+                .contains_key(&eure_schema::KeyCmpValue::from("internal"))
+        );
     } else {
         panic!("Expected object schema");
     }

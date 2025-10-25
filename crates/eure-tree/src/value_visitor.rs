@@ -3,9 +3,9 @@ use crate::{
         ArrayConstructionHandle, EureDocument, InsertError, MapConstructionHandle, NodeValue,
         StringConstructionHandle,
     },
+    nodes::DirectBindView,
     prelude::*,
     tree::CstFacade,
-    nodes::DirectBindView,
 };
 use eure_value::{
     identifier::Identifier,
@@ -51,16 +51,22 @@ impl<'a> ValueVisitor<'a> {
 
     /// Resolve ArrayIndex(None) in paths to actual indices based on TOML semantics
     /// ArrayIndex(None) in the middle of a path refers to the last element in the array
-    fn resolve_array_indices(&mut self, path: Vec<PathSegment>) -> Result<Vec<PathSegment>, ValueVisitorError> {
+    fn resolve_array_indices(
+        &mut self,
+        path: Vec<PathSegment>,
+    ) -> Result<Vec<PathSegment>, ValueVisitorError> {
         let mut resolved = Vec::new();
         let mut current_path = Vec::new();
-        
+
         for (i, segment) in path.iter().enumerate() {
             match segment {
                 PathSegment::ArrayIndex(None) if i < path.len() - 1 => {
                     // ArrayIndex(None) in the middle of the path - resolve to last element
                     // Get the array node at the current path
-                    if let Ok(node) = self.document.get_node_mut_or_insert(current_path.iter().cloned()) {
+                    if let Ok(node) = self
+                        .document
+                        .get_node_mut_or_insert(current_path.iter().cloned())
+                    {
                         if let NodeValue::Array { children, .. } = &node.content {
                             if children.is_empty() {
                                 // Empty array - this will create element 0
@@ -90,7 +96,7 @@ impl<'a> ValueVisitor<'a> {
                 }
             }
         }
-        
+
         Ok(resolved)
     }
 
@@ -337,7 +343,7 @@ impl<'a> ValueVisitor<'a> {
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path);
-                    self.document.insert_node(full_path.into_iter(), content)?;
+                self.document.insert_node(full_path.into_iter(), content)?;
             }
             ValueView::Object(object_handle) => {
                 // First insert an empty map node at this path
@@ -347,8 +353,7 @@ impl<'a> ValueVisitor<'a> {
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path.clone());
-                self.document
-                    .insert_node(full_path.into_iter(), content)?;
+                self.document.insert_node(full_path.into_iter(), content)?;
 
                 // Now process each key-value pair
                 let object_view = object_handle.get_view(tree)?;
@@ -382,8 +387,7 @@ impl<'a> ValueVisitor<'a> {
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path.clone());
-                self.document
-                    .insert_node(full_path.into_iter(), content)?;
+                self.document.insert_node(full_path.into_iter(), content)?;
 
                 // Now process each array element
                 let array_view = array_handle.get_view(tree)?;
@@ -441,7 +445,8 @@ impl<'a> ValueVisitor<'a> {
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path);
-                self.document.insert_node(full_path.into_iter(), node_content)?;
+                self.document
+                    .insert_node(full_path.into_iter(), node_content)?;
             }
             ValueView::CodeBlock(code_block_handle) => {
                 let code_block_view = code_block_handle.get_view(tree)?;
@@ -471,7 +476,8 @@ impl<'a> ValueVisitor<'a> {
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path);
-                self.document.insert_node(full_path.into_iter(), node_content)?;
+                self.document
+                    .insert_node(full_path.into_iter(), node_content)?;
             }
             ValueView::NamedCode(named_code_handle) => {
                 let named_code_view = named_code_handle.get_view(tree)?;
@@ -488,7 +494,8 @@ impl<'a> ValueVisitor<'a> {
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path);
-                self.document.insert_node(full_path.into_iter(), node_content)?;
+                self.document
+                    .insert_node(full_path.into_iter(), node_content)?;
             }
             ValueView::Hole(hole_handle) => {
                 let content = NodeValue::Hole {
@@ -537,8 +544,7 @@ impl<'a> ValueVisitor<'a> {
                 };
                 let mut full_path = self.current_path();
                 full_path.extend(path.clone());
-                self.document
-                    .insert_node(full_path.into_iter(), content)?;
+                self.document.insert_node(full_path.into_iter(), content)?;
 
                 // Now process each tuple element
                 let tuple_view = tuple_handle.get_view(tree)?;
@@ -552,7 +558,7 @@ impl<'a> ValueVisitor<'a> {
                     element_path.push(PathSegment::TupleIndex(index));
                     let value_view = tuple_elements_view.value.get_view(tree)?;
                     self.process_value_at_path(element_path, value_view, tree)?;
-                    
+
                     // Check for overflow before incrementing (though unlikely for first element)
                     if index < 255 {
                         index += 1;
@@ -574,7 +580,7 @@ impl<'a> ValueVisitor<'a> {
                                 element_path.push(PathSegment::TupleIndex(index));
                                 let value_view = next_view.value.get_view(tree)?;
                                 self.process_value_at_path(element_path, value_view, tree)?;
-                                
+
                                 // Check for overflow before incrementing
                                 if index == 255 {
                                     // Skip remaining elements to avoid overflow
@@ -647,13 +653,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
         }
 
-
         // Process the binding based on its type
         match view.binding_rhs.get_view(tree) {
             Ok(BindingRhsView::ValueBinding(value_binding_handle)) => {
                 let value_binding_view = value_binding_handle.get_view(tree)?;
                 let value_view = value_binding_view.value.get_view(tree)?;
-                
+
                 self.process_value_at_path(path, value_view, tree)?;
             }
             Ok(BindingRhsView::TextBinding(text_binding_handle)) => {
@@ -740,7 +745,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         let mut full_path = self.current_path();
         full_path.extend(path.clone());
-        
+
         // Resolve ArrayIndex(None) in the middle of the path to actual indices
         // This implements TOML-like semantics where arrays[] refers to the last element
         full_path = self.resolve_array_indices(full_path)?;
@@ -753,10 +758,10 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     if let Ok(value_view) = value.get_view(tree) {
                         // Push the path for processing the value
                         self.path_stack.push(full_path.clone());
-                        
+
                         // Process the value at the section path
                         self.process_value_at_path(vec![], value_view, tree)?;
-                        
+
                         // Pop the path
                         self.path_stack.pop();
                     }
@@ -771,7 +776,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 return Ok(());
             }
         }
-        
+
         {
             // For sections with braces { }, create a map node
             // This handles both regular sections and array element sections like @ employees[0] { ... }
@@ -779,69 +784,88 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 handle: MapConstructionHandle::Section(handle),
                 entries: vec![],
             };
-            let _node_id = self.document
+            let _node_id = self
+                .document
                 .insert_node(full_path.clone().into_iter(), content)?;
-            
+
             // Special handling for array append sections
             if matches!(full_path.last(), Some(PathSegment::ArrayIndex(None))) {
                 // We just created an array element. We need to find out which index it got
                 // so that child bindings use the correct path
                 let mut array_path = full_path.clone();
                 array_path.pop(); // Remove the ArrayIndex(None)
-                
+
                 // Get the array node to find the index of the element we just created
-                if let Ok(array_node) = self.document.get_node_mut_or_insert(array_path.iter().cloned())
-                    && let NodeValue::Array { children, .. } = &array_node.content {
-                        // The element we just created should be the last one
-                        let actual_index = children.len().saturating_sub(1);
-                        
-                        // Update the path to use the actual index
-                        let mut resolved_path = array_path;
-                        resolved_path.push(PathSegment::ArrayIndex(Some(actual_index as u8)));
-                        
-                        
-                        // Push the resolved path instead of the one with ArrayIndex(None)
-                        self.path_stack.push(resolved_path);
-                        
-                        // Skip the normal path push below
-                        // Process section body...
-                        match view.section_body.get_view(tree) {
-                            Ok(section_body) => match section_body {
-                                SectionBodyView::SectionBinding(binding_handle) => {
-                                    if let Ok(binding_view) = binding_handle.get_view(tree)
-                                        && let Ok(eure_view) = binding_view.eure.get_view(tree)
+                if let Ok(array_node) = self
+                    .document
+                    .get_node_mut_or_insert(array_path.iter().cloned())
+                    && let NodeValue::Array { children, .. } = &array_node.content
+                {
+                    // The element we just created should be the last one
+                    let actual_index = children.len().saturating_sub(1);
+
+                    // Update the path to use the actual index
+                    let mut resolved_path = array_path;
+                    resolved_path.push(PathSegment::ArrayIndex(Some(actual_index as u8)));
+
+                    // Push the resolved path instead of the one with ArrayIndex(None)
+                    self.path_stack.push(resolved_path);
+
+                    // Skip the normal path push below
+                    // Process section body...
+                    match view.section_body.get_view(tree) {
+                        Ok(section_body) => match section_body {
+                            SectionBodyView::SectionBinding(binding_handle) => {
+                                if let Ok(binding_view) = binding_handle.get_view(tree)
+                                    && let Ok(eure_view) = binding_view.eure.get_view(tree)
+                                {
+                                    // Visit the eure content within this section's context
+                                    if let Ok(Some(bindings)) =
+                                        eure_view.eure_bindings.get_view(tree)
                                     {
-                                        // Visit the eure content within this section's context
-                                        if let Ok(Some(bindings)) = eure_view.eure_bindings.get_view(tree) {
-                                            self.visit_eure_bindings(eure_view.eure_bindings, bindings, tree)?;
-                                        }
-                                        if let Ok(Some(sections)) = eure_view.eure_sections.get_view(tree) {
-                                            self.visit_eure_sections(eure_view.eure_sections, sections, tree)?;
-                                        }
+                                        self.visit_eure_bindings(
+                                            eure_view.eure_bindings,
+                                            bindings,
+                                            tree,
+                                        )?;
+                                    }
+                                    if let Ok(Some(sections)) =
+                                        eure_view.eure_sections.get_view(tree)
+                                    {
+                                        self.visit_eure_sections(
+                                            eure_view.eure_sections,
+                                            sections,
+                                            tree,
+                                        )?;
                                     }
                                 }
-                                SectionBodyView::SectionBodyList(body_list_handle) => {
-                                    if let Ok(Some(body_list)) = body_list_handle.get_view(tree) {
-                                        self.visit_section_body_list(body_list_handle, body_list, tree)?;
-                                    }
-                                }
-                                SectionBodyView::DirectBind(_) => {
-                                    // Direct bind is handled in the outer match, this branch shouldn't be reached
-                                    // due to the early return
-                                    return Ok(());
-                                }
-                            },
-                            Err(_) => {
-                                // Failed to parse section body
-                                // This can happen with certain syntax forms
                             }
+                            SectionBodyView::SectionBodyList(body_list_handle) => {
+                                if let Ok(Some(body_list)) = body_list_handle.get_view(tree) {
+                                    self.visit_section_body_list(
+                                        body_list_handle,
+                                        body_list,
+                                        tree,
+                                    )?;
+                                }
+                            }
+                            SectionBodyView::DirectBind(_) => {
+                                // Direct bind is handled in the outer match, this branch shouldn't be reached
+                                // due to the early return
+                                return Ok(());
+                            }
+                        },
+                        Err(_) => {
+                            // Failed to parse section body
+                            // This can happen with certain syntax forms
                         }
-
-                        // Pop the section path from the stack
-                        self.path_stack.pop();
-
-                        return Ok(());
                     }
+
+                    // Pop the section path from the stack
+                    self.path_stack.pop();
+
+                    return Ok(());
+                }
             }
         }
 

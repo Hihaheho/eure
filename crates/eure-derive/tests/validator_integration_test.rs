@@ -1,10 +1,13 @@
 //! Integration tests that validate EURE documents against generated schemas
 
 use eure_derive::Eure;
-use eure_schema::{ToEureSchema, Type, DocumentSchema, ObjectSchema, FieldSchema, validate_document as validate_eure_document, Severity};
-use eure_value::value::Path;
+use eure_schema::{
+    DocumentSchema, FieldSchema, ObjectSchema, Severity, ToEureSchema, Type,
+    validate_document as validate_eure_document,
+};
 use eure_tree::value_visitor::ValueVisitor;
-use serde::{Serialize, Deserialize};
+use eure_value::value::Path;
+use serde::{Deserialize, Serialize};
 
 // Type alias to simplify complex type signature
 type TypeDefinition = (&'static str, fn() -> FieldSchema);
@@ -16,27 +19,30 @@ fn validate_document<T: ToEureSchema>(document: &str) -> Result<(), String> {
 
 /// Helper function to validate a EURE document string against a schema with type definitions
 fn validate_document_with_types<T: ToEureSchema>(
-    document: &str, 
-    type_definitions: &[TypeDefinition]
+    document: &str,
+    type_definitions: &[TypeDefinition],
 ) -> Result<(), String> {
     // Parse the EURE document using the high-level parse function
     let parsed = match eure_parol::parse(document) {
         Ok(cst) => cst,
         Err(e) => return Err(format!("Parse error: {e:?}")),
     };
-    
+
     // Get the schema
     let schema = T::eure_schema();
-    
+
     // Create a document schema with the type schema as root
     let mut doc_schema = DocumentSchema::default();
-    
+
     // Register type definitions
     for (name, schema_fn) in type_definitions {
-        doc_schema.types.insert(eure_schema::KeyCmpValue::String(name.to_string()), schema_fn());
+        doc_schema.types.insert(
+            eure_schema::KeyCmpValue::String(name.to_string()),
+            schema_fn(),
+        );
     }
-    
-    // Add the generated schema to the document schema  
+
+    // Add the generated schema to the document schema
     match &schema.type_expr {
         Type::Object(obj_schema) => {
             doc_schema.root = obj_schema.clone();
@@ -44,43 +50,60 @@ fn validate_document_with_types<T: ToEureSchema>(
         Type::Variants(variant_schema) => {
             // For variant types at the root, we use cascade type
             // The validator will handle variant validation when it sees $variant field
-            
+
             // Empty root schema - all fields come from cascade type
             doc_schema.root = ObjectSchema {
                 fields: indexmap::IndexMap::new(),
                 additional_properties: None,
             };
-            
+
             // Set cascade type to the variant schema
-            doc_schema.cascade_types.insert(Path::from_segments(&[]), Type::Variants(variant_schema.clone()));
+            doc_schema.cascade_types.insert(
+                Path::from_segments(&[]),
+                Type::Variants(variant_schema.clone()),
+            );
         }
         _ => {
             // For other types, wrap in a single field
             let mut root = ObjectSchema::default();
-            root.fields.insert(eure_schema::KeyCmpValue::String("value".to_string()), schema);
+            root.fields.insert(
+                eure_schema::KeyCmpValue::String("value".to_string()),
+                schema,
+            );
             doc_schema.root = root;
         }
     }
-    
-    
+
     // Convert CST to EureDocument
     let mut visitor = ValueVisitor::new(document);
-    parsed.visit_from_root(&mut visitor).map_err(|e| format!("Failed to visit tree: {e:?}"))?;
+    parsed
+        .visit_from_root(&mut visitor)
+        .map_err(|e| format!("Failed to visit tree: {e:?}"))?;
     let eure_document = visitor.into_document();
-    
+
     // Validate the document
     let errors = validate_eure_document(&eure_document, &doc_schema);
-    
+
     if errors.is_empty() {
         Ok(())
     } else {
-        let error_messages: Vec<String> = errors.iter()
+        let error_messages: Vec<String> = errors
+            .iter()
             .filter(|e| e.severity == Severity::Error)
             .map(|e| format!("{:?}", e.kind))
             .collect();
-        eprintln!("Document schema root fields: {:?}", doc_schema.root.fields.keys().collect::<Vec<_>>());
-        eprintln!("Document schema types: {:?}", doc_schema.types.keys().collect::<Vec<_>>());
-        eprintln!("Document schema cascade types: {:?}", doc_schema.cascade_types);
+        eprintln!(
+            "Document schema root fields: {:?}",
+            doc_schema.root.fields.keys().collect::<Vec<_>>()
+        );
+        eprintln!(
+            "Document schema types: {:?}",
+            doc_schema.types.keys().collect::<Vec<_>>()
+        );
+        eprintln!(
+            "Document schema cascade types: {:?}",
+            doc_schema.cascade_types
+        );
         eprintln!("Validation errors: {error_messages:?}");
         eprintln!("Full errors: {errors:#?}");
         Err(format!("Validation errors: {}", error_messages.join(", ")))
@@ -95,32 +118,32 @@ fn test_simple_struct_validation() {
         age: u32,
         email: Option<String>,
     }
-    
+
     // Valid document
     let valid_doc = r#"
 name = "John Doe"
 age = 30
 email = "john@example.com"
 "#;
-    
+
     assert!(validate_document::<Person>(valid_doc).is_ok());
-    
+
     // Missing required field
     let missing_field = r#"
 name = "John Doe"
 # age is missing
 email = "john@example.com"
 "#;
-    
+
     assert!(validate_document::<Person>(missing_field).is_err());
-    
+
     // Wrong type
     let wrong_type = r#"
 name = "John Doe"
 age = "thirty"  # Should be a number
 email = "john@example.com"
 "#;
-    
+
     assert!(validate_document::<Person>(wrong_type).is_err());
 }
 
@@ -133,7 +156,7 @@ fn test_optional_fields_validation() {
         debug: Option<bool>,
         timeout: Option<u32>,
     }
-    
+
     // All fields present
     let all_fields = r#"
 host = "localhost"
@@ -141,15 +164,15 @@ port = 8080
 debug = true
 timeout = 30
 "#;
-    
+
     assert!(validate_document::<Config>(all_fields).is_ok());
-    
+
     // Optional fields missing
     let minimal = r#"
 host = "localhost"
 port = 8080
 "#;
-    
+
     assert!(validate_document::<Config>(minimal).is_ok());
 }
 
@@ -163,7 +186,7 @@ fn test_constraints_validation() {
         age: u8,
         tags: Vec<String>,
     }
-    
+
     // Valid document
     let valid = r#"
 username = "john_doe"
@@ -171,49 +194,48 @@ age = 25
 tags[0] = "developer"
 tags[1] = "rust"
 "#;
-    
+
     match validate_document::<User>(valid) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Validation failed: {e}"),
     }
-    
+
     // Username too short
     let short_username = r#"
 username = "jo"
 age = 25
 tags[0] = "developer"
 "#;
-    
+
     let result = validate_document::<User>(short_username);
     assert!(result.is_err());
     let err_msg = result.unwrap_err();
     println!("Short username error: {err_msg}");
     assert!(err_msg.contains("length") || err_msg.contains("StringLengthViolation"));
-    
+
     // Invalid pattern
     let invalid_pattern = r#"
 username = "john-doe!"
 age = 25
 tags[0] = "developer"
 "#;
-    
+
     let result = validate_document::<User>(invalid_pattern);
     assert!(result.is_err());
     let err_msg = result.unwrap_err();
     assert!(err_msg.contains("pattern") || err_msg.contains("StringPatternViolation"));
-    
+
     // Age out of range
     let invalid_age = r#"
 username = "john_doe"
 age = 150
 tags[0] = "developer"
 "#;
-    
+
     let result = validate_document::<User>(invalid_age);
     assert!(result.is_err());
     let err_msg = result.unwrap_err();
     assert!(err_msg.contains("RangeViolation") || err_msg.contains("range"));
-    
 }
 
 #[test]
@@ -224,20 +246,20 @@ fn test_nested_struct_validation() {
         city: String,
         zip: String,
     }
-    
+
     #[derive(Eure, Serialize, Deserialize)]
     struct Company {
         name: String,
         address: Address,
         employees: Vec<Person>,
     }
-    
+
     #[derive(Eure, Serialize, Deserialize)]
     struct Person {
         name: String,
         role: String,
     }
-    
+
     // Valid nested document
     let valid_nested = r#"
 name = "Acme Corp"
@@ -258,19 +280,18 @@ name = "Acme Corp"
     role = "CTO"
 }
 "#;
-    
+
     // Register the type definitions that Company references
     let type_defs: &[TypeDefinition] = &[
         ("Address", || Address::eure_schema()),
         ("Person", || Person::eure_schema()),
     ];
-    
-    
+
     match validate_document_with_types::<Company>(valid_nested, type_defs) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("Nested validation failed: {e}"),
     }
-    
+
     // Missing nested field
     let missing_nested = r#"
 name = "Acme Corp"
@@ -286,12 +307,15 @@ name = "Acme Corp"
     role = "CEO"
 }
 "#;
-    
+
     match validate_document_with_types::<Company>(missing_nested, type_defs) {
         Ok(_) => panic!("Expected validation to fail for missing nested field"),
         Err(e) => {
             println!("Got expected error: {e}");
-            assert!(e.contains("city") || e.contains("City"), "Expected error about missing 'city' field, got: {e}");
+            assert!(
+                e.contains("city") || e.contains("City"),
+                "Expected error about missing 'city' field, got: {e}"
+            );
         }
     }
 }
@@ -304,46 +328,46 @@ fn test_enum_validation() {
         Error { code: u32, message: String },
         Pending,
     }
-    
+
     // Valid success variant
     let success = r#"
 $variant = "Success"
 message = "Operation completed"
 "#;
-    
+
     assert!(validate_document::<Status>(success).is_ok());
-    
+
     // Valid error variant
     let error = r#"
 $variant = "Error"
 code = 404
 message = "Not found"
 "#;
-    
+
     assert!(validate_document::<Status>(error).is_ok());
-    
+
     // Valid pending variant
     let pending = r#"
 $variant = "Pending"
 "#;
-    
+
     assert!(validate_document::<Status>(pending).is_ok());
-    
+
     // Invalid variant
     let invalid_variant = r#"
 $variant = "Unknown"
 message = "This variant doesn't exist"
 "#;
-    
+
     assert!(validate_document::<Status>(invalid_variant).is_err());
-    
+
     // Missing field in variant
     let missing_field = r#"
 $variant = "Error"
 # code is missing
 message = "Not found"
 "#;
-    
+
     assert!(validate_document::<Status>(missing_field).is_err());
 }
 
@@ -357,23 +381,23 @@ fn test_serde_rename_validation() {
         #[serde(rename = "data")]
         response_data: Option<String>,
     }
-    
+
     // Valid with renamed fields
     let valid = r#"
 responseCode = 200
 responseMessage = "OK"
 data = "Some data"
 "#;
-    
+
     assert!(validate_document::<ApiResponse>(valid).is_ok());
-    
+
     // Using original field names should fail
     let original_names = r#"
 response_code = 200
 response_message = "OK"
 response_data = "Some data"
 "#;
-    
+
     assert!(validate_document::<ApiResponse>(original_names).is_err());
 }
 
@@ -384,7 +408,7 @@ fn test_array_validation() {
         title: String,
         items: Vec<String>,
     }
-    
+
     // Valid array
     let valid = r#"
 title = "Shopping List"
@@ -392,9 +416,9 @@ items[0] = "Milk"
 items[1] = "Bread"
 items[2] = "Eggs"
 "#;
-    
+
     assert!(validate_document::<TodoList>(valid).is_ok());
-    
+
     // Array with wrong element type (number instead of string)
     let wrong_type = r#"
 title = "Shopping List"
@@ -402,9 +426,8 @@ items[0] = "Milk"
 items[1] = 123
 items[2] = "Bread"
 "#;
-    
+
     assert!(validate_document::<TodoList>(wrong_type).is_err());
-    
 }
 
 #[test]
@@ -418,7 +441,7 @@ fn test_complex_validation_scenario() {
         credentials: Credentials,
         replicas: Vec<ReplicaConfig>,
     }
-    
+
     #[derive(Eure, Serialize, Deserialize)]
     struct Credentials {
         #[eure(length(min = 8, max = 128))]
@@ -426,20 +449,20 @@ fn test_complex_validation_scenario() {
         #[eure(length(min = 12, max = 128), pattern = "^[A-Za-z0-9]+$")]
         password: String,
     }
-    
+
     #[derive(Eure, Serialize, Deserialize)]
     struct ReplicaConfig {
         host: String,
         port: u16,
         priority: u8,
     }
-    
+
     // Register the type definitions
     let type_defs: &[TypeDefinition] = &[
         ("Credentials", || Credentials::eure_schema()),
         ("ReplicaConfig", || ReplicaConfig::eure_schema()),
     ];
-    
+
     // Valid complex configuration
     let valid = r#"
 name = "production_db"
@@ -462,9 +485,9 @@ port = 5432
     priority = 2
 }
 "#;
-    
+
     assert!(validate_document_with_types::<DatabaseConfig>(valid, type_defs).is_ok());
-    
+
     // Invalid database name
     let invalid_name = r#"
 name = "123_invalid"  # Starts with number
@@ -481,9 +504,9 @@ port = 5432
     priority = 1
 }
 "#;
-    
+
     assert!(validate_document_with_types::<DatabaseConfig>(invalid_name, type_defs).is_err());
-    
+
     // Weak password
     let weak_password = r#"
 name = "production_db"
@@ -500,6 +523,6 @@ port = 5432
     priority = 1
 }
 "#;
-    
+
     assert!(validate_document_with_types::<DatabaseConfig>(weak_password, type_defs).is_err());
 }

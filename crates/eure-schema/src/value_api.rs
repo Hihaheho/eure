@@ -3,10 +3,10 @@
 //! This module provides convenience functions that work with string input
 //! and handle the parsing and document conversion internally.
 
-use crate::schema::*;
 use crate::document_schema::{document_to_schema, is_pure_schema_node};
-use crate::document_validator::{validate_document, ValidationError};
+use crate::document_validator::{ValidationError, validate_document};
 use crate::error::ValueError;
+use crate::schema::*;
 use eure_tree::value_visitor::ValueVisitor;
 
 /// Result of schema extraction from a value
@@ -27,20 +27,20 @@ pub struct ValidationResult {
 pub fn extract_schema_from_value(input: &str) -> Result<ExtractedSchema, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
-    
+
     // Create visitor and visit the tree
     let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor)?;
-    
+
     // Get the document
     let document = visitor.into_document();
-    
+
     // Check if it's a pure schema
     let is_pure_schema = is_pure_schema_node(&document, document.get_root());
-    
+
     // Extract schema
     let document_schema = document_to_schema(&document)?;
-    
+
     Ok(ExtractedSchema {
         document_schema,
         is_pure_schema,
@@ -54,14 +54,14 @@ pub fn validate_with_schema_value(
 ) -> Result<Vec<ValidationError>, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
-    
+
     // Create visitor and visit the tree
     let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor)?;
-    
+
     // Get the document
     let document = visitor.into_document();
-    
+
     // Validate
     Ok(validate_document(&document, &schema))
 }
@@ -70,23 +70,23 @@ pub fn validate_with_schema_value(
 pub fn validate_self_describing(input: &str) -> Result<ValidationResult, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
-    
+
     // Create visitor and visit the tree
     let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor)?;
-    
+
     // Get the document
     let document = visitor.into_document();
-    
+
     // Check if it's a pure schema
     let is_pure_schema = is_pure_schema_node(&document, document.get_root());
-    
+
     // Extract schema from the document itself
     let document_schema = document_to_schema(&document)?;
-    
+
     // Validate
     let errors = validate_document(&document, &document_schema);
-    
+
     Ok(ValidationResult {
         schema: ExtractedSchema {
             document_schema,
@@ -97,30 +97,30 @@ pub fn validate_self_describing(input: &str) -> Result<ValidationResult, ValueEr
 }
 
 /// Extract schema and validate a document in one step
-/// 
+///
 /// This function combines schema extraction and validation, which is useful
 /// for documents that contain both schema definitions and data that should
 /// be validated against that schema.
 pub fn validate_and_extract_schema(input: &str) -> Result<ValidationResult, ValueError> {
     // Parse the input
     let tree = eure_parol::parse(input)?;
-    
+
     // Create visitor and visit the tree
     let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor)?;
-    
+
     // Get the document
     let document = visitor.into_document();
-    
+
     // Check if it's a pure schema
     let is_pure_schema = is_pure_schema_node(&document, document.get_root());
-    
+
     // Extract schema from the document
     let document_schema = document_to_schema(&document)?;
-    
+
     // Validate the document against its own schema
     let errors = validate_document(&document, &document_schema);
-    
+
     Ok(ValidationResult {
         schema: ExtractedSchema {
             document_schema,
@@ -139,10 +139,10 @@ pub fn validate_with_tree(
     // Create visitor and visit the tree
     let mut visitor = ValueVisitor::new(input);
     tree.visit_from_root(&mut visitor)?;
-    
+
     // Get the document
     let document = visitor.into_document();
-    
+
     // Validate
     Ok(validate_document(&document, &schema))
 }

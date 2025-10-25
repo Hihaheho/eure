@@ -13,7 +13,8 @@ fn test_inline_code_vs_typed_string() {
 
     for (input, expected_lang, expected_content) in code_examples {
         let document = format!("test = {input}");
-        let tree = eure_parol::parse(&document).unwrap_or_else(|_| panic!("Failed to parse: {input}"));
+        let tree =
+            eure_parol::parse(&document).unwrap_or_else(|_| panic!("Failed to parse: {input}"));
 
         let mut visitor = eure_tree::value_visitor::ValueVisitor::new(&document);
         tree.visit_from_root(&mut visitor)
@@ -47,7 +48,8 @@ fn test_inline_code_vs_typed_string() {
 
     for (input, expected_type, expected_value) in typed_string_examples {
         let document = format!("test = {input}");
-        let tree = eure_parol::parse(&document).unwrap_or_else(|_| panic!("Failed to parse: {input}"));
+        let tree =
+            eure_parol::parse(&document).unwrap_or_else(|_| panic!("Failed to parse: {input}"));
 
         let mut visitor = eure_tree::value_visitor::ValueVisitor::new(&document);
         tree.visit_from_root(&mut visitor)
@@ -67,9 +69,7 @@ fn test_inline_code_vs_typed_string() {
                     assert_eq!(language, expected_type, "Wrong type for {input}");
                     assert_eq!(content, expected_value, "Wrong value for {input}");
                 }
-                _ => panic!(
-                    "Expected Value::Code for {input}, got {test_value:?}"
-                ),
+                _ => panic!("Expected Value::Code for {input}, got {test_value:?}"),
             }
         }
     }

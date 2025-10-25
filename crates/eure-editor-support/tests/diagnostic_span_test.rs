@@ -23,7 +23,9 @@ key3 = 123
 
     // Create schema manager and load schema
     let mut schema_manager = SchemaManager::new();
-    schema_manager.load_schema("test://schema", schema_text, &schema_cst).unwrap();
+    schema_manager
+        .load_schema("test://schema", schema_text, &schema_cst)
+        .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
     // Parse document
@@ -40,7 +42,8 @@ key3 = 123
     }
 
     // Find diagnostic for type mismatch
-    let type_mismatch_diagnostic = diagnostics.iter()
+    let type_mismatch_diagnostic = diagnostics
+        .iter()
         .find(|d| d.message.contains("Type mismatch"))
         .expect("Should have type mismatch diagnostic");
 
@@ -53,13 +56,25 @@ key3 = 123
     println!("Diagnostic message: {}", type_mismatch_diagnostic.message);
 
     // The span should not include leading whitespace or newlines
-    assert!(!span_text.starts_with('\n'), "Span should not start with newline");
-    assert!(!span_text.starts_with(' '), "Span should not start with spaces");
-    assert!(!span_text.starts_with('\t'), "Span should not start with tabs");
+    assert!(
+        !span_text.starts_with('\n'),
+        "Span should not start with newline"
+    );
+    assert!(
+        !span_text.starts_with(' '),
+        "Span should not start with spaces"
+    );
+    assert!(
+        !span_text.starts_with('\t'),
+        "Span should not start with tabs"
+    );
 
     // Since the schema expects @ value to be a number but it's an object,
     // the span correctly starts with "@ value"
-    assert!(span_text.starts_with("@ value"), "Span should start with the section name");
+    assert!(
+        span_text.starts_with("@ value"),
+        "Span should start with the section name"
+    );
 }
 
 fn position_to_offset(text: &str, pos: lsp_types::Position) -> usize {
@@ -94,7 +109,9 @@ $type = .number
     let schema_cst = schema_parse_result.cst();
 
     let mut schema_manager = SchemaManager::new();
-    schema_manager.load_schema("test://schema", schema_text, &schema_cst).unwrap();
+    schema_manager
+        .load_schema("test://schema", schema_text, &schema_cst)
+        .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
     let parse_result = eure_parol::parse_tolerant(document);
@@ -103,7 +120,8 @@ $type = .number
     let diagnostics = validate_document("test.eure", document, &cst, &schema_manager, None);
 
     // Should have a type mismatch diagnostic
-    let type_diagnostic = diagnostics.iter()
+    let type_diagnostic = diagnostics
+        .iter()
         .find(|d| d.message.contains("type") || d.message.contains("expected"))
         .expect("Should have type mismatch diagnostic");
 
@@ -115,6 +133,12 @@ $type = .number
     println!("Type error span text: {span_text:?}");
 
     // The span should focus on the value, not include preceding whitespace
-    assert!(!span_text.starts_with('\n'), "Span should not start with newline");
-    assert!(!span_text.starts_with(' '), "Span should not start with spaces");
+    assert!(
+        !span_text.starts_with('\n'),
+        "Span should not start with newline"
+    );
+    assert!(
+        !span_text.starts_with(' '),
+        "Span should not start with spaces"
+    );
 }

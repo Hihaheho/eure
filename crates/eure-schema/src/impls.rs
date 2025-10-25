@@ -1,9 +1,9 @@
 //! Standard library implementations for ToEureSchema
 
-use crate::{FieldSchema, ToEureSchema, Type, ObjectSchema};
-use std::collections::{HashMap, HashSet, BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use crate::{FieldSchema, ObjectSchema, ToEureSchema, Type};
 use indexmap::IndexMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 // Primitive types
 
@@ -51,7 +51,9 @@ macro_rules! impl_number {
     }
 }
 
-impl_number!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+impl_number!(
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
+);
 
 impl ToEureSchema for char {
     fn eure_schema() -> FieldSchema {
@@ -202,7 +204,7 @@ impl<T: ToEureSchema> ToEureSchema for std::sync::Arc<T> {
 
 // Cow
 
-impl<T: ToEureSchema + ToOwned + ?Sized> ToEureSchema for std::borrow::Cow<'_, T> 
+impl<T: ToEureSchema + ToOwned + ?Sized> ToEureSchema for std::borrow::Cow<'_, T>
 where
     T::Owned: ToEureSchema,
 {
@@ -230,8 +232,8 @@ impl<T: ToEureSchema, E: ToEureSchema> ToEureSchema for Result<T, E> {
 #[cfg(feature = "chrono")]
 mod chrono_impls {
     use super::*;
-    use chrono::{NaiveDate, NaiveDateTime, DateTime};
-    
+    use chrono::{DateTime, NaiveDate, NaiveDateTime};
+
     impl ToEureSchema for NaiveDate {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
@@ -240,7 +242,7 @@ mod chrono_impls {
             }
         }
     }
-    
+
     impl ToEureSchema for NaiveDateTime {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
@@ -249,7 +251,7 @@ mod chrono_impls {
             }
         }
     }
-    
+
     impl<Tz: chrono::TimeZone> ToEureSchema for DateTime<Tz> {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
@@ -264,7 +266,7 @@ mod chrono_impls {
 mod uuid_impls {
     use super::*;
     use uuid::Uuid;
-    
+
     impl ToEureSchema for Uuid {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
@@ -279,7 +281,7 @@ mod uuid_impls {
 mod url_impls {
     use super::*;
     use url::Url;
-    
+
     impl ToEureSchema for Url {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
@@ -294,7 +296,7 @@ mod url_impls {
 mod semver_impls {
     use super::*;
     use semver::Version;
-    
+
     impl ToEureSchema for Version {
         fn eure_schema() -> FieldSchema {
             FieldSchema {
@@ -304,4 +306,3 @@ mod semver_impls {
         }
     }
 }
-

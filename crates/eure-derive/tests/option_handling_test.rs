@@ -1,6 +1,6 @@
 use eure_derive::Eure;
 use eure_schema::{ToEureSchema, Type};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::option;
 
 // Type alias for Option
@@ -17,9 +17,9 @@ fn test_option_type_aliases() {
         module_qualified: option::Option<bool>,
         nested_alias: MaybeNumber,
     }
-    
+
     let schema = WithAliases::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // All fields should be optional
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("regular_option")].optional);
@@ -27,13 +27,28 @@ fn test_option_type_aliases() {
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("fully_qualified")].optional);
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("module_qualified")].optional);
         assert!(obj_schema.fields[&eure_schema::KeyCmpValue::from("nested_alias")].optional);
-        
+
         // Check inner types
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("regular_option")].type_expr, Type::String);
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("aliased_option")].type_expr, Type::String);
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("fully_qualified")].type_expr, Type::Number);
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("module_qualified")].type_expr, Type::Boolean);
-        assert_eq!(obj_schema.fields[&eure_schema::KeyCmpValue::from("nested_alias")].type_expr, Type::Number);
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("regular_option")].type_expr,
+            Type::String
+        );
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("aliased_option")].type_expr,
+            Type::String
+        );
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("fully_qualified")].type_expr,
+            Type::Number
+        );
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("module_qualified")].type_expr,
+            Type::Boolean
+        );
+        assert_eq!(
+            obj_schema.fields[&eure_schema::KeyCmpValue::from("nested_alias")].type_expr,
+            Type::Number
+        );
     } else {
         panic!("Expected object schema");
     }
@@ -47,15 +62,15 @@ fn test_nested_options() {
         vec_of_options: Vec<Option<i32>>,
         option_vec: Option<Vec<String>>,
     }
-    
+
     let schema = NestedOptions::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Check maybe_maybe_string - should be optional Option<String>
         let maybe_maybe = &obj_schema.fields[&eure_schema::KeyCmpValue::from("maybe_maybe_string")];
         assert!(maybe_maybe.optional);
         // The inner type is Option<String> which itself has optional=true
-        
+
         // Check vec_of_options - Vec<Option<i32>>
         let vec_opts = &obj_schema.fields[&eure_schema::KeyCmpValue::from("vec_of_options")];
         assert!(!vec_opts.optional); // Vec itself is not optional
@@ -65,7 +80,7 @@ fn test_nested_options() {
         } else {
             panic!("Expected array type");
         }
-        
+
         // Check option_vec - Option<Vec<String>>
         let opt_vec = &obj_schema.fields[&eure_schema::KeyCmpValue::from("option_vec")];
         assert!(opt_vec.optional);

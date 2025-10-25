@@ -1,5 +1,5 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant};
 use eure_value::identifier::Identifier;
+use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant};
 use std::fmt::Write;
 use std::str::FromStr;
 
@@ -109,28 +109,35 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
             output.push('.');
             let mut path_parts = Vec::new();
             let mut i = 0;
-            
+
             while i < path.0.len() {
                 match &path.0[i] {
                     eure_value::value::PathSegment::Ident(id) => {
                         // Check if next segment is ArrayIndex
                         if i + 1 < path.0.len()
-                            && let eure_value::value::PathSegment::ArrayIndex(idx) = &path.0[i + 1] {
-                                // Combine identifier with array index
-                                if let Some(index) = idx {
-                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
-                                } else {
-                                    path_parts.push(format!("{}[]", id.as_ref()));
-                                }
-                                i += 2; // Skip the ArrayIndex segment
-                                continue;
+                            && let eure_value::value::PathSegment::ArrayIndex(idx) = &path.0[i + 1]
+                        {
+                            // Combine identifier with array index
+                            if let Some(index) = idx {
+                                path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                            } else {
+                                path_parts.push(format!("{}[]", id.as_ref()));
                             }
+                            i += 2; // Skip the ArrayIndex segment
+                            continue;
+                        }
                         path_parts.push(id.as_ref().to_string());
                     }
-                    eure_value::value::PathSegment::Extension(id) => path_parts.push(format!("${}", id.as_ref())),
-                    eure_value::value::PathSegment::MetaExt(id) => path_parts.push(format!("$${}", id.as_ref())),
+                    eure_value::value::PathSegment::Extension(id) => {
+                        path_parts.push(format!("${}", id.as_ref()))
+                    }
+                    eure_value::value::PathSegment::MetaExt(id) => {
+                        path_parts.push(format!("$${}", id.as_ref()))
+                    }
                     eure_value::value::PathSegment::Value(v) => path_parts.push(format!("{v:?}")),
-                    eure_value::value::PathSegment::TupleIndex(idx) => path_parts.push(idx.to_string()),
+                    eure_value::value::PathSegment::TupleIndex(idx) => {
+                        path_parts.push(idx.to_string())
+                    }
                     eure_value::value::PathSegment::ArrayIndex(idx) => {
                         // Standalone array index (shouldn't normally happen after an ident)
                         if let Some(index) = idx {
@@ -142,7 +149,7 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
                 }
                 i += 1;
             }
-            
+
             output.push_str(&path_parts.join("."));
         }
     }

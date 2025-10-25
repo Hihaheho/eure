@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -24,7 +23,7 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("eure_ls=debug".parse().unwrap())
-                .add_directive("eure_editor_support=debug".parse().unwrap())
+                .add_directive("eure_editor_support=debug".parse().unwrap()),
         )
         .with_writer(std::io::stderr)
         .init();
@@ -130,10 +129,10 @@ pub struct ServerContext {
     connection: Connection,
     #[allow(dead_code)]
     params: InitializeParams,
-    documents: HashMap<String, DocumentCache>,         // Store DocumentCache by document URI
-    legend: SemanticTokensLegend,                      // Store the legend
-    schema_manager: schema_validation::SchemaManager,  // Schema management
-    diagnostics: HashMap<String, Vec<Diagnostic>>,     // Store diagnostics by document URI
+    documents: HashMap<String, DocumentCache>, // Store DocumentCache by document URI
+    legend: SemanticTokensLegend,              // Store the legend
+    schema_manager: schema_validation::SchemaManager, // Schema management
+    diagnostics: HashMap<String, Vec<Diagnostic>>, // Store diagnostics by document URI
 }
 
 pub enum Event {
@@ -253,12 +252,14 @@ impl ServerContext {
         };
 
         // Remove the old cache and preserve last valid document if it exists
-        let last_valid_doc = self.documents.remove(&uri_string)
+        let last_valid_doc = self
+            .documents
+            .remove(&uri_string)
             .and_then(|mut cache| cache.last_valid_document.take());
-        
+
         // Create new document cache
         let mut doc_cache = DocumentCache::new(cst.clone(), text.clone(), version);
-        
+
         // Try to create EureDocument if we have a valid CST and no parse errors
         if let Some(ref cst) = cst {
             if diagnostics.is_empty() {
@@ -275,12 +276,12 @@ impl ServerContext {
                 doc_cache.last_valid_document = Some(doc);
             }
         }
-        
+
         // Update document cache
         doc_cache.cst = cst.clone();
         doc_cache.content = text.clone();
         doc_cache.version = version;
-        
+
         // Store updated cache
         self.documents.insert(uri_string.clone(), doc_cache);
 
@@ -419,12 +420,13 @@ impl ServerContext {
 
                 // Get cached document if we have parse errors
                 let cached_doc = if !diagnostics.is_empty() {
-                    self.documents.get(&uri_string)
+                    self.documents
+                        .get(&uri_string)
                         .and_then(|cache| cache.last_valid_document.as_ref())
                 } else {
                     None
                 };
-                
+
                 // Run schema validation
                 let schema_diagnostics = schema_validation::validate_document(
                     &uri_string,

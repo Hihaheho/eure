@@ -35,7 +35,7 @@ impl ParseResult {
             ParseResult::ErrWithCst { cst, .. } => cst,
         }
     }
-    
+
     /// Returns the error if parsing failed
     pub fn error(&self) -> Option<&ParolError> {
         match self {
@@ -43,7 +43,7 @@ impl ParseResult {
             ParseResult::ErrWithCst { error, .. } => Some(error),
         }
     }
-    
+
     /// Returns true if parsing succeeded
     pub fn is_ok(&self) -> bool {
         matches!(self, ParseResult::Ok(_))
@@ -61,7 +61,7 @@ pub fn parse(input: &str) -> Result<Cst, ParolError> {
 pub fn parse_tolerant(input: &str) -> ParseResult {
     let mut actions = grammar::Grammar::new();
     let mut tree_builder = CstBuilder::new();
-    
+
     match parser::parse_into(input, &mut tree_builder, "test.eure", &mut actions) {
         Ok(()) => ParseResult::Ok(tree_builder.build_tree()),
         Err(error) => ParseResult::ErrWithCst {
@@ -183,7 +183,7 @@ fn test_parse_tolerant() {
         }
         ParseResult::ErrWithCst { .. } => panic!("Expected successful parse"),
     }
-    
+
     // Test with invalid input - missing value
     let invalid_input = r#"key = "#;
     match parse_tolerant(invalid_input) {
@@ -195,7 +195,7 @@ fn test_parse_tolerant() {
             assert!(!error.to_string().is_empty());
         }
     }
-    
+
     // Test with syntax error in middle
     let syntax_error = r#"
     @ a
@@ -207,9 +207,12 @@ fn test_parse_tolerant() {
         ParseResult::ErrWithCst { cst, .. } => {
             // Should have partial tree
             assert!(cst.root() != CstNodeId(0));
-            
+
             // Verify we can traverse the partial tree
-            let mut visitor = InspectVisitor { indent: 0, input: syntax_error };
+            let mut visitor = InspectVisitor {
+                indent: 0,
+                input: syntax_error,
+            };
             visitor.visit_node_id(cst.root(), &cst).unwrap();
         }
     }

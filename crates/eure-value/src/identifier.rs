@@ -33,7 +33,7 @@ impl IdentifierParser {
             }
             _ => {}
         }
-        
+
         // Check if starts with $ (would be parsed as extension)
         if s.starts_with('$') {
             return Err(IdentifierError::InvalidChar {
@@ -41,7 +41,7 @@ impl IdentifierParser {
                 invalid_char: '$',
             });
         }
-        
+
         let Some(matches) = self.0.find(s) else {
             if let Some(c) = s.chars().next() {
                 return Err(IdentifierError::InvalidChar {
@@ -92,7 +92,7 @@ pub enum IdentifierError {
 
 impl Identifier {
     /// Creates a new Identifier without validation.
-    /// 
+    ///
     /// # Safety
     /// The caller must ensure that the string is a valid identifier according to EURE rules:
     /// - Must start with XID_Start character or underscore
@@ -226,7 +226,7 @@ mod tests {
         // This test verifies that const construction works
         const TEST_ID: Identifier = unsafe { Identifier::new_unchecked("test-const") };
         assert_eq!(TEST_ID.as_ref(), "test-const");
-        
+
         // Verify it's using borrowed variant
         let id = unsafe { Identifier::new_unchecked("borrowed") };
         assert_eq!(id.as_ref(), "borrowed");

@@ -47,7 +47,15 @@ $array = .string
         .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
-    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager, None);
+    let completions = get_completions(
+        input,
+        &cst,
+        position,
+        None,
+        "test.eure",
+        &schema_manager,
+        None,
+    );
 
     // Should suggest all root-level fields
     assert!(
@@ -123,7 +131,15 @@ $type = .array
         .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
-    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager, None);
+    let completions = get_completions(
+        input,
+        &cst,
+        position,
+        None,
+        "test.eure",
+        &schema_manager,
+        None,
+    );
 
     // Should only suggest fields starting with "scr"
     assert!(

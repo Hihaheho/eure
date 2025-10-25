@@ -54,7 +54,7 @@ pub fn format_eure(value: &Value) -> String {
         }
         Value::Unit => "()".to_string(),
         Value::MetaExtension(meta) => {
-            // Format meta-extension with $$ prefix  
+            // Format meta-extension with $$ prefix
             format!("$${}", meta)
         }
         Value::Path(Path(segments)) => {
@@ -71,7 +71,9 @@ pub fn format_eure(value: &Value) -> String {
                         {
                             // Combine identifier with array index
                             match *idx {
-                                Some(index) => path_parts.push(format!("{}[{}]", id.as_ref(), index)),
+                                Some(index) => {
+                                    path_parts.push(format!("{}[{}]", id.as_ref(), index))
+                                }
                                 None => path_parts.push(format!("{}[]", id.as_ref())),
                             }
                             i += 2; // Skip the ArrayIndex segment

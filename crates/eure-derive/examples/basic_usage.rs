@@ -1,6 +1,6 @@
 use eure_derive::Eure;
 use eure_schema::ToEureSchema;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Eure, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -15,9 +15,14 @@ struct User {
 
 #[derive(Eure, Serialize, Deserialize, Debug)]
 enum UserStatus {
-    Active { since: String },
+    Active {
+        since: String,
+    },
     Inactive,
-    Banned { reason: String, until: Option<String> },
+    Banned {
+        reason: String,
+        until: Option<String>,
+    },
 }
 
 fn main() {
@@ -26,13 +31,13 @@ fn main() {
     println!("User schema:");
     println!("{user_schema:#?}");
     println!("\nType name: {:?}", User::type_name());
-    
+
     // Get the schema for UserStatus
     let status_schema = UserStatus::eure_schema();
     println!("\nUserStatus schema:");
     println!("{status_schema:#?}");
     println!("\nType name: {:?}", UserStatus::type_name());
-    
+
     // You can now use these schemas for validation, documentation,
     // or converting to other schema formats like JSON Schema
 }

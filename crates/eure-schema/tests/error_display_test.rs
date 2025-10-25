@@ -2,10 +2,10 @@
 
 use eure_value::value::KeyCmpValue;
 
-use eure_schema::{ValidationError, ValidationErrorKind, Severity};
-use eure_value::value::PathSegment;
-use eure_value::identifier::Identifier;
+use eure_schema::{Severity, ValidationError, ValidationErrorKind};
 use eure_tree::document::NodeId;
+use eure_value::identifier::Identifier;
+use eure_value::value::PathSegment;
 use std::str::FromStr;
 
 #[test]
@@ -30,7 +30,7 @@ fn test_required_field_missing_display() {
         error.to_string(),
         "Required field String(\"name\") is missing at user"
     );
-    
+
     let error_root = ValidationErrorKind::RequiredFieldMissing {
         field: KeyCmpValue::String("id".to_string()),
         path: vec![],
@@ -52,7 +52,7 @@ fn test_string_length_violation_display() {
         error.to_string(),
         "String length must be between 3 and 10 characters, but got 15"
     );
-    
+
     let error_min_only = ValidationErrorKind::StringLengthViolation {
         min: Some(5),
         max: None,
@@ -93,21 +93,22 @@ fn test_string_pattern_violation_display() {
 fn test_unknown_variant_display() {
     let error = ValidationErrorKind::UnknownVariant {
         variant: "foo".to_string(),
-        available: vec!["create".to_string(), "update".to_string(), "delete".to_string()],
+        available: vec![
+            "create".to_string(),
+            "update".to_string(),
+            "delete".to_string(),
+        ],
     };
     assert_eq!(
         error.to_string(),
         "Unknown variant 'foo'. Available variants: create, update, delete"
     );
-    
+
     let error_no_available = ValidationErrorKind::UnknownVariant {
         variant: "bar".to_string(),
         available: vec![],
     };
-    assert_eq!(
-        error_no_available.to_string(),
-        "Unknown variant 'bar'"
-    );
+    assert_eq!(error_no_available.to_string(), "Unknown variant 'bar'");
 }
 
 #[test]
@@ -143,7 +144,10 @@ fn test_array_violations_display() {
 fn test_unexpected_field_display() {
     let error = ValidationErrorKind::UnexpectedField {
         field: KeyCmpValue::String("extra".to_string()),
-        path: vec![PathSegment::Ident(Identifier::from_str("user").unwrap()), PathSegment::Ident(Identifier::from_str("profile").unwrap())],
+        path: vec![
+            PathSegment::Ident(Identifier::from_str("user").unwrap()),
+            PathSegment::Ident(Identifier::from_str("profile").unwrap()),
+        ],
     };
     assert_eq!(
         error.to_string(),

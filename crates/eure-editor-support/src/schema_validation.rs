@@ -1,11 +1,11 @@
 //! Schema validation support for EURE editor integration
 
 use eure_schema::{
-    DocumentSchema, PathSegment, ValidationError, ValidationErrorKind, Severity,
-    validate_document as validate_with_schema, document_to_schema,
+    DocumentSchema, PathSegment, Severity, ValidationError, ValidationErrorKind,
+    document_to_schema, validate_document as validate_with_schema,
 };
-use eure_tree::{Cst, document::EureDocument};
 use eure_tree::tree::LineNumbers;
+use eure_tree::{Cst, document::EureDocument};
 use lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -40,13 +40,12 @@ impl SchemaManager {
         tree.visit_from_root(&mut visitor)
             .map_err(|e| format!("Failed to visit tree: {e}"))?;
         let document = visitor.into_document();
-        
-        // Extract schema from document
-        let schema = document_to_schema(&document)
-            .map_err(|e| format!("Failed to extract schema: {e}"))?;
 
-        self.schemas
-            .insert(uri.to_string(), schema);
+        // Extract schema from document
+        let schema =
+            document_to_schema(&document).map_err(|e| format!("Failed to extract schema: {e}"))?;
+
+        self.schemas.insert(uri.to_string(), schema);
         Ok(())
     }
 
@@ -82,7 +81,7 @@ pub fn validate_document(
 
     // Try to parse to EureDocument, or use cached if parsing fails
     let using_cached = cached_document.is_some();
-    
+
     // Either use cached document or parse a new one
     let parsed_document;
     let document = if let Some(cached_doc) = cached_document {
@@ -98,16 +97,19 @@ pub fn validate_document(
         parsed_document = visitor.into_document();
         &parsed_document
     };
-    
+
     // Add info diagnostic if using cached document
     if using_cached {
         diagnostics.push(Diagnostic {
             range: Range::new(Position::new(0, 0), Position::new(0, 0)),
             severity: Some(DiagnosticSeverity::INFORMATION),
-            code: Some(lsp_types::NumberOrString::String("eure-cached-validation".to_string())),
+            code: Some(lsp_types::NumberOrString::String(
+                "eure-cached-validation".to_string(),
+            )),
             code_description: None,
             source: Some("eure-schema".to_string()),
-            message: "Schema validation using last valid document structure due to syntax errors".to_string(),
+            message: "Schema validation using last valid document structure due to syntax errors"
+                .to_string(),
             related_information: None,
             tags: None,
             data: None,
@@ -157,7 +159,6 @@ pub fn validate_document(
 
     diagnostics
 }
-
 
 /// Find a schema file for a document
 pub fn find_schema_for_document(doc_path: &Path, workspace_root: Option<&Path>) -> Option<PathBuf> {
@@ -233,10 +234,8 @@ fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
         eure_schema::KeyCmpValue::Unit => "()".to_string(),
         eure_schema::KeyCmpValue::Tuple(elements) => {
             // Format tuple as (elem1, elem2, ...)
-            let formatted_elements: Vec<String> = elements
-                .iter()
-                .map(|elem| format_field_key(elem))
-                .collect();
+            let formatted_elements: Vec<String> =
+                elements.iter().map(|elem| format_field_key(elem)).collect();
             format!("({})", formatted_elements.join(", "))
         }
         eure_schema::KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
@@ -260,17 +259,18 @@ fn default_range(_line_numbers: &LineNumbers) -> Range {
 }
 
 /// Get the span for a CST node
-fn get_node_span(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> Option<eure_tree::tree::InputSpan> {
+fn get_node_span(
+    cst: &eure_tree::Cst,
+    node_id: eure_tree::tree::CstNodeId,
+) -> Option<eure_tree::tree::InputSpan> {
     // Get the node data using CstFacade
     let node_data = cst.node_data(node_id)?;
-    
+
     match node_data {
-        eure_tree::tree::CstNodeData::Terminal { data, .. } => {
-            match data {
-                eure_tree::tree::TerminalData::Input(span) => Some(span),
-                eure_tree::tree::TerminalData::Dynamic(_) => None,
-            }
-        }
+        eure_tree::tree::CstNodeData::Terminal { data, .. } => match data {
+            eure_tree::tree::TerminalData::Input(span) => Some(span),
+            eure_tree::tree::TerminalData::Dynamic(_) => None,
+        },
         eure_tree::tree::CstNodeData::NonTerminal { data, .. } => {
             match data {
                 eure_tree::tree::NonTerminalData::Input(span) => Some(span),
@@ -284,43 +284,49 @@ fn get_node_span(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> O
 }
 
 /// Calculate span from the first and last children of a node
-fn calculate_span_from_children(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> Option<eure_tree::tree::InputSpan> {
+fn calculate_span_from_children(
+    cst: &eure_tree::Cst,
+    node_id: eure_tree::tree::CstNodeId,
+) -> Option<eure_tree::tree::InputSpan> {
     let children: Vec<_> = cst.children(node_id).collect();
     if children.is_empty() {
         return None;
     }
-    
+
     // Get span of first child
     let first_span = get_node_span(cst, children[0])?;
-    
+
     // If only one child, return its span
     if children.len() == 1 {
         return Some(first_span);
     }
-    
+
     // Get span of last child
     let last_span = get_node_span(cst, children[children.len() - 1])?;
-    
+
     // Merge spans
     Some(first_span.merge(last_span))
 }
 
 /// Get a more precise span for value nodes, excluding structural elements
-fn get_value_span(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> Option<eure_tree::tree::InputSpan> {
+fn get_value_span(
+    cst: &eure_tree::Cst,
+    node_id: eure_tree::tree::CstNodeId,
+) -> Option<eure_tree::tree::InputSpan> {
     // Try to find the actual value content within the node
     // by looking for specific node types that represent values
-    
+
     // First check if this node is already a terminal (leaf) node
     if let Some(node_data) = cst.node_data(node_id) {
         if matches!(node_data, eure_tree::tree::CstNodeData::Terminal { .. }) {
             return get_node_span(cst, node_id);
         }
     }
-    
+
     // For non-terminals, try to find the value part
     // This is a heuristic approach - we look for children that are likely to be the actual value
     let children: Vec<_> = cst.children(node_id).collect();
-    
+
     // Skip leading whitespace/structural nodes and find the actual value
     for child_id in children {
         if let Some(child_data) = cst.node_data(child_id) {
@@ -332,7 +338,7 @@ fn get_value_span(cst: &eure_tree::Cst, node_id: eure_tree::tree::CstNodeId) -> 
             }
         }
     }
-    
+
     // Fall back to the original span
     get_node_span(cst, node_id)
 }
@@ -350,7 +356,7 @@ pub fn validation_error_to_diagnostic(
     let range = if let Some(cst_node_id) = document.get_cst_node_id(error.node_id) {
         // Get the span for this CST node
         let span = get_node_span(cst, cst_node_id);
-        
+
         if let Some(mut span) = span {
             // For certain error types, we might need to refine the span
             // to exclude leading/trailing whitespace
@@ -364,11 +370,11 @@ pub fn validation_error_to_diagnostic(
                 }
                 _ => {}
             }
-            
+
             // Convert span to range
             let start_info = line_numbers.get_char_info(span.start);
             let end_info = line_numbers.get_char_info(span.end);
-            
+
             // For certain error types, try to refine the position to exclude leading whitespace
             let refined_start = match &error.kind {
                 ValidationErrorKind::TypeMismatch { .. } => {
@@ -389,7 +395,7 @@ pub fn validation_error_to_diagnostic(
                 }
                 _ => start_info,
             };
-            
+
             Range {
                 start: Position {
                     line: refined_start.line_number,
@@ -502,22 +508,23 @@ pub fn validation_error_to_diagnostic(
         ValidationErrorKind::HoleExists { path } => {
             let mut path_parts = Vec::new();
             let mut i = 0;
-            
+
             while i < path.len() {
                 match &path[i] {
                     PathSegment::Ident(id) => {
                         // Check if next segment is ArrayIndex
                         if i + 1 < path.len()
-                            && let PathSegment::ArrayIndex(idx) = &path[i + 1] {
-                                // Combine identifier with array index
-                                if let Some(index) = *idx {
-                                    path_parts.push(format!("{}[{}]", id.as_ref(), index));
-                                } else {
-                                    path_parts.push(format!("{}[]", id.as_ref()));
-                                }
-                                i += 2; // Skip the ArrayIndex segment
-                                continue;
+                            && let PathSegment::ArrayIndex(idx) = &path[i + 1]
+                        {
+                            // Combine identifier with array index
+                            if let Some(index) = *idx {
+                                path_parts.push(format!("{}[{}]", id.as_ref(), index));
+                            } else {
+                                path_parts.push(format!("{}[]", id.as_ref()));
                             }
+                            i += 2; // Skip the ArrayIndex segment
+                            continue;
+                        }
                         path_parts.push(id.as_ref().to_string());
                     }
                     PathSegment::Extension(id) => path_parts.push(format!("${}", id.as_ref())),
@@ -535,7 +542,7 @@ pub fn validation_error_to_diagnostic(
                 }
                 i += 1;
             }
-            
+
             let path_str = path_parts.join(".");
             (
                 format!(
@@ -564,7 +571,9 @@ pub fn validation_error_to_diagnostic(
             None,
         ),
         ValidationErrorKind::MaxDepthExceeded { depth, max_depth } => (
-            format!("Maximum validation depth of {max_depth} exceeded at depth {depth} - possible circular reference"),
+            format!(
+                "Maximum validation depth of {max_depth} exceeded at depth {depth} - possible circular reference"
+            ),
             Some("eure-schema-max-depth".to_string()),
             None,
         ),
@@ -599,7 +608,8 @@ pub fn resolve_schema_reference(
         Err("Remote schemas are not yet supported".to_string())
     } else if schema_ref.starts_with("file://") {
         // Handle file:// URLs
-        let path_str = schema_ref.strip_prefix("file://")
+        let path_str = schema_ref
+            .strip_prefix("file://")
             .ok_or_else(|| format!("Failed to strip 'file://' prefix from: {}", schema_ref))?;
         let path = Path::new(path_str);
         if path.is_absolute() {
@@ -630,7 +640,6 @@ mod tests {
 
     #[test]
     fn test_validation_error_to_diagnostic() {
-
         // Create a test input with valid EURE syntax
         let input = "field1 = \"value1\"\nfield2 = 123\nfield3 = \"value3\"";
         let line_numbers = LineNumbers::new(input);
@@ -651,8 +660,14 @@ mod tests {
         let _ = cst.visit_from_root(&mut visitor);
         let document = visitor.into_document();
 
-        let diagnostic =
-            validation_error_to_diagnostic(&error, "file:///test.eure", &line_numbers, input, &document, &cst);
+        let diagnostic = validation_error_to_diagnostic(
+            &error,
+            "file:///test.eure",
+            &line_numbers,
+            input,
+            &document,
+            &cst,
+        );
 
         assert_eq!(diagnostic.severity, Some(DiagnosticSeverity::ERROR));
         assert_eq!(diagnostic.source, Some("eure-schema".to_string()));

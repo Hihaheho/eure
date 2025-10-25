@@ -64,7 +64,15 @@ username = "admin"
         .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
-    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager, None);
+    let completions = get_completions(
+        input,
+        &cst,
+        position,
+        None,
+        "test.eure",
+        &schema_manager,
+        None,
+    );
 
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     println!("Completions in credentials section: {labels:?}");
@@ -180,7 +188,15 @@ created_at = "2024-01-01"
         .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
-    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager, None);
+    let completions = get_completions(
+        input,
+        &cst,
+        position,
+        None,
+        "test.eure",
+        &schema_manager,
+        None,
+    );
 
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     println!("Completions in role metadata: {labels:?}");
@@ -284,7 +300,15 @@ approved_by = "manager"
         .unwrap();
     schema_manager.set_document_schema("test.eure", "test://schema");
 
-    let completions = get_completions(input, &cst, position, None, "test.eure", &schema_manager, None);
+    let completions = get_completions(
+        input,
+        &cst,
+        position,
+        None,
+        "test.eure",
+        &schema_manager,
+        None,
+    );
 
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     println!("Completions in approved variant: {labels:?}");

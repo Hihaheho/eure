@@ -129,7 +129,8 @@ fn process_terminal(
         TerminalKind::Str | TerminalKind::Text => SemanticTokenType::STRING,
         TerminalKind::NamedCode => {
             // Find the backtick that separates the name from the code
-            let code_pos = if let Some(pos) = text[span.start as usize..span.end as usize].find('`') {
+            let code_pos = if let Some(pos) = text[span.start as usize..span.end as usize].find('`')
+            {
                 pos as u32
             } else {
                 // Fallback: if backtick not found, use default position

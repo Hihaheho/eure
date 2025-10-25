@@ -5,7 +5,8 @@ use crate::nodes::*;
 use eure_value::{
     identifier::Identifier,
     value::{
-        Array, Code, KeyCmpValue, Map as ValueMap, Path, PathSegment, Tuple as ValueTuple, Value, Variant,
+        Array, Code, KeyCmpValue, Map as ValueMap, Path, PathSegment, Tuple as ValueTuple, Value,
+        Variant,
     },
 };
 
@@ -110,7 +111,6 @@ impl NodeValue {
     }
 }
 
-
 #[derive(Debug, thiserror::Error)]
 pub enum InsertError {
     #[error("Already assigned")]
@@ -210,7 +210,8 @@ impl EureDocument {
 
     /// Get a node by its CST node ID using the handle index
     pub fn get_node_by_cst_id(&self, cst_id: crate::tree::CstNodeId) -> Option<&Node> {
-        self.handle_index.get(&cst_id)
+        self.handle_index
+            .get(&cst_id)
             .and_then(|node_id| self.nodes.get(node_id.0))
     }
 
@@ -234,7 +235,8 @@ impl EureDocument {
 
     /// Get the CST node ID for a document node
     pub fn get_cst_node_id(&self, node_id: NodeId) -> Option<crate::tree::CstNodeId> {
-        self.nodes.get(node_id.0)
+        self.nodes
+            .get(node_id.0)
             .and_then(|node| node.content.get_cst_node_id())
     }
 
@@ -242,20 +244,20 @@ impl EureDocument {
     fn get_path_to_node(&self, target_node_id: NodeId) -> Option<Vec<PathSegment>> {
         // BFS to find path from root to target node
         use std::collections::VecDeque;
-        
+
         let mut queue = VecDeque::new();
         let mut visited = std::collections::HashSet::new();
-        
+
         queue.push_back((self.root, Vec::new()));
         visited.insert(self.root);
-        
+
         while let Some((current_node_id, path)) = queue.pop_front() {
             if current_node_id == target_node_id {
                 return Some(path);
             }
-            
+
             let current_node = &self.nodes[current_node_id.0];
-            
+
             // Search in map entries
             if let NodeValue::Map { entries, .. } = &current_node.content {
                 for (key, child_node_id) in entries {
@@ -263,16 +265,22 @@ impl EureDocument {
                         let mut new_path = path.clone();
                         match key {
                             DocumentKey::Ident(id) => new_path.push(PathSegment::Ident(id.clone())),
-                            DocumentKey::MetaExtension(id) => new_path.push(PathSegment::MetaExt(id.clone())),
-                            DocumentKey::Value(val) => new_path.push(PathSegment::Value(val.clone())),
-                            DocumentKey::TupleIndex(idx) => new_path.push(PathSegment::TupleIndex(*idx)),
+                            DocumentKey::MetaExtension(id) => {
+                                new_path.push(PathSegment::MetaExt(id.clone()))
+                            }
+                            DocumentKey::Value(val) => {
+                                new_path.push(PathSegment::Value(val.clone()))
+                            }
+                            DocumentKey::TupleIndex(idx) => {
+                                new_path.push(PathSegment::TupleIndex(*idx))
+                            }
                         }
                         queue.push_back((*child_node_id, new_path));
                         visited.insert(*child_node_id);
                     }
                 }
             }
-            
+
             // Search in array children
             if let NodeValue::Array { children, .. } = &current_node.content {
                 for (index, child_node_id) in children.iter().enumerate() {
@@ -284,7 +292,7 @@ impl EureDocument {
                     }
                 }
             }
-            
+
             // Search in tuple children
             if let NodeValue::Tuple { children, .. } = &current_node.content {
                 for (index, child_node_id) in children.iter().enumerate() {
@@ -296,7 +304,7 @@ impl EureDocument {
                     }
                 }
             }
-            
+
             // Search in extensions
             for (ext_name, child_node_id) in &current_node.extensions {
                 if !visited.contains(child_node_id) {
@@ -307,7 +315,7 @@ impl EureDocument {
                 }
             }
         }
-        
+
         None
     }
 
@@ -331,22 +339,23 @@ impl EureDocument {
         content: NodeValue,
     ) -> Result<(NodeId, Vec<PathSegment>), InsertError> {
         let segments: Vec<PathSegment> = path.collect();
-        
+
         // Track if we're creating a new array element
-        let _creating_array_element = segments.windows(2).any(|w| {
-            matches!(&w[1], PathSegment::ArrayIndex(None))
-        }) || matches!(segments.last(), Some(PathSegment::ArrayIndex(None)));
-        
+        let _creating_array_element = segments
+            .windows(2)
+            .any(|w| matches!(&w[1], PathSegment::ArrayIndex(None)))
+            || matches!(segments.last(), Some(PathSegment::ArrayIndex(None)));
+
         let node_id = self.traverse_or_insert_path(&segments)?;
-        
+
         // TODO: Build the resolved path with actual array indices
         let resolved_path = segments.clone(); // For now, just use the original path
-        
+
         self.insert_node_at_id(node_id, content, &segments)?;
-        
+
         Ok((node_id, resolved_path))
     }
-    
+
     /// Insert a node content at the given path with recursively insert missing map nodes.
     pub fn insert_node(
         &mut self,
@@ -356,37 +365,44 @@ impl EureDocument {
         let (node_id, _) = self.insert_node_with_resolved_path(path, content)?;
         Ok(node_id)
     }
-    
+
     fn insert_node_at_id(
         &mut self,
         node_id: NodeId,
         content: NodeValue,
         segments: &[PathSegment],
     ) -> Result<(), InsertError> {
-
         // Check if this is an array element assignment (path ends with array index)
-        let is_array_element = segments.len() >= 2 && 
-            matches!(segments[segments.len() - 1], PathSegment::ArrayIndex(_));
-        
+        let is_array_element = segments.len() >= 2
+            && matches!(segments[segments.len() - 1], PathSegment::ArrayIndex(_));
+
         // Check if this is a tuple element assignment (path ends with tuple index)
-        let is_tuple_element = segments.len() >= 2 && 
-            matches!(segments[segments.len() - 1], PathSegment::TupleIndex(_));
+        let is_tuple_element = segments.len() >= 2
+            && matches!(segments[segments.len() - 1], PathSegment::TupleIndex(_));
 
         // If target has any existing content (not an empty map), treat as already assigned.
         // Exception: for array/tuple elements, we can replace synthetic map nodes or null placeholders
-        if !matches!(&self.nodes[node_id.0].content, NodeValue::Map { handle: _, entries } if entries.is_empty()) {
+        if !matches!(&self.nodes[node_id.0].content, NodeValue::Map { handle: _, entries } if entries.is_empty())
+        {
             if is_array_element || is_tuple_element {
                 // For array/tuple elements, check if it's a placeholder that can be replaced
                 match &self.nodes[node_id.0].content {
-                    NodeValue::Map { handle: MapConstructionHandle::Synthetic, entries } if entries.is_empty() && self.nodes[node_id.0].extensions.is_empty() => {
+                    NodeValue::Map {
+                        handle: MapConstructionHandle::Synthetic,
+                        entries,
+                    } if entries.is_empty() && self.nodes[node_id.0].extensions.is_empty() => {
                         // It's a synthetic empty map created for array/tuple element, safe to replace
                         // Remove old index entry if it exists
-                        if let Some(old_cst_id) = Self::extract_cst_id(&self.nodes[node_id.0].content) {
+                        if let Some(old_cst_id) =
+                            Self::extract_cst_id(&self.nodes[node_id.0].content)
+                        {
                             self.handle_index.remove(&old_cst_id);
                         }
                         self.nodes[node_id.0].content = content;
                         // Add new index entry
-                        if let Some(new_cst_id) = Self::extract_cst_id(&self.nodes[node_id.0].content) {
+                        if let Some(new_cst_id) =
+                            Self::extract_cst_id(&self.nodes[node_id.0].content)
+                        {
                             self.handle_index.insert(new_cst_id, node_id);
                         }
                         return Ok(());
@@ -394,12 +410,16 @@ impl EureDocument {
                     NodeValue::Null { .. } => {
                         // It's a null placeholder, safe to replace
                         // Remove old index entry if it exists
-                        if let Some(old_cst_id) = Self::extract_cst_id(&self.nodes[node_id.0].content) {
+                        if let Some(old_cst_id) =
+                            Self::extract_cst_id(&self.nodes[node_id.0].content)
+                        {
                             self.handle_index.remove(&old_cst_id);
                         }
                         self.nodes[node_id.0].content = content;
                         // Add new index entry
-                        if let Some(new_cst_id) = Self::extract_cst_id(&self.nodes[node_id.0].content) {
+                        if let Some(new_cst_id) =
+                            Self::extract_cst_id(&self.nodes[node_id.0].content)
+                        {
                             self.handle_index.insert(new_cst_id, node_id);
                         }
                         return Ok(());
@@ -407,7 +427,7 @@ impl EureDocument {
                     _ => {}
                 }
             }
-            
+
             return Err(InsertError::AlreadyAssigned {
                 path: Path(segments.to_vec()),
                 key: DocumentKey::Value(KeyCmpValue::Null), // TODO: proper key
@@ -416,12 +436,12 @@ impl EureDocument {
 
         // Otherwise assign the content (only if the current map is empty with no extensions).
         self.nodes[node_id.0].content = content;
-        
+
         // Update handle index
         if let Some(cst_id) = Self::extract_cst_id(&self.nodes[node_id.0].content) {
             self.handle_index.insert(cst_id, node_id);
         }
-        
+
         Ok(())
     }
 
@@ -430,30 +450,33 @@ impl EureDocument {
     fn traverse_or_insert_path(&mut self, segments: &[PathSegment]) -> Result<NodeId, InsertError> {
         self.traverse_or_insert_path_from(self.root, segments, &[])
     }
-    
+
     /// Recursive helper to traverse paths with proper extension handling
     fn traverse_or_insert_path_from(
-        &mut self, 
+        &mut self,
         start_id: NodeId,
         segments: &[PathSegment],
         path_so_far: &[PathSegment],
     ) -> Result<NodeId, InsertError> {
         use PathSegment::*;
-        
-        
+
         if segments.is_empty() {
             return Ok(start_id);
         }
-        
+
         let (first, rest) = segments.split_first().unwrap();
         let mut current_path = path_so_far.to_vec();
         current_path.push(first.clone());
-        
+
         // Check if the next segment is an array index to determine if we should create an array
-        let should_create_array = rest.first().is_some_and(|next| matches!(next, ArrayIndex(_)));
+        let should_create_array = rest
+            .first()
+            .is_some_and(|next| matches!(next, ArrayIndex(_)));
         // Check if the next segment is a tuple index to determine if we should create a tuple
-        let should_create_tuple = rest.first().is_some_and(|next| matches!(next, TupleIndex(_)));
-        
+        let should_create_tuple = rest
+            .first()
+            .is_some_and(|next| matches!(next, TupleIndex(_)));
+
         let next_id = match first {
             Ident(id) => {
                 if should_create_array {
@@ -478,13 +501,11 @@ impl EureDocument {
                     )?
                 }
             }
-            MetaExt(id) => {
-                self.get_or_insert_child_map(
-                    start_id,
-                    DocumentKey::MetaExtension(id.clone()),
-                    &current_path,
-                )?
-            }
+            MetaExt(id) => self.get_or_insert_child_map(
+                start_id,
+                DocumentKey::MetaExtension(id.clone()),
+                &current_path,
+            )?,
             Value(key_val) => {
                 if should_create_array {
                     // Create or get an array node
@@ -508,13 +529,7 @@ impl EureDocument {
                     )?
                 }
             }
-            TupleIndex(idx) => {
-                self.get_or_insert_tuple_element(
-                    start_id,
-                    *idx,
-                    &current_path,
-                )?
-            }
+            TupleIndex(idx) => self.get_or_insert_tuple_element(start_id, *idx, &current_path)?,
             Extension(id) => {
                 // Get or create extension node
                 let parent_node = &self.nodes[start_id.0];
@@ -532,12 +547,13 @@ impl EureDocument {
                         extensions: AHashMap::new(),
                     });
                     // Update handle index (Synthetic maps don't have CST IDs, so no need to index)
-                    self.nodes[start_id.0].extensions.insert(id.clone(), new_node_id);
+                    self.nodes[start_id.0]
+                        .extensions
+                        .insert(id.clone(), new_node_id);
                     new_node_id
                 }
             }
             ArrayIndex(idx) => {
-                
                 if let Some(index) = idx {
                     self.get_or_insert_array_child(start_id, *index as usize, &current_path)?
                 } else {
@@ -545,7 +561,7 @@ impl EureDocument {
                 }
             }
         };
-        
+
         // Recursively process the rest of the path
         self.traverse_or_insert_path_from(next_id, rest, &current_path)
     }
@@ -626,7 +642,7 @@ impl EureDocument {
             content: new_content,
             extensions: AHashMap::new(),
         });
-        
+
         // Update handle index (Synthetic maps don't have CST IDs, so no need to index)
 
         // Now we can insert the mapping entry.
@@ -636,7 +652,6 @@ impl EureDocument {
 
         Ok(new_node_id)
     }
-
 
     /// Ensure the current node is an array and return the `NodeId` of the element at the given
     /// index, creating intermediate elements as necessary. If `index` is `None`, a new element is
@@ -884,7 +899,7 @@ impl EureDocument {
 
         Ok(resolved_id)
     }
-    
+
     /// Get or insert an array node at the given key
     fn get_or_insert_array_node(
         &mut self,
@@ -892,7 +907,6 @@ impl EureDocument {
         key: DocumentKey,
         current_path: &[PathSegment],
     ) -> Result<NodeId, InsertError> {
-        
         // First, check if the parent is already a non-map value - if so, error
         let conflict_path = if current_path.is_empty() {
             current_path
@@ -996,14 +1010,13 @@ impl EureDocument {
             Ok(new_node_id)
         }
     }
-    
+
     /// Append a new element to an array node
     fn get_or_insert_array_append(
         &mut self,
         parent_id: NodeId,
         current_path: &[PathSegment],
     ) -> Result<NodeId, InsertError> {
-        
         // The conflict is at the parent path (excluding the current array segment)
         let conflict_path = if current_path.is_empty() {
             current_path
@@ -1071,7 +1084,11 @@ impl EureDocument {
         // Update handle index (Synthetic maps don't have CST IDs, so no need to index)
 
         // Append to the array
-        if let NodeValue::Array { handle: _, children } = &mut self.nodes[parent_id.0].content {
+        if let NodeValue::Array {
+            handle: _,
+            children,
+        } = &mut self.nodes[parent_id.0].content
+        {
             children.push(new_node_id);
         }
 
@@ -1085,7 +1102,6 @@ impl EureDocument {
         key: DocumentKey,
         current_path: &[PathSegment],
     ) -> Result<NodeId, InsertError> {
-        
         // First, check if the parent is already a non-map value - if so, error
         let conflict_path = if current_path.is_empty() {
             current_path
@@ -1213,18 +1229,28 @@ impl EureDocument {
             }
             NodeValue::Map { entries, .. } => {
                 // Check if this is a variant (has $variant extension)
-                if let Some(variant_ext_id) = node.extensions.get(&Identifier::from_str("variant").unwrap()) {
+                if let Some(variant_ext_id) = node
+                    .extensions
+                    .get(&Identifier::from_str("variant").unwrap())
+                {
                     let variant_node = &self.nodes[variant_ext_id.0];
-                    if let NodeValue::String { value: variant_name, .. } = &variant_node.content {
+                    if let NodeValue::String {
+                        value: variant_name,
+                        ..
+                    } = &variant_node.content
+                    {
                         // Check if this is a newtype variant (has $content extension)
-                        if let Some(content_ext_id) = node.extensions.get(&Identifier::from_str("content").unwrap()) {
+                        if let Some(content_ext_id) = node
+                            .extensions
+                            .get(&Identifier::from_str("content").unwrap())
+                        {
                             let content_value = self.node_to_value(*content_ext_id);
                             return Value::Variant(Variant {
                                 tag: variant_name.clone(),
                                 content: Box::new(content_value),
                             });
                         }
-                        
+
                         // For unit variants with no entries, return a simple variant
                         if entries.is_empty() {
                             return Value::Variant(Variant {
@@ -1232,33 +1258,39 @@ impl EureDocument {
                                 content: Box::new(Value::Unit),
                             });
                         }
-                        
+
                         // Create a map with only the data entries (no extensions)
                         let mut content_map = ValueMap::default();
                         for (key, value_id) in entries {
                             let key_value = match key {
                                 DocumentKey::Ident(ident) => KeyCmpValue::String(ident.to_string()),
-                                DocumentKey::MetaExtension(ident) => KeyCmpValue::MetaExtension(ident.clone()),
+                                DocumentKey::MetaExtension(ident) => {
+                                    KeyCmpValue::MetaExtension(ident.clone())
+                                }
                                 DocumentKey::Value(v) => v.clone(),
-                                DocumentKey::TupleIndex(idx) => KeyCmpValue::String(idx.to_string()),
+                                DocumentKey::TupleIndex(idx) => {
+                                    KeyCmpValue::String(idx.to_string())
+                                }
                             };
                             let value = self.node_to_value(*value_id);
                             content_map.0.insert(key_value, value);
                         }
-                        
+
                         return Value::Variant(Variant {
                             tag: variant_name.clone(),
                             content: Box::new(Value::Map(content_map)),
                         });
                     }
                 }
-                
+
                 // Regular map without variant
                 let mut map = ValueMap::default();
                 for (key, value_id) in entries {
                     let key_value = match key {
                         DocumentKey::Ident(ident) => KeyCmpValue::String(ident.to_string()),
-                        DocumentKey::MetaExtension(ident) => KeyCmpValue::MetaExtension(ident.clone()),
+                        DocumentKey::MetaExtension(ident) => {
+                            KeyCmpValue::MetaExtension(ident.clone())
+                        }
                         DocumentKey::Value(v) => v.clone(),
                         DocumentKey::TupleIndex(idx) => {
                             // Convert tuple index to string for map key
@@ -1311,7 +1343,6 @@ pub enum StringConstructionHandle {
     /// Text binding
     TextBinding(TextBindingHandle),
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1650,9 +1681,7 @@ mod tests {
 
                 // Check second element (should be null placeholder)
                 let second_node = doc.get_node(arr[1]);
-                assert!(
-                    matches!(&second_node.content, NodeValue::Null { .. })
-                );
+                assert!(matches!(&second_node.content, NodeValue::Null { .. }));
 
                 // Check third element
                 let third_node = doc.get_node(arr[2]);

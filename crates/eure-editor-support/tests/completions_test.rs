@@ -6,15 +6,18 @@ use lsp_types::Position;
 #[test]
 fn test_completion_after_at_symbol() {
     let text = r#"@"#;
-    let position = Position { line: 0, character: 1 };
-    
+    let position = Position {
+        line: 0,
+        character: 1,
+    };
+
     // Parse the document
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create a schema manager with a test schema
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ name
@@ -25,7 +28,7 @@ $type = .number
 
 @ active
 $type = .boolean"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -40,7 +43,7 @@ $type = .boolean"#;
             eprintln!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -48,9 +51,10 @@ $type = .boolean"#;
         position,
         Some("@".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have name, age, active fields
     assert!(!completions.is_empty());
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
@@ -62,17 +66,20 @@ $type = .boolean"#;
 #[test]
 fn test_completion_in_value_position() {
     let text = r#"active = "#;
-    let position = Position { line: 0, character: 9 };
-    
+    let position = Position {
+        line: 0,
+        character: 9,
+    };
+
     // Parse the document
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     let schema_manager = SchemaManager::new();
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -80,9 +87,10 @@ fn test_completion_in_value_position() {
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have true, false, null
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(labels.contains(&"true".to_string()));
@@ -98,14 +106,17 @@ fn test_completion_in_value_position() {
 fn test_string_only_vs_any_value_completion() {
     // Test after ":" - should not get boolean/null completions
     let text = r#"name: "#;
-    let position = Position { line: 0, character: 6 };
-    
+    let position = Position {
+        line: 0,
+        character: 6,
+    };
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     let schema_manager = SchemaManager::new();
     let completions = get_completions(
         text,
@@ -113,34 +124,39 @@ fn test_string_only_vs_any_value_completion() {
         position,
         Some(":".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should NOT have boolean/null values after ":"
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(!labels.contains(&"true".to_string()));
     assert!(!labels.contains(&"false".to_string()));
     assert!(!labels.contains(&"null".to_string()));
-    
+
     // Test after "=" - should get boolean/null completions
     let text = r#"active = "#;
-    let position = Position { line: 0, character: 9 };
-    
+    let position = Position {
+        line: 0,
+        character: 9,
+    };
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     let completions = get_completions(
         text,
         &cst,
         position,
         Some("=".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have boolean/null values after "="
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(labels.contains(&"true".to_string()));
@@ -152,14 +168,17 @@ fn test_string_only_vs_any_value_completion() {
 fn test_section_snippet_generation() {
     // Test that completing fields in a section with $prefer.section = true generates snippets
     let text = r#"user."#;
-    let position = Position { line: 0, character: 5 }; // After the dot
-    
+    let position = Position {
+        line: 0,
+        character: 5,
+    }; // After the dot
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create a schema with section preference
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"
@@ -170,7 +189,7 @@ user.name.middle.$type = .string
 user.name.middle.$optional = true
 user.age.$type = .number
 "#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -185,7 +204,7 @@ user.age.$type = .number
             eprintln!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -193,27 +212,35 @@ user.age.$type = .number
         position,
         Some(".".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Debug: print all completions
     eprintln!("Completions found: {}", completions.len());
     for completion in &completions {
         eprintln!("  - {}", completion.label);
     }
-    
+
     // Find the "name" completion
-    let name_completion = completions.iter()
+    let name_completion = completions
+        .iter()
         .find(|c| c.label == "name")
         .expect("Should have 'name' completion");
-    
+
     // Check that it's a snippet
-    assert_eq!(name_completion.insert_text_format, Some(lsp_types::InsertTextFormat::SNIPPET));
-    
+    assert_eq!(
+        name_completion.insert_text_format,
+        Some(lsp_types::InsertTextFormat::SNIPPET)
+    );
+
     // Check the snippet content
-    let snippet = name_completion.insert_text.as_ref().expect("Should have insert text");
+    let snippet = name_completion
+        .insert_text
+        .as_ref()
+        .expect("Should have insert text");
     eprintln!("Generated snippet:\n{snippet}");
-    
+
     // Should include "user.name" and required fields (first, last) but not optional (middle)
     assert!(snippet.contains("user.name"));
     assert!(snippet.contains("first = ${") && snippet.contains(":!}"));
@@ -226,20 +253,23 @@ user.age.$type = .number
 fn test_no_snippet_for_non_object_fields() {
     // Test that non-object fields don't generate snippets
     let text = r#"user."#;
-    let position = Position { line: 0, character: 5 };
-    
+    let position = Position {
+        line: 0,
+        character: 5,
+    };
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     let mut schema_manager = SchemaManager::new();
     // Use the working inline schema format from deep_nesting_test
     let schema_text = r#"
 user.age.$type = .number
 "#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -253,21 +283,23 @@ user.age.$type = .number
             eprintln!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     let completions = get_completions(
         text,
         &cst,
         position,
         Some(".".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Find the "age" completion
-    let age_completion = completions.iter()
+    let age_completion = completions
+        .iter()
         .find(|c| c.label == "age")
         .expect("Should have 'age' completion");
-    
+
     // Should NOT be a snippet since age is a number, not an object
     assert_eq!(age_completion.insert_text_format, None);
     assert_eq!(age_completion.insert_text, None);
@@ -276,15 +308,18 @@ user.age.$type = .number
 #[test]
 fn test_completion_with_types() {
     let text = r#"@"#;
-    let position = Position { line: 0, character: 1 };
-    
+    let position = Position {
+        line: 0,
+        character: 1,
+    };
+
     // Parse the document
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create a schema manager with types
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Person {
@@ -297,7 +332,7 @@ fn test_completion_with_types() {
 
 @ user
 $type = .$types.Person"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -312,7 +347,7 @@ $type = .$types.Person"#;
             eprintln!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -320,9 +355,10 @@ $type = .$types.Person"#;
         position,
         Some("@".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have user field and $types
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(labels.contains(&"user".to_string()));
@@ -333,14 +369,17 @@ $type = .$types.Person"#;
 fn test_nested_path_completion() {
     // Test completion for nested paths like user.address.
     let text = r#"user.address."#;
-    let position = Position { line: 0, character: 13 }; // After second dot
-    
+    let position = Position {
+        line: 0,
+        character: 13,
+    }; // After second dot
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with nested structure
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ user {
@@ -362,7 +401,7 @@ fn test_nested_path_completion() {
     @ name
     $type = .string
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -376,7 +415,7 @@ fn test_nested_path_completion() {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -384,19 +423,36 @@ fn test_nested_path_completion() {
         position,
         Some(".".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have address fields: street, city, zipcode, country
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Nested path completions: {labels:?}");
-    
+
     // Test the completions
-    assert!(labels.contains(&"street".to_string()), "Should contain 'street' field");
-    assert!(labels.contains(&"city".to_string()), "Should contain 'city' field");
-    assert!(labels.contains(&"zipcode".to_string()), "Should contain 'zipcode' field");
-    assert!(labels.contains(&"country".to_string()), "Should contain 'country' field");
-    assert_eq!(labels.len(), 4, "Should only show fields from address schema");
+    assert!(
+        labels.contains(&"street".to_string()),
+        "Should contain 'street' field"
+    );
+    assert!(
+        labels.contains(&"city".to_string()),
+        "Should contain 'city' field"
+    );
+    assert!(
+        labels.contains(&"zipcode".to_string()),
+        "Should contain 'zipcode' field"
+    );
+    assert!(
+        labels.contains(&"country".to_string()),
+        "Should contain 'country' field"
+    );
+    assert_eq!(
+        labels.len(),
+        4,
+        "Should only show fields from address schema"
+    );
 }
 
 #[test]
@@ -404,14 +460,17 @@ fn test_array_element_completion() {
     // Test completion for array elements like items[].
     let text = r#"@ items[]
 "#;
-    let position = Position { line: 1, character: 0 }; // Start of new line after array section
-    
+    let position = Position {
+        line: 1,
+        character: 0,
+    }; // Start of new line after array section
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with array of objects
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Item {
@@ -432,7 +491,7 @@ fn test_array_element_completion() {
 @ items {
     $array = .$types.Item
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -446,7 +505,7 @@ fn test_array_element_completion() {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -454,13 +513,14 @@ fn test_array_element_completion() {
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have array element fields: id, name, description, price
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Array element completions: {labels:?}");
-    
+
     // Array context is now implemented
     assert!(labels.contains(&"id".to_string()));
     assert!(labels.contains(&"name".to_string()));
@@ -473,14 +533,17 @@ fn test_mixed_path_completion() {
     // Test completion for complex paths like config.servers[].
     let text = r#"@ config.servers[]
 "#;
-    let position = Position { line: 1, character: 0 }; // Start of new line
-    
+    let position = Position {
+        line: 1,
+        character: 0,
+    }; // Start of new line
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with nested array
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Server {
@@ -504,7 +567,7 @@ fn test_mixed_path_completion() {
         $array = .$types.Server
     }
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -518,7 +581,7 @@ fn test_mixed_path_completion() {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -526,13 +589,14 @@ fn test_mixed_path_completion() {
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have server fields: host, port, protocol, enabled
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Mixed path completions: {labels:?}");
-    
+
     // Complex path context is now implemented
     assert!(labels.contains(&"host".to_string()));
     assert!(labels.contains(&"port".to_string()));
@@ -545,14 +609,17 @@ fn test_variant_name_completion() {
     // Test completion of variant names after $variant:
     let text = r#"@ actions[]
 $variant: "#;
-    let position = Position { line: 1, character: 10 }; // After colon
-    
+    let position = Position {
+        line: 1,
+        character: 10,
+    }; // After colon
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with variant type
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Action {
@@ -591,7 +658,7 @@ $variant: "#;
 @ actions {
     $array = .$types.Action
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -605,7 +672,7 @@ $variant: "#;
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -613,17 +680,27 @@ $variant: "#;
         position,
         Some(":".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have variant names: set-text, set-choices, navigate
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Variant name completions: {labels:?}");
-    
+
     // Test the variant completions
-    assert!(labels.contains(&"set-text".to_string()), "Should contain 'set-text' variant");
-    assert!(labels.contains(&"set-choices".to_string()), "Should contain 'set-choices' variant");
-    assert!(labels.contains(&"navigate".to_string()), "Should contain 'navigate' variant");
+    assert!(
+        labels.contains(&"set-text".to_string()),
+        "Should contain 'set-text' variant"
+    );
+    assert!(
+        labels.contains(&"set-choices".to_string()),
+        "Should contain 'set-choices' variant"
+    );
+    assert!(
+        labels.contains(&"navigate".to_string()),
+        "Should contain 'navigate' variant"
+    );
     assert_eq!(labels.len(), 3, "Should only show variant names");
 }
 
@@ -633,14 +710,17 @@ fn test_variant_field_completion() {
     let text = r#"@ actions[]
 $variant: set-text
 "#;
-    let position = Position { line: 2, character: 0 }; // Start of new line
-    
+    let position = Position {
+        line: 2,
+        character: 0,
+    }; // Start of new line
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Use same schema as above
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Action {
@@ -670,7 +750,7 @@ $variant: set-text
 @ actions {
     $array = .$types.Action
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -684,7 +764,7 @@ $variant: set-text
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -692,18 +772,25 @@ $variant: set-text
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have set-text variant fields: speaker, lines
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Variant field completions: {labels:?}");
-    
+
     // Variant field tracking is now implemented
     assert!(labels.contains(&"speaker".to_string()));
     assert!(labels.contains(&"lines".to_string()));
-    assert!(!labels.contains(&"description".to_string()), "Should not show fields from other variants");
-    assert!(!labels.contains(&"choices".to_string()), "Should not show fields from other variants");
+    assert!(
+        !labels.contains(&"description".to_string()),
+        "Should not show fields from other variants"
+    );
+    assert!(
+        !labels.contains(&"choices".to_string()),
+        "Should not show fields from other variants"
+    );
 }
 
 #[test]
@@ -712,14 +799,17 @@ fn test_variant_field_completion_different_variant() {
     let text = r#"@ actions[]
 $variant: set-choices
 "#;
-    let position = Position { line: 2, character: 0 }; // Start of new line
-    
+    let position = Position {
+        line: 2,
+        character: 0,
+    }; // Start of new line
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Use same schema as above
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Action {
@@ -749,7 +839,7 @@ $variant: set-choices
 @ actions {
     $array = .$types.Action
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -763,7 +853,7 @@ $variant: set-choices
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -771,18 +861,25 @@ $variant: set-choices
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have set-choices variant fields: description, choices
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Different variant field completions: {labels:?}");
-    
+
     // Variant field tracking is now implemented
     assert!(labels.contains(&"description".to_string()));
     assert!(labels.contains(&"choices".to_string()));
-    assert!(!labels.contains(&"speaker".to_string()), "Should not show fields from other variants");
-    assert!(!labels.contains(&"lines".to_string()), "Should not show fields from other variants");
+    assert!(
+        !labels.contains(&"speaker".to_string()),
+        "Should not show fields from other variants"
+    );
+    assert!(
+        !labels.contains(&"lines".to_string()),
+        "Should not show fields from other variants"
+    );
 }
 
 #[test]
@@ -790,14 +887,17 @@ fn test_type_reference_completion() {
     // Test completion of type references after .$types.
     let text = r#"@ user
 $type = .$types."#;
-    let position = Position { line: 1, character: 16 }; // After .$types.
-    
+    let position = Position {
+        line: 1,
+        character: 16,
+    }; // After .$types.
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with multiple type definitions
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Person {
@@ -834,7 +934,7 @@ $types.Company {
 @ user {
     # Type will be assigned here
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -848,7 +948,7 @@ $types.Company {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -856,13 +956,14 @@ $types.Company {
         position,
         Some(".".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have type names: Person, Address, Company
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Type reference completions: {labels:?}");
-    
+
     // Type reference completion is now implemented
     assert!(labels.contains(&"Person".to_string()));
     assert!(labels.contains(&"Address".to_string()));
@@ -875,14 +976,17 @@ fn test_enum_value_completion() {
     // Test completion of enum values for fields with $enum constraint
     let text = r#"@ config
 environment = "#;
-    let position = Position { line: 1, character: 14 }; // After equals
-    
+    let position = Position {
+        line: 1,
+        character: 14,
+    }; // After equals
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with enum constraint
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ config {
@@ -900,7 +1004,7 @@ environment = "#;
         $type = .number
     }
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -914,7 +1018,7 @@ environment = "#;
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -922,13 +1026,14 @@ environment = "#;
         position,
         Some("=".to_string()),
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have enum values: development, staging, production
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Enum value completions: {labels:?}");
-    
+
     // TODO: This test currently fails because enum value completion is not implemented
     // Once implemented, uncomment these assertions:
     // assert!(labels.contains(&"\"development\"".to_string()));
@@ -943,14 +1048,17 @@ fn test_completion_with_default_values() {
     // Test that fields with default values show the default in completion details
     let text = r#"@ database
 "#;
-    let position = Position { line: 1, character: 0 }; // Start of new line
-    
+    let position = Position {
+        line: 1,
+        character: 0,
+    }; // Start of new line
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with default values
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"
@@ -964,7 +1072,7 @@ database.connection_timeout.$type = .number
 database.connection_timeout.$default = 30
 database.connection_timeout.$optional = true
 "#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -978,7 +1086,7 @@ database.connection_timeout.$optional = true
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -986,16 +1094,18 @@ database.connection_timeout.$optional = true
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Check that default values are shown in completion details
-    let host_completion = completions.iter()
+    let host_completion = completions
+        .iter()
         .find(|c| c.label == "host")
         .expect("Should have host completion");
-    
+
     eprintln!("Host completion detail: {:?}", host_completion.detail);
-    
+
     // TODO: Once default value display is implemented, check that it includes the default
     // assert!(host_completion.detail.as_ref().unwrap().contains("localhost"));
 }
@@ -1005,14 +1115,17 @@ fn test_completion_with_cascading_type() {
     // Test completion with cascading type application
     let text = r#"@ servers[]
 "#;
-    let position = Position { line: 1, character: 0 }; // Start of new line
-    
+    let position = Position {
+        line: 1,
+        character: 0,
+    }; // Start of new line
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with array of object type
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Server {
@@ -1030,7 +1143,7 @@ fn test_completion_with_cascading_type() {
 @ servers {
     $array = .$types.Server
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -1044,7 +1157,7 @@ fn test_completion_with_cascading_type() {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -1052,13 +1165,14 @@ fn test_completion_with_cascading_type() {
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have cascaded array element fields: name, host, port
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Array element completions: {labels:?}");
-    
+
     // Array element completion with type reference is now implemented
     assert!(labels.contains(&"name".to_string()));
     assert!(labels.contains(&"host".to_string()));
@@ -1071,14 +1185,17 @@ fn test_completion_in_block_syntax() {
     let text = r#"@ user {
     
 }"#;
-    let position = Position { line: 1, character: 4 }; // Inside the block
-    
+    let position = Position {
+        line: 1,
+        character: 4,
+    }; // Inside the block
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with nested fields
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ user {
@@ -1097,7 +1214,7 @@ fn test_completion_in_block_syntax() {
         $optional = true
     }
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -1111,7 +1228,7 @@ fn test_completion_in_block_syntax() {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -1119,13 +1236,14 @@ fn test_completion_in_block_syntax() {
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have user fields: name, email, profile
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Block syntax completions: {labels:?}");
-    
+
     // Block context is properly tracked
     assert!(labels.contains(&"name".to_string()));
     assert!(labels.contains(&"email".to_string()));
@@ -1138,14 +1256,17 @@ fn test_completion_with_partial_syntax() {
     let text = r#"@ user
 name = "Alice"
 em"#;
-    let position = Position { line: 2, character: 2 }; // After "em"
-    
+    let position = Position {
+        line: 2,
+        character: 2,
+    }; // After "em"
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ user {
@@ -1158,7 +1279,7 @@ em"#;
     @ employee_id
     $type = .number
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -1172,7 +1293,7 @@ em"#;
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -1180,13 +1301,14 @@ em"#;
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should still provide completions that match the prefix "em"
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Partial syntax completions: {labels:?}");
-    
+
     // TODO: Partial/prefix matching may not be implemented
     // Once implemented, uncomment:
     // assert!(labels.contains(&"email".to_string()));
@@ -1198,14 +1320,17 @@ em"#;
 fn test_completion_at_document_boundary() {
     // Test completion at the very beginning or end of document
     let text = r#""#;
-    let position = Position { line: 0, character: 0 }; // Empty document
-    
+    let position = Position {
+        line: 0,
+        character: 0,
+    }; // Empty document
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ config
@@ -1213,7 +1338,7 @@ $type = .string
 
 @ version
 $type = .number"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -1227,7 +1352,7 @@ $type = .number"#;
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -1235,14 +1360,18 @@ $type = .number"#;
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should provide root-level completions
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Empty document completions: {labels:?}");
-    
-    assert!(!completions.is_empty(), "Should provide completions for empty document");
+
+    assert!(
+        !completions.is_empty(),
+        "Should provide completions for empty document"
+    );
     // Specific assertions depend on implementation details
 }
 
@@ -1254,14 +1383,17 @@ fn test_completion_in_nested_block_with_arrays() {
         
     }
 }"#;
-    let position = Position { line: 2, character: 8 }; // Inside nested block
-    
+    let position = Position {
+        line: 2,
+        character: 8,
+    }; // Inside nested block
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema with complex nesting
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Endpoint {
@@ -1287,7 +1419,7 @@ $types.Server {
         $array = .$types.Server
     }
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -1301,7 +1433,7 @@ $types.Server {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -1309,13 +1441,14 @@ $types.Server {
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should have server array element fields: name, endpoints
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Nested block array completions: {labels:?}");
-    
+
     // Complex nested context tracking is now implemented
     assert!(labels.contains(&"name".to_string()));
     assert!(labels.contains(&"endpoints".to_string()));
@@ -1325,14 +1458,17 @@ $types.Server {
 fn test_completion_with_inline_objects() {
     // Test completion inside inline object syntax { key = value, ... }
     let text = r#"user = { name = "Alice",  }"#;
-    let position = Position { line: 0, character: 25 }; // After comma, before closing brace
-    
+    let position = Position {
+        line: 0,
+        character: 25,
+    }; // After comma, before closing brace
+
     let parse_result = parse_document(text);
     let cst = match parse_result {
         parser::ParseResult::Ok(cst) => cst,
         parser::ParseResult::ErrWithCst { cst, .. } => cst,
     };
-    
+
     // Create schema
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ user {
@@ -1345,7 +1481,7 @@ fn test_completion_with_inline_objects() {
     @ email
     $type = .string
 }"#;
-    
+
     match parse_document(schema_text) {
         parser::ParseResult::Ok(schema_cst) => {
             match schema_manager.load_schema("test://schema", schema_text, &schema_cst) {
@@ -1359,7 +1495,7 @@ fn test_completion_with_inline_objects() {
             panic!("Failed to parse schema: {error:?}");
         }
     }
-    
+
     // Get completions
     let completions = get_completions(
         text,
@@ -1367,13 +1503,14 @@ fn test_completion_with_inline_objects() {
         position,
         None,
         "test://document",
-        &schema_manager, None,
+        &schema_manager,
+        None,
     );
-    
+
     // Should suggest remaining fields (age, email) but not already-used field (name)
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     eprintln!("Inline object completions: {labels:?}");
-    
+
     // TODO: Inline object context and used-field filtering may not be implemented
     // Once implemented, uncomment:
     // assert!(labels.contains(&"age".to_string()));

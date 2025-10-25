@@ -28,7 +28,9 @@ impl fmt::Display for EditorError {
             EditorError::InvalidIdentifier(msg) => write!(f, "Invalid identifier: {}", msg),
             EditorError::InvalidSchemaRef(msg) => write!(f, "Invalid schema reference: {}", msg),
             EditorError::PathParsing(msg) => write!(f, "Path parsing failed: {}", msg),
-            EditorError::TupleKeyConversion(msg) => write!(f, "Tuple key conversion not supported: {}", msg),
+            EditorError::TupleKeyConversion(msg) => {
+                write!(f, "Tuple key conversion not supported: {}", msg)
+            }
         }
     }
 }

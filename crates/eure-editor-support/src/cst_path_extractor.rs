@@ -1,13 +1,17 @@
-use eure_tree::{Cst, tree::{CstNodeId, CstNodeData, TerminalData}, node_kind::{TerminalKind, NonTerminalKind}};
 use eure_tree::visitor::{NodeVisitor, NodeVisitorSuper};
+use eure_tree::{
+    Cst,
+    node_kind::{NonTerminalKind, TerminalKind},
+    tree::{CstNodeData, CstNodeId, TerminalData},
+};
 use std::convert::Infallible;
 
 pub struct CstPathExtractor {
     target_byte_offset: u32,
     current_path: Vec<String>,
     found_path: Option<Vec<String>>,
-    section_path: Vec<String>,  // The current section path
-    in_binding: bool,            // Whether we're inside a binding
+    section_path: Vec<String>, // The current section path
+    in_binding: bool,          // Whether we're inside a binding
     input: String,
 }
 
@@ -22,7 +26,7 @@ impl CstPathExtractor {
             input,
         }
     }
-    
+
     pub fn extract_path(&mut self, cst: &Cst) -> Vec<String> {
         let _ = self.visit_node_id(cst.root(), cst);
         self.found_path.clone().unwrap_or_default()
@@ -31,8 +35,13 @@ impl CstPathExtractor {
 
 impl NodeVisitor for CstPathExtractor {
     type Error = Infallible;
-    
-    fn visit_node(&mut self, id: CstNodeId, node: CstNodeData<TerminalKind, NonTerminalKind>, tree: &Cst) -> Result<(), Self::Error> {
+
+    fn visit_node(
+        &mut self,
+        id: CstNodeId,
+        node: CstNodeData<TerminalKind, NonTerminalKind>,
+        tree: &Cst,
+    ) -> Result<(), Self::Error> {
         match &node {
             CstNodeData::NonTerminal { kind, .. } => {
                 match kind {
@@ -58,10 +67,10 @@ impl NodeVisitor for CstPathExtractor {
                 if let (TerminalKind::Ident, TerminalData::Input(span)) = (kind, data) {
                     // Extract the identifier text
                     let ident_text = &self.input[span.start as usize..span.end as usize];
-                    
+
                     // Check if cursor is within or after this identifier
                     let cursor_in_or_after = span.start <= self.target_byte_offset;
-                    
+
                     if cursor_in_or_after {
                         // If we're in a binding, return the section path (not including the binding key)
                         if self.in_binding {
@@ -73,7 +82,7 @@ impl NodeVisitor for CstPathExtractor {
                             self.found_path = Some(path.clone());
                         }
                     }
-                    
+
                     // Only add to current_path if we're not in a binding
                     if !self.in_binding {
                         self.current_path.push(ident_text.to_string());
@@ -81,9 +90,9 @@ impl NodeVisitor for CstPathExtractor {
                 }
             }
         }
-        
+
         self.visit_node_super(id, node, tree)?;
-        
+
         // After visiting children
         if let CstNodeData::NonTerminal { kind, .. } = &node {
             match kind {
@@ -99,7 +108,7 @@ impl NodeVisitor for CstPathExtractor {
                 _ => {}
             }
         }
-        
+
         Ok(())
     }
 }

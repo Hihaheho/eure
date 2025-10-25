@@ -1,6 +1,6 @@
 //! Basic tests for schema extraction
 
-use eure_schema::{extract_schema_from_value, KeyCmpValue};
+use eure_schema::{KeyCmpValue, extract_schema_from_value};
 
 #[test]
 fn test_basic_field_extraction() {
@@ -13,17 +13,44 @@ email.$optional = true
 "#;
 
     let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
-    
-    eprintln!("Root fields: {:?}", extracted.document_schema.root.fields.keys().collect::<Vec<_>>());
-    
+
+    eprintln!(
+        "Root fields: {:?}",
+        extracted
+            .document_schema
+            .root
+            .fields
+            .keys()
+            .collect::<Vec<_>>()
+    );
+
     // Should have name, age, and email fields
     assert_eq!(extracted.document_schema.root.fields.len(), 3);
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("name".to_string())));
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("age".to_string())));
-    assert!(extracted.document_schema.root.fields.contains_key(&KeyCmpValue::String("email".to_string())));
-    
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("name".to_string()))
+    );
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("age".to_string()))
+    );
+    assert!(
+        extracted
+            .document_schema
+            .root
+            .fields
+            .contains_key(&KeyCmpValue::String("email".to_string()))
+    );
+
     // Check email is optional
-    let email_field = &extracted.document_schema.root.fields[&KeyCmpValue::String("email".to_string())];
+    let email_field =
+        &extracted.document_schema.root.fields[&KeyCmpValue::String("email".to_string())];
     assert!(email_field.optional);
 }
 
@@ -38,9 +65,14 @@ $types.Person {
 "#;
 
     let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
-    
+
     // Should have Person type
-    assert!(extracted.document_schema.types.contains_key(&KeyCmpValue::String("Person".to_string())));
+    assert!(
+        extracted
+            .document_schema
+            .types
+            .contains_key(&KeyCmpValue::String("Person".to_string()))
+    );
 }
 
 #[test]
@@ -53,9 +85,17 @@ age.$type = .number
 "#;
 
     let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
-    
-    eprintln!("Root fields: {:?}", extracted.document_schema.root.fields.keys().collect::<Vec<_>>());
-    
+
+    eprintln!(
+        "Root fields: {:?}",
+        extracted
+            .document_schema
+            .root
+            .fields
+            .keys()
+            .collect::<Vec<_>>()
+    );
+
     // This might not work as expected - sections create structure, not schema definitions
     // The current implementation might not handle this correctly
 }

@@ -28,9 +28,8 @@ description.$type = .string
 description.$optional = true
 actions.$array = .$types.Action
 "#;
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Use inline document instead of external file
     let doc_input = r#"
 @ script
@@ -74,35 +73,43 @@ value = "b"
   value = "d"
 }
 "#;
-    
+
     // Parse the document
     let tree = eure_parol::parse(doc_input).expect("Failed to parse example.eure");
-    
+
     // Validate the document against the schema
     let errors = validate_with_tree(&tree, doc_input, extracted.document_schema)
         .expect("Failed to validate");
-    
+
     // Print all errors for debugging
     println!("Found {} validation errors:", errors.len());
     for (i, error) in errors.iter().enumerate() {
         println!("  {}: {:?}", i + 1, error);
     }
-    
+
     // Check for false positive "Required field 'script' is missing" errors
-    let false_positive_count = errors.iter()
-        .filter(|e| matches!(&e.kind, 
-            eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. } 
-            if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "script")
-        ))
+    let false_positive_count = errors
+        .iter()
+        .filter(|e| {
+            matches!(&e.kind,
+                eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
+                if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "script")
+            )
+        })
         .count();
-    
+
     // The document has a valid 'script' section, so there should be NO such errors
-    assert_eq!(false_positive_count, 0, 
-        "Found {false_positive_count} false positive 'Required field script is missing' errors");
-    
+    assert_eq!(
+        false_positive_count, 0,
+        "Found {false_positive_count} false positive 'Required field script is missing' errors"
+    );
+
     // The document should have some valid content
-    assert!(doc_input.contains("@ script"), "Document should contain script section");
-    
+    assert!(
+        doc_input.contains("@ script"),
+        "Document should contain script section"
+    );
+
     // There might be other legitimate errors, but not related to missing 'script' field
     println!("Test passed: No false positive 'script missing' errors");
 }
@@ -125,9 +132,8 @@ fn test_nested_section_validation() {
 }
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Document with nested sections
     let doc_input = r#"
 @ user
@@ -139,20 +145,25 @@ last = "Doe"
 "#;
 
     let tree = eure_parol::parse(doc_input).expect("Failed to parse document");
-    
+
     let errors = validate_with_tree(&tree, doc_input, extracted.document_schema)
         .expect("Failed to validate");
-    
+
     // Should not have any "Required field 'user' is missing" errors
-    let user_missing_errors = errors.iter()
-        .filter(|e| matches!(&e.kind,
-            eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-            if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "user")
-        ))
+    let user_missing_errors = errors
+        .iter()
+        .filter(|e| {
+            matches!(&e.kind,
+                eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
+                if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "user")
+            )
+        })
         .count();
-    
-    assert_eq!(user_missing_errors, 0, 
-        "Should not report 'user' as missing when it exists");
+
+    assert_eq!(
+        user_missing_errors, 0,
+        "Should not report 'user' as missing when it exists"
+    );
 }
 
 #[test]
@@ -170,9 +181,8 @@ $type = .string
 $optional = true
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
-    
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
+
     // Document missing required 'age' field
     let doc_input = r#"
 name = "Alice"
@@ -180,18 +190,23 @@ email = "alice@example.com"
 "#;
 
     let tree = eure_parol::parse(doc_input).expect("Failed to parse document");
-    
+
     let errors = validate_with_tree(&tree, doc_input, extracted.document_schema)
         .expect("Failed to validate");
-    
+
     // Should have exactly one error about missing 'age' field
-    let age_missing_errors = errors.iter()
-        .filter(|e| matches!(&e.kind,
-            eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-            if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "age")
-        ))
+    let age_missing_errors = errors
+        .iter()
+        .filter(|e| {
+            matches!(&e.kind,
+                eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
+                if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "age")
+            )
+        })
         .count();
-    
-    assert_eq!(age_missing_errors, 1, 
-        "Should report 'age' as missing exactly once");
+
+    assert_eq!(
+        age_missing_errors, 1,
+        "Should report 'age' as missing exactly once"
+    );
 }

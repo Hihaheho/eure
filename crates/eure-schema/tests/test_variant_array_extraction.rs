@@ -1,6 +1,6 @@
 //! Test variant array field extraction
 
-use eure_schema::{extract_schema_from_value, KeyCmpValue, Type};
+use eure_schema::{KeyCmpValue, Type, extract_schema_from_value};
 
 #[test]
 fn test_variant_array_field_extraction() {
@@ -23,11 +23,12 @@ $types.Action {
 }
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
 
     // Check that Action type was extracted
-    let action_type = extracted.document_schema.types
+    let action_type = extracted
+        .document_schema
+        .types
         .get(&KeyCmpValue::String("Action".to_string()))
         .expect("Action type not found");
 
@@ -37,7 +38,8 @@ $types.Action {
     };
 
     // Check set-text variant
-    let set_text = variant_def.variants
+    let set_text = variant_def
+        .variants
         .get(&KeyCmpValue::String("set-text".to_string()))
         .expect("set-text variant not found");
 
@@ -45,7 +47,8 @@ $types.Action {
     assert_eq!(set_text.fields.len(), 4, "set-text should have 4 fields");
 
     // Check lines field specifically
-    let lines_field = set_text.fields
+    let lines_field = set_text
+        .fields
         .get(&KeyCmpValue::String("lines".to_string()))
         .expect("lines field not found in set-text variant");
 
@@ -60,13 +63,28 @@ $types.Action {
                 _ => panic!("Expected lines array element type to be string, got: {elem_type:?}"),
             }
         }
-        _ => panic!("Expected lines to be an array type, got: {:?}", lines_field.type_expr),
+        _ => panic!(
+            "Expected lines to be an array type, got: {:?}",
+            lines_field.type_expr
+        ),
     }
 
     // Also verify other fields are present
-    assert!(set_text.fields.contains_key(&KeyCmpValue::String("speaker".to_string())));
-    assert!(set_text.fields.contains_key(&KeyCmpValue::String("code1".to_string())));
-    assert!(set_text.fields.contains_key(&KeyCmpValue::String("code2".to_string())));
+    assert!(
+        set_text
+            .fields
+            .contains_key(&KeyCmpValue::String("speaker".to_string()))
+    );
+    assert!(
+        set_text
+            .fields
+            .contains_key(&KeyCmpValue::String("code1".to_string()))
+    );
+    assert!(
+        set_text
+            .fields
+            .contains_key(&KeyCmpValue::String("code2".to_string()))
+    );
 }
 
 #[test]
@@ -84,10 +102,11 @@ $types.ComplexType {
 }
 "#;
 
-    let extracted = extract_schema_from_value(schema_input)
-        .expect("Failed to extract schema");
+    let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
 
-    let complex_type = extracted.document_schema.types
+    let complex_type = extracted
+        .document_schema
+        .types
         .get(&KeyCmpValue::String("ComplexType".to_string()))
         .expect("ComplexType not found");
 
@@ -95,11 +114,13 @@ $types.ComplexType {
         panic!("Expected ComplexType to be a variant type");
     };
 
-    let with_array = variant_def.variants
+    let with_array = variant_def
+        .variants
         .get(&KeyCmpValue::String("with-array".to_string()))
         .expect("with-array variant not found");
 
-    let items_field = with_array.fields
+    let items_field = with_array
+        .fields
         .get(&KeyCmpValue::String("items".to_string()))
         .expect("items field not found");
 
@@ -110,14 +131,26 @@ $types.ComplexType {
                 Type::Object(obj_schema) => {
                     // Verify object has the expected fields
                     assert_eq!(obj_schema.fields.len(), 3);
-                    assert!(obj_schema.fields.contains_key(&KeyCmpValue::String("name".to_string())));
-                    assert!(obj_schema.fields.contains_key(&KeyCmpValue::String("value".to_string())));
-                    
-                    let optional_field = obj_schema.fields
+                    assert!(
+                        obj_schema
+                            .fields
+                            .contains_key(&KeyCmpValue::String("name".to_string()))
+                    );
+                    assert!(
+                        obj_schema
+                            .fields
+                            .contains_key(&KeyCmpValue::String("value".to_string()))
+                    );
+
+                    let optional_field = obj_schema
+                        .fields
                         .get(&KeyCmpValue::String("optional_field".to_string()))
                         .expect("optional_field not found");
                     // In this test, optional_field is not marked as optional in the schema
-                    assert!(!optional_field.optional, "optional_field should not be optional in this test");
+                    assert!(
+                        !optional_field.optional,
+                        "optional_field should not be optional in this test"
+                    );
                 }
                 _ => panic!("Expected array element to be an object"),
             }

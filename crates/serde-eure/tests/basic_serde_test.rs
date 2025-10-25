@@ -100,7 +100,7 @@ fn test_tuples() {
     assert_eq!(deserialized.0, tuple.0);
     assert_eq!(deserialized.1, tuple.1);
     assert_eq!(deserialized.2, tuple.2);
-    
+
     // Test value round-trip as well
     let value = to_value(&tuple).unwrap();
     let from_value: (i32, String, bool) = from_value(value).unwrap();

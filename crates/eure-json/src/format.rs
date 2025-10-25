@@ -628,21 +628,21 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
 
     // Build keys from path segments
     let mut keys_list = KeysListConstructor::empty();
-    
+
     // Convert segments iterator to vector so we can look ahead
     let segments: Vec<_> = path.0.iter().collect();
-    
+
     // Process segments in reverse order for proper list building, but skip array indices
     // as they'll be handled together with their preceding identifier
     let mut i = segments.len();
     while i > 1 {
         i -= 1;
-        
+
         // Skip if this is an ArrayIndex (it was already processed with its identifier)
         if matches!(segments[i], PathSegment::ArrayIndex(_)) {
             continue;
         }
-        
+
         let segment = segments[i];
         let (key_base, array_marker_opt) = match segment {
             PathSegment::Ident(id) => {
@@ -651,7 +651,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                     IdentConstructor::builder().ident(ident).build().build(),
                 )
                 .build();
-                
+
                 // Check if next segment is ArrayIndex
                 let array_marker_opt = if i + 1 < segments.len() {
                     if let PathSegment::ArrayIndex(idx) = segments[i + 1] {
@@ -660,7 +660,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             .l_bracket(terminals::l_bracket())
                             .build()
                             .build();
-                        
+
                         let array_marker_opt = if let Some(index) = *idx {
                             let integer_token = terminals::integer(&index.to_string());
                             let integer_node = IntegerConstructor::builder()
@@ -674,25 +674,27 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         } else {
                             ArrayMarkerOptConstructor::builder().build().build()
                         };
-                        
+
                         let array_end = ArrayEndConstructor::builder()
                             .r_bracket(terminals::r_bracket())
                             .build()
                             .build();
-                        
-                        Some(ArrayMarkerConstructor::builder()
-                            .array_begin(array_begin)
-                            .array_marker_opt(array_marker_opt)
-                            .array_end(array_end)
-                            .build()
-                            .build())
+
+                        Some(
+                            ArrayMarkerConstructor::builder()
+                                .array_begin(array_begin)
+                                .array_marker_opt(array_marker_opt)
+                                .array_end(array_end)
+                                .build()
+                                .build(),
+                        )
                     } else {
                         None
                     }
                 } else {
                     None
                 };
-                
+
                 (key_base, array_marker_opt)
             }
             PathSegment::Extension(id) => {
@@ -803,8 +805,9 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         let tuple_str = format!("\"({:?})\"", tuple);
                         let str_token = terminals::str(&tuple_str);
                         KeyBaseConstructor::Str(
-                            StrConstructor::builder().str(str_token).build().build()
-                        ).build()
+                            StrConstructor::builder().str(str_token).build().build(),
+                        )
+                        .build()
                     }
                     KeyCmpValue::MetaExtension(meta) => {
                         // MetaExtension as a map key value (not as a field name)
@@ -827,8 +830,9 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         // Hole as a map key
                         let hole_token = terminals::hole();
                         KeyBaseConstructor::Hole(
-                            HoleConstructor::builder().hole(hole_token).build().build()
-                        ).build()
+                            HoleConstructor::builder().hole(hole_token).build().build(),
+                        )
+                        .build()
                     }
                 };
                 (key_base, None)
@@ -900,10 +904,10 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
             PathSegment::Ident(id) => {
                 let ident = terminals::ident(id.as_ref());
                 let key_base = KeyBaseConstructor::Ident(
-                    IdentConstructor::builder().ident(ident).build().build()
+                    IdentConstructor::builder().ident(ident).build().build(),
                 )
                 .build();
-                
+
                 // Check if second segment is ArrayIndex
                 let array_marker_opt = if path.0.len() > 1 {
                     if let PathSegment::ArrayIndex(idx) = &path.0[1] {
@@ -912,7 +916,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                             .l_bracket(terminals::l_bracket())
                             .build()
                             .build();
-                        
+
                         let array_marker_opt = if let Some(index) = *idx {
                             let integer_token = terminals::integer(&index.to_string());
                             let integer_node = IntegerConstructor::builder()
@@ -926,32 +930,34 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
                         } else {
                             ArrayMarkerOptConstructor::builder().build().build()
                         };
-                        
+
                         let array_end = ArrayEndConstructor::builder()
                             .r_bracket(terminals::r_bracket())
                             .build()
                             .build();
-                        
-                        Some(ArrayMarkerConstructor::builder()
-                            .array_begin(array_begin)
-                            .array_marker_opt(array_marker_opt)
-                            .array_end(array_end)
-                            .build()
-                            .build())
+
+                        Some(
+                            ArrayMarkerConstructor::builder()
+                                .array_begin(array_begin)
+                                .array_marker_opt(array_marker_opt)
+                                .array_end(array_end)
+                                .build()
+                                .build(),
+                        )
                     } else {
                         None
                     }
                 } else {
                     None
                 };
-                
+
                 (key_base, array_marker_opt)
             }
             _ => {
                 // Paths should typically start with an identifier
                 let ident = terminals::ident("path");
                 let key_base = KeyBaseConstructor::Ident(
-                    IdentConstructor::builder().ident(ident).build().build()
+                    IdentConstructor::builder().ident(ident).build().build(),
                 )
                 .build();
                 (key_base, None)
@@ -966,7 +972,7 @@ fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
         } else {
             KeyOptConstructor::builder().build().build()
         };
-        
+
         let first_key = KeyConstructor::builder()
             .key_base(first_key_base)
             .key_opt(key_opt)

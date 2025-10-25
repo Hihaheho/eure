@@ -50,12 +50,12 @@ impl Path {
     pub fn root() -> Self {
         Path(Vec::new())
     }
-    
+
     /// Check if this is the root path
     pub fn is_root(&self) -> bool {
         self.0.is_empty()
     }
-    
+
     /// Create a Path from PathSegments
     pub fn from_segments(segments: &[PathSegment]) -> Self {
         Path(segments.to_vec())

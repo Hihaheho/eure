@@ -42,7 +42,7 @@ where
     } else {
         None
     };
-    
+
     let final_value = unwrapped_value.unwrap_or(value);
     let mut deserializer = Deserializer::new(final_value);
     T::deserialize(&mut deserializer)
@@ -322,7 +322,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::CodeBlock(Code { content, .. }) => visitor.visit_str(content),
             // Special handling for wrapped values (e.g., "value = ...")
             Value::Map(map) if map.0.len() == 1 => {
-                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string())) {
+                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string()))
+                {
                     visitor.visit_str(s)
                 } else {
                     Err(Error::InvalidType(format!(
@@ -348,7 +349,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::CodeBlock(Code { content, .. }) => visitor.visit_string(content.clone()),
             // Special handling for wrapped values (e.g., "value = ...")
             Value::Map(map) if map.0.len() == 1 => {
-                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string())) {
+                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string()))
+                {
                     visitor.visit_string(s.clone())
                 } else {
                     Err(Error::InvalidType(format!(

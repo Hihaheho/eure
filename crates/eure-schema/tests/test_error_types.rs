@@ -1,15 +1,15 @@
 //! Test that error types are properly exposed and usable
 
-use eure_schema::{extract_schema_from_value, ValueError};
+use eure_schema::{ValueError, extract_schema_from_value};
 
 #[test]
 fn test_parse_error_type() {
     // Invalid EURE syntax - missing value
     let invalid_input = r#"key = "#;
-    
+
     let result = extract_schema_from_value(invalid_input);
     assert!(result.is_err());
-    
+
     // Verify we can match on specific error types
     match result {
         Err(ValueError::ParseError(e)) => {
@@ -32,9 +32,9 @@ fn test_schema_error_type() {
         BadType = "not a valid type path"
     }
     "#;
-    
+
     let result = extract_schema_from_value(input_with_bad_type);
-    
+
     // This might not fail immediately due to how schema extraction works,
     // but the test demonstrates that the error type can be matched
     if result.is_err() {
@@ -56,13 +56,13 @@ fn test_schema_error_type() {
 fn test_error_display() {
     // Test that errors have meaningful display implementations
     let invalid_input = r#"@ invalid @ syntax @"#;
-    
+
     let result = extract_schema_from_value(invalid_input);
     assert!(result.is_err());
-    
+
     let error = result.unwrap_err();
     let error_string = error.to_string();
-    
+
     // Should have a descriptive error message
     assert!(!error_string.is_empty());
     assert!(error_string.starts_with("Failed to"));

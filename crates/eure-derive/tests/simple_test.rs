@@ -1,6 +1,6 @@
 use eure_derive::Eure;
 use eure_schema::{ToEureSchema, Type};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[test]
 fn test_basic_struct() {
@@ -9,13 +9,21 @@ fn test_basic_struct() {
         name: String,
         age: u32,
     }
-    
+
     let schema = User::eure_schema();
-    
+
     if let Type::Object(obj_schema) = &schema.type_expr {
         assert_eq!(obj_schema.fields.len(), 2);
-        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("name")));
-        assert!(obj_schema.fields.contains_key(&eure_schema::KeyCmpValue::from("age")));
+        assert!(
+            obj_schema
+                .fields
+                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+        );
+        assert!(
+            obj_schema
+                .fields
+                .contains_key(&eure_schema::KeyCmpValue::from("age"))
+        );
     } else {
         panic!("Expected object schema");
     }

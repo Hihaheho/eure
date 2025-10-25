@@ -70,14 +70,18 @@ name.$rename = "userName"  # This should be valid string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension(Identifier::from_str("rename").unwrap()))
+            .contains_key(&KeyCmpValue::MetaExtension(
+                Identifier::from_str("rename").unwrap()
+            ))
     );
     assert!(
         extracted
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension(Identifier::from_str("priority").unwrap()))
+            .contains_key(&KeyCmpValue::MetaExtension(
+                Identifier::from_str("priority").unwrap()
+            ))
     );
 }
 
@@ -112,10 +116,17 @@ age.$optional = true
 
     // Meta-extensions should appear in the document schema
     // Check that we have the expected meta-extensions
-    let meta_extension_count = extracted.document_schema.root.fields.keys()
+    let meta_extension_count = extracted
+        .document_schema
+        .root
+        .fields
+        .keys()
         .filter(|key| matches!(key, KeyCmpValue::MetaExtension(_)))
         .count();
-    assert!(meta_extension_count > 0, "Should have meta-extensions in document schema");
+    assert!(
+        meta_extension_count > 0,
+        "Should have meta-extensions in document schema"
+    );
 }
 
 #[test]

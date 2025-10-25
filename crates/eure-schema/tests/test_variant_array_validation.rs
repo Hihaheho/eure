@@ -1,6 +1,8 @@
 //! End-to-end tests for variant array field validation
 
-use eure_schema::{extract_schema_from_value, validate_with_tree, ValidationErrorKind, KeyCmpValue};
+use eure_schema::{
+    KeyCmpValue, ValidationErrorKind, extract_schema_from_value, validate_with_tree,
+};
 
 #[test]
 fn test_variant_with_simple_array_validates() {
@@ -22,16 +24,17 @@ speaker = "Alice"
 lines = ["Hello", "World"]
 "#;
 
-    let extracted = extract_schema_from_value(schema)
-        .expect("Failed to extract schema");
+    let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
 
-    let tree = eure_parol::parse(document)
-        .expect("Failed to parse document");
+    let tree = eure_parol::parse(document).expect("Failed to parse document");
 
-    let errors = validate_with_tree(&tree, document, extracted.document_schema)
-        .expect("Validation failed");
+    let errors =
+        validate_with_tree(&tree, document, extracted.document_schema).expect("Validation failed");
 
-    assert!(errors.is_empty(), "Expected no validation errors, got: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "Expected no validation errors, got: {errors:?}"
+    );
 }
 
 #[test]
@@ -54,22 +57,26 @@ speaker = "Alice"
 # Missing lines field!
 "#;
 
-    let extracted = extract_schema_from_value(schema)
-        .expect("Failed to extract schema");
+    let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
 
-    let tree = eure_parol::parse(document)
-        .expect("Failed to parse document");
+    let tree = eure_parol::parse(document).expect("Failed to parse document");
 
-    let errors = validate_with_tree(&tree, document, extracted.document_schema)
-        .expect("Validation failed");
+    let errors =
+        validate_with_tree(&tree, document, extracted.document_schema).expect("Validation failed");
 
     // Should have error for missing required field
-    assert!(!errors.is_empty(), "Expected validation errors for missing lines field");
-    
-    let has_missing_field_error = errors.iter().any(|e| 
+    assert!(
+        !errors.is_empty(),
+        "Expected validation errors for missing lines field"
+    );
+
+    let has_missing_field_error = errors.iter().any(|e|
         matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if matches!(field, KeyCmpValue::String(s) if s == "lines"))
     );
-    assert!(has_missing_field_error, "Expected missing field error for 'lines'");
+    assert!(
+        has_missing_field_error,
+        "Expected missing field error for 'lines'"
+    );
 }
 
 #[test]
@@ -92,21 +99,22 @@ speaker = "Alice"
 lines = [123, 456]  # Wrong type - numbers instead of strings
 "#;
 
-    let extracted = extract_schema_from_value(schema)
-        .expect("Failed to extract schema");
+    let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
 
-    let tree = eure_parol::parse(document)
-        .expect("Failed to parse document");
+    let tree = eure_parol::parse(document).expect("Failed to parse document");
 
-    let errors = validate_with_tree(&tree, document, extracted.document_schema)
-        .expect("Validation failed");
+    let errors =
+        validate_with_tree(&tree, document, extracted.document_schema).expect("Validation failed");
 
     // Should have type errors
-    assert!(!errors.is_empty(), "Expected validation errors for wrong array element types");
-    
-    let has_type_error = errors.iter().any(|e| 
-        matches!(&e.kind, ValidationErrorKind::TypeMismatch { .. })
+    assert!(
+        !errors.is_empty(),
+        "Expected validation errors for wrong array element types"
     );
+
+    let has_type_error = errors
+        .iter()
+        .any(|e| matches!(&e.kind, ValidationErrorKind::TypeMismatch { .. }));
     assert!(has_type_error, "Expected type mismatch error");
 }
 
@@ -141,14 +149,15 @@ choices = [
 ]
 "#;
 
-    let extracted = extract_schema_from_value(schema)
-        .expect("Failed to extract schema");
+    let extracted = extract_schema_from_value(schema).expect("Failed to extract schema");
 
-    let tree = eure_parol::parse(document)
-        .expect("Failed to parse document");
+    let tree = eure_parol::parse(document).expect("Failed to parse document");
 
-    let errors = validate_with_tree(&tree, document, extracted.document_schema)
-        .expect("Validation failed");
+    let errors =
+        validate_with_tree(&tree, document, extracted.document_schema).expect("Validation failed");
 
-    assert!(errors.is_empty(), "Expected no validation errors, got: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "Expected no validation errors, got: {errors:?}"
+    );
 }

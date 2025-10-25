@@ -1,19 +1,19 @@
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Data, Fields, Attribute, Lit};
-use convert_case::{Case, Casing};
+use syn::{Attribute, Data, DeriveInput, Fields, Lit, parse_macro_input};
 
 /// Derive macro for generating ToEureSchema implementations
-/// 
+///
 /// This macro generates an implementation of the `ToEureSchema` trait for
 /// a struct or enum, creating EURE schema definitions that match the structure.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust
 /// use eure_derive::Eure;
 /// use serde::{Serialize, Deserialize};
-/// 
+///
 /// #[derive(Eure, Serialize, Deserialize)]
 /// struct User {
 ///     #[eure(length(min = 3, max = 20), pattern = "^[a-z]+$")]
@@ -28,7 +28,7 @@ use convert_case::{Case, Casing};
 #[proc_macro_derive(Eure, attributes(serde, eure))]
 pub fn derive_eure(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    
+
     match generate_to_eure_schema_impl(&input) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
@@ -38,10 +38,10 @@ pub fn derive_eure(input: TokenStream) -> TokenStream {
 fn generate_to_eure_schema_impl(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    
+
     // Add ToEureSchema bound to all type parameters
     let where_clause = add_trait_bounds(where_clause, &input.generics);
-    
+
     let schema_expr = match &input.data {
         Data::Struct(data_struct) => generate_struct_schema(data_struct, &input.attrs)?,
         Data::Enum(data_enum) => generate_enum_schema(data_enum, &input.attrs)?,
@@ -49,18 +49,18 @@ fn generate_to_eure_schema_impl(input: &DeriveInput) -> syn::Result<proc_macro2:
             return Err(syn::Error::new_spanned(
                 input,
                 "Union types are not supported by Eure derive",
-            ))
+            ));
         }
     };
-    
+
     let type_name = name.to_string();
-    
+
     Ok(quote! {
         impl #impl_generics ::eure_schema::ToEureSchema for #name #ty_generics #where_clause {
             fn eure_schema() -> ::eure_schema::FieldSchema {
                 #schema_expr
             }
-            
+
             fn type_name() -> Option<&'static str> {
                 Some(#type_name)
             }
@@ -75,7 +75,7 @@ fn add_trait_bounds(
     let mut predicates = where_clause
         .map(|w| w.predicates.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
-    
+
     // Add ToEureSchema bound for each type parameter
     for param in &generics.params {
         if let syn::GenericParam::Type(type_param) = param {
@@ -83,7 +83,7 @@ fn add_trait_bounds(
             predicates.push(syn::parse_quote!(#ident: ::eure_schema::ToEureSchema));
         }
     }
-    
+
     if predicates.is_empty() {
         quote! {}
     } else {
@@ -99,7 +99,7 @@ fn generate_struct_schema(
     let rename_all_rule = extract_rename_all_rule(attrs)?;
     let container_has_default = has_container_serde_default(attrs);
     let is_transparent = has_serde_transparent(attrs);
-    
+
     // Handle transparent structs
     if is_transparent {
         match &data_struct.fields {
@@ -107,7 +107,7 @@ fn generate_struct_schema(
                 let field = fields.named.first().unwrap();
                 let ty = &field.ty;
                 let field_eure_opts = extract_field_eure_options(field)?;
-                
+
                 // For transparent structs, we want the actual schema, not a field schema
                 // This preserves constraints while keeping the inner type's structure
                 return Ok(quote! {
@@ -122,7 +122,7 @@ fn generate_struct_schema(
                 let field = fields.unnamed.first().unwrap();
                 let ty = &field.ty;
                 let field_eure_opts = extract_field_eure_options(field)?;
-                
+
                 // For transparent structs, we want the actual schema, not a field schema
                 // This preserves constraints while keeping the inner type's structure
                 return Ok(quote! {
@@ -141,27 +141,28 @@ fn generate_struct_schema(
             }
         }
     }
-    
+
     let fields_tokens = match &data_struct.fields {
         Fields::Named(fields) => {
             let mut regular_fields = Vec::new();
             let mut flattened_types = Vec::new();
-            
+
             for field in &fields.named {
                 // Skip fields with #[serde(skip)]
                 if has_serde_skip(field) {
                     continue;
                 }
-                
+
                 // Handle flattened fields separately
                 if has_serde_flatten(field) {
                     let ty = &field.ty;
                     flattened_types.push(ty);
                     continue;
                 }
-                
+
                 let field_name = field.ident.as_ref().unwrap();
-                let field_schema = generate_field_schema(field, &serde_opts, container_has_default)?;
+                let field_schema =
+                    generate_field_schema(field, &serde_opts, container_has_default)?;
                 let field_name_str = apply_rename_rule(
                     &field_name.to_string(),
                     &extract_field_rename(field)?,
@@ -171,7 +172,7 @@ fn generate_struct_schema(
                     fields.insert(::eure_schema::KeyCmpValue::String(#field_name_str.to_string()), #field_schema);
                 });
             }
-            
+
             let flattened_tokens = if !flattened_types.is_empty() {
                 quote! {
                     // Merge fields from flattened types
@@ -186,9 +187,9 @@ fn generate_struct_schema(
             } else {
                 quote! {}
             };
-            
+
             let field_schemas = regular_fields;
-            
+
             quote! {
                 {
                     let mut fields = ::indexmap::IndexMap::new();
@@ -223,7 +224,7 @@ fn generate_struct_schema(
             }
         }
     };
-    
+
     let result = quote! {
         ::eure_schema::FieldSchema {
             type_expr: #fields_tokens,
@@ -236,7 +237,7 @@ fn generate_struct_schema(
             description: None,
         }
     };
-    
+
     Ok(result)
 }
 
@@ -248,7 +249,7 @@ fn generate_enum_schema(
     let rename_all_rule = extract_rename_all_rule(attrs)?;
     let rename_all_fields_rule = extract_rename_all_fields_rule(attrs)?;
     let variant_repr = extract_variant_representation(attrs)?;
-    
+
     let variants: Vec<_> = data_enum.variants.iter()
         .map(|variant| {
             let variant_name = apply_rename_rule(
@@ -256,13 +257,13 @@ fn generate_enum_schema(
                 &extract_variant_rename(variant)?,
                 &rename_all_rule,
             );
-            
+
             let variant_schema = match &variant.fields {
                 Fields::Named(fields) => {
                     // Get variant-level rename_all, fall back to enum-level rename_all_fields
                     let variant_field_rename_rule = extract_variant_rename_all(variant)?
                         .or(rename_all_fields_rule.clone());
-                    
+
                     let field_schemas: Vec<_> = fields.named.iter()
                         .map(|field| {
                             let field_name = field.ident.as_ref().unwrap();
@@ -277,7 +278,7 @@ fn generate_enum_schema(
                             })
                         })
                         .collect::<syn::Result<Vec<_>>>()?;
-                    
+
                     quote! {
                         {
                             let mut variant_fields = ::indexmap::IndexMap::new();
@@ -313,7 +314,7 @@ fn generate_enum_schema(
                                 variant_fields.insert(::eure_schema::KeyCmpValue::U64(#idx), <#ty as ::eure_schema::ToEureSchema>::eure_field_schema());
                             }
                         });
-                        
+
                         quote! {
                             {
                                 let mut variant_fields = ::indexmap::IndexMap::new();
@@ -335,18 +336,18 @@ fn generate_enum_schema(
                     }
                 }
             };
-            
+
             Ok(quote! {
                 variants.insert(::eure_schema::KeyCmpValue::String(#variant_name.to_string()), #variant_schema);
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;
-    
+
     Ok(quote! {
         {
             let mut variants = ::indexmap::IndexMap::new();
             #(#variants)*
-            
+
             ::eure_schema::FieldSchema {
                 type_expr: ::eure_schema::Type::Variants(::eure_schema::VariantSchema {
                     variants,
@@ -372,10 +373,10 @@ fn generate_field_schema(
     let ty = &field.ty;
     let field_serde_opts = extract_field_serde_options(field)?;
     let field_eure_opts = extract_field_eure_options(field)?;
-    
+
     // Check if field has serde(default) or if container has default
     let has_default = has_serde_default(field) || container_has_default;
-    
+
     // Check if field is optional and extract inner type
     if let Some(inner_ty) = extract_option_inner_type(ty) {
         // It's an Option<T>, use T's schema and mark as optional
@@ -412,7 +413,6 @@ fn generate_field_schema(
     }
 }
 
-
 #[allow(dead_code)]
 fn is_option_type(ty: &syn::Type) -> bool {
     if let syn::Type::Path(type_path) = ty {
@@ -420,18 +420,18 @@ fn is_option_type(ty: &syn::Type) -> bool {
         let is_full_path = type_path.path.segments.len() >= 3
             && type_path.path.segments[type_path.path.segments.len() - 3].ident == "core"
             || type_path.path.segments[type_path.path.segments.len() - 3].ident == "std"
-            && type_path.path.segments[type_path.path.segments.len() - 2].ident == "option"
-            && type_path.path.segments.last().unwrap().ident == "Option";
-            
+                && type_path.path.segments[type_path.path.segments.len() - 2].ident == "option"
+                && type_path.path.segments.last().unwrap().ident == "Option";
+
         // Check if it's just Option
-        let is_simple = type_path.path.segments.len() == 1
-            && type_path.path.segments[0].ident == "Option";
-            
+        let is_simple =
+            type_path.path.segments.len() == 1 && type_path.path.segments[0].ident == "Option";
+
         // Check if it's option::Option
         let is_module = type_path.path.segments.len() == 2
             && type_path.path.segments[0].ident == "option"
             && type_path.path.segments[1].ident == "Option";
-            
+
         return is_full_path || is_simple || is_module;
     }
     false
@@ -441,22 +441,23 @@ fn is_option_type(ty: &syn::Type) -> bool {
 fn extract_option_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
     if let syn::Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
-            && segment.ident == "Option"
-                && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
-                    && let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                        return Some(inner);
-                    }
+        && segment.ident == "Option"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+    {
+        return Some(inner);
+    }
     None
 }
 
 fn extract_serde_options(attrs: &[Attribute]) -> syn::Result<proc_macro2::TokenStream> {
     let mut rename_all = None;
-    
+
     for attr in attrs {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("rename_all") {
                 let value: Lit = meta.value()?.parse()?;
@@ -467,9 +468,8 @@ fn extract_serde_options(attrs: &[Attribute]) -> syn::Result<proc_macro2::TokenS
             Ok(())
         })?;
     }
-    
+
     let rename_all_token = if let Some(rule) = rename_all {
-        
         match rule.as_str() {
             "camelCase" => quote! { Some(::eure_schema::RenameRule::CamelCase) },
             "snake_case" => quote! { Some(::eure_schema::RenameRule::SnakeCase) },
@@ -482,7 +482,7 @@ fn extract_serde_options(attrs: &[Attribute]) -> syn::Result<proc_macro2::TokenS
     } else {
         quote! { None }
     };
-    
+
     Ok(quote! {
         ::eure_schema::SerdeOptions {
             rename: None,
@@ -493,7 +493,7 @@ fn extract_serde_options(attrs: &[Attribute]) -> syn::Result<proc_macro2::TokenS
 
 fn extract_field_serde_options(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     let rename = extract_field_rename(field)?;
-    
+
     if let Some(rename) = rename {
         Ok(quote! {
             schema.serde.rename = Some(#rename.to_string());
@@ -508,7 +508,7 @@ fn extract_field_rename(field: &syn::Field) -> syn::Result<Option<String>> {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut rename = None;
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("rename") {
@@ -519,12 +519,12 @@ fn extract_field_rename(field: &syn::Field) -> syn::Result<Option<String>> {
             }
             Ok(())
         })?;
-        
+
         if rename.is_some() {
             return Ok(rename);
         }
     }
-    
+
     Ok(None)
 }
 
@@ -533,7 +533,7 @@ fn extract_variant_rename(variant: &syn::Variant) -> syn::Result<Option<String>>
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut rename = None;
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("rename") {
@@ -544,12 +544,12 @@ fn extract_variant_rename(variant: &syn::Variant) -> syn::Result<Option<String>>
             }
             Ok(())
         })?;
-        
+
         if rename.is_some() {
             return Ok(rename);
         }
     }
-    
+
     Ok(None)
 }
 
@@ -558,7 +558,7 @@ fn extract_variant_rename_all(variant: &syn::Variant) -> syn::Result<Option<Stri
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut rename_all = None;
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("rename_all") {
@@ -569,12 +569,12 @@ fn extract_variant_rename_all(variant: &syn::Variant) -> syn::Result<Option<Stri
             }
             Ok(())
         })?;
-        
+
         if rename_all.is_some() {
             return Ok(rename_all);
         }
     }
-    
+
     Ok(None)
 }
 
@@ -583,7 +583,7 @@ fn extract_rename_all_fields_rule(attrs: &[Attribute]) -> syn::Result<Option<Str
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut rename_all_fields = None;
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("rename_all_fields") {
@@ -603,12 +603,13 @@ fn extract_rename_all_fields_rule(attrs: &[Attribute]) -> syn::Result<Option<Str
                         let ident: syn::Ident = content.parse()?;
                         content.parse::<syn::Token![=]>()?;
                         let value: Lit = content.parse()?;
-                        
+
                         if ident == "serialize"
-                            && let Lit::Str(lit_str) = value {
-                                rename_all_fields = Some(lit_str.value());
-                            }
-                        
+                            && let Lit::Str(lit_str) = value
+                        {
+                            rename_all_fields = Some(lit_str.value());
+                        }
+
                         if !content.is_empty() {
                             content.parse::<syn::Token![,]>()?;
                         }
@@ -617,23 +618,23 @@ fn extract_rename_all_fields_rule(attrs: &[Attribute]) -> syn::Result<Option<Str
             }
             Ok(())
         })?;
-        
+
         if rename_all_fields.is_some() {
             return Ok(rename_all_fields);
         }
     }
-    
+
     Ok(None)
 }
 
 fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::TokenStream> {
     let mut tokens = Vec::new();
-    
+
     for attr in &field.attrs {
         if !attr.path().is_ident("eure") {
             continue;
         }
-        
+
         attr.parse_nested_meta(|meta| {
             // Handle length(min = X, max = Y)
             if meta.path.is_ident("length") {
@@ -641,30 +642,30 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                 syn::parenthesized!(content in meta.input);
                 let mut min = None;
                 let mut max = None;
-                
+
                 while !content.is_empty() {
                     let ident: syn::Ident = content.parse()?;
                     content.parse::<syn::Token![=]>()?;
                     let value: syn::LitInt = content.parse()?;
-                    
+
                     if ident == "min" {
                         min = Some(value);
                     } else if ident == "max" {
                         max = Some(value);
                     }
-                    
+
                     if !content.is_empty() {
                         content.parse::<syn::Token![,]>()?;
                     }
                 }
-                
+
                 let min_tok = min.map(|v| quote! { Some(#v) }).unwrap_or(quote! { None });
                 let max_tok = max.map(|v| quote! { Some(#v) }).unwrap_or(quote! { None });
                 tokens.push(quote! {
                     schema.constraints.length = Some((#min_tok, #max_tok));
                 });
             }
-            
+
             // Handle pattern = "regex"
             if meta.path.is_ident("pattern") {
                 let value: Lit = meta.value()?.parse()?;
@@ -675,18 +676,18 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                     });
                 }
             }
-            
+
             // Handle range(min = X, max = Y)
             if meta.path.is_ident("range") {
                 let content;
                 syn::parenthesized!(content in meta.input);
                 let mut min = None;
                 let mut max = None;
-                
+
                 while !content.is_empty() {
                     let ident: syn::Ident = content.parse()?;
                     content.parse::<syn::Token![=]>()?;
-                    
+
                     // Try to parse as either integer or float literal
                     let value = if content.peek(syn::LitInt) {
                         let int_val: syn::LitInt = content.parse()?;
@@ -696,27 +697,27 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                         let float_val: syn::LitFloat = content.parse()?;
                         quote! { #float_val }
                     };
-                    
+
                     if ident == "min" {
                         min = Some(value);
                     } else if ident == "max" {
                         max = Some(value);
                     }
-                    
+
                     if !content.is_empty() {
                         content.parse::<syn::Token![,]>()?;
                     }
                 }
-                
+
                 let min_tok = min.map(|v| quote! { Some(#v) }).unwrap_or(quote! { None });
                 let max_tok = max.map(|v| quote! { Some(#v) }).unwrap_or(quote! { None });
                 tokens.push(quote! {
                     schema.constraints.range = Some((#min_tok, #max_tok));
                 });
             }
-            
+
             // min_items and max_items have been removed per language designer
-            
+
             // Handle unique = true/false
             if meta.path.is_ident("unique") {
                 let value: syn::LitBool = meta.value()?.parse()?;
@@ -724,7 +725,7 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                     schema.constraints.unique = Some(#value);
                 });
             }
-            
+
             // Handle prefer_section = true/false
             if meta.path.is_ident("prefer_section") {
                 let value: syn::LitBool = meta.value()?.parse()?;
@@ -732,7 +733,7 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                     schema.preferences.section = Some(#value);
                 });
             }
-            
+
             // Handle description = "..."
             if meta.path.is_ident("description") {
                 let value: Lit = meta.value()?.parse()?;
@@ -743,11 +744,11 @@ fn extract_field_eure_options(field: &syn::Field) -> syn::Result<proc_macro2::To
                     });
                 }
             }
-            
+
             Ok(())
         })?;
     }
-    
+
     Ok(quote! {
         #(#tokens)*
     })
@@ -758,11 +759,11 @@ fn extract_variant_representation(attrs: &[Attribute]) -> syn::Result<proc_macro
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut untagged = false;
         let mut tag = None;
         let mut content = None;
-        
+
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("untagged") {
                 untagged = true;
@@ -779,27 +780,27 @@ fn extract_variant_representation(attrs: &[Attribute]) -> syn::Result<proc_macro
             }
             Ok(())
         })?;
-        
+
         if untagged {
             return Ok(quote! { ::eure_schema::VariantRepr::Untagged });
         } else if let Some(tag) = tag {
             if let Some(content) = content {
-                return Ok(quote! { 
-                    ::eure_schema::VariantRepr::AdjacentlyTagged { 
-                        tag: #tag.to_string(), 
-                        content: #content.to_string() 
-                    } 
+                return Ok(quote! {
+                    ::eure_schema::VariantRepr::AdjacentlyTagged {
+                        tag: #tag.to_string(),
+                        content: #content.to_string()
+                    }
                 });
             } else {
-                return Ok(quote! { 
-                    ::eure_schema::VariantRepr::InternallyTagged { 
-                        tag: #tag.to_string() 
-                    } 
+                return Ok(quote! {
+                    ::eure_schema::VariantRepr::InternallyTagged {
+                        tag: #tag.to_string()
+                    }
                 });
             }
         }
     }
-    
+
     Ok(quote! { ::eure_schema::VariantRepr::Tagged })
 }
 
@@ -808,7 +809,7 @@ fn has_serde_skip(field: &syn::Field) -> bool {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut has_skip = false;
         let _ = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("skip") {
@@ -816,7 +817,7 @@ fn has_serde_skip(field: &syn::Field) -> bool {
             }
             Ok(())
         });
-        
+
         if has_skip {
             return true;
         }
@@ -829,7 +830,7 @@ fn has_serde_flatten(field: &syn::Field) -> bool {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut has_flatten = false;
         let _ = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("flatten") {
@@ -837,7 +838,7 @@ fn has_serde_flatten(field: &syn::Field) -> bool {
             }
             Ok(())
         });
-        
+
         if has_flatten {
             return true;
         }
@@ -850,7 +851,7 @@ fn has_serde_default(field: &syn::Field) -> bool {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut has_default = false;
         let _ = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("default") {
@@ -858,7 +859,7 @@ fn has_serde_default(field: &syn::Field) -> bool {
             }
             Ok(())
         });
-        
+
         if has_default {
             return true;
         }
@@ -871,7 +872,7 @@ fn has_container_serde_default(attrs: &[Attribute]) -> bool {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut has_default = false;
         let _ = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("default") {
@@ -879,7 +880,7 @@ fn has_container_serde_default(attrs: &[Attribute]) -> bool {
             }
             Ok(())
         });
-        
+
         if has_default {
             return true;
         }
@@ -892,7 +893,7 @@ fn has_serde_transparent(attrs: &[Attribute]) -> bool {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut has_transparent = false;
         let _ = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("transparent") {
@@ -900,7 +901,7 @@ fn has_serde_transparent(attrs: &[Attribute]) -> bool {
             }
             Ok(())
         });
-        
+
         if has_transparent {
             return true;
         }
@@ -908,13 +909,12 @@ fn has_serde_transparent(attrs: &[Attribute]) -> bool {
     false
 }
 
-
 fn extract_rename_all_rule(attrs: &[Attribute]) -> syn::Result<Option<String>> {
     for attr in attrs {
         if !attr.path().is_ident("serde") {
             continue;
         }
-        
+
         let mut rename_all = None;
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("rename_all") {
@@ -925,15 +925,14 @@ fn extract_rename_all_rule(attrs: &[Attribute]) -> syn::Result<Option<String>> {
             }
             Ok(())
         })?;
-        
+
         if rename_all.is_some() {
             return Ok(rename_all);
         }
     }
-    
+
     Ok(None)
 }
-
 
 fn apply_rename_rule(
     name: &str,
@@ -943,7 +942,7 @@ fn apply_rename_rule(
     if let Some(rename) = explicit_rename {
         return rename.clone();
     }
-    
+
     if let Some(rule) = rename_all {
         match rule.as_str() {
             "camelCase" => name.to_case(Case::Camel),
@@ -960,4 +959,3 @@ fn apply_rename_rule(
 }
 
 // Case conversion is now handled by the convert_case crate
-

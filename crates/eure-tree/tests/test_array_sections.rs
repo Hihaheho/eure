@@ -1,7 +1,7 @@
 //! Test array element sections work correctly
 
-use eure_tree::value_visitor::ValueVisitor;
 use eure_tree::document::NodeValue;
+use eure_tree::value_visitor::ValueVisitor;
 
 #[test]
 fn test_array_element_sections() {
@@ -24,26 +24,28 @@ name = "Test Corp"
 
     // Convert CST to EureDocument
     let mut visitor = ValueVisitor::new(document);
-    parsed.visit_from_root(&mut visitor).expect("Failed to visit tree");
-    
+    parsed
+        .visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
+
     let eure_document = visitor.into_document();
-    
+
     // Verify the structure
     let root = eure_document.get_root();
     match &root.content {
         NodeValue::Map { entries, .. } => {
             assert_eq!(entries.len(), 2, "Expected 2 entries at root");
-            
+
             // Find the items entry
             let items_entry = entries.iter()
                 .find(|(k, _)| matches!(k, eure_tree::document::DocumentKey::Ident(id) if id.to_string() == "items"))
                 .expect("Should have 'items' key");
-            
+
             let items_node = eure_document.get_node(items_entry.1);
             match &items_node.content {
                 NodeValue::Array { children, .. } => {
                     assert_eq!(children.len(), 2, "Expected 2 array elements");
-                    
+
                     // Check first element
                     let elem0 = eure_document.get_node(children[0]);
                     match &elem0.content {
@@ -52,7 +54,7 @@ name = "Test Corp"
                         }
                         _ => panic!("Expected first array element to be a map"),
                     }
-                    
+
                     // Check second element
                     let elem1 = eure_document.get_node(children[1]);
                     match &elem1.content {
@@ -89,20 +91,22 @@ colors = ["red", "green", "blue"]
 
     let parsed = eure_parol::parse(document).expect("Failed to parse");
     let mut visitor = ValueVisitor::new(document);
-    parsed.visit_from_root(&mut visitor).expect("Failed to visit tree");
-    
+    parsed
+        .visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
+
     let eure_document = visitor.into_document();
     let root = eure_document.get_root();
-    
+
     match &root.content {
         NodeValue::Map { entries, .. } => {
             assert_eq!(entries.len(), 2, "Expected 2 entries at root");
-            
+
             // Check colors array
             let colors_entry = entries.iter()
                 .find(|(k, _)| matches!(k, eure_tree::document::DocumentKey::Ident(id) if id.to_string() == "colors"))
                 .expect("Should have 'colors' key");
-            
+
             let colors_node = eure_document.get_node(colors_entry.1);
             match &colors_node.content {
                 NodeValue::Array { children, .. } => {
@@ -110,17 +114,17 @@ colors = ["red", "green", "blue"]
                 }
                 _ => panic!("Expected 'colors' to be an array"),
             }
-            
+
             // Check users array
             let users_entry = entries.iter()
                 .find(|(k, _)| matches!(k, eure_tree::document::DocumentKey::Ident(id) if id.to_string() == "users"))
                 .expect("Should have 'users' key");
-            
+
             let users_node = eure_document.get_node(users_entry.1);
             match &users_node.content {
                 NodeValue::Array { children, .. } => {
                     assert_eq!(children.len(), 2, "Expected 2 user elements");
-                    
+
                     // Both elements should be maps
                     for (i, &child_id) in children.iter().enumerate() {
                         let child = eure_document.get_node(child_id);

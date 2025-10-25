@@ -68,8 +68,19 @@ value = "b"
     let extracted = extract_schema_from_value(schema_input).expect("Failed to extract schema");
 
     // Debug print
-    eprintln!("Extracted types: {:?}", extracted.document_schema.types.keys().collect::<Vec<_>>());
-    eprintln!("Extracted root fields: {:?}", extracted.document_schema.root.fields.keys().collect::<Vec<_>>());
+    eprintln!(
+        "Extracted types: {:?}",
+        extracted.document_schema.types.keys().collect::<Vec<_>>()
+    );
+    eprintln!(
+        "Extracted root fields: {:?}",
+        extracted
+            .document_schema
+            .root
+            .fields
+            .keys()
+            .collect::<Vec<_>>()
+    );
 
     // The schema should contain type definitions
     assert!(

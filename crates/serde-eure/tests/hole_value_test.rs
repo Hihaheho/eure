@@ -16,9 +16,12 @@ fn test_deserialize_hole_value_error() {
 
     let result = from_str::<Person>(input);
     assert!(result.is_err());
-    
+
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
+    assert!(
+        error.to_string().contains("Hole") || error.to_string().contains("hole"),
+        "Error was: {error}"
+    );
 }
 
 #[test]
@@ -34,9 +37,12 @@ fn test_deserialize_hole_in_array() {
 
     let result = from_str::<Container>(input);
     assert!(result.is_err());
-    
+
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
+    assert!(
+        error.to_string().contains("Hole") || error.to_string().contains("hole"),
+        "Error was: {error}"
+    );
 }
 
 #[test]
@@ -70,9 +76,12 @@ fn test_deserialize_nested_hole() {
 
     let result = from_str::<Container>(input);
     assert!(result.is_err());
-    
+
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
+    assert!(
+        error.to_string().contains("Hole") || error.to_string().contains("hole"),
+        "Error was: {error}"
+    );
 }
 
 #[test]
@@ -95,15 +104,16 @@ fn test_parse_file_with_holes() {
 
     // The parse should succeed
     let tree = eure_parol::parse(input).expect("Failed to parse");
-    
+
     // Value extraction should succeed (holes become Value::Hole)
     let mut visitor = eure_tree::value_visitor::ValueVisitor::new(input);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
-    
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
+
     // Convert to value to verify holes are present
     let doc = visitor.into_document();
     let _value = eure_tree::value_visitor::document_to_value(doc);
-    
+
     // But deserialization to a concrete type should fail
     #[derive(Debug, serde::Deserialize)]
     struct Database {
@@ -112,22 +122,25 @@ fn test_parse_file_with_holes() {
         username: String,
         password: String,
     }
-    
+
     #[derive(Debug, serde::Deserialize)]
     struct Features {
         logging: bool,
         monitoring: bool,
     }
-    
+
     #[derive(Debug, serde::Deserialize)]
     struct Config {
         database: Database,
         features: Features,
     }
-    
+
     let result = from_str::<Config>(input);
     assert!(result.is_err());
-    
+
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("Hole") || error.to_string().contains("hole"), "Error was: {error}");
+    assert!(
+        error.to_string().contains("Hole") || error.to_string().contains("hole"),
+        "Error was: {error}"
+    );
 }

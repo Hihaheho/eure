@@ -1,7 +1,7 @@
 use eure_parol::parse;
 use eure_tree::value_visitor::{ValueVisitor, document_to_value};
-use eure_value::value::{Value, KeyCmpValue, Map};
 use eure_value::identifier::Identifier;
+use eure_value::value::{KeyCmpValue, Map, Value};
 use std::str::FromStr;
 
 #[test]
@@ -27,12 +27,16 @@ age = 30"#;
     match value {
         Value::Map(map) => {
             // Check name
-            let name_value = map.0.get(&KeyCmpValue::String("name".to_string()))
+            let name_value = map
+                .0
+                .get(&KeyCmpValue::String("name".to_string()))
                 .expect("name field not found");
             assert!(matches!(name_value, Value::String(s) if s == "Alice"));
 
             // Check age
-            let age_value = map.0.get(&KeyCmpValue::String("age".to_string()))
+            let age_value = map
+                .0
+                .get(&KeyCmpValue::String("age".to_string()))
                 .expect("age field not found");
             assert!(matches!(age_value, Value::I64(30)));
         }
@@ -54,7 +58,8 @@ password = "secret"
 
     let tree = parse(input).expect("Failed to parse nested sections");
     let mut visitor = ValueVisitor::new(input);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
 
     let doc = visitor.into_document();
     let value = document_to_value(doc);
@@ -62,32 +67,44 @@ password = "secret"
     match value {
         Value::Map(root) => {
             // Get database section
-            let db_value = root.0.get(&KeyCmpValue::String("database".to_string()))
+            let db_value = root
+                .0
+                .get(&KeyCmpValue::String("database".to_string()))
                 .expect("database section not found");
-            
+
             match db_value {
                 Value::Map(db_map) => {
                     // Check host
-                    let host = db_map.0.get(&KeyCmpValue::String("host".to_string()))
+                    let host = db_map
+                        .0
+                        .get(&KeyCmpValue::String("host".to_string()))
                         .expect("host not found");
                     assert!(matches!(host, Value::String(s) if s == "localhost"));
 
                     // Check port
-                    let port = db_map.0.get(&KeyCmpValue::String("port".to_string()))
+                    let port = db_map
+                        .0
+                        .get(&KeyCmpValue::String("port".to_string()))
                         .expect("port not found");
                     assert!(matches!(port, Value::I64(5432)));
 
                     // Check credentials subsection
-                    let creds = db_map.0.get(&KeyCmpValue::String("credentials".to_string()))
+                    let creds = db_map
+                        .0
+                        .get(&KeyCmpValue::String("credentials".to_string()))
                         .expect("credentials not found");
-                    
+
                     match creds {
                         Value::Map(creds_map) => {
-                            let username = creds_map.0.get(&KeyCmpValue::String("username".to_string()))
+                            let username = creds_map
+                                .0
+                                .get(&KeyCmpValue::String("username".to_string()))
                                 .expect("username not found");
                             assert!(matches!(username, Value::String(s) if s == "admin"));
 
-                            let password = creds_map.0.get(&KeyCmpValue::String("password".to_string()))
+                            let password = creds_map
+                                .0
+                                .get(&KeyCmpValue::String("password".to_string()))
                                 .expect("password not found");
                             assert!(matches!(password, Value::String(s) if s == "secret"));
                         }
@@ -110,7 +127,8 @@ mixed = ["text", 42, true]
 
     let tree = parse(input).expect("Failed to parse arrays");
     let mut visitor = ValueVisitor::new(input);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
 
     let doc = visitor.into_document();
     let value = document_to_value(doc);
@@ -118,7 +136,9 @@ mixed = ["text", 42, true]
     match value {
         Value::Map(map) => {
             // Check numbers array
-            let numbers = map.0.get(&KeyCmpValue::String("numbers".to_string()))
+            let numbers = map
+                .0
+                .get(&KeyCmpValue::String("numbers".to_string()))
                 .expect("numbers not found");
             match numbers {
                 Value::Array(arr) => {
@@ -131,7 +151,9 @@ mixed = ["text", 42, true]
             }
 
             // Check mixed array
-            let mixed = map.0.get(&KeyCmpValue::String("mixed".to_string()))
+            let mixed = map
+                .0
+                .get(&KeyCmpValue::String("mixed".to_string()))
                 .expect("mixed not found");
             match mixed {
                 Value::Array(arr) => {
@@ -157,7 +179,8 @@ name.$type = .string
 
     let tree = parse(input).expect("Failed to parse extension fields");
     let mut visitor = ValueVisitor::new(input);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
 
     let doc = visitor.into_document();
     let value = document_to_value(doc);
@@ -167,8 +190,11 @@ name.$type = .string
             // Extensions are metadata and should NOT appear in the Value
             assert!(map.0.contains_key(&KeyCmpValue::String("name".to_string())));
             // Extensions should not be in the value
-            assert!(!map.0.contains_key(&KeyCmpValue::String("name.$type".to_string())));
-            
+            assert!(
+                !map.0
+                    .contains_key(&KeyCmpValue::String("name.$type".to_string()))
+            );
+
             // The value should just be the string
             let name_value = map.0.get(&KeyCmpValue::String("name".to_string())).unwrap();
             assert!(matches!(name_value, Value::String(s) if s == "test"));
@@ -187,14 +213,18 @@ config.$$meta = "value"
 
     let tree = parse(input).expect("Failed to parse meta extension");
     let mut visitor = ValueVisitor::new(input);
-    tree.visit_from_root(&mut visitor).expect("Failed to visit tree");
+    tree.visit_from_root(&mut visitor)
+        .expect("Failed to visit tree");
 
     let doc = visitor.into_document();
     let value = document_to_value(doc);
 
     match value {
         Value::Map(root_map) => {
-            let config_value = root_map.0.get(&KeyCmpValue::String("config".to_string())).unwrap();
+            let config_value = root_map
+                .0
+                .get(&KeyCmpValue::String("config".to_string()))
+                .unwrap();
             match config_value {
                 Value::Map(config_map) => {
                     // Meta-extensions should appear in the Value as KeyCmpValue::MetaExtension

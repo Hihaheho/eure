@@ -300,7 +300,7 @@ age.$range = (18, 150)
         ));
     }
 
-    // Removed test_array_length_constraints as $min-items and $max-items 
+    // Removed test_array_length_constraints as $min-items and $max-items
     // have been removed from the constraint system per language designer's request.
 }
 
@@ -376,7 +376,10 @@ $cascade-type = .string
         let schema = extract(schema_doc).document_schema;
 
         // Check cascade type was set on root
-        assert!(matches!(schema.cascade_types.get(&Path::root()), Some(Type::String)));
+        assert!(matches!(
+            schema.cascade_types.get(&Path::root()),
+            Some(Type::String)
+        ));
 
         // All fields should accept strings by default
         let doc = r#"
