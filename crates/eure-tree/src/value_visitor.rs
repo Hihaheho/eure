@@ -560,9 +560,7 @@ impl<'a> ValueVisitor<'a> {
                     self.process_value_at_path(element_path, value_view, tree)?;
 
                     // Check for overflow before incrementing (though unlikely for first element)
-                    if index < 255 {
-                        index += 1;
-                    }
+                    index = index.saturating_add(1);
 
                     // Rest of the elements
                     if let Ok(Some(mut tail)) =
@@ -754,17 +752,17 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         match view.section_body.get_view(tree) {
             Ok(SectionBodyView::DirectBind(direct_bind_handle)) => {
                 // Direct value assignment: @ path = value
-                if let Ok(DirectBindView { value, .. }) = direct_bind_handle.get_view(tree) {
-                    if let Ok(value_view) = value.get_view(tree) {
-                        // Push the path for processing the value
-                        self.path_stack.push(full_path.clone());
+                if let Ok(DirectBindView { value, .. }) = direct_bind_handle.get_view(tree)
+                    && let Ok(value_view) = value.get_view(tree)
+                {
+                    // Push the path for processing the value
+                    self.path_stack.push(full_path.clone());
 
-                        // Process the value at the section path
-                        self.process_value_at_path(vec![], value_view, tree)?;
+                    // Process the value at the section path
+                    self.process_value_at_path(vec![], value_view, tree)?;
 
-                        // Pop the path
-                        self.path_stack.pop();
-                    }
+                    // Pop the path
+                    self.path_stack.pop();
                 }
                 return Ok(());
             }

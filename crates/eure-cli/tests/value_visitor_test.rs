@@ -1,7 +1,7 @@
 use eure_parol::parse;
 use eure_tree::value_visitor::{ValueVisitor, document_to_value};
 use eure_value::identifier::Identifier;
-use eure_value::value::{KeyCmpValue, Map, Value};
+use eure_value::value::{KeyCmpValue, Value};
 use std::str::FromStr;
 
 #[test]

@@ -293,7 +293,7 @@ name = "Updated"
     let errors = validate_document(&document, &schema);
 
     assert!(
-        errors.len() > 0,
+        !errors.is_empty(),
         "Should have errors for missing required field 'id'"
     );
 }

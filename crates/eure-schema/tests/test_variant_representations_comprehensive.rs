@@ -1,4 +1,4 @@
-use eure_schema::{KeyCmpValue, ValidationErrorKind, document_to_schema, validate_document};
+use eure_schema::{ValidationErrorKind, document_to_schema, validate_document};
 use eure_tree::value_visitor::ValueVisitor;
 
 // ============================================================================

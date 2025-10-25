@@ -51,7 +51,9 @@ pub fn get_completions(
     // Analyze the context at cursor position
     let context = analyze_context_at_position(text, position);
 
-    let schema_completions = match context {
+    // For now, always prefer schema completions when we have a schema
+    // The error-based completions don't properly track paths yet
+    match context {
         CompletionContext::AfterAt {
             path,
             partial_field,
@@ -132,11 +134,7 @@ pub fn get_completions(
             }
         }
         CompletionContext::Unknown => vec![],
-    };
-
-    // For now, always prefer schema completions when we have a schema
-    // The error-based completions don't properly track paths yet
-    schema_completions
+    }
 }
 
 #[derive(Debug)]
@@ -230,11 +228,7 @@ fn analyze_context_at_position(text: &str, position: Position) -> CompletionCont
         }
     } else if trimmed.ends_with('=') {
         // Extract the field name and path
-        let parts: Vec<&str> = trimmed
-            .trim_end_matches('=')
-            .trim()
-            .split_whitespace()
-            .collect();
+        let parts: Vec<&str> = trimmed.trim_end_matches('=').split_whitespace().collect();
         if let Some(field_part) = parts.last() {
             let (path, field_name) = parse_field_reference(field_part);
             CompletionContext::AfterEquals { path, field_name }
@@ -243,19 +237,15 @@ fn analyze_context_at_position(text: &str, position: Position) -> CompletionCont
         }
     } else if trimmed.ends_with(':') {
         // Extract the field name and path, accounting for context
-        let parts: Vec<&str> = trimmed
-            .trim_end_matches(':')
-            .trim()
-            .split_whitespace()
-            .collect();
+        let parts: Vec<&str> = trimmed.trim_end_matches(':').split_whitespace().collect();
         if let Some(field_part) = parts.last() {
             let (mut path, field_name) = parse_field_reference(field_part);
 
             // If path is empty, check if we're inside a section context
-            if path.is_empty() {
-                if let Some(section_path) = find_section_context(text, position) {
-                    path = section_path;
-                }
+            if path.is_empty()
+                && let Some(section_path) = find_section_context(text, position)
+            {
+                path = section_path;
             }
 
             CompletionContext::AfterColon { path, field_name }
@@ -303,19 +293,17 @@ fn extract_path_from_line(line: &str) -> Vec<String> {
     if trimmed.is_empty() {
         vec![]
     } else if trimmed.starts_with('@') {
-        let path = trimmed[1..]
+        trimmed[1..]
             .split('.')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .collect();
-        path
+            .collect()
     } else {
-        let path = trimmed
+        trimmed
             .split('.')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .collect();
-        path
+            .collect()
     }
 }
 
@@ -426,10 +414,10 @@ fn generate_variant_field_completions(
                 }
 
                 // Check if field matches partial
-                if let Some(partial) = partial_field {
-                    if !field_name.starts_with(partial) {
-                        continue;
-                    }
+                if let Some(partial) = partial_field
+                    && !field_name.starts_with(partial)
+                {
+                    continue;
                 }
 
                 completions.push(CompletionItem {
@@ -476,21 +464,22 @@ fn generate_field_completions(
     let mut completions = vec![];
 
     // At root level, also add $types if there are any types defined
-    if path.is_empty() && !schema.types.is_empty() {
-        if partial_field.is_none() || "$types".starts_with(partial_field.unwrap_or("")) {
-            completions.push(CompletionItem {
-                label: "$types".to_string(),
-                kind: Some(CompletionItemKind::MODULE),
-                detail: Some("Type definitions namespace".to_string()),
-                documentation: Some(lsp_types::Documentation::MarkupContent(
-                    lsp_types::MarkupContent {
-                        kind: lsp_types::MarkupKind::Markdown,
-                        value: "Access type definitions using `$types.TypeName`".to_string(),
-                    },
-                )),
-                ..Default::default()
-            });
-        }
+    if path.is_empty()
+        && !schema.types.is_empty()
+        && (partial_field.is_none() || "$types".starts_with(partial_field.unwrap_or("")))
+    {
+        completions.push(CompletionItem {
+            label: "$types".to_string(),
+            kind: Some(CompletionItemKind::MODULE),
+            detail: Some("Type definitions namespace".to_string()),
+            documentation: Some(lsp_types::Documentation::MarkupContent(
+                lsp_types::MarkupContent {
+                    kind: lsp_types::MarkupKind::Markdown,
+                    value: "Access type definitions using `$types.TypeName`".to_string(),
+                },
+            )),
+            ..Default::default()
+        });
     }
 
     for (key, field_schema) in &object_schema.fields {
@@ -506,10 +495,10 @@ fn generate_field_completions(
         }
 
         // Filter by partial field if present
-        if let Some(partial) = partial_field {
-            if !field_name.starts_with(partial) {
-                continue;
-            }
+        if let Some(partial) = partial_field
+            && !field_name.starts_with(partial)
+        {
+            continue;
         }
 
         // Check if this field should generate a snippet
@@ -552,10 +541,10 @@ fn generate_type_completions(
         };
 
         // Filter by partial type if present
-        if let Some(partial) = partial_type {
-            if !type_name.starts_with(partial) {
-                continue;
-            }
+        if let Some(partial) = partial_type
+            && !type_name.starts_with(partial)
+        {
+            continue;
         }
 
         completions.push(CompletionItem {
@@ -704,10 +693,10 @@ fn lookup_and_generate_variant_completions(
                 Ok(id) => KeyCmpValue::MetaExtension(id),
                 Err(_) => return vec![], // Should never happen with "variants"
             };
-            if let Some(variants_field) = type_obj.fields.get(&variants_key) {
-                if let Type::Variants(variant_schema) = &variants_field.type_expr {
-                    return generate_variant_completion_items(variant_schema);
-                }
+            if let Some(variants_field) = type_obj.fields.get(&variants_key)
+                && let Type::Variants(variant_schema) = &variants_field.type_expr
+            {
+                return generate_variant_completion_items(variant_schema);
             }
         }
     }
@@ -905,9 +894,7 @@ fn lookup_variant_schema<'a>(
         // Check if it's a variant type
         if let Type::Variants(variant_schema) = &field_schema.type_expr {
             return Some(variant_schema);
-        } else {
         }
-    } else {
     }
     None
 }
@@ -1005,10 +992,10 @@ fn lookup_variant_schema_at_path<'a>(
 
     // Look for $variants field
     let variants_key = KeyCmpValue::MetaExtension(Identifier::from_str("variants").ok()?);
-    if let Some(field) = object.fields.get(&variants_key) {
-        if let Type::Variants(variant_schema) = &field.type_expr {
-            return Some(variant_schema);
-        }
+    if let Some(field) = object.fields.get(&variants_key)
+        && let Type::Variants(variant_schema) = &field.type_expr
+    {
+        return Some(variant_schema);
     }
 
     None
@@ -1104,13 +1091,15 @@ fn find_used_fields_in_section(
             }
 
             // Look for field assignments
-            if !trimmed.is_empty() && !trimmed.starts_with('#') && trimmed.contains('=') {
-                if let Some(eq_pos) = trimmed.find('=') {
-                    let field_name = trimmed[..eq_pos].trim();
-                    // Make sure this is a direct field (not a nested path)
-                    if !field_name.contains('.') {
-                        used_fields.insert(field_name.to_string());
-                    }
+            if !trimmed.is_empty()
+                && !trimmed.starts_with('#')
+                && trimmed.contains('=')
+                && let Some(eq_pos) = trimmed.find('=')
+            {
+                let field_name = trimmed[..eq_pos].trim();
+                // Make sure this is a direct field (not a nested path)
+                if !field_name.contains('.') {
+                    used_fields.insert(field_name.to_string());
                 }
             }
         }
@@ -1180,7 +1169,7 @@ fn find_variant_context(text: &str, position: Position, section_path: &[String])
                     .map(|p| {
                         trimmed == p
                             || trimmed == format!("{}[]", p)
-                            || trimmed.starts_with(&format!("{}", p))
+                            || trimmed.starts_with(&p.to_string())
                     })
                     .unwrap_or(false);
 
@@ -1323,10 +1312,10 @@ fn find_node_at_position_recursive(
     position_byte: usize,
 ) -> Option<CstNodeId> {
     // Check if this node contains the position
-    if let Some(span) = get_node_span(cst, node_id) {
-        if position_byte < span.start as usize || position_byte > span.end as usize {
-            return None; // Position is outside this node
-        }
+    if let Some(span) = get_node_span(cst, node_id)
+        && (position_byte < span.start as usize || position_byte > span.end as usize)
+    {
+        return None; // Position is outside this node
     }
 
     // Check all children to find the most specific node
@@ -1549,7 +1538,7 @@ fn extract_field_name_before_operator(text: &str) -> Option<String> {
     };
 
     // Find the last word (field name)
-    let parts: Vec<&str> = without_operator.trim().split_whitespace().collect();
+    let parts: Vec<&str> = without_operator.split_whitespace().collect();
     parts.last().map(|s| s.to_string())
 }
 

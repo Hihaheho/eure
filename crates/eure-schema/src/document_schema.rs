@@ -258,20 +258,18 @@ impl SchemaBuilder {
                                     if let NodeValue::Path {
                                         value: type_path, ..
                                     } = &array_node.content
-                                    {
-                                        if let Some(elem_type) =
+                                        && let Some(elem_type) =
                                             Type::from_path_segments(&type_path.0)
-                                        {
-                                            // Create an array field with the specified element type
-                                            self.root_fields.insert(
-                                                KeyCmpValue::String(field_name.to_string()),
-                                                FieldSchema {
-                                                    type_expr: Type::Array(Box::new(elem_type)),
-                                                    optional: false,
-                                                    ..Default::default()
-                                                },
-                                            );
-                                        }
+                                    {
+                                        // Create an array field with the specified element type
+                                        self.root_fields.insert(
+                                            KeyCmpValue::String(field_name.to_string()),
+                                            FieldSchema {
+                                                type_expr: Type::Array(Box::new(elem_type)),
+                                                optional: false,
+                                                ..Default::default()
+                                            },
+                                        );
                                     }
                                 } else if let NodeValue::Path {
                                     value: type_path, ..
@@ -392,17 +390,13 @@ impl SchemaBuilder {
                     }
                     DocumentKey::Value(val) => {
                         // Handle quoted field names like "$variant", "a.b.c", etc.
-                        if path.is_empty() {
-                            if let KeyCmpValue::String(field_name) = val {
-                                if let Some(field_schema) = self
-                                    .extract_field_schema_from_node(doc, field_name, child_node)?
-                                {
-                                    self.root_fields.insert(
-                                        KeyCmpValue::String(field_name.clone()),
-                                        field_schema,
-                                    );
-                                }
-                            }
+                        if path.is_empty()
+                            && let KeyCmpValue::String(field_name) = val
+                            && let Some(field_schema) =
+                                self.extract_field_schema_from_node(doc, field_name, child_node)?
+                        {
+                            self.root_fields
+                                .insert(KeyCmpValue::String(field_name.clone()), field_schema);
                         }
                     }
                     _ => {} // Skip other key types
@@ -845,28 +839,28 @@ impl SchemaBuilder {
                 }
                 "range" => {
                     // Handle $range = (min, max)
-                    if let NodeValue::Tuple { children, .. } = &ext_node.content {
-                        if children.len() == 2 {
-                            let min_node = doc.get_node(children[0]);
-                            let max_node = doc.get_node(children[1]);
-                            let min_value = Self::extract_f64_from_node(&min_node.content);
-                            let max_value = Self::extract_f64_from_node(&max_node.content);
-                            schema.constraints.range = Some((min_value, max_value));
-                            has_schema = true;
-                        }
+                    if let NodeValue::Tuple { children, .. } = &ext_node.content
+                        && children.len() == 2
+                    {
+                        let min_node = doc.get_node(children[0]);
+                        let max_node = doc.get_node(children[1]);
+                        let min_value = Self::extract_f64_from_node(&min_node.content);
+                        let max_value = Self::extract_f64_from_node(&max_node.content);
+                        schema.constraints.range = Some((min_value, max_value));
+                        has_schema = true;
                     }
                 }
                 "length" => {
                     // Handle $length = (min, max)
-                    if let NodeValue::Tuple { children, .. } = &ext_node.content {
-                        if children.len() == 2 {
-                            let min_node = doc.get_node(children[0]);
-                            let max_node = doc.get_node(children[1]);
-                            let min_value = Self::extract_usize_from_node(&min_node.content);
-                            let max_value = Self::extract_usize_from_node(&max_node.content);
-                            schema.constraints.length = Some((min_value, max_value));
-                            has_schema = true;
-                        }
+                    if let NodeValue::Tuple { children, .. } = &ext_node.content
+                        && children.len() == 2
+                    {
+                        let min_node = doc.get_node(children[0]);
+                        let max_node = doc.get_node(children[1]);
+                        let min_value = Self::extract_usize_from_node(&min_node.content);
+                        let max_value = Self::extract_usize_from_node(&max_node.content);
+                        schema.constraints.length = Some((min_value, max_value));
+                        has_schema = true;
                     }
                 }
                 "values" => {
@@ -880,10 +874,10 @@ impl SchemaBuilder {
                         let mut union_types = Vec::new();
                         for child_id in children {
                             let child_node = doc.get_node(*child_id);
-                            if let NodeValue::Path { value: path, .. } = &child_node.content {
-                                if let Some(union_type) = Type::from_path_segments(&path.0) {
-                                    union_types.push(union_type);
-                                }
+                            if let NodeValue::Path { value: path, .. } = &child_node.content
+                                && let Some(union_type) = Type::from_path_segments(&path.0)
+                            {
+                                union_types.push(union_type);
                             }
                         }
                         if !union_types.is_empty() {

@@ -100,7 +100,10 @@ config.host = 123  # Should be string
     assert!(result.is_ok(), "Should parse and validate even with errors");
 
     let validation = result.unwrap();
-    assert!(validation.errors.len() > 0, "Should have validation errors");
+    assert!(
+        !validation.errors.is_empty(),
+        "Should have validation errors"
+    );
 
     // Check for type mismatch error (actual is reported as "i64" not "number")
     let has_type_mismatch = validation.errors.iter().any(|e| {

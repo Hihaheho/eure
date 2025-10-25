@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_eure::{from_str, from_value, to_string, to_value};
+use serde_eure::{from_str, to_string};
 
 #[test]
 fn test_empty_tuple() {

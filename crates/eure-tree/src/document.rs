@@ -1350,7 +1350,7 @@ mod tests {
     use eure_value::identifier::Identifier;
     use eure_value::value::{KeyCmpValue, PathSegment};
     use std::str::FromStr;
-    use std::string::{String, ToString};
+    use std::string::ToString;
     use std::vec;
 
     fn make_ident(s: &str) -> Identifier {
@@ -1403,7 +1403,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             assert_eq!(entries.len(), 1);
@@ -1540,7 +1540,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             let (_, user_node_id) = &entries[0];
@@ -1568,7 +1568,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             let (_, field_node_id) = &entries[0];
@@ -1661,7 +1661,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             let (_, items_node_id) = &entries[0];
@@ -1725,7 +1725,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             let (_, list_node_id) = &entries[0];
@@ -1767,7 +1767,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             let (_, user_node_id) = &entries[0];
@@ -1858,7 +1858,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             assert_eq!(entries.len(), 1);
@@ -2042,7 +2042,7 @@ mod tests {
         let root = doc.get_root();
         if let NodeValue::Map {
             handle: _,
-            entries: ref entries,
+            ref entries,
         } = root.content
         {
             let (_, root_node_id) = &entries[0];

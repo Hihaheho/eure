@@ -501,17 +501,15 @@ impl<'a> DocumentValidator<'a> {
         let node = self.document.get_node(node_id);
 
         // Check for holes first - holes are always invalid except for Type::Any
-        if matches!(node.content, NodeValue::Hole { .. }) {
-            if !matches!(expected_type, Type::Any) {
-                self.add_error(
-                    node_id,
-                    ValidationErrorKind::HoleExists {
-                        path: path.to_vec(),
-                    },
-                );
-                self.current_depth -= 1;
-                return;
-            }
+        if matches!(node.content, NodeValue::Hole { .. }) && !matches!(expected_type, Type::Any) {
+            self.add_error(
+                node_id,
+                ValidationErrorKind::HoleExists {
+                    path: path.to_vec(),
+                },
+            );
+            self.current_depth -= 1;
+            return;
         }
 
         match expected_type {
@@ -930,20 +928,20 @@ impl<'a> DocumentValidator<'a> {
         }
 
         // For Tagged representation, check if there's a $variant extension at this level
-        if matches!(&variant_schema.representation, VariantRepr::Tagged) {
-            if let Some(variant_ext_id) = node.extensions.get(&identifiers::VARIANT) {
-                let variant_node = self.document.get_node(*variant_ext_id);
-                if let NodeValue::String { value, .. } = &variant_node.content {
-                    let variant_key = KeyCmpValue::String(value.clone());
-                    if variant_schema.variants.contains_key(&variant_key) {
-                        if let Ok(variant_name) = Identifier::from_str(value) {
-                            return Some(VariantInfo {
-                                variant_name,
-                                variant_key,
-                                detection_source: VariantDetectionSource::Extension,
-                            });
-                        }
-                    }
+        if matches!(&variant_schema.representation, VariantRepr::Tagged)
+            && let Some(variant_ext_id) = node.extensions.get(&identifiers::VARIANT)
+        {
+            let variant_node = self.document.get_node(*variant_ext_id);
+            if let NodeValue::String { value, .. } = &variant_node.content {
+                let variant_key = KeyCmpValue::String(value.clone());
+                if variant_schema.variants.contains_key(&variant_key)
+                    && let Ok(variant_name) = Identifier::from_str(value)
+                {
+                    return Some(VariantInfo {
+                        variant_name,
+                        variant_key,
+                        detection_source: VariantDetectionSource::Extension,
+                    });
                 }
             }
         }
@@ -952,18 +950,17 @@ impl<'a> DocumentValidator<'a> {
         match &variant_schema.representation {
             VariantRepr::Tagged => {
                 // Look for single key that matches a variant name
-                if let NodeValue::Map { entries, .. } = &node.content {
-                    if entries.len() == 1 {
-                        if let Some((DocumentKey::Ident(key), _)) = entries.first() {
-                            let key_cmp = KeyCmpValue::String(key.to_string());
-                            if variant_schema.variants.contains_key(&key_cmp) {
-                                return Some(VariantInfo {
-                                    variant_name: key.clone(),
-                                    variant_key: key_cmp,
-                                    detection_source: VariantDetectionSource::Tagged,
-                                });
-                            }
-                        }
+                if let NodeValue::Map { entries, .. } = &node.content
+                    && entries.len() == 1
+                    && let Some((DocumentKey::Ident(key), _)) = entries.first()
+                {
+                    let key_cmp = KeyCmpValue::String(key.to_string());
+                    if variant_schema.variants.contains_key(&key_cmp) {
+                        return Some(VariantInfo {
+                            variant_name: key.clone(),
+                            variant_key: key_cmp,
+                            detection_source: VariantDetectionSource::Tagged,
+                        });
                     }
                 }
             }
@@ -971,24 +968,25 @@ impl<'a> DocumentValidator<'a> {
                 // Look for tag field
                 if let NodeValue::Map { entries, .. } = &node.content {
                     for (key, child_id) in entries {
-                        if let DocumentKey::Ident(field_name) = key {
-                            if KeyCmpValue::String(field_name.to_string()) == *tag {
-                                let tag_node = self.document.get_node(*child_id);
-                                if let NodeValue::String { value, .. } = &tag_node.content {
-                                    let variant_key = KeyCmpValue::String(value.clone());
-                                    if variant_schema.variants.contains_key(&variant_key) {
-                                        if let Ok(variant_name) = Identifier::from_str(value) {
-                                            return Some(VariantInfo {
-                                                variant_name,
-                                                variant_key,
-                                                detection_source:
-                                                    VariantDetectionSource::InternalTag(match tag {
-                                                        KeyCmpValue::String(s) => s.clone(),
-                                                        _ => format!("{:?}", tag),
-                                                    }),
-                                            });
-                                        }
-                                    }
+                        if let DocumentKey::Ident(field_name) = key
+                            && KeyCmpValue::String(field_name.to_string()) == *tag
+                        {
+                            let tag_node = self.document.get_node(*child_id);
+                            if let NodeValue::String { value, .. } = &tag_node.content {
+                                let variant_key = KeyCmpValue::String(value.clone());
+                                if variant_schema.variants.contains_key(&variant_key)
+                                    && let Ok(variant_name) = Identifier::from_str(value)
+                                {
+                                    return Some(VariantInfo {
+                                        variant_name,
+                                        variant_key,
+                                        detection_source: VariantDetectionSource::InternalTag(
+                                            match tag {
+                                                KeyCmpValue::String(s) => s.clone(),
+                                                _ => format!("{:?}", tag),
+                                            },
+                                        ),
+                                    });
                                 }
                             }
                         }
@@ -999,24 +997,25 @@ impl<'a> DocumentValidator<'a> {
                 // Look for tag field
                 if let NodeValue::Map { entries, .. } = &node.content {
                     for (key, child_id) in entries {
-                        if let DocumentKey::Ident(field_name) = key {
-                            if KeyCmpValue::String(field_name.to_string()) == *tag {
-                                let tag_node = self.document.get_node(*child_id);
-                                if let NodeValue::String { value, .. } = &tag_node.content {
-                                    let variant_key = KeyCmpValue::String(value.clone());
-                                    if variant_schema.variants.contains_key(&variant_key) {
-                                        if let Ok(variant_name) = Identifier::from_str(value) {
-                                            return Some(VariantInfo {
-                                                variant_name,
-                                                variant_key,
-                                                detection_source:
-                                                    VariantDetectionSource::InternalTag(match tag {
-                                                        KeyCmpValue::String(s) => s.clone(),
-                                                        _ => format!("{:?}", tag),
-                                                    }),
-                                            });
-                                        }
-                                    }
+                        if let DocumentKey::Ident(field_name) = key
+                            && KeyCmpValue::String(field_name.to_string()) == *tag
+                        {
+                            let tag_node = self.document.get_node(*child_id);
+                            if let NodeValue::String { value, .. } = &tag_node.content {
+                                let variant_key = KeyCmpValue::String(value.clone());
+                                if variant_schema.variants.contains_key(&variant_key)
+                                    && let Ok(variant_name) = Identifier::from_str(value)
+                                {
+                                    return Some(VariantInfo {
+                                        variant_name,
+                                        variant_key,
+                                        detection_source: VariantDetectionSource::InternalTag(
+                                            match tag {
+                                                KeyCmpValue::String(s) => s.clone(),
+                                                _ => format!("{:?}", tag),
+                                            },
+                                        ),
+                                    });
                                 }
                             }
                         }
@@ -1028,16 +1027,14 @@ impl<'a> DocumentValidator<'a> {
                 // We'll implement a lightweight check here instead of full validation
                 if let Some((variant_key, _)) =
                     self.find_matching_untagged_variant(node, variant_schema)
+                    && let KeyCmpValue::String(variant_str) = &variant_key
+                    && let Ok(variant_name) = Identifier::from_str(variant_str)
                 {
-                    if let KeyCmpValue::String(variant_str) = &variant_key {
-                        if let Ok(variant_name) = Identifier::from_str(variant_str) {
-                            return Some(VariantInfo {
-                                variant_name,
-                                variant_key,
-                                detection_source: VariantDetectionSource::Untagged,
-                            });
-                        }
-                    }
+                    return Some(VariantInfo {
+                        variant_name,
+                        variant_key,
+                        detection_source: VariantDetectionSource::Untagged,
+                    });
                 }
             }
         }
@@ -1238,37 +1235,29 @@ impl<'a> DocumentValidator<'a> {
                             // Check if tag field exists with an invalid value
                             if let NodeValue::Map { entries, .. } = &node.content {
                                 entries.iter().any(|(key, child_id)| {
-                                    if let DocumentKey::Ident(field_name) = key {
-                                        if KeyCmpValue::String(field_name.to_string()) == *tag {
-                                            let tag_node = self.document.get_node(*child_id);
-                                            if let NodeValue::String { value, .. } =
-                                                &tag_node.content
-                                            {
-                                                let variant_key =
-                                                    KeyCmpValue::String(value.clone());
-                                                if !variant_schema
-                                                    .variants
-                                                    .contains_key(&variant_key)
-                                                {
-                                                    // Tag exists but value is invalid
-                                                    self.add_error(
-                                                        node_id,
-                                                        ValidationErrorKind::UnknownVariant {
-                                                            variant: value.clone(),
-                                                            available: variant_schema
-                                                                .variants
-                                                                .keys()
-                                                                .map(|k| match k {
-                                                                    KeyCmpValue::String(s) => {
-                                                                        s.clone()
-                                                                    }
-                                                                    _ => format!("{k:?}"),
-                                                                })
-                                                                .collect(),
-                                                        },
-                                                    );
-                                                    return true;
-                                                }
+                                    if let DocumentKey::Ident(field_name) = key
+                                        && KeyCmpValue::String(field_name.to_string()) == *tag
+                                    {
+                                        let tag_node = self.document.get_node(*child_id);
+                                        if let NodeValue::String { value, .. } = &tag_node.content {
+                                            let variant_key = KeyCmpValue::String(value.clone());
+                                            if !variant_schema.variants.contains_key(&variant_key) {
+                                                // Tag exists but value is invalid
+                                                self.add_error(
+                                                    node_id,
+                                                    ValidationErrorKind::UnknownVariant {
+                                                        variant: value.clone(),
+                                                        available: variant_schema
+                                                            .variants
+                                                            .keys()
+                                                            .map(|k| match k {
+                                                                KeyCmpValue::String(s) => s.clone(),
+                                                                _ => format!("{k:?}"),
+                                                            })
+                                                            .collect(),
+                                                    },
+                                                );
+                                                return true;
                                             }
                                         }
                                     }

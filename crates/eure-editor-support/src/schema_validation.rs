@@ -234,8 +234,7 @@ fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
         eure_schema::KeyCmpValue::Unit => "()".to_string(),
         eure_schema::KeyCmpValue::Tuple(elements) => {
             // Format tuple as (elem1, elem2, ...)
-            let formatted_elements: Vec<String> =
-                elements.iter().map(|elem| format_field_key(elem)).collect();
+            let formatted_elements: Vec<String> = elements.iter().map(format_field_key).collect();
             format!("({})", formatted_elements.join(", "))
         }
         eure_schema::KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
@@ -317,10 +316,10 @@ fn get_value_span(
     // by looking for specific node types that represent values
 
     // First check if this node is already a terminal (leaf) node
-    if let Some(node_data) = cst.node_data(node_id) {
-        if matches!(node_data, eure_tree::tree::CstNodeData::Terminal { .. }) {
-            return get_node_span(cst, node_id);
-        }
+    if let Some(node_data) = cst.node_data(node_id)
+        && matches!(node_data, eure_tree::tree::CstNodeData::Terminal { .. })
+    {
+        return get_node_span(cst, node_id);
     }
 
     // For non-terminals, try to find the value part
@@ -331,10 +330,10 @@ fn get_value_span(
     for child_id in children {
         if let Some(child_data) = cst.node_data(child_id) {
             // Check if this looks like a value node (string, number, etc.)
-            if matches!(child_data, eure_tree::tree::CstNodeData::Terminal { .. }) {
-                if let Some(span) = get_node_span(cst, child_id) {
-                    return Some(span);
-                }
+            if matches!(child_data, eure_tree::tree::CstNodeData::Terminal { .. })
+                && let Some(span) = get_node_span(cst, child_id)
+            {
+                return Some(span);
             }
         }
     }
@@ -360,15 +359,12 @@ pub fn validation_error_to_diagnostic(
         if let Some(mut span) = span {
             // For certain error types, we might need to refine the span
             // to exclude leading/trailing whitespace
-            match &error.kind {
-                ValidationErrorKind::TypeMismatch { .. } => {
-                    // For type mismatches, try to get a more precise span
-                    // by looking at the actual value node
-                    if let Some(refined_span) = get_value_span(cst, cst_node_id) {
-                        span = refined_span;
-                    }
+            if let ValidationErrorKind::TypeMismatch { .. } = &error.kind {
+                // For type mismatches, try to get a more precise span
+                // by looking at the actual value node
+                if let Some(refined_span) = get_value_span(cst, cst_node_id) {
+                    span = refined_span;
                 }
-                _ => {}
             }
 
             // Convert span to range

@@ -31,11 +31,11 @@ events.$array = .$types.Event
     let doc1 = visitor1.into_document();
     let schema1 = document_to_schema(&doc1).expect("Failed to extract schema");
 
-    if let Some(event_type) = schema1.types.get(&KeyCmpValue::String("Event".to_string())) {
-        if let Type::Variants(variant_schema) = &event_type.type_expr {
-            println!("  Result: {:?}", variant_schema.representation);
-            // Should be: InternallyTagged { tag: "type" }
-        }
+    if let Some(event_type) = schema1.types.get(&KeyCmpValue::String("Event".to_string()))
+        && let Type::Variants(variant_schema) = &event_type.type_expr
+    {
+        println!("  Result: {:?}", variant_schema.representation);
+        // Should be: InternallyTagged { tag: "type" }
     }
 
     // Now test validation with this schema
@@ -84,11 +84,10 @@ messages.$array = .$types.Message
     if let Some(msg_type) = schema2
         .types
         .get(&KeyCmpValue::String("Message".to_string()))
+        && let Type::Variants(variant_schema) = &msg_type.type_expr
     {
-        if let Type::Variants(variant_schema) = &msg_type.type_expr {
-            println!("  Result: {:?}", variant_schema.representation);
-            // Should be: AdjacentlyTagged { tag: "type", content: "content" }
-        }
+        println!("  Result: {:?}", variant_schema.representation);
+        // Should be: AdjacentlyTagged { tag: "type", content: "content" }
     }
 
     // Test 3: "untagged" string (should work)
@@ -115,10 +114,10 @@ values.$array = .$types.Value
     let doc3 = visitor3.into_document();
     let schema3 = document_to_schema(&doc3).expect("Failed to extract schema");
 
-    if let Some(val_type) = schema3.types.get(&KeyCmpValue::String("Value".to_string())) {
-        if let Type::Variants(variant_schema) = &val_type.type_expr {
-            println!("  Result: {:?}", variant_schema.representation);
-            // Should be: Untagged
-        }
+    if let Some(val_type) = schema3.types.get(&KeyCmpValue::String("Value".to_string()))
+        && let Type::Variants(variant_schema) = &val_type.type_expr
+    {
+        println!("  Result: {:?}", variant_schema.representation);
+        // Should be: Untagged
     }
 }

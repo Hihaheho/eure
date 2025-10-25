@@ -1,4 +1,4 @@
-use eure_schema::{Type, document_to_schema, validate_document};
+use eure_schema::{Type, document_to_schema};
 use eure_tree::value_visitor::ValueVisitor;
 use eure_value::value::KeyCmpValue;
 
@@ -33,15 +33,15 @@ events.$array = .$types.Event
     // only handles string values, not objects
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
 
-    if let Some(event_type) = schema.types.get(&KeyCmpValue::String("Event".to_string())) {
-        if let Type::Variants(variant_schema) = &event_type.type_expr {
-            println!(
-                "Extracted representation: {:?}",
-                variant_schema.representation
-            );
-            // Expected: InternallyTagged { tag: "type" }
-            // Actual: Probably Tagged (default)
-        }
+    if let Some(event_type) = schema.types.get(&KeyCmpValue::String("Event".to_string()))
+        && let Type::Variants(variant_schema) = &event_type.type_expr
+    {
+        println!(
+            "Extracted representation: {:?}",
+            variant_schema.representation
+        );
+        // Expected: InternallyTagged { tag: "type" }
+        // Actual: Probably Tagged (default)
     }
 
     // Test 2: Adjacently tagged with object notation
@@ -74,15 +74,14 @@ messages.$array = .$types.Message
     if let Some(message_type) = schema2
         .types
         .get(&KeyCmpValue::String("Message".to_string()))
+        && let Type::Variants(variant_schema) = &message_type.type_expr
     {
-        if let Type::Variants(variant_schema) = &message_type.type_expr {
-            println!(
-                "Extracted representation: {:?}",
-                variant_schema.representation
-            );
-            // Expected: AdjacentlyTagged { tag: "kind", content: "data" }
-            // Actual: Probably Tagged (default)
-        }
+        println!(
+            "Extracted representation: {:?}",
+            variant_schema.representation
+        );
+        // Expected: AdjacentlyTagged { tag: "kind", content: "data" }
+        // Actual: Probably Tagged (default)
     }
 
     // Test 3: String notation (should work)
@@ -110,14 +109,14 @@ values.$array = .$types.Value
     let schema_doc3 = schema_visitor3.into_document();
     let schema3 = document_to_schema(&schema_doc3).expect("Failed to extract schema");
 
-    if let Some(value_type) = schema3.types.get(&KeyCmpValue::String("Value".to_string())) {
-        if let Type::Variants(variant_schema) = &value_type.type_expr {
-            println!(
-                "Extracted representation: {:?}",
-                variant_schema.representation
-            );
-            // Expected: Untagged
-            // Actual: Should work since it's a string
-        }
+    if let Some(value_type) = schema3.types.get(&KeyCmpValue::String("Value".to_string()))
+        && let Type::Variants(variant_schema) = &value_type.type_expr
+    {
+        println!(
+            "Extracted representation: {:?}",
+            variant_schema.representation
+        );
+        // Expected: Untagged
+        // Actual: Should work since it's a string
     }
 }

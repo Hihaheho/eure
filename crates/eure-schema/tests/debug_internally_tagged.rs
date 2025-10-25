@@ -1,4 +1,4 @@
-use eure_schema::{Type, VariantSchema, document_to_schema, validate_document};
+use eure_schema::{Type, document_to_schema, validate_document};
 use eure_tree::value_visitor::ValueVisitor;
 use eure_value::value::KeyCmpValue;
 
@@ -29,14 +29,14 @@ events.$array = .$types.Event
     let schema = document_to_schema(&schema_doc).expect("Failed to extract schema");
 
     // Check what tag field the schema is expecting
-    if let Some(event_type) = schema.types.get(&KeyCmpValue::String("Event".to_string())) {
-        if let Type::Variants(variant_schema) = &event_type.type_expr {
-            println!(
-                "Variant representation: {:?}",
-                variant_schema.representation
-            );
-            // This should show InternallyTagged { tag: "type" }
-        }
+    if let Some(event_type) = schema.types.get(&KeyCmpValue::String("Event".to_string()))
+        && let Type::Variants(variant_schema) = &event_type.type_expr
+    {
+        println!(
+            "Variant representation: {:?}",
+            variant_schema.representation
+        );
+        // This should show InternallyTagged { tag: "type" }
     }
 
     // Test document with "type" field (should work with hardcoded default)
