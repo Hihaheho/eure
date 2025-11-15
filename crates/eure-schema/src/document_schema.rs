@@ -7,7 +7,7 @@ use crate::identifiers;
 use crate::schema::*;
 use crate::utils::path_to_display_string;
 use eure_tree::document::{DocumentKey, EureDocument, Node, NodeValue};
-use eure_value::value::{KeyCmpValue, EurePath};
+use eure_value::value::{EurePath, ObjectKey};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -127,11 +127,11 @@ pub fn is_pure_schema_node(doc: &EureDocument, node: &Node) -> bool {
             // Check all entries
             for (key, node_id) in entries {
                 match key {
-                    DocumentKey::MetaExtension(_) => {
+                    ObjectKey::MetaExtension(_) => {
                         // Meta-extension keys are OK for schemas
                         continue;
                     }
-                    DocumentKey::Ident(_) | DocumentKey::Value(_) => {
+                    ObjectKey::Ident(_) | ObjectKey::Value(_) => {
                         let child_node = doc.get_node(*node_id);
                         if !is_schema_or_nested_schema_node(doc, child_node) {
                             return false;
@@ -178,14 +178,14 @@ fn is_schema_or_nested_schema_node(doc: &EureDocument, node: &Node) -> bool {
             // If the map has non-extension entries, it's likely data
             let has_data_entries = entries
                 .iter()
-                .any(|(key, _)| matches!(key, DocumentKey::Ident(_) | DocumentKey::Value(_)));
+                .any(|(key, _)| matches!(key, ObjectKey::Ident(_) | ObjectKey::Value(_)));
 
             if has_data_entries {
                 // Check if all non-extension entries are schema nodes
                 for (key, node_id) in entries {
                     match key {
-                        DocumentKey::MetaExtension(_) => continue,
-                        DocumentKey::Ident(_) | DocumentKey::Value(_) => {
+                        ObjectKey::MetaExtension(_) => continue,
+                        ObjectKey::Ident(_) | ObjectKey::Value(_) => {
                             let child_node = doc.get_node(*node_id);
                             if !is_pure_schema_node(doc, child_node) {
                                 return false;
@@ -209,8 +209,8 @@ fn is_schema_or_nested_schema_node(doc: &EureDocument, node: &Node) -> bool {
 
 /// Helper to build schemas from EureDocument
 struct SchemaBuilder {
-    types: IndexMap<KeyCmpValue, FieldSchema>,
-    root_fields: IndexMap<KeyCmpValue, FieldSchema>,
+    types: IndexMap<ObjectKey, FieldSchema>,
+    root_fields: IndexMap<ObjectKey, FieldSchema>,
     cascade_types: HashMap<EurePath, Type>,
 }
 
@@ -251,7 +251,7 @@ impl SchemaBuilder {
                     if let NodeValue::Map { entries, .. } = &ext_node.content {
                         // Process nested cascade type definitions
                         for (key, node_id) in entries {
-                            if let DocumentKey::Ident(field_name) = key {
+                            if let ObjectKey::Ident(field_name) = key {
                                 let field_node = doc.get_node(*node_id);
                                 // Check if this field has an $array extension
                                 if let Some(array_node_id) =
@@ -266,7 +266,7 @@ impl SchemaBuilder {
                                     {
                                         // Create an array field with the specified element type
                                         self.root_fields.insert(
-                                            KeyCmpValue::String(field_name.to_string()),
+                                            ObjectKey::String(field_name.to_string()),
                                             FieldSchema {
                                                 type_expr: Type::Array(Box::new(elem_type)),
                                                 optional: false,
@@ -282,7 +282,7 @@ impl SchemaBuilder {
                                     if let Some(field_type) = Type::from_path_segments(&type_path.0)
                                     {
                                         self.root_fields.insert(
-                                            KeyCmpValue::String(field_name.to_string()),
+                                            ObjectKey::String(field_name.to_string()),
                                             FieldSchema {
                                                 type_expr: field_type,
                                                 optional: false,
@@ -300,7 +300,7 @@ impl SchemaBuilder {
                                         )?
                                     {
                                         self.root_fields.insert(
-                                            KeyCmpValue::String(field_name.to_string()),
+                                            ObjectKey::String(field_name.to_string()),
                                             field_schema,
                                         );
                                     }
@@ -323,7 +323,7 @@ impl SchemaBuilder {
                     {
                         // Store extension schemas directly by their identifier
                         self.root_fields
-                            .insert(KeyCmpValue::MetaExtension(ext_name.clone()), schema);
+                            .insert(ObjectKey::MetaExtension(ext_name.clone()), schema);
                     }
                 }
             }
@@ -335,7 +335,7 @@ impl SchemaBuilder {
                 let child_node = doc.get_node(*node_id);
 
                 match key {
-                    DocumentKey::Ident(ident) => {
+                    ObjectKey::Ident(ident) => {
                         if path.is_empty() {
                             // Check if this is the types namespace
                             if ident.as_ref() == "types" {
@@ -349,10 +349,8 @@ impl SchemaBuilder {
                                     ident.as_ref(),
                                     child_node,
                                 )? {
-                                    self.root_fields.insert(
-                                        KeyCmpValue::String(ident.to_string()),
-                                        field_schema,
-                                    );
+                                    self.root_fields
+                                        .insert(ObjectKey::String(ident.to_string()), field_schema);
                                 } else if has_schema_extensions(child_node) {
                                     // If the node has schema extensions but extract_field_schema_from_node returned None,
                                     // it might be because the node also has data content
@@ -364,7 +362,7 @@ impl SchemaBuilder {
                                         &mut field_schema,
                                     )? {
                                         self.root_fields.insert(
-                                            KeyCmpValue::String(ident.to_string()),
+                                            ObjectKey::String(ident.to_string()),
                                             field_schema,
                                         );
                                     }
@@ -377,7 +375,7 @@ impl SchemaBuilder {
                             self.process_node(doc, child_node, &new_path)?;
                         }
                     }
-                    DocumentKey::MetaExtension(meta_ext_ident) => {
+                    ObjectKey::MetaExtension(meta_ext_ident) => {
                         // Meta-extensions define schemas for extensions
                         if let Some(field_schema) = Self::extract_field_schema_from_node(
                             doc,
@@ -386,20 +384,20 @@ impl SchemaBuilder {
                         )? {
                             // Store as meta-extension schema
                             self.root_fields.insert(
-                                KeyCmpValue::MetaExtension(meta_ext_ident.clone()),
+                                ObjectKey::MetaExtension(meta_ext_ident.clone()),
                                 field_schema,
                             );
                         }
                     }
-                    DocumentKey::Value(val) => {
+                    ObjectKey::Value(val) => {
                         // Handle quoted field names like "$variant", "a.b.c", etc.
                         if path.is_empty()
-                            && let KeyCmpValue::String(field_name) = val
+                            && let ObjectKey::String(field_name) = val
                             && let Some(field_schema) =
                                 Self::extract_field_schema_from_node(doc, field_name, child_node)?
                         {
                             self.root_fields
-                                .insert(KeyCmpValue::String(field_name.clone()), field_schema);
+                                .insert(ObjectKey::String(field_name.clone()), field_schema);
                         }
                     }
                     _ => {} // Skip other key types
@@ -414,13 +412,13 @@ impl SchemaBuilder {
     fn process_types_node(&mut self, doc: &EureDocument, node: &Node) -> Result<(), SchemaError> {
         if let NodeValue::Map { entries, .. } = &node.content {
             for (key, node_id) in entries {
-                if let DocumentKey::Ident(type_name) = key {
+                if let ObjectKey::Ident(type_name) = key {
                     let type_node = doc.get_node(*node_id);
                     if let Some(type_schema) =
                         self.extract_type_definition(doc, type_name.as_ref(), type_node)?
                     {
                         self.types
-                            .insert(KeyCmpValue::String(type_name.to_string()), type_schema);
+                            .insert(ObjectKey::String(type_name.to_string()), type_schema);
                     }
                 }
             }
@@ -473,8 +471,8 @@ impl SchemaBuilder {
                             },
                             NodeValue::Map { entries, .. } => {
                                 // Parse object notation for internally/adjacently tagged
-                                let tag_key = DocumentKey::Ident(identifiers::TAG.clone());
-                                let content_key = DocumentKey::Ident(identifiers::CONTENT.clone());
+                                let tag_key = ObjectKey::Ident(identifiers::TAG.clone());
+                                let content_key = ObjectKey::Ident(identifiers::CONTENT.clone());
 
                                 let tag_value = entries
                                     .iter()
@@ -501,11 +499,11 @@ impl SchemaBuilder {
 
                                 match (tag_value, content_value) {
                                     (Some(tag), Some(content)) => VariantRepr::AdjacentlyTagged {
-                                        tag: KeyCmpValue::String(tag),
-                                        content: KeyCmpValue::String(content),
+                                        tag: ObjectKey::String(tag),
+                                        content: ObjectKey::String(content),
                                     },
                                     (Some(tag), None) => VariantRepr::InternallyTagged {
-                                        tag: KeyCmpValue::String(tag),
+                                        tag: ObjectKey::String(tag),
                                     },
                                     _ => VariantRepr::Tagged,
                                 }
@@ -530,7 +528,7 @@ impl SchemaBuilder {
                 if let NodeValue::Map { entries, .. } = &node.content {
                     for (key, field_node_id) in entries {
                         match key {
-                            DocumentKey::Ident(field_name) => {
+                            ObjectKey::Ident(field_name) => {
                                 let field_node = doc.get_node(*field_node_id);
                                 if let Some(field_schema) = Self::extract_field_schema_from_node(
                                     doc,
@@ -538,15 +536,15 @@ impl SchemaBuilder {
                                     field_node,
                                 )? {
                                     fields.insert(
-                                        KeyCmpValue::String(field_name.to_string()),
+                                        ObjectKey::String(field_name.to_string()),
                                         field_schema,
                                     );
                                     has_fields = true;
                                 }
                             }
-                            DocumentKey::Value(val) => {
+                            ObjectKey::Value(val) => {
                                 // Handle quoted field names in type definitions
-                                if let KeyCmpValue::String(field_name) = val
+                                if let ObjectKey::String(field_name) = val
                                     && let field_node = doc.get_node(*field_node_id)
                                     && let Some(field_schema) =
                                         Self::extract_field_schema_from_node(
@@ -554,7 +552,7 @@ impl SchemaBuilder {
                                         )?
                                 {
                                     fields.insert(
-                                        KeyCmpValue::String(field_name.clone()),
+                                        ObjectKey::String(field_name.clone()),
                                         field_schema,
                                     );
                                     has_fields = true;
@@ -902,7 +900,7 @@ impl SchemaBuilder {
                             let mut fields = IndexMap::new();
                             if let NodeValue::Map { entries, .. } = &ext_node.content {
                                 for (key, field_node_id) in entries {
-                                    if let DocumentKey::Ident(field_name) = key {
+                                    if let ObjectKey::Ident(field_name) = key {
                                         let field_node = doc.get_node(*field_node_id);
                                         if let Some(field_schema) =
                                             Self::extract_field_schema_from_node(
@@ -912,7 +910,7 @@ impl SchemaBuilder {
                                             )?
                                         {
                                             fields.insert(
-                                                KeyCmpValue::String(field_name.to_string()),
+                                                ObjectKey::String(field_name.to_string()),
                                                 field_schema,
                                             );
                                         }
@@ -932,7 +930,7 @@ impl SchemaBuilder {
                     // Handle $prefer extensions
                     if let NodeValue::Map { entries, .. } = &ext_node.content {
                         for (key, pref_node_id) in entries {
-                            if let DocumentKey::Ident(pref_name) = key {
+                            if let ObjectKey::Ident(pref_name) = key {
                                 let pref_node = doc.get_node(*pref_node_id);
                                 match pref_name.as_ref() {
                                     "section" => {
@@ -993,7 +991,7 @@ impl SchemaBuilder {
                 if let NodeValue::Map { entries, .. } = &node.content {
                     for (key, field_node_id) in entries {
                         match key {
-                            DocumentKey::Ident(field_name) => {
+                            ObjectKey::Ident(field_name) => {
                                 let field_node = doc.get_node(*field_node_id);
                                 if let Some(field_schema) = Self::extract_field_schema_from_node(
                                     doc,
@@ -1001,15 +999,15 @@ impl SchemaBuilder {
                                     field_node,
                                 )? {
                                     fields.insert(
-                                        KeyCmpValue::String(field_name.to_string()),
+                                        ObjectKey::String(field_name.to_string()),
                                         field_schema,
                                     );
                                     has_schema_fields = true;
                                 }
                             }
-                            DocumentKey::Value(val) => {
+                            ObjectKey::Value(val) => {
                                 // Handle quoted field names
-                                if let KeyCmpValue::String(field_name) = val
+                                if let ObjectKey::String(field_name) = val
                                     && let field_node = doc.get_node(*field_node_id)
                                     && let Some(field_schema) =
                                         Self::extract_field_schema_from_node(
@@ -1017,7 +1015,7 @@ impl SchemaBuilder {
                                         )?
                                 {
                                     fields.insert(
-                                        KeyCmpValue::String(field_name.clone()),
+                                        ObjectKey::String(field_name.clone()),
                                         field_schema,
                                     );
                                     has_schema_fields = true;
@@ -1074,19 +1072,16 @@ impl SchemaBuilder {
         &self,
         doc: &EureDocument,
         variants_node: &Node,
-    ) -> Result<IndexMap<KeyCmpValue, ObjectSchema>, SchemaError> {
+    ) -> Result<IndexMap<ObjectKey, ObjectSchema>, SchemaError> {
         let mut variants = IndexMap::new();
 
         if let NodeValue::Map { entries, .. } = &variants_node.content {
             for (key, node_id) in entries {
-                if let DocumentKey::Ident(variant_name) = key {
+                if let ObjectKey::Ident(variant_name) = key {
                     let variant_node = doc.get_node(*node_id);
                     let variant_schema =
                         self.extract_variant_schema(doc, variant_name.as_ref(), variant_node)?;
-                    variants.insert(
-                        KeyCmpValue::String(variant_name.to_string()),
-                        variant_schema,
-                    );
+                    variants.insert(ObjectKey::String(variant_name.to_string()), variant_schema);
                 }
             }
         }
@@ -1117,13 +1112,13 @@ impl SchemaBuilder {
     fn extract_variant_fields(
         &self,
         doc: &EureDocument,
-        fields: &mut IndexMap<KeyCmpValue, FieldSchema>,
+        fields: &mut IndexMap<ObjectKey, FieldSchema>,
         node: &Node,
     ) -> Result<(), SchemaError> {
         if let NodeValue::Map { entries, .. } = &node.content {
             for (key, node_id) in entries {
                 match key {
-                    DocumentKey::Ident(field_name) => {
+                    ObjectKey::Ident(field_name) => {
                         let field_node = doc.get_node(*node_id);
 
                         // Check if this field has an array extension
@@ -1131,24 +1126,23 @@ impl SchemaBuilder {
                         {
                             let array_node = doc.get_node(*array_node_id);
                             let array_field = self.extract_array_field(doc, array_node)?;
-                            fields.insert(KeyCmpValue::String(field_name.to_string()), array_field);
+                            fields.insert(ObjectKey::String(field_name.to_string()), array_field);
                         } else if let Some(field_schema) = Self::extract_field_schema_from_node(
                             doc,
                             field_name.as_ref(),
                             field_node,
                         )? {
-                            fields
-                                .insert(KeyCmpValue::String(field_name.to_string()), field_schema);
+                            fields.insert(ObjectKey::String(field_name.to_string()), field_schema);
                         }
                     }
-                    DocumentKey::Value(val) => {
+                    ObjectKey::Value(val) => {
                         // Handle quoted field names in variants
-                        if let KeyCmpValue::String(field_name) = val
+                        if let ObjectKey::String(field_name) = val
                             && let field_node = doc.get_node(*node_id)
                             && let Some(field_schema) =
                                 Self::extract_field_schema_from_node(doc, field_name, field_node)?
                         {
-                            fields.insert(KeyCmpValue::String(field_name.clone()), field_schema);
+                            fields.insert(ObjectKey::String(field_name.clone()), field_schema);
                         }
                     }
                     _ => {}

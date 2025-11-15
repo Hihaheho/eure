@@ -29,7 +29,7 @@ fn test_parse_hole_value() {
             assert!(
                 matches!(
                     map.0
-                        .get(&eure_value::value::KeyCmpValue::String("age".to_string())),
+                        .get(&eure_value::value::ObjectKey::String("age".to_string())),
                     Some(Value::Hole)
                 ),
                 "Expected age to be a hole"
@@ -37,11 +37,11 @@ fn test_parse_hole_value() {
 
             // Check address.street
             if let Some(Value::Map(address_map)) = map.0.get(
-                &eure_value::value::KeyCmpValue::String("address".to_string()),
+                &eure_value::value::ObjectKey::String("address".to_string()),
             ) {
                 assert!(
                     matches!(
-                        address_map.0.get(&eure_value::value::KeyCmpValue::String(
+                        address_map.0.get(&eure_value::value::ObjectKey::String(
                             "street".to_string()
                         )),
                         Some(Value::Hole)
@@ -55,7 +55,7 @@ fn test_parse_hole_value() {
             // Check items array
             if let Some(Value::Array(items)) = map
                 .0
-                .get(&eure_value::value::KeyCmpValue::String("items".to_string()))
+                .get(&eure_value::value::ObjectKey::String("items".to_string()))
             {
                 assert_eq!(items.0.len(), 3);
                 assert!(
@@ -118,7 +118,7 @@ fn test_hole_value_type() {
         Value::Map(map) => {
             let test_value = map
                 .0
-                .get(&eure_value::value::KeyCmpValue::String("test".to_string()))
+                .get(&eure_value::value::ObjectKey::String("test".to_string()))
                 .expect("test field not found");
             assert!(
                 matches!(test_value, Value::Hole),

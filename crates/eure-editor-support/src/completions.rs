@@ -9,7 +9,7 @@ use crate::completion_analyzer::CompletionAnalyzer;
 use crate::schema_validation::SchemaManager;
 use eure_schema::{DocumentSchema, FieldSchema, ObjectSchema, Type, VariantSchema};
 use eure_value::identifier::Identifier;
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 use std::collections::HashSet;
 use std::str::FromStr;
 
@@ -348,7 +348,7 @@ fn generate_variant_field_completions(
             };
 
             // Get the array field
-            let key = KeyCmpValue::String(field_name.to_string());
+            let key = ObjectKey::String(field_name.to_string());
             if let Some(field_schema) = parent_schema.fields.get(&key) {
                 if let Type::Array(elem_type) = &field_schema.type_expr {
                     // Check if element type is a type reference
@@ -378,7 +378,7 @@ fn generate_variant_field_completions(
             };
 
             // Check if the field is a variant type
-            let key = KeyCmpValue::String(field_name.clone());
+            let key = ObjectKey::String(field_name.clone());
             if let Some(field_schema) = parent_schema.fields.get(&key) {
                 if let Type::TypeRef(type_ref) = &field_schema.type_expr {
                     lookup_variant_schema(type_ref, schema)
@@ -396,15 +396,15 @@ fn generate_variant_field_completions(
 
     if let Some(variant_schema) = variant_schema {
         // Look for the specific variant
-        let variant_key = KeyCmpValue::String(variant_name.to_string());
+        let variant_key = ObjectKey::String(variant_name.to_string());
         if let Some(variant_def) = variant_schema.variants.get(&variant_key) {
             let mut completions = vec![];
 
             // Generate completions from variant fields
             for (key, field_schema) in &variant_def.fields {
                 let field_name = match key {
-                    KeyCmpValue::String(s) => s.clone(),
-                    KeyCmpValue::MetaExtension(s) => format!("${}", s),
+                    ObjectKey::String(s) => s.clone(),
+                    ObjectKey::MetaExtension(s) => format!("${}", s),
                     _ => continue,
                 };
 
@@ -484,8 +484,8 @@ fn generate_field_completions(
 
     for (key, field_schema) in &object_schema.fields {
         let field_name = match key {
-            KeyCmpValue::String(s) => s.clone(),
-            KeyCmpValue::MetaExtension(s) => format!("${}", s),
+            ObjectKey::String(s) => s.clone(),
+            ObjectKey::MetaExtension(s) => format!("${}", s),
             _ => continue,
         };
 
@@ -536,7 +536,7 @@ fn generate_type_completions(
 
     for (key, _type_field) in &schema.types {
         let type_name = match key {
-            KeyCmpValue::String(s) => s.clone(),
+            ObjectKey::String(s) => s.clone(),
             _ => continue,
         };
 
@@ -618,7 +618,7 @@ fn generate_variant_completions(path: &[String], schema: &DocumentSchema) -> Vec
             };
 
             // Look for the field in the parent
-            let field_key = KeyCmpValue::String(field_name.to_string());
+            let field_key = ObjectKey::String(field_name.to_string());
             if let Some(field_schema) = parent_obj.fields.get(&field_key) {
                 // Check if it's an array
                 if let Type::Array(elem_type) = &field_schema.type_expr {
@@ -644,7 +644,7 @@ fn generate_variant_completions(path: &[String], schema: &DocumentSchema) -> Vec
             };
 
             // Look for the field in the parent
-            let field_key = KeyCmpValue::String(field_name.clone());
+            let field_key = ObjectKey::String(field_name.clone());
             if let Some(field_schema) = parent_obj.fields.get(&field_key) {
                 // Check if it's a type reference
                 if let Type::TypeRef(type_ref) = &field_schema.type_expr {
@@ -677,7 +677,7 @@ fn lookup_and_generate_variant_completions(
     };
 
     // Convert Identifier to KeyCmpValue for lookup
-    let type_key = KeyCmpValue::String(type_name.to_string());
+    let type_key = ObjectKey::String(type_name.to_string());
 
     if let Some(type_field) = schema.types.get(&type_key) {
         // Check if the type itself is a Variants type
@@ -690,7 +690,7 @@ fn lookup_and_generate_variant_completions(
             // Check if this type has $variants
             // Safe: "variants" is a valid identifier
             let variants_key = match Identifier::from_str("variants") {
-                Ok(id) => KeyCmpValue::MetaExtension(id),
+                Ok(id) => ObjectKey::MetaExtension(id),
                 Err(_) => return vec![], // Should never happen with "variants"
             };
             if let Some(variants_field) = type_obj.fields.get(&variants_key)
@@ -709,7 +709,7 @@ fn generate_variant_completion_items(variant_schema: &VariantSchema) -> Vec<Comp
 
     for variant_name in variant_schema.variants.keys() {
         let label = match variant_name {
-            KeyCmpValue::String(s) => s.clone(),
+            ObjectKey::String(s) => s.clone(),
             _ => continue,
         };
 
@@ -815,7 +815,7 @@ fn generate_field_snippet(
             }
 
             let sub_field_name = match key {
-                KeyCmpValue::String(s) => s,
+                ObjectKey::String(s) => s,
                 _ => continue,
             };
 
@@ -842,7 +842,7 @@ fn is_variant_path(path: &[String], schema: &DocumentSchema) -> bool {
     let mut current = &schema.root;
 
     for (i, segment) in path.iter().enumerate() {
-        let key = KeyCmpValue::String(segment.clone());
+        let key = ObjectKey::String(segment.clone());
 
         if let Some(field) = current.fields.get(&key) {
             if i == path.len() - 1 {
@@ -889,7 +889,7 @@ fn lookup_variant_schema<'a>(
     // Look up the type definition
     if let Some(field_schema) = schema
         .types
-        .get(&KeyCmpValue::String(type_name.to_string()))
+        .get(&ObjectKey::String(type_name.to_string()))
     {
         // Check if it's a variant type
         if let Type::Variants(variant_schema) = &field_schema.type_expr {
@@ -916,7 +916,7 @@ fn lookup_schema_at_path_with_context<'a>(
         let _is_array = segment.ends_with("[]");
 
         // Look up the field
-        let key = KeyCmpValue::String(field_name.to_string());
+        let key = ObjectKey::String(field_name.to_string());
         if let Some(field) = current.fields.get(&key) {
             match &field.type_expr {
                 Type::Object(obj) => {
@@ -973,7 +973,7 @@ fn resolve_type_ref<'a>(
     // Look up the type definition
     if let Some(field_schema) = schema
         .types
-        .get(&KeyCmpValue::String(type_name.to_string()))
+        .get(&ObjectKey::String(type_name.to_string()))
     {
         // Check if it's an object type
         if let Type::Object(obj) = &field_schema.type_expr {
@@ -991,7 +991,7 @@ fn lookup_variant_schema_at_path<'a>(
     let object = lookup_schema_at_path(path, root)?;
 
     // Look for $variants field
-    let variants_key = KeyCmpValue::MetaExtension(Identifier::from_str("variants").ok()?);
+    let variants_key = ObjectKey::MetaExtension(Identifier::from_str("variants").ok()?);
     if let Some(field) = object.fields.get(&variants_key)
         && let Type::Variants(variant_schema) = &field.type_expr
     {
@@ -1012,7 +1012,7 @@ fn get_field_type_at_path<'a>(
     if let Some(field_name) = field_name.strip_prefix("$$") {
         // Meta-extensions ($$name) are stored as KeyCmpValue::MetaExtension
         if let Ok(id) = Identifier::from_str(field_name) {
-            let key = KeyCmpValue::MetaExtension(id);
+            let key = ObjectKey::MetaExtension(id);
             object.fields.get(&key).map(|field| &field.type_expr)
         } else {
             None
@@ -1023,7 +1023,7 @@ fn get_field_type_at_path<'a>(
         None
     } else {
         // Regular data fields use String keys
-        let key = KeyCmpValue::String(field_name.to_string());
+        let key = ObjectKey::String(field_name.to_string());
         object.fields.get(&key).map(|field| &field.type_expr)
     }
 }

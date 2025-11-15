@@ -2,7 +2,7 @@ use eure_tree::{
     CstNode, constructors::*, node_kind::TerminalKind, tree::ConcreteSyntaxTree,
     value_visitor::ValueVisitor,
 };
-use eure_value::value::{KeyCmpValue, Map, Value as EureValue};
+use eure_value::value::{ObjectKey, Map, Value as EureValue};
 
 /// Test that builds a complete CST from scratch using constructors
 /// This demonstrates the full constructor API by building: answer = 42
@@ -123,7 +123,7 @@ fn test_constructor_complete_tree() {
     match document {
         EureValue::Map(Map(map)) => {
             assert_eq!(map.len(), 1, "Expected one binding");
-            let answer_key = KeyCmpValue::String("answer".to_string());
+            let answer_key = ObjectKey::String("answer".to_string());
             let answer_value = map.get(&answer_key).expect("Missing 'answer' key");
             match answer_value {
                 EureValue::I64(42) => (), // Success!
@@ -320,7 +320,7 @@ fn test_constructor_array() {
     match document {
         EureValue::Map(Map(map)) => {
             assert_eq!(map.len(), 1, "Expected one binding");
-            let arr_key = KeyCmpValue::String("arr".to_string());
+            let arr_key = ObjectKey::String("arr".to_string());
             let arr_value = map.get(&arr_key).expect("Missing 'arr' key");
             match arr_value {
                 EureValue::Array(arr) => {
@@ -474,7 +474,7 @@ fn test_constructor_all_value_types() {
         match document {
             EureValue::Map(Map(map)) => {
                 assert_eq!(map.len(), 1, "Expected one binding");
-                let val_key = KeyCmpValue::String("val".to_string());
+                let val_key = ObjectKey::String("val".to_string());
                 let val_value = map.get(&val_key).expect("Missing 'val' key");
 
                 // Check the value based on expected
@@ -715,7 +715,7 @@ fn test_constructor_nested_object() {
     match document {
         EureValue::Map(Map(map)) => {
             assert_eq!(map.len(), 1, "Expected one binding");
-            let obj_key = KeyCmpValue::String("obj".to_string());
+            let obj_key = ObjectKey::String("obj".to_string());
             let obj_value = map.get(&obj_key).expect("Missing 'obj' key");
 
             match obj_value {
@@ -723,7 +723,7 @@ fn test_constructor_nested_object() {
                     assert_eq!(obj_map.len(), 2, "Expected two fields in object");
 
                     // Check name field
-                    let name_key = KeyCmpValue::String("name".to_string());
+                    let name_key = ObjectKey::String("name".to_string());
                     let name_value = obj_map.get(&name_key).expect("Missing 'name' key");
                     match name_value {
                         EureValue::String(s) if s == "Alice" => (),
@@ -731,12 +731,12 @@ fn test_constructor_nested_object() {
                     }
 
                     // Check data field
-                    let data_key = KeyCmpValue::String("data".to_string());
+                    let data_key = ObjectKey::String("data".to_string());
                     let data_value = obj_map.get(&data_key).expect("Missing 'data' key");
                     match data_value {
                         EureValue::Map(Map(data_map)) => {
                             assert_eq!(data_map.len(), 1, "Expected one field in nested object");
-                            let age_key = KeyCmpValue::String("age".to_string());
+                            let age_key = ObjectKey::String("age".to_string());
                             let age_value = data_map.get(&age_key).expect("Missing 'age' key");
                             match age_value {
                                 EureValue::I64(30) => (),

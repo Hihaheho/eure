@@ -1,6 +1,6 @@
 //! Tests for error message display formatting
 
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 
 use eure_schema::{Severity, ValidationError, ValidationErrorKind};
 use eure_tree::document::NodeId;
@@ -23,7 +23,7 @@ fn test_type_mismatch_display() {
 #[test]
 fn test_required_field_missing_display() {
     let error = ValidationErrorKind::RequiredFieldMissing {
-        field: KeyCmpValue::String("name".to_string()),
+        field: ObjectKey::String("name".to_string()),
         path: vec![PathSegment::Ident(Identifier::from_str("user").unwrap())],
     };
     assert_eq!(
@@ -32,7 +32,7 @@ fn test_required_field_missing_display() {
     );
 
     let error_root = ValidationErrorKind::RequiredFieldMissing {
-        field: KeyCmpValue::String("id".to_string()),
+        field: ObjectKey::String("id".to_string()),
         path: vec![],
     };
     assert_eq!(
@@ -143,7 +143,7 @@ fn test_array_violations_display() {
 #[test]
 fn test_unexpected_field_display() {
     let error = ValidationErrorKind::UnexpectedField {
-        field: KeyCmpValue::String("extra".to_string()),
+        field: ObjectKey::String("extra".to_string()),
         path: vec![
             PathSegment::Ident(Identifier::from_str("user").unwrap()),
             PathSegment::Ident(Identifier::from_str("profile").unwrap()),

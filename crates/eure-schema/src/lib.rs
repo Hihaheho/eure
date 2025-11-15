@@ -17,7 +17,7 @@ pub use builder::{FieldSchemaBuilder, ObjectSchemaBuilder, TypeBuilder, VariantS
 pub use document_schema::{SchemaError, document_to_schema, is_pure_schema_node};
 pub use document_validator::{Severity, ValidationError, ValidationErrorKind, validate_document};
 pub use error::ValueError;
-pub use eure_value::value::{KeyCmpValue, PathSegment};
+pub use eure_value::value::{ObjectKey, PathSegment};
 pub use schema::*;
 pub use utils::{
     path_segments_to_display_string, path_to_display_string, to_camel_case, to_kebab_case,

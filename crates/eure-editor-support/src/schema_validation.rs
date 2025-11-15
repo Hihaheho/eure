@@ -224,21 +224,21 @@ pub fn find_schema_for_document(doc_path: &Path, workspace_root: Option<&Path>) 
 }
 
 /// Format a field key for display
-fn format_field_key(key: &eure_schema::KeyCmpValue) -> String {
+fn format_field_key(key: &eure_schema::ObjectKey) -> String {
     match key {
-        eure_schema::KeyCmpValue::String(s) => s.clone(),
-        eure_schema::KeyCmpValue::I64(i) => i.to_string(),
-        eure_schema::KeyCmpValue::U64(u) => u.to_string(),
-        eure_schema::KeyCmpValue::Bool(b) => b.to_string(),
-        eure_schema::KeyCmpValue::Null => "null".to_string(),
-        eure_schema::KeyCmpValue::Unit => "()".to_string(),
-        eure_schema::KeyCmpValue::Tuple(elements) => {
+        eure_schema::ObjectKey::String(s) => s.clone(),
+        eure_schema::ObjectKey::I64(i) => i.to_string(),
+        eure_schema::ObjectKey::U64(u) => u.to_string(),
+        eure_schema::ObjectKey::Bool(b) => b.to_string(),
+        eure_schema::ObjectKey::Null => "null".to_string(),
+        eure_schema::ObjectKey::Unit => "()".to_string(),
+        eure_schema::ObjectKey::Tuple(elements) => {
             // Format tuple as (elem1, elem2, ...)
             let formatted_elements: Vec<String> = elements.iter().map(format_field_key).collect();
             format!("({})", formatted_elements.join(", "))
         }
-        eure_schema::KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
-        eure_schema::KeyCmpValue::Hole => "!".to_string(),
+        eure_schema::ObjectKey::MetaExtension(meta) => format!("$${meta}"),
+        eure_schema::ObjectKey::Hole => "!".to_string(),
     }
 }
 

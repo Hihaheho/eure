@@ -1,5 +1,5 @@
 use ahash::AHashMap;
-use eure_value::value::{KeyCmpValue, Map, Value};
+use eure_value::value::{ObjectKey, Map, Value};
 use serde::{Deserialize, Serialize};
 use serde_eure::{from_str, from_value, to_string, to_value};
 
@@ -34,9 +34,9 @@ fn test_dollar_in_tag_name() {
 
     // Verify the serialized value has the correct structure
     if let Value::Map(Map(map)) = &value {
-        assert!(map.contains_key(&KeyCmpValue::String("$tag".to_string())));
+        assert!(map.contains_key(&ObjectKey::String("$tag".to_string())));
         assert_eq!(
-            map.get(&KeyCmpValue::String("$tag".to_string())),
+            map.get(&ObjectKey::String("$tag".to_string())),
             Some(&Value::String("Unit".to_string()))
         );
     } else {
@@ -80,7 +80,7 @@ fn test_dollar_tag_direct_value_creation() {
     // Test creating Value directly with $ in key
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("$tag".to_string()),
+        ObjectKey::String("$tag".to_string()),
         Value::String("Unit".to_string()),
     );
     let value = Value::Map(Map(map));
@@ -92,11 +92,11 @@ fn test_dollar_tag_direct_value_creation() {
     // Test struct variant
     let mut struct_map = AHashMap::new();
     struct_map.insert(
-        KeyCmpValue::String("$tag".to_string()),
+        ObjectKey::String("$tag".to_string()),
         Value::String("Struct".to_string()),
     );
     struct_map.insert(
-        KeyCmpValue::String("field".to_string()),
+        ObjectKey::String("field".to_string()),
         Value::String("test".to_string()),
     );
     let struct_value = Value::Map(Map(struct_map));

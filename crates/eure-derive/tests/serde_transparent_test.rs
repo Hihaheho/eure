@@ -101,12 +101,12 @@ fn test_transparent_with_complex_type() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("a"))
+                .contains_key(&eure_schema::ObjectKey::from("a"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("b"))
+                .contains_key(&eure_schema::ObjectKey::from("b"))
         );
     } else {
         panic!("Expected object schema");

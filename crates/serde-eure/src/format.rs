@@ -1,5 +1,5 @@
 use eure_value::identifier::Identifier;
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant};
+use eure_value::value::{Array, Code, ObjectKey, Map, Tuple, Value, Variant};
 use std::fmt::Write;
 use std::str::FromStr;
 
@@ -155,17 +155,17 @@ fn format_value(output: &mut String, value: &Value, _indent: usize) {
     }
 }
 
-fn format_key(output: &mut String, key: &KeyCmpValue) {
+fn format_key(output: &mut String, key: &ObjectKey) {
     match key {
-        KeyCmpValue::String(s) => {
+        ObjectKey::String(s) => {
             if is_valid_identifier(s) {
                 output.push_str(s);
             } else {
                 write!(output, "\"{}\"", escape_string(s)).unwrap();
             }
         }
-        KeyCmpValue::I64(i) => write!(output, "{i}").unwrap(),
-        KeyCmpValue::U64(u) => write!(output, "{u}").unwrap(),
+        ObjectKey::I64(i) => write!(output, "{i}").unwrap(),
+        ObjectKey::U64(u) => write!(output, "{u}").unwrap(),
         // Handle other key types that might not be valid in EURE
         _ => write!(output, "\"<unsupported-key>\"").unwrap(),
     }
@@ -198,7 +198,7 @@ pub fn format_eure_bindings(value: &Value) -> String {
         Value::Map(Map(map)) => {
             // Check if this looks like an internally tagged enum
             // (has a single $tag field, or $tag plus other fields)
-            let has_tag = map.contains_key(&KeyCmpValue::String("$tag".to_string()));
+            let has_tag = map.contains_key(&ObjectKey::String("$tag".to_string()));
 
             if has_tag {
                 // This is likely an internally tagged enum, format as object

@@ -44,7 +44,7 @@ name = "test"
     );
     assert!(errors1.iter().any(|e|
         matches!(&e.kind, eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-                 if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "$variant"))
+                 if matches!(field, eure_schema::ObjectKey::String(s) if s == "$variant"))
     ), "Should report missing field '$variant'");
 
     // Document 2 should be valid
@@ -109,7 +109,7 @@ c = "nested-field"
     );
     assert!(errors2.iter().any(|e|
         matches!(&e.kind, eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-                 if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "a.b.c"))
+                 if matches!(field, eure_schema::ObjectKey::String(s) if s == "a.b.c"))
     ), "Should report missing field 'a.b.c'");
 }
 
@@ -146,7 +146,7 @@ actions.$array = .string          # Array field
     );
     assert!(errors1.iter().any(|e|
         matches!(&e.kind, eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-                 if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "actions[]"))
+                 if matches!(field, eure_schema::ObjectKey::String(s) if s == "actions[]"))
     ), "Should report missing field 'actions[]'");
 
     // Document 2 should have the bracket-named field but missing the array field
@@ -160,7 +160,7 @@ actions.$array = .string          # Array field
     );
     assert!(errors2.iter().any(|e|
         matches!(&e.kind, eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-                 if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "actions"))
+                 if matches!(field, eure_schema::ObjectKey::String(s) if s == "actions"))
     ), "Should report missing field 'actions'");
 }
 

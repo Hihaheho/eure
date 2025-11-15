@@ -19,7 +19,26 @@ pub mod value;
 /// A data structure for representing a Eure document including extensions.
 pub mod document;
 
+/// Data structure for representing a path in a Eure document.
+pub mod path;
+
 #[cfg(feature = "std")]
-use ahash::AHashMap as Map;
+pub use ahash::AHashMap as Map;
 #[cfg(not(feature = "std"))]
-type Map<K, V> = alloc::collections::BTreeMap<K, V>;
+pub type Map<K, V> = alloc::collections::BTreeMap<K, V>;
+
+pub(crate) mod prelude_internal {
+    #![allow(unused_imports)]
+    pub use crate::Map;
+    pub use crate::document::constructor::DocumentConstructor;
+    pub use crate::document::node::{Node, NodeValue};
+    pub use crate::document::{DocumentKey, EureDocument, InsertErrorKind, NodeId};
+    pub use crate::identifier::Identifier;
+    pub use crate::path::{EurePath, PathSegment};
+    pub use crate::string::EureString;
+    pub use crate::value::PrimitiveValue;
+    pub use crate::value::{ObjectKey, Value};
+    pub use alloc::boxed::Box;
+    pub use alloc::{string::String, string::ToString, vec, vec::Vec};
+    pub use thisisplural::Plural;
+}

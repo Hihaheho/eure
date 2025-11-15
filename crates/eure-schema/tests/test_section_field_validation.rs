@@ -37,7 +37,7 @@ invalid_field = "should be reported"
     if let eure_schema::ValidationErrorKind::UnexpectedField { field, path } = &errors[0].kind {
         assert_eq!(
             field,
-            &eure_schema::KeyCmpValue::String("invalid_field".to_string())
+            &eure_schema::ObjectKey::String("invalid_field".to_string())
         );
         assert_eq!(path.len(), 1); // Path should be [Ident("user")]
     } else {

@@ -37,7 +37,7 @@ fn validate_document_with_types<T: ToEureSchema>(
     // Register type definitions
     for (name, schema_fn) in type_definitions {
         doc_schema.types.insert(
-            eure_schema::KeyCmpValue::String(name.to_string()),
+            eure_schema::ObjectKey::String(name.to_string()),
             schema_fn(),
         );
     }
@@ -67,7 +67,7 @@ fn validate_document_with_types<T: ToEureSchema>(
             // For other types, wrap in a single field
             let mut root = ObjectSchema::default();
             root.fields.insert(
-                eure_schema::KeyCmpValue::String("value".to_string()),
+                eure_schema::ObjectKey::String("value".to_string()),
                 schema,
             );
             doc_schema.root = root;

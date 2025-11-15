@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant};
+use eure_value::value::{Array, Code, ObjectKey, Map, Tuple, Value, Variant};
 use serde::Deserialize;
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 
@@ -33,9 +33,9 @@ where
 {
     // Handle the special case where EURE wraps bare values in a root binding
     let unwrapped_value = if let Value::Map(Map(ref map)) = value {
-        if map.len() == 1 && map.contains_key(&KeyCmpValue::String("value".to_string())) {
+        if map.len() == 1 && map.contains_key(&ObjectKey::String("value".to_string())) {
             // If we have a single "value" binding at the root, unwrap it
-            map.get(&KeyCmpValue::String("value".to_string())).cloned()
+            map.get(&ObjectKey::String("value".to_string())).cloned()
         } else {
             None
         }
@@ -322,7 +322,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::CodeBlock(Code { content, .. }) => visitor.visit_str(content),
             // Special handling for wrapped values (e.g., "value = ...")
             Value::Map(map) if map.0.len() == 1 => {
-                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string()))
+                if let Some(Value::String(s)) = map.0.get(&ObjectKey::String("value".to_string()))
                 {
                     visitor.visit_str(s)
                 } else {
@@ -349,7 +349,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
             Value::CodeBlock(Code { content, .. }) => visitor.visit_string(content.clone()),
             // Special handling for wrapped values (e.g., "value = ...")
             Value::Map(map) if map.0.len() == 1 => {
-                if let Some(Value::String(s)) = map.0.get(&KeyCmpValue::String("value".to_string()))
+                if let Some(Value::String(s)) = map.0.get(&ObjectKey::String("value".to_string()))
                 {
                     visitor.visit_string(s.clone())
                 } else {
@@ -520,7 +520,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer {
         match std::mem::replace(&mut self.value, Value::Null) {
             Value::Variant(variant) => visitor.visit_enum(EnumDeserializer::new(variant)),
             Value::Map(Map(map))
-                if map.contains_key(&KeyCmpValue::String("$variant".to_string())) =>
+                if map.contains_key(&ObjectKey::String("$variant".to_string())) =>
             {
                 // Handle map-based enum representation (external tagging)
                 // Put the value back for the enum access to use
@@ -580,12 +580,12 @@ impl<'de> SeqAccess<'de> for SeqDeserializer {
 }
 
 struct MapDeserializer {
-    iter: std::vec::IntoIter<(KeyCmpValue, Value)>,
+    iter: std::vec::IntoIter<(ObjectKey, Value)>,
     value: Option<Value>,
 }
 
 impl MapDeserializer {
-    fn new(map: ahash::AHashMap<KeyCmpValue, Value>) -> Self {
+    fn new(map: ahash::AHashMap<ObjectKey, Value>) -> Self {
         MapDeserializer {
             iter: map.into_iter().collect::<Vec<_>>().into_iter(),
             value: None,
@@ -666,7 +666,7 @@ impl<'de> de::EnumAccess<'de> for &mut Deserializer {
     {
         // For map-based enums with $variant, extract the tag for variant matching
         if let Value::Map(Map(map)) = &self.value
-            && let Some(Value::String(tag)) = map.get(&KeyCmpValue::String("$variant".to_string()))
+            && let Some(Value::String(tag)) = map.get(&ObjectKey::String("$variant".to_string()))
         {
             let tag_value = Value::String(tag.clone());
             let mut tag_deserializer = Deserializer::new(tag_value);
@@ -727,7 +727,7 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
         match &self.value {
             Value::Map(Map(map))
                 if map.len() == 1
-                    && map.contains_key(&KeyCmpValue::String("$variant".to_string())) =>
+                    && map.contains_key(&ObjectKey::String("$variant".to_string())) =>
             {
                 Ok(())
             }
@@ -745,7 +745,7 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
     {
         // For map-based enums with $content, extract it
         if let Value::Map(Map(map)) = &self.value
-            && let Some(content) = map.get(&KeyCmpValue::String("$content".to_string()))
+            && let Some(content) = map.get(&ObjectKey::String("$content".to_string()))
         {
             let content_value = content.clone();
             self.value = content_value;
@@ -759,7 +759,7 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
     {
         // For map-based enums with $values, extract it
         if let Value::Map(Map(map)) = &self.value
-            && let Some(values) = map.get(&KeyCmpValue::String("$values".to_string()))
+            && let Some(values) = map.get(&ObjectKey::String("$values".to_string()))
         {
             let values_value = values.clone();
             self.value = values_value;
@@ -773,29 +773,29 @@ impl<'de> de::VariantAccess<'de> for &mut Deserializer {
     {
         // For map-based enums, we need to remove the $variant field and deserialize the rest
         if let Value::Map(Map(map)) = &mut self.value
-            && map.contains_key(&KeyCmpValue::String("$variant".to_string()))
+            && map.contains_key(&ObjectKey::String("$variant".to_string()))
         {
             let mut content_map = map.clone();
-            content_map.remove(&KeyCmpValue::String("$variant".to_string()));
+            content_map.remove(&ObjectKey::String("$variant".to_string()));
             self.value = Value::Map(Map(content_map));
         }
         de::Deserializer::deserialize_struct(self, "", fields, visitor)
     }
 }
 
-fn key_cmp_to_value(key: KeyCmpValue) -> Value {
+fn key_cmp_to_value(key: ObjectKey) -> Value {
     match key {
-        KeyCmpValue::Null => Value::Null,
-        KeyCmpValue::Bool(b) => Value::Bool(b),
-        KeyCmpValue::I64(i) => Value::I64(i),
-        KeyCmpValue::U64(u) => Value::U64(u),
-        KeyCmpValue::String(s) => Value::String(s),
-        KeyCmpValue::Tuple(Tuple(keys)) => {
+        ObjectKey::Null => Value::Null,
+        ObjectKey::Bool(b) => Value::Bool(b),
+        ObjectKey::I64(i) => Value::I64(i),
+        ObjectKey::U64(u) => Value::U64(u),
+        ObjectKey::String(s) => Value::String(s),
+        ObjectKey::Tuple(Tuple(keys)) => {
             let values = keys.into_iter().map(key_cmp_to_value).collect();
             Value::Tuple(eure_value::value::Tuple(values))
         }
-        KeyCmpValue::Unit => Value::Unit,
-        KeyCmpValue::MetaExtension(meta) => Value::MetaExtension(meta),
-        KeyCmpValue::Hole => Value::Hole,
+        ObjectKey::Unit => Value::Unit,
+        ObjectKey::MetaExtension(meta) => Value::MetaExtension(meta),
+        ObjectKey::Hole => Value::Hole,
     }
 }

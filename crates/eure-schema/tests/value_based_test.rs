@@ -1,5 +1,5 @@
 use eure_schema::{extract_schema_from_value, validate_with_schema_value};
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 
 #[test]
 fn test_value_based_schema_extraction() {
@@ -45,20 +45,20 @@ age.$type = .number
         extracted
             .document_schema
             .types
-            .contains_key(&KeyCmpValue::String("User".to_string()))
+            .contains_key(&ObjectKey::String("User".to_string()))
     );
 
     // Check that User type is properly defined
-    let user_type = &extracted.document_schema.types[&KeyCmpValue::String("User".to_string())];
+    let user_type = &extracted.document_schema.types[&ObjectKey::String("User".to_string())];
     match &user_type.type_expr {
         eure_schema::Type::Object(obj) => {
             assert!(
                 obj.fields
-                    .contains_key(&KeyCmpValue::String("name".to_string()))
+                    .contains_key(&ObjectKey::String("name".to_string()))
             );
             assert!(
                 obj.fields
-                    .contains_key(&KeyCmpValue::String("age".to_string()))
+                    .contains_key(&ObjectKey::String("age".to_string()))
             );
         }
         _ => panic!("User type should be an Object"),
@@ -70,13 +70,13 @@ age.$type = .number
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("users".to_string()))
+            .contains_key(&ObjectKey::String("users".to_string()))
     );
     let users_field = &extracted
         .document_schema
         .root
         .fields
-        .get(&KeyCmpValue::String("users".to_string()))
+        .get(&ObjectKey::String("users".to_string()))
         .unwrap();
     println!("Users field type: {:?}", users_field.type_expr);
     match &users_field.type_expr {
@@ -172,7 +172,7 @@ options.$array = .string
         "Types: {:?}",
         extracted.document_schema.types.keys().collect::<Vec<_>>()
     );
-    let action_type = &extracted.document_schema.types[&KeyCmpValue::String("Action".to_string())];
+    let action_type = &extracted.document_schema.types[&ObjectKey::String("Action".to_string())];
     println!("Action type: {action_type:?}");
     match &action_type.type_expr {
         eure_schema::Type::Variants(variant_schema) => {
@@ -183,39 +183,39 @@ options.$array = .string
             assert!(
                 variant_schema
                     .variants
-                    .contains_key(&KeyCmpValue::String("set-text".to_string()))
+                    .contains_key(&ObjectKey::String("set-text".to_string()))
             );
             assert!(
                 variant_schema
                     .variants
-                    .contains_key(&KeyCmpValue::String("set-choice".to_string()))
+                    .contains_key(&ObjectKey::String("set-choice".to_string()))
             );
 
             // Check set-text variant fields
-            let set_text = &variant_schema.variants[&KeyCmpValue::String("set-text".to_string())];
+            let set_text = &variant_schema.variants[&ObjectKey::String("set-text".to_string())];
             assert!(
                 set_text
                     .fields
-                    .contains_key(&KeyCmpValue::String("speaker".to_string()))
+                    .contains_key(&ObjectKey::String("speaker".to_string()))
             );
             assert!(
                 set_text
                     .fields
-                    .contains_key(&KeyCmpValue::String("text".to_string()))
+                    .contains_key(&ObjectKey::String("text".to_string()))
             );
 
             // Check set-choice variant fields
             let set_choice =
-                &variant_schema.variants[&KeyCmpValue::String("set-choice".to_string())];
+                &variant_schema.variants[&ObjectKey::String("set-choice".to_string())];
             assert!(
                 set_choice
                     .fields
-                    .contains_key(&KeyCmpValue::String("prompt".to_string()))
+                    .contains_key(&ObjectKey::String("prompt".to_string()))
             );
             assert!(
                 set_choice
                     .fields
-                    .contains_key(&KeyCmpValue::String("options".to_string()))
+                    .contains_key(&ObjectKey::String("options".to_string()))
             );
         }
         _ => panic!("Action type should be Variants"),

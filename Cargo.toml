@@ -21,6 +21,7 @@ eure-value = { path = "crates/eure-value", version = "0.1.0" }
 eure-yaml = { path = "crates/eure-yaml", version = "0.1.0" }
 indexmap = "2"
 lsp-types = "0.97.0"
+num-bigint = "0.4"
 parol = "4.1"
 parol_runtime = "4"
 scnr2 = "0.3.3"

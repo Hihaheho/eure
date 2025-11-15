@@ -3,7 +3,7 @@
 use crate::{SchemaError, identifiers};
 use eure_tree::tree::InputSpan;
 use eure_value::identifier::Identifier;
-use eure_value::value::{KeyCmpValue, EurePath, PathSegment};
+use eure_value::value::{ObjectKey, EurePath, PathSegment};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -40,7 +40,7 @@ pub enum Type {
 /// Schema for object types
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ObjectSchema {
-    pub fields: IndexMap<KeyCmpValue, FieldSchema>,
+    pub fields: IndexMap<ObjectKey, FieldSchema>,
     pub additional_properties: Option<Box<Type>>,
 }
 
@@ -75,7 +75,7 @@ impl Default for FieldSchema {
 /// Schema for variant types (tagged unions)
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariantSchema {
-    pub variants: IndexMap<KeyCmpValue, ObjectSchema>,
+    pub variants: IndexMap<ObjectKey, ObjectSchema>,
     pub representation: VariantRepr,
 }
 
@@ -146,7 +146,7 @@ pub enum VariantRepr {
     /// - All variant fields at same level as tag
     InternallyTagged {
         /// The field name that contains the variant identifier
-        tag: KeyCmpValue,
+        tag: ObjectKey,
     },
 
     /// Adjacently tagged: Tag and content are in separate fields.
@@ -169,9 +169,9 @@ pub enum VariantRepr {
     /// - More verbose than other representations
     AdjacentlyTagged {
         /// The field name that contains the variant identifier
-        tag: KeyCmpValue,
+        tag: ObjectKey,
         /// The field name that contains the variant content
-        content: KeyCmpValue,
+        content: ObjectKey,
     },
 }
 
@@ -260,7 +260,7 @@ impl FromStr for RenameRule {
 #[derive(Debug, Clone, Default)]
 pub struct DocumentSchema {
     /// Type definitions in $types namespace
-    pub types: IndexMap<KeyCmpValue, FieldSchema>,
+    pub types: IndexMap<ObjectKey, FieldSchema>,
     /// Schema for root object
     pub root: ObjectSchema,
     /// Cascade types mapped by their definition path
@@ -330,10 +330,10 @@ impl Type {
             }
             // Handle path segments that are values (like .null, .true, .false)
             PathSegment::Value(val) => match val {
-                KeyCmpValue::Null => Some(Type::Null),
-                KeyCmpValue::Bool(_) => Some(Type::Boolean),
-                KeyCmpValue::I64(_) | KeyCmpValue::U64(_) => Some(Type::Number),
-                KeyCmpValue::String(_) => Some(Type::String),
+                ObjectKey::Null => Some(Type::Null),
+                ObjectKey::Bool(_) => Some(Type::Boolean),
+                ObjectKey::I64(_) | ObjectKey::U64(_) => Some(Type::Number),
+                ObjectKey::String(_) => Some(Type::String),
                 _ => None,
             },
             _ => None,

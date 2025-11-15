@@ -98,7 +98,7 @@ use crate::identifiers;
 use crate::schema::*;
 use eure_tree::document::{DocumentKey, EureDocument, Node, NodeId, NodeValue};
 use eure_value::identifier::Identifier;
-use eure_value::value::{KeyCmpValue, EurePath, PathSegment};
+use eure_value::value::{EurePath, ObjectKey, PathSegment};
 use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -127,11 +127,11 @@ pub enum ValidationErrorKind {
         actual: String,
     },
     RequiredFieldMissing {
-        field: KeyCmpValue,
+        field: ObjectKey,
         path: Vec<PathSegment>,
     },
     UnexpectedField {
-        field: KeyCmpValue,
+        field: ObjectKey,
         path: Vec<PathSegment>,
     },
     InvalidValue(String),
@@ -182,7 +182,7 @@ struct VariantInfo {
     /// The name of the detected variant
     variant_name: Identifier,
     /// The key used to look up the variant in the schema
-    variant_key: KeyCmpValue,
+    variant_key: ObjectKey,
     /// How the variant was detected
     detection_source: VariantDetectionSource,
 }
@@ -207,7 +207,7 @@ struct DocumentValidator<'a> {
     schema: &'a DocumentSchema,
     errors: Vec<ValidationError>,
     /// Track which fields have been seen at each path
-    seen_fields: HashMap<EurePath, HashSet<KeyCmpValue>>,
+    seen_fields: HashMap<EurePath, HashSet<ObjectKey>>,
     /// Track variant context for proper field validation
     variant_context: HashMap<EurePath, String>,
     /// Track variant representation info for each path (for excluding tag fields)
@@ -276,20 +276,20 @@ impl<'a> DocumentValidator<'a> {
                 // Validate map entries
                 for (key, child_id) in entries {
                     match key {
-                        DocumentKey::Ident(ident) => {
+                        ObjectKey::Ident(ident) => {
                             self.validate_field(*child_id, path, ident, &object_schema.fields);
                         }
-                        DocumentKey::MetaExtension(ident) => {
+                        ObjectKey::MetaExtension(ident) => {
                             // Handle meta-extension fields
                             self.handle_meta_extension(*child_id, path, ident);
                         }
-                        DocumentKey::Value(key_value) => {
+                        ObjectKey::Value(key_value) => {
                             // Check if this is a quoted field name that matches a schema field
-                            if let KeyCmpValue::String(field_str) = key_value {
+                            if let ObjectKey::String(field_str) = key_value {
                                 // Check if this quoted field name matches an expected field
                                 if let Some(field_schema) = object_schema
                                     .fields
-                                    .get(&KeyCmpValue::String(field_str.clone()))
+                                    .get(&ObjectKey::String(field_str.clone()))
                                 {
                                     // This is a known field with a quoted name
                                     // Track that we've seen this field
@@ -297,7 +297,7 @@ impl<'a> DocumentValidator<'a> {
                                     self.seen_fields
                                         .entry(path_key)
                                         .or_default()
-                                        .insert(KeyCmpValue::String(field_str.clone()));
+                                        .insert(ObjectKey::String(field_str.clone()));
 
                                     // Validate the field value
                                     let mut field_path = path.to_vec();
@@ -374,7 +374,7 @@ impl<'a> DocumentValidator<'a> {
                                 }
                             }
                         }
-                        DocumentKey::TupleIndex(_) => {
+                        ObjectKey::TupleIndex(_) => {
                             self.add_error(
                                 node_id,
                                 ValidationErrorKind::InvalidValue(
@@ -412,7 +412,7 @@ impl<'a> DocumentValidator<'a> {
         node_id: NodeId,
         path: &[PathSegment],
         field_name: &Identifier,
-        expected_fields: &IndexMap<KeyCmpValue, FieldSchema>,
+        expected_fields: &IndexMap<ObjectKey, FieldSchema>,
     ) {
         // Check if this is a schema-only field (has schema extensions but no data content)
         let node = self.document.get_node(node_id);
@@ -424,10 +424,10 @@ impl<'a> DocumentValidator<'a> {
             self.seen_fields
                 .entry(path_key)
                 .or_default()
-                .insert(KeyCmpValue::String(field_name.to_string()));
+                .insert(ObjectKey::String(field_name.to_string()));
         }
 
-        let field_key = KeyCmpValue::String(field_name.to_string());
+        let field_key = ObjectKey::String(field_name.to_string());
         if let Some(field_schema) = expected_fields.get(&field_key) {
             // Only validate against field schema if this is not a schema-only field
             if !is_schema_only {
@@ -474,7 +474,7 @@ impl<'a> DocumentValidator<'a> {
                 self.add_error(
                     node_id,
                     ValidationErrorKind::UnexpectedField {
-                        field: KeyCmpValue::String(field_name.to_string()),
+                        field: ObjectKey::String(field_name.to_string()),
                         path: path.to_vec(),
                     },
                 );
@@ -528,7 +528,7 @@ impl<'a> DocumentValidator<'a> {
             }
             Type::TypeRef(type_name) => {
                 // Convert Identifier to KeyCmpValue for lookup
-                let type_key = KeyCmpValue::String(type_name.to_string());
+                let type_key = ObjectKey::String(type_name.to_string());
                 if let Some(referenced_type) = self.schema.types.get(&type_key) {
                     self.validate_type_with_constraints(
                         node_id,
@@ -830,7 +830,7 @@ impl<'a> DocumentValidator<'a> {
                 // Validate each item
                 for (index, child_id) in children.iter().enumerate() {
                     let mut item_path = path.to_vec();
-                    item_path.push(PathSegment::Value(KeyCmpValue::U64(index as u64)));
+                    item_path.push(PathSegment::Value(ObjectKey::U64(index as u64)));
                     self.validate_type(*child_id, &item_path, elem_type);
                 }
             }
@@ -914,7 +914,7 @@ impl<'a> DocumentValidator<'a> {
         // Check if variant was already determined via $variant extension
         if let Some(variant_from_ext) = self.variant_context.get(&path_key) {
             // Variant already known from extension, validate it exists
-            let variant_key = KeyCmpValue::String(variant_from_ext.clone());
+            let variant_key = ObjectKey::String(variant_from_ext.clone());
             if variant_schema.variants.contains_key(&variant_key) {
                 return Some(VariantInfo {
                     variant_name: Identifier::from_str(variant_from_ext)
@@ -933,7 +933,7 @@ impl<'a> DocumentValidator<'a> {
         {
             let variant_node = self.document.get_node(*variant_ext_id);
             if let NodeValue::String { value, .. } = &variant_node.content {
-                let variant_key = KeyCmpValue::String(value.clone());
+                let variant_key = ObjectKey::String(value.clone());
                 if variant_schema.variants.contains_key(&variant_key)
                     && let Ok(variant_name) = Identifier::from_str(value)
                 {
@@ -952,9 +952,9 @@ impl<'a> DocumentValidator<'a> {
                 // Look for single key that matches a variant name
                 if let NodeValue::Map { entries, .. } = &node.content
                     && entries.len() == 1
-                    && let Some((DocumentKey::Ident(key), _)) = entries.first()
+                    && let Some((ObjectKey::Ident(key), _)) = entries.first()
                 {
-                    let key_cmp = KeyCmpValue::String(key.to_string());
+                    let key_cmp = ObjectKey::String(key.to_string());
                     if variant_schema.variants.contains_key(&key_cmp) {
                         return Some(VariantInfo {
                             variant_name: key.clone(),
@@ -968,12 +968,12 @@ impl<'a> DocumentValidator<'a> {
                 // Look for tag field
                 if let NodeValue::Map { entries, .. } = &node.content {
                     for (key, child_id) in entries {
-                        if let DocumentKey::Ident(field_name) = key
-                            && KeyCmpValue::String(field_name.to_string()) == *tag
+                        if let ObjectKey::Ident(field_name) = key
+                            && ObjectKey::String(field_name.to_string()) == *tag
                         {
                             let tag_node = self.document.get_node(*child_id);
                             if let NodeValue::String { value, .. } = &tag_node.content {
-                                let variant_key = KeyCmpValue::String(value.clone());
+                                let variant_key = ObjectKey::String(value.clone());
                                 if variant_schema.variants.contains_key(&variant_key)
                                     && let Ok(variant_name) = Identifier::from_str(value)
                                 {
@@ -982,7 +982,7 @@ impl<'a> DocumentValidator<'a> {
                                         variant_key,
                                         detection_source: VariantDetectionSource::InternalTag(
                                             match tag {
-                                                KeyCmpValue::String(s) => s.clone(),
+                                                ObjectKey::String(s) => s.clone(),
                                                 _ => format!("{:?}", tag),
                                             },
                                         ),
@@ -997,12 +997,12 @@ impl<'a> DocumentValidator<'a> {
                 // Look for tag field
                 if let NodeValue::Map { entries, .. } = &node.content {
                     for (key, child_id) in entries {
-                        if let DocumentKey::Ident(field_name) = key
-                            && KeyCmpValue::String(field_name.to_string()) == *tag
+                        if let ObjectKey::Ident(field_name) = key
+                            && ObjectKey::String(field_name.to_string()) == *tag
                         {
                             let tag_node = self.document.get_node(*child_id);
                             if let NodeValue::String { value, .. } = &tag_node.content {
-                                let variant_key = KeyCmpValue::String(value.clone());
+                                let variant_key = ObjectKey::String(value.clone());
                                 if variant_schema.variants.contains_key(&variant_key)
                                     && let Ok(variant_name) = Identifier::from_str(value)
                                 {
@@ -1011,7 +1011,7 @@ impl<'a> DocumentValidator<'a> {
                                         variant_key,
                                         detection_source: VariantDetectionSource::InternalTag(
                                             match tag {
-                                                KeyCmpValue::String(s) => s.clone(),
+                                                ObjectKey::String(s) => s.clone(),
                                                 _ => format!("{:?}", tag),
                                             },
                                         ),
@@ -1027,7 +1027,7 @@ impl<'a> DocumentValidator<'a> {
                 // We'll implement a lightweight check here instead of full validation
                 if let Some((variant_key, _)) =
                     self.find_matching_untagged_variant(node, variant_schema)
-                    && let KeyCmpValue::String(variant_str) = &variant_key
+                    && let ObjectKey::String(variant_str) = &variant_key
                     && let Ok(variant_name) = Identifier::from_str(variant_str)
                 {
                     return Some(VariantInfo {
@@ -1047,13 +1047,13 @@ impl<'a> DocumentValidator<'a> {
         &self,
         node: &Node,
         variant_schema: &'b VariantSchema,
-    ) -> Option<(KeyCmpValue, &'b ObjectSchema)> {
+    ) -> Option<(ObjectKey, &'b ObjectSchema)> {
         // For untagged variants, try each variant and return the first that matches
         if let NodeValue::Map { entries, .. } = &node.content {
             let node_fields: HashSet<String> = entries
                 .iter()
                 .filter_map(|(k, _)| match k {
-                    DocumentKey::Ident(id) => Some(id.to_string()),
+                    ObjectKey::Ident(id) => Some(id.to_string()),
                     _ => None,
                 })
                 .collect();
@@ -1065,7 +1065,7 @@ impl<'a> DocumentValidator<'a> {
                     variant_type.fields.iter().all(|(field_key, field_schema)| {
                         if !field_schema.optional {
                             match field_key {
-                                KeyCmpValue::String(s) => node_fields.contains(s),
+                                ObjectKey::String(s) => node_fields.contains(s),
                                 _ => false,
                             }
                         } else {
@@ -1141,7 +1141,7 @@ impl<'a> DocumentValidator<'a> {
                     // Content is under content field
                     if let NodeValue::Map { entries, .. } = &node.content {
                         if let Some((_, content_id)) = entries.iter()
-                            .find(|(k, _)| matches!(k, DocumentKey::Ident(id) if KeyCmpValue::String(id.to_string()) == *content))
+                            .find(|(k, _)| matches!(k, ObjectKey::Ident(id) if ObjectKey::String(id.to_string()) == *content))
                         {
                             // Validate the content node as an object with the variant's fields
                             self.validate_object_fields(*content_id, path, variant_type);
@@ -1221,7 +1221,7 @@ impl<'a> DocumentValidator<'a> {
                                 .variants
                                 .keys()
                                 .map(|k| match k {
-                                    KeyCmpValue::String(s) => s.clone(),
+                                    ObjectKey::String(s) => s.clone(),
                                     _ => format!("{k:?}"),
                                 })
                                 .collect(),
@@ -1235,12 +1235,12 @@ impl<'a> DocumentValidator<'a> {
                             // Check if tag field exists with an invalid value
                             if let NodeValue::Map { entries, .. } = &node.content {
                                 entries.iter().any(|(key, child_id)| {
-                                    if let DocumentKey::Ident(field_name) = key
-                                        && KeyCmpValue::String(field_name.to_string()) == *tag
+                                    if let ObjectKey::Ident(field_name) = key
+                                        && ObjectKey::String(field_name.to_string()) == *tag
                                     {
                                         let tag_node = self.document.get_node(*child_id);
                                         if let NodeValue::String { value, .. } = &tag_node.content {
-                                            let variant_key = KeyCmpValue::String(value.clone());
+                                            let variant_key = ObjectKey::String(value.clone());
                                             if !variant_schema.variants.contains_key(&variant_key) {
                                                 // Tag exists but value is invalid
                                                 self.add_error(
@@ -1251,7 +1251,7 @@ impl<'a> DocumentValidator<'a> {
                                                             .variants
                                                             .keys()
                                                             .map(|k| match k {
-                                                                KeyCmpValue::String(s) => s.clone(),
+                                                                ObjectKey::String(s) => s.clone(),
                                                                 _ => format!("{k:?}"),
                                                             })
                                                             .collect(),
@@ -1281,7 +1281,7 @@ impl<'a> DocumentValidator<'a> {
                                         .variants
                                         .keys()
                                         .map(|k| match k {
-                                            KeyCmpValue::String(s) => s.clone(),
+                                            ObjectKey::String(s) => s.clone(),
                                             _ => format!("{k:?}"),
                                         })
                                         .collect(),
@@ -1338,7 +1338,7 @@ impl<'a> DocumentValidator<'a> {
     fn check_missing_fields(
         &mut self,
         path: &[PathSegment],
-        expected_fields: &IndexMap<KeyCmpValue, FieldSchema>,
+        expected_fields: &IndexMap<ObjectKey, FieldSchema>,
     ) {
         let path_key = EurePath::from_segments(path);
         let seen_fields_set = self.seen_fields.get(&path_key).cloned();

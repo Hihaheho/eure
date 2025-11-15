@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::format::*;
-    use eure_value::value::{Array, KeyCmpValue, Map, Value};
+    use eure_value::value::{Array, ObjectKey, Map, Value};
 
     #[test]
     fn test_format_simple_value() {
@@ -42,10 +42,10 @@ mod tests {
         // Test object
         let mut map = ahash::AHashMap::new();
         map.insert(
-            KeyCmpValue::String("name".to_string()),
+            ObjectKey::String("name".to_string()),
             Value::String("Alice".to_string()),
         );
-        map.insert(KeyCmpValue::String("age".to_string()), Value::I64(25));
+        map.insert(ObjectKey::String("age".to_string()), Value::I64(25));
         let value = Value::Map(Map(map));
         let result = format_eure(&value);
         println!("Object: {result}");

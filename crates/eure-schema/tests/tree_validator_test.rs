@@ -93,7 +93,7 @@ value = "b"
         .filter(|e| {
             matches!(&e.kind,
                 eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-                if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "script")
+                if matches!(field, eure_schema::ObjectKey::String(s) if s == "script")
             )
         })
         .count();
@@ -122,11 +122,11 @@ fn test_nested_section_validation() {
     @ name {
         @ first
         $type = .string
-        
+
         @ last
         $type = .string
     }
-    
+
     @ age
     $type = .number
 }
@@ -155,7 +155,7 @@ last = "Doe"
         .filter(|e| {
             matches!(&e.kind,
                 eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-                if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "user")
+                if matches!(field, eure_schema::ObjectKey::String(s) if s == "user")
             )
         })
         .count();
@@ -200,7 +200,7 @@ email = "alice@example.com"
         .filter(|e| {
             matches!(&e.kind,
                 eure_schema::ValidationErrorKind::RequiredFieldMissing { field, .. }
-                if matches!(field, eure_schema::KeyCmpValue::String(s) if s == "age")
+                if matches!(field, eure_schema::ObjectKey::String(s) if s == "age")
             )
         })
         .count();

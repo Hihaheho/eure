@@ -1,5 +1,5 @@
 use ahash::AHashMap;
-use eure_value::value::{KeyCmpValue, Map, Value as EureValue};
+use eure_value::value::{ObjectKey, Map, Value as EureValue};
 use serde::{Deserialize, Serialize};
 use serde_eure::{from_str, from_value, to_string, to_value};
 
@@ -159,12 +159,12 @@ fn test_direct_value_creation() {
     // Create a Value directly representing a simple struct
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         EureValue::String("Direct".to_string()),
     );
-    map.insert(KeyCmpValue::String("age".to_string()), EureValue::U64(25));
+    map.insert(ObjectKey::String("age".to_string()), EureValue::U64(25));
     map.insert(
-        KeyCmpValue::String("active".to_string()),
+        ObjectKey::String("active".to_string()),
         EureValue::Bool(true),
     );
     let value = EureValue::Map(Map(map));

@@ -1,6 +1,6 @@
 //! Test variant array field extraction
 
-use eure_schema::{KeyCmpValue, Type, extract_schema_from_value};
+use eure_schema::{ObjectKey, Type, extract_schema_from_value};
 
 #[test]
 fn test_variant_array_field_extraction() {
@@ -29,7 +29,7 @@ $types.Action {
     let action_type = extracted
         .document_schema
         .types
-        .get(&KeyCmpValue::String("Action".to_string()))
+        .get(&ObjectKey::String("Action".to_string()))
         .expect("Action type not found");
 
     // Ensure it's a variant type
@@ -40,7 +40,7 @@ $types.Action {
     // Check set-text variant
     let set_text = variant_def
         .variants
-        .get(&KeyCmpValue::String("set-text".to_string()))
+        .get(&ObjectKey::String("set-text".to_string()))
         .expect("set-text variant not found");
 
     // Verify all 4 fields are present
@@ -49,7 +49,7 @@ $types.Action {
     // Check lines field specifically
     let lines_field = set_text
         .fields
-        .get(&KeyCmpValue::String("lines".to_string()))
+        .get(&ObjectKey::String("lines".to_string()))
         .expect("lines field not found in set-text variant");
 
     // Verify it's an array type
@@ -73,17 +73,17 @@ $types.Action {
     assert!(
         set_text
             .fields
-            .contains_key(&KeyCmpValue::String("speaker".to_string()))
+            .contains_key(&ObjectKey::String("speaker".to_string()))
     );
     assert!(
         set_text
             .fields
-            .contains_key(&KeyCmpValue::String("code1".to_string()))
+            .contains_key(&ObjectKey::String("code1".to_string()))
     );
     assert!(
         set_text
             .fields
-            .contains_key(&KeyCmpValue::String("code2".to_string()))
+            .contains_key(&ObjectKey::String("code2".to_string()))
     );
 }
 
@@ -107,7 +107,7 @@ $types.ComplexType {
     let complex_type = extracted
         .document_schema
         .types
-        .get(&KeyCmpValue::String("ComplexType".to_string()))
+        .get(&ObjectKey::String("ComplexType".to_string()))
         .expect("ComplexType not found");
 
     let Type::Variants(variant_def) = &complex_type.type_expr else {
@@ -116,12 +116,12 @@ $types.ComplexType {
 
     let with_array = variant_def
         .variants
-        .get(&KeyCmpValue::String("with-array".to_string()))
+        .get(&ObjectKey::String("with-array".to_string()))
         .expect("with-array variant not found");
 
     let items_field = with_array
         .fields
-        .get(&KeyCmpValue::String("items".to_string()))
+        .get(&ObjectKey::String("items".to_string()))
         .expect("items field not found");
 
     // Verify it's an array of objects
@@ -134,17 +134,17 @@ $types.ComplexType {
                     assert!(
                         obj_schema
                             .fields
-                            .contains_key(&KeyCmpValue::String("name".to_string()))
+                            .contains_key(&ObjectKey::String("name".to_string()))
                     );
                     assert!(
                         obj_schema
                             .fields
-                            .contains_key(&KeyCmpValue::String("value".to_string()))
+                            .contains_key(&ObjectKey::String("value".to_string()))
                     );
 
                     let optional_field = obj_schema
                         .fields
-                        .get(&KeyCmpValue::String("optional_field".to_string()))
+                        .get(&ObjectKey::String("optional_field".to_string()))
                         .expect("optional_field not found");
                     // In this test, optional_field is not marked as optional in the schema
                     assert!(

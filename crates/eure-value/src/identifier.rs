@@ -99,6 +99,10 @@ impl Identifier {
     pub const unsafe fn new_unchecked(s: &'static str) -> Self {
         Identifier(Cow::Borrowed(s))
     }
+
+    pub fn into_string(self) -> String {
+        self.0.into()
+    }
 }
 
 impl Display for Identifier {

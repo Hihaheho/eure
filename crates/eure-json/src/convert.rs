@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, EurePath, PathSegment, Tuple, Value, Variant};
+use eure_value::value::{Array, Code, ObjectKey, Map, EurePath, PathSegment, Tuple, Value, Variant};
 use serde_json::json;
 
 use crate::{config::Config, error::Error};
@@ -182,21 +182,21 @@ fn convert_variant_to_json(variant: &Variant, config: &Config) -> Result<serde_j
 }
 
 /// Convert a KeyCmpValue to a string for use as JSON object key
-fn key_to_string(key: &KeyCmpValue) -> Result<String, Error> {
+fn key_to_string(key: &ObjectKey) -> Result<String, Error> {
     match key {
-        KeyCmpValue::String(s) => Ok(s.clone()),
-        KeyCmpValue::I64(i) => Ok(i.to_string()),
-        KeyCmpValue::U64(u) => Ok(u.to_string()),
-        KeyCmpValue::Null => Ok("null".to_string()),
-        KeyCmpValue::Bool(b) => Ok(b.to_string()),
-        KeyCmpValue::Unit => Ok("unit".to_string()),
-        KeyCmpValue::Hole => Err(Error::UnsupportedValue(
+        ObjectKey::String(s) => Ok(s.clone()),
+        ObjectKey::I64(i) => Ok(i.to_string()),
+        ObjectKey::U64(u) => Ok(u.to_string()),
+        ObjectKey::Null => Ok("null".to_string()),
+        ObjectKey::Bool(b) => Ok(b.to_string()),
+        ObjectKey::Unit => Ok("unit".to_string()),
+        ObjectKey::Hole => Err(Error::UnsupportedValue(
             "Hole keys cannot be converted to JSON object keys".to_string(),
         )),
-        KeyCmpValue::Tuple(_) => Err(Error::UnsupportedValue(
+        ObjectKey::Tuple(_) => Err(Error::UnsupportedValue(
             "Tuple keys cannot be converted to JSON object keys".to_string(),
         )),
-        KeyCmpValue::MetaExtension(_meta) => Err(Error::UnsupportedValue(
+        ObjectKey::MetaExtension(_meta) => Err(Error::UnsupportedValue(
             "MetaExtension keys cannot be converted to JSON object keys".to_string(),
         )),
     }
@@ -276,7 +276,7 @@ pub fn json_to_value_with_config(
                         let mut content_map = ahash::AHashMap::new();
                         for (k, v) in obj {
                             if k != tag {
-                                let key = KeyCmpValue::String(k.clone());
+                                let key = ObjectKey::String(k.clone());
                                 let value = json_to_value_with_config(v, config)?;
                                 content_map.insert(key, value);
                             }
@@ -321,7 +321,7 @@ fn convert_json_object_to_map(
 ) -> Result<Value, Error> {
     let mut map = ahash::AHashMap::new();
     for (k, v) in obj {
-        let key = KeyCmpValue::String(k.clone());
+        let key = ObjectKey::String(k.clone());
         let value = json_to_value_with_config(v, config)?;
         map.insert(key, value);
     }

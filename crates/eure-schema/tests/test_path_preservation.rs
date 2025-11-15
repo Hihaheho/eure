@@ -1,5 +1,5 @@
 use eure_tree::value_visitor::ValueVisitor;
-use eure_value::value::{KeyCmpValue, EurePath, PathSegment, Value};
+use eure_value::value::{ObjectKey, EurePath, PathSegment, Value};
 
 #[test]
 fn test_path_segments_preserved() {
@@ -22,7 +22,7 @@ test3 = .$$meta.extension
     if let Value::Map(map) = doc {
         // Check test1 - regular path
         if let Some(Value::Path(EurePath(segments))) =
-            map.0.get(&KeyCmpValue::String("test1".to_string()))
+            map.0.get(&ObjectKey::String("test1".to_string()))
         {
             assert_eq!(segments.len(), 2);
             assert!(matches!(&segments[0], PathSegment::Ident(id) if id.to_string() == "regular"));
@@ -34,7 +34,7 @@ test3 = .$$meta.extension
 
         // Check test2 - extension path
         if let Some(Value::Path(EurePath(segments))) =
-            map.0.get(&KeyCmpValue::String("test2".to_string()))
+            map.0.get(&ObjectKey::String("test2".to_string()))
         {
             assert_eq!(segments.len(), 2);
             assert!(
@@ -48,7 +48,7 @@ test3 = .$$meta.extension
 
         // Check test3 - meta extension path
         if let Some(Value::Path(EurePath(segments))) =
-            map.0.get(&KeyCmpValue::String("test3".to_string()))
+            map.0.get(&ObjectKey::String("test3".to_string()))
         {
             assert_eq!(segments.len(), 2);
             assert!(matches!(&segments[0], PathSegment::MetaExt(id) if id.to_string() == "meta"));
@@ -79,9 +79,9 @@ nested.field = .$types.User
     println!("\nNested document: {doc:#?}");
 
     if let Value::Map(map) = doc {
-        if let Some(Value::Map(nested_map)) = map.0.get(&KeyCmpValue::String("nested".to_string()))
+        if let Some(Value::Map(nested_map)) = map.0.get(&ObjectKey::String("nested".to_string()))
         {
-            if let Some(value) = nested_map.0.get(&KeyCmpValue::String("field".to_string())) {
+            if let Some(value) = nested_map.0.get(&ObjectKey::String("field".to_string())) {
                 match value {
                     Value::Path(EurePath(segments)) => {
                         println!("Found Path with segments: {segments:?}");

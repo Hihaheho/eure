@@ -1,5 +1,5 @@
 use eure_schema::*;
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 
 #[test]
 fn test_inline_nested_schema_extraction() {
@@ -30,7 +30,7 @@ user.age.$type = .number
         .document_schema
         .root
         .fields
-        .get(&KeyCmpValue::String("user".to_string()))
+        .get(&ObjectKey::String("user".to_string()))
         .expect("Should have user field");
 
     eprintln!("User field type: {:?}", user_field.type_expr);
@@ -43,7 +43,7 @@ user.age.$type = .number
             // Check for name field
             let name_field = user_obj
                 .fields
-                .get(&KeyCmpValue::String("name".to_string()))
+                .get(&ObjectKey::String("name".to_string()))
                 .expect("User should have name field");
 
             eprintln!("Name field type: {:?}", name_field.type_expr);
@@ -57,12 +57,12 @@ user.age.$type = .number
                     assert!(
                         name_obj
                             .fields
-                            .contains_key(&KeyCmpValue::String("first".to_string()))
+                            .contains_key(&ObjectKey::String("first".to_string()))
                     );
                     assert!(
                         name_obj
                             .fields
-                            .contains_key(&KeyCmpValue::String("last".to_string()))
+                            .contains_key(&ObjectKey::String("last".to_string()))
                     );
                 }
                 _ => panic!(
@@ -75,7 +75,7 @@ user.age.$type = .number
             assert!(
                 user_obj
                     .fields
-                    .contains_key(&KeyCmpValue::String("age".to_string()))
+                    .contains_key(&ObjectKey::String("age".to_string()))
             );
         }
         _ => panic!(

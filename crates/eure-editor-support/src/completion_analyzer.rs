@@ -279,8 +279,8 @@ impl<'a> CompletionAnalyzer<'a> {
         );
         for (field_name, field_schema) in &object_schema.fields {
             let label = match field_name {
-                eure_value::value::KeyCmpValue::String(s) => s.clone(),
-                eure_value::value::KeyCmpValue::MetaExtension(s) => format!("${s}"),
+                eure_value::value::ObjectKey::String(s) => s.clone(),
+                eure_value::value::ObjectKey::MetaExtension(s) => format!("${s}"),
                 _ => continue, // Skip non-string keys for completion
             };
             eprintln!("DEBUG get_field_completions: Adding field: {label}");
@@ -326,7 +326,7 @@ impl<'a> CompletionAnalyzer<'a> {
 
         match segment {
             PathSegment::Ident(field_name) => {
-                let key = eure_value::value::KeyCmpValue::String(field_name.to_string());
+                let key = eure_value::value::ObjectKey::String(field_name.to_string());
                 eprintln!("DEBUG lookup_schema_at_path: Looking for field {key:?}");
                 if let Some(field_schema) = schema.fields.get(&key) {
                     eprintln!(

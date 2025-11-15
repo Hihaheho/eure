@@ -24,7 +24,7 @@ fn test_inline_code_vs_typed_string() {
         if let Value::Map(map) = eure_value {
             let test_value = map
                 .0
-                .get(&eure_value::value::KeyCmpValue::String("test".to_string()))
+                .get(&eure_value::value::ObjectKey::String("test".to_string()))
                 .unwrap();
 
             // Should be Code
@@ -59,7 +59,7 @@ fn test_inline_code_vs_typed_string() {
         if let Value::Map(map) = eure_value {
             let test_value = map
                 .0
-                .get(&eure_value::value::KeyCmpValue::String("test".to_string()))
+                .get(&eure_value::value::ObjectKey::String("test".to_string()))
                 .unwrap();
 
             // Should be Code (all named code creates Value::Code)
@@ -96,7 +96,7 @@ fn main() {
         // Check code1
         let code1 = map
             .0
-            .get(&eure_value::value::KeyCmpValue::String("code1".to_string()))
+            .get(&eure_value::value::ObjectKey::String("code1".to_string()))
             .unwrap();
         match code1 {
             Value::CodeBlock(Code { language, content }) => {
@@ -127,7 +127,7 @@ plain code
     if let Value::Map(map) = eure_value {
         let code = map
             .0
-            .get(&eure_value::value::KeyCmpValue::String("code".to_string()))
+            .get(&eure_value::value::ObjectKey::String("code".to_string()))
             .unwrap();
         match code {
             Value::CodeBlock(Code { language, content }) => {

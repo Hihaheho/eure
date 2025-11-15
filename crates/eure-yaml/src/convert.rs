@@ -1,6 +1,6 @@
 use crate::{Config, Error};
 use eure_value::value::{
-    Array, Code, KeyCmpValue, Map, EurePath, PathSegment, Tuple, Value, Variant, VariantRepr,
+    Array, Code, ObjectKey, Map, EurePath, PathSegment, Tuple, Value, Variant, VariantRepr,
 };
 use serde_yaml::{Mapping, Value as YamlValue};
 
@@ -68,13 +68,13 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
             let mut yaml_map = Mapping::new();
             for (k, v) in map.iter() {
                 let key = match k {
-                    KeyCmpValue::String(s) => YamlValue::String(s.clone()),
-                    KeyCmpValue::I64(i) => YamlValue::Number((*i).into()),
-                    KeyCmpValue::U64(u) => YamlValue::Number((*u).into()),
-                    KeyCmpValue::Bool(b) => YamlValue::Bool(*b),
-                    KeyCmpValue::Null => YamlValue::Null,
-                    KeyCmpValue::Unit => YamlValue::String("unit".to_string()),
-                    KeyCmpValue::Hole => {
+                    ObjectKey::String(s) => YamlValue::String(s.clone()),
+                    ObjectKey::I64(i) => YamlValue::Number((*i).into()),
+                    ObjectKey::U64(u) => YamlValue::Number((*u).into()),
+                    ObjectKey::Bool(b) => YamlValue::Bool(*b),
+                    ObjectKey::Null => YamlValue::Null,
+                    ObjectKey::Unit => YamlValue::String("unit".to_string()),
+                    ObjectKey::Hole => {
                         return Err(Error::ConversionError(
                             "Cannot use hole value (!) as YAML map key".to_string(),
                         ));
@@ -184,7 +184,7 @@ fn convert_variant_to_yaml(variant: &Variant, config: &Config) -> Result<YamlVal
                     // Add all fields from content
                     for (k, v) in content_map.iter() {
                         let key = match k {
-                            KeyCmpValue::String(s) => YamlValue::String(s.clone()),
+                            ObjectKey::String(s) => YamlValue::String(s.clone()),
                             _ => {
                                 return Err(Error::ConversionError(
                                     "Internal variant representation requires string keys"
@@ -279,22 +279,22 @@ pub fn yaml_to_value_with_config(yaml: &YamlValue, config: &Config) -> Result<Va
     }
 }
 
-fn yaml_key_to_key_cmp_value(yaml: &YamlValue) -> Result<KeyCmpValue, Error> {
+fn yaml_key_to_key_cmp_value(yaml: &YamlValue) -> Result<ObjectKey, Error> {
     match yaml {
-        YamlValue::String(s) => Ok(KeyCmpValue::String(s.clone())),
+        YamlValue::String(s) => Ok(ObjectKey::String(s.clone())),
         YamlValue::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(KeyCmpValue::I64(i))
+                Ok(ObjectKey::I64(i))
             } else if let Some(u) = n.as_u64() {
-                Ok(KeyCmpValue::U64(u))
+                Ok(ObjectKey::U64(u))
             } else {
                 Err(Error::ConversionError(
                     "Float keys are not supported".to_string(),
                 ))
             }
         }
-        YamlValue::Bool(b) => Ok(KeyCmpValue::Bool(*b)),
-        YamlValue::Null => Ok(KeyCmpValue::Null),
+        YamlValue::Bool(b) => Ok(ObjectKey::Bool(*b)),
+        YamlValue::Null => Ok(ObjectKey::Null),
         _ => Err(Error::ConversionError(format!(
             "Cannot use {yaml:?} as map key"
         ))),
@@ -364,7 +364,7 @@ fn try_parse_variant(map: &Mapping, config: &Config) -> Result<Option<Variant>, 
                         && key_str != tag
                     {
                         let value = yaml_to_value_with_config(v, config)?;
-                        content_map.insert(KeyCmpValue::String(key_str.clone()), value);
+                        content_map.insert(ObjectKey::String(key_str.clone()), value);
                     }
                 }
 

@@ -18,19 +18,19 @@ fn test_simple_struct() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+                .contains_key(&eure_schema::ObjectKey::from("name"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("age"))
+                .contains_key(&eure_schema::ObjectKey::from("age"))
         );
 
-        let name_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("name")];
+        let name_field = &obj_schema.fields[&eure_schema::ObjectKey::from("name")];
         assert_eq!(name_field.type_expr, Type::String);
         assert!(!name_field.optional);
 
-        let age_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("age")];
+        let age_field = &obj_schema.fields[&eure_schema::ObjectKey::from("age")];
         assert_eq!(age_field.type_expr, Type::Number);
         assert!(!age_field.optional);
     } else {
@@ -50,14 +50,14 @@ fn test_optional_fields() {
     let schema = Profile::eure_schema();
 
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let username_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("username")];
+        let username_field = &obj_schema.fields[&eure_schema::ObjectKey::from("username")];
         assert!(!username_field.optional);
 
-        let bio_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("bio")];
+        let bio_field = &obj_schema.fields[&eure_schema::ObjectKey::from("bio")];
         assert!(bio_field.optional);
         assert_eq!(bio_field.type_expr, Type::String);
 
-        let age_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("age")];
+        let age_field = &obj_schema.fields[&eure_schema::ObjectKey::from("age")];
         assert!(age_field.optional);
         assert_eq!(age_field.type_expr, Type::Number);
     } else {
@@ -99,17 +99,17 @@ fn test_simple_enum() {
         assert!(
             variant_schema
                 .variants
-                .contains_key(&eure_schema::KeyCmpValue::from("Active"))
+                .contains_key(&eure_schema::ObjectKey::from("Active"))
         );
         assert!(
             variant_schema
                 .variants
-                .contains_key(&eure_schema::KeyCmpValue::from("Inactive"))
+                .contains_key(&eure_schema::ObjectKey::from("Inactive"))
         );
         assert!(
             variant_schema
                 .variants
-                .contains_key(&eure_schema::KeyCmpValue::from("Pending"))
+                .contains_key(&eure_schema::ObjectKey::from("Pending"))
         );
         assert_eq!(variant_schema.representation, VariantRepr::Tagged);
     } else {
@@ -132,35 +132,35 @@ fn test_enum_with_data() {
         assert_eq!(variant_schema.variants.len(), 3);
 
         // Check Text variant
-        let text_variant = &variant_schema.variants[&eure_schema::KeyCmpValue::from("Text")];
+        let text_variant = &variant_schema.variants[&eure_schema::ObjectKey::from("Text")];
         assert!(
             text_variant
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::U64(0))
+                .contains_key(&eure_schema::ObjectKey::U64(0))
         );
         assert_eq!(
-            text_variant.fields[&eure_schema::KeyCmpValue::U64(0)].type_expr,
+            text_variant.fields[&eure_schema::ObjectKey::U64(0)].type_expr,
             Type::String
         );
 
         // Check Struct variant
-        let struct_variant = &variant_schema.variants[&eure_schema::KeyCmpValue::from("Struct")];
+        let struct_variant = &variant_schema.variants[&eure_schema::ObjectKey::from("Struct")];
         assert!(
             struct_variant
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("id"))
+                .contains_key(&eure_schema::ObjectKey::from("id"))
         );
         assert!(
             struct_variant
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("content"))
+                .contains_key(&eure_schema::ObjectKey::from("content"))
         );
         assert_eq!(
-            struct_variant.fields[&eure_schema::KeyCmpValue::from("id")].type_expr,
+            struct_variant.fields[&eure_schema::ObjectKey::from("id")].type_expr,
             Type::Number
         );
         assert_eq!(
-            struct_variant.fields[&eure_schema::KeyCmpValue::from("content")].type_expr,
+            struct_variant.fields[&eure_schema::ObjectKey::from("content")].type_expr,
             Type::String
         );
     } else {
@@ -186,7 +186,7 @@ fn test_nested_types() {
     let schema = Person::eure_schema();
 
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let addresses_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("addresses")];
+        let addresses_field = &obj_schema.fields[&eure_schema::ObjectKey::from("addresses")];
 
         if let Type::Array(inner) = &addresses_field.type_expr {
             // With recursive type detection, Address is now a TypeRef
@@ -206,17 +206,17 @@ fn test_nested_types() {
             assert!(
                 addr_obj
                     .fields
-                    .contains_key(&eure_schema::KeyCmpValue::from("street"))
+                    .contains_key(&eure_schema::ObjectKey::from("street"))
             );
             assert!(
                 addr_obj
                     .fields
-                    .contains_key(&eure_schema::KeyCmpValue::from("city"))
+                    .contains_key(&eure_schema::ObjectKey::from("city"))
             );
             assert!(
                 addr_obj
                     .fields
-                    .contains_key(&eure_schema::KeyCmpValue::from("zip"))
+                    .contains_key(&eure_schema::ObjectKey::from("zip"))
             );
         } else {
             panic!("Expected object schema for Address::eure_schema()");
@@ -238,11 +238,11 @@ fn test_generic_struct() {
 
     if let Type::Object(obj_schema) = &schema.type_expr {
         assert_eq!(
-            obj_schema.fields[&eure_schema::KeyCmpValue::from("value")].type_expr,
+            obj_schema.fields[&eure_schema::ObjectKey::from("value")].type_expr,
             Type::String
         );
         assert_eq!(
-            obj_schema.fields[&eure_schema::KeyCmpValue::from("metadata")].type_expr,
+            obj_schema.fields[&eure_schema::ObjectKey::from("metadata")].type_expr,
             Type::String
         );
     } else {
@@ -268,26 +268,26 @@ fn test_serde_rename() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("serverHost"))
+                .contains_key(&eure_schema::ObjectKey::from("serverHost"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("serverPort"))
+                .contains_key(&eure_schema::ObjectKey::from("serverPort"))
         );
         assert!(
             !obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("server_host"))
+                .contains_key(&eure_schema::ObjectKey::from("server_host"))
         );
         assert!(
             !obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("server_port"))
+                .contains_key(&eure_schema::ObjectKey::from("server_port"))
         );
 
         // Check that rename was captured in serde options
-        let host_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("serverHost")];
+        let host_field = &obj_schema.fields[&eure_schema::ObjectKey::from("serverHost")];
         assert_eq!(host_field.serde.rename, Some("serverHost".to_string()));
     } else {
         panic!("Expected object schema");
@@ -310,17 +310,17 @@ fn test_serde_rename_all() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("statusCode"))
+                .contains_key(&eure_schema::ObjectKey::from("statusCode"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("responseBody"))
+                .contains_key(&eure_schema::ObjectKey::from("responseBody"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("errorMessage"))
+                .contains_key(&eure_schema::ObjectKey::from("errorMessage"))
         );
 
         // Check serde options were captured
@@ -385,7 +385,7 @@ fn test_collections() {
 
     if let Type::Object(obj_schema) = &schema.type_expr {
         // Check Vec
-        let list_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("list")];
+        let list_field = &obj_schema.fields[&eure_schema::ObjectKey::from("list")];
         if let Type::Array(inner) = &list_field.type_expr {
             assert_eq!(**inner, Type::String);
         } else {
@@ -393,7 +393,7 @@ fn test_collections() {
         }
 
         // Check HashSet
-        let set_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("set")];
+        let set_field = &obj_schema.fields[&eure_schema::ObjectKey::from("set")];
         if let Type::Array(inner) = &set_field.type_expr {
             assert_eq!(**inner, Type::Number);
             assert_eq!(set_field.constraints.unique, Some(true));
@@ -402,7 +402,7 @@ fn test_collections() {
         }
 
         // Check HashMap
-        let map_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("map")];
+        let map_field = &obj_schema.fields[&eure_schema::ObjectKey::from("map")];
         if let Type::Object(map_schema) = &map_field.type_expr {
             assert!(map_schema.fields.is_empty());
             assert!(map_schema.additional_properties.is_some());

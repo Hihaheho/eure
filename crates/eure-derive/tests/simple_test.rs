@@ -17,12 +17,12 @@ fn test_basic_struct() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+                .contains_key(&eure_schema::ObjectKey::from("name"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("age"))
+                .contains_key(&eure_schema::ObjectKey::from("age"))
         );
     } else {
         panic!("Expected object schema");

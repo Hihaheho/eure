@@ -1,6 +1,6 @@
 use ahash::AHashMap;
 use eure_json::value_to_json;
-use eure_value::value::{Array, KeyCmpValue, Map, Value};
+use eure_value::value::{Array, ObjectKey, Map, Value};
 
 #[test]
 fn test_hole_to_json_error() {
@@ -21,10 +21,10 @@ fn test_hole_to_json_error() {
 fn test_hole_in_object_to_json() {
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         Value::String("John".to_string()),
     );
-    map.insert(KeyCmpValue::String("age".to_string()), Value::Hole);
+    map.insert(ObjectKey::String("age".to_string()), Value::Hole);
 
     let obj = Value::Map(Map(map));
     let result = value_to_json(&obj);
@@ -60,7 +60,7 @@ fn test_hole_in_array_to_json() {
 #[test]
 fn test_hole_as_map_key() {
     let mut map = AHashMap::new();
-    map.insert(KeyCmpValue::Hole, Value::String("value".to_string()));
+    map.insert(ObjectKey::Hole, Value::String("value".to_string()));
 
     let obj = Value::Map(Map(map));
     let result = value_to_json(&obj);
@@ -77,15 +77,15 @@ fn test_hole_as_map_key() {
 #[test]
 fn test_nested_hole_to_json() {
     let mut inner_map = AHashMap::new();
-    inner_map.insert(KeyCmpValue::String("street".to_string()), Value::Hole);
+    inner_map.insert(ObjectKey::String("street".to_string()), Value::Hole);
     inner_map.insert(
-        KeyCmpValue::String("city".to_string()),
+        ObjectKey::String("city".to_string()),
         Value::String("New York".to_string()),
     );
 
     let mut outer_map = AHashMap::new();
     outer_map.insert(
-        KeyCmpValue::String("address".to_string()),
+        ObjectKey::String("address".to_string()),
         Value::Map(Map(inner_map)),
     );
 

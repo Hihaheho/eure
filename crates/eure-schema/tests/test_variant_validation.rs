@@ -1,4 +1,4 @@
-use eure_schema::{KeyCmpValue, ValidationErrorKind, document_to_schema, validate_document};
+use eure_schema::{ObjectKey, ValidationErrorKind, document_to_schema, validate_document};
 use eure_tree::value_visitor::ValueVisitor;
 
 // NOTE: These tests are currently failing due to issues in the schema extraction logic:
@@ -89,7 +89,7 @@ tasks.$optional = true
     let has_missing_content = errors2.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::RequiredFieldMissing { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "content")
+            if matches!(field, ObjectKey::String(s) if s == "content")
         )
     });
 
@@ -120,7 +120,7 @@ tasks.$optional = true
     let has_unexpected = errors3.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::UnexpectedField { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "invalid_field")
+            if matches!(field, ObjectKey::String(s) if s == "invalid_field")
         )
     });
 
@@ -150,7 +150,7 @@ tasks.$optional = true
     let has_false_positive = errors4.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::UnexpectedField { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "command" || s == "timeout")
+            if matches!(field, ObjectKey::String(s) if s == "command" || s == "timeout")
         )
     });
 
@@ -250,7 +250,7 @@ unexpected_field = "this should be reported as unexpected"
     let has_unexpected = errors.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::UnexpectedField { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "unexpected_field")
+            if matches!(field, ObjectKey::String(s) if s == "unexpected_field")
         )
     });
 
@@ -283,7 +283,7 @@ code1 = rust`println!("test");`
     // Should not report valid variant fields as unexpected
     let has_false_positives = errors2.iter().any(|e| matches!(&e.kind,
         ValidationErrorKind::UnexpectedField { field, .. }
-        if matches!(field, KeyCmpValue::String(s) if ["speaker", "lines", "code1"].contains(&s.as_str()))
+        if matches!(field, ObjectKey::String(s) if ["speaker", "lines", "code1"].contains(&s.as_str()))
     ));
 
     assert!(
@@ -333,7 +333,7 @@ actions.$array = .$types.Action
     assert!(
         schema
             .types
-            .contains_key(&KeyCmpValue::String("Action".to_string())),
+            .contains_key(&ObjectKey::String("Action".to_string())),
         "Schema should contain Action type"
     );
 
@@ -444,14 +444,14 @@ text = "Option A"
     let has_missing_description = errors3.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::RequiredFieldMissing { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "description")
+            if matches!(field, ObjectKey::String(s) if s == "description")
         )
     });
 
     let has_missing_value = errors3.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::RequiredFieldMissing { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "value")
+            if matches!(field, ObjectKey::String(s) if s == "value")
         )
     });
 
@@ -568,14 +568,14 @@ actions = []
     let has_invalid_field = errors2.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::UnexpectedField { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "invalid_field")
+            if matches!(field, ObjectKey::String(s) if s == "invalid_field")
         )
     });
 
     let has_another_invalid = errors2.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::UnexpectedField { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "another_invalid")
+            if matches!(field, ObjectKey::String(s) if s == "another_invalid")
         )
     });
 
@@ -638,7 +638,7 @@ items = ["a", "b"]
     let has_invalid = errors.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::UnexpectedField { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "invalid_field")
+            if matches!(field, ObjectKey::String(s) if s == "invalid_field")
         )
     });
 

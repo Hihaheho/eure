@@ -1,5 +1,5 @@
 use ahash::AHashMap;
-use eure_value::value::{KeyCmpValue, Map, Value};
+use eure_value::value::{ObjectKey, Map, Value};
 use serde::{Deserialize, Serialize};
 use serde_eure::{from_str, from_value, to_string};
 
@@ -61,7 +61,7 @@ fn test_underscore_tag() {
     // Test direct value creation
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("_tag".to_string()),
+        ObjectKey::String("_tag".to_string()),
         Value::String("Unit".to_string()),
     );
     let value = Value::Map(Map(map));
@@ -83,7 +83,7 @@ fn test_dash_tag() {
     // Test direct value creation
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("tag-with-dash".to_string()),
+        ObjectKey::String("tag-with-dash".to_string()),
         Value::String("Unit".to_string()),
     );
     let value = Value::Map(Map(map));
@@ -112,7 +112,7 @@ fn test_at_tag() {
     // Test direct value creation
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("@tag".to_string()),
+        ObjectKey::String("@tag".to_string()),
         Value::String("Unit".to_string()),
     );
     let value = Value::Map(Map(map));
@@ -143,7 +143,7 @@ fn test_dollar_tag() {
     // Test direct value creation - this is where the issue might be
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("$tag".to_string()),
+        ObjectKey::String("$tag".to_string()),
         Value::String("Unit".to_string()),
     );
     let value = Value::Map(Map(map));

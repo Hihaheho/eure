@@ -1,7 +1,7 @@
 //! Simple integration test for schema validation with example files
 
 use eure_schema::{extract_schema_from_value, validate_with_schema_value};
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 
 #[test]
 fn test_example_schema_validation() {
@@ -87,7 +87,7 @@ value = "b"
         extracted
             .document_schema
             .types
-            .contains_key(&KeyCmpValue::String("Action".to_string())),
+            .contains_key(&ObjectKey::String("Action".to_string())),
         "Expected 'Action' type to be defined"
     );
 
@@ -97,7 +97,7 @@ value = "b"
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("script".to_string())),
+            .contains_key(&ObjectKey::String("script".to_string())),
         "Expected 'script' to be in root fields"
     );
 
@@ -160,7 +160,7 @@ person.email.$optional = true
 
     // Should have the fields defined
     let person_fields = &extracted.document_schema.root.fields;
-    assert!(person_fields.contains_key(&KeyCmpValue::String("person".to_string())));
+    assert!(person_fields.contains_key(&ObjectKey::String("person".to_string())));
 }
 
 #[test]
@@ -184,26 +184,26 @@ email.$optional = true
 
     // Should have the person object defined
     let person_fields = &extracted.document_schema.root.fields;
-    assert!(person_fields.contains_key(&KeyCmpValue::String("person".to_string())));
+    assert!(person_fields.contains_key(&ObjectKey::String("person".to_string())));
 
     // Check the person object has the expected fields
-    if let Some(person_field) = person_fields.get(&KeyCmpValue::String("person".to_string())) {
+    if let Some(person_field) = person_fields.get(&ObjectKey::String("person".to_string())) {
         if let eure_schema::Type::Object(obj) = &person_field.type_expr {
             assert!(
                 obj.fields
-                    .contains_key(&KeyCmpValue::String("name".to_string()))
+                    .contains_key(&ObjectKey::String("name".to_string()))
             );
             assert!(
                 obj.fields
-                    .contains_key(&KeyCmpValue::String("age".to_string()))
+                    .contains_key(&ObjectKey::String("age".to_string()))
             );
             assert!(
                 obj.fields
-                    .contains_key(&KeyCmpValue::String("email".to_string()))
+                    .contains_key(&ObjectKey::String("email".to_string()))
             );
 
             // Check email is optional
-            if let Some(email_field) = obj.fields.get(&KeyCmpValue::String("email".to_string())) {
+            if let Some(email_field) = obj.fields.get(&ObjectKey::String("email".to_string())) {
                 assert!(email_field.optional, "Email field should be optional");
             }
         } else {

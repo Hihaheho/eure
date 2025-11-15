@@ -16,16 +16,16 @@ fn from_json_string(json_str: &str) -> Result<Value, crate::Error> {
 #[test]
 fn test_dollar_tag_preservation() {
     use ahash::AHashMap;
-    use eure_value::value::{KeyCmpValue, Map, Value};
+    use eure_value::value::{ObjectKey, Map, Value};
 
     // Create a map with $tag
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("$tag".to_string()),
+        ObjectKey::String("$tag".to_string()),
         Value::String("TestVariant".to_string()),
     );
     map.insert(
-        KeyCmpValue::String("field".to_string()),
+        ObjectKey::String("field".to_string()),
         Value::String("value".to_string()),
     );
 
@@ -45,8 +45,8 @@ fn test_dollar_tag_preservation() {
     // Check the parsed value
     match parsed {
         Value::Map(Map(m)) => {
-            assert!(m.contains_key(&KeyCmpValue::String("$tag".to_string())));
-            assert!(m.contains_key(&KeyCmpValue::String("field".to_string())));
+            assert!(m.contains_key(&ObjectKey::String("$tag".to_string())));
+            assert!(m.contains_key(&ObjectKey::String("field".to_string())));
         }
         _ => panic!("Expected Map"),
     }
@@ -185,25 +185,25 @@ fn test_special_float_values() {
 #[test]
 fn test_deeply_nested_structures() {
     use ahash::AHashMap;
-    use eure_value::value::{Array, KeyCmpValue, Map, Value};
+    use eure_value::value::{Array, ObjectKey, Map, Value};
 
     // Create deeply nested structure
     let mut innermost = AHashMap::new();
-    innermost.insert(KeyCmpValue::String("leaf".to_string()), Value::Bool(true));
+    innermost.insert(ObjectKey::String("leaf".to_string()), Value::Bool(true));
 
     let mut inner = AHashMap::new();
     inner.insert(
-        KeyCmpValue::String("nested".to_string()),
+        ObjectKey::String("nested".to_string()),
         Value::Map(Map(innermost)),
     );
 
     let mut outer = AHashMap::new();
     outer.insert(
-        KeyCmpValue::String("data".to_string()),
+        ObjectKey::String("data".to_string()),
         Value::Map(Map(inner)),
     );
     outer.insert(
-        KeyCmpValue::String("array".to_string()),
+        ObjectKey::String("array".to_string()),
         Value::Array(Array(vec![
             Value::F64(1.0),
             Value::Array(Array(vec![Value::F64(2.0), Value::F64(3.0)])),
@@ -224,8 +224,8 @@ fn test_deeply_nested_structures() {
         (Value::Map(Map(parsed_map)), Value::Map(Map(orig_map))) => {
             // Check that both have the same keys
             assert_eq!(parsed_map.len(), orig_map.len());
-            assert!(parsed_map.contains_key(&KeyCmpValue::String("data".to_string())));
-            assert!(parsed_map.contains_key(&KeyCmpValue::String("array".to_string())));
+            assert!(parsed_map.contains_key(&ObjectKey::String("data".to_string())));
+            assert!(parsed_map.contains_key(&ObjectKey::String("array".to_string())));
         }
         _ => panic!("Expected both to be Maps"),
     }
@@ -234,20 +234,20 @@ fn test_deeply_nested_structures() {
 #[test]
 fn test_empty_and_whitespace_keys() {
     use ahash::AHashMap;
-    use eure_value::value::{KeyCmpValue, Map, Value};
+    use eure_value::value::{ObjectKey, Map, Value};
 
     // Empty key
     let mut map = AHashMap::new();
     map.insert(
-        KeyCmpValue::String("".to_string()),
+        ObjectKey::String("".to_string()),
         Value::String("empty key".to_string()),
     );
     map.insert(
-        KeyCmpValue::String(" ".to_string()),
+        ObjectKey::String(" ".to_string()),
         Value::String("space key".to_string()),
     );
     map.insert(
-        KeyCmpValue::String("\t".to_string()),
+        ObjectKey::String("\t".to_string()),
         Value::String("tab key".to_string()),
     );
 
@@ -265,9 +265,9 @@ fn test_empty_and_whitespace_keys() {
     let parsed = from_json_string(&json).unwrap();
     match parsed {
         Value::Map(Map(m)) => {
-            assert!(m.contains_key(&KeyCmpValue::String("".to_string())));
-            assert!(m.contains_key(&KeyCmpValue::String(" ".to_string())));
-            assert!(m.contains_key(&KeyCmpValue::String("\t".to_string())));
+            assert!(m.contains_key(&ObjectKey::String("".to_string())));
+            assert!(m.contains_key(&ObjectKey::String(" ".to_string())));
+            assert!(m.contains_key(&ObjectKey::String("\t".to_string())));
         }
         _ => panic!("Expected Map"),
     }
@@ -308,12 +308,12 @@ fn test_large_numbers() {
 fn test_variant_representations() {
     use crate::Config;
     use ahash::AHashMap;
-    use eure_value::value::{KeyCmpValue, Map, Value, Variant};
+    use eure_value::value::{ObjectKey, Map, Value, Variant};
 
     let content_map = {
         let mut m = AHashMap::new();
-        m.insert(KeyCmpValue::String("x".to_string()), Value::F64(1.0));
-        m.insert(KeyCmpValue::String("y".to_string()), Value::F64(2.0));
+        m.insert(ObjectKey::String("x".to_string()), Value::F64(1.0));
+        m.insert(ObjectKey::String("y".to_string()), Value::F64(2.0));
         Value::Map(Map(m))
     };
 

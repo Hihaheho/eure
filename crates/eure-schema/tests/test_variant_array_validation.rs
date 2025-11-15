@@ -1,7 +1,7 @@
 //! End-to-end tests for variant array field validation
 
 use eure_schema::{
-    KeyCmpValue, ValidationErrorKind, extract_schema_from_value, validate_with_tree,
+    ObjectKey, ValidationErrorKind, extract_schema_from_value, validate_with_tree,
 };
 
 #[test]
@@ -71,7 +71,7 @@ speaker = "Alice"
     );
 
     let has_missing_field_error = errors.iter().any(|e|
-        matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if matches!(field, KeyCmpValue::String(s) if s == "lines"))
+        matches!(&e.kind, ValidationErrorKind::RequiredFieldMissing { field, .. } if matches!(field, ObjectKey::String(s) if s == "lines"))
     );
     assert!(
         has_missing_field_error,

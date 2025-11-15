@@ -1,6 +1,6 @@
 use eure_parol::parse;
 use eure_tree::value_visitor::{ValueVisitor, document_to_value};
-use eure_value::value::{KeyCmpValue, Map, Value};
+use eure_value::value::{ObjectKey, Map, Value};
 
 #[test]
 fn test_top_level_extension_namespace() {
@@ -57,7 +57,7 @@ fn test_extension_namespace_in_object() {
             // Get the data object
             let data_value = root_map
                 .0
-                .get(&KeyCmpValue::String("data".to_string()))
+                .get(&ObjectKey::String("data".to_string()))
                 .expect("Expected data field");
 
             if let Value::Map(Map(data_map)) = data_value {
@@ -70,13 +70,13 @@ fn test_extension_namespace_in_object() {
 
                 // Check for regular field
                 let field_value = data_map
-                    .get(&KeyCmpValue::String("field".to_string()))
+                    .get(&ObjectKey::String("field".to_string()))
                     .expect("Expected field");
                 assert!(matches!(field_value, Value::String(s) if s == "value"));
 
                 // $tag should NOT be in the value
                 assert!(
-                    !data_map.contains_key(&KeyCmpValue::String("$tag".to_string())),
+                    !data_map.contains_key(&ObjectKey::String("$tag".to_string())),
                     "$tag extension should not appear in Value"
                 );
             } else {
@@ -109,7 +109,7 @@ fn test_multiple_extension_fields() {
         Value::Map(root_map) => {
             let config_value = root_map
                 .0
-                .get(&KeyCmpValue::String("config".to_string()))
+                .get(&ObjectKey::String("config".to_string()))
                 .expect("Expected config field");
 
             if let Value::Map(Map(config_map)) = config_value {
@@ -122,17 +122,17 @@ fn test_multiple_extension_fields() {
 
                 // Verify regular field
                 let regular_value = config_map
-                    .get(&KeyCmpValue::String("regular".to_string()))
+                    .get(&ObjectKey::String("regular".to_string()))
                     .expect("Expected regular field");
                 assert!(matches!(regular_value, Value::String(s) if s == "field"));
 
                 // Extension fields should NOT be in the value
                 assert!(
-                    !config_map.contains_key(&KeyCmpValue::String("$tag".to_string())),
+                    !config_map.contains_key(&ObjectKey::String("$tag".to_string())),
                     "$tag extension should not appear in Value"
                 );
                 assert!(
-                    !config_map.contains_key(&KeyCmpValue::String("$meta".to_string())),
+                    !config_map.contains_key(&ObjectKey::String("$meta".to_string())),
                     "$meta extension should not appear in Value"
                 );
             } else {
@@ -169,7 +169,7 @@ fn test_meta_extension_namespace() {
 
             let meta_value = map
                 .0
-                .get(&KeyCmpValue::MetaExtension(
+                .get(&ObjectKey::MetaExtension(
                     Identifier::from_str("meta").unwrap(),
                 ))
                 .expect("Expected $$meta field as MetaExtension key");

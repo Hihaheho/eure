@@ -5,7 +5,7 @@ use crate::{
     VariantSchema,
 };
 use eure_value::identifier::Identifier;
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 use indexmap::IndexMap;
 
 /// Builder for creating FieldSchema instances
@@ -184,7 +184,7 @@ impl TypeBuilder {
 /// Builder for ObjectSchema
 #[derive(Default)]
 pub struct ObjectSchemaBuilder {
-    fields: IndexMap<KeyCmpValue, FieldSchema>,
+    fields: IndexMap<ObjectKey, FieldSchema>,
     additional_properties: Option<Box<Type>>,
 }
 
@@ -196,7 +196,7 @@ impl ObjectSchemaBuilder {
 
     /// Add a field
     pub fn field(mut self, name: impl Into<String>, schema: FieldSchema) -> Self {
-        self.fields.insert(KeyCmpValue::String(name.into()), schema);
+        self.fields.insert(ObjectKey::String(name.into()), schema);
         self
     }
 
@@ -207,7 +207,7 @@ impl ObjectSchemaBuilder {
     {
         let builder = f(FieldSchemaBuilder::new());
         if let Ok(schema) = builder.build() {
-            self.fields.insert(KeyCmpValue::String(name.into()), schema);
+            self.fields.insert(ObjectKey::String(name.into()), schema);
         }
         self
     }
@@ -235,7 +235,7 @@ impl ObjectSchemaBuilder {
 /// Builder for VariantSchema
 #[derive(Default)]
 pub struct VariantSchemaBuilder {
-    variants: IndexMap<KeyCmpValue, ObjectSchema>,
+    variants: IndexMap<ObjectKey, ObjectSchema>,
     representation: VariantRepr,
 }
 
@@ -247,8 +247,7 @@ impl VariantSchemaBuilder {
 
     /// Add a variant
     pub fn variant(mut self, name: impl Into<String>, schema: ObjectSchema) -> Self {
-        self.variants
-            .insert(KeyCmpValue::String(name.into()), schema);
+        self.variants.insert(ObjectKey::String(name.into()), schema);
         self
     }
 
@@ -258,8 +257,7 @@ impl VariantSchemaBuilder {
         F: FnOnce(ObjectSchemaBuilder) -> ObjectSchemaBuilder,
     {
         let schema = f(ObjectSchemaBuilder::new()).build();
-        self.variants
-            .insert(KeyCmpValue::String(name.into()), schema);
+        self.variants.insert(ObjectKey::String(name.into()), schema);
         self
     }
 
@@ -272,7 +270,7 @@ impl VariantSchemaBuilder {
     /// Set as internally tagged
     pub fn internally_tagged(mut self, tag: impl Into<String>) -> Self {
         self.representation = VariantRepr::InternallyTagged {
-            tag: KeyCmpValue::String(tag.into()),
+            tag: ObjectKey::String(tag.into()),
         };
         self
     }
@@ -280,8 +278,8 @@ impl VariantSchemaBuilder {
     /// Set as adjacently tagged
     pub fn adjacently_tagged(mut self, tag: impl Into<String>, content: impl Into<String>) -> Self {
         self.representation = VariantRepr::AdjacentlyTagged {
-            tag: KeyCmpValue::String(tag.into()),
-            content: KeyCmpValue::String(content.into()),
+            tag: ObjectKey::String(tag.into()),
+            content: ObjectKey::String(content.into()),
         };
         self
     }
@@ -336,22 +334,22 @@ mod tests {
             assert!(
                 schema
                     .fields
-                    .contains_key(&KeyCmpValue::String("name".to_string()))
+                    .contains_key(&ObjectKey::String("name".to_string()))
             );
             assert!(
                 schema
                     .fields
-                    .contains_key(&KeyCmpValue::String("age".to_string()))
+                    .contains_key(&ObjectKey::String("age".to_string()))
             );
             assert!(
                 schema
                     .fields
-                    .contains_key(&KeyCmpValue::String("email".to_string()))
+                    .contains_key(&ObjectKey::String("email".to_string()))
             );
             assert!(
                 schema
                     .fields
-                    .get(&KeyCmpValue::String("age".to_string()))
+                    .get(&ObjectKey::String("age".to_string()))
                     .unwrap()
                     .optional
             );
@@ -378,17 +376,17 @@ mod tests {
             assert!(
                 schema
                     .variants
-                    .contains_key(&KeyCmpValue::String("Success".to_string()))
+                    .contains_key(&ObjectKey::String("Success".to_string()))
             );
             assert!(
                 schema
                     .variants
-                    .contains_key(&KeyCmpValue::String("Error".to_string()))
+                    .contains_key(&ObjectKey::String("Error".to_string()))
             );
             assert_eq!(
                 schema.representation,
                 VariantRepr::InternallyTagged {
-                    tag: KeyCmpValue::String("type".to_string())
+                    tag: ObjectKey::String("type".to_string())
                 }
             );
         } else {

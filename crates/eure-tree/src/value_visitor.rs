@@ -1,6 +1,6 @@
 use crate::nodes::*;
 use eure_value::{
-    document::{EureDocument, InsertError},
+    document::{EureDocument, InsertErrorKind},
     value::PathSegment,
 };
 use thiserror::Error;
@@ -18,7 +18,7 @@ pub enum ValueVisitorError {
     #[error("Failed to parse float: {0}")]
     InvalidFloat(String),
     #[error("Document insert error: {0}")]
-    DocumentInsert(#[from] InsertError),
+    DocumentInsert(#[from] InsertErrorKind),
 }
 
 pub struct ValueVisitor<'a> {

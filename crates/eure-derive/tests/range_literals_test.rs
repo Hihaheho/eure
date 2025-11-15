@@ -1,5 +1,5 @@
 use eure_derive::Eure;
-use eure_schema::{KeyCmpValue, ToEureSchema, Type};
+use eure_schema::{ObjectKey, ToEureSchema, Type};
 use serde::{Deserialize, Serialize};
 
 #[test]
@@ -15,7 +15,7 @@ fn test_range_with_integer_literals() {
     if let Type::Object(obj_schema) = schema.type_expr {
         let age_field = obj_schema
             .fields
-            .get(&KeyCmpValue::String("age".to_string()))
+            .get(&ObjectKey::String("age".to_string()))
             .unwrap();
         assert_eq!(age_field.constraints.range, Some((Some(0.0), Some(150.0))));
     } else {
@@ -36,7 +36,7 @@ fn test_range_with_float_literals() {
     if let Type::Object(obj_schema) = schema.type_expr {
         let score_field = obj_schema
             .fields
-            .get(&KeyCmpValue::String("score".to_string()))
+            .get(&ObjectKey::String("score".to_string()))
             .unwrap();
         assert_eq!(score_field.constraints.range, Some((Some(0.5), Some(99.9))));
     } else {
@@ -57,7 +57,7 @@ fn test_range_with_mixed_literals() {
     if let Type::Object(obj_schema) = schema.type_expr {
         let value_field = obj_schema
             .fields
-            .get(&KeyCmpValue::String("value".to_string()))
+            .get(&ObjectKey::String("value".to_string()))
             .unwrap();
         assert_eq!(value_field.constraints.range, Some((Some(0.0), Some(99.9))));
     } else {
@@ -78,7 +78,7 @@ fn test_range_with_negative_integers() {
     if let Type::Object(obj_schema) = schema.type_expr {
         let temp_field = obj_schema
             .fields
-            .get(&KeyCmpValue::String("temperature".to_string()))
+            .get(&ObjectKey::String("temperature".to_string()))
             .unwrap();
         assert_eq!(
             temp_field.constraints.range,

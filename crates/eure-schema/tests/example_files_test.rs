@@ -1,5 +1,5 @@
 use eure_schema::{extract_schema_from_value, validate_with_schema_value};
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 use std::fs;
 
 #[test]
@@ -59,13 +59,13 @@ fn test_example_files_validation() {
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("script".to_string()))
+            .contains_key(&ObjectKey::String("script".to_string()))
     );
     if let Some(script_field) = extracted
         .document_schema
         .root
         .fields
-        .get(&KeyCmpValue::String("script".to_string()))
+        .get(&ObjectKey::String("script".to_string()))
     {
         match &script_field.type_expr {
             eure_schema::Type::Object(obj_schema) => {
@@ -73,19 +73,19 @@ fn test_example_files_validation() {
                 assert!(
                     obj_schema
                         .fields
-                        .contains_key(&KeyCmpValue::String("id".to_string())),
+                        .contains_key(&ObjectKey::String("id".to_string())),
                     "script should have 'id' field"
                 );
                 assert!(
                     obj_schema
                         .fields
-                        .contains_key(&KeyCmpValue::String("description".to_string())),
+                        .contains_key(&ObjectKey::String("description".to_string())),
                     "script should have 'description' field"
                 );
                 assert!(
                     obj_schema
                         .fields
-                        .contains_key(&KeyCmpValue::String("actions".to_string())),
+                        .contains_key(&ObjectKey::String("actions".to_string())),
                     "script should have 'actions' field"
                 );
             }
@@ -115,8 +115,8 @@ fn test_example_files_validation() {
         .iter()
         .filter(|e| {
             if let eure_schema::ValidationErrorKind::UnexpectedField { field, .. } = &e.kind {
-                field == &eure_value::value::KeyCmpValue::String("id".to_string())
-                    || field == &eure_value::value::KeyCmpValue::String("description".to_string())
+                field == &eure_value::value::ObjectKey::String("id".to_string())
+                    || field == &eure_value::value::ObjectKey::String("description".to_string())
             } else {
                 false
             }

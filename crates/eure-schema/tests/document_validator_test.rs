@@ -6,7 +6,7 @@ use eure_schema::{
 };
 use eure_tree::document::EureDocument;
 use eure_tree::value_visitor::ValueVisitor;
-use eure_value::value::KeyCmpValue;
+use eure_value::value::ObjectKey;
 use indexmap::IndexMap;
 
 /// Helper function to parse a document and extract EureDocument
@@ -25,7 +25,7 @@ fn test_simple_validation() {
     // Create a simple schema
     let mut schema = DocumentSchema::default();
     schema.root.fields.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: false,
@@ -33,7 +33,7 @@ fn test_simple_validation() {
         },
     );
     schema.root.fields.insert(
-        KeyCmpValue::String("age".to_string()),
+        ObjectKey::String("age".to_string()),
         FieldSchema {
             type_expr: Type::Number,
             optional: true,
@@ -58,7 +58,7 @@ fn test_missing_required_field() {
     // Create schema with required field
     let mut schema = DocumentSchema::default();
     schema.root.fields.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: false,
@@ -66,7 +66,7 @@ fn test_missing_required_field() {
         },
     );
     schema.root.fields.insert(
-        KeyCmpValue::String("age".to_string()),
+        ObjectKey::String("age".to_string()),
         FieldSchema {
             type_expr: Type::Number,
             optional: true,
@@ -86,7 +86,7 @@ age = 30
     assert!(matches!(
         &errors[0].kind,
         ValidationErrorKind::RequiredFieldMissing { field, .. }
-        if matches!(field, KeyCmpValue::String(s) if s == "name")
+        if matches!(field, ObjectKey::String(s) if s == "name")
     ));
 }
 
@@ -95,7 +95,7 @@ fn test_type_mismatch() {
     // Create schema expecting string
     let mut schema = DocumentSchema::default();
     schema.root.fields.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: false,
@@ -124,7 +124,7 @@ fn test_array_validation() {
     // Create schema with array field
     let mut schema = DocumentSchema::default();
     schema.root.fields.insert(
-        KeyCmpValue::String("items".to_string()),
+        ObjectKey::String("items".to_string()),
         FieldSchema {
             type_expr: Type::Array(Box::new(Type::String)),
             optional: false,
@@ -167,7 +167,7 @@ fn test_nested_object_validation() {
 
     let mut user_fields = IndexMap::new();
     user_fields.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: false,
@@ -175,7 +175,7 @@ fn test_nested_object_validation() {
         },
     );
     user_fields.insert(
-        KeyCmpValue::String("email".to_string()),
+        ObjectKey::String("email".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: true,
@@ -184,7 +184,7 @@ fn test_nested_object_validation() {
     );
 
     schema.root.fields.insert(
-        KeyCmpValue::String("user".to_string()),
+        ObjectKey::String("user".to_string()),
         FieldSchema {
             type_expr: Type::Object(ObjectSchema {
                 fields: user_fields,
@@ -216,7 +216,7 @@ fn test_variant_validation() {
     // Create variant
     let mut create_fields = IndexMap::new();
     create_fields.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: false,
@@ -224,7 +224,7 @@ fn test_variant_validation() {
         },
     );
     variants.insert(
-        KeyCmpValue::String("create".to_string()),
+        ObjectKey::String("create".to_string()),
         ObjectSchema {
             fields: create_fields,
             additional_properties: None,
@@ -234,7 +234,7 @@ fn test_variant_validation() {
     // Update variant
     let mut update_fields = IndexMap::new();
     update_fields.insert(
-        KeyCmpValue::String("id".to_string()),
+        ObjectKey::String("id".to_string()),
         FieldSchema {
             type_expr: Type::Number,
             optional: false,
@@ -242,7 +242,7 @@ fn test_variant_validation() {
         },
     );
     update_fields.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: true,
@@ -250,7 +250,7 @@ fn test_variant_validation() {
         },
     );
     variants.insert(
-        KeyCmpValue::String("update".to_string()),
+        ObjectKey::String("update".to_string()),
         ObjectSchema {
             fields: update_fields,
             additional_properties: None,
@@ -259,7 +259,7 @@ fn test_variant_validation() {
 
     let mut schema = DocumentSchema::default();
     schema.root.fields.insert(
-        KeyCmpValue::String("action".to_string()),
+        ObjectKey::String("action".to_string()),
         FieldSchema {
             type_expr: Type::Variants(VariantSchema {
                 variants,
@@ -303,7 +303,7 @@ fn test_hole_detection() {
     // Create simple schema
     let mut schema = DocumentSchema::default();
     schema.root.fields.insert(
-        KeyCmpValue::String("value".to_string()),
+        ObjectKey::String("value".to_string()),
         FieldSchema {
             type_expr: Type::String,
             optional: false,

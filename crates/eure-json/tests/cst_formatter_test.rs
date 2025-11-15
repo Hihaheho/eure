@@ -1,6 +1,6 @@
 use ahash::AHashMap;
 use eure_json::format_eure;
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Value, Variant};
+use eure_value::value::{Array, Code, ObjectKey, Map, Value, Variant};
 
 #[test]
 fn test_cst_formatter_comprehensive() {
@@ -39,8 +39,8 @@ fn test_cst_formatter_comprehensive() {
 
     // Test object
     let mut map = AHashMap::new();
-    map.insert(KeyCmpValue::String("x".to_string()), Value::I64(1));
-    map.insert(KeyCmpValue::String("y".to_string()), Value::I64(2));
+    map.insert(ObjectKey::String("x".to_string()), Value::I64(1));
+    map.insert(ObjectKey::String("y".to_string()), Value::I64(2));
     let object = Value::Map(Map(map));
     let result = format_eure(&object);
     // Note: HashMap order may vary
@@ -89,13 +89,13 @@ fn test_cst_formatter_special_keys() {
 
     // Test string key that needs escaping
     map.insert(
-        KeyCmpValue::String("key with spaces".to_string()),
+        ObjectKey::String("key with spaces".to_string()),
         Value::I64(1),
     );
 
     // Test integer keys
-    map.insert(KeyCmpValue::I64(42), Value::String("forty-two".to_string()));
-    map.insert(KeyCmpValue::U64(100), Value::String("hundred".to_string()));
+    map.insert(ObjectKey::I64(42), Value::String("forty-two".to_string()));
+    map.insert(ObjectKey::U64(100), Value::String("hundred".to_string()));
 
     let value = Value::Map(Map(map));
     let result = format_eure(&value);
@@ -108,19 +108,19 @@ fn test_cst_formatter_special_keys() {
 #[test]
 fn test_cst_formatter_complex_structure() {
     let mut inner_map = AHashMap::new();
-    inner_map.insert(KeyCmpValue::String("nested".to_string()), Value::Bool(true));
+    inner_map.insert(ObjectKey::String("nested".to_string()), Value::Bool(true));
 
     let mut outer_map = AHashMap::new();
     outer_map.insert(
-        KeyCmpValue::String("array".to_string()),
+        ObjectKey::String("array".to_string()),
         Value::Array(Array(vec![Value::I64(1), Value::I64(2), Value::I64(3)])),
     );
     outer_map.insert(
-        KeyCmpValue::String("object".to_string()),
+        ObjectKey::String("object".to_string()),
         Value::Map(Map(inner_map)),
     );
     outer_map.insert(
-        KeyCmpValue::String("string".to_string()),
+        ObjectKey::String("string".to_string()),
         Value::String("hello world".to_string()),
     );
 

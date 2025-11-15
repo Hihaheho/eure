@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, EurePath, PathSegment, Tuple, Value, Variant};
+use eure_value::value::{Array, Code, ObjectKey, Map, EurePath, PathSegment, Tuple, Value, Variant};
 
 /// Format a Value as EURE syntax
 pub fn format_eure(value: &Value) -> String {
@@ -143,26 +143,26 @@ fn format_string(s: &str) -> String {
     }
 }
 
-fn format_key(key: &KeyCmpValue) -> String {
+fn format_key(key: &ObjectKey) -> String {
     match key {
-        KeyCmpValue::String(s) => {
+        ObjectKey::String(s) => {
             if is_valid_identifier(s) {
                 s.clone()
             } else {
                 format_string(s)
             }
         }
-        KeyCmpValue::I64(i) => i.to_string(),
-        KeyCmpValue::U64(u) => u.to_string(),
-        KeyCmpValue::Bool(b) => b.to_string(),
-        KeyCmpValue::Null => "null".to_string(),
-        KeyCmpValue::Tuple(Tuple(items)) => {
+        ObjectKey::I64(i) => i.to_string(),
+        ObjectKey::U64(u) => u.to_string(),
+        ObjectKey::Bool(b) => b.to_string(),
+        ObjectKey::Null => "null".to_string(),
+        ObjectKey::Tuple(Tuple(items)) => {
             let inner = items.iter().map(format_key).collect::<Vec<_>>().join(", ");
             format!("({inner})")
         }
-        KeyCmpValue::Unit => "()".to_string(),
-        KeyCmpValue::MetaExtension(meta) => format!("$${meta}"),
-        KeyCmpValue::Hole => "!".to_string(),
+        ObjectKey::Unit => "()".to_string(),
+        ObjectKey::MetaExtension(meta) => format!("$${meta}"),
+        ObjectKey::Hole => "!".to_string(),
     }
 }
 

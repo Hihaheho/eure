@@ -11,6 +11,7 @@ keywords = ["data-types", "eure", "serialization", "value"]
 
 [dependencies]
 ahash = { workspace = true, optional = true }
+num-bigint = { workspace = true }
 regex = { version = "1.11", default-features = false, features = ["unicode"] }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }

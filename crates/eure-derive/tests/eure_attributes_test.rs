@@ -15,14 +15,14 @@ fn test_string_constraints() {
     let schema = User::eure_schema();
 
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let username_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("username")];
+        let username_field = &obj_schema.fields[&eure_schema::ObjectKey::from("username")];
         assert_eq!(username_field.constraints.length, Some((Some(3), Some(20))));
         assert_eq!(
             username_field.constraints.pattern,
             Some("^[a-z0-9_]+$".to_string())
         );
 
-        let email_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("email")];
+        let email_field = &obj_schema.fields[&eure_schema::ObjectKey::from("email")];
         assert_eq!(
             email_field.constraints.pattern,
             Some(r"^[^@]+@[^@]+\.[^@]+$".to_string())
@@ -45,13 +45,13 @@ fn test_number_constraints() {
     let schema = Product::eure_schema();
 
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let price_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("price")];
+        let price_field = &obj_schema.fields[&eure_schema::ObjectKey::from("price")];
         assert_eq!(
             price_field.constraints.range,
             Some((Some(0.0), Some(1000000.0)))
         );
 
-        let quantity_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("quantity")];
+        let quantity_field = &obj_schema.fields[&eure_schema::ObjectKey::from("quantity")];
         assert_eq!(
             quantity_field.constraints.range,
             Some((Some(1.0), Some(9999.0)))
@@ -73,10 +73,10 @@ fn test_array_constraints() {
     let schema = Config::eure_schema();
 
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let tags_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("tags")];
+        let tags_field = &obj_schema.fields[&eure_schema::ObjectKey::from("tags")];
         assert_eq!(tags_field.constraints.unique, Some(true));
 
-        let items_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("items")];
+        let items_field = &obj_schema.fields[&eure_schema::ObjectKey::from("items")];
         assert_eq!(items_field.constraints.unique, None);
     } else {
         panic!("Expected object schema");
@@ -102,10 +102,10 @@ fn test_preferences() {
     let schema = Document::eure_schema();
 
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let metadata_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("metadata")];
+        let metadata_field = &obj_schema.fields[&eure_schema::ObjectKey::from("metadata")];
         assert_eq!(metadata_field.preferences.section, Some(true));
 
-        let simple_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("simple_data")];
+        let simple_field = &obj_schema.fields[&eure_schema::ObjectKey::from("simple_data")];
         assert_eq!(simple_field.preferences.section, Some(false));
     } else {
         panic!("Expected object schema");
@@ -134,9 +134,9 @@ fn test_combined_attributes() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("user_id"))
+                .contains_key(&eure_schema::ObjectKey::from("user_id"))
         );
-        let id_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("user_id")];
+        let id_field = &obj_schema.fields[&eure_schema::ObjectKey::from("user_id")];
         assert_eq!(
             id_field.constraints.pattern,
             Some("^[A-Z0-9]{8}$".to_string())
@@ -144,7 +144,7 @@ fn test_combined_attributes() {
         assert_eq!(id_field.serde.rename, Some("user_id".to_string()));
 
         // Check password field
-        let password_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("password")];
+        let password_field = &obj_schema.fields[&eure_schema::ObjectKey::from("password")];
         assert_eq!(
             password_field.constraints.length,
             Some((Some(8), Some(128)))
@@ -155,7 +155,7 @@ fn test_combined_attributes() {
         );
 
         // Check balance field (optional)
-        let balance_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("balance")];
+        let balance_field = &obj_schema.fields[&eure_schema::ObjectKey::from("balance")];
         assert!(balance_field.optional);
         assert_eq!(
             balance_field.constraints.range,

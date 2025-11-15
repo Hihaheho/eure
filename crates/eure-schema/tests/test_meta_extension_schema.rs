@@ -1,5 +1,5 @@
 use eure_schema::{extract_schema_from_value, validate_with_schema_value};
-use eure_value::{identifier::Identifier, value::KeyCmpValue};
+use eure_value::{identifier::Identifier, value::ObjectKey};
 use std::str::FromStr;
 
 #[test]
@@ -28,7 +28,7 @@ name.$type = .string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("config".to_string()))
+            .contains_key(&ObjectKey::String("config".to_string()))
     );
 }
 
@@ -61,7 +61,7 @@ name.$rename = "userName"  # This should be valid string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("field".to_string()))
+            .contains_key(&ObjectKey::String("field".to_string()))
     );
 
     // Meta-extensions should appear in document schema as they define schemas for extensions
@@ -70,7 +70,7 @@ name.$rename = "userName"  # This should be valid string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension(
+            .contains_key(&ObjectKey::MetaExtension(
                 Identifier::from_str("rename").unwrap()
             ))
     );
@@ -79,7 +79,7 @@ name.$rename = "userName"  # This should be valid string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension(
+            .contains_key(&ObjectKey::MetaExtension(
                 Identifier::from_str("priority").unwrap()
             ))
     );
@@ -111,7 +111,7 @@ age.$optional = true
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("person".to_string()))
+            .contains_key(&ObjectKey::String("person".to_string()))
     );
 
     // Meta-extensions should appear in the document schema
@@ -121,7 +121,7 @@ age.$optional = true
         .root
         .fields
         .keys()
-        .filter(|key| matches!(key, KeyCmpValue::MetaExtension(_)))
+        .filter(|key| matches!(key, ObjectKey::MetaExtension(_)))
         .count();
     assert!(
         meta_extension_count > 0,
@@ -160,14 +160,14 @@ name.$type = .string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("paths".to_string()))
+            .contains_key(&ObjectKey::String("paths".to_string()))
     );
     assert!(
         extracted
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("config".to_string()))
+            .contains_key(&ObjectKey::String("config".to_string()))
     );
 
     // Meta-extensions should not appear in document schema
@@ -176,7 +176,7 @@ name.$type = .string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension(
+            .contains_key(&ObjectKey::MetaExtension(
                 Identifier::from_str("myext").unwrap()
             ))
     );
@@ -185,7 +185,7 @@ name.$type = .string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension(
+            .contains_key(&ObjectKey::MetaExtension(
                 Identifier::from_str("another").unwrap()
             ))
     );
@@ -239,14 +239,14 @@ name.$type = .string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("config".to_string()))
+            .contains_key(&ObjectKey::String("config".to_string()))
     );
     assert!(
         !extracted
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::MetaExtension(
+            .contains_key(&ObjectKey::MetaExtension(
                 Identifier::from_str("mode").unwrap()
             ))
     );
@@ -273,7 +273,7 @@ name.$type = .string
         .document_schema
         .root
         .fields
-        .get(&KeyCmpValue::MetaExtension(
+        .get(&ObjectKey::MetaExtension(
             eure_value::identifier::Identifier::from_str("optional").unwrap(),
         ))
         .expect("Should have schema for $optional extension");
@@ -284,7 +284,7 @@ name.$type = .string
         .document_schema
         .root
         .fields
-        .get(&KeyCmpValue::MetaExtension(
+        .get(&ObjectKey::MetaExtension(
             eure_value::identifier::Identifier::from_str("type").unwrap(),
         ))
         .expect("Should have schema for $type extension");
@@ -296,7 +296,7 @@ name.$type = .string
         .document_schema
         .root
         .fields
-        .get(&KeyCmpValue::MetaExtension(
+        .get(&ObjectKey::MetaExtension(
             eure_value::identifier::Identifier::from_str("custom").unwrap(),
         ))
         .expect("Should have schema for $custom extension");
@@ -305,7 +305,7 @@ name.$type = .string
         eure_schema::Type::Object(obj) => {
             let field_schema = obj
                 .fields
-                .get(&KeyCmpValue::String("field".to_string()))
+                .get(&ObjectKey::String("field".to_string()))
                 .expect("Should have field in custom extension");
             assert_eq!(field_schema.type_expr, eure_schema::Type::Number);
         }
@@ -318,7 +318,7 @@ name.$type = .string
             .document_schema
             .root
             .fields
-            .contains_key(&KeyCmpValue::String("person".to_string()))
+            .contains_key(&ObjectKey::String("person".to_string()))
     );
 }
 

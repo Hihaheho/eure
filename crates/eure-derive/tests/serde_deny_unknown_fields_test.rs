@@ -67,12 +67,12 @@ fn test_deny_unknown_fields_with_flatten() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+                .contains_key(&eure_schema::ObjectKey::from("name"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("id"))
+                .contains_key(&eure_schema::ObjectKey::from("id"))
         );
     } else {
         panic!("Expected object schema");

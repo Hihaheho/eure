@@ -3,7 +3,7 @@
 //! These tests use the new value-based API
 
 use eure_schema::{
-    KeyCmpValue, ValidationErrorKind, extract_schema_from_value, validate_and_extract_schema,
+    ObjectKey, ValidationErrorKind, extract_schema_from_value, validate_and_extract_schema,
     validate_self_describing, validate_with_schema_value,
 };
 
@@ -42,7 +42,7 @@ people.$array = .$types.Person
     );
 
     // Verify the schema has the expected Person type
-    let person_type_key = KeyCmpValue::String("Person".to_string());
+    let person_type_key = ObjectKey::String("Person".to_string());
     assert!(
         schema.document_schema.types.contains_key(&person_type_key),
         "Schema should contain Person type"
@@ -121,7 +121,7 @@ config.host = 123  # Should be string
     let has_missing_field = validation.errors.iter().any(|e| {
         matches!(&e.kind,
             ValidationErrorKind::RequiredFieldMissing { field, .. }
-            if matches!(field, KeyCmpValue::String(s) if s == "port")
+            if matches!(field, ObjectKey::String(s) if s == "port")
         )
     });
     assert!(
@@ -173,7 +173,7 @@ tasks.$array = .$types.Task
     );
 
     // Verify schema contains Task type
-    let task_type_key = KeyCmpValue::String("Task".to_string());
+    let task_type_key = ObjectKey::String("Task".to_string());
     assert!(
         validation
             .schema
@@ -215,8 +215,8 @@ posts.$array = .$types.Post
     );
 
     // Verify both types are present
-    let user_type_key = KeyCmpValue::String("User".to_string());
-    let post_type_key = KeyCmpValue::String("Post".to_string());
+    let user_type_key = ObjectKey::String("User".to_string());
+    let post_type_key = ObjectKey::String("Post".to_string());
     assert!(
         schema.document_schema.types.contains_key(&user_type_key),
         "Schema should contain User type"

@@ -21,22 +21,22 @@ fn test_serde_skip() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("id"))
+                .contains_key(&eure_schema::ObjectKey::from("id"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+                .contains_key(&eure_schema::ObjectKey::from("name"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("email"))
+                .contains_key(&eure_schema::ObjectKey::from("email"))
         );
         assert!(
             !obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("internal_state"))
+                .contains_key(&eure_schema::ObjectKey::from("internal_state"))
         );
     } else {
         panic!("Expected object schema");
@@ -67,29 +67,29 @@ fn test_serde_flatten() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+                .contains_key(&eure_schema::ObjectKey::from("name"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("email"))
+                .contains_key(&eure_schema::ObjectKey::from("email"))
         );
         // Fields from BaseInfo should be flattened in
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("id"))
+                .contains_key(&eure_schema::ObjectKey::from("id"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("created_at"))
+                .contains_key(&eure_schema::ObjectKey::from("created_at"))
         );
         // The base field itself should not appear
         assert!(
             !obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("base"))
+                .contains_key(&eure_schema::ObjectKey::from("base"))
         );
     } else {
         panic!("Expected object schema");
@@ -128,34 +128,34 @@ fn test_multiple_flatten() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("title"))
+                .contains_key(&eure_schema::ObjectKey::from("title"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("content"))
+                .contains_key(&eure_schema::ObjectKey::from("content"))
         );
         // From Timestamps
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("created_at"))
+                .contains_key(&eure_schema::ObjectKey::from("created_at"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("updated_at"))
+                .contains_key(&eure_schema::ObjectKey::from("updated_at"))
         );
         // From Metadata
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("tags"))
+                .contains_key(&eure_schema::ObjectKey::from("tags"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("category"))
+                .contains_key(&eure_schema::ObjectKey::from("category"))
         );
     } else {
         panic!("Expected object schema");
@@ -188,22 +188,22 @@ fn test_skip_and_flatten_combined() {
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("name"))
+                .contains_key(&eure_schema::ObjectKey::from("name"))
         );
         assert!(
             obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("id"))
+                .contains_key(&eure_schema::ObjectKey::from("id"))
         );
         assert!(
             !obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("secret"))
+                .contains_key(&eure_schema::ObjectKey::from("secret"))
         );
         assert!(
             !obj_schema
                 .fields
-                .contains_key(&eure_schema::KeyCmpValue::from("cache"))
+                .contains_key(&eure_schema::ObjectKey::from("cache"))
         );
     } else {
         panic!("Expected object schema");
@@ -228,13 +228,13 @@ fn test_description_attribute() {
     let schema = Config::eure_schema();
 
     if let Type::Object(obj_schema) = &schema.type_expr {
-        let host_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("host")];
+        let host_field = &obj_schema.fields[&eure_schema::ObjectKey::from("host")];
         assert_eq!(
             host_field.description,
             Some("The server hostname or IP address".to_string())
         );
 
-        let port_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("port")];
+        let port_field = &obj_schema.fields[&eure_schema::ObjectKey::from("port")];
         assert_eq!(
             port_field.description,
             Some("The port number to listen on".to_string())
@@ -244,7 +244,7 @@ fn test_description_attribute() {
             Some((Some(1.0), Some(65535.0)))
         );
 
-        let debug_field = &obj_schema.fields[&eure_schema::KeyCmpValue::from("debug")];
+        let debug_field = &obj_schema.fields[&eure_schema::ObjectKey::from("debug")];
         assert_eq!(
             debug_field.description,
             Some("Enable debug mode".to_string())

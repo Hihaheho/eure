@@ -1,7 +1,7 @@
 #![allow(clippy::approx_constant)]
 
 use super::*;
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Tuple, Value, Variant, VariantRepr};
+use eure_value::value::{Array, Code, ObjectKey, Map, Tuple, Value, Variant, VariantRepr};
 use serde_yaml::Value as YamlValue;
 
 #[test]
@@ -112,10 +112,10 @@ fn test_tuple_to_yaml() {
 fn test_map_to_yaml() {
     let mut map = ahash::AHashMap::new();
     map.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         Value::String("Alice".to_string()),
     );
-    map.insert(KeyCmpValue::String("age".to_string()), Value::I64(30));
+    map.insert(ObjectKey::String("age".to_string()), Value::I64(30));
 
     let value = Value::Map(Map(map));
     let yaml = value_to_yaml(&value).unwrap();
@@ -161,10 +161,10 @@ fn test_variant_external() {
 fn test_variant_internal() {
     let mut content_map = ahash::AHashMap::new();
     content_map.insert(
-        KeyCmpValue::String("message".to_string()),
+        ObjectKey::String("message".to_string()),
         Value::String("Hello".to_string()),
     );
-    content_map.insert(KeyCmpValue::String("code".to_string()), Value::I64(200));
+    content_map.insert(ObjectKey::String("code".to_string()), Value::I64(200));
 
     let variant = Value::Variant(Variant {
         tag: "Response".to_string(),
@@ -230,7 +230,7 @@ fn test_variant_adjacent() {
 #[test]
 fn test_variant_untagged() {
     let mut content_map = ahash::AHashMap::new();
-    content_map.insert(KeyCmpValue::String("id".to_string()), Value::I64(123));
+    content_map.insert(ObjectKey::String("id".to_string()), Value::I64(123));
 
     let variant = Value::Variant(Variant {
         tag: "User".to_string(),
@@ -316,11 +316,11 @@ fn test_yaml_to_value_mapping() {
     match value {
         Value::Map(Map(map)) => {
             assert_eq!(
-                map.get(&KeyCmpValue::String("name".to_string())),
+                map.get(&ObjectKey::String("name".to_string())),
                 Some(&Value::String("Bob".to_string()))
             );
             assert_eq!(
-                map.get(&KeyCmpValue::String("age".to_string())),
+                map.get(&ObjectKey::String("age".to_string())),
                 Some(&Value::I64(25))
             );
         }
@@ -360,14 +360,14 @@ fn test_round_trip() {
     let original = Value::Map(Map({
         let mut map = ahash::AHashMap::new();
         map.insert(
-            KeyCmpValue::String("items".to_string()),
+            ObjectKey::String("items".to_string()),
             Value::Array(Array(vec![
                 Value::I64(1),
                 Value::String("test".to_string()),
                 Value::Bool(true),
             ])),
         );
-        map.insert(KeyCmpValue::String("count".to_string()), Value::I64(3));
+        map.insert(ObjectKey::String("count".to_string()), Value::I64(3));
         map
     }));
 
@@ -384,10 +384,10 @@ fn test_all_variant_representations() {
     // 1. External representation (default)
     let mut external_content = ahash::AHashMap::new();
     external_content.insert(
-        KeyCmpValue::String("name".to_string()),
+        ObjectKey::String("name".to_string()),
         Value::String("Alice".to_string()),
     );
-    external_content.insert(KeyCmpValue::String("age".to_string()), Value::U64(30));
+    external_content.insert(ObjectKey::String("age".to_string()), Value::U64(30));
     let external_variant = Value::Variant(Variant {
         tag: "person".to_string(),
         content: Box::new(Value::Map(Map(external_content))),
@@ -395,8 +395,8 @@ fn test_all_variant_representations() {
 
     // 2. Internal representation
     let mut internal_content = ahash::AHashMap::new();
-    internal_content.insert(KeyCmpValue::String("x".to_string()), Value::F64(10.0));
-    internal_content.insert(KeyCmpValue::String("y".to_string()), Value::F64(20.0));
+    internal_content.insert(ObjectKey::String("x".to_string()), Value::F64(10.0));
+    internal_content.insert(ObjectKey::String("y".to_string()), Value::F64(20.0));
     let internal_variant = Value::Variant(Variant {
         tag: "point".to_string(),
         content: Box::new(Value::Map(Map(internal_content))),
@@ -405,11 +405,11 @@ fn test_all_variant_representations() {
     // 3. Adjacent representation
     let mut adjacent_content = ahash::AHashMap::new();
     adjacent_content.insert(
-        KeyCmpValue::String("message".to_string()),
+        ObjectKey::String("message".to_string()),
         Value::String("Hello, World!".to_string()),
     );
     adjacent_content.insert(
-        KeyCmpValue::String("severity".to_string()),
+        ObjectKey::String("severity".to_string()),
         Value::String("info".to_string()),
     );
     let adjacent_variant = Value::Variant(Variant {
@@ -420,11 +420,11 @@ fn test_all_variant_representations() {
     // 4. Untagged representation
     let mut untagged_content = ahash::AHashMap::new();
     untagged_content.insert(
-        KeyCmpValue::String("street".to_string()),
+        ObjectKey::String("street".to_string()),
         Value::String("123 Main St".to_string()),
     );
     untagged_content.insert(
-        KeyCmpValue::String("city".to_string()),
+        ObjectKey::String("city".to_string()),
         Value::String("Boston".to_string()),
     );
     let untagged_variant = Value::Variant(Variant {
@@ -705,8 +705,8 @@ fn test_unicode_and_escapes() {
     let value = yaml_to_value(&YamlValue::Mapping(map)).unwrap();
     match value {
         Value::Map(Map(m)) => {
-            assert!(m.contains_key(&KeyCmpValue::String("emoji🎉".to_string())));
-            assert!(m.contains_key(&KeyCmpValue::String("chinese中文".to_string())));
+            assert!(m.contains_key(&ObjectKey::String("emoji🎉".to_string())));
+            assert!(m.contains_key(&ObjectKey::String("chinese中文".to_string())));
         }
         _ => panic!("Expected Map"),
     }
@@ -739,12 +739,12 @@ derived:
         Value::Map(Map(map)) => {
             // Check that the alias was resolved
             if let Some(Value::Map(Map(derived))) =
-                map.get(&KeyCmpValue::String("derived".to_string()))
+                map.get(&ObjectKey::String("derived".to_string()))
             {
                 // The merge key might not be supported or might create a different structure
                 // Check if value was overridden at least
                 assert_eq!(
-                    derived.get(&KeyCmpValue::String("value".to_string())),
+                    derived.get(&ObjectKey::String("value".to_string())),
                     Some(&Value::I64(100))
                 );
 
@@ -774,13 +774,13 @@ fn test_yaml_tags() {
         Value::Map(Map(map)) => {
             // !!str tag forces 123 to be a string
             assert_eq!(
-                map.get(&KeyCmpValue::String("explicit_str".to_string())),
+                map.get(&ObjectKey::String("explicit_str".to_string())),
                 Some(&Value::String("123".to_string()))
             );
 
             // !!int tag forces "456" to be parsed as integer
             assert_eq!(
-                map.get(&KeyCmpValue::String("explicit_int".to_string())),
+                map.get(&ObjectKey::String("explicit_int".to_string())),
                 Some(&Value::I64(456))
             );
 

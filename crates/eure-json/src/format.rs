@@ -1,6 +1,6 @@
 use eure_tree::constructors::terminals;
 use eure_tree::{CstNode, constructors::*, node_kind::TerminalKind, tree::ConcreteSyntaxTree};
-use eure_value::value::{Array, Code, EurePath, KeyCmpValue, Map, PathSegment, Value, Variant};
+use eure_value::value::{Array, Code, EurePath, ObjectKey, Map, PathSegment, Value, Variant};
 use indexmap::IndexMap;
 
 /// Format a Value as EURE syntax using CST construction
@@ -164,9 +164,9 @@ fn build_eure_from_map(map: &Map) -> EureNode {
         .build()
 }
 
-fn build_keys_for_key(key: &KeyCmpValue) -> KeysNode {
+fn build_keys_for_key(key: &ObjectKey) -> KeysNode {
     let key_base = match key {
-        KeyCmpValue::String(s) => {
+        ObjectKey::String(s) => {
             if is_valid_identifier(s) {
                 let ident = terminals::ident(s);
                 KeyBaseConstructor::Ident(IdentConstructor::builder().ident(ident).build().build())
@@ -177,7 +177,7 @@ fn build_keys_for_key(key: &KeyCmpValue) -> KeysNode {
                     .build()
             }
         }
-        KeyCmpValue::I64(i) => {
+        ObjectKey::I64(i) => {
             let int_token = terminals::integer(&i.to_string());
             KeyBaseConstructor::Integer(
                 IntegerConstructor::builder()
@@ -187,7 +187,7 @@ fn build_keys_for_key(key: &KeyCmpValue) -> KeysNode {
             )
             .build()
         }
-        KeyCmpValue::U64(u) => {
+        ObjectKey::U64(u) => {
             let int_token = terminals::integer(&u.to_string());
             KeyBaseConstructor::Integer(
                 IntegerConstructor::builder()
@@ -303,11 +303,11 @@ fn build_value(value: &Value) -> ValueNode {
             // Build as an object with special $variant key
             let mut map = IndexMap::new();
             map.insert(
-                KeyCmpValue::String("$variant".to_string()),
+                ObjectKey::String("$variant".to_string()),
                 Value::String(tag.clone()),
             );
             map.insert(
-                KeyCmpValue::String("content".to_string()),
+                ObjectKey::String("content".to_string()),
                 content.as_ref().clone(),
             );
             build_object_value(&map)
@@ -489,7 +489,7 @@ fn build_array_value(values: &[Value]) -> ValueNode {
     ValueConstructor::Array(array_node).build()
 }
 
-fn build_object_value(map: &IndexMap<KeyCmpValue, Value>) -> ValueNode {
+fn build_object_value(map: &IndexMap<ObjectKey, Value>) -> ValueNode {
     let l_brace = terminals::l_brace();
     let begin = BeginConstructor::builder().l_brace(l_brace).build().build();
 
@@ -499,7 +499,7 @@ fn build_object_value(map: &IndexMap<KeyCmpValue, Value>) -> ValueNode {
     for (idx, (key, value)) in map.iter().enumerate().rev() {
         // Build the key
         let key_base = match key {
-            KeyCmpValue::String(s) => {
+            ObjectKey::String(s) => {
                 if is_valid_identifier(s) {
                     let ident = terminals::ident(s);
                     KeyBaseConstructor::Ident(
@@ -514,7 +514,7 @@ fn build_object_value(map: &IndexMap<KeyCmpValue, Value>) -> ValueNode {
                     .build()
                 }
             }
-            KeyCmpValue::I64(i) => {
+            ObjectKey::I64(i) => {
                 let int_token = terminals::integer(&i.to_string());
                 KeyBaseConstructor::Integer(
                     IntegerConstructor::builder()
@@ -524,7 +524,7 @@ fn build_object_value(map: &IndexMap<KeyCmpValue, Value>) -> ValueNode {
                 )
                 .build()
             }
-            KeyCmpValue::U64(u) => {
+            ObjectKey::U64(u) => {
                 let int_token = terminals::integer(&u.to_string());
                 KeyBaseConstructor::Integer(
                     IntegerConstructor::builder()
@@ -727,7 +727,7 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
             }
             PathSegment::Value(v) => {
                 let key_base = match v {
-                    KeyCmpValue::String(s) => {
+                    ObjectKey::String(s) => {
                         if is_valid_identifier(s) {
                             let ident = terminals::ident(s);
                             KeyBaseConstructor::Ident(
@@ -742,7 +742,7 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
                             .build()
                         }
                     }
-                    KeyCmpValue::I64(i) => {
+                    ObjectKey::I64(i) => {
                         let int_token = terminals::integer(&i.to_string());
                         KeyBaseConstructor::Integer(
                             IntegerConstructor::builder()
@@ -752,7 +752,7 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
                         )
                         .build()
                     }
-                    KeyCmpValue::U64(u) => {
+                    ObjectKey::U64(u) => {
                         let int_token = terminals::integer(&u.to_string());
                         KeyBaseConstructor::Integer(
                             IntegerConstructor::builder()
@@ -762,7 +762,7 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
                         )
                         .build()
                     }
-                    KeyCmpValue::Bool(b) => {
+                    ObjectKey::Bool(b) => {
                         if *b {
                             KeyBaseConstructor::True(
                                 TrueConstructor::builder()
@@ -781,14 +781,14 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
                             .build()
                         }
                     }
-                    KeyCmpValue::Null => KeyBaseConstructor::Null(
+                    ObjectKey::Null => KeyBaseConstructor::Null(
                         NullConstructor::builder()
                             .null(terminals::null())
                             .build()
                             .build(),
                     )
                     .build(),
-                    KeyCmpValue::Unit => {
+                    ObjectKey::Unit => {
                         // Unit is not a valid key, use null as fallback
                         KeyBaseConstructor::Null(
                             NullConstructor::builder()
@@ -798,7 +798,7 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
                         )
                         .build()
                     }
-                    KeyCmpValue::Tuple(tuple) => {
+                    ObjectKey::Tuple(tuple) => {
                         // Tuples as keys are complex - EURE doesn't directly support tuple keys
                         // Format as a string representation for now
                         // This is a limitation - tuple keys aren't well supported in AST
@@ -809,7 +809,7 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
                         )
                         .build()
                     }
-                    KeyCmpValue::MetaExtension(meta) => {
+                    ObjectKey::MetaExtension(meta) => {
                         // MetaExtension as a map key value (not as a field name)
                         // This represents a value that is a meta-extension being used as a key
                         // Build it as a MetaExtKey
@@ -826,7 +826,7 @@ fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
                             .build();
                         KeyBaseConstructor::MetaExtKey(meta_ext_key).build()
                     }
-                    KeyCmpValue::Hole => {
+                    ObjectKey::Hole => {
                         // Hole as a map key
                         let hole_token = terminals::hole();
                         KeyBaseConstructor::Hole(

@@ -1,17 +1,12 @@
-use alloc::boxed::Box;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
+use num_bigint::BigInt;
 
-use crate::identifier::Identifier;
-use crate::string::EureString;
-use thisisplural::Plural;
+use crate::prelude_internal::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PrimitiveValue {
     Null,
     Bool(bool),
-    I64(i64),
-    U64(u64),
+    BigInt(BigInt),
     F32(f32),
     F64(f64),
     String(EureString),
@@ -33,53 +28,42 @@ pub enum Value {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Key-comparable value which implements `Eq` and `Hash`.
-pub enum KeyCmpValue {
-    Null,
+///
+/// EURE restricts map keys to four types — `String`, `Bool`, `Integer`,
+/// and `Tuple<Key...>` — for practical and predictable behavior.
+///
+/// - **Deterministic equality:**
+///   These types provide stable, well-defined equality and hashing.
+///   Types like floats, null, or holes introduce ambiguous or
+///   platform-dependent comparison rules.
+///
+/// - **Reliable round-tripping:**
+///   Keys must serialize and deserialize without losing meaning.
+///   Strings, booleans, integers, and tuples have canonical and
+///   unambiguous textual forms.
+///
+/// - **Tooling-friendly:**
+///   This set balances expressiveness and simplicity, making keys easy
+///   to validate, index, and reason about across implementations.
+pub enum ObjectKey {
     Bool(bool),
-    I64(i64),
-    U64(u64),
+    Number(BigInt),
     String(String),
-    Tuple(Tuple<KeyCmpValue>),
-    Unit,
-    Hole,
+    Tuple(Tuple<ObjectKey>),
     /// Meta-extension key (Ident with $$ grammar token)
     MetaExtension(Identifier),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Plural)]
-pub struct EurePath(pub Vec<PathSegment>);
-
-impl EurePath {
-    /// Create an empty path representing the document root
-    pub fn root() -> Self {
-        EurePath(Vec::new())
+impl core::fmt::Display for ObjectKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ObjectKey::Bool(bool) => write!(f, "{}", bool),
+            ObjectKey::Number(big_int) => write!(f, "{}", big_int),
+            ObjectKey::String(string) => write!(f, "{}", string),
+            ObjectKey::Tuple(tuple) => write!(f, "{}", tuple),
+            ObjectKey::MetaExtension(identifier) => write!(f, "$${}", identifier),
+        }
     }
-
-    /// Check if this is the root path
-    pub fn is_root(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Create a Path from PathSegments
-    pub fn from_segments(segments: &[PathSegment]) -> Self {
-        EurePath(segments.to_vec())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PathSegment {
-    /// Regular identifiers like id, description
-    Ident(Identifier),
-    /// Extension namespace fields starting with $ like $eure, $variant
-    Extension(Identifier),
-    /// MetaExtKey uses $$ prefix, e.g., $$eure, $$variant
-    MetaExt(Identifier),
-    /// Arbitrary value used as key
-    Value(KeyCmpValue),
-    /// Tuple element index (0-255)
-    TupleIndex(u8),
-    /// Array element access
-    ArrayIndex(Option<u8>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -94,9 +78,22 @@ pub struct Array(pub Vec<Value>);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Plural, Default)]
 pub struct Tuple<T>(pub Vec<T>);
 
+impl core::fmt::Display for Tuple<ObjectKey> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "(")?;
+        for (i, item) in self.0.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", item)?;
+        }
+        write!(f, ")")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Plural, Default)]
 #[plural(len, is_empty, iter, into_iter, into_iter_ref, from_iter, new)]
-pub struct Map(pub crate::Map<KeyCmpValue, Value>);
+pub struct Map(pub crate::Map<ObjectKey, Value>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Variant {
@@ -128,14 +125,14 @@ impl VariantRepr {
             }
             Value::Map(Map(map)) => {
                 let tag = map
-                    .get(&KeyCmpValue::String("tag".to_string()))
+                    .get(&ObjectKey::String("tag".to_string()))
                     .and_then(|v| match v {
                         Value::Primitive(PrimitiveValue::String(s)) => Some(s.as_str().to_string()),
                         _ => None,
                     });
 
                 let content = map
-                    .get(&KeyCmpValue::String("content".to_string()))
+                    .get(&ObjectKey::String("content".to_string()))
                     .and_then(|v| match v {
                         Value::Primitive(PrimitiveValue::String(s)) => Some(s.as_str().to_string()),
                         _ => None,
