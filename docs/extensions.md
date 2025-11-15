@@ -109,12 +109,37 @@ Provides document-local metadata storage:
 @ config {
     $local.last-modified = "2024-01-15"
     $local.author = "system"
-    
+
     # Actual configuration data
     timeout = 30
     retries = 3
 }
 ```
+
+### $license
+
+Specifies license information using SPDX License IDs for root or sub-document objects:
+
+```eure
+# Root-level license
+@ $license = "MIT"
+
+# Object-level license
+@ library {
+    $license = "Apache-2.0"
+    name = "my-library"
+    version = "1.0.0"
+}
+
+# Sub-document with different license
+@ component {
+    $license = "GPL-3.0"
+    name = "gpl-component"
+    source = "https://example.com/component"
+}
+```
+
+The `$license` extension uses SPDX License Identifiers (e.g., "MIT", "Apache-2.0", "GPL-3.0") to specify the license for a document or object.
 
 ## Important Concepts
 
