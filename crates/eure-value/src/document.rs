@@ -203,14 +203,24 @@ impl EureDocument {
     }
 
     pub fn prepare_node(&mut self, path: &[PathSegment]) -> Result<NodeId, InsertError> {
-        let mut node_id = self.root;
+        self.prepare_node_from(self.root, EurePath::root(), path)
+    }
+
+    pub fn prepare_node_from(
+        &mut self,
+        target: NodeId,
+        mut base_path: EurePath,
+        path: &[PathSegment],
+    ) -> Result<NodeId, InsertError> {
+        let mut node_id = target;
         for (index, segment) in path.iter().enumerate() {
             match self.add_child_by_segment(segment.clone(), node_id) {
                 Ok(new_node_id) => node_id = new_node_id,
                 Err(error) => {
+                    base_path.extend(path.iter().take(index).cloned());
                     return Err(InsertError {
                         kind: error,
-                        path: EurePath::from_iter(path.iter().take(index).cloned()),
+                        path: base_path,
                     });
                 }
             }
@@ -710,6 +720,66 @@ mod tests {
             Err(InsertError {
                 kind: InsertErrorKind::ExpectedTuple,
                 path: EurePath::from_iter([PathSegment::Ident(id1)])
+            })
+        );
+    }
+
+    #[test]
+    fn test_prepare_node_from_non_root() {
+        let mut doc = EureDocument::new();
+
+        // Create a map node and add it as an extension to root
+        let map_id = create_map_node(&mut doc);
+        let base_identifier = create_identifier("base");
+        doc.get_node_mut(doc.get_root_id())
+            .extensions
+            .insert(base_identifier.clone(), map_id);
+
+        // Prepare a path from the map node
+        let field_identifier = create_identifier("field");
+        let path = &[PathSegment::Ident(field_identifier.clone())];
+        let base_path = EurePath::from_iter([PathSegment::Extension(base_identifier)]);
+
+        let node_id = doc
+            .prepare_node_from(map_id, base_path, path)
+            .expect("Failed to prepare node from non-root");
+
+        // Verify the field was added to map_id
+        let map = doc.get_node(map_id).as_map().unwrap();
+        let key = DocumentKey::Value(ObjectKey::String(field_identifier.into_string()));
+        assert_eq!(map.get(&key), Some(&node_id));
+    }
+
+    #[test]
+    fn test_prepare_node_from_error_includes_base_path() {
+        let mut doc = EureDocument::new();
+
+        // Create a map node and add it as an extension to root
+        let map_id = create_map_node(&mut doc);
+        let base_identifier = create_identifier("base");
+        doc.get_node_mut(doc.get_root_id())
+            .extensions
+            .insert(base_identifier.clone(), map_id);
+
+        // Try to add: first an extension (success), then a tuple index (fail because it's uninitialized)
+        let ext_identifier = create_identifier("ext");
+        let path = &[
+            PathSegment::Extension(ext_identifier.clone()),
+            PathSegment::TupleIndex(0),
+        ];
+        let base_path = EurePath::from_iter([PathSegment::Extension(base_identifier.clone())]);
+
+        let result = doc.prepare_node_from(map_id, base_path.clone(), path);
+
+        // Error path should be: base_path + first segment (the extension that succeeded)
+        let mut expected_path = base_path;
+        expected_path.extend([PathSegment::Extension(ext_identifier)]);
+
+        assert_eq!(
+            result,
+            Err(InsertError {
+                kind: InsertErrorKind::ExpectedTuple,
+                path: expected_path
             })
         );
     }
