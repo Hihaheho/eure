@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, EurePath, PathSegment, Tuple, Value, Variant};
 
 /// Format a Value as EURE syntax
 pub fn format_eure(value: &Value) -> String {
@@ -57,7 +57,7 @@ pub fn format_eure(value: &Value) -> String {
             // Format meta-extension with $$ prefix
             format!("$${}", meta)
         }
-        Value::Path(Path(segments)) => {
+        Value::Path(EurePath(segments)) => {
             // Format path as dot-separated string
             let mut path_parts = Vec::new();
             let mut i = 0;

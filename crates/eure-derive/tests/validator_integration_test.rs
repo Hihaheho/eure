@@ -6,7 +6,7 @@ use eure_schema::{
     validate_document as validate_eure_document,
 };
 use eure_tree::value_visitor::ValueVisitor;
-use eure_value::value::Path;
+use eure_value::value::EurePath;
 use serde::{Deserialize, Serialize};
 
 // Type alias to simplify complex type signature
@@ -59,7 +59,7 @@ fn validate_document_with_types<T: ToEureSchema>(
 
             // Set cascade type to the variant schema
             doc_schema.cascade_types.insert(
-                Path::from_segments(&[]),
+                EurePath::from_segments(&[]),
                 Type::Variants(variant_schema.clone()),
             );
         }

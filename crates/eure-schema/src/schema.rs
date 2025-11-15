@@ -3,7 +3,7 @@
 use crate::{SchemaError, identifiers};
 use eure_tree::tree::InputSpan;
 use eure_value::identifier::Identifier;
-use eure_value::value::{KeyCmpValue, Path, PathSegment};
+use eure_value::value::{KeyCmpValue, EurePath, PathSegment};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -265,7 +265,7 @@ pub struct DocumentSchema {
     pub root: ObjectSchema,
     /// Cascade types mapped by their definition path
     /// A cascade at path [a, b] applies to all descendants of a.b
-    pub cascade_types: HashMap<Path, Type>,
+    pub cascade_types: HashMap<EurePath, Type>,
     /// Global serde options
     pub serde_options: SerdeOptions,
     /// Reference to external schema (from $schema key)

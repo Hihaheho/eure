@@ -1,4 +1,4 @@
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant};
+use eure_value::value::{Array, Code, KeyCmpValue, Map, EurePath, PathSegment, Tuple, Value, Variant};
 use serde_json::json;
 
 use crate::{config::Config, error::Error};
@@ -85,7 +85,7 @@ pub fn value_to_json_with_config(
                 "MetaExtension values are metadata and cannot be converted to JSON".to_string(),
             ))
         }
-        Value::Path(Path(segments)) => {
+        Value::Path(EurePath(segments)) => {
             // Paths represented as dot-separated strings
             let mut path_parts = Vec::new();
             let mut i = 0;

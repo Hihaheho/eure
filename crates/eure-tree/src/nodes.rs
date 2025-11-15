@@ -1,10 +1,11 @@
 #![allow(unused_variables)]
-use super::node_kind::{NodeKind, NonTerminalKind, TerminalKind};
 use super::tree::{
-    CstFacade, CstNodeId, NonTerminalHandle, RecursiveView, TerminalHandle, ViewConstructionError,
+    TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId, ViewConstructionError,
+    CstFacade,
 };
 use super::visitor::BuiltinTerminalVisitor;
 use crate::CstConstructError;
+use super::node_kind::{TerminalKind, NonTerminalKind, NodeKind};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArrayHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for ArrayHandle {
@@ -40,16 +41,16 @@ impl NonTerminalHandle for ArrayHandle {
                 NodeKind::NonTerminal(NonTerminalKind::ArrayOpt),
                 NodeKind::NonTerminal(NonTerminalKind::ArrayEnd),
             ],
-            |[array_begin, array_opt, array_end], visit_ignored| {
-                Ok(visit(
+            |[array_begin, array_opt, array_end], visit_ignored| Ok(
+                visit(
                     ArrayView {
                         array_begin: ArrayBeginHandle(array_begin),
                         array_opt: ArrayOptHandle(array_opt),
                         array_end: ArrayEndHandle(array_end),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -92,14 +93,14 @@ impl NonTerminalHandle for ArrayBeginHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::LBracket)],
-            |[l_bracket], visit_ignored| {
-                Ok(visit(
+            |[l_bracket], visit_ignored| Ok(
+                visit(
                     ArrayBeginView {
                         l_bracket: LBracket(l_bracket),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -143,15 +144,15 @@ impl NonTerminalHandle for ArrayElementsHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Value),
                 NodeKind::NonTerminal(NonTerminalKind::ArrayElementsOpt),
             ],
-            |[value, array_elements_opt], visit_ignored| {
-                Ok(visit(
+            |[value, array_elements_opt], visit_ignored| Ok(
+                visit(
                     ArrayElementsView {
                         value: ValueHandle(value),
                         array_elements_opt: ArrayElementsOptHandle(array_elements_opt),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -193,15 +194,19 @@ impl NonTerminalHandle for ArrayElementsOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(ArrayElementsTailHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        ArrayElementsTailHandle::new_with_visit(
+                            self.0,
+                            tree,
+                            visit_ignored,
+                        )?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -238,8 +243,8 @@ impl NonTerminalHandle for ArrayElementsTailHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Comma),
                 NodeKind::NonTerminal(NonTerminalKind::ArrayElementsTailOpt),
             ],
-            |[comma, array_elements_tail_opt], visit_ignored| {
-                Ok(visit(
+            |[comma, array_elements_tail_opt], visit_ignored| Ok(
+                visit(
                     ArrayElementsTailView {
                         comma: CommaHandle(comma),
                         array_elements_tail_opt: ArrayElementsTailOptHandle(
@@ -247,8 +252,8 @@ impl NonTerminalHandle for ArrayElementsTailHandle {
                         ),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -290,15 +295,15 @@ impl NonTerminalHandle for ArrayElementsTailOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(ArrayElementsHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        ArrayElementsHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -332,14 +337,14 @@ impl NonTerminalHandle for ArrayEndHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::RBracket)],
-            |[r_bracket], visit_ignored| {
-                Ok(visit(
+            |[r_bracket], visit_ignored| Ok(
+                visit(
                     ArrayEndView {
                         r_bracket: RBracket(r_bracket),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -384,16 +389,16 @@ impl NonTerminalHandle for ArrayMarkerHandle {
                 NodeKind::NonTerminal(NonTerminalKind::ArrayMarkerOpt),
                 NodeKind::NonTerminal(NonTerminalKind::ArrayEnd),
             ],
-            |[array_begin, array_marker_opt, array_end], visit_ignored| {
-                Ok(visit(
+            |[array_begin, array_marker_opt, array_end], visit_ignored| Ok(
+                visit(
                     ArrayMarkerView {
                         array_begin: ArrayBeginHandle(array_begin),
                         array_marker_opt: ArrayMarkerOptHandle(array_marker_opt),
                         array_end: ArrayEndHandle(array_end),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -436,11 +441,13 @@ impl NonTerminalHandle for ArrayMarkerOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(IntegerHandle::new_with_visit(self.0, tree, visit_ignored)?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(IntegerHandle::new_with_visit(self.0, tree, visit_ignored)?),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -474,15 +481,15 @@ impl NonTerminalHandle for ArrayOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(ArrayElementsHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        ArrayElementsHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -557,14 +564,14 @@ impl NonTerminalHandle for BeginHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::LBrace)],
-            |[l_brace], visit_ignored| {
-                Ok(visit(
+            |[l_brace], visit_ignored| Ok(
+                visit(
                     BeginView {
                         l_brace: LBrace(l_brace),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -605,7 +612,9 @@ impl NonTerminalHandle for BindHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Bind)],
-            |[bind], visit_ignored| Ok(visit(BindView { bind: Bind(bind) }, visit_ignored)),
+            |[bind], visit_ignored| Ok(
+                visit(BindView { bind: Bind(bind) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -649,15 +658,15 @@ impl NonTerminalHandle for BindingHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Keys),
                 NodeKind::NonTerminal(NonTerminalKind::BindingRhs),
             ],
-            |[keys, binding_rhs], visit_ignored| {
-                Ok(visit(
+            |[keys, binding_rhs], visit_ignored| Ok(
+                visit(
                     BindingView {
                         keys: KeysHandle(keys),
                         binding_rhs: BindingRhsHandle(binding_rhs),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -698,10 +707,14 @@ impl NonTerminalHandle for BindingRhsHandle {
     ) -> Result<O, CstConstructError<E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
-            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
         };
         let Some(child_data) = tree.node_data(child) else {
-            return Err(ViewConstructionError::NodeIdNotFound { node: child });
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
         };
         let variant = match child_data.node_kind() {
             NodeKind::NonTerminal(NonTerminalKind::ValueBinding) => {
@@ -723,7 +736,9 @@ impl NonTerminalHandle for BindingRhsHandle {
         };
         let (result, _visit) = visit(variant, visit_ignored);
         if let Some(child) = children.next() {
-            return Err(ViewConstructionError::UnexpectedExtraNode { node: child });
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
         }
         Ok(result)
     }
@@ -765,14 +780,22 @@ impl NonTerminalHandle for BooleanHandle {
     ) -> Result<O, CstConstructError<E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
-            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
         };
         let Some(child_data) = tree.node_data(child) else {
-            return Err(ViewConstructionError::NodeIdNotFound { node: child });
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
         };
         let variant = match child_data.node_kind() {
-            NodeKind::NonTerminal(NonTerminalKind::True) => BooleanView::True(TrueHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::False) => BooleanView::False(FalseHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::True) => {
+                BooleanView::True(TrueHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::False) => {
+                BooleanView::False(FalseHandle(child))
+            }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -783,7 +806,9 @@ impl NonTerminalHandle for BooleanHandle {
         };
         let (result, _visit) = visit(variant, visit_ignored);
         if let Some(child) = children.next() {
-            return Err(ViewConstructionError::UnexpectedExtraNode { node: child });
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
         }
         Ok(result)
     }
@@ -825,7 +850,9 @@ impl NonTerminalHandle for CodeHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Code)],
-            |[code], visit_ignored| Ok(visit(CodeView { code: Code(code) }, visit_ignored)),
+            |[code], visit_ignored| Ok(
+                visit(CodeView { code: Code(code) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -866,14 +893,14 @@ impl NonTerminalHandle for CodeBlockHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlock)],
-            |[code_block], visit_ignored| {
-                Ok(visit(
+            |[code_block], visit_ignored| Ok(
+                visit(
                     CodeBlockView {
                         code_block: CodeBlock(code_block),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -914,14 +941,9 @@ impl NonTerminalHandle for CommaHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Comma)],
-            |[comma], visit_ignored| {
-                Ok(visit(
-                    CommaView {
-                        comma: Comma(comma),
-                    },
-                    visit_ignored,
-                ))
-            },
+            |[comma], visit_ignored| Ok(
+                visit(CommaView { comma: Comma(comma) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -962,7 +984,9 @@ impl NonTerminalHandle for ContinueHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Esc)],
-            |[esc], visit_ignored| Ok(visit(ContinueView { esc: Esc(esc) }, visit_ignored)),
+            |[esc], visit_ignored| Ok(
+                visit(ContinueView { esc: Esc(esc) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -1006,15 +1030,15 @@ impl NonTerminalHandle for DirectBindHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Bind),
                 NodeKind::NonTerminal(NonTerminalKind::Value),
             ],
-            |[bind, value], visit_ignored| {
-                Ok(visit(
+            |[bind, value], visit_ignored| Ok(
+                visit(
                     DirectBindView {
                         bind: BindHandle(bind),
                         value: ValueHandle(value),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1097,14 +1121,14 @@ impl NonTerminalHandle for EndHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::RBrace)],
-            |[r_brace], visit_ignored| {
-                Ok(visit(
+            |[r_brace], visit_ignored| Ok(
+                visit(
                     EndView {
                         r_brace: RBrace(r_brace),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1148,15 +1172,15 @@ impl NonTerminalHandle for EureHandle {
                 NodeKind::NonTerminal(NonTerminalKind::EureList),
                 NodeKind::NonTerminal(NonTerminalKind::EureList0),
             ],
-            |[eure_bindings, eure_sections], visit_ignored| {
-                Ok(visit(
+            |[eure_bindings, eure_sections], visit_ignored| Ok(
+                visit(
                     EureView {
                         eure_bindings: EureBindingsHandle(eure_bindings),
                         eure_sections: EureSectionsHandle(eure_sections),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1204,15 +1228,15 @@ impl NonTerminalHandle for EureBindingsHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Binding),
                 NodeKind::NonTerminal(NonTerminalKind::EureList),
             ],
-            |[binding, eure_bindings], visit_ignored| {
-                Ok(visit(
+            |[binding, eure_bindings], visit_ignored| Ok(
+                visit(
                     Some(EureBindingsView {
                         binding: BindingHandle(binding),
                         eure_bindings: EureBindingsHandle(eure_bindings),
                     }),
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1234,14 +1258,15 @@ impl<F: CstFacade> RecursiveView<F> for EureBindingsView {
         while let Some(item) = current_view {
             let Self { binding, .. } = item;
             items.push(binding);
-            item.eure_bindings.get_view_with_visit(
-                tree,
-                |view, visit_ignored| {
-                    current_view = view;
-                    ((), visit_ignored)
-                },
-                visit_ignored,
-            )?;
+            item.eure_bindings
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
         }
         Ok(items)
     }
@@ -1283,15 +1308,15 @@ impl NonTerminalHandle for EureSectionsHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Section),
                 NodeKind::NonTerminal(NonTerminalKind::EureList0),
             ],
-            |[section, eure_sections], visit_ignored| {
-                Ok(visit(
+            |[section, eure_sections], visit_ignored| Ok(
+                visit(
                     Some(EureSectionsView {
                         section: SectionHandle(section),
                         eure_sections: EureSectionsHandle(eure_sections),
                     }),
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1313,18 +1338,88 @@ impl<F: CstFacade> RecursiveView<F> for EureSectionsView {
         while let Some(item) = current_view {
             let Self { section, .. } = item;
             items.push(section);
-            item.eure_sections.get_view_with_visit(
-                tree,
-                |view, visit_ignored| {
-                    current_view = view;
-                    ((), visit_ignored)
-                },
-                visit_ignored,
-            )?;
+            item.eure_sections
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
         }
         Ok(items)
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EureRootHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for EureRootHandle {
+    type View = EureRootView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::EureRoot)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::EureRoot
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::Bind) => {
+                EureRootView::Bind(BindHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Eure) => {
+                EureRootView::Eure(EureHandle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EureRootView {
+    Bind(BindHandle),
+    Eure(EureHandle),
+}
+impl EureRootView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExtHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for ExtHandle {
@@ -1356,14 +1451,9 @@ impl NonTerminalHandle for ExtHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Dollar)],
-            |[dollar], visit_ignored| {
-                Ok(visit(
-                    ExtView {
-                        dollar: Dollar(dollar),
-                    },
-                    visit_ignored,
-                ))
-            },
+            |[dollar], visit_ignored| Ok(
+                visit(ExtView { dollar: Dollar(dollar) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -1407,15 +1497,15 @@ impl NonTerminalHandle for ExtensionNameSpaceHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Ext),
                 NodeKind::NonTerminal(NonTerminalKind::Ident),
             ],
-            |[ext, ident], visit_ignored| {
-                Ok(visit(
+            |[ext, ident], visit_ignored| Ok(
+                visit(
                     ExtensionNameSpaceView {
                         ext: ExtHandle(ext),
                         ident: IdentHandle(ident),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1457,14 +1547,14 @@ impl NonTerminalHandle for FalseHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::False)],
-            |[r#false], visit_ignored| {
-                Ok(visit(
+            |[r#false], visit_ignored| Ok(
+                visit(
                     FalseView {
                         r#false: False(r#false),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1505,14 +1595,9 @@ impl NonTerminalHandle for FloatHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Float)],
-            |[float], visit_ignored| {
-                Ok(visit(
-                    FloatView {
-                        float: Float(float),
-                    },
-                    visit_ignored,
-                ))
-            },
+            |[float], visit_ignored| Ok(
+                visit(FloatView { float: Float(float) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -1553,14 +1638,14 @@ impl NonTerminalHandle for GrammarNewlineHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::GrammarNewline)],
-            |[grammar_newline], visit_ignored| {
-                Ok(visit(
+            |[grammar_newline], visit_ignored| Ok(
+                visit(
                     GrammarNewlineView {
                         grammar_newline: GrammarNewline(grammar_newline),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1601,7 +1686,9 @@ impl NonTerminalHandle for HoleHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Hole)],
-            |[hole], visit_ignored| Ok(visit(HoleView { hole: Hole(hole) }, visit_ignored)),
+            |[hole], visit_ignored| Ok(
+                visit(HoleView { hole: Hole(hole) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -1642,14 +1729,9 @@ impl NonTerminalHandle for IdentHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Ident)],
-            |[ident], visit_ignored| {
-                Ok(visit(
-                    IdentView {
-                        ident: Ident(ident),
-                    },
-                    visit_ignored,
-                ))
-            },
+            |[ident], visit_ignored| Ok(
+                visit(IdentView { ident: Ident(ident) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -1690,14 +1772,14 @@ impl NonTerminalHandle for IntegerHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Integer)],
-            |[integer], visit_ignored| {
-                Ok(visit(
+            |[integer], visit_ignored| Ok(
+                visit(
                     IntegerView {
                         integer: Integer(integer),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1741,15 +1823,15 @@ impl NonTerminalHandle for KeyHandle {
                 NodeKind::NonTerminal(NonTerminalKind::KeyBase),
                 NodeKind::NonTerminal(NonTerminalKind::KeyOpt),
             ],
-            |[key_base, key_opt], visit_ignored| {
-                Ok(visit(
+            |[key_base, key_opt], visit_ignored| Ok(
+                visit(
                     KeyView {
                         key_base: KeyBaseHandle(key_base),
                         key_opt: KeyOptHandle(key_opt),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1790,27 +1872,43 @@ impl NonTerminalHandle for KeyBaseHandle {
     ) -> Result<O, CstConstructError<E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
-            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
         };
         let Some(child_data) = tree.node_data(child) else {
-            return Err(ViewConstructionError::NodeIdNotFound { node: child });
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
         };
         let variant = match child_data.node_kind() {
-            NodeKind::NonTerminal(NonTerminalKind::Ident) => KeyBaseView::Ident(IdentHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Ident) => {
+                KeyBaseView::Ident(IdentHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::ExtensionNameSpace) => {
                 KeyBaseView::ExtensionNameSpace(ExtensionNameSpaceHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Str) => KeyBaseView::Str(StrHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Str) => {
+                KeyBaseView::Str(StrHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 KeyBaseView::Integer(IntegerHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::MetaExtKey) => {
                 KeyBaseView::MetaExtKey(MetaExtKeyHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Null) => KeyBaseView::Null(NullHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::True) => KeyBaseView::True(TrueHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::False) => KeyBaseView::False(FalseHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::Hole) => KeyBaseView::Hole(HoleHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Null) => {
+                KeyBaseView::Null(NullHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::True) => {
+                KeyBaseView::True(TrueHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::False) => {
+                KeyBaseView::False(FalseHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Hole) => {
+                KeyBaseView::Hole(HoleHandle(child))
+            }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -1821,7 +1919,9 @@ impl NonTerminalHandle for KeyBaseHandle {
         };
         let (result, _visit) = visit(variant, visit_ignored);
         if let Some(child) = children.next() {
-            return Err(ViewConstructionError::UnexpectedExtraNode { node: child });
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
         }
         Ok(result)
     }
@@ -1870,15 +1970,15 @@ impl NonTerminalHandle for KeyOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(ArrayMarkerHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        ArrayMarkerHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1915,15 +2015,15 @@ impl NonTerminalHandle for KeysHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Key),
                 NodeKind::NonTerminal(NonTerminalKind::KeysList),
             ],
-            |[key, keys_list], visit_ignored| {
-                Ok(visit(
+            |[key, keys_list], visit_ignored| Ok(
+                visit(
                     KeysView {
                         key: KeyHandle(key),
                         keys_list: KeysListHandle(keys_list),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -1972,16 +2072,16 @@ impl NonTerminalHandle for KeysListHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Key),
                 NodeKind::NonTerminal(NonTerminalKind::KeysList),
             ],
-            |[dot, key, keys_list], visit_ignored| {
-                Ok(visit(
+            |[dot, key, keys_list], visit_ignored| Ok(
+                visit(
                     Some(KeysListView {
                         dot: DotHandle(dot),
                         key: KeyHandle(key),
                         keys_list: KeysListHandle(keys_list),
                     }),
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2004,14 +2104,15 @@ impl<F: CstFacade> RecursiveView<F> for KeysListView {
         while let Some(item) = current_view {
             let Self { dot, key, .. } = item;
             items.push(KeysListItem { dot, key });
-            item.keys_list.get_view_with_visit(
-                tree,
-                |view, visit_ignored| {
-                    current_view = view;
-                    ((), visit_ignored)
-                },
-                visit_ignored,
-            )?;
+            item.keys_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
         }
         Ok(items)
     }
@@ -2052,14 +2153,14 @@ impl NonTerminalHandle for LParenHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::LParen)],
-            |[l_paren], visit_ignored| {
-                Ok(visit(
+            |[l_paren], visit_ignored| Ok(
+                visit(
                     LParenView {
                         l_paren: LParen(l_paren),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2100,14 +2201,14 @@ impl NonTerminalHandle for MetaExtHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::DollarDollar)],
-            |[dollar_dollar], visit_ignored| {
-                Ok(visit(
+            |[dollar_dollar], visit_ignored| Ok(
+                visit(
                     MetaExtView {
                         dollar_dollar: DollarDollar(dollar_dollar),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2151,15 +2252,15 @@ impl NonTerminalHandle for MetaExtKeyHandle {
                 NodeKind::NonTerminal(NonTerminalKind::MetaExt),
                 NodeKind::NonTerminal(NonTerminalKind::Ident),
             ],
-            |[meta_ext, ident], visit_ignored| {
-                Ok(visit(
+            |[meta_ext, ident], visit_ignored| Ok(
+                visit(
                     MetaExtKeyView {
                         meta_ext: MetaExtHandle(meta_ext),
                         ident: IdentHandle(ident),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2201,14 +2302,14 @@ impl NonTerminalHandle for NamedCodeHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::NamedCode)],
-            |[named_code], visit_ignored| {
-                Ok(visit(
+            |[named_code], visit_ignored| Ok(
+                visit(
                     NamedCodeView {
                         named_code: NamedCode(named_code),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2249,7 +2350,9 @@ impl NonTerminalHandle for NullHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Null)],
-            |[null], visit_ignored| Ok(visit(NullView { null: Null(null) }, visit_ignored)),
+            |[null], visit_ignored| Ok(
+                visit(NullView { null: Null(null) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -2294,16 +2397,16 @@ impl NonTerminalHandle for ObjectHandle {
                 NodeKind::NonTerminal(NonTerminalKind::ObjectList),
                 NodeKind::NonTerminal(NonTerminalKind::End),
             ],
-            |[begin, object_list, end], visit_ignored| {
-                Ok(visit(
+            |[begin, object_list, end], visit_ignored| Ok(
+                visit(
                     ObjectView {
                         begin: BeginHandle(begin),
                         object_list: ObjectListHandle(object_list),
                         end: EndHandle(end),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2355,8 +2458,8 @@ impl NonTerminalHandle for ObjectListHandle {
                 NodeKind::NonTerminal(NonTerminalKind::ObjectOpt),
                 NodeKind::NonTerminal(NonTerminalKind::ObjectList),
             ],
-            |[key, bind, value, object_opt, object_list], visit_ignored| {
-                Ok(visit(
+            |[key, bind, value, object_opt, object_list], visit_ignored| Ok(
+                visit(
                     Some(ObjectListView {
                         key: KeyHandle(key),
                         bind: BindHandle(bind),
@@ -2365,8 +2468,8 @@ impl NonTerminalHandle for ObjectListHandle {
                         object_list: ObjectListHandle(object_list),
                     }),
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2389,27 +2492,23 @@ impl<F: CstFacade> RecursiveView<F> for ObjectListView {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
-            let Self {
-                key,
-                bind,
-                value,
-                object_opt,
-                ..
-            } = item;
-            items.push(ObjectListItem {
-                key,
-                bind,
-                value,
-                object_opt,
-            });
-            item.object_list.get_view_with_visit(
-                tree,
-                |view, visit_ignored| {
-                    current_view = view;
-                    ((), visit_ignored)
-                },
-                visit_ignored,
-            )?;
+            let Self { key, bind, value, object_opt, .. } = item;
+            items
+                .push(ObjectListItem {
+                    key,
+                    bind,
+                    value,
+                    object_opt,
+                });
+            item.object_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
         }
         Ok(items)
     }
@@ -2452,11 +2551,13 @@ impl NonTerminalHandle for ObjectOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(CommaHandle::new_with_visit(self.0, tree, visit_ignored)?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(CommaHandle::new_with_visit(self.0, tree, visit_ignored)?),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -2493,15 +2594,15 @@ impl NonTerminalHandle for PathHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Dot),
                 NodeKind::NonTerminal(NonTerminalKind::Keys),
             ],
-            |[dot, keys], visit_ignored| {
-                Ok(visit(
+            |[dot, keys], visit_ignored| Ok(
+                visit(
                     PathView {
                         dot: DotHandle(dot),
                         keys: KeysHandle(keys),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2543,14 +2644,14 @@ impl NonTerminalHandle for RParenHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::RParen)],
-            |[r_paren], visit_ignored| {
-                Ok(visit(
+            |[r_paren], visit_ignored| Ok(
+                visit(
                     RParenView {
                         r_paren: RParen(r_paren),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2595,16 +2696,16 @@ impl NonTerminalHandle for SectionHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Keys),
                 NodeKind::NonTerminal(NonTerminalKind::SectionBody),
             ],
-            |[at, keys, section_body], visit_ignored| {
-                Ok(visit(
+            |[at, keys, section_body], visit_ignored| Ok(
+                visit(
                     SectionView {
                         at: AtHandle(at),
                         keys: KeysHandle(keys),
                         section_body: SectionBodyHandle(section_body),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2651,16 +2752,16 @@ impl NonTerminalHandle for SectionBindingHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Eure),
                 NodeKind::NonTerminal(NonTerminalKind::End),
             ],
-            |[begin, eure, end], visit_ignored| {
-                Ok(visit(
+            |[begin, eure, end], visit_ignored| Ok(
+                visit(
                     SectionBindingView {
                         begin: BeginHandle(begin),
                         eure: EureHandle(eure),
                         end: EndHandle(end),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2702,10 +2803,14 @@ impl NonTerminalHandle for SectionBodyHandle {
     ) -> Result<O, CstConstructError<E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
-            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
         };
         let Some(child_data) = tree.node_data(child) else {
-            return Err(ViewConstructionError::NodeIdNotFound { node: child });
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
         };
         let variant = match child_data.node_kind() {
             NodeKind::NonTerminal(NonTerminalKind::SectionBodyList) => {
@@ -2727,7 +2832,9 @@ impl NonTerminalHandle for SectionBodyHandle {
         };
         let (result, _visit) = visit(variant, visit_ignored);
         if let Some(child) = children.next() {
-            return Err(ViewConstructionError::UnexpectedExtraNode { node: child });
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
         }
         Ok(result)
     }
@@ -2776,15 +2883,15 @@ impl NonTerminalHandle for SectionBodyListHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Binding),
                 NodeKind::NonTerminal(NonTerminalKind::SectionBodyList),
             ],
-            |[binding, section_body_list], visit_ignored| {
-                Ok(visit(
+            |[binding, section_body_list], visit_ignored| Ok(
+                visit(
                     Some(SectionBodyListView {
                         binding: BindingHandle(binding),
                         section_body_list: SectionBodyListHandle(section_body_list),
                     }),
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2806,14 +2913,15 @@ impl<F: CstFacade> RecursiveView<F> for SectionBodyListView {
         while let Some(item) = current_view {
             let Self { binding, .. } = item;
             items.push(binding);
-            item.section_body_list.get_view_with_visit(
-                tree,
-                |view, visit_ignored| {
-                    current_view = view;
-                    ((), visit_ignored)
-                },
-                visit_ignored,
-            )?;
+            item.section_body_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
         }
         Ok(items)
     }
@@ -2893,15 +3001,15 @@ impl NonTerminalHandle for StringsHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Str),
                 NodeKind::NonTerminal(NonTerminalKind::StringsList),
             ],
-            |[str, strings_list], visit_ignored| {
-                Ok(visit(
+            |[str, strings_list], visit_ignored| Ok(
+                visit(
                     StringsView {
                         str: StrHandle(str),
                         strings_list: StringsListHandle(strings_list),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2950,16 +3058,16 @@ impl NonTerminalHandle for StringsListHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Str),
                 NodeKind::NonTerminal(NonTerminalKind::StringsList),
             ],
-            |[r#continue, str, strings_list], visit_ignored| {
-                Ok(visit(
+            |[r#continue, str, strings_list], visit_ignored| Ok(
+                visit(
                     Some(StringsListView {
                         r#continue: ContinueHandle(r#continue),
                         str: StrHandle(str),
                         strings_list: StringsListHandle(strings_list),
                     }),
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -2980,18 +3088,17 @@ impl<F: CstFacade> RecursiveView<F> for StringsListView {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
-            let Self {
-                r#continue, str, ..
-            } = item;
+            let Self { r#continue, str, .. } = item;
             items.push(StringsListItem { r#continue, str });
-            item.strings_list.get_view_with_visit(
-                tree,
-                |view, visit_ignored| {
-                    current_view = view;
-                    ((), visit_ignored)
-                },
-                visit_ignored,
-            )?;
+            item.strings_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
         }
         Ok(items)
     }
@@ -3032,7 +3139,9 @@ impl NonTerminalHandle for TextHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Text)],
-            |[text], visit_ignored| Ok(visit(TextView { text: Text(text) }, visit_ignored)),
+            |[text], visit_ignored| Ok(
+                visit(TextView { text: Text(text) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -3078,8 +3187,8 @@ impl NonTerminalHandle for TextBindingHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Text),
                 NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt0),
             ],
-            |[text_start, text_binding_opt, text, text_binding_opt_0], visit_ignored| {
-                Ok(visit(
+            |[text_start, text_binding_opt, text, text_binding_opt_0], visit_ignored| Ok(
+                visit(
                     TextBindingView {
                         text_start: TextStartHandle(text_start),
                         text_binding_opt: TextBindingOptHandle(text_binding_opt),
@@ -3087,8 +3196,8 @@ impl NonTerminalHandle for TextBindingHandle {
                         text_binding_opt_0: TextBindingOpt0Handle(text_binding_opt_0),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -3132,11 +3241,13 @@ impl NonTerminalHandle for TextBindingOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(WsHandle::new_with_visit(self.0, tree, visit_ignored)?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(WsHandle::new_with_visit(self.0, tree, visit_ignored)?),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3170,15 +3281,19 @@ impl NonTerminalHandle for TextBindingOpt0Handle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(GrammarNewlineHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        GrammarNewlineHandle::new_with_visit(
+                            self.0,
+                            tree,
+                            visit_ignored,
+                        )?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3212,14 +3327,14 @@ impl NonTerminalHandle for TextStartHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::TextStart)],
-            |[text_start], visit_ignored| {
-                Ok(visit(
+            |[text_start], visit_ignored| Ok(
+                visit(
                     TextStartView {
                         text_start: TextStart(text_start),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -3260,14 +3375,9 @@ impl NonTerminalHandle for TrueHandle {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::True)],
-            |[r#true], visit_ignored| {
-                Ok(visit(
-                    TrueView {
-                        r#true: True(r#true),
-                    },
-                    visit_ignored,
-                ))
-            },
+            |[r#true], visit_ignored| Ok(
+                visit(TrueView { r#true: True(r#true) }, visit_ignored),
+            ),
             visit_ignored,
         )
     }
@@ -3312,16 +3422,16 @@ impl NonTerminalHandle for TupleHandle {
                 NodeKind::NonTerminal(NonTerminalKind::TupleOpt),
                 NodeKind::NonTerminal(NonTerminalKind::RParen),
             ],
-            |[l_paren, tuple_opt, r_paren], visit_ignored| {
-                Ok(visit(
+            |[l_paren, tuple_opt, r_paren], visit_ignored| Ok(
+                visit(
                     TupleView {
                         l_paren: LParenHandle(l_paren),
                         tuple_opt: TupleOptHandle(tuple_opt),
                         r_paren: RParenHandle(r_paren),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -3367,15 +3477,15 @@ impl NonTerminalHandle for TupleElementsHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Value),
                 NodeKind::NonTerminal(NonTerminalKind::TupleElementsOpt),
             ],
-            |[value, tuple_elements_opt], visit_ignored| {
-                Ok(visit(
+            |[value, tuple_elements_opt], visit_ignored| Ok(
+                visit(
                     TupleElementsView {
                         value: ValueHandle(value),
                         tuple_elements_opt: TupleElementsOptHandle(tuple_elements_opt),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -3417,15 +3527,19 @@ impl NonTerminalHandle for TupleElementsOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(TupleElementsTailHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        TupleElementsTailHandle::new_with_visit(
+                            self.0,
+                            tree,
+                            visit_ignored,
+                        )?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3462,8 +3576,8 @@ impl NonTerminalHandle for TupleElementsTailHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Comma),
                 NodeKind::NonTerminal(NonTerminalKind::TupleElementsTailOpt),
             ],
-            |[comma, tuple_elements_tail_opt], visit_ignored| {
-                Ok(visit(
+            |[comma, tuple_elements_tail_opt], visit_ignored| Ok(
+                visit(
                     TupleElementsTailView {
                         comma: CommaHandle(comma),
                         tuple_elements_tail_opt: TupleElementsTailOptHandle(
@@ -3471,8 +3585,8 @@ impl NonTerminalHandle for TupleElementsTailHandle {
                         ),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -3514,15 +3628,15 @@ impl NonTerminalHandle for TupleElementsTailOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(TupleElementsHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        TupleElementsHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3556,15 +3670,15 @@ impl NonTerminalHandle for TupleOptHandle {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
-        Ok(visit(
-            Some(TupleElementsHandle::new_with_visit(
-                self.0,
-                tree,
-                visit_ignored,
-            )?),
-            visit_ignored,
+        Ok(
+            visit(
+                    Some(
+                        TupleElementsHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
         )
-        .0)
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3597,37 +3711,55 @@ impl NonTerminalHandle for ValueHandle {
     ) -> Result<O, CstConstructError<E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
-            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
         };
         let Some(child_data) = tree.node_data(child) else {
-            return Err(ViewConstructionError::NodeIdNotFound { node: child });
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
         };
         let variant = match child_data.node_kind() {
             NodeKind::NonTerminal(NonTerminalKind::Object) => {
                 ValueView::Object(ObjectHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Array) => ValueView::Array(ArrayHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::Tuple) => ValueView::Tuple(TupleHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::Float) => ValueView::Float(FloatHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Array) => {
+                ValueView::Array(ArrayHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Tuple) => {
+                ValueView::Tuple(TupleHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Float) => {
+                ValueView::Float(FloatHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 ValueView::Integer(IntegerHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::Boolean) => {
                 ValueView::Boolean(BooleanHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Null) => ValueView::Null(NullHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Null) => {
+                ValueView::Null(NullHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::Strings) => {
                 ValueView::Strings(StringsHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Hole) => ValueView::Hole(HoleHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Hole) => {
+                ValueView::Hole(HoleHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::CodeBlock) => {
                 ValueView::CodeBlock(CodeBlockHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::NamedCode) => {
                 ValueView::NamedCode(NamedCodeHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Code) => ValueView::Code(CodeHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::Path) => ValueView::Path(PathHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Code) => {
+                ValueView::Code(CodeHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Path) => {
+                ValueView::Path(PathHandle(child))
+            }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -3638,7 +3770,9 @@ impl NonTerminalHandle for ValueHandle {
         };
         let (result, _visit) = visit(variant, visit_ignored);
         if let Some(child) = children.next() {
-            return Err(ViewConstructionError::UnexpectedExtraNode { node: child });
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
         }
         Ok(result)
     }
@@ -3694,15 +3828,15 @@ impl NonTerminalHandle for ValueBindingHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Bind),
                 NodeKind::NonTerminal(NonTerminalKind::Value),
             ],
-            |[bind, value], visit_ignored| {
-                Ok(visit(
+            |[bind, value], visit_ignored| Ok(
+                visit(
                     ValueBindingView {
                         bind: BindHandle(bind),
                         value: ValueHandle(value),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
@@ -3784,22 +3918,22 @@ impl NonTerminalHandle for RootHandle {
     ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::Eure)],
-            |[eure], visit_ignored| {
-                Ok(visit(
+            [NodeKind::NonTerminal(NonTerminalKind::EureRoot)],
+            |[eure_root], visit_ignored| Ok(
+                visit(
                     RootView {
-                        eure: EureHandle(eure),
+                        eure_root: EureRootHandle(eure_root),
                     },
                     visit_ignored,
-                ))
-            },
+                ),
+            ),
             visit_ignored,
         )
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RootView {
-    pub eure: EureHandle,
+    pub eure_root: EureRootHandle,
 }
 impl RootView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

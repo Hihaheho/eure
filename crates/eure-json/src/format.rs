@@ -1,6 +1,6 @@
 use eure_tree::constructors::terminals;
 use eure_tree::{CstNode, constructors::*, node_kind::TerminalKind, tree::ConcreteSyntaxTree};
-use eure_value::value::{Array, Code, KeyCmpValue, Map, Path, PathSegment, Value, Variant};
+use eure_value::value::{Array, Code, EurePath, KeyCmpValue, Map, PathSegment, Value, Variant};
 use indexmap::IndexMap;
 
 /// Format a Value as EURE syntax using CST construction
@@ -330,7 +330,7 @@ fn build_value(value: &Value) -> ValueNode {
         }
         Value::MetaExtension(meta) => {
             // Build a path with a single MetaExt segment to represent the meta-extension value
-            let path = Path(vec![PathSegment::MetaExt(meta.clone())]);
+            let path = EurePath(vec![PathSegment::MetaExt(meta.clone())]);
             build_path_value(&path)
         }
     }
@@ -619,7 +619,7 @@ fn escape_string(s: &str) -> String {
         .collect()
 }
 
-fn build_path_value(path: &eure_value::value::Path) -> ValueNode {
+fn build_path_value(path: &eure_value::value::EurePath) -> ValueNode {
     use eure_value::value::PathSegment;
 
     // Build the dot token

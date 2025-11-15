@@ -1,4 +1,4 @@
-%start Eure
+%start EureRoot
 %title "EURE"
 %grammar_type 'LL(k)'
 %line_comment "#"
@@ -13,6 +13,7 @@
 
 %%
 
+EureRoot: Bind Value | Eure ;
 Eure: { Binding } { Section } ;
 
 Binding: Keys BindingRhs ;

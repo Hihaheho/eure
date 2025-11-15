@@ -1,7 +1,7 @@
 //! Utility functions shared across the crate
 
 use convert_case::{Case, Casing};
-use eure_value::value::{Path, PathSegment};
+use eure_value::value::{EurePath, PathSegment};
 
 /// Convert a string to camelCase
 pub fn to_camel_case(s: &str) -> String {
@@ -25,7 +25,7 @@ pub fn to_kebab_case(s: &str) -> String {
 
 /// Convert a Path to a string representation for display purposes only
 /// Note: This is only for error messages and debugging, not for lookups
-pub fn path_to_display_string(path: &Path) -> String {
+pub fn path_to_display_string(path: &EurePath) -> String {
     let mut parts = Vec::new();
 
     for segment in &path.0 {

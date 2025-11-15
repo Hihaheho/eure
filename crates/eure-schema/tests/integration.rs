@@ -1,7 +1,7 @@
 //! Integration tests for eure-schema
 
 use eure_schema::*;
-use eure_value::value::{KeyCmpValue, Path};
+use eure_value::value::{KeyCmpValue, EurePath};
 
 /// Helper to parse and extract schema from a document
 fn extract(input: &str) -> ExtractedSchema {
@@ -377,7 +377,7 @@ $cascade-type = .string
 
         // Check cascade type was set on root
         assert!(matches!(
-            schema.cascade_types.get(&Path::root()),
+            schema.cascade_types.get(&EurePath::root()),
             Some(Type::String)
         ));
 
@@ -753,7 +753,7 @@ extra = "not allowed"
     fn test_unknown_type_reference() {
         // Create schema with cascade type to allow any field
         let mut schema = DocumentSchema::default();
-        schema.cascade_types.insert(Path::root(), Type::Any);
+        schema.cascade_types.insert(EurePath::root(), Type::Any);
 
         // Reference to non-existent type
         let doc = r#"

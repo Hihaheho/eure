@@ -7,7 +7,7 @@ use crate::identifiers;
 use crate::schema::*;
 use crate::utils::path_to_display_string;
 use eure_tree::document::{DocumentKey, EureDocument, Node, NodeValue};
-use eure_value::value::{KeyCmpValue, Path};
+use eure_value::value::{KeyCmpValue, EurePath};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -66,7 +66,7 @@ pub fn document_to_schema(doc: &EureDocument) -> Result<DocumentSchema, SchemaEr
         if let NodeValue::Path { value: path, .. } = &cascade_node.content
             && let Some(cascade_type) = Type::from_path_segments(&path.0)
         {
-            schema.cascade_types.insert(Path::root(), cascade_type);
+            schema.cascade_types.insert(EurePath::root(), cascade_type);
         }
     }
 
@@ -211,7 +211,7 @@ fn is_schema_or_nested_schema_node(doc: &EureDocument, node: &Node) -> bool {
 struct SchemaBuilder {
     types: IndexMap<KeyCmpValue, FieldSchema>,
     root_fields: IndexMap<KeyCmpValue, FieldSchema>,
-    cascade_types: HashMap<Path, Type>,
+    cascade_types: HashMap<EurePath, Type>,
 }
 
 impl SchemaBuilder {

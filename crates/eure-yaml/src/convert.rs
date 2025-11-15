@@ -1,6 +1,6 @@
 use crate::{Config, Error};
 use eure_value::value::{
-    Array, Code, KeyCmpValue, Map, Path, PathSegment, Tuple, Value, Variant, VariantRepr,
+    Array, Code, KeyCmpValue, Map, EurePath, PathSegment, Tuple, Value, Variant, VariantRepr,
 };
 use serde_yaml::{Mapping, Value as YamlValue};
 
@@ -108,7 +108,7 @@ pub fn value_to_yaml_with_config(value: &Value, config: &Config) -> Result<YamlV
                 "MetaExtension values are metadata and cannot be converted to YAML".to_string(),
             ))
         }
-        Value::Path(Path(segments)) => {
+        Value::Path(EurePath(segments)) => {
             // Paths represented as dot-separated strings
             let mut path_parts = Vec::new();
             let mut i = 0;

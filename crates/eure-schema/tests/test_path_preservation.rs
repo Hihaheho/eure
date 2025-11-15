@@ -1,5 +1,5 @@
 use eure_tree::value_visitor::ValueVisitor;
-use eure_value::value::{KeyCmpValue, Path, PathSegment, Value};
+use eure_value::value::{KeyCmpValue, EurePath, PathSegment, Value};
 
 #[test]
 fn test_path_segments_preserved() {
@@ -21,7 +21,7 @@ test3 = .$$meta.extension
 
     if let Value::Map(map) = doc {
         // Check test1 - regular path
-        if let Some(Value::Path(Path(segments))) =
+        if let Some(Value::Path(EurePath(segments))) =
             map.0.get(&KeyCmpValue::String("test1".to_string()))
         {
             assert_eq!(segments.len(), 2);
@@ -33,7 +33,7 @@ test3 = .$$meta.extension
         }
 
         // Check test2 - extension path
-        if let Some(Value::Path(Path(segments))) =
+        if let Some(Value::Path(EurePath(segments))) =
             map.0.get(&KeyCmpValue::String("test2".to_string()))
         {
             assert_eq!(segments.len(), 2);
@@ -47,7 +47,7 @@ test3 = .$$meta.extension
         }
 
         // Check test3 - meta extension path
-        if let Some(Value::Path(Path(segments))) =
+        if let Some(Value::Path(EurePath(segments))) =
             map.0.get(&KeyCmpValue::String("test3".to_string()))
         {
             assert_eq!(segments.len(), 2);
@@ -83,7 +83,7 @@ nested.field = .$types.User
         {
             if let Some(value) = nested_map.0.get(&KeyCmpValue::String("field".to_string())) {
                 match value {
-                    Value::Path(Path(segments)) => {
+                    Value::Path(EurePath(segments)) => {
                         println!("Found Path with segments: {segments:?}");
                         assert_eq!(segments.len(), 2);
                         assert!(

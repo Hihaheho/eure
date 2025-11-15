@@ -98,7 +98,7 @@ use crate::identifiers;
 use crate::schema::*;
 use eure_tree::document::{DocumentKey, EureDocument, Node, NodeId, NodeValue};
 use eure_value::identifier::Identifier;
-use eure_value::value::{KeyCmpValue, Path, PathSegment};
+use eure_value::value::{KeyCmpValue, EurePath, PathSegment};
 use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -207,11 +207,11 @@ struct DocumentValidator<'a> {
     schema: &'a DocumentSchema,
     errors: Vec<ValidationError>,
     /// Track which fields have been seen at each path
-    seen_fields: HashMap<Path, HashSet<KeyCmpValue>>,
+    seen_fields: HashMap<EurePath, HashSet<KeyCmpValue>>,
     /// Track variant context for proper field validation
-    variant_context: HashMap<Path, String>,
+    variant_context: HashMap<EurePath, String>,
     /// Track variant representation info for each path (for excluding tag fields)
-    variant_repr_context: HashMap<Path, VariantRepr>,
+    variant_repr_context: HashMap<EurePath, VariantRepr>,
     /// Current recursion depth for validation
     current_depth: usize,
     /// Maximum allowed recursion depth (prevents stack overflow)
@@ -237,7 +237,7 @@ impl<'a> DocumentValidator<'a> {
     fn find_cascade_type(&self, path: &[PathSegment]) -> Option<&Type> {
         // Check from most specific to least specific
         for i in (0..=path.len()).rev() {
-            let ancestor_path = Path::from_segments(&path[..i]);
+            let ancestor_path = EurePath::from_segments(&path[..i]);
             if let Some(cascade_type) = self.schema.cascade_types.get(&ancestor_path) {
                 return Some(cascade_type);
             }
@@ -249,7 +249,7 @@ impl<'a> DocumentValidator<'a> {
         // Check if there's a cascade type for the root
         let root_id = self.document.get_root_id();
 
-        if let Some(cascade_type) = self.schema.cascade_types.get(&Path::root())
+        if let Some(cascade_type) = self.schema.cascade_types.get(&EurePath::root())
             // Check if it's a variant cascade type
             && let Type::Variants(variant_schema) = cascade_type
         {
@@ -293,7 +293,7 @@ impl<'a> DocumentValidator<'a> {
                                 {
                                     // This is a known field with a quoted name
                                     // Track that we've seen this field
-                                    let path_key = Path::from_segments(path);
+                                    let path_key = EurePath::from_segments(path);
                                     self.seen_fields
                                         .entry(path_key)
                                         .or_default()
@@ -420,7 +420,7 @@ impl<'a> DocumentValidator<'a> {
 
         // Only track fields that have actual data content
         if !is_schema_only {
-            let path_key = Path::from_segments(path);
+            let path_key = EurePath::from_segments(path);
             self.seen_fields
                 .entry(path_key)
                 .or_default()
@@ -442,7 +442,7 @@ impl<'a> DocumentValidator<'a> {
             }
         } else if !is_schema_only {
             // Check if this field is a tag field for internally tagged variant
-            let path_key = Path::from_segments(path);
+            let path_key = EurePath::from_segments(path);
             let is_tag_field = if let Some(variant_repr) = self.variant_repr_context.get(&path_key)
             {
                 match variant_repr {
@@ -909,7 +909,7 @@ impl<'a> DocumentValidator<'a> {
         path: &[PathSegment],
         variant_schema: &VariantSchema,
     ) -> Option<VariantInfo> {
-        let path_key = Path::from_segments(path);
+        let path_key = EurePath::from_segments(path);
 
         // Check if variant was already determined via $variant extension
         if let Some(variant_from_ext) = self.variant_context.get(&path_key) {
@@ -1095,7 +1095,7 @@ impl<'a> DocumentValidator<'a> {
         variant_schema: &VariantSchema,
         variant_info: &VariantInfo,
     ) {
-        let path_key = Path::from_segments(path);
+        let path_key = EurePath::from_segments(path);
 
         // Store variant context for nested validation
         self.variant_context
@@ -1210,7 +1210,7 @@ impl<'a> DocumentValidator<'a> {
             }
             None => {
                 // Check if we had an invalid variant from context
-                let path_key = Path::from_segments(path);
+                let path_key = EurePath::from_segments(path);
                 if let Some(variant_from_ext) = self.variant_context.get(&path_key) {
                     // We had a variant but it wasn't valid
                     self.add_error(
@@ -1316,7 +1316,7 @@ impl<'a> DocumentValidator<'a> {
                 // Handle variant discriminator
                 let node = self.document.get_node(node_id);
                 if let NodeValue::String { value, .. } = &node.content {
-                    let path_key = Path::from_segments(path);
+                    let path_key = EurePath::from_segments(path);
                     self.variant_context.insert(path_key, value.clone());
                 }
             }
@@ -1340,7 +1340,7 @@ impl<'a> DocumentValidator<'a> {
         path: &[PathSegment],
         expected_fields: &IndexMap<KeyCmpValue, FieldSchema>,
     ) {
-        let path_key = Path::from_segments(path);
+        let path_key = EurePath::from_segments(path);
         let seen_fields_set = self.seen_fields.get(&path_key).cloned();
 
         for (field_name, field_schema) in expected_fields {
