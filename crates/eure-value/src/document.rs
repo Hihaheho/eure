@@ -24,7 +24,7 @@ pub struct EureDocument {
     nodes: Vec<Node>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 #[error("Insert error: {kind} at {path}")]
 pub struct InsertError {
     pub kind: InsertErrorKind,
@@ -210,7 +210,7 @@ impl EureDocument {
                 Err(error) => {
                     return Err(InsertError {
                         kind: error,
-                        path: EurePath::from_segments(path.iter().take(index).cloned()),
+                        path: EurePath::from_iter(path.iter().take(index).cloned()),
                     });
                 }
             }
@@ -637,11 +637,11 @@ mod tests {
     #[test]
     fn test_prepare_node_empty_path() {
         let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
         let path = &[];
 
         let result = doc.prepare_node(path);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), doc.get_root_id());
+        assert_eq!(result, Ok(root_id));
     }
 
     #[test]
@@ -650,16 +650,12 @@ mod tests {
         let identifier = create_identifier("test");
         let path = &[PathSegment::Ident(identifier.clone())];
 
-        let result = doc.prepare_node(path);
-        assert!(result.is_ok());
+        let node_id = doc.prepare_node(path).expect("Failed to prepare node");
 
         let root_node = doc.get_node(doc.get_root_id());
-        let map = match &root_node.content {
-            NodeValue::Map(m) => m,
-            _ => panic!("Expected map"),
-        };
+        let map = root_node.as_map().unwrap();
         let key = DocumentKey::Value(ObjectKey::String(identifier.into_string()));
-        assert!(map.get(&key).is_some());
+        assert_eq!(map.get(&key), Some(&node_id));
     }
 
     #[test]
@@ -667,23 +663,20 @@ mod tests {
         let mut doc = EureDocument::new();
         let id1 = create_identifier("ext1");
         let id2 = create_identifier("ext2");
-        // Use Extension segments which work on any node type
         let path = &[
             PathSegment::Extension(id1.clone()),
             PathSegment::Extension(id2.clone()),
         ];
 
-        let result = doc.prepare_node(path);
-        assert!(result.is_ok());
+        let final_node_id = doc.prepare_node(path).expect("Failed to prepare node");
 
         // Verify first extension was added to root
         let root_node = doc.get_node(doc.get_root_id());
-        assert!(root_node.extensions.contains_key(&id1));
+        let first_child_id = root_node.extensions.get(&id1).expect("Extension not found");
 
         // Verify second extension was added to the node created by first segment
-        let first_child_id = root_node.extensions.get(&id1).unwrap();
         let first_child_node = doc.get_node(*first_child_id);
-        assert!(first_child_node.extensions.contains_key(&id2));
+        assert_eq!(first_child_node.extensions.get(&id2), Some(&final_node_id));
     }
 
     #[test]
@@ -696,11 +689,13 @@ mod tests {
         let path = &[PathSegment::Ident(identifier)];
 
         let result = doc.prepare_node(path);
-        assert!(result.is_err());
-
-        let error = result.unwrap_err();
-        assert_eq!(error.kind, InsertErrorKind::ExpectedMap);
-        assert!(error.path.is_root());
+        assert_eq!(
+            result,
+            Err(InsertError {
+                kind: InsertErrorKind::ExpectedMap,
+                path: EurePath::root()
+            })
+        );
     }
 
     #[test]
@@ -710,11 +705,12 @@ mod tests {
         let path = &[PathSegment::Ident(id1.clone()), PathSegment::TupleIndex(0)];
 
         let result = doc.prepare_node(path);
-        assert!(result.is_err());
-
-        let error = result.unwrap_err();
-        assert_eq!(error.kind, InsertErrorKind::ExpectedTuple);
-        assert_eq!(error.path.0.len(), 1);
-        assert_eq!(error.path.0[0], PathSegment::Ident(id1));
+        assert_eq!(
+            result,
+            Err(InsertError {
+                kind: InsertErrorKind::ExpectedTuple,
+                path: EurePath::from_iter([PathSegment::Ident(id1)])
+            })
+        );
     }
 }

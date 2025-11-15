@@ -6,6 +6,27 @@ pub struct Node {
     pub extensions: Map<Identifier, NodeId>,
 }
 impl Node {
+    pub fn as_map(&self) -> Option<&NodeMap> {
+        match &self.content {
+            NodeValue::Map(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&NodeArray> {
+        match &self.content {
+            NodeValue::Array(array) => Some(array),
+            _ => None,
+        }
+    }
+
+    pub fn as_tuple(&self) -> Option<&NodeTuple> {
+        match &self.content {
+            NodeValue::Tuple(tuple) => Some(tuple),
+            _ => None,
+        }
+    }
+
     pub(crate) fn require_map(&mut self) -> Result<&mut NodeMap, InsertErrorKind> {
         match &mut self.content {
             NodeValue::Map(map) => Ok(map),

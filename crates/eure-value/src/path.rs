@@ -15,11 +15,6 @@ impl EurePath {
     pub fn is_root(&self) -> bool {
         self.0.is_empty()
     }
-
-    /// Create a Path from PathSegments
-    pub fn from_segments(segments: impl Iterator<Item = PathSegment>) -> Self {
-        EurePath(segments.collect())
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
