@@ -3,28 +3,32 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::identifier::Identifier;
+use crate::string::EureString;
 use thisisplural::Plural;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Value {
+pub enum PrimitiveValue {
     Null,
     Bool(bool),
     I64(i64),
     U64(u64),
     F32(f32),
     F64(f64),
-    String(String),
+    String(EureString),
     Code(Code),
     CodeBlock(Code),
+    Unit,
+    Hole,
+    Variant(Variant),
+    Path(EurePath),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    Primitive(PrimitiveValue),
     Array(Array),
     Tuple(Tuple<Value>),
     Map(Map),
-    Variant(Variant),
-    Unit,
-    Path(Path),
-    Hole,
-    /// Meta-extension (Ident with $$ grammar token)
-    MetaExtension(Identifier),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -43,12 +47,12 @@ pub enum KeyCmpValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Plural)]
-pub struct Path(pub Vec<PathSegment>);
+pub struct EurePath(pub Vec<PathSegment>);
 
-impl Path {
+impl EurePath {
     /// Create an empty path representing the document root
     pub fn root() -> Self {
-        Path(Vec::new())
+        EurePath(Vec::new())
     }
 
     /// Check if this is the root path
@@ -58,7 +62,7 @@ impl Path {
 
     /// Create a Path from PathSegments
     pub fn from_segments(segments: &[PathSegment]) -> Self {
-        Path(segments.to_vec())
+        EurePath(segments.to_vec())
     }
 }
 
@@ -91,10 +95,7 @@ pub struct Array(pub Vec<Value>);
 pub struct Tuple<T>(pub Vec<T>);
 
 #[derive(Debug, Clone, PartialEq, Plural, Default)]
-#[cfg_attr(
-    not(feature = "std"),
-    plural(len, iter, into_iter, into_iter_ref, from_iter, new)
-)]
+#[plural(len, is_empty, iter, into_iter, into_iter_ref, from_iter, new)]
 pub struct Map(pub crate::Map<KeyCmpValue, Value>);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -122,19 +123,21 @@ impl VariantRepr {
     /// Create a VariantRepr from $variant.repr annotation value
     pub fn from_annotation(value: &Value) -> Option<Self> {
         match value {
-            Value::String(s) if s == "untagged" => Some(VariantRepr::Untagged),
+            Value::Primitive(PrimitiveValue::String(s)) if s == "untagged" => {
+                Some(VariantRepr::Untagged)
+            }
             Value::Map(Map(map)) => {
                 let tag = map
                     .get(&KeyCmpValue::String("tag".to_string()))
                     .and_then(|v| match v {
-                        Value::String(s) => Some(s.clone()),
+                        Value::Primitive(PrimitiveValue::String(s)) => Some(s.as_str().to_string()),
                         _ => None,
                     });
 
                 let content = map
                     .get(&KeyCmpValue::String("content".to_string()))
                     .and_then(|v| match v {
-                        Value::String(s) => Some(s.clone()),
+                        Value::Primitive(PrimitiveValue::String(s)) => Some(s.as_str().to_string()),
                         _ => None,
                     });
 
@@ -146,55 +149,5 @@ impl VariantRepr {
             }
             _ => None,
         }
-    }
-}
-
-// Helper trait implementations for KeyCmpValue
-
-impl PartialEq<str> for KeyCmpValue {
-    fn eq(&self, other: &str) -> bool {
-        match self {
-            KeyCmpValue::String(s) => s == other,
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<&str> for KeyCmpValue {
-    fn eq(&self, other: &&str) -> bool {
-        match self {
-            KeyCmpValue::String(s) => s == *other,
-            _ => false,
-        }
-    }
-}
-
-impl From<String> for KeyCmpValue {
-    fn from(s: String) -> Self {
-        KeyCmpValue::String(s)
-    }
-}
-
-impl From<&str> for KeyCmpValue {
-    fn from(s: &str) -> Self {
-        KeyCmpValue::String(s.to_string())
-    }
-}
-
-impl From<u64> for KeyCmpValue {
-    fn from(n: u64) -> Self {
-        KeyCmpValue::U64(n)
-    }
-}
-
-impl From<i64> for KeyCmpValue {
-    fn from(n: i64) -> Self {
-        KeyCmpValue::I64(n)
-    }
-}
-
-impl From<bool> for KeyCmpValue {
-    fn from(b: bool) -> Self {
-        KeyCmpValue::Bool(b)
     }
 }

@@ -10,8 +10,14 @@ pub mod tree;
 /// Identifier type and parser.
 pub mod identifier;
 
+/// String type.
+pub mod string;
+
 /// A type-safe data-type of EURE data-model.
 pub mod value;
+
+/// A data structure for representing a Eure document including extensions.
+pub mod document;
 
 #[cfg(feature = "std")]
 use ahash::AHashMap as Map;

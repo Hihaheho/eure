@@ -1,10 +1,7 @@
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::string::ToString;
-use core::{
-    fmt::{self, Display},
-    str::FromStr,
-};
+use core::fmt::{self, Display};
 use regex::Regex;
 use thiserror::Error;
 
@@ -118,9 +115,10 @@ impl AsRef<str> for Identifier {
 
 #[cfg(test)]
 mod tests {
+    use core::str::FromStr;
+
     use super::*;
 
-    #[cfg(not(feature = "std"))]
     impl FromStr for Identifier {
         type Err = IdentifierError;
 

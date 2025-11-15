@@ -3,18 +3,18 @@ name = "eure-value"
 version = "0.1.0"
 edition = "2024"
 description = "Value type for EURE"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "data-types", "serialization", "value"]
-
-[features]
-default = ["std"]
-std = ["dep:ahash", "regex/perf", "ahash/std", "ahash/runtime-rng"]
+license = "MIT OR Apache-2.0"
+keywords = ["data-types", "eure", "serialization", "value"]
 
 [dependencies]
 ahash = { workspace = true, optional = true }
-thisisplural = { workspace = true }
 regex = { version = "1.11", default-features = false, features = ["unicode"] }
 thiserror = { workspace = true }
+thisisplural = { workspace = true }
+
+[features]
+default = []
+std = ["ahash/runtime-rng", "ahash/std", "dep:ahash", "regex/perf"]
