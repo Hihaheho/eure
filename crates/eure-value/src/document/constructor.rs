@@ -71,6 +71,31 @@ impl<'d> DocumentConstructor<'d> {
         Ok(node_id)
     }
 
+    /// Push a binding path for assignment operations (e.g., `a.b.c = value`).
+    ///
+    /// Creates the path if it doesn't exist. Returns an error if the target node
+    /// already has a value assigned to it.
+    ///
+    /// # Example
+    ///
+    /// For `a.b.c = { x = 1 }`:
+    /// - Call `push_binding_path(&[a, b, c])` to set up the binding target
+    /// - Then call `push_path(&[x])` to build the value structure
+    pub fn push_binding_path(&mut self, path: &[PathSegment]) -> Result<NodeId, InsertError> {
+        let node_id = self.push_path(path)?;
+
+        // Check if the target node already has a value
+        let node = self.document.node(node_id);
+        if !matches!(node.content, NodeValue::Uninitialized) {
+            self.stack.pop(); // Cancel the push_path
+            return Err(InsertError {
+                kind: InsertErrorKind::BindingTargetHasValue,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            });
+        }
+        Ok(node_id)
+    }
+
     /// Pop the current segment. the node_id is used to assert the item is intended to be popped.
     pub fn pop(&mut self, node_id: NodeId) -> Result<(), PopError> {
         // Check if we can pop (must have more than just root)
@@ -318,5 +343,68 @@ mod tests {
 
         assert_eq!(constructor.current_node_id(), Some(node_id));
         assert_eq!(constructor.current_path(), segments.as_slice());
+    }
+
+    #[test]
+    fn test_push_binding_path_success() {
+        let mut doc = EureDocument::new();
+        let mut constructor = DocumentConstructor::new(&mut doc);
+
+        let id1 = create_identifier("field1");
+        let id2 = create_identifier("field2");
+        let path = &[
+            PathSegment::Ident(id1.clone()),
+            PathSegment::Extension(id2.clone()),
+        ];
+
+        // Push a new binding path should succeed
+        let node_id = constructor
+            .push_binding_path(path)
+            .expect("Failed to push binding path");
+
+        assert_eq!(constructor.current_node_id(), Some(node_id));
+        assert_eq!(constructor.current_path(), path.as_slice());
+
+        // The node should be uninitialized
+        let node = doc.node(node_id);
+        assert!(matches!(node.content, NodeValue::Uninitialized));
+    }
+
+    #[test]
+    fn test_push_binding_path_already_bound() {
+        let mut doc = EureDocument::new();
+        let id1 = create_identifier("parent");
+        let id2 = create_identifier("child");
+
+        // Create parent.$child and assign a value to it
+        let parent_id = doc
+            .prepare_node(&[PathSegment::Ident(id1.clone())])
+            .expect("Failed to prepare parent")
+            .node_id;
+        let child_id = doc
+            .prepare_node(&[
+                PathSegment::Ident(id1.clone()),
+                PathSegment::Extension(id2.clone()),
+            ])
+            .expect("Failed to prepare child")
+            .node_id;
+        doc.node_mut(child_id).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
+
+        // Try to bind to the same location from parent (should fail)
+        let mut constructor = DocumentConstructor::new(&mut doc);
+        constructor
+            .push_path(&[PathSegment::Ident(id1.clone())])
+            .unwrap();
+
+        let result = constructor.push_binding_path(&[PathSegment::Extension(id2.clone())]);
+
+        assert_eq!(
+            result.unwrap_err().kind,
+            InsertErrorKind::BindingTargetHasValue
+        );
+
+        // After the error, constructor should still be at parent (stack was popped)
+        assert_eq!(constructor.current_node_id(), Some(parent_id));
+        assert_eq!(constructor.current_path(), &[PathSegment::Ident(id1)]);
     }
 }

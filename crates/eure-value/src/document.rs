@@ -47,6 +47,8 @@ pub enum InsertErrorKind {
     ExpectedTuple,
     #[error("Tuple index invalid: expected {expected_index} but got {index}")]
     TupleIndexInvalid { index: u8, expected_index: usize },
+    #[error("Binding target already has a value")]
+    BindingTargetHasValue,
 }
 
 impl Default for EureDocument {
