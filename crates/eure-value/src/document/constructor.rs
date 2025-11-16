@@ -8,8 +8,8 @@ pub enum PopError {
     NodeIdMismatch { expected: NodeId, actual: NodeId },
 }
 
-pub struct DocumentConstructor<'d> {
-    document: &'d mut EureDocument,
+pub struct DocumentConstructor {
+    document: EureDocument,
     /// The path from the root to the current node.
     /// It will contain unused parts after pop operation and those spaces will be used for future push operations.
     path: Vec<PathSegment>,
@@ -23,8 +23,9 @@ pub struct StackItem {
     path_range: usize,
 }
 
-impl<'d> DocumentConstructor<'d> {
-    pub fn new(document: &'d mut EureDocument) -> Self {
+impl Default for DocumentConstructor {
+    fn default() -> Self {
+        let document = EureDocument::default();
         let root = document.get_root_id();
         Self {
             document,
@@ -34,6 +35,12 @@ impl<'d> DocumentConstructor<'d> {
                 path_range: 0,
             }],
         }
+    }
+}
+
+impl DocumentConstructor {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn current_node_id(&self) -> Option<NodeId> {
@@ -51,9 +58,21 @@ impl<'d> DocumentConstructor<'d> {
             .map(|item| &self.path[..item.path_range])
             .unwrap_or(&[])
     }
+
+    pub fn document(&self) -> &EureDocument {
+        &self.document
+    }
+
+    pub fn document_mut(&mut self) -> &mut EureDocument {
+        &mut self.document
+    }
+
+    pub fn finish(self) -> EureDocument {
+        self.document
+    }
 }
 
-impl<'d> DocumentConstructor<'d> {
+impl DocumentConstructor {
     pub fn push_path(&mut self, path: &[PathSegment]) -> Result<NodeId, InsertError> {
         let target = self
             .current_node_id()
@@ -129,9 +148,8 @@ mod tests {
 
     #[test]
     fn test_new_initializes_at_root() {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        let constructor = DocumentConstructor::new(&mut doc);
+        let constructor = DocumentConstructor::new();
+        let root_id = constructor.document().get_root_id();
 
         assert_eq!(constructor.current_node_id(), Some(root_id));
         assert_eq!(constructor.current_path(), &[]);
@@ -139,8 +157,7 @@ mod tests {
 
     #[test]
     fn test_current_node_returns_root_initially() {
-        let mut doc = EureDocument::new();
-        let constructor = DocumentConstructor::new(&mut doc);
+        let constructor = DocumentConstructor::new();
 
         let node = constructor
             .current_node()
@@ -150,8 +167,7 @@ mod tests {
 
     #[test]
     fn test_push_segments_single_ident() {
-        let mut doc = EureDocument::new();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
 
         let identifier = create_identifier("field");
         let segments = &[PathSegment::Ident(identifier.clone())];
@@ -164,8 +180,7 @@ mod tests {
 
     #[test]
     fn test_push_segments_multiple_times() {
-        let mut doc = EureDocument::new();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
 
         let id1 = create_identifier("field1");
         let id2 = create_identifier("field2");
@@ -187,22 +202,18 @@ mod tests {
 
     #[test]
     fn test_push_segments_error_propagates() {
-        let mut doc = EureDocument::new();
-
-        // Push an ident which creates a map child with uninitialized node
-        let identifier = create_identifier("field");
-        let node_id = {
-            let mut constructor = DocumentConstructor::new(&mut doc);
-            constructor
-                .push_path(&[PathSegment::Ident(identifier)])
-                .expect("Failed to push")
-        };
-
-        // Set the node to Primitive to force error
-        doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
-
         // Try to add tuple index to primitive node (should fail)
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
+        // First push to the field node
+        let identifier = create_identifier("field");
+        constructor
+            .push_path(&[PathSegment::Ident(identifier)])
+            .expect("Failed to push");
+        // Set it to Primitive
+        let node_id = constructor.current_node_id().unwrap();
+        constructor.document_mut().node_mut(node_id).content =
+            NodeValue::Primitive(PrimitiveValue::Null);
+
         let result = constructor.push_path(&[PathSegment::TupleIndex(0)]);
 
         assert_eq!(
@@ -213,9 +224,8 @@ mod tests {
 
     #[test]
     fn test_pop_success() {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
+        let root_id = constructor.document().get_root_id();
 
         let identifier = create_identifier("field");
         let node_id = constructor
@@ -233,8 +243,7 @@ mod tests {
 
     #[test]
     fn test_pop_wrong_node_id_fails() {
-        let mut doc = EureDocument::new();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
 
         let identifier = create_identifier("field");
         let node_id = constructor
@@ -259,9 +268,8 @@ mod tests {
 
     #[test]
     fn test_pop_root_fails() {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
+        let root_id = constructor.document().get_root_id();
 
         // Try to pop root (should fail)
         let result = constructor.pop(root_id);
@@ -274,9 +282,8 @@ mod tests {
 
     #[test]
     fn test_push_pop_multiple_levels() {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
+        let root_id = constructor.document().get_root_id();
 
         let id1 = create_identifier("level1");
         let id2 = create_identifier("level2");
@@ -327,8 +334,7 @@ mod tests {
 
     #[test]
     fn test_push_multiple_segments_at_once() {
-        let mut doc = EureDocument::new();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
 
         let id1 = create_identifier("ext1");
         let id2 = create_identifier("ext2");
@@ -347,8 +353,7 @@ mod tests {
 
     #[test]
     fn test_push_binding_path_success() {
-        let mut doc = EureDocument::new();
-        let mut constructor = DocumentConstructor::new(&mut doc);
+        let mut constructor = DocumentConstructor::new();
 
         let id1 = create_identifier("field1");
         let id2 = create_identifier("field2");
@@ -366,32 +371,34 @@ mod tests {
         assert_eq!(constructor.current_path(), path.as_slice());
 
         // The node should be uninitialized
-        let node = doc.node(node_id);
+        let node = constructor.document().node(node_id);
         assert!(matches!(node.content, NodeValue::Uninitialized));
     }
 
     #[test]
     fn test_push_binding_path_already_bound() {
-        let mut doc = EureDocument::new();
+        let mut constructor = DocumentConstructor::new();
         let id1 = create_identifier("parent");
         let id2 = create_identifier("child");
 
         // Create parent.$child and assign a value to it
-        let parent_id = doc
+        let parent_id = constructor
+            .document_mut()
             .prepare_node(&[PathSegment::Ident(id1.clone())])
             .expect("Failed to prepare parent")
             .node_id;
-        let child_id = doc
+        let child_id = constructor
+            .document_mut()
             .prepare_node(&[
                 PathSegment::Ident(id1.clone()),
                 PathSegment::Extension(id2.clone()),
             ])
             .expect("Failed to prepare child")
             .node_id;
-        doc.node_mut(child_id).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
+        constructor.document_mut().node_mut(child_id).content =
+            NodeValue::Primitive(PrimitiveValue::Bool(true));
 
         // Try to bind to the same location from parent (should fail)
-        let mut constructor = DocumentConstructor::new(&mut doc);
         constructor
             .push_path(&[PathSegment::Ident(id1.clone())])
             .unwrap();
