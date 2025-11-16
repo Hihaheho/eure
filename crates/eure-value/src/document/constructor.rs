@@ -15,7 +15,12 @@ pub struct DocumentConstructor<'d> {
     path: Vec<PathSegment>,
     /// The second element of the tuple indicates the current path range from the root.
     /// 0 means the root node.
-    stack: Vec<(NodeId, usize)>,
+    stack: Vec<StackItem>,
+}
+
+pub struct StackItem {
+    node_id: NodeId,
+    path_range: usize,
 }
 
 impl<'d> DocumentConstructor<'d> {
@@ -24,12 +29,15 @@ impl<'d> DocumentConstructor<'d> {
         Self {
             document,
             path: vec![],
-            stack: vec![(root, 0)],
+            stack: vec![StackItem {
+                node_id: root,
+                path_range: 0,
+            }],
         }
     }
 
     pub fn current_node_id(&self) -> Option<NodeId> {
-        self.stack.last().map(|(node_id, _)| *node_id)
+        self.stack.last().map(|item| item.node_id)
     }
 
     pub fn current_node(&self) -> Option<&Node> {
@@ -40,7 +48,7 @@ impl<'d> DocumentConstructor<'d> {
     pub fn current_path(&self) -> &[PathSegment] {
         self.stack
             .last()
-            .map(|(_, path_range)| &self.path[..*path_range])
+            .map(|item| &self.path[..item.path_range])
             .unwrap_or(&[])
     }
 }
@@ -56,7 +64,10 @@ impl<'d> DocumentConstructor<'d> {
             .prepare_node_from(target, base_path, segments)?
             .node_id;
         self.path.extend(segments.iter().cloned());
-        self.stack.push((node_id, self.path.len()));
+        self.stack.push(StackItem {
+            node_id,
+            path_range: self.path.len(),
+        });
         Ok(node_id)
     }
 
@@ -68,10 +79,10 @@ impl<'d> DocumentConstructor<'d> {
         }
 
         // Check node_id before popping to avoid mutating state on error
-        let (current_node_id, _) = self.stack.last().unwrap(); // Safe: checked len > 1
-        if *current_node_id != node_id {
+        let current_node_id = self.stack.last().expect("Stack is empty").node_id;
+        if current_node_id != node_id {
             return Err(PopError::NodeIdMismatch {
-                expected: *current_node_id,
+                expected: current_node_id,
                 actual: node_id,
             });
         }
