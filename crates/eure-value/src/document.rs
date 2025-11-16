@@ -271,33 +271,18 @@ impl EureDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::identifier::IdentifierParser;
 
-    fn create_identifier(s: &str) -> Identifier {
-        let parser = IdentifierParser::init();
-        parser.parse(s).unwrap()
-    }
-
-    fn create_map_node(doc: &mut EureDocument) -> NodeId {
-        doc.create_node(NodeValue::Map(Default::default()))
-    }
-
-    fn create_tuple_node(doc: &mut EureDocument) -> NodeId {
-        doc.create_node(NodeValue::Tuple(Default::default()))
-    }
-
-    fn create_array_node(doc: &mut EureDocument) -> NodeId {
-        doc.create_node(NodeValue::Array(Default::default()))
-    }
-
-    fn create_primitive_node(doc: &mut EureDocument) -> NodeId {
-        doc.create_node(NodeValue::Primitive(PrimitiveValue::Null))
+    fn identifier(s: &str) -> Identifier {
+        s.parse().unwrap()
     }
 
     #[test]
     fn test_add_map_child_success() {
         let mut doc = EureDocument::new();
-        let map_id = create_map_node(&mut doc);
+        let map_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_map())
+        };
         let key = ObjectKey::String("test_key".to_string());
 
         let child_id = doc
@@ -312,7 +297,10 @@ mod tests {
     #[test]
     fn test_add_map_child_error_expected_map() {
         let mut doc = EureDocument::new();
-        let primitive_id = create_primitive_node(&mut doc);
+        let primitive_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::Primitive(PrimitiveValue::Null))
+        };
         let key = ObjectKey::String("test".to_string());
 
         let result = doc.add_map_child(key, primitive_id);
@@ -342,8 +330,8 @@ mod tests {
     fn test_add_extension_success_multiple() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let id1 = create_identifier("ext1");
-        let id2 = create_identifier("ext2");
+        let id1 = identifier("ext1");
+        let id2 = identifier("ext2");
 
         let node_id1 = doc
             .add_extension(id1.clone(), root_id)
@@ -363,8 +351,11 @@ mod tests {
     #[test]
     fn test_add_extension_success() {
         let mut doc = EureDocument::new();
-        let primitive_id = create_primitive_node(&mut doc);
-        let identifier = create_identifier("ext");
+        let primitive_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::Primitive(PrimitiveValue::Null))
+        };
+        let identifier = identifier("ext");
 
         let node_id = doc
             .add_extension(identifier.clone(), primitive_id)
@@ -378,8 +369,11 @@ mod tests {
     #[test]
     fn test_add_extension_error_already_assigned() {
         let mut doc = EureDocument::new();
-        let map_id = create_map_node(&mut doc);
-        let identifier = create_identifier("ext");
+        let map_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_map())
+        };
+        let identifier = identifier("ext");
 
         let _result1 = doc
             .add_extension(identifier.clone(), map_id)
@@ -395,8 +389,11 @@ mod tests {
     #[test]
     fn test_add_meta_extension_success() {
         let mut doc = EureDocument::new();
-        let map_id = create_map_node(&mut doc);
-        let identifier = create_identifier("meta_ext");
+        let map_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_map())
+        };
+        let identifier = identifier("meta_ext");
 
         let node_id = doc
             .add_meta_extension(identifier.clone(), map_id)
@@ -413,8 +410,11 @@ mod tests {
     #[test]
     fn test_add_meta_extension_error_expected_map() {
         let mut doc = EureDocument::new();
-        let primitive_id = create_primitive_node(&mut doc);
-        let identifier = create_identifier("meta_ext");
+        let primitive_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::Primitive(PrimitiveValue::Null))
+        };
+        let identifier = identifier("meta_ext");
 
         let result = doc.add_meta_extension(identifier, primitive_id);
         assert_eq!(result.err(), Some(InsertErrorKind::ExpectedMap));
@@ -424,7 +424,7 @@ mod tests {
     fn test_add_meta_extension_error_already_assigned() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let identifier = create_identifier("meta_ext");
+        let identifier = identifier("meta_ext");
 
         let _result1 = doc
             .add_meta_extension(identifier.clone(), root_id)
@@ -442,7 +442,10 @@ mod tests {
     #[test]
     fn test_add_tuple_element_success_index_0() {
         let mut doc = EureDocument::new();
-        let tuple_id = create_tuple_node(&mut doc);
+        let tuple_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_tuple())
+        };
 
         let node_id = doc
             .add_tuple_element(0, tuple_id)
@@ -456,7 +459,10 @@ mod tests {
     #[test]
     fn test_add_tuple_element_success_sequential() {
         let mut doc = EureDocument::new();
-        let tuple_id = create_tuple_node(&mut doc);
+        let tuple_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_tuple())
+        };
 
         let node_id1 = doc
             .add_tuple_element(0, tuple_id)
@@ -475,7 +481,10 @@ mod tests {
     #[test]
     fn test_add_tuple_element_error_expected_tuple() {
         let mut doc = EureDocument::new();
-        let map_id = create_map_node(&mut doc);
+        let map_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_map())
+        };
 
         let result = doc.add_tuple_element(0, map_id);
         assert_eq!(result.err(), Some(InsertErrorKind::ExpectedTuple));
@@ -484,7 +493,10 @@ mod tests {
     #[test]
     fn test_add_tuple_element_error_invalid_index() {
         let mut doc = EureDocument::new();
-        let tuple_id = create_tuple_node(&mut doc);
+        let tuple_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_tuple())
+        };
 
         let result = doc.add_tuple_element(1, tuple_id);
         assert_eq!(
@@ -499,7 +511,10 @@ mod tests {
     #[test]
     fn test_add_array_element_success_push() {
         let mut doc = EureDocument::new();
-        let array_id = create_array_node(&mut doc);
+        let array_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_array())
+        };
 
         let node_id = doc
             .add_array_element(None, array_id)
@@ -513,7 +528,10 @@ mod tests {
     #[test]
     fn test_add_array_element_success_at_index() {
         let mut doc = EureDocument::new();
-        let array_id = create_array_node(&mut doc);
+        let array_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_array())
+        };
 
         let node_id1 = doc
             .add_array_element(Some(0), array_id)
@@ -532,7 +550,10 @@ mod tests {
     #[test]
     fn test_add_array_element_error_expected_array() {
         let mut doc = EureDocument::new();
-        let map_id = create_map_node(&mut doc);
+        let map_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_map())
+        };
 
         let result = doc.add_array_element(None, map_id);
         assert_eq!(result.err(), Some(InsertErrorKind::ExpectedArray));
@@ -541,7 +562,10 @@ mod tests {
     #[test]
     fn test_add_array_element_error_invalid_index() {
         let mut doc = EureDocument::new();
-        let array_id = create_array_node(&mut doc);
+        let array_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_array())
+        };
 
         let result = doc.add_array_element(Some(1), array_id);
         assert_eq!(
@@ -557,7 +581,7 @@ mod tests {
     fn test_add_child_by_segment_ident() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let identifier = create_identifier("test");
+        let identifier = identifier("test");
         let segment = PathSegment::Ident(identifier.clone());
 
         let result = doc.add_child_by_segment(segment, root_id);
@@ -586,7 +610,7 @@ mod tests {
     fn test_add_child_by_segment_extension() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let identifier = create_identifier("ext");
+        let identifier = identifier("ext");
         let segment = PathSegment::Extension(identifier.clone());
 
         let result = doc.add_child_by_segment(segment, root_id);
@@ -600,7 +624,7 @@ mod tests {
     fn test_add_child_by_segment_meta_ext() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let identifier = create_identifier("meta");
+        let identifier = identifier("meta");
         let segment = PathSegment::MetaExt(identifier.clone());
 
         let result = doc.add_child_by_segment(segment, root_id);
@@ -613,7 +637,10 @@ mod tests {
     #[test]
     fn test_add_child_by_segment_tuple_index() {
         let mut doc = EureDocument::new();
-        let tuple_id = create_tuple_node(&mut doc);
+        let tuple_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_tuple())
+        };
         let segment = PathSegment::TupleIndex(0);
 
         let result = doc.add_child_by_segment(segment, tuple_id);
@@ -626,7 +653,10 @@ mod tests {
     #[test]
     fn test_add_child_by_segment_array_index_none() {
         let mut doc = EureDocument::new();
-        let array_id = create_array_node(&mut doc);
+        let array_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_array())
+        };
         let segment = PathSegment::ArrayIndex(None);
 
         let result = doc.add_child_by_segment(segment, array_id);
@@ -639,7 +669,10 @@ mod tests {
     #[test]
     fn test_add_child_by_segment_array_index_some() {
         let mut doc = EureDocument::new();
-        let array_id = create_array_node(&mut doc);
+        let array_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_array())
+        };
         let segment = PathSegment::ArrayIndex(Some(0));
 
         let result = doc.add_child_by_segment(segment, array_id);
@@ -662,7 +695,7 @@ mod tests {
     #[test]
     fn test_prepare_node_single_segment() {
         let mut doc = EureDocument::new();
-        let identifier = create_identifier("test");
+        let identifier = identifier("test");
         let path = &[PathSegment::Ident(identifier.clone())];
 
         let node_id = doc
@@ -679,8 +712,8 @@ mod tests {
     #[test]
     fn test_prepare_node_multiple_segments() {
         let mut doc = EureDocument::new();
-        let id1 = create_identifier("ext1");
-        let id2 = create_identifier("ext2");
+        let id1 = identifier("ext1");
+        let id2 = identifier("ext2");
         let path = &[
             PathSegment::Extension(id1.clone()),
             PathSegment::Extension(id2.clone()),
@@ -703,10 +736,13 @@ mod tests {
     #[test]
     fn test_prepare_node_error_at_first_segment() {
         let mut doc = EureDocument::new();
-        let primitive_id = create_primitive_node(&mut doc);
+        let primitive_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::Primitive(PrimitiveValue::Null))
+        };
         doc.root = primitive_id;
 
-        let identifier = create_identifier("test");
+        let identifier = identifier("test");
         let path = &[PathSegment::Ident(identifier)];
 
         let result = doc.prepare_node(path);
@@ -722,7 +758,7 @@ mod tests {
     #[test]
     fn test_prepare_node_error_at_middle_segment() {
         let mut doc = EureDocument::new();
-        let id1 = create_identifier("a");
+        let id1 = identifier("a");
 
         // Manually create a primitive node in the path
         let root_id = doc.get_root_id();
@@ -750,14 +786,17 @@ mod tests {
         let mut doc = EureDocument::new();
 
         // Create a map node and add it as an extension to root
-        let map_id = create_map_node(&mut doc);
-        let base_identifier = create_identifier("base");
+        let map_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_map())
+        };
+        let base_identifier = identifier("base");
         doc.get_node_mut(doc.get_root_id())
             .extensions
             .insert(base_identifier.clone(), map_id);
 
         // Prepare a path from the map node
-        let field_identifier = create_identifier("field");
+        let field_identifier = identifier("field");
         let path = &[PathSegment::Ident(field_identifier.clone())];
         let base_path = EurePath::from_iter([PathSegment::Extension(base_identifier)]);
 
@@ -777,14 +816,17 @@ mod tests {
         let mut doc = EureDocument::new();
 
         // Create base map node
-        let map_id = create_map_node(&mut doc);
-        let base_identifier = create_identifier("base");
+        let map_id = {
+            let doc: &mut EureDocument = &mut doc;
+            doc.create_node(NodeValue::empty_map())
+        };
+        let base_identifier = identifier("base");
         doc.get_node_mut(doc.get_root_id())
             .extensions
             .insert(base_identifier.clone(), map_id);
 
         // Manually create primitive extension node
-        let ext_identifier = create_identifier("ext");
+        let ext_identifier = identifier("ext");
         let ext_node_id = doc
             .add_extension(ext_identifier.clone(), map_id)
             .expect("Failed to add extension")
@@ -815,8 +857,8 @@ mod tests {
     #[test]
     fn test_prepare_node_idempotent() {
         let mut doc = EureDocument::new();
-        let id1 = create_identifier("level1");
-        let id2 = create_identifier("level2");
+        let id1 = identifier("level1");
+        let id2 = identifier("level2");
         let path = &[
             PathSegment::Ident(id1.clone()),
             PathSegment::Extension(id2.clone()),
@@ -834,9 +876,9 @@ mod tests {
     #[test]
     fn test_prepare_node_reuses_intermediate_nodes() {
         let mut doc = EureDocument::new();
-        let id1 = create_identifier("shared");
-        let id2 = create_identifier("branch1");
-        let id3 = create_identifier("branch2");
+        let id1 = identifier("shared");
+        let id2 = identifier("branch1");
+        let id3 = identifier("branch2");
 
         // Create first path
         let path1 = &[PathSegment::Ident(id1.clone()), PathSegment::Extension(id2)];
@@ -857,7 +899,7 @@ mod tests {
     fn test_resolve_ident_idempotent() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let identifier = create_identifier("field");
+        let identifier = identifier("field");
 
         // First call - creates new node
         let node_id1 = doc
@@ -899,7 +941,7 @@ mod tests {
     fn test_resolve_extension_idempotent() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let identifier = create_identifier("ext");
+        let identifier = identifier("ext");
 
         // First call - creates new node
         let node_id1 = doc
@@ -920,7 +962,7 @@ mod tests {
     fn test_resolve_meta_ext_idempotent() {
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
-        let identifier = create_identifier("meta");
+        let identifier = identifier("meta");
 
         // First call - creates new node
         let node_id1 = doc

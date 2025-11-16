@@ -156,6 +156,20 @@ pub enum NodeValue {
     Tuple(NodeTuple),
 }
 
+impl NodeValue {
+    pub fn empty_map() -> Self {
+        Self::Map(NodeMap::new())
+    }
+
+    pub fn empty_array() -> Self {
+        Self::Array(NodeArray::new())
+    }
+
+    pub fn empty_tuple() -> Self {
+        Self::Tuple(NodeTuple::new())
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Plural)]
 pub struct NodeArray(pub Vec<NodeId>);
 
