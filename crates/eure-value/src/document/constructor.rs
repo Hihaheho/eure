@@ -43,13 +43,15 @@ impl DocumentConstructor {
         Self::default()
     }
 
-    pub fn current_node_id(&self) -> Option<NodeId> {
-        self.stack.last().map(|item| item.node_id)
+    pub fn current_node_id(&self) -> NodeId {
+        self.stack
+            .last()
+            .expect("Stack should never be empty")
+            .node_id
     }
 
-    pub fn current_node(&self) -> Option<&Node> {
-        self.current_node_id()
-            .map(|node_id| self.document.node(node_id))
+    pub fn current_node(&self) -> &Node {
+        self.document.node(self.current_node_id())
     }
 
     pub fn current_path(&self) -> &[PathSegment] {
@@ -74,9 +76,7 @@ impl DocumentConstructor {
 
 impl DocumentConstructor {
     pub fn push_path(&mut self, path: &[PathSegment]) -> Result<NodeId, InsertError> {
-        let target = self
-            .current_node_id()
-            .unwrap_or_else(|| self.document.get_root_id());
+        let target = self.current_node_id();
         let base_path = EurePath::from_iter(self.current_path().iter().cloned());
         let node_id = self
             .document
@@ -123,7 +123,7 @@ impl DocumentConstructor {
         }
 
         // Check node_id before popping to avoid mutating state on error
-        let current_node_id = self.stack.last().expect("Stack is empty").node_id;
+        let current_node_id = self.current_node_id();
         if current_node_id != node_id {
             return Err(PopError::NodeIdMismatch {
                 expected: current_node_id,
@@ -151,7 +151,7 @@ mod tests {
         let constructor = DocumentConstructor::new();
         let root_id = constructor.document().get_root_id();
 
-        assert_eq!(constructor.current_node_id(), Some(root_id));
+        assert_eq!(constructor.current_node_id(), root_id);
         assert_eq!(constructor.current_path(), &[]);
     }
 
@@ -159,9 +159,7 @@ mod tests {
     fn test_current_node_returns_root_initially() {
         let constructor = DocumentConstructor::new();
 
-        let node = constructor
-            .current_node()
-            .expect("Should have current node");
+        let node = constructor.current_node();
         assert!(node.as_map().is_some());
     }
 
@@ -174,7 +172,7 @@ mod tests {
 
         let node_id = constructor.push_path(segments).expect("Failed to push");
 
-        assert_eq!(constructor.current_node_id(), Some(node_id));
+        assert_eq!(constructor.current_node_id(), node_id);
         assert_eq!(constructor.current_path(), segments);
     }
 
@@ -193,7 +191,7 @@ mod tests {
             .push_path(&[PathSegment::Extension(id2.clone())])
             .expect("Failed to push second");
 
-        assert_eq!(constructor.current_node_id(), Some(node_id2));
+        assert_eq!(constructor.current_node_id(), node_id2);
         assert_eq!(
             constructor.current_path(),
             &[PathSegment::Ident(id1), PathSegment::Extension(id2)]
@@ -210,7 +208,7 @@ mod tests {
             .push_path(&[PathSegment::Ident(identifier)])
             .expect("Failed to push");
         // Set it to Primitive
-        let node_id = constructor.current_node_id().unwrap();
+        let node_id = constructor.current_node_id();
         constructor.document_mut().node_mut(node_id).content =
             NodeValue::Primitive(PrimitiveValue::Null);
 
@@ -237,7 +235,7 @@ mod tests {
         assert_eq!(result, Ok(()));
 
         // After pop, should be back at root
-        assert_eq!(constructor.current_node_id(), Some(root_id));
+        assert_eq!(constructor.current_node_id(), root_id);
         assert_eq!(constructor.current_path(), &[]);
     }
 
@@ -263,7 +261,7 @@ mod tests {
         );
 
         // State should remain unchanged
-        assert_eq!(constructor.current_node_id(), Some(node_id));
+        assert_eq!(constructor.current_node_id(), node_id);
     }
 
     #[test]
@@ -277,7 +275,7 @@ mod tests {
         assert_eq!(result, Err(PopError::CannotPopRoot));
 
         // State should remain unchanged
-        assert_eq!(constructor.current_node_id(), Some(root_id));
+        assert_eq!(constructor.current_node_id(), root_id);
     }
 
     #[test]
@@ -303,7 +301,7 @@ mod tests {
             .expect("Failed to push level3");
 
         // Verify at deepest level
-        assert_eq!(constructor.current_node_id(), Some(node_id3));
+        assert_eq!(constructor.current_node_id(), node_id3);
         assert_eq!(
             constructor.current_path(),
             &[
@@ -315,7 +313,7 @@ mod tests {
 
         // Pop level 3
         constructor.pop(node_id3).expect("Failed to pop level3");
-        assert_eq!(constructor.current_node_id(), Some(node_id2));
+        assert_eq!(constructor.current_node_id(), node_id2);
         assert_eq!(
             constructor.current_path(),
             &[PathSegment::Ident(id1.clone()), PathSegment::Extension(id2)]
@@ -323,12 +321,12 @@ mod tests {
 
         // Pop level 2
         constructor.pop(node_id2).expect("Failed to pop level2");
-        assert_eq!(constructor.current_node_id(), Some(node_id1));
+        assert_eq!(constructor.current_node_id(), node_id1);
         assert_eq!(constructor.current_path(), &[PathSegment::Ident(id1)]);
 
         // Pop level 1
         constructor.pop(node_id1).expect("Failed to pop level1");
-        assert_eq!(constructor.current_node_id(), Some(root_id));
+        assert_eq!(constructor.current_node_id(), root_id);
         assert_eq!(constructor.current_path(), &[]);
     }
 
@@ -347,7 +345,7 @@ mod tests {
 
         let node_id = constructor.push_path(segments).expect("Failed to push");
 
-        assert_eq!(constructor.current_node_id(), Some(node_id));
+        assert_eq!(constructor.current_node_id(), node_id);
         assert_eq!(constructor.current_path(), segments.as_slice());
     }
 
@@ -367,7 +365,7 @@ mod tests {
             .push_binding_path(path)
             .expect("Failed to push binding path");
 
-        assert_eq!(constructor.current_node_id(), Some(node_id));
+        assert_eq!(constructor.current_node_id(), node_id);
         assert_eq!(constructor.current_path(), path.as_slice());
 
         // The node should be uninitialized
@@ -411,7 +409,7 @@ mod tests {
         );
 
         // After the error, constructor should still be at parent (stack was popped)
-        assert_eq!(constructor.current_node_id(), Some(parent_id));
+        assert_eq!(constructor.current_node_id(), parent_id);
         assert_eq!(constructor.current_path(), &[PathSegment::Ident(id1)]);
     }
 }
