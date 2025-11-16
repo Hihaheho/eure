@@ -1,6 +1,9 @@
 use crate::prelude_internal::*;
 
 #[derive(Debug)]
+/// A node in the Eure document.
+///
+/// This does not implement PartialEq since content may refer to other nodes, and so equality is not well-defined.
 pub struct Node {
     pub content: NodeValue,
     pub extensions: Map<Identifier, NodeId>,
@@ -11,13 +14,20 @@ pub struct NodeMut<'d> {
     pub node_id: NodeId,
 }
 
-// TODO: PartialEq and Debug implementation for NodeMut
-
 impl<'d> core::fmt::Debug for NodeMut<'d> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("NodeMut")
-            .field("node_id", &self.node_id)
-            .finish_non_exhaustive()
+        match self.document.get_node(self.node_id) {
+            Some(node) => f
+                .debug_tuple("NodeMut")
+                .field(&self.node_id)
+                .field(node)
+                .finish(),
+            None => f
+                .debug_tuple("NodeMut")
+                .field(&self.node_id)
+                .field(&"<invalid>")
+                .finish(),
+        }
     }
 }
 
@@ -438,5 +448,35 @@ mod tests {
         let result = node_mut.get_extension(&ext_identifier);
 
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_node_mut_debug_valid_node() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Create a NodeMut with valid node_id
+        let node_mut = NodeMut::new(&mut doc, root_id);
+        let debug_output = alloc::format!("{:?}", node_mut);
+
+        // Should contain NodeMut, node_id, and delegate to Node's Debug
+        assert!(debug_output.contains("NodeMut"));
+        assert!(debug_output.contains("NodeId"));
+        assert!(debug_output.contains("Node"));
+        assert!(debug_output.contains("Map"));
+    }
+
+    #[test]
+    fn test_node_mut_debug_invalid_node() {
+        let mut doc = EureDocument::new();
+        let invalid_id = NodeId(999999); // Invalid NodeId
+
+        // Create a NodeMut with invalid node_id
+        let node_mut = NodeMut::new(&mut doc, invalid_id);
+        let debug_output = alloc::format!("{:?}", node_mut);
+
+        // Should contain NodeMut and "<invalid>"
+        assert!(debug_output.contains("NodeMut"));
+        assert!(debug_output.contains("<invalid>"));
     }
 }
