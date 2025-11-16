@@ -11,6 +11,8 @@ pub struct NodeMut<'d> {
     pub node_id: NodeId,
 }
 
+// TODO: PartialEq and Debug implementation for NodeMut
+
 impl<'d> core::fmt::Debug for NodeMut<'d> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("NodeMut")
@@ -54,30 +56,35 @@ impl<'d> NodeMut<'d> {
         self.document.add_child_by_segment(segment, self.node_id)
     }
 
+    pub fn get_extension(self, ident: &Identifier) -> Option<NodeMut<'d>> {
+        let node_id = self.document.node(self.node_id).extensions.get(ident)?;
+        Some(NodeMut::new(self.document, *node_id))
+    }
+
     // Content access methods
 
-    pub fn as_map(&self) -> Option<&NodeMap> {
-        self.document.get_node(self.node_id).as_map()
+    pub fn as_map(self) -> Option<&'d NodeMap> {
+        self.document.node(self.node_id).as_map()
     }
 
-    pub fn as_array(&self) -> Option<&NodeArray> {
-        self.document.get_node(self.node_id).as_array()
+    pub fn as_array(self) -> Option<&'d NodeArray> {
+        self.document.node(self.node_id).as_array()
     }
 
-    pub fn as_tuple(&self) -> Option<&NodeTuple> {
-        self.document.get_node(self.node_id).as_tuple()
+    pub fn as_tuple(self) -> Option<&'d NodeTuple> {
+        self.document.node(self.node_id).as_tuple()
     }
 
-    pub fn require_map(&mut self) -> Result<&mut NodeMap, InsertErrorKind> {
-        self.document.get_node_mut(self.node_id).require_map()
+    pub fn require_map(self) -> Result<&'d mut NodeMap, InsertErrorKind> {
+        self.document.node_mut(self.node_id).require_map()
     }
 
-    pub fn require_tuple(&mut self) -> Result<&mut NodeTuple, InsertErrorKind> {
-        self.document.get_node_mut(self.node_id).require_tuple()
+    pub fn require_tuple(self) -> Result<&'d mut NodeTuple, InsertErrorKind> {
+        self.document.node_mut(self.node_id).require_tuple()
     }
 
-    pub fn require_array(&mut self) -> Result<&mut NodeArray, InsertErrorKind> {
-        self.document.get_node_mut(self.node_id).require_array()
+    pub fn require_array(self) -> Result<&'d mut NodeArray, InsertErrorKind> {
+        self.document.node_mut(self.node_id).require_array()
     }
 }
 
@@ -101,6 +108,10 @@ impl Node {
             NodeValue::Tuple(tuple) => Some(tuple),
             _ => None,
         }
+    }
+
+    pub fn get_extension(&self, ident: &Identifier) -> Option<NodeId> {
+        self.extensions.get(ident).copied()
     }
 
     pub(crate) fn require_map(&mut self) -> Result<&mut NodeMap, InsertErrorKind> {
@@ -250,6 +261,10 @@ impl NodeArray {
 mod tests {
     use super::*;
 
+    fn identifier(s: &str) -> Identifier {
+        s.parse().unwrap()
+    }
+
     #[test]
     fn test_require_map_on_uninitialized() {
         let mut node = Node {
@@ -356,5 +371,72 @@ mod tests {
 
         let result = node.require_array();
         assert_eq!(result, Err(InsertErrorKind::ExpectedArray));
+    }
+
+    #[test]
+    fn test_node_get_extension_exists() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let ext_identifier = identifier("test_ext");
+
+        // Add an extension
+        let ext_node_id = doc
+            .add_extension(ext_identifier.clone(), root_id)
+            .expect("Failed to add extension")
+            .node_id;
+
+        // Test get_extension on the node
+        let root_node = doc.node(root_id);
+        let result = root_node.get_extension(&ext_identifier);
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), ext_node_id);
+    }
+
+    #[test]
+    fn test_node_get_extension_missing() {
+        let doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let ext_identifier = identifier("nonexistent");
+
+        // Test get_extension for a missing extension
+        let root_node = doc.node(root_id);
+        let result = root_node.get_extension(&ext_identifier);
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_node_mut_get_extension_exists() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let ext_identifier = identifier("test_ext");
+
+        // Add an extension
+        let ext_node_id = doc
+            .add_extension(ext_identifier.clone(), root_id)
+            .expect("Failed to add extension")
+            .node_id;
+
+        // Test NodeMut::get_extension
+        let node_mut = NodeMut::new(&mut doc, root_id);
+        let result = node_mut.get_extension(&ext_identifier);
+
+        assert!(result.is_some());
+        let ext_node_mut = result.unwrap();
+        assert_eq!(ext_node_mut.node_id, ext_node_id);
+    }
+
+    #[test]
+    fn test_node_mut_get_extension_missing() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let ext_identifier = identifier("nonexistent");
+
+        // Test NodeMut::get_extension for a missing extension
+        let node_mut = NodeMut::new(&mut doc, root_id);
+        let result = node_mut.get_extension(&ext_identifier);
+
+        assert!(result.is_none());
     }
 }

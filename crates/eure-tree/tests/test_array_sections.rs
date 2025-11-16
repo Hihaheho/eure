@@ -31,7 +31,7 @@ name = "Test Corp"
     let eure_document = visitor.into_document();
 
     // Verify the structure
-    let root = eure_document.get_root();
+    let root = eure_document.root();
     match &root.content {
         NodeValue::Map { entries, .. } => {
             assert_eq!(entries.len(), 2, "Expected 2 entries at root");
@@ -41,13 +41,13 @@ name = "Test Corp"
                 .find(|(k, _)| matches!(k, eure_tree::document::DocumentKey::Ident(id) if id.to_string() == "items"))
                 .expect("Should have 'items' key");
 
-            let items_node = eure_document.get_node(items_entry.1);
+            let items_node = eure_document.node(items_entry.1);
             match &items_node.content {
                 NodeValue::Array { children, .. } => {
                     assert_eq!(children.len(), 2, "Expected 2 array elements");
 
                     // Check first element
-                    let elem0 = eure_document.get_node(children[0]);
+                    let elem0 = eure_document.node(children[0]);
                     match &elem0.content {
                         NodeValue::Map { entries, .. } => {
                             assert_eq!(entries.len(), 2, "Expected 2 fields in first element");
@@ -56,7 +56,7 @@ name = "Test Corp"
                     }
 
                     // Check second element
-                    let elem1 = eure_document.get_node(children[1]);
+                    let elem1 = eure_document.node(children[1]);
                     match &elem1.content {
                         NodeValue::Map { entries, .. } => {
                             assert_eq!(entries.len(), 2, "Expected 2 fields in second element");
@@ -96,7 +96,7 @@ colors = ["red", "green", "blue"]
         .expect("Failed to visit tree");
 
     let eure_document = visitor.into_document();
-    let root = eure_document.get_root();
+    let root = eure_document.root();
 
     match &root.content {
         NodeValue::Map { entries, .. } => {
@@ -107,7 +107,7 @@ colors = ["red", "green", "blue"]
                 .find(|(k, _)| matches!(k, eure_tree::document::DocumentKey::Ident(id) if id.to_string() == "colors"))
                 .expect("Should have 'colors' key");
 
-            let colors_node = eure_document.get_node(colors_entry.1);
+            let colors_node = eure_document.node(colors_entry.1);
             match &colors_node.content {
                 NodeValue::Array { children, .. } => {
                     assert_eq!(children.len(), 3, "Expected 3 color elements");
@@ -120,14 +120,14 @@ colors = ["red", "green", "blue"]
                 .find(|(k, _)| matches!(k, eure_tree::document::DocumentKey::Ident(id) if id.to_string() == "users"))
                 .expect("Should have 'users' key");
 
-            let users_node = eure_document.get_node(users_entry.1);
+            let users_node = eure_document.node(users_entry.1);
             match &users_node.content {
                 NodeValue::Array { children, .. } => {
                     assert_eq!(children.len(), 2, "Expected 2 user elements");
 
                     // Both elements should be maps
                     for (i, &child_id) in children.iter().enumerate() {
-                        let child = eure_document.get_node(child_id);
+                        let child = eure_document.node(child_id);
                         match &child.content {
                             NodeValue::Map { entries, .. } => {
                                 assert_eq!(entries.len(), 2, "Expected 2 fields in user {}", i);

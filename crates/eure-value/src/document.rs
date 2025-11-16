@@ -76,7 +76,7 @@ impl EureDocument {
         }
     }
 
-    pub fn get_root(&self) -> &Node {
+    pub fn root(&self) -> &Node {
         &self.nodes[self.root.0]
     }
 
@@ -84,12 +84,20 @@ impl EureDocument {
         self.root
     }
 
-    pub fn get_node(&self, id: NodeId) -> &Node {
+    pub fn node(&self, id: NodeId) -> &Node {
         &self.nodes[id.0]
     }
 
-    pub fn get_node_mut(&mut self, id: NodeId) -> &mut Node {
+    pub fn get_node(&self, id: NodeId) -> Option<&Node> {
+        self.nodes.get(id.0)
+    }
+
+    pub fn node_mut(&mut self, id: NodeId) -> &mut Node {
         &mut self.nodes[id.0]
+    }
+
+    pub fn get_node_mut(&mut self, id: NodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(id.0)
     }
 
     pub fn create_node(&mut self, new: NodeValue) -> NodeId {
@@ -127,7 +135,7 @@ impl EureDocument {
         parent_node_id: NodeId,
     ) -> Result<NodeMut<'_>, InsertErrorKind> {
         let node_id = self.create_node_uninitialized();
-        let node = self.get_node_mut(parent_node_id);
+        let node = self.node_mut(parent_node_id);
         let map = node.require_map()?;
         map.add(DocumentKey::Value(object_key), node_id)?;
         Ok(NodeMut::new(self, node_id))
@@ -139,7 +147,7 @@ impl EureDocument {
         parent_node_id: NodeId,
     ) -> Result<NodeMut<'_>, InsertErrorKind> {
         let node_id = self.create_node_uninitialized();
-        let node = self.get_node_mut(parent_node_id);
+        let node = self.node_mut(parent_node_id);
         if node.extensions.contains_key(&identifier) {
             return Err(InsertErrorKind::AlreadyAssignedExtension { identifier });
         }
@@ -153,7 +161,7 @@ impl EureDocument {
         parent_node_id: NodeId,
     ) -> Result<NodeMut<'_>, InsertErrorKind> {
         let node_id = self.create_node_uninitialized();
-        let node = self.get_node_mut(parent_node_id);
+        let node = self.node_mut(parent_node_id);
         let map = node.require_map()?;
         map.add(DocumentKey::MetaExtension(identifier), node_id)?;
         Ok(NodeMut::new(self, node_id))
@@ -165,7 +173,7 @@ impl EureDocument {
         parent_node_id: NodeId,
     ) -> Result<NodeMut<'_>, InsertErrorKind> {
         let node_id = self.create_node_uninitialized();
-        let node = self.get_node_mut(parent_node_id);
+        let node = self.node_mut(parent_node_id);
         let tuple = node.require_tuple()?;
         tuple.add_at(index, node_id)?;
         Ok(NodeMut::new(self, node_id))
@@ -177,7 +185,7 @@ impl EureDocument {
         parent_node_id: NodeId,
     ) -> Result<NodeMut<'_>, InsertErrorKind> {
         let node_id = self.create_node_uninitialized();
-        let node = self.get_node_mut(parent_node_id);
+        let node = self.node_mut(parent_node_id);
         let array = node.require_array()?;
         if let Some(index) = index {
             array.add_at(index, node_id)?;
@@ -197,7 +205,7 @@ impl EureDocument {
         parent_node_id: NodeId,
     ) -> Result<NodeMut<'_>, InsertErrorKind> {
         // 既存のノードを探す
-        let node = self.get_node(parent_node_id);
+        let node = self.node(parent_node_id);
 
         let existing = match &segment {
             PathSegment::Ident(identifier) => node.as_map().and_then(|m| {
@@ -208,7 +216,7 @@ impl EureDocument {
             PathSegment::Value(object_key) => node
                 .as_map()
                 .and_then(|m| m.get(&DocumentKey::Value(object_key.clone()))),
-            PathSegment::Extension(identifier) => node.extensions.get(identifier).copied(),
+            PathSegment::Extension(identifier) => node.get_extension(identifier),
             PathSegment::MetaExt(identifier) => node
                 .as_map()
                 .and_then(|m| m.get(&DocumentKey::MetaExtension(identifier.clone()))),
@@ -290,7 +298,7 @@ mod tests {
             .expect("Failed to add map child")
             .node_id;
 
-        let map = doc.get_node(map_id).as_map().expect("Expected map");
+        let map = doc.node(map_id).as_map().expect("Expected map");
         assert_eq!(map.get(&DocumentKey::Value(key)), Some(child_id));
     }
 
@@ -343,7 +351,7 @@ mod tests {
             .expect("Failed to add extension")
             .node_id;
 
-        let node = doc.get_node(root_id);
+        let node = doc.node(root_id);
         assert_eq!(node.extensions.get(&id1), Some(&node_id1));
         assert_eq!(node.extensions.get(&id2), Some(&node_id2));
     }
@@ -362,7 +370,7 @@ mod tests {
             .expect("Failed to add extension")
             .node_id;
 
-        let node = doc.get_node(primitive_id);
+        let node = doc.node(primitive_id);
         assert_eq!(node.extensions.get(&identifier), Some(&node_id));
     }
 
@@ -400,7 +408,7 @@ mod tests {
             .expect("Failed to add meta extension")
             .node_id;
 
-        let map = doc.get_node(map_id).as_map().expect("Expected map");
+        let map = doc.node(map_id).as_map().expect("Expected map");
         assert_eq!(
             map.get(&DocumentKey::MetaExtension(identifier)),
             Some(node_id)
@@ -452,7 +460,7 @@ mod tests {
             .expect("Failed to add tuple element")
             .node_id;
 
-        let tuple = doc.get_node(tuple_id).as_tuple().expect("Expected tuple");
+        let tuple = doc.node(tuple_id).as_tuple().expect("Expected tuple");
         assert_eq!(tuple.0, vec![node_id]);
     }
 
@@ -474,7 +482,7 @@ mod tests {
             .expect("Failed to add tuple element")
             .node_id;
 
-        let tuple = doc.get_node(tuple_id).as_tuple().expect("Expected tuple");
+        let tuple = doc.node(tuple_id).as_tuple().expect("Expected tuple");
         assert_eq!(tuple.0, vec![node_id1, node_id2]);
     }
 
@@ -521,7 +529,7 @@ mod tests {
             .expect("Failed to add array element")
             .node_id;
 
-        let array = doc.get_node(array_id).as_array().expect("Expected array");
+        let array = doc.node(array_id).as_array().expect("Expected array");
         assert_eq!(array.0, vec![node_id]);
     }
 
@@ -543,7 +551,7 @@ mod tests {
             .expect("Failed to add array element")
             .node_id;
 
-        let array = doc.get_node(array_id).as_array().expect("Expected array");
+        let array = doc.node(array_id).as_array().expect("Expected array");
         assert_eq!(array.0, vec![node_id1, node_id2]);
     }
 
@@ -587,7 +595,7 @@ mod tests {
         let result = doc.add_child_by_segment(segment, root_id);
         assert!(result.is_ok());
 
-        let map = doc.get_node(root_id).as_map().expect("Expected map");
+        let map = doc.node(root_id).as_map().expect("Expected map");
         let key = DocumentKey::Value(ObjectKey::String(identifier.into_string()));
         assert!(map.get(&key).is_some());
     }
@@ -602,7 +610,7 @@ mod tests {
         let result = doc.add_child_by_segment(segment, root_id);
         assert!(result.is_ok());
 
-        let map = doc.get_node(root_id).as_map().expect("Expected map");
+        let map = doc.node(root_id).as_map().expect("Expected map");
         assert!(map.get(&DocumentKey::Value(key)).is_some());
     }
 
@@ -616,7 +624,7 @@ mod tests {
         let result = doc.add_child_by_segment(segment, root_id);
         assert!(result.is_ok());
 
-        let node = doc.get_node(root_id);
+        let node = doc.node(root_id);
         assert!(node.extensions.contains_key(&identifier));
     }
 
@@ -630,7 +638,7 @@ mod tests {
         let result = doc.add_child_by_segment(segment, root_id);
         assert!(result.is_ok());
 
-        let map = doc.get_node(root_id).as_map().expect("Expected map");
+        let map = doc.node(root_id).as_map().expect("Expected map");
         assert!(map.get(&DocumentKey::MetaExtension(identifier)).is_some());
     }
 
@@ -646,7 +654,7 @@ mod tests {
         let result = doc.add_child_by_segment(segment, tuple_id);
         assert!(result.is_ok());
 
-        let tuple = doc.get_node(tuple_id).as_tuple().expect("Expected tuple");
+        let tuple = doc.node(tuple_id).as_tuple().expect("Expected tuple");
         assert_eq!(tuple.0.len(), 1);
     }
 
@@ -662,7 +670,7 @@ mod tests {
         let result = doc.add_child_by_segment(segment, array_id);
         assert!(result.is_ok());
 
-        let array = doc.get_node(array_id).as_array().expect("Expected array");
+        let array = doc.node(array_id).as_array().expect("Expected array");
         assert_eq!(array.0.len(), 1);
     }
 
@@ -678,7 +686,7 @@ mod tests {
         let result = doc.add_child_by_segment(segment, array_id);
         assert!(result.is_ok());
 
-        let array = doc.get_node(array_id).as_array().expect("Expected array");
+        let array = doc.node(array_id).as_array().expect("Expected array");
         assert_eq!(array.0.len(), 1);
     }
 
@@ -703,7 +711,7 @@ mod tests {
             .expect("Failed to prepare node")
             .node_id;
 
-        let root_node = doc.get_node(doc.get_root_id());
+        let root_node = doc.node(doc.get_root_id());
         let map = root_node.as_map().unwrap();
         let key = DocumentKey::Value(ObjectKey::String(identifier.into_string()));
         assert_eq!(map.get(&key), Some(node_id));
@@ -725,11 +733,11 @@ mod tests {
             .node_id;
 
         // Verify first extension was added to root
-        let root_node = doc.get_node(doc.get_root_id());
+        let root_node = doc.node(doc.get_root_id());
         let first_child_id = root_node.extensions.get(&id1).expect("Extension not found");
 
         // Verify second extension was added to the node created by first segment
-        let first_child_node = doc.get_node(*first_child_id);
+        let first_child_node = doc.node(*first_child_id);
         assert_eq!(first_child_node.extensions.get(&id2), Some(&final_node_id));
     }
 
@@ -766,7 +774,7 @@ mod tests {
             .add_map_child(ObjectKey::String(id1.clone().into_string()), root_id)
             .expect("Failed to add map child")
             .node_id;
-        doc.get_node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+        doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
 
         // Try to traverse through primitive and add tuple index
         let path = &[PathSegment::Ident(id1.clone()), PathSegment::TupleIndex(0)];
@@ -791,7 +799,7 @@ mod tests {
             doc.create_node(NodeValue::empty_map())
         };
         let base_identifier = identifier("base");
-        doc.get_node_mut(doc.get_root_id())
+        doc.node_mut(doc.get_root_id())
             .extensions
             .insert(base_identifier.clone(), map_id);
 
@@ -806,7 +814,7 @@ mod tests {
             .node_id;
 
         // Verify the field was added to map_id
-        let map = doc.get_node(map_id).as_map().unwrap();
+        let map = doc.node(map_id).as_map().unwrap();
         let key = DocumentKey::Value(ObjectKey::String(field_identifier.into_string()));
         assert_eq!(map.get(&key), Some(node_id));
     }
@@ -821,7 +829,7 @@ mod tests {
             doc.create_node(NodeValue::empty_map())
         };
         let base_identifier = identifier("base");
-        doc.get_node_mut(doc.get_root_id())
+        doc.node_mut(doc.get_root_id())
             .extensions
             .insert(base_identifier.clone(), map_id);
 
@@ -831,7 +839,7 @@ mod tests {
             .add_extension(ext_identifier.clone(), map_id)
             .expect("Failed to add extension")
             .node_id;
-        doc.get_node_mut(ext_node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+        doc.node_mut(ext_node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
 
         // Try to traverse through primitive and add tuple index
         let path = &[
@@ -889,7 +897,7 @@ mod tests {
         doc.prepare_node(path2).expect("Second path failed");
 
         // Verify shared node exists only once
-        let root = doc.get_root();
+        let root = doc.root();
         let map = root.as_map().unwrap();
         let shared_key = DocumentKey::Value(ObjectKey::String(id1.into_string()));
         assert!(map.get(&shared_key).is_some());
@@ -1040,9 +1048,60 @@ mod tests {
         assert_ne!(node_id1, node_id2);
 
         // Verify both nodes exist in array
-        let array = doc.get_node(parent_id).as_array().expect("Expected array");
+        let array = doc.node(parent_id).as_array().expect("Expected array");
         assert_eq!(array.0.len(), 2);
         assert_eq!(array.0[0], node_id1);
         assert_eq!(array.0[1], node_id2);
+    }
+
+    #[test]
+    fn test_get_node_with_valid_id() {
+        let mut doc = EureDocument::new();
+        let node_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+        let result = doc.get_node(node_id);
+        assert!(result.is_some());
+
+        let node = result.unwrap();
+        assert_eq!(node.content, NodeValue::Primitive(PrimitiveValue::Null));
+    }
+
+    #[test]
+    fn test_get_node_with_invalid_id() {
+        let doc = EureDocument::new();
+        // Create an invalid NodeId that's out of bounds
+        let invalid_id = NodeId(9999);
+
+        let result = doc.get_node(invalid_id);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_node_mut_with_valid_id() {
+        let mut doc = EureDocument::new();
+        let node_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+        let result = doc.get_node_mut(node_id);
+        assert!(result.is_some());
+
+        // Verify we can mutate through the returned reference
+        let node = result.unwrap();
+        node.content = NodeValue::Primitive(PrimitiveValue::Bool(true));
+
+        // Verify the mutation persisted
+        assert_eq!(
+            doc.node(node_id).content,
+            NodeValue::Primitive(PrimitiveValue::Bool(true))
+        );
+    }
+
+    #[test]
+    fn test_get_node_mut_with_invalid_id() {
+        let mut doc = EureDocument::new();
+        // Create an invalid NodeId that's out of bounds
+        let invalid_id = NodeId(9999);
+
+        let result = doc.get_node_mut(invalid_id);
+        assert!(result.is_none());
     }
 }

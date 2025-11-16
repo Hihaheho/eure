@@ -36,7 +36,7 @@ pub fn extract_schema_from_value(input: &str) -> Result<ExtractedSchema, ValueEr
     let document = visitor.into_document();
 
     // Check if it's a pure schema
-    let is_pure_schema = is_pure_schema_node(&document, document.get_root());
+    let is_pure_schema = is_pure_schema_node(&document, document.root());
 
     // Extract schema
     let document_schema = document_to_schema(&document)?;
@@ -79,7 +79,7 @@ pub fn validate_self_describing(input: &str) -> Result<ValidationResult, ValueEr
     let document = visitor.into_document();
 
     // Check if it's a pure schema
-    let is_pure_schema = is_pure_schema_node(&document, document.get_root());
+    let is_pure_schema = is_pure_schema_node(&document, document.root());
 
     // Extract schema from the document itself
     let document_schema = document_to_schema(&document)?;
@@ -113,7 +113,7 @@ pub fn validate_and_extract_schema(input: &str) -> Result<ValidationResult, Valu
     let document = visitor.into_document();
 
     // Check if it's a pure schema
-    let is_pure_schema = is_pure_schema_node(&document, document.get_root());
+    let is_pure_schema = is_pure_schema_node(&document, document.root());
 
     // Extract schema from the document
     let document_schema = document_to_schema(&document)?;

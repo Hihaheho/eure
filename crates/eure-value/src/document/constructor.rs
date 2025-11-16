@@ -34,7 +34,7 @@ impl<'d> DocumentConstructor<'d> {
 
     pub fn current_node(&self) -> Option<&Node> {
         self.current_node_id()
-            .map(|node_id| self.document.get_node(node_id))
+            .map(|node_id| self.document.node(node_id))
     }
 
     pub fn current_path(&self) -> &[PathSegment] {
@@ -163,7 +163,7 @@ mod tests {
         };
 
         // Set the node to Primitive to force error
-        doc.get_node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+        doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
 
         // Try to add tuple index to primitive node (should fail)
         let mut constructor = DocumentConstructor::new(&mut doc);

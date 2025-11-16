@@ -19,7 +19,7 @@ fn test_simple_section_direct_assignment() {
         .expect("Visit should succeed");
 
     let document = visitor.into_document();
-    let root = document.get_root();
+    let root = document.root();
 
     if let NodeValue::Map { entries, .. } = &root.content {
         assert_eq!(entries.len(), 4, "Should have 4 sections");
@@ -29,7 +29,7 @@ fn test_simple_section_direct_assignment() {
         let section1_node = entries
             .iter()
             .find(|(k, _)| k == &section1_key)
-            .map(|(_, id)| document.get_node(*id))
+            .map(|(_, id)| document.node(*id))
             .expect("section1 should exist");
 
         match &section1_node.content {
@@ -44,7 +44,7 @@ fn test_simple_section_direct_assignment() {
         let section2_node = entries
             .iter()
             .find(|(k, _)| k == &section2_key)
-            .map(|(_, id)| document.get_node(*id))
+            .map(|(_, id)| document.node(*id))
             .expect("section2 should exist");
 
         match &section2_node.content {
@@ -59,7 +59,7 @@ fn test_simple_section_direct_assignment() {
         let section3_node = entries
             .iter()
             .find(|(k, _)| k == &section3_key)
-            .map(|(_, id)| document.get_node(*id))
+            .map(|(_, id)| document.node(*id))
             .expect("section3 should exist");
 
         match &section3_node.content {
@@ -74,7 +74,7 @@ fn test_simple_section_direct_assignment() {
         let section4_node = entries
             .iter()
             .find(|(k, _)| k == &section4_key)
-            .map(|(_, id)| document.get_node(*id))
+            .map(|(_, id)| document.node(*id))
             .expect("section4 should exist");
 
         match &section4_node.content {
@@ -103,7 +103,7 @@ fn test_nested_path_direct_assignment() {
         .expect("Visit should succeed");
 
     let document = visitor.into_document();
-    let root = document.get_root();
+    let root = document.root();
 
     if let NodeValue::Map { entries, .. } = &root.content {
         // Navigate to config
@@ -111,7 +111,7 @@ fn test_nested_path_direct_assignment() {
         let config_node = entries
             .iter()
             .find(|(k, _)| k == &config_key)
-            .map(|(_, id)| document.get_node(*id))
+            .map(|(_, id)| document.node(*id))
             .expect("config should exist");
 
         if let NodeValue::Map {
@@ -124,7 +124,7 @@ fn test_nested_path_direct_assignment() {
             let database_node = config_entries
                 .iter()
                 .find(|(k, _)| k == &database_key)
-                .map(|(_, id)| document.get_node(*id))
+                .map(|(_, id)| document.node(*id))
                 .expect("database should exist");
 
             if let NodeValue::Map {
@@ -137,7 +137,7 @@ fn test_nested_path_direct_assignment() {
                 let host_node = db_entries
                     .iter()
                     .find(|(k, _)| k == &host_key)
-                    .map(|(_, id)| document.get_node(*id))
+                    .map(|(_, id)| document.node(*id))
                     .expect("host should exist");
 
                 match &host_node.content {
@@ -152,7 +152,7 @@ fn test_nested_path_direct_assignment() {
                 let port_node = db_entries
                     .iter()
                     .find(|(k, _)| k == &port_key)
-                    .map(|(_, id)| document.get_node(*id))
+                    .map(|(_, id)| document.node(*id))
                     .expect("port should exist");
 
                 match &port_node.content {
@@ -168,7 +168,7 @@ fn test_nested_path_direct_assignment() {
             let server_node = config_entries
                 .iter()
                 .find(|(k, _)| k == &server_key)
-                .map(|(_, id)| document.get_node(*id))
+                .map(|(_, id)| document.node(*id))
                 .expect("server should exist");
 
             if let NodeValue::Map {
@@ -180,7 +180,7 @@ fn test_nested_path_direct_assignment() {
                 let enabled_node = server_entries
                     .iter()
                     .find(|(k, _)| k == &enabled_key)
-                    .map(|(_, id)| document.get_node(*id))
+                    .map(|(_, id)| document.node(*id))
                     .expect("enabled should exist");
 
                 match &enabled_node.content {
@@ -210,7 +210,7 @@ items = []
         .expect("Visit should succeed");
 
     let document = visitor.into_document();
-    let root = document.get_root();
+    let root = document.root();
 
     if let NodeValue::Map { entries, .. } = &root.content {
         let items_key = DocumentKey::Ident(Identifier::from_str("items").unwrap());
@@ -218,7 +218,7 @@ items = []
             .iter()
             .find(|(k, _)| k == &items_key)
             .map(|(_, id)| id)
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("items should exist");
 
         if let NodeValue::Array {
@@ -228,7 +228,7 @@ items = []
             assert_eq!(elements.len(), 3, "Should have 3 items");
 
             // Check first item
-            let first = document.get_node(elements[0]);
+            let first = document.node(elements[0]);
             match &first.content {
                 NodeValue::String { value, .. } => {
                     assert_eq!(value, "first");
@@ -237,7 +237,7 @@ items = []
             }
 
             // Check second item
-            let second = document.get_node(elements[1]);
+            let second = document.node(elements[1]);
             match &second.content {
                 NodeValue::String { value, .. } => {
                     assert_eq!(value, "second");
@@ -246,7 +246,7 @@ items = []
             }
 
             // Check third item
-            let third = document.get_node(elements[2]);
+            let third = document.node(elements[2]);
             match &third.content {
                 NodeValue::String { value, .. } => {
                     assert_eq!(value, "third");
@@ -274,7 +274,7 @@ items = ["existing"]
         .expect("Visit should succeed");
 
     let document = visitor.into_document();
-    let root = document.get_root();
+    let root = document.root();
 
     if let NodeValue::Map { entries, .. } = &root.content {
         let items_key = DocumentKey::Ident(Identifier::from_str("items").unwrap());
@@ -282,7 +282,7 @@ items = ["existing"]
             .iter()
             .find(|(k, _)| k == &items_key)
             .map(|(_, id)| id)
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("items should exist");
 
         if let NodeValue::Array {
@@ -292,7 +292,7 @@ items = ["existing"]
             assert_eq!(elements.len(), 3, "Should have 3 items total");
 
             // Check existing item
-            let first = document.get_node(elements[0]);
+            let first = document.node(elements[0]);
             match &first.content {
                 NodeValue::String { value, .. } => {
                     assert_eq!(value, "existing");
@@ -301,7 +301,7 @@ items = ["existing"]
             }
 
             // Check appended items
-            let second = document.get_node(elements[1]);
+            let second = document.node(elements[1]);
             match &second.content {
                 NodeValue::String { value, .. } => {
                     assert_eq!(value, "appended1");
@@ -309,7 +309,7 @@ items = ["existing"]
                 _ => panic!("Second item should be a string"),
             }
 
-            let third = document.get_node(elements[2]);
+            let third = document.node(elements[2]);
             match &third.content {
                 NodeValue::String { value, .. } => {
                     assert_eq!(value, "appended2");
@@ -337,7 +337,7 @@ fn test_extension_direct_assignment() {
         .expect("Visit should succeed");
 
     let document = visitor.into_document();
-    let root = document.get_root();
+    let root = document.root();
 
     if let NodeValue::Map { entries, .. } = &root.content {
         // Check user extensions
@@ -346,14 +346,14 @@ fn test_extension_direct_assignment() {
             .iter()
             .find(|(k, _)| k == &user_key)
             .map(|(_, id)| id)
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("user should exist");
 
         // Check $type extension
         let type_ext = user_node
             .extensions
             .get(&Identifier::from_str("type").unwrap())
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("$type extension should exist");
 
         match &type_ext.content {
@@ -367,7 +367,7 @@ fn test_extension_direct_assignment() {
         let variant_ext = user_node
             .extensions
             .get(&Identifier::from_str("variant").unwrap())
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("$variant extension should exist");
 
         match &variant_ext.content {
@@ -384,7 +384,7 @@ fn test_extension_direct_assignment() {
             .iter()
             .find(|(k, _)| k == &config_key)
             .map(|(_, id)| id)
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("config should exist");
 
         // Meta-extensions are stored as entries in the Map, not in extensions
@@ -398,7 +398,7 @@ fn test_extension_direct_assignment() {
             let internal_meta = config_entries
                 .iter()
                 .find(|(k, _)| k == &internal_key)
-                .map(|(_, id)| document.get_node(*id))
+                .map(|(_, id)| document.node(*id))
                 .expect("$$internal meta-extension should exist");
 
             match &internal_meta.content {
@@ -426,7 +426,7 @@ fn test_complex_value_direct_assignment() {
         .expect("Visit should succeed");
 
     let document = visitor.into_document();
-    let root = document.get_root();
+    let root = document.root();
 
     if let NodeValue::Map { entries, .. } = &root.content {
         let data_key = DocumentKey::Ident(Identifier::from_str("data").unwrap());
@@ -434,7 +434,7 @@ fn test_complex_value_direct_assignment() {
             .iter()
             .find(|(k, _)| k == &data_key)
             .map(|(_, id)| id)
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("data should exist");
 
         if let NodeValue::Map {
@@ -448,7 +448,7 @@ fn test_complex_value_direct_assignment() {
                 .iter()
                 .find(|(k, _)| k == &object_key)
                 .map(|(_, id)| id)
-                .map(|id| document.get_node(*id))
+                .map(|id| document.node(*id))
                 .expect("object should exist");
 
             if let NodeValue::Map {
@@ -463,7 +463,7 @@ fn test_complex_value_direct_assignment() {
                     .iter()
                     .find(|(k, _)| k == &key_key)
                     .map(|(_, id)| id)
-                    .map(|id| document.get_node(*id))
+                    .map(|id| document.node(*id))
                     .expect("key should exist");
 
                 match &key_node.content {
@@ -480,7 +480,7 @@ fn test_complex_value_direct_assignment() {
                 .iter()
                 .find(|(k, _)| k == &array_key)
                 .map(|(_, id)| id)
-                .map(|id| document.get_node(*id))
+                .map(|id| document.node(*id))
                 .expect("array should exist");
 
             if let NodeValue::Array {
@@ -496,7 +496,7 @@ fn test_complex_value_direct_assignment() {
                 .iter()
                 .find(|(k, _)| k == &tuple_key)
                 .map(|(_, id)| id)
-                .map(|id| document.get_node(*id))
+                .map(|id| document.node(*id))
                 .expect("tuple should exist");
 
             if let NodeValue::Tuple {
@@ -529,7 +529,7 @@ fn test_mixed_section_styles() {
         .expect("Visit should succeed");
 
     let document = visitor.into_document();
-    let root = document.get_root();
+    let root = document.root();
 
     if let NodeValue::Map { entries, .. } = &root.content {
         let config_key = DocumentKey::Ident(Identifier::from_str("config").unwrap());
@@ -537,7 +537,7 @@ fn test_mixed_section_styles() {
             .iter()
             .find(|(k, _)| k == &config_key)
             .map(|(_, id)| id)
-            .map(|id| document.get_node(*id))
+            .map(|id| document.node(*id))
             .expect("config should exist");
 
         if let NodeValue::Map {
@@ -558,7 +558,7 @@ fn test_mixed_section_styles() {
                 .iter()
                 .find(|(k, _)| k == &database_key)
                 .map(|(_, id)| id)
-                .map(|id| document.get_node(*id))
+                .map(|id| document.node(*id))
                 .expect("database should exist");
 
             if let NodeValue::Map {
