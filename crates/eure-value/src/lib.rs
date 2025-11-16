@@ -31,7 +31,7 @@ pub(crate) mod prelude_internal {
     #![allow(unused_imports)]
     pub use crate::Map;
     pub use crate::document::constructor::DocumentConstructor;
-    pub use crate::document::node::{Node, NodeValue};
+    pub use crate::document::node::{Node, NodeMut, NodeValue};
     pub use crate::document::{DocumentKey, EureDocument, InsertError, InsertErrorKind, NodeId};
     pub use crate::identifier::Identifier;
     pub use crate::path::{EurePath, PathSegment};

@@ -5,6 +5,82 @@ pub struct Node {
     pub content: NodeValue,
     pub extensions: Map<Identifier, NodeId>,
 }
+
+pub struct NodeMut<'d> {
+    document: &'d mut EureDocument,
+    pub node_id: NodeId,
+}
+
+impl<'d> core::fmt::Debug for NodeMut<'d> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("NodeMut")
+            .field("node_id", &self.node_id)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<'d> NodeMut<'d> {
+    pub fn new(document: &'d mut EureDocument, node_id: NodeId) -> Self {
+        Self { document, node_id }
+    }
+
+    pub fn add_map_child(self, object_key: ObjectKey) -> Result<NodeMut<'d>, InsertErrorKind> {
+        self.document.add_map_child(object_key, self.node_id)
+    }
+
+    pub fn add_extension(self, identifier: Identifier) -> Result<NodeMut<'d>, InsertErrorKind> {
+        self.document.add_extension(identifier, self.node_id)
+    }
+
+    pub fn add_meta_extension(
+        self,
+        identifier: Identifier,
+    ) -> Result<NodeMut<'d>, InsertErrorKind> {
+        self.document.add_meta_extension(identifier, self.node_id)
+    }
+
+    pub fn add_tuple_element(self, index: u8) -> Result<NodeMut<'d>, InsertErrorKind> {
+        self.document.add_tuple_element(index, self.node_id)
+    }
+
+    pub fn add_array_element(self, index: Option<usize>) -> Result<NodeMut<'d>, InsertErrorKind> {
+        self.document.add_array_element(index, self.node_id)
+    }
+
+    pub fn add_child_by_segment(
+        self,
+        segment: PathSegment,
+    ) -> Result<NodeMut<'d>, InsertErrorKind> {
+        self.document.add_child_by_segment(segment, self.node_id)
+    }
+
+    // Content access methods
+
+    pub fn as_map(&self) -> Option<&NodeMap> {
+        self.document.get_node(self.node_id).as_map()
+    }
+
+    pub fn as_array(&self) -> Option<&NodeArray> {
+        self.document.get_node(self.node_id).as_array()
+    }
+
+    pub fn as_tuple(&self) -> Option<&NodeTuple> {
+        self.document.get_node(self.node_id).as_tuple()
+    }
+
+    pub fn require_map(&mut self) -> Result<&mut NodeMap, InsertErrorKind> {
+        self.document.get_node_mut(self.node_id).require_map()
+    }
+
+    pub fn require_tuple(&mut self) -> Result<&mut NodeTuple, InsertErrorKind> {
+        self.document.get_node_mut(self.node_id).require_tuple()
+    }
+
+    pub fn require_array(&mut self) -> Result<&mut NodeArray, InsertErrorKind> {
+        self.document.get_node_mut(self.node_id).require_array()
+    }
+}
+
 impl Node {
     pub fn as_map(&self) -> Option<&NodeMap> {
         match &self.content {
@@ -91,8 +167,8 @@ pub struct NodeMap(pub Map<DocumentKey, NodeId>);
 pub struct NodeTuple(pub Vec<NodeId>);
 
 impl NodeMap {
-    pub fn get(&self, key: &DocumentKey) -> Option<&NodeId> {
-        self.0.get(key)
+    pub fn get(&self, key: &DocumentKey) -> Option<NodeId> {
+        self.0.get(key).copied()
     }
 
     pub fn add(&mut self, key: DocumentKey, node_id: NodeId) -> Result<(), InsertErrorKind> {
@@ -113,6 +189,10 @@ impl NodeMap {
 }
 
 impl NodeTuple {
+    pub fn get(&self, index: usize) -> Option<NodeId> {
+        self.0.get(index).copied()
+    }
+
     pub fn push(&mut self, node_id: NodeId) -> Result<(), InsertErrorKind> {
         self.0.push(node_id);
         Ok(())
@@ -131,6 +211,10 @@ impl NodeTuple {
 }
 
 impl NodeArray {
+    pub fn get(&self, index: usize) -> Option<NodeId> {
+        self.0.get(index).copied()
+    }
+
     pub fn push(&mut self, node_id: NodeId) -> Result<(), InsertErrorKind> {
         self.0.push(node_id);
         Ok(())

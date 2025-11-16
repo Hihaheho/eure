@@ -53,7 +53,8 @@ impl<'d> DocumentConstructor<'d> {
         let base_path = EurePath::from_iter(self.current_path().iter().cloned());
         let node_id = self
             .document
-            .prepare_node_from(target, base_path, segments)?;
+            .prepare_node_from(target, base_path, segments)?
+            .node_id;
         self.path.extend(segments.iter().cloned());
         self.stack.push((node_id, self.path.len()));
         Ok(node_id)
