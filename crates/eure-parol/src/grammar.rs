@@ -1,4 +1,4 @@
-use crate::grammar_trait::{Eure, EureRoot, GrammarTrait, Root};
+use crate::grammar_trait::{EureRoot, GrammarTrait};
 #[allow(unused_imports)]
 use parol_runtime::{Result, Token};
 use std::fmt::{Debug, Display, Error, Formatter};
@@ -36,7 +36,7 @@ impl Display for Grammar<'_> {
 impl<'t> GrammarTrait<'t> for Grammar<'t> {
     /// Semantic action for non-terminal 'Eure'
     fn eure_root(&mut self, arg: &EureRoot<'t>) -> Result<()> {
-        self.root = Some(arg.clone());
+        self.eure_root = Some(arg.clone());
         Ok(())
     }
 }

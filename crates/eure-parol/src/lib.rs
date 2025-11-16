@@ -131,8 +131,8 @@ fn test_concrete_syntax_tree_with_syntax_error() {
 #[test]
 #[allow(unused_variables)]
 fn test_node_handlers() {
-    use eure_tree::tree::NonTerminalHandle;
-    use eure_tree::tree::RecursiveView;
+    use eure_tree::nodes::EureRootView;
+    use eure_tree::tree::{NonTerminalHandle, RecursiveView};
     use tree::CstBuilder;
 
     let mut actions = grammar::Grammar::new();
@@ -151,7 +151,10 @@ fn test_node_handlers() {
 
     let root_handle = tree.root_handle();
     let root = root_handle.get_view(&tree).unwrap();
-    let eure = root.eure.get_view(&tree).unwrap();
+    let EureRootView::Eure(eure) = root.eure_root.get_view(&tree).unwrap() else {
+        panic!("Expected EureRootView")
+    };
+    let eure = eure.get_view(&tree).unwrap();
     let eure_bindings = eure.eure_bindings.get_view(&tree).unwrap().unwrap();
     let eure_sections = eure.eure_sections.get_view(&tree).unwrap().unwrap();
     let eure_bindings_all = eure_bindings.get_all(&tree).unwrap();
