@@ -66,10 +66,8 @@ fn validate_document_with_types<T: ToEureSchema>(
         _ => {
             // For other types, wrap in a single field
             let mut root = ObjectSchema::default();
-            root.fields.insert(
-                eure_schema::ObjectKey::String("value".to_string()),
-                schema,
-            );
+            root.fields
+                .insert(eure_schema::ObjectKey::String("value".to_string()), schema);
             doc_schema.root = root;
         }
     }

@@ -14,9 +14,6 @@ pub mod tree;
 pub mod value_visitor;
 pub mod visitor;
 
-#[cfg(test)]
-mod value_visitor_tests;
-
 pub type Cst = ConcreteSyntaxTree<TerminalKind, NonTerminalKind>;
 pub type CstNode = tree::CstNodeData<TerminalKind, NonTerminalKind>;
 pub type CstConstructError<E = Infallible> =

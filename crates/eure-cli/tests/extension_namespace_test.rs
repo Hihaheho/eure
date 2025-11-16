@@ -1,6 +1,6 @@
 use eure_parol::parse;
 use eure_tree::value_visitor::{ValueVisitor, document_to_value};
-use eure_value::value::{ObjectKey, Map, Value};
+use eure_value::value::{Map, ObjectKey, Value};
 
 #[test]
 fn test_top_level_extension_namespace() {
