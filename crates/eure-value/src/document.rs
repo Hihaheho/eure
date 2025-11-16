@@ -186,6 +186,55 @@ impl EureDocument {
         }
         Ok(node_id)
     }
+
+    /// Resolves a path segment to a node ID, creating if necessary.
+    ///
+    /// This operation is idempotent for most segments, reusing existing nodes.
+    /// Exception: `ArrayIndex(None)` always creates a new array element (push operation).
+    pub fn resolve_child_by_segment(
+        &mut self,
+        segment: PathSegment,
+        parent_node_id: NodeId,
+    ) -> Result<NodeId, InsertErrorKind> {
+        // 既存のノードを探す
+        let node = self.get_node(parent_node_id);
+
+        let existing = match &segment {
+            PathSegment::Ident(identifier) => node
+                .as_map()
+                .and_then(|m| {
+                    m.get(&DocumentKey::Value(ObjectKey::String(
+                        identifier.clone().into_string(),
+                    )))
+                })
+                .copied(),
+            PathSegment::Value(object_key) => node
+                .as_map()
+                .and_then(|m| m.get(&DocumentKey::Value(object_key.clone())))
+                .copied(),
+            PathSegment::Extension(identifier) => node.extensions.get(identifier).copied(),
+            PathSegment::MetaExt(identifier) => node
+                .as_map()
+                .and_then(|m| m.get(&DocumentKey::MetaExtension(identifier.clone())))
+                .copied(),
+            PathSegment::TupleIndex(index) => node
+                .as_tuple()
+                .and_then(|t| t.0.get(*index as usize))
+                .copied(),
+            PathSegment::ArrayIndex(Some(index)) => {
+                node.as_array().and_then(|a| a.0.get(*index)).copied()
+            }
+            PathSegment::ArrayIndex(None) => None, // push always creates new
+        };
+
+        // 既存ノードがあればそれを返す
+        if let Some(node_id) = existing {
+            return Ok(node_id);
+        }
+
+        // なければ作成
+        self.add_child_by_segment(segment, parent_node_id)
+    }
 }
 
 /// Commands
@@ -214,7 +263,7 @@ impl EureDocument {
     ) -> Result<NodeId, InsertError> {
         let mut node_id = target;
         for (index, segment) in path.iter().enumerate() {
-            match self.add_child_by_segment(segment.clone(), node_id) {
+            match self.resolve_child_by_segment(segment.clone(), node_id) {
                 Ok(new_node_id) => node_id = new_node_id,
                 Err(error) => {
                     base_path.extend(path.iter().take(index).cloned());
@@ -712,9 +761,18 @@ mod tests {
     fn test_prepare_node_error_at_middle_segment() {
         let mut doc = EureDocument::new();
         let id1 = create_identifier("a");
-        let path = &[PathSegment::Ident(id1.clone()), PathSegment::TupleIndex(0)];
 
+        // Manually create a primitive node in the path
+        let root_id = doc.get_root_id();
+        let node_id = doc
+            .add_map_child(ObjectKey::String(id1.clone().into_string()), root_id)
+            .expect("Failed to add map child");
+        doc.get_node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+
+        // Try to traverse through primitive and add tuple index
+        let path = &[PathSegment::Ident(id1.clone()), PathSegment::TupleIndex(0)];
         let result = doc.prepare_node(path);
+
         assert_eq!(
             result,
             Err(InsertError {
@@ -754,24 +812,29 @@ mod tests {
     fn test_prepare_node_from_error_includes_base_path() {
         let mut doc = EureDocument::new();
 
-        // Create a map node and add it as an extension to root
+        // Create base map node
         let map_id = create_map_node(&mut doc);
         let base_identifier = create_identifier("base");
         doc.get_node_mut(doc.get_root_id())
             .extensions
             .insert(base_identifier.clone(), map_id);
 
-        // Try to add: first an extension (success), then a tuple index (fail because it's uninitialized)
+        // Manually create primitive extension node
         let ext_identifier = create_identifier("ext");
+        let ext_node_id = doc
+            .add_extension(ext_identifier.clone(), map_id)
+            .expect("Failed to add extension");
+        doc.get_node_mut(ext_node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+
+        // Try to traverse through primitive and add tuple index
         let path = &[
             PathSegment::Extension(ext_identifier.clone()),
             PathSegment::TupleIndex(0),
         ];
-        let base_path = EurePath::from_iter([PathSegment::Extension(base_identifier.clone())]);
+        let base_path = EurePath::from_iter([PathSegment::Extension(base_identifier)]);
 
         let result = doc.prepare_node_from(map_id, base_path.clone(), path);
 
-        // Error path should be: base_path + first segment (the extension that succeeded)
         let mut expected_path = base_path;
         expected_path.extend([PathSegment::Extension(ext_identifier)]);
 
@@ -782,5 +845,183 @@ mod tests {
                 path: expected_path
             })
         );
+    }
+
+    #[test]
+    fn test_prepare_node_idempotent() {
+        let mut doc = EureDocument::new();
+        let id1 = create_identifier("level1");
+        let id2 = create_identifier("level2");
+        let path = &[
+            PathSegment::Ident(id1.clone()),
+            PathSegment::Extension(id2.clone()),
+        ];
+
+        // First call
+        let node_id1 = doc.prepare_node(path).expect("First call failed");
+
+        // Second call with same path should return same node
+        let node_id2 = doc.prepare_node(path).expect("Second call failed");
+
+        assert_eq!(node_id1, node_id2);
+    }
+
+    #[test]
+    fn test_prepare_node_reuses_intermediate_nodes() {
+        let mut doc = EureDocument::new();
+        let id1 = create_identifier("shared");
+        let id2 = create_identifier("branch1");
+        let id3 = create_identifier("branch2");
+
+        // Create first path
+        let path1 = &[PathSegment::Ident(id1.clone()), PathSegment::Extension(id2)];
+        doc.prepare_node(path1).expect("First path failed");
+
+        // Create second path sharing first segment
+        let path2 = &[PathSegment::Ident(id1.clone()), PathSegment::Extension(id3)];
+        doc.prepare_node(path2).expect("Second path failed");
+
+        // Verify shared node exists only once
+        let root = doc.get_root();
+        let map = root.as_map().unwrap();
+        let shared_key = DocumentKey::Value(ObjectKey::String(id1.into_string()));
+        assert!(map.get(&shared_key).is_some());
+    }
+
+    #[test]
+    fn test_resolve_ident_idempotent() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let identifier = create_identifier("field");
+
+        // First call - creates new node
+        let node_id1 = doc
+            .resolve_child_by_segment(PathSegment::Ident(identifier.clone()), root_id)
+            .expect("First call failed");
+
+        // Second call - returns existing node
+        let node_id2 = doc
+            .resolve_child_by_segment(PathSegment::Ident(identifier), root_id)
+            .expect("Second call failed");
+
+        assert_eq!(node_id1, node_id2);
+    }
+
+    #[test]
+    fn test_resolve_value_idempotent() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let object_key = ObjectKey::String("key".to_string());
+
+        // First call - creates new node
+        let node_id1 = doc
+            .resolve_child_by_segment(PathSegment::Value(object_key.clone()), root_id)
+            .expect("First call failed");
+
+        // Second call - returns existing node
+        let node_id2 = doc
+            .resolve_child_by_segment(PathSegment::Value(object_key), root_id)
+            .expect("Second call failed");
+
+        assert_eq!(node_id1, node_id2);
+    }
+
+    #[test]
+    fn test_resolve_extension_idempotent() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let identifier = create_identifier("ext");
+
+        // First call - creates new node
+        let node_id1 = doc
+            .resolve_child_by_segment(PathSegment::Extension(identifier.clone()), root_id)
+            .expect("First call failed");
+
+        // Second call - returns existing node
+        let node_id2 = doc
+            .resolve_child_by_segment(PathSegment::Extension(identifier), root_id)
+            .expect("Second call failed");
+
+        assert_eq!(node_id1, node_id2);
+    }
+
+    #[test]
+    fn test_resolve_meta_ext_idempotent() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        let identifier = create_identifier("meta");
+
+        // First call - creates new node
+        let node_id1 = doc
+            .resolve_child_by_segment(PathSegment::MetaExt(identifier.clone()), root_id)
+            .expect("First call failed");
+
+        // Second call - returns existing node
+        let node_id2 = doc
+            .resolve_child_by_segment(PathSegment::MetaExt(identifier), root_id)
+            .expect("Second call failed");
+
+        assert_eq!(node_id1, node_id2);
+    }
+
+    #[test]
+    fn test_resolve_tuple_index_idempotent() {
+        let mut doc = EureDocument::new();
+        let parent_id = doc.create_node_uninitialized();
+
+        // First call - creates new node
+        let node_id1 = doc
+            .resolve_child_by_segment(PathSegment::TupleIndex(0), parent_id)
+            .expect("First call failed");
+
+        // Second call - returns existing node
+        let node_id2 = doc
+            .resolve_child_by_segment(PathSegment::TupleIndex(0), parent_id)
+            .expect("Second call failed");
+
+        assert_eq!(node_id1, node_id2);
+    }
+
+    #[test]
+    fn test_resolve_array_index_some_idempotent() {
+        let mut doc = EureDocument::new();
+        let parent_id = doc.create_node_uninitialized();
+
+        // First call - creates new node
+        let node_id1 = doc
+            .resolve_child_by_segment(PathSegment::ArrayIndex(Some(0)), parent_id)
+            .expect("First call failed");
+
+        // Second call - returns existing node
+        let node_id2 = doc
+            .resolve_child_by_segment(PathSegment::ArrayIndex(Some(0)), parent_id)
+            .expect("Second call failed");
+
+        assert_eq!(node_id1, node_id2);
+    }
+
+    #[test]
+    fn test_resolve_array_index_none_always_creates_new() {
+        let mut doc = EureDocument::new();
+        let parent_id = doc.create_node_uninitialized();
+
+        // First call - creates new node
+        let node_id1 = doc
+            .resolve_child_by_segment(PathSegment::ArrayIndex(None), parent_id)
+            .expect("First call failed");
+
+        // Second call - creates another new node (NOT idempotent)
+        let node_id2 = doc
+            .resolve_child_by_segment(PathSegment::ArrayIndex(None), parent_id)
+            .expect("Second call failed");
+
+        // ArrayIndex(None) always creates new nodes (push operation)
+        assert_ne!(node_id1, node_id2);
+
+        // Verify both nodes exist in array
+        let array = doc.get_node(parent_id).as_array().expect("Expected array");
+        assert_eq!(array.0.len(), 2);
+        assert_eq!(array.0[0], node_id1);
+        assert_eq!(array.0[1], node_id2);
     }
 }
