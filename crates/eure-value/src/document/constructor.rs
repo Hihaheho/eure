@@ -54,16 +54,16 @@ impl<'d> DocumentConstructor<'d> {
 }
 
 impl<'d> DocumentConstructor<'d> {
-    pub fn push_segments(&mut self, segments: &[PathSegment]) -> Result<NodeId, InsertError> {
+    pub fn push_path(&mut self, path: &[PathSegment]) -> Result<NodeId, InsertError> {
         let target = self
             .current_node_id()
             .unwrap_or_else(|| self.document.get_root_id());
         let base_path = EurePath::from_iter(self.current_path().iter().cloned());
         let node_id = self
             .document
-            .prepare_node_from(target, base_path, segments)?
+            .prepare_node_from(target, base_path, path)?
             .node_id;
-        self.path.extend(segments.iter().cloned());
+        self.path.extend(path.iter().cloned());
         self.stack.push(StackItem {
             node_id,
             path_range: self.path.len(),
@@ -131,7 +131,7 @@ mod tests {
         let identifier = create_identifier("field");
         let segments = &[PathSegment::Ident(identifier.clone())];
 
-        let node_id = constructor.push_segments(segments).expect("Failed to push");
+        let node_id = constructor.push_path(segments).expect("Failed to push");
 
         assert_eq!(constructor.current_node_id(), Some(node_id));
         assert_eq!(constructor.current_path(), segments);
@@ -146,11 +146,11 @@ mod tests {
         let id2 = create_identifier("field2");
 
         constructor
-            .push_segments(&[PathSegment::Ident(id1.clone())])
+            .push_path(&[PathSegment::Ident(id1.clone())])
             .expect("Failed to push first");
 
         let node_id2 = constructor
-            .push_segments(&[PathSegment::Extension(id2.clone())])
+            .push_path(&[PathSegment::Extension(id2.clone())])
             .expect("Failed to push second");
 
         assert_eq!(constructor.current_node_id(), Some(node_id2));
@@ -169,7 +169,7 @@ mod tests {
         let node_id = {
             let mut constructor = DocumentConstructor::new(&mut doc);
             constructor
-                .push_segments(&[PathSegment::Ident(identifier)])
+                .push_path(&[PathSegment::Ident(identifier)])
                 .expect("Failed to push")
         };
 
@@ -178,7 +178,7 @@ mod tests {
 
         // Try to add tuple index to primitive node (should fail)
         let mut constructor = DocumentConstructor::new(&mut doc);
-        let result = constructor.push_segments(&[PathSegment::TupleIndex(0)]);
+        let result = constructor.push_path(&[PathSegment::TupleIndex(0)]);
 
         assert_eq!(
             result.map_err(|e| e.kind),
@@ -194,7 +194,7 @@ mod tests {
 
         let identifier = create_identifier("field");
         let node_id = constructor
-            .push_segments(&[PathSegment::Ident(identifier.clone())])
+            .push_path(&[PathSegment::Ident(identifier.clone())])
             .expect("Failed to push");
 
         // Pop with correct node_id
@@ -213,7 +213,7 @@ mod tests {
 
         let identifier = create_identifier("field");
         let node_id = constructor
-            .push_segments(&[PathSegment::Ident(identifier)])
+            .push_path(&[PathSegment::Ident(identifier)])
             .expect("Failed to push");
 
         // Try to pop with wrong node_id
@@ -259,15 +259,15 @@ mod tests {
 
         // Push three levels
         let node_id1 = constructor
-            .push_segments(&[PathSegment::Ident(id1.clone())])
+            .push_path(&[PathSegment::Ident(id1.clone())])
             .expect("Failed to push level1");
 
         let node_id2 = constructor
-            .push_segments(&[PathSegment::Extension(id2.clone())])
+            .push_path(&[PathSegment::Extension(id2.clone())])
             .expect("Failed to push level2");
 
         let node_id3 = constructor
-            .push_segments(&[PathSegment::Extension(id3.clone())])
+            .push_path(&[PathSegment::Extension(id3.clone())])
             .expect("Failed to push level3");
 
         // Verify at deepest level
@@ -314,7 +314,7 @@ mod tests {
             PathSegment::Extension(id2.clone()),
         ];
 
-        let node_id = constructor.push_segments(segments).expect("Failed to push");
+        let node_id = constructor.push_path(segments).expect("Failed to push");
 
         assert_eq!(constructor.current_node_id(), Some(node_id));
         assert_eq!(constructor.current_path(), segments.as_slice());
