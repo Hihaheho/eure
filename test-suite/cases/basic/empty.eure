@@ -1,0 +1,10 @@
+# Test case: Empty document evaluates to null
+description = "Empty document evaluates to null"
+
+normalized = ```eure
+= null
+```
+
+json = ```json
+null
+```

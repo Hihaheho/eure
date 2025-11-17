@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use std::path::Path;
 
-use crate::test_case::{TestCase, ScenarioKind};
+use crate::test_case::TestCase;
 
 /// Parse a test case file (EURE format with embedded code blocks)
 pub fn parse_test_case(path: &Path, content: &str) -> Result<TestCase> {
@@ -29,16 +29,33 @@ pub fn parse_test_case(path: &Path, content: &str) -> Result<TestCase> {
     if let eure_value::value::Value::Map(map) = value {
         for (key, val) in map.0.iter() {
             if let eure_value::value::ObjectKey::String(key_str) = key {
-                // Check if this is a code block
-                if let eure_value::value::Value::Code(code) = val {
-                    let kind = ScenarioKind::from_name(key_str);
-                    test_case.add_scenario(kind, code.content.clone());
-                }
-                // Also check for description
-                else if key_str == "description" {
-                    if let eure_value::value::Value::String(desc) = val {
-                        test_case = test_case.with_description(desc.clone());
+                match key_str.as_str() {
+                    "description" => {
+                        if let eure_value::value::Value::String(desc) = val {
+                            test_case = test_case.with_description(desc.clone());
+                        }
                     }
+                    "input" => {
+                        if let eure_value::value::Value::Code(code) = val {
+                            test_case = test_case.with_input(code.content.clone());
+                        }
+                    }
+                    "normalized" => {
+                        if let eure_value::value::Value::Code(code) = val {
+                            test_case = test_case.with_normalized(code.content.clone());
+                        }
+                    }
+                    "json" => {
+                        if let eure_value::value::Value::Code(code) = val {
+                            test_case = test_case.with_json(code.content.clone());
+                        }
+                    }
+                    "error" => {
+                        if let eure_value::value::Value::Code(code) = val {
+                            test_case = test_case.with_error(code.content.clone());
+                        }
+                    }
+                    _ => {} // Ignore unknown fields
                 }
             }
         }

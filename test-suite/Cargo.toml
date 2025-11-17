@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eure-tree = { path = "../crates/eure-tree" }
-eure-parol = { path = "../crates/eure-parol" }
-eure-value = { path = "../crates/eure-value" }
-eure-json = { path = "../crates/eure-json" }
-anyhow = "1.0"
-serde_json = "1.0"
+eure-tree = { workspace = true }
+eure-parol = { workspace = true }
+eure-value = { workspace = true }
+eure-json = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
