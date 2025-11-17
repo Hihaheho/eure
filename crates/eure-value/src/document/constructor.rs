@@ -54,6 +54,10 @@ impl DocumentConstructor {
         self.document.node(self.current_node_id())
     }
 
+    pub fn current_node_mut(&mut self) -> &mut Node {
+        self.document.node_mut(self.current_node_id())
+    }
+
     pub fn current_path(&self) -> &[PathSegment] {
         self.stack
             .last()
@@ -134,6 +138,19 @@ impl DocumentConstructor {
         self.stack.pop();
         Ok(())
     }
+
+    /// Bind a primitive value to the current node. Error if already bound.
+    pub fn bind_primitive(&mut self, value: PrimitiveValue) -> Result<(), InsertError> {
+        let node = self.current_node_mut();
+        if !matches!(node.content, NodeValue::Uninitialized) {
+            return Err(InsertError {
+                kind: InsertErrorKind::BindingTargetHasValue,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            });
+        }
+        node.content = NodeValue::Primitive(value);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -160,7 +177,7 @@ mod tests {
         let constructor = DocumentConstructor::new();
 
         let node = constructor.current_node();
-        assert!(node.as_map().is_some());
+        assert!(matches!(node.content, NodeValue::Uninitialized));
     }
 
     #[test]
@@ -411,5 +428,57 @@ mod tests {
         // After the error, constructor should still be at parent (stack was popped)
         assert_eq!(constructor.current_node_id(), parent_id);
         assert_eq!(constructor.current_path(), &[PathSegment::Ident(id1)]);
+    }
+
+    #[test]
+    fn test_bind_primitive_success() {
+        let mut constructor = DocumentConstructor::new();
+        let identifier = create_identifier("field");
+
+        // Push to a field node
+        let node_id = constructor
+            .push_path(&[PathSegment::Ident(identifier)])
+            .expect("Failed to push");
+
+        // Bind a primitive value to the node
+        let result = constructor.bind_primitive(PrimitiveValue::Bool(true));
+        assert_eq!(result, Ok(()));
+
+        // Verify the node content is set to Primitive
+        let node = constructor.document().node(node_id);
+        assert!(matches!(
+            node.content,
+            NodeValue::Primitive(PrimitiveValue::Bool(true))
+        ));
+    }
+
+    #[test]
+    fn test_bind_primitive_already_bound() {
+        let mut constructor = DocumentConstructor::new();
+        let identifier = create_identifier("field");
+
+        // Push to a field node
+        let node_id = constructor
+            .push_path(&[PathSegment::Ident(identifier.clone())])
+            .expect("Failed to push");
+
+        // Set the node to already have a value
+        constructor.document_mut().node_mut(node_id).content =
+            NodeValue::Primitive(PrimitiveValue::Null);
+
+        // Try to bind a primitive value (should fail)
+        let result = constructor.bind_primitive(PrimitiveValue::Bool(false));
+
+        assert_eq!(
+            result.unwrap_err().kind,
+            InsertErrorKind::BindingTargetHasValue
+        );
+
+        // Verify the node content remains unchanged
+        let node = constructor.document().node(node_id);
+        assert!(matches!(
+            node.content,
+            NodeValue::Primitive(PrimitiveValue::Null)
+        ));
     }
 }

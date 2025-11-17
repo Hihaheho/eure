@@ -463,7 +463,7 @@ mod tests {
         assert!(debug_output.contains("NodeMut"));
         assert!(debug_output.contains("NodeId"));
         assert!(debug_output.contains("Node"));
-        assert!(debug_output.contains("Map"));
+        assert!(debug_output.contains("Uninitialized"));
     }
 
     #[test]

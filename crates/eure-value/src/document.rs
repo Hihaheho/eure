@@ -163,7 +163,7 @@ impl EureDocument {
         Self {
             root: NodeId(0),
             nodes: vec![Node {
-                content: NodeValue::Map(Default::default()),
+                content: NodeValue::Uninitialized,
                 extensions: Map::new(),
             }],
         }
