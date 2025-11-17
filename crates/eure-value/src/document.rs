@@ -19,6 +19,7 @@ pub enum DocumentKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
+#[derive(Debug)]
 pub struct EureDocument {
     pub(crate) root: NodeId,
     nodes: Vec<Node>,
@@ -57,7 +58,121 @@ impl Default for EureDocument {
     }
 }
 
+impl PartialEq for EureDocument {
+    fn eq(&self, other: &Self) -> bool {
+        self.nodes_equal(self.root, other, other.root)
+    }
+}
+
 impl EureDocument {
+    /// Compare two nodes structurally, ignoring NodeId values
+    fn nodes_equal(&self, id1: NodeId, other: &EureDocument, id2: NodeId) -> bool {
+        let node1 = &self.nodes[id1.0];
+        let node2 = &other.nodes[id2.0];
+
+        // Compare extensions
+        if node1.extensions.len() != node2.extensions.len() {
+            return false;
+        }
+
+        for (key1, &child_id1) in &node1.extensions {
+            match node2.extensions.get(key1) {
+                Some(&child_id2) => {
+                    if !self.nodes_equal(child_id1, other, child_id2) {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+
+        // Compare content
+        self.node_values_equal(&node1.content, other, &node2.content)
+    }
+
+    /// Compare two NodeValues structurally
+    fn node_values_equal(
+        &self,
+        value1: &NodeValue,
+        other: &EureDocument,
+        value2: &NodeValue,
+    ) -> bool {
+        match (value1, value2) {
+            (NodeValue::Uninitialized, NodeValue::Uninitialized) => true,
+            (NodeValue::Primitive(p1), NodeValue::Primitive(p2)) => p1 == p2,
+            (NodeValue::Array(arr1), NodeValue::Array(arr2)) => {
+                self.node_arrays_equal(arr1, other, arr2)
+            }
+            (NodeValue::Tuple(tup1), NodeValue::Tuple(tup2)) => {
+                self.node_tuples_equal(tup1, other, tup2)
+            }
+            (NodeValue::Map(map1), NodeValue::Map(map2)) => self.node_maps_equal(map1, other, map2),
+            _ => false,
+        }
+    }
+
+    fn node_arrays_equal(
+        &self,
+        arr1: &crate::document::node::NodeArray,
+        other: &EureDocument,
+        arr2: &crate::document::node::NodeArray,
+    ) -> bool {
+        if arr1.0.len() != arr2.0.len() {
+            return false;
+        }
+
+        for (child_id1, child_id2) in arr1.0.iter().zip(arr2.0.iter()) {
+            if !self.nodes_equal(*child_id1, other, *child_id2) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    fn node_tuples_equal(
+        &self,
+        tup1: &crate::document::node::NodeTuple,
+        other: &EureDocument,
+        tup2: &crate::document::node::NodeTuple,
+    ) -> bool {
+        if tup1.0.len() != tup2.0.len() {
+            return false;
+        }
+
+        for (child_id1, child_id2) in tup1.0.iter().zip(tup2.0.iter()) {
+            if !self.nodes_equal(*child_id1, other, *child_id2) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    fn node_maps_equal(
+        &self,
+        map1: &crate::document::node::NodeMap,
+        other: &EureDocument,
+        map2: &crate::document::node::NodeMap,
+    ) -> bool {
+        if map1.0.len() != map2.0.len() {
+            return false;
+        }
+
+        for (key1, &child_id1) in &map1.0 {
+            match map2.0.get(key1) {
+                Some(&child_id2) => {
+                    if !self.nodes_equal(child_id1, other, child_id2) {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+
+        true
+    }
+
     pub fn new() -> Self {
         Self {
             root: NodeId(0),
@@ -1105,5 +1220,182 @@ mod tests {
 
         let result = doc.get_node_mut(invalid_id);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_partialeq_empty_documents() {
+        let doc1 = EureDocument::new();
+        let doc2 = EureDocument::new();
+        assert_eq!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_primitive_documents() {
+        let doc1 = EureDocument::new_primitive(PrimitiveValue::Bool(true));
+        let doc2 = EureDocument::new_primitive(PrimitiveValue::Bool(true));
+        let doc3 = EureDocument::new_primitive(PrimitiveValue::Bool(false));
+
+        assert_eq!(doc1, doc2);
+        assert_ne!(doc1, doc3);
+    }
+
+    #[test]
+    fn test_partialeq_with_map_children() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        let root1 = doc1.get_root_id();
+        let root2 = doc2.get_root_id();
+
+        let key = ObjectKey::String("test".to_string());
+
+        doc1.add_map_child(key.clone(), root1)
+            .expect("Failed to add child");
+        doc2.add_map_child(key.clone(), root2)
+            .expect("Failed to add child");
+
+        assert_eq!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_with_different_map_children() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        let root1 = doc1.get_root_id();
+        let root2 = doc2.get_root_id();
+
+        doc1.add_map_child(ObjectKey::String("key1".to_string()), root1)
+            .expect("Failed to add child");
+        doc2.add_map_child(ObjectKey::String("key2".to_string()), root2)
+            .expect("Failed to add child");
+
+        assert_ne!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_with_extensions() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        let root1 = doc1.get_root_id();
+        let root2 = doc2.get_root_id();
+
+        let ext_id = identifier("ext");
+
+        doc1.add_extension(ext_id.clone(), root1)
+            .expect("Failed to add extension");
+        doc2.add_extension(ext_id.clone(), root2)
+            .expect("Failed to add extension");
+
+        assert_eq!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_with_different_extensions() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        let root1 = doc1.get_root_id();
+        let root2 = doc2.get_root_id();
+
+        doc1.add_extension(identifier("ext1"), root1)
+            .expect("Failed to add extension");
+        doc2.add_extension(identifier("ext2"), root2)
+            .expect("Failed to add extension");
+
+        assert_ne!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_with_arrays() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        // Create array in doc1
+        let array_id1 = doc1.create_node(NodeValue::empty_array());
+        doc1.add_array_element(None, array_id1)
+            .expect("Failed to add array element");
+        doc1.root = array_id1;
+
+        // Create array in doc2
+        let array_id2 = doc2.create_node(NodeValue::empty_array());
+        doc2.add_array_element(None, array_id2)
+            .expect("Failed to add array element");
+        doc2.root = array_id2;
+
+        assert_eq!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_with_tuples() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        // Create tuple in doc1
+        let tuple_id1 = doc1.create_node(NodeValue::empty_tuple());
+        doc1.add_tuple_element(0, tuple_id1)
+            .expect("Failed to add tuple element");
+        doc1.root = tuple_id1;
+
+        // Create tuple in doc2
+        let tuple_id2 = doc2.create_node(NodeValue::empty_tuple());
+        doc2.add_tuple_element(0, tuple_id2)
+            .expect("Failed to add tuple element");
+        doc2.root = tuple_id2;
+
+        assert_eq!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_nested_structure() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        // Create nested structure in doc1
+        let root1 = doc1.get_root_id();
+        let child1 = doc1
+            .add_map_child(ObjectKey::String("child".to_string()), root1)
+            .expect("Failed to add child")
+            .node_id;
+        doc1.node_mut(child1).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
+
+        // Create nested structure in doc2
+        let root2 = doc2.get_root_id();
+        let child2 = doc2
+            .add_map_child(ObjectKey::String("child".to_string()), root2)
+            .expect("Failed to add child")
+            .node_id;
+        doc2.node_mut(child2).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
+
+        assert_eq!(doc1, doc2);
+    }
+
+    #[test]
+    fn test_partialeq_ignores_node_id_values() {
+        let mut doc1 = EureDocument::new();
+        let mut doc2 = EureDocument::new();
+
+        // Create a more complex structure in doc1
+        let root1 = doc1.get_root_id();
+        let _intermediate = doc1.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+        let child1 = doc1
+            .add_map_child(ObjectKey::String("key".to_string()), root1)
+            .expect("Failed")
+            .node_id;
+
+        // Create the same structure in doc2 (without intermediate node)
+        let root2 = doc2.get_root_id();
+        let child2 = doc2
+            .add_map_child(ObjectKey::String("key".to_string()), root2)
+            .expect("Failed")
+            .node_id;
+
+        // Even though child1 and child2 have different NodeId values,
+        // the structures should be equal
+        assert_eq!(doc1, doc2);
+
+        // Verify that NodeIds are actually different
+        assert_ne!(child1.0, child2.0);
     }
 }
