@@ -1379,47 +1379,73 @@ impl NonTerminalHandle for EureRootHandle {
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
     ) -> Result<O, CstConstructError<E>> {
-        let mut children = tree.children(self.0);
-        let Some(child) = children.next() else {
-            return Err(ViewConstructionError::UnexpectedEndOfChildren {
-                parent: self.0,
-            });
-        };
-        let Some(child_data) = tree.node_data(child) else {
-            return Err(ViewConstructionError::NodeIdNotFound {
-                node: child,
-            });
-        };
-        let variant = match child_data.node_kind() {
-            NodeKind::NonTerminal(NonTerminalKind::Bind) => {
-                EureRootView::Bind(BindHandle(child))
-            }
-            NodeKind::NonTerminal(NonTerminalKind::Eure) => {
-                EureRootView::Eure(EureHandle(child))
-            }
-            _ => {
-                return Err(ViewConstructionError::UnexpectedNode {
-                    node: child,
-                    data: child_data,
-                    expected_kind: child_data.node_kind(),
-                });
-            }
-        };
-        let (result, _visit) = visit(variant, visit_ignored);
-        if let Some(child) = children.next() {
-            return Err(ViewConstructionError::UnexpectedExtraNode {
-                node: child,
-            });
-        }
-        Ok(result)
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::EureRootOpt),
+                NodeKind::NonTerminal(NonTerminalKind::Eure),
+            ],
+            |[eure_root_opt, eure], visit_ignored| Ok(
+                visit(
+                    EureRootView {
+                        eure_root_opt: EureRootOptHandle(eure_root_opt),
+                        eure: EureHandle(eure),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EureRootView {
-    Bind(BindHandle),
-    Eure(EureHandle),
+pub struct EureRootView {
+    pub eure_root_opt: EureRootOptHandle,
+    pub eure: EureHandle,
 }
 impl EureRootView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EureRootOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for EureRootOptHandle {
+    type View = Option<RootBindingHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::EureRootOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::EureRootOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(
+            visit(
+                    Some(
+                        RootBindingHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
+        )
+    }
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExtHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for ExtHandle {
@@ -2661,6 +2687,59 @@ pub struct RParenView {
     pub r_paren: RParen,
 }
 impl RParenView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RootBindingHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for RootBindingHandle {
+    type View = RootBindingView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::RootBinding)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::RootBinding
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::Bind),
+                NodeKind::NonTerminal(NonTerminalKind::Value),
+            ],
+            |[bind, value], visit_ignored| Ok(
+                visit(
+                    RootBindingView {
+                        bind: BindHandle(bind),
+                        value: ValueHandle(value),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RootBindingView {
+    pub bind: BindHandle,
+    pub value: ValueHandle,
+}
+impl RootBindingView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SectionHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for SectionHandle {

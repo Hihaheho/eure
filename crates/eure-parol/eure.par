@@ -13,9 +13,10 @@
 
 %%
 
-EureRoot: Bind Value | Eure ;
+EureRoot: [ RootBinding ] Eure ;
 Eure: { Binding } { Section } ;
 
+RootBinding: Bind Value ;
 Binding: Keys BindingRhs ;
   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
   ValueBinding: Bind Value ;
