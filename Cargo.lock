@@ -705,6 +705,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db05ffb6856bf0ecdf6367558a76a0e8a77b1713044eb92845c692100ed50190"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "cookie"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1966,7 +1975,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "chrono",
- "convert_case 0.6.0",
+ "convert_case 0.9.0",
  "eure-derive",
  "eure-parol",
  "eure-tree",
@@ -1975,7 +1984,7 @@ dependencies = [
  "regex",
  "semver",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "url",
  "uuid",
 ]
@@ -1994,8 +2003,6 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "bon",
- "eure-parol",
- "eure-value",
  "thiserror 2.0.17",
  "thisisplural",
 ]

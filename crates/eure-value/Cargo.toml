@@ -17,5 +17,5 @@ thiserror = { workspace = true }
 thisisplural = { workspace = true }
 
 [features]
-default = []
+default = ["std"]
 std = ["ahash/runtime-rng", "ahash/std", "dep:ahash", "regex/perf"]

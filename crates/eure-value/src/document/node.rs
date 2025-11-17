@@ -191,10 +191,10 @@ impl NodeValue {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Plural)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
 pub struct NodeArray(pub Vec<NodeId>);
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Plural)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
 #[plural(len, is_empty, iter, into_iter, into_iter_ref, new)]
 pub struct NodeMap(pub Map<DocumentKey, NodeId>);
 

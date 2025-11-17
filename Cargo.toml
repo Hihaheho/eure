@@ -24,6 +24,7 @@ lsp-types = "0.97.0"
 num-bigint = "0.4"
 parol = "4.1"
 parol_runtime = "4"
+regex = "1.11"
 scnr2 = "0.3.3"
 serde = "1"
 serde-eure = { path = "crates/serde-eure", version = "0.1.0" }

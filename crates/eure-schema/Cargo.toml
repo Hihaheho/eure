@@ -3,36 +3,34 @@ name = "eure-schema"
 version = "0.1.0"
 edition = "2024"
 description = "Schema specification and validation for EURE"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "schema", "validation", "specification"]
+license = "MIT OR Apache-2.0"
+keywords = ["eure", "schema", "specification", "validation"]
 
 [dependencies]
-eure-tree = { path = "../eure-tree" }
-eure-value = { path = "../eure-value" }
-serde_json = "1.0"
-regex = "1.11"
-eure-parol = { path = "../eure-parol" }
-indexmap = { version = "2.0", features = ["serde"] }
-thiserror = "1.0"
-ahash = "0.8"
-convert_case = "0.6"
-
+ahash = { workspace = true }
 # Optional dependencies for external crate support
 chrono = { version = "0.4", optional = true }
-uuid = { version = "1.0", optional = true }
-url = { version = "2.0", optional = true }
-semver = { version = "1.0", optional = true }
-
+convert_case = "0.9"
 # Optional derive macro support
-eure-derive = { path = "../eure-derive", optional = true }
+eure-derive = { workspace = true, optional = true }
+eure-parol = { workspace = true }
+eure-tree = { workspace = true }
+eure-value = { workspace = true }
+indexmap = { workspace = true, features = ["serde"] }
+regex = { workspace = true }
+semver = { version = "1.0", optional = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { version = "2.0", optional = true }
+uuid = { version = "1.0", optional = true }
 
 [features]
 default = []
 chrono = ["dep:chrono"]
-uuid = ["dep:uuid"]
-url = ["dep:url"]
-semver = ["dep:semver"]
 derive = ["dep:eure-derive"]
+semver = ["dep:semver"]
+url = ["dep:url"]
+uuid = ["dep:uuid"]

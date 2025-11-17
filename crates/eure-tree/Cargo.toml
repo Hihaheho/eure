@@ -12,12 +12,10 @@ keywords = ["ast", "data-structure", "eure", "tree"]
 [dependencies]
 ahash = { workspace = true, optional = true }
 bon = "3.0"
-eure-value = { workspace = true }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
 
 [dev-dependencies]
-eure-parol = { path = "../eure-parol" }
 
 [features]
 default = ["std"]

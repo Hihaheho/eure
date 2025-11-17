@@ -540,6 +540,8 @@ pub trait CstFacade: Sized {
     fn dynamic_token(&self, id: DynamicTokenId) -> Option<&str>;
 
     fn parent(&self, node: CstNodeId) -> Option<CstNodeId>;
+
+    fn root_handle(&self) -> RootHandle;
 }
 
 impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
@@ -595,6 +597,10 @@ impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
 
     fn parent(&self, node: CstNodeId) -> Option<CstNodeId> {
         ConcreteSyntaxTree::parent(self, node)
+    }
+
+    fn root_handle(&self) -> RootHandle {
+        ConcreteSyntaxTree::root_handle(self)
     }
 }
 

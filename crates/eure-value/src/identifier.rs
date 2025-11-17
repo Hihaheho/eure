@@ -60,12 +60,18 @@ impl IdentifierParser {
     }
 }
 
-#[cfg(feature = "std")]
-impl FromStr for Identifier {
+impl core::str::FromStr for Identifier {
     type Err = IdentifierError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        IDENTIFIER_PARSER.parse(s)
+        #[cfg(feature = "std")]
+        {
+            IDENTIFIER_PARSER.parse(s)
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            IdentifierParser::init().parse(s)
+        }
     }
 }
 
@@ -122,15 +128,6 @@ mod tests {
     use core::str::FromStr;
 
     use super::*;
-
-    impl FromStr for Identifier {
-        type Err = IdentifierError;
-
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let parser = IdentifierParser::init();
-            parser.parse(s)
-        }
-    }
 
     #[test]
     fn test_identifier() {
