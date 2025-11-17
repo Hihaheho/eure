@@ -9,6 +9,8 @@
 !docs/**/*.md
 
 !crates/**/*.rs
+!test-suite/**/*.rs
+!test-suite/**/*.eure
 !Cargo.toml
 !Cargo.lock
 

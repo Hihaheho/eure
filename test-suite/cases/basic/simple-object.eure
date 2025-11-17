@@ -1,0 +1,24 @@
+# Test case: Simple object with key-value pairs
+description = "Simple object with key-value pairs"
+
+input = ```eure
+name = "EURE"
+version = "0.1.0"
+active = true
+```
+
+normalized = ```eure
+= {
+  name = "EURE"
+  version = "0.1.0"
+  active = true
+}
+```
+
+json = ```json
+{
+  "name": "EURE",
+  "version": "0.1.0",
+  "active": true
+}
+```

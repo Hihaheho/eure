@@ -1,7 +1,6 @@
 mod span;
 
-use ahash::HashMap;
-use std::{collections::BTreeMap, convert::Infallible};
+use std::{collections::HashMap, collections::BTreeMap, convert::Infallible};
 use thiserror::Error;
 
 pub use span::*;

@@ -1,0 +1,19 @@
+# Test case: Array indexing with [] notation
+description = "Array indexing with [] notation"
+
+input = ```eure
+actions[] = "build"
+actions[] = "test"
+```
+
+normalized = ```eure
+= {
+  actions = ["build", "test"]
+}
+```
+
+json = ```json
+{
+  "actions": ["build", "test"]
+}
+```

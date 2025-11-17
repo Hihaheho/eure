@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = ["crates/*", "test-suite"]
 
 [workspace.dependencies]
 ahash = { version = "0.8.11", default-features = false }
