@@ -3,7 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::{parse_test_case, TestCase, TestResults, TestFailure};
-use crate::test_case::ScenarioKind;
 
 pub struct TestRunner {
     cases_dir: PathBuf,
@@ -75,7 +74,7 @@ impl TestRunner {
         // Run all applicable tests for this test case
 
         // Test 1: If both input and normalized exist, parse both and compare
-        if test_case.has_input() && test_case.has_normalized() {
+        if test_case.input_scenario().is_some() && test_case.normalized_scenario().is_some() {
             if let Err(e) = self.test_input_normalized_equivalence(test_case) {
                 results.add_failure(TestFailure::new(
                     format!("{} (input <-> normalized)", test_case.name),
@@ -86,7 +85,7 @@ impl TestRunner {
         }
 
         // Test 2: If both input and json exist, parse input and compare JSON
-        if test_case.has_input() && test_case.has_json() {
+        if test_case.input_scenario().is_some() && test_case.json_scenario().is_some() {
             if let Err(e) = self.test_input_json_conversion(test_case) {
                 results.add_failure(TestFailure::new(
                     format!("{} (input -> JSON)", test_case.name),
@@ -97,7 +96,7 @@ impl TestRunner {
         }
 
         // Test 3: If both normalized and json exist, convert and compare
-        if test_case.has_normalized() && test_case.has_json() {
+        if test_case.normalized_scenario().is_some() && test_case.json_scenario().is_some() {
             if let Err(e) = self.test_normalized_json_conversion(test_case) {
                 results.add_failure(TestFailure::new(
                     format!("{} (normalized -> JSON)", test_case.name),
@@ -113,11 +112,11 @@ impl TestRunner {
 
     /// Test that input and normalized are equivalent
     fn test_input_normalized_equivalence(&self, test_case: &TestCase) -> Result<()> {
-        let input = test_case.get_scenario(&ScenarioKind::Input).unwrap();
-        let normalized = test_case.get_scenario(&ScenarioKind::Normalized).unwrap();
+        let input = test_case.input_scenario().unwrap();
+        let normalized = test_case.normalized_scenario().unwrap();
 
-        let input_doc = self.parse_to_document(&input.content)?;
-        let normalized_doc = self.parse_to_document(&normalized.content)?;
+        let input_doc = self.parse_to_document(input)?;
+        let normalized_doc = self.parse_to_document(normalized)?;
 
         if input_doc != normalized_doc {
             anyhow::bail!(
@@ -132,14 +131,14 @@ impl TestRunner {
 
     /// Test that input converts to expected JSON
     fn test_input_json_conversion(&self, test_case: &TestCase) -> Result<()> {
-        let input = test_case.get_scenario(&ScenarioKind::Input).unwrap();
-        let expected_json = test_case.get_scenario(&ScenarioKind::Json).unwrap();
+        let input = test_case.input_scenario().unwrap();
+        let expected_json = test_case.json_scenario().unwrap();
 
-        let value = self.parse_to_value(&input.content)?;
+        let value = self.parse_to_value(input)?;
         let actual_json = eure_json::value_to_json(&value)
             .context("Failed to convert value to JSON")?;
 
-        let expected: serde_json::Value = serde_json::from_str(&expected_json.content)
+        let expected: serde_json::Value = serde_json::from_str(expected_json)
             .context("Failed to parse expected JSON")?;
 
         if actual_json != expected {
@@ -155,14 +154,14 @@ impl TestRunner {
 
     /// Test that normalized converts to expected JSON
     fn test_normalized_json_conversion(&self, test_case: &TestCase) -> Result<()> {
-        let normalized = test_case.get_scenario(&ScenarioKind::Normalized).unwrap();
-        let expected_json = test_case.get_scenario(&ScenarioKind::Json).unwrap();
+        let normalized = test_case.normalized_scenario().unwrap();
+        let expected_json = test_case.json_scenario().unwrap();
 
-        let value = self.parse_to_value(&normalized.content)?;
+        let value = self.parse_to_value(normalized)?;
         let actual_json = eure_json::value_to_json(&value)
             .context("Failed to convert value to JSON")?;
 
-        let expected: serde_json::Value = serde_json::from_str(&expected_json.content)
+        let expected: serde_json::Value = serde_json::from_str(expected_json)
             .context("Failed to parse expected JSON")?;
 
         if actual_json != expected {

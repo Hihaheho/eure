@@ -1,54 +1,12 @@
-use std::collections::HashMap;
-
 /// Represents a single test case with multiple test scenarios
 #[derive(Debug, Clone)]
 pub struct TestCase {
     pub name: String,
     pub description: Option<String>,
-    pub scenarios: HashMap<String, TestScenario>,
-}
-
-/// A single test scenario within a test case
-#[derive(Debug, Clone)]
-pub struct TestScenario {
-    pub kind: ScenarioKind,
-    pub content: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ScenarioKind {
-    /// Input EURE source code
-    Input,
-    /// Normalized form - document as a single object
-    Normalized,
-    /// Expected JSON output
-    Json,
-    /// Expected error (for negative test cases)
-    Error,
-    /// Other custom scenario types
-    Custom(String),
-}
-
-impl ScenarioKind {
-    pub fn from_name(name: &str) -> Self {
-        match name {
-            "input" => Self::Input,
-            "normalized" => Self::Normalized,
-            "json" => Self::Json,
-            "error" => Self::Error,
-            other => Self::Custom(other.to_string()),
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Input => "input",
-            Self::Normalized => "normalized",
-            Self::Json => "json",
-            Self::Error => "error",
-            Self::Custom(s) => s,
-        }
-    }
+    pub input: Option<String>,
+    pub normalized: Option<String>,
+    pub json: Option<String>,
+    pub error: Option<String>,
 }
 
 impl TestCase {
@@ -56,7 +14,10 @@ impl TestCase {
         Self {
             name,
             description: None,
-            scenarios: HashMap::new(),
+            input: None,
+            normalized: None,
+            json: None,
+            error: None,
         }
     }
 
@@ -65,26 +26,39 @@ impl TestCase {
         self
     }
 
-    pub fn add_scenario(&mut self, kind: ScenarioKind, content: String) {
-        self.scenarios.insert(
-            kind.as_str().to_string(),
-            TestScenario { kind, content },
-        );
+    pub fn with_input(mut self, input: String) -> Self {
+        self.input = Some(input);
+        self
     }
 
-    pub fn get_scenario(&self, kind: &ScenarioKind) -> Option<&TestScenario> {
-        self.scenarios.get(kind.as_str())
+    pub fn with_normalized(mut self, normalized: String) -> Self {
+        self.normalized = Some(normalized);
+        self
     }
 
-    pub fn has_input(&self) -> bool {
-        self.scenarios.contains_key("input")
+    pub fn with_json(mut self, json: String) -> Self {
+        self.json = Some(json);
+        self
     }
 
-    pub fn has_normalized(&self) -> bool {
-        self.scenarios.contains_key("normalized")
+    pub fn with_error(mut self, error: String) -> Self {
+        self.error = Some(error);
+        self
     }
 
-    pub fn has_json(&self) -> bool {
-        self.scenarios.contains_key("json")
+    pub fn input_scenario(&self) -> Option<&str> {
+        self.input.as_deref()
+    }
+
+    pub fn normalized_scenario(&self) -> Option<&str> {
+        self.normalized.as_deref()
+    }
+
+    pub fn json_scenario(&self) -> Option<&str> {
+        self.json.as_deref()
+    }
+
+    pub fn error_scenario(&self) -> Option<&str> {
+        self.error.as_deref()
     }
 }
