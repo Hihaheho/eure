@@ -30,14 +30,6 @@ impl LineNumbers<'_> {
         }
     }
 
-    /// Get the line number for a character index (0-indexed)
-    /// This method is kept for backward compatibility but is now deprecated.
-    /// Use get_char_info instead.
-    #[deprecated(since = "0.1.0", note = "Use get_char_info instead")]
-    pub fn get_line_number(&self, index: u32) -> u32 {
-        self.get_char_info(index).line_number
-    }
-
     /// Get detailed character position information for a given character index
     pub fn get_char_info(&self, index: u32) -> CharInfo {
         // Find the number of newline characters that come before this index

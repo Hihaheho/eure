@@ -5,6 +5,7 @@ members = ["crates/*"]
 [workspace.dependencies]
 ahash = { version = "0.8.11", default-features = false }
 anyhow = "1"
+eros = "0.5"
 eure = { path = "crates/eure", version = "0.1.0" }
 eure-derive = { path = "crates/eure-derive", version = "0.1.0" }
 eure-editor-support = { path = "crates/eure-editor-support", version = "0.1.0" }

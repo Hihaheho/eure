@@ -1818,6 +1818,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "eros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad9341cedb6ffac3baaa65b22605e5029015e67efb1e5304eeaa90e8f6200874"
+
+[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1840,6 +1846,13 @@ dependencies = [
 [[package]]
 name = "eure"
 version = "0.1.0"
+dependencies = [
+ "eros",
+ "eure-parol",
+ "eure-tree",
+ "eure-value",
+ "thiserror 2.0.17",
+]
 
 [[package]]
 name = "eure-cli"

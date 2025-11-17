@@ -1,11 +1,9 @@
-use crate::{nodes::*, visitor::CstVisitorSuper as _};
+use eure_tree::prelude::*;
 use eure_value::document::{EureDocument, InsertError, constructor::DocumentConstructor};
 use thiserror::Error;
 
-use crate::{CstConstructError, tree::CstFacade, visitor::CstVisitor};
-
 #[derive(Debug, Error)]
-pub enum ValueVisitorError {
+pub enum DocumentConstructionError {
     #[error(transparent)]
     CstError(#[from] CstConstructError),
     #[error("Invalid identifier: {0}")]
@@ -38,7 +36,7 @@ impl<'a> ValueVisitor<'a> {
 }
 
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
-    type Error = ValueVisitorError;
+    type Error = DocumentConstructionError;
 
     // Constructs an array node (e.g., [1, 2, 3])
     fn visit_array(
@@ -419,7 +417,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_float_terminal(
         &mut self,
         terminal: Float,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_float_terminal_super(terminal, data, tree)
@@ -429,7 +427,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_integer_terminal(
         &mut self,
         terminal: Integer,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_integer_terminal_super(terminal, data, tree)
@@ -439,7 +437,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_true_terminal(
         &mut self,
         terminal: True,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_true_terminal_super(terminal, data, tree)
@@ -449,7 +447,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_false_terminal(
         &mut self,
         terminal: False,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_false_terminal_super(terminal, data, tree)
@@ -459,7 +457,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_null_terminal(
         &mut self,
         terminal: Null,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_null_terminal_super(terminal, data, tree)
@@ -469,7 +467,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_hole_terminal(
         &mut self,
         terminal: Hole,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_hole_terminal_super(terminal, data, tree)
@@ -479,7 +477,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_str_terminal(
         &mut self,
         terminal: Str,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_str_terminal_super(terminal, data, tree)
@@ -489,7 +487,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_text_terminal(
         &mut self,
         terminal: Text,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_text_terminal_super(terminal, data, tree)
@@ -499,7 +497,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_code_block_terminal(
         &mut self,
         terminal: CodeBlock,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_code_block_terminal_super(terminal, data, tree)
@@ -509,7 +507,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_named_code_terminal(
         &mut self,
         terminal: NamedCode,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_named_code_terminal_super(terminal, data, tree)
@@ -519,7 +517,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_code_terminal(
         &mut self,
         terminal: Code,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_code_terminal_super(terminal, data, tree)
@@ -529,7 +527,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_ident_terminal(
         &mut self,
         terminal: Ident,
-        data: crate::prelude::TerminalData,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_ident_terminal_super(terminal, data, tree)
@@ -538,9 +536,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     // Generic handler for non-terminal nodes
     fn visit_non_terminal(
         &mut self,
-        id: crate::prelude::CstNodeId,
-        kind: crate::prelude::NonTerminalKind,
-        data: crate::prelude::NonTerminalData,
+        id: CstNodeId,
+        kind: NonTerminalKind,
+        data: NonTerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_non_terminal_super(id, kind, data, tree)
@@ -549,9 +547,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     // Generic handler for closing non-terminal nodes
     fn visit_non_terminal_close(
         &mut self,
-        id: crate::prelude::CstNodeId,
-        kind: crate::prelude::NonTerminalKind,
-        data: crate::prelude::NonTerminalData,
+        id: CstNodeId,
+        kind: NonTerminalKind,
+        data: NonTerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_non_terminal_close_super(id, kind, data, tree)
@@ -560,9 +558,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     // Generic handler for terminal nodes
     fn visit_terminal(
         &mut self,
-        id: crate::prelude::CstNodeId,
-        kind: crate::prelude::TerminalKind,
-        data: crate::prelude::TerminalData,
+        id: CstNodeId,
+        kind: TerminalKind,
+        data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_terminal_super(id, kind, data, tree)
@@ -571,9 +569,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     // Recovers from CST construction errors
     fn then_construct_error(
         &mut self,
-        node_data: Option<crate::CstNode>,
-        parent: crate::prelude::CstNodeId,
-        kind: crate::NodeKind,
+        node_data: Option<CstNode>,
+        parent: CstNodeId,
+        kind: NodeKind,
         error: CstConstructError,
         tree: &F,
     ) -> Result<(), Self::Error> {

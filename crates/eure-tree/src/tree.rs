@@ -8,10 +8,9 @@ pub use span::*;
 
 use crate::{
     CstConstructError,
-    common_visitors::{FormatVisitor, FormatVisitorError, InspectVisitor},
     node_kind::{NodeKind, NonTerminalKind, TerminalKind},
     nodes::{BlockComment, LineComment, NewLine, RootHandle, Whitespace},
-    visitor::{BuiltinTerminalVisitor, CstVisitor, CstVisitorSuper as _},
+    visitor::{BuiltinTerminalVisitor, CstVisitor},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -477,26 +476,6 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
 
     pub fn root_handle(&self) -> RootHandle {
         RootHandle(self.root())
-    }
-
-    pub fn write(
-        &self,
-        input: &str,
-        w: &mut impl std::fmt::Write,
-    ) -> Result<(), FormatVisitorError> {
-        let mut visitor = FormatVisitor::new(input, w);
-        visitor.visit_root_handle(self.root_handle(), self)?;
-        Ok(())
-    }
-
-    pub fn inspect(
-        &self,
-        input: &str,
-        w: &mut impl std::fmt::Write,
-    ) -> Result<(), FormatVisitorError> {
-        let mut visitor = InspectVisitor::new(input, w);
-        visitor.visit_root_handle(self.root_handle(), self)?;
-        Ok(())
     }
 
     pub fn visit_from_root<V: CstVisitor<Self>>(&self, visitor: &mut V) -> Result<(), V::Error> {
