@@ -1,6 +1,7 @@
 pub mod constructor;
 pub mod node;
 
+use crate::document::node::{NodeArray, NodeMap, NodeTuple};
 use crate::prelude_internal::*;
 
 /// This does not include MetaExt since, PathSegment::Extension is encoded into Node::extensions, and PathSegment::MetaExt is encoded as InternalKey::MetaExtension, and PathSegment::Array is encoded as NodeContent::Array.
@@ -111,12 +112,7 @@ impl EureDocument {
         }
     }
 
-    fn node_arrays_equal(
-        &self,
-        arr1: &crate::document::node::NodeArray,
-        other: &EureDocument,
-        arr2: &crate::document::node::NodeArray,
-    ) -> bool {
+    fn node_arrays_equal(&self, arr1: &NodeArray, other: &EureDocument, arr2: &NodeArray) -> bool {
         if arr1.0.len() != arr2.0.len() {
             return false;
         }
@@ -130,12 +126,7 @@ impl EureDocument {
         true
     }
 
-    fn node_tuples_equal(
-        &self,
-        tup1: &crate::document::node::NodeTuple,
-        other: &EureDocument,
-        tup2: &crate::document::node::NodeTuple,
-    ) -> bool {
+    fn node_tuples_equal(&self, tup1: &NodeTuple, other: &EureDocument, tup2: &NodeTuple) -> bool {
         if tup1.0.len() != tup2.0.len() {
             return false;
         }
@@ -149,12 +140,7 @@ impl EureDocument {
         true
     }
 
-    fn node_maps_equal(
-        &self,
-        map1: &crate::document::node::NodeMap,
-        other: &EureDocument,
-        map2: &crate::document::node::NodeMap,
-    ) -> bool {
+    fn node_maps_equal(&self, map1: &NodeMap, other: &EureDocument, map2: &NodeMap) -> bool {
         if map1.0.len() != map2.0.len() {
             return false;
         }
