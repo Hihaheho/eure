@@ -50,8 +50,6 @@ pub enum ObjectKey {
     Number(BigInt),
     String(String),
     Tuple(Tuple<ObjectKey>),
-    /// Meta-extension key (Ident with $$ grammar token)
-    MetaExtension(Identifier),
 }
 
 impl core::fmt::Display for ObjectKey {
@@ -61,7 +59,6 @@ impl core::fmt::Display for ObjectKey {
             ObjectKey::Number(big_int) => write!(f, "{}", big_int),
             ObjectKey::String(string) => write!(f, "{}", string),
             ObjectKey::Tuple(tuple) => write!(f, "{}", tuple),
-            ObjectKey::MetaExtension(identifier) => write!(f, "$${}", identifier),
         }
     }
 }

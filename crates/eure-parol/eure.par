@@ -39,10 +39,9 @@ Section: At Keys SectionBody ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: Ident | ExtensionNameSpace | Str | Integer | MetaExtKey | Null | True | False | Hole ;
+  KeyBase: Ident | ExtensionNameSpace | Str | Integer | Null | True | False | Hole ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext Ident ;
-  MetaExtKey: MetaExt Ident ;
 
 Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | InlineCode | Path ;
   Object: Begin { Key Bind Value [ Comma ] } End ;
@@ -109,7 +108,6 @@ NoBacktickInline: <InInlineCode2>/[^`\r\n]+/ ;
 GrammarNewline: <Text>/\r\n|\r|\n/ ;
 Ws: <Text>/[\s--\r\n]+/ ;
 At: '@' ;
-MetaExt: '$$' ;
 Ext: '$' ;
 Dot: '.' ;
 Begin: '{' ;

@@ -48,16 +48,16 @@ $my-extension {
 
 Note: Extensions within extensions don't use the `$` syntax again.
 
-## Meta-Extensions
+## Extension Type Definitions
 
-Meta-extensions (using `$$` syntax) define schemas and constraints for regular extensions:
+Extension types can be defined using the `$ext-type` namespace to provide type information and validation for extensions:
 
 ```eure
 # Define that $optional extension must be a boolean
-$$optional = .boolean
+$ext-type.optional = .boolean
 
 # Define structure for $validation extension
-$$validation {
+$ext-type.validation {
     min = .number
     max = .number
     pattern = .string
@@ -73,7 +73,7 @@ field {
 }
 ```
 
-Meta-extensions use `DocumentKey::MetaExtension` in the document model and help validate extension usage.
+The `$ext-type` namespace is used in schema files to define the expected types for extensions.
 
 ## Standard Extensions
 
@@ -152,7 +152,7 @@ Extensions are metadata stored separately from data:
 
 ### No String Manipulation
 
-The `$` and `$$` symbols are part of the EURE grammar, not string prefixes:
+The `$` symbol is part of the EURE grammar, not a string prefix:
 - Never use string operations like `starts_with("$")` or `strip_prefix("$")`
 - The parser recognizes extension syntax at the grammatical level
 - Extension names are stored as identifiers, not strings with prefixes
@@ -176,4 +176,4 @@ The separation of extensions from data ensures:
 1. **Clean data models**: Data remains pure without metadata pollution
 2. **Forward compatibility**: New extensions can be added without breaking existing data
 3. **Tool flexibility**: Different tools can use different extensions without conflicts
-4. **Type safety**: Extensions have their own type system via meta-extensions
+4. **Type safety**: Extensions can have type definitions via the `$ext-type` namespace

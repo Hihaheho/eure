@@ -493,23 +493,6 @@ impl From<AtToken> for BuilderNodeId {
         token.node_id
     }
 }
-///Branded type for DollarDollar terminal
-#[derive(Debug, Clone)]
-pub struct DollarDollarToken {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl DollarDollarToken {
-    /// Consume this token and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<DollarDollarToken> for BuilderNodeId {
-    fn from(token: DollarDollarToken) -> Self {
-        token.node_id
-    }
-}
 ///Branded type for Dollar terminal
 #[derive(Debug, Clone)]
 pub struct DollarToken {
@@ -1969,40 +1952,6 @@ impl LParenNode {
 }
 impl From<LParenNode> for BuilderNodeId {
     fn from(node: LParenNode) -> Self {
-        node.node_id
-    }
-}
-///Branded type for MetaExt non-terminal
-#[derive(Debug, Clone)]
-pub struct MetaExtNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl MetaExtNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<MetaExtNode> for BuilderNodeId {
-    fn from(node: MetaExtNode) -> Self {
-        node.node_id
-    }
-}
-///Branded type for MetaExtKey non-terminal
-#[derive(Debug, Clone)]
-pub struct MetaExtKeyNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl MetaExtKeyNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<MetaExtKeyNode> for BuilderNodeId {
-    fn from(node: MetaExtKeyNode) -> Self {
         node.node_id
     }
 }
@@ -3746,7 +3695,6 @@ pub enum KeyBaseConstructor {
     ExtensionNameSpace(ExtensionNameSpaceNode),
     Str(StrNode),
     Integer(IntegerNode),
-    MetaExtKey(MetaExtKeyNode),
     Null(NullNode),
     True(TrueNode),
     False(FalseNode),
@@ -3760,7 +3708,6 @@ impl KeyBaseConstructor {
             Self::ExtensionNameSpace(node) => builder.embed(node.builder),
             Self::Str(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
-            Self::MetaExtKey(node) => builder.embed(node.builder),
             Self::Null(node) => builder.embed(node.builder),
             Self::True(node) => builder.embed(node.builder),
             Self::False(node) => builder.embed(node.builder),
@@ -3835,34 +3782,6 @@ impl LParenConstructor {
         let l_paren = builder.embed(self.l_paren.builder);
         let node_id = builder.non_terminal(NonTerminalKind::LParen, vec![l_paren]);
         LParenNode { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
-pub struct MetaExtConstructor {
-    dollar_dollar: DollarDollarToken,
-}
-impl MetaExtConstructor {
-    pub fn build(self) -> MetaExtNode {
-        let mut builder = CstBuilder::new();
-        let dollar_dollar = builder.embed(self.dollar_dollar.builder);
-        let node_id = builder
-            .non_terminal(NonTerminalKind::MetaExt, vec![dollar_dollar]);
-        MetaExtNode { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
-pub struct MetaExtKeyConstructor {
-    meta_ext: MetaExtNode,
-    ident: IdentNode,
-}
-impl MetaExtKeyConstructor {
-    pub fn build(self) -> MetaExtKeyNode {
-        let mut builder = CstBuilder::new();
-        let meta_ext = builder.embed(self.meta_ext.builder);
-        let ident = builder.embed(self.ident.builder);
-        let node_id = builder
-            .non_terminal(NonTerminalKind::MetaExtKey, vec![meta_ext, ident]);
-        MetaExtKeyNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4644,14 +4563,6 @@ pub mod terminals {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::At, "@");
         AtToken { node_id, builder }
-    }
-    pub fn dollar_dollar() -> DollarDollarToken {
-        let mut builder = CstBuilder::new();
-        let node_id = builder.terminal(TerminalKind::DollarDollar, "");
-        DollarDollarToken {
-            node_id,
-            builder,
-        }
     }
     pub fn dollar() -> DollarToken {
         let mut builder = CstBuilder::new();

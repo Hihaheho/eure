@@ -9,7 +9,7 @@ EURE Schema is embedded within EURE documents using extension namespaces (prefix
 ### Extension Levels
 
 - `$` - Regular extensions used in documents and schemas
-- `$$` - Meta extensions used only in the meta-schema (eure-schema.schema.eure) to define what extensions are available
+- `$ext-type` - Extension namespace used in meta-schemas to define type information for other extensions
 
 ## Core Type Extensions
 
@@ -360,6 +360,6 @@ Remember:
 
 ## Meta-Schema
 
-The EURE Schema system is self-hosted using meta-extensions (`$$` prefix) to define what extensions are available. For details about meta-extensions and how they work, see [extensions.md](./extensions.md#meta-extensions).
+The EURE Schema system is self-hosted using the `$ext-type` extension namespace to define type information for schema extensions. For details about extension type definitions, see [extensions.md](./extensions.md#extension-type-definitions).
 
 The complete meta-schema can be found in `eure-schema.schema.eure`.

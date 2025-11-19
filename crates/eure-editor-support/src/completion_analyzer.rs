@@ -280,7 +280,6 @@ impl<'a> CompletionAnalyzer<'a> {
         for (field_name, field_schema) in &object_schema.fields {
             let label = match field_name {
                 eure_value::value::ObjectKey::String(s) => s.clone(),
-                eure_value::value::ObjectKey::MetaExtension(s) => format!("${s}"),
                 _ => continue, // Skip non-string keys for completion
             };
             eprintln!("DEBUG get_field_completions: Adding field: {label}");

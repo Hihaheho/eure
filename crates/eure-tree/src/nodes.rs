@@ -3784,9 +3784,6 @@ impl NonTerminalHandle for KeyBaseHandle {
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 KeyBaseView::Integer(IntegerHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::MetaExtKey) => {
-                KeyBaseView::MetaExtKey(MetaExtKeyHandle(child))
-            }
             NodeKind::NonTerminal(NonTerminalKind::Null) => {
                 KeyBaseView::Null(NullHandle(child))
             }
@@ -3822,7 +3819,6 @@ pub enum KeyBaseView {
     ExtensionNameSpace(ExtensionNameSpaceHandle),
     Str(StrHandle),
     Integer(IntegerHandle),
-    MetaExtKey(MetaExtKeyHandle),
     Null(NullHandle),
     True(TrueHandle),
     False(FalseHandle),
@@ -4060,107 +4056,6 @@ pub struct LParenView {
     pub l_paren: LParen,
 }
 impl LParenView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MetaExtHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for MetaExtHandle {
-    type View = MetaExtView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::MetaExt)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::MetaExt
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::DollarDollar)],
-            |[dollar_dollar], visit_ignored| Ok(
-                visit(
-                    MetaExtView {
-                        dollar_dollar: DollarDollar(dollar_dollar),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MetaExtView {
-    pub dollar_dollar: DollarDollar,
-}
-impl MetaExtView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MetaExtKeyHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for MetaExtKeyHandle {
-    type View = MetaExtKeyView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::MetaExtKey)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::MetaExtKey
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [
-                NodeKind::NonTerminal(NonTerminalKind::MetaExt),
-                NodeKind::NonTerminal(NonTerminalKind::Ident),
-            ],
-            |[meta_ext, ident], visit_ignored| Ok(
-                visit(
-                    MetaExtKeyView {
-                        meta_ext: MetaExtHandle(meta_ext),
-                        ident: IdentHandle(ident),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MetaExtKeyView {
-    pub meta_ext: MetaExtHandle,
-    pub ident: IdentHandle,
-}
-impl MetaExtKeyView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NoBacktickHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for NoBacktickHandle {
@@ -6251,16 +6146,6 @@ impl TerminalHandle for At {
     }
     fn kind(&self) -> TerminalKind {
         TerminalKind::At
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DollarDollar(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for DollarDollar {
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn kind(&self) -> TerminalKind {
-        TerminalKind::DollarDollar
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
