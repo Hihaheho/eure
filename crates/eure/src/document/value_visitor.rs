@@ -1,6 +1,7 @@
 use eure_tree::tree::InputSpan; // Added import
 use eure_tree::{prelude::*, tree::TerminalHandle};
 use eure_value::{
+    code::Code,
     PrimitiveValue,
     document::{EureDocument, InsertError, constructor::DocumentConstructor},
     path::PathSegment,
@@ -90,12 +91,22 @@ struct CodeStart {
     terminals: TerminalTokens,
 }
 
+impl CodeStart {
+    fn new(backticks: u8, language: Option<String>) -> Self {
+        Self {
+            backticks,
+            language,
+            terminals: TerminalTokens::new(),
+        }
+    }
+}
+
 pub struct ValueVisitor<'a> {
     input: &'a str,
     // Main document being built
     document: DocumentConstructor,
     segments: Vec<PathSegment>,
-    code_start: Option<(CodeStart, String)>,
+    code_start: Option<CodeStart>,
 }
 
 impl<'a> ValueVisitor<'a> {
@@ -105,6 +116,61 @@ impl<'a> ValueVisitor<'a> {
             document: DocumentConstructor::new(),
             segments: vec![],
             code_start: None,
+        }
+    }
+
+    /// Parse language from InlineCode1 token: [lang]`content`
+    fn parse_inline_code_1(token: &str) -> (Option<String>, String) {
+        // Find the first backtick
+        if let Some(first_backtick) = token.find('`') {
+            let language_part = &token[..first_backtick];
+            let language = if language_part.is_empty() {
+                None
+            } else {
+                Some(language_part.to_string())
+            };
+
+            // Extract content between backticks
+            if let Some(last_backtick) = token.rfind('`') {
+                if last_backtick > first_backtick {
+                    let content = token[first_backtick + 1..last_backtick].to_string();
+                    return (language, content);
+                }
+            }
+        }
+        (None, String::new())
+    }
+
+    /// Parse language from InlineCodeStart2 token: [lang]``
+    fn parse_inline_code_start_2(token: &str) -> Option<String> {
+        // Remove the trailing ``
+        if let Some(idx) = token.find("``") {
+            let language_part = &token[..idx];
+            if language_part.is_empty() {
+                None
+            } else {
+                Some(language_part.to_string())
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Parse language from CodeBlockStart token: ```[lang]\n or ````[lang]\n etc.
+    fn parse_code_block_start(token: &str, backticks: u8) -> Option<String> {
+        // Skip the backticks at the start
+        let after_backticks = &token[backticks as usize..];
+
+        // Find the newline
+        if let Some(newline_idx) = after_backticks.find(|c| c == '\n' || c == '\r') {
+            let language_part = after_backticks[..newline_idx].trim();
+            if language_part.is_empty() {
+                None
+            } else {
+                Some(language_part.to_string())
+            }
+        } else {
+            None
         }
     }
 
@@ -188,16 +254,162 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
-    fn visit_code_block(
+    fn visit_inline_code_1(
         &mut self,
-        _handle: CodeBlockHandle,
-        _view: CodeBlockView,
-        _tree: &F,
+        _handle: InlineCode1Handle,
+        view: InlineCode1View,
+        tree: &F,
     ) -> Result<(), Self::Error> {
-        // Stubbing out broken implementation to allow compilation for tests
-        // let str = self.get_terminal_str(tree, view.code_block)?;
-        // self.document
-        //    .bind_primitive(PrimitiveValue::CodeBlock(str.to_string()))?;
+        let token_str = self.get_terminal_str(tree, view.inline_code_1)?;
+        let (language, content) = Self::parse_inline_code_1(token_str);
+        let code = Code::new_inline(content);
+        let code_with_lang = if language.is_some() {
+            Code {
+                language,
+                ..code
+            }
+        } else {
+            code
+        };
+        self.document.bind_primitive(PrimitiveValue::Code(code_with_lang))?;
+        Ok(())
+    }
+
+    fn visit_inline_code_start_2(
+        &mut self,
+        _handle: InlineCodeStart2Handle,
+        view: InlineCodeStart2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.inline_code_start_2)?;
+        let language = Self::parse_inline_code_start_2(token_str);
+        self.code_start = Some(CodeStart::new(2, language));
+        Ok(())
+    }
+
+    fn visit_inline_code_end_2(
+        &mut self,
+        _handle: InlineCodeEnd2Handle,
+        _view: InlineCodeEnd2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Some(code_start) = self.code_start.take() {
+            let content = code_start.terminals.into_string(self.input, tree)?;
+            let code = Code::new_inline(content);
+            let code_with_lang = if code_start.language.is_some() {
+                Code {
+                    language: code_start.language,
+                    ..code
+                }
+            } else {
+                code
+            };
+            self.document.bind_primitive(PrimitiveValue::Code(code_with_lang))?;
+        }
+        Ok(())
+    }
+
+    fn visit_code_block_start_3(
+        &mut self,
+        _handle: CodeBlockStart3Handle,
+        view: CodeBlockStart3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.code_block_start_3)?;
+        let language = Self::parse_code_block_start(token_str, 3);
+        self.code_start = Some(CodeStart::new(3, language));
+        Ok(())
+    }
+
+    fn visit_code_block_end_3(
+        &mut self,
+        _handle: CodeBlockEnd3Handle,
+        _view: CodeBlockEnd3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Some(code_start) = self.code_start.take() {
+            let content = code_start.terminals.into_string(self.input, tree)?;
+            let code = Code::new_block(code_start.language, content);
+            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+        }
+        Ok(())
+    }
+
+    fn visit_code_block_start_4(
+        &mut self,
+        _handle: CodeBlockStart4Handle,
+        view: CodeBlockStart4View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.code_block_start_4)?;
+        let language = Self::parse_code_block_start(token_str, 4);
+        self.code_start = Some(CodeStart::new(4, language));
+        Ok(())
+    }
+
+    fn visit_code_block_end_4(
+        &mut self,
+        _handle: CodeBlockEnd4Handle,
+        _view: CodeBlockEnd4View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Some(code_start) = self.code_start.take() {
+            let content = code_start.terminals.into_string(self.input, tree)?;
+            let code = Code::new_block(code_start.language, content);
+            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+        }
+        Ok(())
+    }
+
+    fn visit_code_block_start_5(
+        &mut self,
+        _handle: CodeBlockStart5Handle,
+        view: CodeBlockStart5View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.code_block_start_5)?;
+        let language = Self::parse_code_block_start(token_str, 5);
+        self.code_start = Some(CodeStart::new(5, language));
+        Ok(())
+    }
+
+    fn visit_code_block_end_5(
+        &mut self,
+        _handle: CodeBlockEnd5Handle,
+        _view: CodeBlockEnd5View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Some(code_start) = self.code_start.take() {
+            let content = code_start.terminals.into_string(self.input, tree)?;
+            let code = Code::new_block(code_start.language, content);
+            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+        }
+        Ok(())
+    }
+
+    fn visit_code_block_start_6(
+        &mut self,
+        _handle: CodeBlockStart6Handle,
+        view: CodeBlockStart6View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.code_block_start_6)?;
+        let language = Self::parse_code_block_start(token_str, 6);
+        self.code_start = Some(CodeStart::new(6, language));
+        Ok(())
+    }
+
+    fn visit_code_block_end_6(
+        &mut self,
+        _handle: CodeBlockEnd6Handle,
+        _view: CodeBlockEnd6View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Some(code_start) = self.code_start.take() {
+            let content = code_start.terminals.into_string(self.input, tree)?;
+            let code = Code::new_block(code_start.language, content);
+            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+        }
         Ok(())
     }
 
@@ -205,9 +417,13 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         &mut self,
         _id: CstNodeId,
         _kind: TerminalKind,
-        _data: TerminalData,
+        data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
+        // If we're inside a code block or inline code, collect the terminals
+        if let Some(code_start) = &mut self.code_start {
+            code_start.terminals.push_terminal(data);
+        }
         Ok(())
     }
 }
