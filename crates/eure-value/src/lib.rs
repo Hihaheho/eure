@@ -14,7 +14,9 @@ pub mod identifier;
 pub mod string;
 
 /// A type-safe data-type of EURE data-model.
-pub mod value;
+mod value;
+
+pub use value::*;
 
 /// A data structure for representing a Eure document including extensions.
 pub mod document;

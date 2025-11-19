@@ -1925,10 +1925,9 @@ name = "eure-json"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "eure",
  "eure-fmt",
  "eure-parol",
- "eure-tree",
- "eure-value",
  "indexmap",
  "serde",
  "serde_json",

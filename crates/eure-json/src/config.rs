@@ -1,4 +1,4 @@
-use eure_value::value::VariantRepr;
+use eure::value::VariantRepr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {

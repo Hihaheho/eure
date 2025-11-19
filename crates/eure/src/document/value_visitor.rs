@@ -1,9 +1,9 @@
 use eure_tree::tree::InputSpan; // Added import
 use eure_tree::{prelude::*, tree::TerminalHandle};
 use eure_value::{
+    PrimitiveValue,
     document::{EureDocument, InsertError, constructor::DocumentConstructor},
     path::PathSegment,
-    value::PrimitiveValue,
 };
 use num_bigint::BigInt;
 use thiserror::Error;

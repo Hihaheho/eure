@@ -3,22 +3,21 @@ name = "eure-json"
 version = "0.1.0"
 edition = "2024"
 description = "JSON conversion support for EURE format"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "json", "conversion", "serialization"]
+license = "MIT OR Apache-2.0"
+keywords = ["conversion", "eure", "json", "serialization"]
 
 [dependencies]
-eure-value = { workspace = true }
-eure-tree = { workspace = true }
+ahash = { workspace = true }
+eure = { workspace = true }
 eure-fmt = { workspace = true }
+indexmap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-ahash = { workspace = true }
-indexmap = { workspace = true }
 
 [dev-dependencies]
+eure = { workspace = true }
 eure-parol = { workspace = true }
-eure-tree = { workspace = true }
