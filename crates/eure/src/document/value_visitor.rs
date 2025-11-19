@@ -7,7 +7,23 @@ use eure_value::{
     path::PathSegment,
 };
 use num_bigint::BigInt;
+use regex::Regex;
+use std::sync::LazyLock;
 use thiserror::Error;
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum InlineCodeError {
+    #[error("Does not match InlineCode1 pattern")]
+    InvalidInlineCode1Pattern,
+    #[error("Does not match InlineCodeStart2 pattern")]
+    InvalidInlineCodeStart2Pattern,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum CodeBlockError {
+    #[error("Does not match CodeBlockStart pattern")]
+    InvalidCodeBlockStartPattern,
+}
 
 #[derive(Debug, Error)]
 pub enum DocumentConstructionError {
@@ -27,10 +43,16 @@ pub enum DocumentConstructionError {
     DynamicTokenNotFound(DynamicTokenId),
     #[error("Failed to parse big integer: {0}")]
     InvalidBigInt(String),
-    #[error("Invalid inline code: {0}")]
-    InvalidInlineCode(String),
-    #[error("Invalid code block: {0}")]
-    InvalidCodeBlock(String),
+    #[error("Invalid inline code at node {node_id:?}: {error}")]
+    InvalidInlineCode {
+        node_id: CstNodeId,
+        error: InlineCodeError,
+    },
+    #[error("Invalid code block at node {node_id:?}: {error}")]
+    InvalidCodeBlock {
+        node_id: CstNodeId,
+        error: CodeBlockError,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -88,8 +110,25 @@ impl TerminalTokens {
     }
 }
 
+// Grammar: /[a-zA-Z0-9-_]*`[^`\r\n]*`/
+static INLINE_CODE_1_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^([a-zA-Z0-9_-]*)`([^`\r\n]*)`$").unwrap()
+});
+
+// Grammar: /[a-zA-Z0-9-_]*``/
+static INLINE_CODE_START_2_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^([a-zA-Z0-9_-]*)``$").unwrap()
+});
+
+// Grammar: /`{n}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/
+// [\s--\r\n]* means whitespace except \r\n, i.e., [ \t]*
+static CODE_BLOCK_START_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^`+([a-zA-Z0-9_-]*)[ \t]*(?:\r\n|\r|\n)$").unwrap()
+});
+
 struct CodeStart {
     /// Number of start backticks for asserting on pop
+    #[allow(dead_code)]
     backticks: u8,
     language: Option<String>,
     terminals: TerminalTokens,
@@ -126,82 +165,54 @@ impl<'a> ValueVisitor<'a> {
     /// Parse language from InlineCode1 token: [lang]`content`
     /// Grammar: /[a-zA-Z0-9-_]*`[^`\r\n]*`/
     /// Language tag must be alphanumeric/hyphen/underscore only, no whitespace
-    fn parse_inline_code_1(token: &str) -> Result<(Option<String>, String), DocumentConstructionError> {
-        // Find the first backtick
-        let first_backtick = token.find('`')
-            .ok_or_else(|| DocumentConstructionError::InvalidInlineCode(
-                format!("Missing opening backtick in: {}", token)
-            ))?;
+    fn parse_inline_code_1(token: &str) -> Result<(Option<String>, String), InlineCodeError> {
+        let caps = INLINE_CODE_1_REGEX
+            .captures(token)
+            .ok_or(InlineCodeError::InvalidInlineCode1Pattern)?;
 
-        let language_part = &token[..first_backtick];
-        let language = if language_part.is_empty() {
+        let lang = caps.get(1).unwrap().as_str();
+        let content = caps.get(2).unwrap().as_str();
+
+        let language = if lang.is_empty() {
             None
         } else {
-            Some(language_part.to_string())
+            Some(lang.to_string())
         };
-
-        // Extract content between backticks
-        let last_backtick = token.rfind('`')
-            .ok_or_else(|| DocumentConstructionError::InvalidInlineCode(
-                format!("Missing closing backtick in: {}", token)
-            ))?;
-
-        if last_backtick <= first_backtick {
-            return Err(DocumentConstructionError::InvalidInlineCode(
-                format!("Invalid backtick structure in: {}", token)
-            ));
-        }
-
-        let content = token[first_backtick + 1..last_backtick].to_string();
-        Ok((language, content))
+        Ok((language, content.to_string()))
     }
 
     /// Parse language from InlineCodeStart2 token: [lang]``
     /// Grammar: /[a-zA-Z0-9-_]*``/
     /// Language tag must be alphanumeric/hyphen/underscore only, no whitespace
-    fn parse_inline_code_start_2(token: &str) -> Result<Option<String>, DocumentConstructionError> {
-        // Remove the trailing ``
-        let idx = token.find("``")
-            .ok_or_else(|| DocumentConstructionError::InvalidInlineCode(
-                format!("Missing double backticks in: {}", token)
-            ))?;
+    fn parse_inline_code_start_2(token: &str) -> Result<Option<String>, InlineCodeError> {
+        let caps = INLINE_CODE_START_2_REGEX
+            .captures(token)
+            .ok_or(InlineCodeError::InvalidInlineCodeStart2Pattern)?;
 
-        let language_part = &token[..idx];
-        if language_part.is_empty() {
-            Ok(None)
+        let lang = caps.get(1).unwrap().as_str();
+        let language = if lang.is_empty() {
+            None
         } else {
-            Ok(Some(language_part.to_string()))
-        }
+            Some(lang.to_string())
+        };
+        Ok(language)
     }
 
     /// Parse language from CodeBlockStart token: ```[lang]\n or ````[lang]\n etc.
     /// Grammar: /`{n}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/
-    /// Language tag must be alphanumeric/hyphen/underscore only, followed by optional whitespace
-    fn parse_code_block_start(token: &str, backticks: u8) -> Result<Option<String>, DocumentConstructionError> {
-        // Skip the backticks at the start
-        let after_backticks = &token[backticks as usize..];
+    /// Language tag must be alphanumeric/hyphen/underscore only, followed by optional whitespace (space/tab, not newlines)
+    fn parse_code_block_start(token: &str, _backticks: u8) -> Result<Option<String>, CodeBlockError> {
+        let caps = CODE_BLOCK_START_REGEX
+            .captures(token)
+            .ok_or(CodeBlockError::InvalidCodeBlockStartPattern)?;
 
-        // Find the newline
-        let newline_idx = after_backticks.find(|c| c == '\n' || c == '\r')
-            .ok_or_else(|| DocumentConstructionError::InvalidCodeBlock(
-                format!("Missing newline after code block start in: {}", token)
-            ))?;
-
-        // Extract the part before newline
-        let before_newline = &after_backticks[..newline_idx];
-
-        // Find where the language tag ends (first non-alphanumeric/hyphen/underscore char)
-        let lang_end = before_newline
-            .find(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_')
-            .unwrap_or(before_newline.len());
-
-        let language_part = &before_newline[..lang_end];
-
-        if language_part.is_empty() {
-            Ok(None)
+        let lang = caps.get(1).unwrap().as_str();
+        let language = if lang.is_empty() {
+            None
         } else {
-            Ok(Some(language_part.to_string()))
-        }
+            Some(lang.to_string())
+        };
+        Ok(language)
     }
 
     pub fn into_document(self) -> EureDocument {
@@ -291,7 +302,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.inline_code_1)?;
-        let (language, content) = Self::parse_inline_code_1(token_str)?;
+        let (language, content) = Self::parse_inline_code_1(token_str).map_err(|error| {
+            DocumentConstructionError::InvalidInlineCode {
+                node_id: view.inline_code_1.node_id(),
+                error,
+            }
+        })?;
         let code = Code::new_inline(content);
         let code_with_lang = if language.is_some() {
             Code {
@@ -312,7 +328,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.inline_code_start_2)?;
-        let language = Self::parse_inline_code_start_2(token_str)?;
+        let language = Self::parse_inline_code_start_2(token_str).map_err(|error| {
+            DocumentConstructionError::InvalidInlineCode {
+                node_id: view.inline_code_start_2.node_id(),
+                error,
+            }
+        })?;
         self.code_start = Some(CodeStart::new(2, language));
         Ok(())
     }
@@ -346,7 +367,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_3)?;
-        let language = Self::parse_code_block_start(token_str, 3)?;
+        let language = Self::parse_code_block_start(token_str, 3).map_err(|error| {
+            DocumentConstructionError::InvalidCodeBlock {
+                node_id: view.code_block_start_3.node_id(),
+                error,
+            }
+        })?;
         self.code_start = Some(CodeStart::new(3, language));
         Ok(())
     }
@@ -372,7 +398,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_4)?;
-        let language = Self::parse_code_block_start(token_str, 4)?;
+        let language = Self::parse_code_block_start(token_str, 4).map_err(|error| {
+            DocumentConstructionError::InvalidCodeBlock {
+                node_id: view.code_block_start_4.node_id(),
+                error,
+            }
+        })?;
         self.code_start = Some(CodeStart::new(4, language));
         Ok(())
     }
@@ -398,7 +429,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_5)?;
-        let language = Self::parse_code_block_start(token_str, 5)?;
+        let language = Self::parse_code_block_start(token_str, 5).map_err(|error| {
+            DocumentConstructionError::InvalidCodeBlock {
+                node_id: view.code_block_start_5.node_id(),
+                error,
+            }
+        })?;
         self.code_start = Some(CodeStart::new(5, language));
         Ok(())
     }
@@ -424,7 +460,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_6)?;
-        let language = Self::parse_code_block_start(token_str, 6)?;
+        let language = Self::parse_code_block_start(token_str, 6).map_err(|error| {
+            DocumentConstructionError::InvalidCodeBlock {
+                node_id: view.code_block_start_6.node_id(),
+                error,
+            }
+        })?;
         self.code_start = Some(CodeStart::new(6, language));
         Ok(())
     }
@@ -526,7 +567,7 @@ mod tests {
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
-                DocumentConstructionError::InvalidInlineCode(_)
+                InlineCodeError::InvalidInlineCode1Pattern
             ));
         }
 
@@ -536,7 +577,7 @@ mod tests {
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
-                DocumentConstructionError::InvalidInlineCode(_)
+                InlineCodeError::InvalidInlineCode1Pattern
             ));
         }
     }
@@ -572,7 +613,7 @@ mod tests {
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
-                DocumentConstructionError::InvalidInlineCode(_)
+                InlineCodeError::InvalidInlineCodeStart2Pattern
             ));
         }
     }
@@ -625,11 +666,14 @@ mod tests {
 
         #[test]
         fn test_language_with_leading_whitespace_is_invalid() {
-            // Leading whitespace before language tag is not allowed by grammar
+            // Leading whitespace before language tag with non-whitespace after is grammar violation
+            // Pattern: ```[a-zA-Z0-9_-]*[ \t]*\n but this has ``` [ \t]+ [a-z]+ which doesn't match
             let result = ValueVisitor::parse_code_block_start("```  rust\n", 3);
-            assert!(result.is_ok());
-            // The language part should be empty because whitespace stops the language tag
-            assert_eq!(result.unwrap(), None);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                CodeBlockError::InvalidCodeBlockStartPattern
+            ));
         }
 
         #[test]
@@ -659,7 +703,7 @@ mod tests {
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
-                DocumentConstructionError::InvalidCodeBlock(_)
+                CodeBlockError::InvalidCodeBlockStartPattern
             ));
         }
 

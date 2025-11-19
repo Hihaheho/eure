@@ -15,4 +15,5 @@ eure-parol = { workspace = true }
 eure-tree = { workspace = true }
 eure-value = { workspace = true }
 num-bigint = { workspace = true }
+regex = { workspace = true }
 thiserror = { workspace = true }
