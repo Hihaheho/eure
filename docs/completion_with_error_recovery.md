@@ -192,7 +192,7 @@ Parser Error:
 ```
 LA(1): $ (EndOfInput) at test.eure:1:9-1:10
 at non-terminal "Keys"
-Expected tokens: ["Ident", "Str", "Integer", "True", "False", "Null", "Ext", "MetaExt"]
+Expected tokens: ["Ident", "Str", "Integer", "True", "False", "Null", "Ext"]
 ```
 
 CST Analysis:

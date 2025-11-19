@@ -23,8 +23,6 @@ pub enum PathSegment {
     Ident(Identifier),
     /// Extension namespace fields starting with $ like $eure, $variant
     Extension(Identifier),
-    /// MetaExtKey uses $$ prefix, e.g., $$eure, $$variant
-    MetaExt(Identifier),
     /// Arbitrary value used as key
     Value(ObjectKey),
     /// Tuple element index (0-255)
@@ -39,7 +37,6 @@ impl Display for EurePath {
             match segment {
                 PathSegment::Ident(id) => write!(f, ".{}", id)?,
                 PathSegment::Extension(id) => write!(f, ".${}", id)?,
-                PathSegment::MetaExt(id) => write!(f, ".$${}", id)?,
                 PathSegment::Value(key) => write!(f, ".[{}]", key)?,
                 PathSegment::TupleIndex(index) => write!(f, ".{}", index)?,
                 PathSegment::ArrayIndex(Some(index)) => write!(f, "[{}]", index)?,

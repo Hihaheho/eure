@@ -4,13 +4,11 @@ pub mod node;
 use crate::document::node::{NodeArray, NodeMap, NodeTuple};
 use crate::prelude_internal::*;
 
-/// This does not include MetaExt since, PathSegment::Extension is encoded into Node::extensions, and PathSegment::MetaExt is encoded as InternalKey::MetaExtension, and PathSegment::Array is encoded as NodeContent::Array.
+/// This does not include Extension since PathSegment::Extension is encoded into Node::extensions, and PathSegment::Array is encoded as NodeContent::Array.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DocumentKey {
     /// Regular identifiers like id, description
     Ident(Identifier),
-    /// Meta-extension fields starting with $$ like $$optional, $$type
-    MetaExtension(Identifier),
     /// Arbitrary value used as key
     Value(ObjectKey),
     /// Tuple element index (0-255)
@@ -226,7 +224,6 @@ impl EureDocument {
             }
             PathSegment::Value(object_key) => self.add_map_child(object_key, parent_node_id),
             PathSegment::Extension(identifier) => self.add_extension(identifier, parent_node_id),
-            PathSegment::MetaExt(identifier) => self.add_meta_extension(identifier, parent_node_id),
             PathSegment::TupleIndex(index) => self.add_tuple_element(index, parent_node_id),
             PathSegment::ArrayIndex(index) => self.add_array_element(index, parent_node_id),
         }
@@ -255,18 +252,6 @@ impl EureDocument {
             return Err(InsertErrorKind::AlreadyAssignedExtension { identifier });
         }
         node.extensions.insert(identifier, node_id);
-        Ok(NodeMut::new(self, node_id))
-    }
-
-    pub fn add_meta_extension(
-        &mut self,
-        identifier: Identifier,
-        parent_node_id: NodeId,
-    ) -> Result<NodeMut<'_>, InsertErrorKind> {
-        let node_id = self.create_node_uninitialized();
-        let node = self.node_mut(parent_node_id);
-        let map = node.require_map()?;
-        map.add(DocumentKey::MetaExtension(identifier), node_id)?;
         Ok(NodeMut::new(self, node_id))
     }
 
@@ -320,9 +305,6 @@ impl EureDocument {
                 .as_map()
                 .and_then(|m| m.get(&DocumentKey::Value(object_key.clone()))),
             PathSegment::Extension(identifier) => node.get_extension(identifier),
-            PathSegment::MetaExt(identifier) => node
-                .as_map()
-                .and_then(|m| m.get(&DocumentKey::MetaExtension(identifier.clone()))),
             PathSegment::TupleIndex(index) => node.as_tuple().and_then(|t| t.get(*index as usize)),
             PathSegment::ArrayIndex(Some(index)) => node.as_array().and_then(|a| a.get(*index)),
             PathSegment::ArrayIndex(None) => None, // push always creates new
@@ -494,59 +476,6 @@ mod tests {
         assert_eq!(
             result2.err(),
             Some(InsertErrorKind::AlreadyAssignedExtension { identifier })
-        );
-    }
-
-    #[test]
-    fn test_add_meta_extension_success() {
-        let mut doc = EureDocument::new();
-        let map_id = {
-            let doc: &mut EureDocument = &mut doc;
-            doc.create_node(NodeValue::empty_map())
-        };
-        let identifier = identifier("meta_ext");
-
-        let node_id = doc
-            .add_meta_extension(identifier.clone(), map_id)
-            .expect("Failed to add meta extension")
-            .node_id;
-
-        let map = doc.node(map_id).as_map().expect("Expected map");
-        assert_eq!(
-            map.get(&DocumentKey::MetaExtension(identifier)),
-            Some(node_id)
-        );
-    }
-
-    #[test]
-    fn test_add_meta_extension_error_expected_map() {
-        let mut doc = EureDocument::new();
-        let primitive_id = {
-            let doc: &mut EureDocument = &mut doc;
-            doc.create_node(NodeValue::Primitive(PrimitiveValue::Null))
-        };
-        let identifier = identifier("meta_ext");
-
-        let result = doc.add_meta_extension(identifier, primitive_id);
-        assert_eq!(result.err(), Some(InsertErrorKind::ExpectedMap));
-    }
-
-    #[test]
-    fn test_add_meta_extension_error_already_assigned() {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        let identifier = identifier("meta_ext");
-
-        let _result1 = doc
-            .add_meta_extension(identifier.clone(), root_id)
-            .expect("First add should succeed");
-
-        let result2 = doc.add_meta_extension(identifier.clone(), root_id);
-        assert_eq!(
-            result2.err(),
-            Some(InsertErrorKind::AlreadyAssigned {
-                key: DocumentKey::MetaExtension(identifier)
-            })
         );
     }
 
@@ -729,20 +658,6 @@ mod tests {
 
         let node = doc.node(root_id);
         assert!(node.extensions.contains_key(&identifier));
-    }
-
-    #[test]
-    fn test_add_child_by_segment_meta_ext() {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        let identifier = identifier("meta");
-        let segment = PathSegment::MetaExt(identifier.clone());
-
-        let result = doc.add_child_by_segment(segment, root_id);
-        assert!(result.is_ok());
-
-        let map = doc.node(root_id).as_map().expect("Expected map");
-        assert!(map.get(&DocumentKey::MetaExtension(identifier)).is_some());
     }
 
     #[test]
@@ -1063,27 +978,6 @@ mod tests {
         // Second call - returns existing node
         let node_id2 = doc
             .resolve_child_by_segment(PathSegment::Extension(identifier), root_id)
-            .expect("Second call failed")
-            .node_id;
-
-        assert_eq!(node_id1, node_id2);
-    }
-
-    #[test]
-    fn test_resolve_meta_ext_idempotent() {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        let identifier = identifier("meta");
-
-        // First call - creates new node
-        let node_id1 = doc
-            .resolve_child_by_segment(PathSegment::MetaExt(identifier.clone()), root_id)
-            .expect("First call failed")
-            .node_id;
-
-        // Second call - returns existing node
-        let node_id2 = doc
-            .resolve_child_by_segment(PathSegment::MetaExt(identifier), root_id)
             .expect("Second call failed")
             .node_id;
 

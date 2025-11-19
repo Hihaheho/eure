@@ -742,7 +742,6 @@ fn path_to_string(path: &[PathSegment]) -> String {
         .map(|seg| match seg {
             PathSegment::Ident(id) => id.as_ref().to_string(),
             PathSegment::Extension(ext) => format!("${}", ext.as_ref()),
-            PathSegment::MetaExt(meta) => format!("$${}", meta.as_ref()),
             PathSegment::ArrayIndex(idx) => {
                 if let Some(index) = idx {
                     format!("[{}]", index)

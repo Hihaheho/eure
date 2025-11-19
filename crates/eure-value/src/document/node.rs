@@ -44,13 +44,6 @@ impl<'d> NodeMut<'d> {
         self.document.add_extension(identifier, self.node_id)
     }
 
-    pub fn add_meta_extension(
-        self,
-        identifier: Identifier,
-    ) -> Result<NodeMut<'d>, InsertErrorKind> {
-        self.document.add_meta_extension(identifier, self.node_id)
-    }
-
     pub fn add_tuple_element(self, index: u8) -> Result<NodeMut<'d>, InsertErrorKind> {
         self.document.add_tuple_element(index, self.node_id)
     }

@@ -592,22 +592,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_l_paren_super(handle, view, tree)
     }
-    fn visit_meta_ext(
-        &mut self,
-        handle: MetaExtHandle,
-        view: MetaExtView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_meta_ext_super(handle, view, tree)
-    }
-    fn visit_meta_ext_key(
-        &mut self,
-        handle: MetaExtKeyHandle,
-        view: MetaExtKeyView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_meta_ext_key_super(handle, view, tree)
-    }
     fn visit_no_backtick(
         &mut self,
         handle: NoBacktickHandle,
@@ -1127,14 +1111,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_at_terminal_super(terminal, data, tree)
-    }
-    fn visit_dollar_dollar_terminal(
-        &mut self,
-        terminal: DollarDollar,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_dollar_dollar_terminal_super(terminal, data, tree)
     }
     fn visit_dollar_terminal(
         &mut self,
@@ -2008,28 +1984,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: LParenView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_meta_ext_handle(
-        &mut self,
-        handle: MetaExtHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_meta_ext_super(
-        &mut self,
-        handle: MetaExtHandle,
-        view: MetaExtView,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_meta_ext_key_handle(
-        &mut self,
-        handle: MetaExtKeyHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_meta_ext_key_super(
-        &mut self,
-        handle: MetaExtKeyHandle,
-        view: MetaExtKeyView,
-        tree: &F,
-    ) -> Result<(), E>;
     fn visit_no_backtick_handle(
         &mut self,
         handle: NoBacktickHandle,
@@ -2525,12 +2479,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_at_terminal_super(
         &mut self,
         terminal: At,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_dollar_dollar_terminal_super(
-        &mut self,
-        terminal: DollarDollar,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -5994,98 +5942,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_meta_ext_handle(
-        &mut self,
-        handle: MetaExtHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (
-                    visit.visit_meta_ext(handle, view, tree),
-                    visit,
-                ),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_meta_ext_key_handle(
-        &mut self,
-        handle: MetaExtKeyHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (
-                    visit.visit_meta_ext_key(handle, view, tree),
-                    visit,
-                ),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
     fn visit_no_backtick_handle(
         &mut self,
         handle: NoBacktickHandle,
@@ -8831,9 +8687,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             KeyBaseView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
             }
-            KeyBaseView::MetaExtKey(item) => {
-                self.visit_meta_ext_key_handle(item, tree)?;
-            }
             KeyBaseView::Null(item) => {
                 self.visit_null_handle(item, tree)?;
             }
@@ -8906,42 +8759,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
         };
         self.visit_l_paren_terminal(l_paren, data, tree)?;
-        Ok(())
-    }
-    fn visit_meta_ext_super(
-        &mut self,
-        handle: MetaExtHandle,
-        view_param: MetaExtView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let MetaExtView { dollar_dollar } = view_param;
-        let data = match dollar_dollar.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        dollar_dollar.0,
-                        NodeKind::Terminal(dollar_dollar.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_dollar_dollar_terminal(dollar_dollar, data, tree)?;
-        Ok(())
-    }
-    fn visit_meta_ext_key_super(
-        &mut self,
-        handle: MetaExtKeyHandle,
-        view_param: MetaExtKeyView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let MetaExtKeyView { meta_ext, ident } = view_param;
-        self.visit_meta_ext_handle(meta_ext, tree)?;
-        self.visit_ident_handle(ident, tree)?;
         Ok(())
     }
     fn visit_no_backtick_super(
@@ -9773,15 +9590,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_dollar_dollar_terminal_super(
-        &mut self,
-        terminal: DollarDollar,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
-        Ok(())
-    }
     fn visit_dollar_terminal_super(
         &mut self,
         terminal: Dollar,
@@ -10248,14 +10056,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = LParenHandle(id);
                         self.visit_l_paren_handle(handle, tree)?;
                     }
-                    NonTerminalKind::MetaExt => {
-                        let handle = MetaExtHandle(id);
-                        self.visit_meta_ext_handle(handle, tree)?;
-                    }
-                    NonTerminalKind::MetaExtKey => {
-                        let handle = MetaExtKeyHandle(id);
-                        self.visit_meta_ext_key_handle(handle, tree)?;
-                    }
                     NonTerminalKind::NoBacktick => {
                         let handle = NoBacktickHandle(id);
                         self.visit_no_backtick_handle(handle, tree)?;
@@ -10519,10 +10319,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     TerminalKind::At => {
                         let terminal = At(id);
                         self.visit_at_terminal(terminal, data, tree)?;
-                    }
-                    TerminalKind::DollarDollar => {
-                        let terminal = DollarDollar(id);
-                        self.visit_dollar_dollar_terminal(terminal, data, tree)?;
                     }
                     TerminalKind::Dollar => {
                         let terminal = Dollar(id);

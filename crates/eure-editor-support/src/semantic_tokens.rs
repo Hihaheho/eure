@@ -185,7 +185,6 @@ fn process_terminal(
         | TerminalKind::GrammarNewline
         | TerminalKind::Ws
         | TerminalKind::Esc => return,
-        TerminalKind::DollarDollar => SemanticTokenType::OPERATOR, // Use operator for now
         TerminalKind::LParen | TerminalKind::RParen => SemanticTokenType::OPERATOR, // Parentheses
     };
     let token_type_idx = get_token_type_index(token_type, legend);

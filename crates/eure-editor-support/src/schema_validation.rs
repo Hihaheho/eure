@@ -237,7 +237,6 @@ fn format_field_key(key: &eure_schema::ObjectKey) -> String {
             let formatted_elements: Vec<String> = elements.iter().map(format_field_key).collect();
             format!("({})", formatted_elements.join(", "))
         }
-        eure_schema::ObjectKey::MetaExtension(meta) => format!("$${meta}"),
         eure_schema::ObjectKey::Hole => "!".to_string(),
     }
 }
@@ -524,7 +523,6 @@ pub fn validation_error_to_diagnostic(
                         path_parts.push(id.as_ref().to_string());
                     }
                     PathSegment::Extension(id) => path_parts.push(format!("${}", id.as_ref())),
-                    PathSegment::MetaExt(id) => path_parts.push(format!("$${}", id.as_ref())),
                     PathSegment::Value(v) => path_parts.push(format!("[{v:?}]")),
                     PathSegment::TupleIndex(idx) => path_parts.push(format!("[{idx}]")),
                     PathSegment::ArrayIndex(idx) => {
