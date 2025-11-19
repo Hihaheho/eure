@@ -1,6 +1,6 @@
 use num_bigint::BigInt;
 
-use crate::prelude_internal::*;
+use crate::{code::Code, prelude_internal::*};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PrimitiveValue {
@@ -64,12 +64,6 @@ impl core::fmt::Display for ObjectKey {
             ObjectKey::MetaExtension(identifier) => write!(f, "$${}", identifier),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Code {
-    pub language: String,
-    pub content: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Plural, Default)]
