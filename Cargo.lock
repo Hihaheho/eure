@@ -1852,6 +1852,7 @@ dependencies = [
  "eure-tree",
  "eure-value",
  "num-bigint",
+ "regex",
  "thiserror 2.0.17",
 ]
 
