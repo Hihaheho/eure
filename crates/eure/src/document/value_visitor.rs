@@ -27,6 +27,10 @@ pub enum DocumentConstructionError {
     DynamicTokenNotFound(DynamicTokenId),
     #[error("Failed to parse big integer: {0}")]
     InvalidBigInt(String),
+    #[error("Invalid inline code: {0}")]
+    InvalidInlineCode(String),
+    #[error("Invalid code block: {0}")]
+    InvalidCodeBlock(String),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -120,57 +124,68 @@ impl<'a> ValueVisitor<'a> {
     }
 
     /// Parse language from InlineCode1 token: [lang]`content`
-    fn parse_inline_code_1(token: &str) -> (Option<String>, String) {
+    fn parse_inline_code_1(token: &str) -> Result<(Option<String>, String), DocumentConstructionError> {
         // Find the first backtick
-        if let Some(first_backtick) = token.find('`') {
-            let language_part = &token[..first_backtick];
-            let language = if language_part.is_empty() {
-                None
-            } else {
-                Some(language_part.to_string())
-            };
+        let first_backtick = token.find('`')
+            .ok_or_else(|| DocumentConstructionError::InvalidInlineCode(
+                format!("Missing opening backtick in: {}", token)
+            ))?;
 
-            // Extract content between backticks
-            if let Some(last_backtick) = token.rfind('`') {
-                if last_backtick > first_backtick {
-                    let content = token[first_backtick + 1..last_backtick].to_string();
-                    return (language, content);
-                }
-            }
+        let language_part = &token[..first_backtick];
+        let language = if language_part.is_empty() {
+            None
+        } else {
+            Some(language_part.to_string())
+        };
+
+        // Extract content between backticks
+        let last_backtick = token.rfind('`')
+            .ok_or_else(|| DocumentConstructionError::InvalidInlineCode(
+                format!("Missing closing backtick in: {}", token)
+            ))?;
+
+        if last_backtick <= first_backtick {
+            return Err(DocumentConstructionError::InvalidInlineCode(
+                format!("Invalid backtick structure in: {}", token)
+            ));
         }
-        (None, String::new())
+
+        let content = token[first_backtick + 1..last_backtick].to_string();
+        Ok((language, content))
     }
 
     /// Parse language from InlineCodeStart2 token: [lang]``
-    fn parse_inline_code_start_2(token: &str) -> Option<String> {
+    fn parse_inline_code_start_2(token: &str) -> Result<Option<String>, DocumentConstructionError> {
         // Remove the trailing ``
-        if let Some(idx) = token.find("``") {
-            let language_part = &token[..idx];
-            if language_part.is_empty() {
-                None
-            } else {
-                Some(language_part.to_string())
-            }
+        let idx = token.find("``")
+            .ok_or_else(|| DocumentConstructionError::InvalidInlineCode(
+                format!("Missing double backticks in: {}", token)
+            ))?;
+
+        let language_part = &token[..idx];
+        if language_part.is_empty() {
+            Ok(None)
         } else {
-            None
+            Ok(Some(language_part.to_string()))
         }
     }
 
     /// Parse language from CodeBlockStart token: ```[lang]\n or ````[lang]\n etc.
-    fn parse_code_block_start(token: &str, backticks: u8) -> Option<String> {
+    fn parse_code_block_start(token: &str, backticks: u8) -> Result<Option<String>, DocumentConstructionError> {
         // Skip the backticks at the start
         let after_backticks = &token[backticks as usize..];
 
         // Find the newline
-        if let Some(newline_idx) = after_backticks.find(|c| c == '\n' || c == '\r') {
-            let language_part = after_backticks[..newline_idx].trim();
-            if language_part.is_empty() {
-                None
-            } else {
-                Some(language_part.to_string())
-            }
+        let newline_idx = after_backticks.find(|c| c == '\n' || c == '\r')
+            .ok_or_else(|| DocumentConstructionError::InvalidCodeBlock(
+                format!("Missing newline after code block start in: {}", token)
+            ))?;
+
+        let language_part = after_backticks[..newline_idx].trim();
+        if language_part.is_empty() {
+            Ok(None)
         } else {
-            None
+            Ok(Some(language_part.to_string()))
         }
     }
 
@@ -261,7 +276,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.inline_code_1)?;
-        let (language, content) = Self::parse_inline_code_1(token_str);
+        let (language, content) = Self::parse_inline_code_1(token_str)?;
         let code = Code::new_inline(content);
         let code_with_lang = if language.is_some() {
             Code {
@@ -282,7 +297,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.inline_code_start_2)?;
-        let language = Self::parse_inline_code_start_2(token_str);
+        let language = Self::parse_inline_code_start_2(token_str)?;
         self.code_start = Some(CodeStart::new(2, language));
         Ok(())
     }
@@ -316,7 +331,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_3)?;
-        let language = Self::parse_code_block_start(token_str, 3);
+        let language = Self::parse_code_block_start(token_str, 3)?;
         self.code_start = Some(CodeStart::new(3, language));
         Ok(())
     }
@@ -342,7 +357,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_4)?;
-        let language = Self::parse_code_block_start(token_str, 4);
+        let language = Self::parse_code_block_start(token_str, 4)?;
         self.code_start = Some(CodeStart::new(4, language));
         Ok(())
     }
@@ -368,7 +383,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_5)?;
-        let language = Self::parse_code_block_start(token_str, 5);
+        let language = Self::parse_code_block_start(token_str, 5)?;
         self.code_start = Some(CodeStart::new(5, language));
         Ok(())
     }
@@ -394,7 +409,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_6)?;
-        let language = Self::parse_code_block_start(token_str, 6);
+        let language = Self::parse_code_block_start(token_str, 6)?;
         self.code_start = Some(CodeStart::new(6, language));
         Ok(())
     }
@@ -447,51 +462,67 @@ mod tests {
 
         #[test]
         fn test_simple_code_without_language() {
-            let (language, content) = ValueVisitor::parse_inline_code_1("`hello`");
+            let result = ValueVisitor::parse_inline_code_1("`hello`");
+            assert!(result.is_ok());
+            let (language, content) = result.unwrap();
             assert_eq!(language, None);
             assert_eq!(content, "hello");
         }
 
         #[test]
         fn test_code_with_language() {
-            let (language, content) = ValueVisitor::parse_inline_code_1("rust`fn main() {}`");
+            let result = ValueVisitor::parse_inline_code_1("rust`fn main() {}`");
+            assert!(result.is_ok());
+            let (language, content) = result.unwrap();
             assert_eq!(language, Some("rust".to_string()));
             assert_eq!(content, "fn main() {}");
         }
 
         #[test]
         fn test_empty_code() {
-            let (language, content) = ValueVisitor::parse_inline_code_1("``");
+            let result = ValueVisitor::parse_inline_code_1("``");
+            assert!(result.is_ok());
+            let (language, content) = result.unwrap();
             assert_eq!(language, None);
             assert_eq!(content, "");
         }
 
         #[test]
         fn test_code_with_special_chars() {
-            let (language, content) = ValueVisitor::parse_inline_code_1("`hello world!@#$%`");
+            let result = ValueVisitor::parse_inline_code_1("`hello world!@#$%`");
+            assert!(result.is_ok());
+            let (language, content) = result.unwrap();
             assert_eq!(language, None);
             assert_eq!(content, "hello world!@#$%");
         }
 
         #[test]
         fn test_language_with_hyphen_and_underscore() {
-            let (language, content) = ValueVisitor::parse_inline_code_1("foo-bar_123`content`");
+            let result = ValueVisitor::parse_inline_code_1("foo-bar_123`content`");
+            assert!(result.is_ok());
+            let (language, content) = result.unwrap();
             assert_eq!(language, Some("foo-bar_123".to_string()));
             assert_eq!(content, "content");
         }
 
         #[test]
         fn test_no_backticks() {
-            let (language, content) = ValueVisitor::parse_inline_code_1("no backticks");
-            assert_eq!(language, None);
-            assert_eq!(content, "");
+            let result = ValueVisitor::parse_inline_code_1("no backticks");
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                DocumentConstructionError::InvalidInlineCode(_)
+            ));
         }
 
         #[test]
         fn test_single_backtick() {
-            let (language, content) = ValueVisitor::parse_inline_code_1("`");
-            assert_eq!(language, None);
-            assert_eq!(content, "");
+            let result = ValueVisitor::parse_inline_code_1("`");
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                DocumentConstructionError::InvalidInlineCode(_)
+            ));
         }
     }
 
@@ -501,26 +532,33 @@ mod tests {
 
         #[test]
         fn test_no_language() {
-            let language = ValueVisitor::parse_inline_code_start_2("``");
-            assert_eq!(language, None);
+            let result = ValueVisitor::parse_inline_code_start_2("``");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), None);
         }
 
         #[test]
         fn test_with_language() {
-            let language = ValueVisitor::parse_inline_code_start_2("rust``");
-            assert_eq!(language, Some("rust".to_string()));
+            let result = ValueVisitor::parse_inline_code_start_2("rust``");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("rust".to_string()));
         }
 
         #[test]
         fn test_with_complex_language() {
-            let language = ValueVisitor::parse_inline_code_start_2("foo-bar_123``");
-            assert_eq!(language, Some("foo-bar_123".to_string()));
+            let result = ValueVisitor::parse_inline_code_start_2("foo-bar_123``");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("foo-bar_123".to_string()));
         }
 
         #[test]
         fn test_no_backticks() {
-            let language = ValueVisitor::parse_inline_code_start_2("rust");
-            assert_eq!(language, None);
+            let result = ValueVisitor::parse_inline_code_start_2("rust");
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                DocumentConstructionError::InvalidInlineCode(_)
+            ));
         }
     }
 
@@ -530,68 +568,82 @@ mod tests {
 
         #[test]
         fn test_no_language_3_backticks() {
-            let language = ValueVisitor::parse_code_block_start("```\n", 3);
-            assert_eq!(language, None);
+            let result = ValueVisitor::parse_code_block_start("```\n", 3);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), None);
         }
 
         #[test]
         fn test_with_language_3_backticks() {
-            let language = ValueVisitor::parse_code_block_start("```rust\n", 3);
-            assert_eq!(language, Some("rust".to_string()));
+            let result = ValueVisitor::parse_code_block_start("```rust\n", 3);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("rust".to_string()));
         }
 
         #[test]
         fn test_with_language_4_backticks() {
-            let language = ValueVisitor::parse_code_block_start("````python\n", 4);
-            assert_eq!(language, Some("python".to_string()));
+            let result = ValueVisitor::parse_code_block_start("````python\n", 4);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("python".to_string()));
         }
 
         #[test]
         fn test_with_language_5_backticks() {
-            let language = ValueVisitor::parse_code_block_start("`````javascript\n", 5);
-            assert_eq!(language, Some("javascript".to_string()));
+            let result = ValueVisitor::parse_code_block_start("`````javascript\n", 5);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("javascript".to_string()));
         }
 
         #[test]
         fn test_with_language_6_backticks() {
-            let language = ValueVisitor::parse_code_block_start("``````typescript\n", 6);
-            assert_eq!(language, Some("typescript".to_string()));
+            let result = ValueVisitor::parse_code_block_start("``````typescript\n", 6);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("typescript".to_string()));
         }
 
         #[test]
         fn test_language_with_whitespace() {
-            let language = ValueVisitor::parse_code_block_start("```  rust  \n", 3);
-            assert_eq!(language, Some("rust".to_string()));
+            let result = ValueVisitor::parse_code_block_start("```  rust  \n", 3);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("rust".to_string()));
         }
 
         #[test]
         fn test_language_with_carriage_return() {
-            let language = ValueVisitor::parse_code_block_start("```rust\r\n", 3);
-            assert_eq!(language, Some("rust".to_string()));
+            let result = ValueVisitor::parse_code_block_start("```rust\r\n", 3);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("rust".to_string()));
         }
 
         #[test]
         fn test_language_with_only_carriage_return() {
-            let language = ValueVisitor::parse_code_block_start("```rust\r", 3);
-            assert_eq!(language, Some("rust".to_string()));
+            let result = ValueVisitor::parse_code_block_start("```rust\r", 3);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("rust".to_string()));
         }
 
         #[test]
         fn test_empty_language_with_spaces() {
-            let language = ValueVisitor::parse_code_block_start("```   \n", 3);
-            assert_eq!(language, None);
+            let result = ValueVisitor::parse_code_block_start("```   \n", 3);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), None);
         }
 
         #[test]
         fn test_no_newline() {
-            let language = ValueVisitor::parse_code_block_start("```rust", 3);
-            assert_eq!(language, None);
+            let result = ValueVisitor::parse_code_block_start("```rust", 3);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                DocumentConstructionError::InvalidCodeBlock(_)
+            ));
         }
 
         #[test]
         fn test_complex_language_tag() {
-            let language = ValueVisitor::parse_code_block_start("```foo-bar_123\n", 3);
-            assert_eq!(language, Some("foo-bar_123".to_string()));
+            let result = ValueVisitor::parse_code_block_start("```foo-bar_123\n", 3);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Some("foo-bar_123".to_string()));
         }
     }
 
