@@ -521,6 +521,21 @@ pub trait CstFacade: Sized {
     fn parent(&self, node: CstNodeId) -> Option<CstNodeId>;
 
     fn root_handle(&self) -> RootHandle;
+
+    /// Returns the string representation of a terminal. Returns None if the terminal is a dynamic token and not found.
+    fn get_terminal_str<'a: 'c, 'b: 'c, 'c, T: TerminalHandle>(
+        &'a self,
+        input: &'b str,
+        handle: T,
+    ) -> Result<Result<&'c str, DynamicTokenId>, CstConstructError> {
+        let data = self.get_terminal(handle.node_id(), handle.kind())?;
+        match data {
+            TerminalData::Input(input_span) => Ok(Ok(
+                &input[input_span.start as usize..input_span.end as usize]
+            )),
+            TerminalData::Dynamic(id) => Ok(self.dynamic_token(id).ok_or(id)),
+        }
+    }
 }
 
 impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {

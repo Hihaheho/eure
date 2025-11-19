@@ -534,6 +534,246 @@ pub struct AtView {
 }
 impl AtView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Backtick1Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for Backtick1Handle {
+    type View = Backtick1View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Backtick1)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Backtick1
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::Backtick1)],
+            |[backtick_1], visit_ignored| Ok(
+                visit(
+                    Backtick1View {
+                        backtick_1: Backtick1(backtick_1),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Backtick1View {
+    pub backtick_1: Backtick1,
+}
+impl Backtick1View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Backtick2Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for Backtick2Handle {
+    type View = Backtick2View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Backtick2)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Backtick2
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::Backtick2)],
+            |[backtick_2], visit_ignored| Ok(
+                visit(
+                    Backtick2View {
+                        backtick_2: Backtick2(backtick_2),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Backtick2View {
+    pub backtick_2: Backtick2,
+}
+impl Backtick2View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Backtick3Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for Backtick3Handle {
+    type View = Backtick3View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Backtick3)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Backtick3
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::Backtick3)],
+            |[backtick_3], visit_ignored| Ok(
+                visit(
+                    Backtick3View {
+                        backtick_3: Backtick3(backtick_3),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Backtick3View {
+    pub backtick_3: Backtick3,
+}
+impl Backtick3View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Backtick4Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for Backtick4Handle {
+    type View = Backtick4View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Backtick4)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Backtick4
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::Backtick4)],
+            |[backtick_4], visit_ignored| Ok(
+                visit(
+                    Backtick4View {
+                        backtick_4: Backtick4(backtick_4),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Backtick4View {
+    pub backtick_4: Backtick4,
+}
+impl Backtick4View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Backtick5Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for Backtick5Handle {
+    type View = Backtick5View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Backtick5)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Backtick5
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::Backtick5)],
+            |[backtick_5], visit_ignored| Ok(
+                visit(
+                    Backtick5View {
+                        backtick_5: Backtick5(backtick_5),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Backtick5View {
+    pub backtick_5: Backtick5,
+}
+impl Backtick5View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BeginHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for BeginHandle {
     type View = BeginView;
@@ -820,49 +1060,6 @@ pub enum BooleanView {
 }
 impl BooleanView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct CodeHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for CodeHandle {
-    type View = CodeView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::Code)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::Code
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::Code)],
-            |[code], visit_ignored| Ok(
-                visit(CodeView { code: Code(code) }, visit_ignored),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CodeView {
-    pub code: Code,
-}
-impl CodeView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CodeBlockHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for CodeBlockHandle {
     type View = CodeBlockView;
@@ -890,13 +1087,96 @@ impl NonTerminalHandle for CodeBlockHandle {
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
     ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::CodeBlock3) => {
+                CodeBlockView::CodeBlock3(CodeBlock3Handle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::CodeBlock4) => {
+                CodeBlockView::CodeBlock4(CodeBlock4Handle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::CodeBlock5) => {
+                CodeBlockView::CodeBlock5(CodeBlock5Handle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::CodeBlock6) => {
+                CodeBlockView::CodeBlock6(CodeBlock6Handle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeBlockView {
+    CodeBlock3(CodeBlock3Handle),
+    CodeBlock4(CodeBlock4Handle),
+    CodeBlock5(CodeBlock5Handle),
+    CodeBlock6(CodeBlock6Handle),
+}
+impl CodeBlockView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock3Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock3Handle {
+    type View = CodeBlock3View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock3)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock3
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [NodeKind::Terminal(TerminalKind::CodeBlock)],
-            |[code_block], visit_ignored| Ok(
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart3),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock3List),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd3),
+            ],
+            |[code_block_start_3, code_block_3_list, code_block_end_3], visit_ignored| Ok(
                 visit(
-                    CodeBlockView {
-                        code_block: CodeBlock(code_block),
+                    CodeBlock3View {
+                        code_block_start_3: CodeBlockStart3Handle(code_block_start_3),
+                        code_block_3_list: CodeBlock3ListHandle(code_block_3_list),
+                        code_block_end_3: CodeBlockEnd3Handle(code_block_end_3),
                     },
                     visit_ignored,
                 ),
@@ -906,10 +1186,1168 @@ impl NonTerminalHandle for CodeBlockHandle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CodeBlockView {
-    pub code_block: CodeBlock,
+pub struct CodeBlock3View {
+    pub code_block_start_3: CodeBlockStart3Handle,
+    pub code_block_3_list: CodeBlock3ListHandle,
+    pub code_block_end_3: CodeBlockEnd3Handle,
 }
-impl CodeBlockView {}
+impl CodeBlock3View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock3ListHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock3ListHandle {
+    type View = Option<CodeBlock3ListView>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock3List)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock3List
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock3ListGroup),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock3List),
+            ],
+            |[code_block_3_list_group, code_block_3_list], visit_ignored| Ok(
+                visit(
+                    Some(CodeBlock3ListView {
+                        code_block_3_list_group: CodeBlock3ListGroupHandle(
+                            code_block_3_list_group,
+                        ),
+                        code_block_3_list: CodeBlock3ListHandle(code_block_3_list),
+                    }),
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlock3ListView {
+    pub code_block_3_list_group: CodeBlock3ListGroupHandle,
+    pub code_block_3_list: CodeBlock3ListHandle,
+}
+impl<F: CstFacade> RecursiveView<F> for CodeBlock3ListView {
+    type Item = CodeBlock3ListGroupHandle;
+    fn get_all_with_visit<E>(
+        &self,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+        let mut items = Vec::new();
+        let mut current_view = Some(*self);
+        while let Some(item) = current_view {
+            let Self { code_block_3_list_group, .. } = item;
+            items.push(code_block_3_list_group);
+            item.code_block_3_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
+        }
+        Ok(items)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock3ListGroupHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock3ListGroupHandle {
+    type View = CodeBlock3ListGroupView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock3ListGroup)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock3ListGroup
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::NoBacktick) => {
+                CodeBlock3ListGroupView::NoBacktick(NoBacktickHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Backtick2) => {
+                CodeBlock3ListGroupView::Backtick2(Backtick2Handle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeBlock3ListGroupView {
+    NoBacktick(NoBacktickHandle),
+    Backtick2(Backtick2Handle),
+}
+impl CodeBlock3ListGroupView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock4Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock4Handle {
+    type View = CodeBlock4View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock4)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock4
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart4),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock4List),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd4),
+            ],
+            |[code_block_start_4, code_block_4_list, code_block_end_4], visit_ignored| Ok(
+                visit(
+                    CodeBlock4View {
+                        code_block_start_4: CodeBlockStart4Handle(code_block_start_4),
+                        code_block_4_list: CodeBlock4ListHandle(code_block_4_list),
+                        code_block_end_4: CodeBlockEnd4Handle(code_block_end_4),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlock4View {
+    pub code_block_start_4: CodeBlockStart4Handle,
+    pub code_block_4_list: CodeBlock4ListHandle,
+    pub code_block_end_4: CodeBlockEnd4Handle,
+}
+impl CodeBlock4View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock4ListHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock4ListHandle {
+    type View = Option<CodeBlock4ListView>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock4List)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock4List
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock4ListGroup),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock4List),
+            ],
+            |[code_block_4_list_group, code_block_4_list], visit_ignored| Ok(
+                visit(
+                    Some(CodeBlock4ListView {
+                        code_block_4_list_group: CodeBlock4ListGroupHandle(
+                            code_block_4_list_group,
+                        ),
+                        code_block_4_list: CodeBlock4ListHandle(code_block_4_list),
+                    }),
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlock4ListView {
+    pub code_block_4_list_group: CodeBlock4ListGroupHandle,
+    pub code_block_4_list: CodeBlock4ListHandle,
+}
+impl<F: CstFacade> RecursiveView<F> for CodeBlock4ListView {
+    type Item = CodeBlock4ListGroupHandle;
+    fn get_all_with_visit<E>(
+        &self,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+        let mut items = Vec::new();
+        let mut current_view = Some(*self);
+        while let Some(item) = current_view {
+            let Self { code_block_4_list_group, .. } = item;
+            items.push(code_block_4_list_group);
+            item.code_block_4_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
+        }
+        Ok(items)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock4ListGroupHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock4ListGroupHandle {
+    type View = CodeBlock4ListGroupView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock4ListGroup)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock4ListGroup
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::NoBacktick) => {
+                CodeBlock4ListGroupView::NoBacktick(NoBacktickHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Backtick3) => {
+                CodeBlock4ListGroupView::Backtick3(Backtick3Handle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeBlock4ListGroupView {
+    NoBacktick(NoBacktickHandle),
+    Backtick3(Backtick3Handle),
+}
+impl CodeBlock4ListGroupView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock5Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock5Handle {
+    type View = CodeBlock5View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock5)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock5
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart5),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock5List),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd5),
+            ],
+            |[code_block_start_5, code_block_5_list, code_block_end_5], visit_ignored| Ok(
+                visit(
+                    CodeBlock5View {
+                        code_block_start_5: CodeBlockStart5Handle(code_block_start_5),
+                        code_block_5_list: CodeBlock5ListHandle(code_block_5_list),
+                        code_block_end_5: CodeBlockEnd5Handle(code_block_end_5),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlock5View {
+    pub code_block_start_5: CodeBlockStart5Handle,
+    pub code_block_5_list: CodeBlock5ListHandle,
+    pub code_block_end_5: CodeBlockEnd5Handle,
+}
+impl CodeBlock5View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock5ListHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock5ListHandle {
+    type View = Option<CodeBlock5ListView>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock5List)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock5List
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock5ListGroup),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock5List),
+            ],
+            |[code_block_5_list_group, code_block_5_list], visit_ignored| Ok(
+                visit(
+                    Some(CodeBlock5ListView {
+                        code_block_5_list_group: CodeBlock5ListGroupHandle(
+                            code_block_5_list_group,
+                        ),
+                        code_block_5_list: CodeBlock5ListHandle(code_block_5_list),
+                    }),
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlock5ListView {
+    pub code_block_5_list_group: CodeBlock5ListGroupHandle,
+    pub code_block_5_list: CodeBlock5ListHandle,
+}
+impl<F: CstFacade> RecursiveView<F> for CodeBlock5ListView {
+    type Item = CodeBlock5ListGroupHandle;
+    fn get_all_with_visit<E>(
+        &self,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+        let mut items = Vec::new();
+        let mut current_view = Some(*self);
+        while let Some(item) = current_view {
+            let Self { code_block_5_list_group, .. } = item;
+            items.push(code_block_5_list_group);
+            item.code_block_5_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
+        }
+        Ok(items)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock5ListGroupHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock5ListGroupHandle {
+    type View = CodeBlock5ListGroupView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock5ListGroup)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock5ListGroup
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::NoBacktick) => {
+                CodeBlock5ListGroupView::NoBacktick(NoBacktickHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Backtick4) => {
+                CodeBlock5ListGroupView::Backtick4(Backtick4Handle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeBlock5ListGroupView {
+    NoBacktick(NoBacktickHandle),
+    Backtick4(Backtick4Handle),
+}
+impl CodeBlock5ListGroupView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock6Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock6Handle {
+    type View = CodeBlock6View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock6)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock6
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart6),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock6List),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd6),
+            ],
+            |[code_block_start_6, code_block_6_list, code_block_end_6], visit_ignored| Ok(
+                visit(
+                    CodeBlock6View {
+                        code_block_start_6: CodeBlockStart6Handle(code_block_start_6),
+                        code_block_6_list: CodeBlock6ListHandle(code_block_6_list),
+                        code_block_end_6: CodeBlockEnd6Handle(code_block_end_6),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlock6View {
+    pub code_block_start_6: CodeBlockStart6Handle,
+    pub code_block_6_list: CodeBlock6ListHandle,
+    pub code_block_end_6: CodeBlockEnd6Handle,
+}
+impl CodeBlock6View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock6ListHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock6ListHandle {
+    type View = Option<CodeBlock6ListView>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock6List)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock6List
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock6ListGroup),
+                NodeKind::NonTerminal(NonTerminalKind::CodeBlock6List),
+            ],
+            |[code_block_6_list_group, code_block_6_list], visit_ignored| Ok(
+                visit(
+                    Some(CodeBlock6ListView {
+                        code_block_6_list_group: CodeBlock6ListGroupHandle(
+                            code_block_6_list_group,
+                        ),
+                        code_block_6_list: CodeBlock6ListHandle(code_block_6_list),
+                    }),
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlock6ListView {
+    pub code_block_6_list_group: CodeBlock6ListGroupHandle,
+    pub code_block_6_list: CodeBlock6ListHandle,
+}
+impl<F: CstFacade> RecursiveView<F> for CodeBlock6ListView {
+    type Item = CodeBlock6ListGroupHandle;
+    fn get_all_with_visit<E>(
+        &self,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+        let mut items = Vec::new();
+        let mut current_view = Some(*self);
+        while let Some(item) = current_view {
+            let Self { code_block_6_list_group, .. } = item;
+            items.push(code_block_6_list_group);
+            item.code_block_6_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
+        }
+        Ok(items)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlock6ListGroupHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlock6ListGroupHandle {
+    type View = CodeBlock6ListGroupView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlock6ListGroup)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlock6ListGroup
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::NoBacktick) => {
+                CodeBlock6ListGroupView::NoBacktick(NoBacktickHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Backtick5) => {
+                CodeBlock6ListGroupView::Backtick5(Backtick5Handle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeBlock6ListGroupView {
+    NoBacktick(NoBacktickHandle),
+    Backtick5(Backtick5Handle),
+}
+impl CodeBlock6ListGroupView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockEnd3Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockEnd3Handle {
+    type View = CodeBlockEnd3View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd3)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockEnd3
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockEnd3)],
+            |[code_block_end_3], visit_ignored| Ok(
+                visit(
+                    CodeBlockEnd3View {
+                        code_block_end_3: CodeBlockEnd3(code_block_end_3),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockEnd3View {
+    pub code_block_end_3: CodeBlockEnd3,
+}
+impl CodeBlockEnd3View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockEnd4Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockEnd4Handle {
+    type View = CodeBlockEnd4View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd4)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockEnd4
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockEnd4)],
+            |[code_block_end_4], visit_ignored| Ok(
+                visit(
+                    CodeBlockEnd4View {
+                        code_block_end_4: CodeBlockEnd4(code_block_end_4),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockEnd4View {
+    pub code_block_end_4: CodeBlockEnd4,
+}
+impl CodeBlockEnd4View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockEnd5Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockEnd5Handle {
+    type View = CodeBlockEnd5View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd5)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockEnd5
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockEnd5)],
+            |[code_block_end_5], visit_ignored| Ok(
+                visit(
+                    CodeBlockEnd5View {
+                        code_block_end_5: CodeBlockEnd5(code_block_end_5),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockEnd5View {
+    pub code_block_end_5: CodeBlockEnd5,
+}
+impl CodeBlockEnd5View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockEnd6Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockEnd6Handle {
+    type View = CodeBlockEnd6View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd6)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockEnd6
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockEnd6)],
+            |[code_block_end_6], visit_ignored| Ok(
+                visit(
+                    CodeBlockEnd6View {
+                        code_block_end_6: CodeBlockEnd6(code_block_end_6),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockEnd6View {
+    pub code_block_end_6: CodeBlockEnd6,
+}
+impl CodeBlockEnd6View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockStart3Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockStart3Handle {
+    type View = CodeBlockStart3View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart3)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockStart3
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockStart3)],
+            |[code_block_start_3], visit_ignored| Ok(
+                visit(
+                    CodeBlockStart3View {
+                        code_block_start_3: CodeBlockStart3(code_block_start_3),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockStart3View {
+    pub code_block_start_3: CodeBlockStart3,
+}
+impl CodeBlockStart3View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockStart4Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockStart4Handle {
+    type View = CodeBlockStart4View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart4)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockStart4
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockStart4)],
+            |[code_block_start_4], visit_ignored| Ok(
+                visit(
+                    CodeBlockStart4View {
+                        code_block_start_4: CodeBlockStart4(code_block_start_4),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockStart4View {
+    pub code_block_start_4: CodeBlockStart4,
+}
+impl CodeBlockStart4View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockStart5Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockStart5Handle {
+    type View = CodeBlockStart5View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart5)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockStart5
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockStart5)],
+            |[code_block_start_5], visit_ignored| Ok(
+                visit(
+                    CodeBlockStart5View {
+                        code_block_start_5: CodeBlockStart5(code_block_start_5),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockStart5View {
+    pub code_block_start_5: CodeBlockStart5,
+}
+impl CodeBlockStart5View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeBlockStart6Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for CodeBlockStart6Handle {
+    type View = CodeBlockStart6View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart6)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::CodeBlockStart6
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::CodeBlockStart6)],
+            |[code_block_start_6], visit_ignored| Ok(
+                visit(
+                    CodeBlockStart6View {
+                        code_block_start_6: CodeBlockStart6(code_block_start_6),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodeBlockStart6View {
+    pub code_block_start_6: CodeBlockStart6,
+}
+impl CodeBlockStart6View {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CommaHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for CommaHandle {
@@ -1768,6 +3206,432 @@ pub struct IdentView {
 }
 impl IdentView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InlineCodeHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InlineCodeHandle {
+    type View = InlineCodeView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::InlineCode)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::InlineCode
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::InlineCode2) => {
+                InlineCodeView::InlineCode2(InlineCode2Handle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::InlineCode1) => {
+                InlineCodeView::InlineCode1(InlineCode1Handle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InlineCodeView {
+    InlineCode2(InlineCode2Handle),
+    InlineCode1(InlineCode1Handle),
+}
+impl InlineCodeView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InlineCode1Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InlineCode1Handle {
+    type View = InlineCode1View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::InlineCode1)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::InlineCode1
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::InlineCode1)],
+            |[inline_code_1], visit_ignored| Ok(
+                visit(
+                    InlineCode1View {
+                        inline_code_1: InlineCode1(inline_code_1),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InlineCode1View {
+    pub inline_code_1: InlineCode1,
+}
+impl InlineCode1View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InlineCode2Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InlineCode2Handle {
+    type View = InlineCode2View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::InlineCode2)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::InlineCode2
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::InlineCodeStart2),
+                NodeKind::NonTerminal(NonTerminalKind::InlineCode2List),
+                NodeKind::NonTerminal(NonTerminalKind::InlineCodeEnd2),
+            ],
+            |
+                [inline_code_start_2,
+                inline_code_2_list,
+                inline_code_end_2,
+                ],
+                visit_ignored|
+            Ok(
+                visit(
+                    InlineCode2View {
+                        inline_code_start_2: InlineCodeStart2Handle(inline_code_start_2),
+                        inline_code_2_list: InlineCode2ListHandle(inline_code_2_list),
+                        inline_code_end_2: InlineCodeEnd2Handle(inline_code_end_2),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InlineCode2View {
+    pub inline_code_start_2: InlineCodeStart2Handle,
+    pub inline_code_2_list: InlineCode2ListHandle,
+    pub inline_code_end_2: InlineCodeEnd2Handle,
+}
+impl InlineCode2View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InlineCode2ListHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InlineCode2ListHandle {
+    type View = Option<InlineCode2ListView>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::InlineCode2List)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::InlineCode2List
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::InlineCode2ListGroup),
+                NodeKind::NonTerminal(NonTerminalKind::InlineCode2List),
+            ],
+            |[inline_code_2_list_group, inline_code_2_list], visit_ignored| Ok(
+                visit(
+                    Some(InlineCode2ListView {
+                        inline_code_2_list_group: InlineCode2ListGroupHandle(
+                            inline_code_2_list_group,
+                        ),
+                        inline_code_2_list: InlineCode2ListHandle(inline_code_2_list),
+                    }),
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InlineCode2ListView {
+    pub inline_code_2_list_group: InlineCode2ListGroupHandle,
+    pub inline_code_2_list: InlineCode2ListHandle,
+}
+impl<F: CstFacade> RecursiveView<F> for InlineCode2ListView {
+    type Item = InlineCode2ListGroupHandle;
+    fn get_all_with_visit<E>(
+        &self,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+        let mut items = Vec::new();
+        let mut current_view = Some(*self);
+        while let Some(item) = current_view {
+            let Self { inline_code_2_list_group, .. } = item;
+            items.push(inline_code_2_list_group);
+            item.inline_code_2_list
+                .get_view_with_visit(
+                    tree,
+                    |view, visit_ignored| {
+                        current_view = view;
+                        ((), visit_ignored)
+                    },
+                    visit_ignored,
+                )?;
+        }
+        Ok(items)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InlineCode2ListGroupHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InlineCode2ListGroupHandle {
+    type View = InlineCode2ListGroupView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::InlineCode2ListGroup)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::InlineCode2ListGroup
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::NoBacktickInline) => {
+                InlineCode2ListGroupView::NoBacktickInline(NoBacktickInlineHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Backtick1) => {
+                InlineCode2ListGroupView::Backtick1(Backtick1Handle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InlineCode2ListGroupView {
+    NoBacktickInline(NoBacktickInlineHandle),
+    Backtick1(Backtick1Handle),
+}
+impl InlineCode2ListGroupView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InlineCodeEnd2Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InlineCodeEnd2Handle {
+    type View = InlineCodeEnd2View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::InlineCodeEnd2)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::InlineCodeEnd2
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::InlineCodeEnd2)],
+            |[inline_code_end_2], visit_ignored| Ok(
+                visit(
+                    InlineCodeEnd2View {
+                        inline_code_end_2: InlineCodeEnd2(inline_code_end_2),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InlineCodeEnd2View {
+    pub inline_code_end_2: InlineCodeEnd2,
+}
+impl InlineCodeEnd2View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InlineCodeStart2Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InlineCodeStart2Handle {
+    type View = InlineCodeStart2View;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::InlineCodeStart2)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::InlineCodeStart2
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::InlineCodeStart2)],
+            |[inline_code_start_2], visit_ignored| Ok(
+                visit(
+                    InlineCodeStart2View {
+                        inline_code_start_2: InlineCodeStart2(inline_code_start_2),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InlineCodeStart2View {
+    pub inline_code_start_2: InlineCodeStart2,
+}
+impl InlineCodeStart2View {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IntegerHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for IntegerHandle {
     type View = IntegerView;
@@ -2298,9 +4162,9 @@ pub struct MetaExtKeyView {
 }
 impl MetaExtKeyView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NamedCodeHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for NamedCodeHandle {
-    type View = NamedCodeView;
+pub struct NoBacktickHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for NoBacktickHandle {
+    type View = NoBacktickView;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -2311,13 +4175,13 @@ impl NonTerminalHandle for NamedCodeHandle {
     ) -> Result<Self, CstConstructError<E>> {
         tree.collect_nodes(
             index,
-            [NodeKind::NonTerminal(NonTerminalKind::NamedCode)],
+            [NodeKind::NonTerminal(NonTerminalKind::NoBacktick)],
             |[index], visit| Ok((Self(index), visit)),
             visit_ignored,
         )
     }
     fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::NamedCode
+        NonTerminalKind::NoBacktick
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
@@ -2327,11 +4191,11 @@ impl NonTerminalHandle for NamedCodeHandle {
     ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [NodeKind::Terminal(TerminalKind::NamedCode)],
-            |[named_code], visit_ignored| Ok(
+            [NodeKind::Terminal(TerminalKind::NoBacktick)],
+            |[no_backtick], visit_ignored| Ok(
                 visit(
-                    NamedCodeView {
-                        named_code: NamedCode(named_code),
+                    NoBacktickView {
+                        no_backtick: NoBacktick(no_backtick),
                     },
                     visit_ignored,
                 ),
@@ -2341,10 +4205,58 @@ impl NonTerminalHandle for NamedCodeHandle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NamedCodeView {
-    pub named_code: NamedCode,
+pub struct NoBacktickView {
+    pub no_backtick: NoBacktick,
 }
-impl NamedCodeView {}
+impl NoBacktickView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NoBacktickInlineHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for NoBacktickInlineHandle {
+    type View = NoBacktickInlineView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::NoBacktickInline)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::NoBacktickInline
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::NoBacktickInline)],
+            |[no_backtick_inline], visit_ignored| Ok(
+                visit(
+                    NoBacktickInlineView {
+                        no_backtick_inline: NoBacktickInline(no_backtick_inline),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoBacktickInlineView {
+    pub no_backtick_inline: NoBacktickInline,
+}
+impl NoBacktickInlineView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NullHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for NullHandle {
@@ -3830,11 +5742,8 @@ impl NonTerminalHandle for ValueHandle {
             NodeKind::NonTerminal(NonTerminalKind::CodeBlock) => {
                 ValueView::CodeBlock(CodeBlockHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::NamedCode) => {
-                ValueView::NamedCode(NamedCodeHandle(child))
-            }
-            NodeKind::NonTerminal(NonTerminalKind::Code) => {
-                ValueView::Code(CodeHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::InlineCode) => {
+                ValueView::InlineCode(InlineCodeHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::Path) => {
                 ValueView::Path(PathHandle(child))
@@ -3868,8 +5777,7 @@ pub enum ValueView {
     Strings(StringsHandle),
     Hole(HoleHandle),
     CodeBlock(CodeBlockHandle),
-    NamedCode(NamedCodeHandle),
-    Code(CodeHandle),
+    InlineCode(InlineCodeHandle),
     Path(PathHandle),
 }
 impl ValueView {}
@@ -4136,33 +6044,183 @@ impl TerminalHandle for Text {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CodeBlock(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for CodeBlock {
+pub struct InlineCode1(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for InlineCode1 {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::CodeBlock
+        TerminalKind::InlineCode1
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NamedCode(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for NamedCode {
+pub struct InlineCodeStart2(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for InlineCodeStart2 {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::NamedCode
+        TerminalKind::InlineCodeStart2
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Code(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for Code {
+pub struct CodeBlockStart3(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockStart3 {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::Code
+        TerminalKind::CodeBlockStart3
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CodeBlockStart4(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockStart4 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::CodeBlockStart4
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CodeBlockStart5(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockStart5 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::CodeBlockStart5
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CodeBlockStart6(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockStart6 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::CodeBlockStart6
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CodeBlockEnd3(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockEnd3 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::CodeBlockEnd3
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Backtick2(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Backtick2 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Backtick2
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CodeBlockEnd4(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockEnd4 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::CodeBlockEnd4
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Backtick3(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Backtick3 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Backtick3
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CodeBlockEnd5(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockEnd5 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::CodeBlockEnd5
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Backtick4(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Backtick4 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Backtick4
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CodeBlockEnd6(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for CodeBlockEnd6 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::CodeBlockEnd6
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Backtick5(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Backtick5 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Backtick5
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct InlineCodeEnd2(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for InlineCodeEnd2 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::InlineCodeEnd2
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Backtick1(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Backtick1 {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Backtick1
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NoBacktick(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for NoBacktick {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::NoBacktick
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NoBacktickInline(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for NoBacktickInline {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::NoBacktickInline
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -199,18 +199,128 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
+    /// Semantic action for non-terminal 'InlineCode'
+    fn inline_code(&mut self, _arg: &InlineCode<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'InlineCode1'
+    fn inline_code1(&mut self, _arg: &InlineCode1<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'InlineCode2'
+    fn inline_code2(&mut self, _arg: &InlineCode2<'t>) -> Result<()> {
+        Ok(())
+    }
+
     /// Semantic action for non-terminal 'CodeBlock'
     fn code_block(&mut self, _arg: &CodeBlock<'t>) -> Result<()> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'NamedCode'
-    fn named_code(&mut self, _arg: &NamedCode<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'CodeBlock3'
+    fn code_block3(&mut self, _arg: &CodeBlock3<'t>) -> Result<()> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'Code'
-    fn code(&mut self, _arg: &Code<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'CodeBlock4'
+    fn code_block4(&mut self, _arg: &CodeBlock4<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlock5'
+    fn code_block5(&mut self, _arg: &CodeBlock5<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlock6'
+    fn code_block6(&mut self, _arg: &CodeBlock6<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'InlineCodeStart2'
+    fn inline_code_start2(&mut self, _arg: &InlineCodeStart2<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockStart3'
+    fn code_block_start3(&mut self, _arg: &CodeBlockStart3<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockStart4'
+    fn code_block_start4(&mut self, _arg: &CodeBlockStart4<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockStart5'
+    fn code_block_start5(&mut self, _arg: &CodeBlockStart5<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockStart6'
+    fn code_block_start6(&mut self, _arg: &CodeBlockStart6<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockEnd3'
+    fn code_block_end3(&mut self, _arg: &CodeBlockEnd3<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'Backtick2'
+    fn backtick2(&mut self, _arg: &Backtick2<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockEnd4'
+    fn code_block_end4(&mut self, _arg: &CodeBlockEnd4<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'Backtick3'
+    fn backtick3(&mut self, _arg: &Backtick3<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockEnd5'
+    fn code_block_end5(&mut self, _arg: &CodeBlockEnd5<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'Backtick4'
+    fn backtick4(&mut self, _arg: &Backtick4<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'CodeBlockEnd6'
+    fn code_block_end6(&mut self, _arg: &CodeBlockEnd6<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'Backtick5'
+    fn backtick5(&mut self, _arg: &Backtick5<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'InlineCodeEnd2'
+    fn inline_code_end2(&mut self, _arg: &InlineCodeEnd2<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'Backtick1'
+    fn backtick1(&mut self, _arg: &Backtick1<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'NoBacktick'
+    fn no_backtick(&mut self, _arg: &NoBacktick<'t>) -> Result<()> {
+        Ok(())
+    }
+
+    /// Semantic action for non-terminal 'NoBacktickInline'
+    fn no_backtick_inline(&mut self, _arg: &NoBacktickInline<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -743,39 +853,22 @@ impl ToSpan for ValueCodeBlock<'_> {
 ///
 /// Type derived for production 57
 ///
-/// `Value: NamedCode;`
+/// `Value: InlineCode;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct ValueNamedCode<'t> {
-    pub named_code: NamedCode<'t>,
+pub struct ValueInlineCode<'t> {
+    pub inline_code: InlineCode<'t>,
 }
 
-impl ToSpan for ValueNamedCode<'_> {
+impl ToSpan for ValueInlineCode<'_> {
     fn span(&self) -> Span {
-        self.named_code.span()
+        self.inline_code.span()
     }
 }
 
 ///
 /// Type derived for production 58
-///
-/// `Value: Code;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct ValueCode<'t> {
-    pub code: Code<'t>,
-}
-
-impl ToSpan for ValueCode<'_> {
-    fn span(&self) -> Span {
-        self.code.span()
-    }
-}
-
-///
-/// Type derived for production 59
 ///
 /// `Value: Path;`
 ///
@@ -792,7 +885,7 @@ impl ToSpan for ValuePath<'_> {
 }
 
 ///
-/// Type derived for production 85
+/// Type derived for production 84
 ///
 /// `Boolean: True;`
 ///
@@ -809,7 +902,7 @@ impl ToSpan for BooleanTrue<'_> {
 }
 
 ///
-/// Type derived for production 86
+/// Type derived for production 85
 ///
 /// `Boolean: False;`
 ///
@@ -822,6 +915,278 @@ pub struct BooleanFalse<'t> {
 impl ToSpan for BooleanFalse<'_> {
     fn span(&self) -> Span {
         self.r#false.span()
+    }
+}
+
+///
+/// Type derived for production 96
+///
+/// `InlineCode: InlineCode2;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCodeInlineCode2<'t> {
+    pub inline_code2: InlineCode2<'t>,
+}
+
+impl ToSpan for InlineCodeInlineCode2<'_> {
+    fn span(&self) -> Span {
+        self.inline_code2.span()
+    }
+}
+
+///
+/// Type derived for production 97
+///
+/// `InlineCode: InlineCode1;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCodeInlineCode1<'t> {
+    pub inline_code1: InlineCode1<'t>,
+}
+
+impl ToSpan for InlineCodeInlineCode1<'_> {
+    fn span(&self) -> Span {
+        self.inline_code1.span()
+    }
+}
+
+///
+/// Type derived for production 101
+///
+/// `InlineCode2ListGroup: NoBacktickInline;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCode2ListGroupNoBacktickInline<'t> {
+    pub no_backtick_inline: NoBacktickInline<'t>,
+}
+
+impl ToSpan for InlineCode2ListGroupNoBacktickInline<'_> {
+    fn span(&self) -> Span {
+        self.no_backtick_inline.span()
+    }
+}
+
+///
+/// Type derived for production 102
+///
+/// `InlineCode2ListGroup: Backtick1;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCode2ListGroupBacktick1<'t> {
+    pub backtick1: Backtick1<'t>,
+}
+
+impl ToSpan for InlineCode2ListGroupBacktick1<'_> {
+    fn span(&self) -> Span {
+        self.backtick1.span()
+    }
+}
+
+///
+/// Type derived for production 104
+///
+/// `CodeBlock: CodeBlock3;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockCodeBlock3<'t> {
+    pub code_block3: CodeBlock3<'t>,
+}
+
+impl ToSpan for CodeBlockCodeBlock3<'_> {
+    fn span(&self) -> Span {
+        self.code_block3.span()
+    }
+}
+
+///
+/// Type derived for production 105
+///
+/// `CodeBlock: CodeBlock4;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockCodeBlock4<'t> {
+    pub code_block4: CodeBlock4<'t>,
+}
+
+impl ToSpan for CodeBlockCodeBlock4<'_> {
+    fn span(&self) -> Span {
+        self.code_block4.span()
+    }
+}
+
+///
+/// Type derived for production 106
+///
+/// `CodeBlock: CodeBlock5;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockCodeBlock5<'t> {
+    pub code_block5: CodeBlock5<'t>,
+}
+
+impl ToSpan for CodeBlockCodeBlock5<'_> {
+    fn span(&self) -> Span {
+        self.code_block5.span()
+    }
+}
+
+///
+/// Type derived for production 107
+///
+/// `CodeBlock: CodeBlock6;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockCodeBlock6<'t> {
+    pub code_block6: CodeBlock6<'t>,
+}
+
+impl ToSpan for CodeBlockCodeBlock6<'_> {
+    fn span(&self) -> Span {
+        self.code_block6.span()
+    }
+}
+
+///
+/// Type derived for production 110
+///
+/// `CodeBlock3ListGroup: NoBacktick;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock3ListGroupNoBacktick<'t> {
+    pub no_backtick: NoBacktick<'t>,
+}
+
+impl ToSpan for CodeBlock3ListGroupNoBacktick<'_> {
+    fn span(&self) -> Span {
+        self.no_backtick.span()
+    }
+}
+
+///
+/// Type derived for production 111
+///
+/// `CodeBlock3ListGroup: Backtick2;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock3ListGroupBacktick2<'t> {
+    pub backtick2: Backtick2<'t>,
+}
+
+impl ToSpan for CodeBlock3ListGroupBacktick2<'_> {
+    fn span(&self) -> Span {
+        self.backtick2.span()
+    }
+}
+
+///
+/// Type derived for production 115
+///
+/// `CodeBlock4ListGroup: NoBacktick;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock4ListGroupNoBacktick<'t> {
+    pub no_backtick: NoBacktick<'t>,
+}
+
+impl ToSpan for CodeBlock4ListGroupNoBacktick<'_> {
+    fn span(&self) -> Span {
+        self.no_backtick.span()
+    }
+}
+
+///
+/// Type derived for production 116
+///
+/// `CodeBlock4ListGroup: Backtick3;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock4ListGroupBacktick3<'t> {
+    pub backtick3: Backtick3<'t>,
+}
+
+impl ToSpan for CodeBlock4ListGroupBacktick3<'_> {
+    fn span(&self) -> Span {
+        self.backtick3.span()
+    }
+}
+
+///
+/// Type derived for production 120
+///
+/// `CodeBlock5ListGroup: NoBacktick;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock5ListGroupNoBacktick<'t> {
+    pub no_backtick: NoBacktick<'t>,
+}
+
+impl ToSpan for CodeBlock5ListGroupNoBacktick<'_> {
+    fn span(&self) -> Span {
+        self.no_backtick.span()
+    }
+}
+
+///
+/// Type derived for production 121
+///
+/// `CodeBlock5ListGroup: Backtick4;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock5ListGroupBacktick4<'t> {
+    pub backtick4: Backtick4<'t>,
+}
+
+impl ToSpan for CodeBlock5ListGroupBacktick4<'_> {
+    fn span(&self) -> Span {
+        self.backtick4.span()
+    }
+}
+
+///
+/// Type derived for production 125
+///
+/// `CodeBlock6ListGroup: NoBacktick;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock6ListGroupNoBacktick<'t> {
+    pub no_backtick: NoBacktick<'t>,
+}
+
+impl ToSpan for CodeBlock6ListGroupNoBacktick<'_> {
+    fn span(&self) -> Span {
+        self.no_backtick.span()
+    }
+}
+
+///
+/// Type derived for production 126
+///
+/// `CodeBlock6ListGroup: Backtick5;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock6ListGroupBacktick5<'t> {
+    pub backtick5: Backtick5<'t>,
+}
+
+impl ToSpan for CodeBlock6ListGroupBacktick5<'_> {
+    fn span(&self) -> Span {
+        self.backtick5.span()
     }
 }
 
@@ -1020,6 +1385,81 @@ impl ToSpan for At<'_> {
 }
 
 ///
+/// Type derived for non-terminal Backtick1
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Backtick1<'t> {
+    pub backtick1: Token<'t>, /* ` */
+}
+
+impl ToSpan for Backtick1<'_> {
+    fn span(&self) -> Span {
+        self.backtick1.span()
+    }
+}
+
+///
+/// Type derived for non-terminal Backtick2
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Backtick2<'t> {
+    pub backtick2: Token<'t>, /* `{1,2} */
+}
+
+impl ToSpan for Backtick2<'_> {
+    fn span(&self) -> Span {
+        self.backtick2.span()
+    }
+}
+
+///
+/// Type derived for non-terminal Backtick3
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Backtick3<'t> {
+    pub backtick3: Token<'t>, /* `{1,3} */
+}
+
+impl ToSpan for Backtick3<'_> {
+    fn span(&self) -> Span {
+        self.backtick3.span()
+    }
+}
+
+///
+/// Type derived for non-terminal Backtick4
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Backtick4<'t> {
+    pub backtick4: Token<'t>, /* `{1,4} */
+}
+
+impl ToSpan for Backtick4<'_> {
+    fn span(&self) -> Span {
+        self.backtick4.span()
+    }
+}
+
+///
+/// Type derived for non-terminal Backtick5
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Backtick5<'t> {
+    pub backtick5: Token<'t>, /* `{1,5} */
+}
+
+impl ToSpan for Backtick5<'_> {
+    fn span(&self) -> Span {
+        self.backtick5.span()
+    }
+}
+
+///
 /// Type derived for non-terminal Begin
 ///
 #[allow(dead_code)]
@@ -1106,32 +1546,385 @@ impl ToSpan for Boolean<'_> {
 }
 
 ///
-/// Type derived for non-terminal Code
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Code<'t> {
-    pub code: Token<'t>, /* `([^`\r\n]|\\`)*` */
-}
-
-impl ToSpan for Code<'_> {
-    fn span(&self) -> Span {
-        self.code.span()
-    }
-}
-
-///
 /// Type derived for non-terminal CodeBlock
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct CodeBlock<'t> {
-    pub code_block: Token<'t>, /* ```[a-zA-Z0-9-_]*(\r\n|\r|\n)([^`]|[`]{1,2})*``` */
+pub enum CodeBlock<'t> {
+    CodeBlock3(CodeBlockCodeBlock3<'t>),
+    CodeBlock4(CodeBlockCodeBlock4<'t>),
+    CodeBlock5(CodeBlockCodeBlock5<'t>),
+    CodeBlock6(CodeBlockCodeBlock6<'t>),
 }
 
 impl ToSpan for CodeBlock<'_> {
     fn span(&self) -> Span {
-        self.code_block.span()
+        match self {
+            CodeBlock::CodeBlock3(v) => v.span(),
+            CodeBlock::CodeBlock4(v) => v.span(),
+            CodeBlock::CodeBlock5(v) => v.span(),
+            CodeBlock::CodeBlock6(v) => v.span(),
+        }
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock3
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock3<'t> {
+    pub code_block_start3: CodeBlockStart3<'t>,
+    pub code_block3_list: Vec<CodeBlock3List<'t>>,
+    pub code_block_end3: CodeBlockEnd3<'t>,
+}
+
+impl ToSpan for CodeBlock3<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start3.span()
+            + self
+                .code_block3_list
+                .first()
+                .map_or(Span::default(), |f| f.span())
+            + self
+                .code_block3_list
+                .last()
+                .map_or(Span::default(), |l| l.span())
+            + self.code_block_end3.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock3List
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock3List<'t> {
+    pub code_block3_list_group: CodeBlock3ListGroup<'t>,
+}
+
+impl ToSpan for CodeBlock3List<'_> {
+    fn span(&self) -> Span {
+        self.code_block3_list_group.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock3ListGroup
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum CodeBlock3ListGroup<'t> {
+    NoBacktick(CodeBlock3ListGroupNoBacktick<'t>),
+    Backtick2(CodeBlock3ListGroupBacktick2<'t>),
+}
+
+impl ToSpan for CodeBlock3ListGroup<'_> {
+    fn span(&self) -> Span {
+        match self {
+            CodeBlock3ListGroup::NoBacktick(v) => v.span(),
+            CodeBlock3ListGroup::Backtick2(v) => v.span(),
+        }
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock4
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock4<'t> {
+    pub code_block_start4: CodeBlockStart4<'t>,
+    pub code_block4_list: Vec<CodeBlock4List<'t>>,
+    pub code_block_end4: CodeBlockEnd4<'t>,
+}
+
+impl ToSpan for CodeBlock4<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start4.span()
+            + self
+                .code_block4_list
+                .first()
+                .map_or(Span::default(), |f| f.span())
+            + self
+                .code_block4_list
+                .last()
+                .map_or(Span::default(), |l| l.span())
+            + self.code_block_end4.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock4List
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock4List<'t> {
+    pub code_block4_list_group: CodeBlock4ListGroup<'t>,
+}
+
+impl ToSpan for CodeBlock4List<'_> {
+    fn span(&self) -> Span {
+        self.code_block4_list_group.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock4ListGroup
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum CodeBlock4ListGroup<'t> {
+    NoBacktick(CodeBlock4ListGroupNoBacktick<'t>),
+    Backtick3(CodeBlock4ListGroupBacktick3<'t>),
+}
+
+impl ToSpan for CodeBlock4ListGroup<'_> {
+    fn span(&self) -> Span {
+        match self {
+            CodeBlock4ListGroup::NoBacktick(v) => v.span(),
+            CodeBlock4ListGroup::Backtick3(v) => v.span(),
+        }
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock5
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock5<'t> {
+    pub code_block_start5: CodeBlockStart5<'t>,
+    pub code_block5_list: Vec<CodeBlock5List<'t>>,
+    pub code_block_end5: CodeBlockEnd5<'t>,
+}
+
+impl ToSpan for CodeBlock5<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start5.span()
+            + self
+                .code_block5_list
+                .first()
+                .map_or(Span::default(), |f| f.span())
+            + self
+                .code_block5_list
+                .last()
+                .map_or(Span::default(), |l| l.span())
+            + self.code_block_end5.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock5List
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock5List<'t> {
+    pub code_block5_list_group: CodeBlock5ListGroup<'t>,
+}
+
+impl ToSpan for CodeBlock5List<'_> {
+    fn span(&self) -> Span {
+        self.code_block5_list_group.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock5ListGroup
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum CodeBlock5ListGroup<'t> {
+    NoBacktick(CodeBlock5ListGroupNoBacktick<'t>),
+    Backtick4(CodeBlock5ListGroupBacktick4<'t>),
+}
+
+impl ToSpan for CodeBlock5ListGroup<'_> {
+    fn span(&self) -> Span {
+        match self {
+            CodeBlock5ListGroup::NoBacktick(v) => v.span(),
+            CodeBlock5ListGroup::Backtick4(v) => v.span(),
+        }
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock6
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock6<'t> {
+    pub code_block_start6: CodeBlockStart6<'t>,
+    pub code_block6_list: Vec<CodeBlock6List<'t>>,
+    pub code_block_end6: CodeBlockEnd6<'t>,
+}
+
+impl ToSpan for CodeBlock6<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start6.span()
+            + self
+                .code_block6_list
+                .first()
+                .map_or(Span::default(), |f| f.span())
+            + self
+                .code_block6_list
+                .last()
+                .map_or(Span::default(), |l| l.span())
+            + self.code_block_end6.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock6List
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlock6List<'t> {
+    pub code_block6_list_group: CodeBlock6ListGroup<'t>,
+}
+
+impl ToSpan for CodeBlock6List<'_> {
+    fn span(&self) -> Span {
+        self.code_block6_list_group.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlock6ListGroup
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum CodeBlock6ListGroup<'t> {
+    NoBacktick(CodeBlock6ListGroupNoBacktick<'t>),
+    Backtick5(CodeBlock6ListGroupBacktick5<'t>),
+}
+
+impl ToSpan for CodeBlock6ListGroup<'_> {
+    fn span(&self) -> Span {
+        match self {
+            CodeBlock6ListGroup::NoBacktick(v) => v.span(),
+            CodeBlock6ListGroup::Backtick5(v) => v.span(),
+        }
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockEnd3
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockEnd3<'t> {
+    pub code_block_end3: Token<'t>, /* `{3} */
+}
+
+impl ToSpan for CodeBlockEnd3<'_> {
+    fn span(&self) -> Span {
+        self.code_block_end3.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockEnd4
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockEnd4<'t> {
+    pub code_block_end4: Token<'t>, /* `{4} */
+}
+
+impl ToSpan for CodeBlockEnd4<'_> {
+    fn span(&self) -> Span {
+        self.code_block_end4.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockEnd5
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockEnd5<'t> {
+    pub code_block_end5: Token<'t>, /* `{5} */
+}
+
+impl ToSpan for CodeBlockEnd5<'_> {
+    fn span(&self) -> Span {
+        self.code_block_end5.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockEnd6
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockEnd6<'t> {
+    pub code_block_end6: Token<'t>, /* `{6} */
+}
+
+impl ToSpan for CodeBlockEnd6<'_> {
+    fn span(&self) -> Span {
+        self.code_block_end6.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockStart3
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockStart3<'t> {
+    pub code_block_start3: Token<'t>, /* `{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n) */
+}
+
+impl ToSpan for CodeBlockStart3<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start3.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockStart4
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockStart4<'t> {
+    pub code_block_start4: Token<'t>, /* `{4}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n) */
+}
+
+impl ToSpan for CodeBlockStart4<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start4.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockStart5
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockStart5<'t> {
+    pub code_block_start5: Token<'t>, /* `{5}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n) */
+}
+
+impl ToSpan for CodeBlockStart5<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start5.span()
+    }
+}
+
+///
+/// Type derived for non-terminal CodeBlockStart6
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct CodeBlockStart6<'t> {
+    pub code_block_start6: Token<'t>, /* `{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n) */
+}
+
+impl ToSpan for CodeBlockStart6<'_> {
+    fn span(&self) -> Span {
+        self.code_block_start6.span()
     }
 }
 
@@ -1404,6 +2197,130 @@ impl ToSpan for Ident<'_> {
 }
 
 ///
+/// Type derived for non-terminal InlineCode
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum InlineCode<'t> {
+    InlineCode2(InlineCodeInlineCode2<'t>),
+    InlineCode1(InlineCodeInlineCode1<'t>),
+}
+
+impl ToSpan for InlineCode<'_> {
+    fn span(&self) -> Span {
+        match self {
+            InlineCode::InlineCode2(v) => v.span(),
+            InlineCode::InlineCode1(v) => v.span(),
+        }
+    }
+}
+
+///
+/// Type derived for non-terminal InlineCode1
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCode1<'t> {
+    pub inline_code1: Token<'t>, /* [a-zA-Z0-9-_]*`[^`\r\n]*` */
+}
+
+impl ToSpan for InlineCode1<'_> {
+    fn span(&self) -> Span {
+        self.inline_code1.span()
+    }
+}
+
+///
+/// Type derived for non-terminal InlineCode2
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCode2<'t> {
+    pub inline_code_start2: InlineCodeStart2<'t>,
+    pub inline_code2_list: Vec<InlineCode2List<'t>>,
+    pub inline_code_end2: InlineCodeEnd2<'t>,
+}
+
+impl ToSpan for InlineCode2<'_> {
+    fn span(&self) -> Span {
+        self.inline_code_start2.span()
+            + self
+                .inline_code2_list
+                .first()
+                .map_or(Span::default(), |f| f.span())
+            + self
+                .inline_code2_list
+                .last()
+                .map_or(Span::default(), |l| l.span())
+            + self.inline_code_end2.span()
+    }
+}
+
+///
+/// Type derived for non-terminal InlineCode2List
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCode2List<'t> {
+    pub inline_code2_list_group: InlineCode2ListGroup<'t>,
+}
+
+impl ToSpan for InlineCode2List<'_> {
+    fn span(&self) -> Span {
+        self.inline_code2_list_group.span()
+    }
+}
+
+///
+/// Type derived for non-terminal InlineCode2ListGroup
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum InlineCode2ListGroup<'t> {
+    NoBacktickInline(InlineCode2ListGroupNoBacktickInline<'t>),
+    Backtick1(InlineCode2ListGroupBacktick1<'t>),
+}
+
+impl ToSpan for InlineCode2ListGroup<'_> {
+    fn span(&self) -> Span {
+        match self {
+            InlineCode2ListGroup::NoBacktickInline(v) => v.span(),
+            InlineCode2ListGroup::Backtick1(v) => v.span(),
+        }
+    }
+}
+
+///
+/// Type derived for non-terminal InlineCodeEnd2
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCodeEnd2<'t> {
+    pub inline_code_end2: Token<'t>, /* `` */
+}
+
+impl ToSpan for InlineCodeEnd2<'_> {
+    fn span(&self) -> Span {
+        self.inline_code_end2.span()
+    }
+}
+
+///
+/// Type derived for non-terminal InlineCodeStart2
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct InlineCodeStart2<'t> {
+    pub inline_code_start2: Token<'t>, /* [a-zA-Z0-9-_]*`` */
+}
+
+impl ToSpan for InlineCodeStart2<'_> {
+    fn span(&self) -> Span {
+        self.inline_code_start2.span()
+    }
+}
+
+///
 /// Type derived for non-terminal Integer
 ///
 #[allow(dead_code)]
@@ -1563,17 +2480,32 @@ impl ToSpan for MetaExtKey<'_> {
 }
 
 ///
-/// Type derived for non-terminal NamedCode
+/// Type derived for non-terminal NoBacktick
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct NamedCode<'t> {
-    pub named_code: Token<'t>, /* [a-zA-Z0-9-_]+`([^`\r\n]|\\`)*` */
+pub struct NoBacktick<'t> {
+    pub no_backtick: Token<'t>, /* [^`]+ */
 }
 
-impl ToSpan for NamedCode<'_> {
+impl ToSpan for NoBacktick<'_> {
     fn span(&self) -> Span {
-        self.named_code.span()
+        self.no_backtick.span()
+    }
+}
+
+///
+/// Type derived for non-terminal NoBacktickInline
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct NoBacktickInline<'t> {
+    pub no_backtick_inline: Token<'t>, /* [^`\r\n]+ */
+}
+
+impl ToSpan for NoBacktickInline<'_> {
+    fn span(&self) -> Span {
+        self.no_backtick_inline.span()
     }
 }
 
@@ -2052,8 +2984,7 @@ pub enum Value<'t> {
     Strings(ValueStrings<'t>),
     Hole(ValueHole<'t>),
     CodeBlock(ValueCodeBlock<'t>),
-    NamedCode(ValueNamedCode<'t>),
-    Code(ValueCode<'t>),
+    InlineCode(ValueInlineCode<'t>),
     Path(ValuePath<'t>),
 }
 
@@ -2070,8 +3001,7 @@ impl ToSpan for Value<'_> {
             Value::Strings(v) => v.span(),
             Value::Hole(v) => v.span(),
             Value::CodeBlock(v) => v.span(),
-            Value::NamedCode(v) => v.span(),
-            Value::Code(v) => v.span(),
+            Value::InlineCode(v) => v.span(),
             Value::Path(v) => v.span(),
         }
     }
@@ -2127,13 +3057,37 @@ pub enum ASTType<'t> {
     ArrayMarkerOpt(Option<ArrayMarkerOpt<'t>>),
     ArrayOpt(Option<ArrayOpt<'t>>),
     At(At<'t>),
+    Backtick1(Backtick1<'t>),
+    Backtick2(Backtick2<'t>),
+    Backtick3(Backtick3<'t>),
+    Backtick4(Backtick4<'t>),
+    Backtick5(Backtick5<'t>),
     Begin(Begin<'t>),
     Bind(Bind<'t>),
     Binding(Binding<'t>),
     BindingRhs(BindingRhs<'t>),
     Boolean(Boolean<'t>),
-    Code(Code<'t>),
     CodeBlock(CodeBlock<'t>),
+    CodeBlock3(CodeBlock3<'t>),
+    CodeBlock3List(Vec<CodeBlock3List<'t>>),
+    CodeBlock3ListGroup(CodeBlock3ListGroup<'t>),
+    CodeBlock4(CodeBlock4<'t>),
+    CodeBlock4List(Vec<CodeBlock4List<'t>>),
+    CodeBlock4ListGroup(CodeBlock4ListGroup<'t>),
+    CodeBlock5(CodeBlock5<'t>),
+    CodeBlock5List(Vec<CodeBlock5List<'t>>),
+    CodeBlock5ListGroup(CodeBlock5ListGroup<'t>),
+    CodeBlock6(CodeBlock6<'t>),
+    CodeBlock6List(Vec<CodeBlock6List<'t>>),
+    CodeBlock6ListGroup(CodeBlock6ListGroup<'t>),
+    CodeBlockEnd3(CodeBlockEnd3<'t>),
+    CodeBlockEnd4(CodeBlockEnd4<'t>),
+    CodeBlockEnd5(CodeBlockEnd5<'t>),
+    CodeBlockEnd6(CodeBlockEnd6<'t>),
+    CodeBlockStart3(CodeBlockStart3<'t>),
+    CodeBlockStart4(CodeBlockStart4<'t>),
+    CodeBlockStart5(CodeBlockStart5<'t>),
+    CodeBlockStart6(CodeBlockStart6<'t>),
     Comma(Comma<'t>),
     Continue(Continue<'t>),
     DirectBind(DirectBind<'t>),
@@ -2151,6 +3105,13 @@ pub enum ASTType<'t> {
     GrammarNewline(GrammarNewline<'t>),
     Hole(Hole<'t>),
     Ident(Ident<'t>),
+    InlineCode(InlineCode<'t>),
+    InlineCode1(InlineCode1<'t>),
+    InlineCode2(InlineCode2<'t>),
+    InlineCode2List(Vec<InlineCode2List<'t>>),
+    InlineCode2ListGroup(InlineCode2ListGroup<'t>),
+    InlineCodeEnd2(InlineCodeEnd2<'t>),
+    InlineCodeStart2(InlineCodeStart2<'t>),
     Integer(Integer<'t>),
     Key(Key<'t>),
     KeyBase(KeyBase<'t>),
@@ -2160,7 +3121,8 @@ pub enum ASTType<'t> {
     LParen(LParen<'t>),
     MetaExt(MetaExt<'t>),
     MetaExtKey(MetaExtKey<'t>),
-    NamedCode(NamedCode<'t>),
+    NoBacktick(NoBacktick<'t>),
+    NoBacktickInline(NoBacktickInline<'t>),
     Null(Null<'t>),
     Object(Object<'t>),
     ObjectList(Vec<ObjectList<'t>>),
@@ -2205,13 +3167,49 @@ impl ToSpan for ASTType<'_> {
             ASTType::ArrayMarkerOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::ArrayOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::At(v) => v.span(),
+            ASTType::Backtick1(v) => v.span(),
+            ASTType::Backtick2(v) => v.span(),
+            ASTType::Backtick3(v) => v.span(),
+            ASTType::Backtick4(v) => v.span(),
+            ASTType::Backtick5(v) => v.span(),
             ASTType::Begin(v) => v.span(),
             ASTType::Bind(v) => v.span(),
             ASTType::Binding(v) => v.span(),
             ASTType::BindingRhs(v) => v.span(),
             ASTType::Boolean(v) => v.span(),
-            ASTType::Code(v) => v.span(),
             ASTType::CodeBlock(v) => v.span(),
+            ASTType::CodeBlock3(v) => v.span(),
+            ASTType::CodeBlock3List(v) => {
+                v.first().map_or(Span::default(), |f| f.span())
+                    + v.last().map_or(Span::default(), |l| l.span())
+            }
+            ASTType::CodeBlock3ListGroup(v) => v.span(),
+            ASTType::CodeBlock4(v) => v.span(),
+            ASTType::CodeBlock4List(v) => {
+                v.first().map_or(Span::default(), |f| f.span())
+                    + v.last().map_or(Span::default(), |l| l.span())
+            }
+            ASTType::CodeBlock4ListGroup(v) => v.span(),
+            ASTType::CodeBlock5(v) => v.span(),
+            ASTType::CodeBlock5List(v) => {
+                v.first().map_or(Span::default(), |f| f.span())
+                    + v.last().map_or(Span::default(), |l| l.span())
+            }
+            ASTType::CodeBlock5ListGroup(v) => v.span(),
+            ASTType::CodeBlock6(v) => v.span(),
+            ASTType::CodeBlock6List(v) => {
+                v.first().map_or(Span::default(), |f| f.span())
+                    + v.last().map_or(Span::default(), |l| l.span())
+            }
+            ASTType::CodeBlock6ListGroup(v) => v.span(),
+            ASTType::CodeBlockEnd3(v) => v.span(),
+            ASTType::CodeBlockEnd4(v) => v.span(),
+            ASTType::CodeBlockEnd5(v) => v.span(),
+            ASTType::CodeBlockEnd6(v) => v.span(),
+            ASTType::CodeBlockStart3(v) => v.span(),
+            ASTType::CodeBlockStart4(v) => v.span(),
+            ASTType::CodeBlockStart5(v) => v.span(),
+            ASTType::CodeBlockStart6(v) => v.span(),
             ASTType::Comma(v) => v.span(),
             ASTType::Continue(v) => v.span(),
             ASTType::DirectBind(v) => v.span(),
@@ -2235,6 +3233,16 @@ impl ToSpan for ASTType<'_> {
             ASTType::GrammarNewline(v) => v.span(),
             ASTType::Hole(v) => v.span(),
             ASTType::Ident(v) => v.span(),
+            ASTType::InlineCode(v) => v.span(),
+            ASTType::InlineCode1(v) => v.span(),
+            ASTType::InlineCode2(v) => v.span(),
+            ASTType::InlineCode2List(v) => {
+                v.first().map_or(Span::default(), |f| f.span())
+                    + v.last().map_or(Span::default(), |l| l.span())
+            }
+            ASTType::InlineCode2ListGroup(v) => v.span(),
+            ASTType::InlineCodeEnd2(v) => v.span(),
+            ASTType::InlineCodeStart2(v) => v.span(),
             ASTType::Integer(v) => v.span(),
             ASTType::Key(v) => v.span(),
             ASTType::KeyBase(v) => v.span(),
@@ -2247,7 +3255,8 @@ impl ToSpan for ASTType<'_> {
             ASTType::LParen(v) => v.span(),
             ASTType::MetaExt(v) => v.span(),
             ASTType::MetaExtKey(v) => v.span(),
-            ASTType::NamedCode(v) => v.span(),
+            ASTType::NoBacktick(v) => v.span(),
+            ASTType::NoBacktickInline(v) => v.span(),
             ASTType::Null(v) => v.span(),
             ASTType::Object(v) => v.span(),
             ASTType::ObjectList(v) => {
@@ -3378,15 +4387,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 57:
     ///
-    /// `Value: NamedCode;`
+    /// `Value: InlineCode;`
     ///
     #[parol_runtime::function_name::named]
-    fn value_10(&mut self, _named_code: &ParseTreeType<'t>) -> Result<()> {
+    fn value_10(&mut self, _inline_code: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let named_code = pop_item!(self, named_code, NamedCode, context);
-        let value_10_built = ValueNamedCode { named_code };
-        let value_10_built = Value::NamedCode(value_10_built);
+        let inline_code = pop_item!(self, inline_code, InlineCode, context);
+        let value_10_built = ValueInlineCode { inline_code };
+        let value_10_built = Value::InlineCode(value_10_built);
         // Calling user action here
         self.user_grammar.value(&value_10_built)?;
         self.push(ASTType::Value(value_10_built), context);
@@ -3395,15 +4404,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 58:
     ///
-    /// `Value: Code;`
+    /// `Value: Path;`
     ///
     #[parol_runtime::function_name::named]
-    fn value_11(&mut self, _code: &ParseTreeType<'t>) -> Result<()> {
+    fn value_11(&mut self, _path: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let code = pop_item!(self, code, Code, context);
-        let value_11_built = ValueCode { code };
-        let value_11_built = Value::Code(value_11_built);
+        let path = pop_item!(self, path, Path, context);
+        let value_11_built = ValuePath { path };
+        let value_11_built = Value::Path(value_11_built);
         // Calling user action here
         self.user_grammar.value(&value_11_built)?;
         self.push(ASTType::Value(value_11_built), context);
@@ -3411,23 +4420,6 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
     }
 
     /// Semantic action for production 59:
-    ///
-    /// `Value: Path;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn value_12(&mut self, _path: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let path = pop_item!(self, path, Path, context);
-        let value_12_built = ValuePath { path };
-        let value_12_built = Value::Path(value_12_built);
-        // Calling user action here
-        self.user_grammar.value(&value_12_built)?;
-        self.push(ASTType::Value(value_12_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 60:
     ///
     /// `Object: Begin ObjectList /* Vec */ End;`
     ///
@@ -3454,7 +4446,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 61:
+    /// Semantic action for production 60:
     ///
     /// `ObjectList /* Vec<T>::Push */: Key Bind Value ObjectOpt /* Option */ ObjectList;`
     ///
@@ -3486,7 +4478,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 62:
+    /// Semantic action for production 61:
     ///
     /// `ObjectList /* Vec<T>::New */: ;`
     ///
@@ -3499,7 +4491,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 63:
+    /// Semantic action for production 62:
     ///
     /// `ObjectOpt /* Option<T>::Some */: Comma;`
     ///
@@ -3513,7 +4505,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 64:
+    /// Semantic action for production 63:
     ///
     /// `ObjectOpt /* Option<T>::None */: ;`
     ///
@@ -3525,7 +4517,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 65:
+    /// Semantic action for production 64:
     ///
     /// `Array: ArrayBegin ArrayOpt /* Option */ ArrayEnd;`
     ///
@@ -3552,7 +4544,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 66:
+    /// Semantic action for production 65:
     ///
     /// `ArrayOpt /* Option<T>::Some */: ArrayElements;`
     ///
@@ -3566,7 +4558,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 67:
+    /// Semantic action for production 66:
     ///
     /// `ArrayOpt /* Option<T>::None */: ;`
     ///
@@ -3578,7 +4570,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 68:
+    /// Semantic action for production 67:
     ///
     /// `ArrayElements: Value ArrayElementsOpt /* Option */;`
     ///
@@ -3602,7 +4594,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 69:
+    /// Semantic action for production 68:
     ///
     /// `ArrayElementsOpt /* Option<T>::Some */: ArrayElementsTail;`
     ///
@@ -3621,7 +4613,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 70:
+    /// Semantic action for production 69:
     ///
     /// `ArrayElementsOpt /* Option<T>::None */: ;`
     ///
@@ -3633,7 +4625,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 71:
+    /// Semantic action for production 70:
     ///
     /// `ArrayElementsTail: Comma ArrayElementsTailOpt /* Option */;`
     ///
@@ -3662,7 +4654,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 72:
+    /// Semantic action for production 71:
     ///
     /// `ArrayElementsTailOpt /* Option<T>::Some */: ArrayElements;`
     ///
@@ -3679,7 +4671,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 73:
+    /// Semantic action for production 72:
     ///
     /// `ArrayElementsTailOpt /* Option<T>::None */: ;`
     ///
@@ -3691,7 +4683,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 74:
+    /// Semantic action for production 73:
     ///
     /// `Tuple: LParen TupleOpt /* Option */ RParen;`
     ///
@@ -3718,7 +4710,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 75:
+    /// Semantic action for production 74:
     ///
     /// `TupleOpt /* Option<T>::Some */: TupleElements;`
     ///
@@ -3732,7 +4724,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 76:
+    /// Semantic action for production 75:
     ///
     /// `TupleOpt /* Option<T>::None */: ;`
     ///
@@ -3744,7 +4736,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 77:
+    /// Semantic action for production 76:
     ///
     /// `TupleElements: Value TupleElementsOpt /* Option */;`
     ///
@@ -3768,7 +4760,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 78:
+    /// Semantic action for production 77:
     ///
     /// `TupleElementsOpt /* Option<T>::Some */: TupleElementsTail;`
     ///
@@ -3787,7 +4779,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 79:
+    /// Semantic action for production 78:
     ///
     /// `TupleElementsOpt /* Option<T>::None */: ;`
     ///
@@ -3799,7 +4791,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 80:
+    /// Semantic action for production 79:
     ///
     /// `TupleElementsTail: Comma TupleElementsTailOpt /* Option */;`
     ///
@@ -3828,7 +4820,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 81:
+    /// Semantic action for production 80:
     ///
     /// `TupleElementsTailOpt /* Option<T>::Some */: TupleElements;`
     ///
@@ -3845,7 +4837,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 82:
+    /// Semantic action for production 81:
     ///
     /// `TupleElementsTailOpt /* Option<T>::None */: ;`
     ///
@@ -3857,7 +4849,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 83:
+    /// Semantic action for production 82:
     ///
     /// `Float: /[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/;`
     ///
@@ -3873,7 +4865,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 84:
+    /// Semantic action for production 83:
     ///
     /// `Integer: /\d[\d_]*/;`
     ///
@@ -3889,7 +4881,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 85:
+    /// Semantic action for production 84:
     ///
     /// `Boolean: True;`
     ///
@@ -3906,7 +4898,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 86:
+    /// Semantic action for production 85:
     ///
     /// `Boolean: False;`
     ///
@@ -3923,7 +4915,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 87:
+    /// Semantic action for production 86:
     ///
     /// `True: 'true';`
     ///
@@ -3939,7 +4931,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 88:
+    /// Semantic action for production 87:
     ///
     /// `False: 'false';`
     ///
@@ -3955,7 +4947,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 89:
+    /// Semantic action for production 88:
     ///
     /// `Null: 'null';`
     ///
@@ -3971,7 +4963,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 90:
+    /// Semantic action for production 89:
     ///
     /// `Hole: '!';`
     ///
@@ -3987,7 +4979,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 91:
+    /// Semantic action for production 90:
     ///
     /// `Path: Dot Keys;`
     ///
@@ -4004,7 +4996,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 92:
+    /// Semantic action for production 91:
     ///
     /// `Strings: Str StringsList /* Vec */;`
     ///
@@ -4025,7 +5017,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 93:
+    /// Semantic action for production 92:
     ///
     /// `StringsList /* Vec<T>::Push */: Continue Str StringsList;`
     ///
@@ -4048,7 +5040,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 94:
+    /// Semantic action for production 93:
     ///
     /// `StringsList /* Vec<T>::New */: ;`
     ///
@@ -4061,7 +5053,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 95:
+    /// Semantic action for production 94:
     ///
     /// `Str: /"([^"]|\\")*"/;`
     ///
@@ -4077,7 +5069,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 96:
+    /// Semantic action for production 95:
     ///
     /// `Text: <Text>/[^\r\n]*/;`
     ///
@@ -4093,55 +5085,920 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 97:
+    /// Semantic action for production 96:
     ///
-    /// `CodeBlock: /```[a-zA-Z0-9-_]*(\r\n|\r|\n)([^`]|[`]{1,2})*```/;`
+    /// `InlineCode: InlineCode2;`
     ///
     #[parol_runtime::function_name::named]
-    fn code_block(&mut self, code_block: &ParseTreeType<'t>) -> Result<()> {
+    fn inline_code_0(&mut self, _inline_code2: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let code_block = code_block.token()?.clone();
-        let code_block_built = CodeBlock { code_block };
+        let inline_code2 = pop_item!(self, inline_code2, InlineCode2, context);
+        let inline_code_0_built = InlineCodeInlineCode2 { inline_code2 };
+        let inline_code_0_built = InlineCode::InlineCode2(inline_code_0_built);
         // Calling user action here
-        self.user_grammar.code_block(&code_block_built)?;
-        self.push(ASTType::CodeBlock(code_block_built), context);
+        self.user_grammar.inline_code(&inline_code_0_built)?;
+        self.push(ASTType::InlineCode(inline_code_0_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 97:
+    ///
+    /// `InlineCode: InlineCode1;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn inline_code_1(&mut self, _inline_code1: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let inline_code1 = pop_item!(self, inline_code1, InlineCode1, context);
+        let inline_code_1_built = InlineCodeInlineCode1 { inline_code1 };
+        let inline_code_1_built = InlineCode::InlineCode1(inline_code_1_built);
+        // Calling user action here
+        self.user_grammar.inline_code(&inline_code_1_built)?;
+        self.push(ASTType::InlineCode(inline_code_1_built), context);
         Ok(())
     }
 
     /// Semantic action for production 98:
     ///
-    /// `NamedCode: /[a-zA-Z0-9-_]+`([^`\r\n]|\\`)*`/;`
+    /// `InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/;`
     ///
     #[parol_runtime::function_name::named]
-    fn named_code(&mut self, named_code: &ParseTreeType<'t>) -> Result<()> {
+    fn inline_code1(&mut self, inline_code1: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let named_code = named_code.token()?.clone();
-        let named_code_built = NamedCode { named_code };
+        let inline_code1 = inline_code1.token()?.clone();
+        let inline_code1_built = InlineCode1 { inline_code1 };
         // Calling user action here
-        self.user_grammar.named_code(&named_code_built)?;
-        self.push(ASTType::NamedCode(named_code_built), context);
+        self.user_grammar.inline_code1(&inline_code1_built)?;
+        self.push(ASTType::InlineCode1(inline_code1_built), context);
         Ok(())
     }
 
     /// Semantic action for production 99:
     ///
-    /// `Code: /`([^`\r\n]|\\`)*`/;`
+    /// `InlineCode2: InlineCodeStart2 InlineCode2List /* Vec */ InlineCodeEnd2;`
     ///
     #[parol_runtime::function_name::named]
-    fn code(&mut self, code: &ParseTreeType<'t>) -> Result<()> {
+    fn inline_code2(
+        &mut self,
+        _inline_code_start2: &ParseTreeType<'t>,
+        _inline_code2_list: &ParseTreeType<'t>,
+        _inline_code_end2: &ParseTreeType<'t>,
+    ) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let code = code.token()?.clone();
-        let code_built = Code { code };
+        let inline_code_end2 = pop_item!(self, inline_code_end2, InlineCodeEnd2, context);
+        let inline_code2_list =
+            pop_and_reverse_item!(self, inline_code2_list, InlineCode2List, context);
+        let inline_code_start2 = pop_item!(self, inline_code_start2, InlineCodeStart2, context);
+        let inline_code2_built = InlineCode2 {
+            inline_code_start2,
+            inline_code2_list,
+            inline_code_end2,
+        };
         // Calling user action here
-        self.user_grammar.code(&code_built)?;
-        self.push(ASTType::Code(code_built), context);
+        self.user_grammar.inline_code2(&inline_code2_built)?;
+        self.push(ASTType::InlineCode2(inline_code2_built), context);
         Ok(())
     }
 
     /// Semantic action for production 100:
+    ///
+    /// `InlineCode2List /* Vec<T>::Push */: InlineCode2ListGroup InlineCode2List;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn inline_code2_list_0(
+        &mut self,
+        _inline_code2_list_group: &ParseTreeType<'t>,
+        _inline_code2_list: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let mut inline_code2_list = pop_item!(self, inline_code2_list, InlineCode2List, context);
+        let inline_code2_list_group =
+            pop_item!(self, inline_code2_list_group, InlineCode2ListGroup, context);
+        let inline_code2_list_0_built = InlineCode2List {
+            inline_code2_list_group,
+        };
+        // Add an element to the vector
+        inline_code2_list.push(inline_code2_list_0_built);
+        self.push(ASTType::InlineCode2List(inline_code2_list), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 101:
+    ///
+    /// `InlineCode2ListGroup: NoBacktickInline;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn inline_code2_list_group_0(&mut self, _no_backtick_inline: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let no_backtick_inline = pop_item!(self, no_backtick_inline, NoBacktickInline, context);
+        let inline_code2_list_group_0_built =
+            InlineCode2ListGroupNoBacktickInline { no_backtick_inline };
+        let inline_code2_list_group_0_built =
+            InlineCode2ListGroup::NoBacktickInline(inline_code2_list_group_0_built);
+        self.push(
+            ASTType::InlineCode2ListGroup(inline_code2_list_group_0_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 102:
+    ///
+    /// `InlineCode2ListGroup: Backtick1;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn inline_code2_list_group_1(&mut self, _backtick1: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick1 = pop_item!(self, backtick1, Backtick1, context);
+        let inline_code2_list_group_1_built = InlineCode2ListGroupBacktick1 { backtick1 };
+        let inline_code2_list_group_1_built =
+            InlineCode2ListGroup::Backtick1(inline_code2_list_group_1_built);
+        self.push(
+            ASTType::InlineCode2ListGroup(inline_code2_list_group_1_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 103:
+    ///
+    /// `InlineCode2List /* Vec<T>::New */: ;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn inline_code2_list_1(&mut self) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let inline_code2_list_1_built = Vec::new();
+        self.push(ASTType::InlineCode2List(inline_code2_list_1_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 104:
+    ///
+    /// `CodeBlock: CodeBlock3;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_0(&mut self, _code_block3: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block3 = pop_item!(self, code_block3, CodeBlock3, context);
+        let code_block_0_built = CodeBlockCodeBlock3 { code_block3 };
+        let code_block_0_built = CodeBlock::CodeBlock3(code_block_0_built);
+        // Calling user action here
+        self.user_grammar.code_block(&code_block_0_built)?;
+        self.push(ASTType::CodeBlock(code_block_0_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 105:
+    ///
+    /// `CodeBlock: CodeBlock4;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_1(&mut self, _code_block4: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block4 = pop_item!(self, code_block4, CodeBlock4, context);
+        let code_block_1_built = CodeBlockCodeBlock4 { code_block4 };
+        let code_block_1_built = CodeBlock::CodeBlock4(code_block_1_built);
+        // Calling user action here
+        self.user_grammar.code_block(&code_block_1_built)?;
+        self.push(ASTType::CodeBlock(code_block_1_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 106:
+    ///
+    /// `CodeBlock: CodeBlock5;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_2(&mut self, _code_block5: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block5 = pop_item!(self, code_block5, CodeBlock5, context);
+        let code_block_2_built = CodeBlockCodeBlock5 { code_block5 };
+        let code_block_2_built = CodeBlock::CodeBlock5(code_block_2_built);
+        // Calling user action here
+        self.user_grammar.code_block(&code_block_2_built)?;
+        self.push(ASTType::CodeBlock(code_block_2_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 107:
+    ///
+    /// `CodeBlock: CodeBlock6;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_3(&mut self, _code_block6: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block6 = pop_item!(self, code_block6, CodeBlock6, context);
+        let code_block_3_built = CodeBlockCodeBlock6 { code_block6 };
+        let code_block_3_built = CodeBlock::CodeBlock6(code_block_3_built);
+        // Calling user action here
+        self.user_grammar.code_block(&code_block_3_built)?;
+        self.push(ASTType::CodeBlock(code_block_3_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 108:
+    ///
+    /// `CodeBlock3: CodeBlockStart3 CodeBlock3List /* Vec */ CodeBlockEnd3;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block3(
+        &mut self,
+        _code_block_start3: &ParseTreeType<'t>,
+        _code_block3_list: &ParseTreeType<'t>,
+        _code_block_end3: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end3 = pop_item!(self, code_block_end3, CodeBlockEnd3, context);
+        let code_block3_list =
+            pop_and_reverse_item!(self, code_block3_list, CodeBlock3List, context);
+        let code_block_start3 = pop_item!(self, code_block_start3, CodeBlockStart3, context);
+        let code_block3_built = CodeBlock3 {
+            code_block_start3,
+            code_block3_list,
+            code_block_end3,
+        };
+        // Calling user action here
+        self.user_grammar.code_block3(&code_block3_built)?;
+        self.push(ASTType::CodeBlock3(code_block3_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 109:
+    ///
+    /// `CodeBlock3List /* Vec<T>::Push */: CodeBlock3ListGroup CodeBlock3List;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block3_list_0(
+        &mut self,
+        _code_block3_list_group: &ParseTreeType<'t>,
+        _code_block3_list: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let mut code_block3_list = pop_item!(self, code_block3_list, CodeBlock3List, context);
+        let code_block3_list_group =
+            pop_item!(self, code_block3_list_group, CodeBlock3ListGroup, context);
+        let code_block3_list_0_built = CodeBlock3List {
+            code_block3_list_group,
+        };
+        // Add an element to the vector
+        code_block3_list.push(code_block3_list_0_built);
+        self.push(ASTType::CodeBlock3List(code_block3_list), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 110:
+    ///
+    /// `CodeBlock3ListGroup: NoBacktick;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block3_list_group_0(&mut self, _no_backtick: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let no_backtick = pop_item!(self, no_backtick, NoBacktick, context);
+        let code_block3_list_group_0_built = CodeBlock3ListGroupNoBacktick { no_backtick };
+        let code_block3_list_group_0_built =
+            CodeBlock3ListGroup::NoBacktick(code_block3_list_group_0_built);
+        self.push(
+            ASTType::CodeBlock3ListGroup(code_block3_list_group_0_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 111:
+    ///
+    /// `CodeBlock3ListGroup: Backtick2;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block3_list_group_1(&mut self, _backtick2: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick2 = pop_item!(self, backtick2, Backtick2, context);
+        let code_block3_list_group_1_built = CodeBlock3ListGroupBacktick2 { backtick2 };
+        let code_block3_list_group_1_built =
+            CodeBlock3ListGroup::Backtick2(code_block3_list_group_1_built);
+        self.push(
+            ASTType::CodeBlock3ListGroup(code_block3_list_group_1_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 112:
+    ///
+    /// `CodeBlock3List /* Vec<T>::New */: ;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block3_list_1(&mut self) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block3_list_1_built = Vec::new();
+        self.push(ASTType::CodeBlock3List(code_block3_list_1_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 113:
+    ///
+    /// `CodeBlock4: CodeBlockStart4 CodeBlock4List /* Vec */ CodeBlockEnd4;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block4(
+        &mut self,
+        _code_block_start4: &ParseTreeType<'t>,
+        _code_block4_list: &ParseTreeType<'t>,
+        _code_block_end4: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end4 = pop_item!(self, code_block_end4, CodeBlockEnd4, context);
+        let code_block4_list =
+            pop_and_reverse_item!(self, code_block4_list, CodeBlock4List, context);
+        let code_block_start4 = pop_item!(self, code_block_start4, CodeBlockStart4, context);
+        let code_block4_built = CodeBlock4 {
+            code_block_start4,
+            code_block4_list,
+            code_block_end4,
+        };
+        // Calling user action here
+        self.user_grammar.code_block4(&code_block4_built)?;
+        self.push(ASTType::CodeBlock4(code_block4_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 114:
+    ///
+    /// `CodeBlock4List /* Vec<T>::Push */: CodeBlock4ListGroup CodeBlock4List;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block4_list_0(
+        &mut self,
+        _code_block4_list_group: &ParseTreeType<'t>,
+        _code_block4_list: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let mut code_block4_list = pop_item!(self, code_block4_list, CodeBlock4List, context);
+        let code_block4_list_group =
+            pop_item!(self, code_block4_list_group, CodeBlock4ListGroup, context);
+        let code_block4_list_0_built = CodeBlock4List {
+            code_block4_list_group,
+        };
+        // Add an element to the vector
+        code_block4_list.push(code_block4_list_0_built);
+        self.push(ASTType::CodeBlock4List(code_block4_list), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 115:
+    ///
+    /// `CodeBlock4ListGroup: NoBacktick;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block4_list_group_0(&mut self, _no_backtick: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let no_backtick = pop_item!(self, no_backtick, NoBacktick, context);
+        let code_block4_list_group_0_built = CodeBlock4ListGroupNoBacktick { no_backtick };
+        let code_block4_list_group_0_built =
+            CodeBlock4ListGroup::NoBacktick(code_block4_list_group_0_built);
+        self.push(
+            ASTType::CodeBlock4ListGroup(code_block4_list_group_0_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 116:
+    ///
+    /// `CodeBlock4ListGroup: Backtick3;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block4_list_group_1(&mut self, _backtick3: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick3 = pop_item!(self, backtick3, Backtick3, context);
+        let code_block4_list_group_1_built = CodeBlock4ListGroupBacktick3 { backtick3 };
+        let code_block4_list_group_1_built =
+            CodeBlock4ListGroup::Backtick3(code_block4_list_group_1_built);
+        self.push(
+            ASTType::CodeBlock4ListGroup(code_block4_list_group_1_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 117:
+    ///
+    /// `CodeBlock4List /* Vec<T>::New */: ;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block4_list_1(&mut self) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block4_list_1_built = Vec::new();
+        self.push(ASTType::CodeBlock4List(code_block4_list_1_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 118:
+    ///
+    /// `CodeBlock5: CodeBlockStart5 CodeBlock5List /* Vec */ CodeBlockEnd5;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block5(
+        &mut self,
+        _code_block_start5: &ParseTreeType<'t>,
+        _code_block5_list: &ParseTreeType<'t>,
+        _code_block_end5: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end5 = pop_item!(self, code_block_end5, CodeBlockEnd5, context);
+        let code_block5_list =
+            pop_and_reverse_item!(self, code_block5_list, CodeBlock5List, context);
+        let code_block_start5 = pop_item!(self, code_block_start5, CodeBlockStart5, context);
+        let code_block5_built = CodeBlock5 {
+            code_block_start5,
+            code_block5_list,
+            code_block_end5,
+        };
+        // Calling user action here
+        self.user_grammar.code_block5(&code_block5_built)?;
+        self.push(ASTType::CodeBlock5(code_block5_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 119:
+    ///
+    /// `CodeBlock5List /* Vec<T>::Push */: CodeBlock5ListGroup CodeBlock5List;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block5_list_0(
+        &mut self,
+        _code_block5_list_group: &ParseTreeType<'t>,
+        _code_block5_list: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let mut code_block5_list = pop_item!(self, code_block5_list, CodeBlock5List, context);
+        let code_block5_list_group =
+            pop_item!(self, code_block5_list_group, CodeBlock5ListGroup, context);
+        let code_block5_list_0_built = CodeBlock5List {
+            code_block5_list_group,
+        };
+        // Add an element to the vector
+        code_block5_list.push(code_block5_list_0_built);
+        self.push(ASTType::CodeBlock5List(code_block5_list), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 120:
+    ///
+    /// `CodeBlock5ListGroup: NoBacktick;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block5_list_group_0(&mut self, _no_backtick: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let no_backtick = pop_item!(self, no_backtick, NoBacktick, context);
+        let code_block5_list_group_0_built = CodeBlock5ListGroupNoBacktick { no_backtick };
+        let code_block5_list_group_0_built =
+            CodeBlock5ListGroup::NoBacktick(code_block5_list_group_0_built);
+        self.push(
+            ASTType::CodeBlock5ListGroup(code_block5_list_group_0_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 121:
+    ///
+    /// `CodeBlock5ListGroup: Backtick4;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block5_list_group_1(&mut self, _backtick4: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick4 = pop_item!(self, backtick4, Backtick4, context);
+        let code_block5_list_group_1_built = CodeBlock5ListGroupBacktick4 { backtick4 };
+        let code_block5_list_group_1_built =
+            CodeBlock5ListGroup::Backtick4(code_block5_list_group_1_built);
+        self.push(
+            ASTType::CodeBlock5ListGroup(code_block5_list_group_1_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 122:
+    ///
+    /// `CodeBlock5List /* Vec<T>::New */: ;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block5_list_1(&mut self) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block5_list_1_built = Vec::new();
+        self.push(ASTType::CodeBlock5List(code_block5_list_1_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 123:
+    ///
+    /// `CodeBlock6: CodeBlockStart6 CodeBlock6List /* Vec */ CodeBlockEnd6;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block6(
+        &mut self,
+        _code_block_start6: &ParseTreeType<'t>,
+        _code_block6_list: &ParseTreeType<'t>,
+        _code_block_end6: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end6 = pop_item!(self, code_block_end6, CodeBlockEnd6, context);
+        let code_block6_list =
+            pop_and_reverse_item!(self, code_block6_list, CodeBlock6List, context);
+        let code_block_start6 = pop_item!(self, code_block_start6, CodeBlockStart6, context);
+        let code_block6_built = CodeBlock6 {
+            code_block_start6,
+            code_block6_list,
+            code_block_end6,
+        };
+        // Calling user action here
+        self.user_grammar.code_block6(&code_block6_built)?;
+        self.push(ASTType::CodeBlock6(code_block6_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 124:
+    ///
+    /// `CodeBlock6List /* Vec<T>::Push */: CodeBlock6ListGroup CodeBlock6List;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block6_list_0(
+        &mut self,
+        _code_block6_list_group: &ParseTreeType<'t>,
+        _code_block6_list: &ParseTreeType<'t>,
+    ) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let mut code_block6_list = pop_item!(self, code_block6_list, CodeBlock6List, context);
+        let code_block6_list_group =
+            pop_item!(self, code_block6_list_group, CodeBlock6ListGroup, context);
+        let code_block6_list_0_built = CodeBlock6List {
+            code_block6_list_group,
+        };
+        // Add an element to the vector
+        code_block6_list.push(code_block6_list_0_built);
+        self.push(ASTType::CodeBlock6List(code_block6_list), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 125:
+    ///
+    /// `CodeBlock6ListGroup: NoBacktick;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block6_list_group_0(&mut self, _no_backtick: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let no_backtick = pop_item!(self, no_backtick, NoBacktick, context);
+        let code_block6_list_group_0_built = CodeBlock6ListGroupNoBacktick { no_backtick };
+        let code_block6_list_group_0_built =
+            CodeBlock6ListGroup::NoBacktick(code_block6_list_group_0_built);
+        self.push(
+            ASTType::CodeBlock6ListGroup(code_block6_list_group_0_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 126:
+    ///
+    /// `CodeBlock6ListGroup: Backtick5;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block6_list_group_1(&mut self, _backtick5: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick5 = pop_item!(self, backtick5, Backtick5, context);
+        let code_block6_list_group_1_built = CodeBlock6ListGroupBacktick5 { backtick5 };
+        let code_block6_list_group_1_built =
+            CodeBlock6ListGroup::Backtick5(code_block6_list_group_1_built);
+        self.push(
+            ASTType::CodeBlock6ListGroup(code_block6_list_group_1_built),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 127:
+    ///
+    /// `CodeBlock6List /* Vec<T>::New */: ;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block6_list_1(&mut self) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block6_list_1_built = Vec::new();
+        self.push(ASTType::CodeBlock6List(code_block6_list_1_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 128:
+    ///
+    /// `InlineCodeStart2: /[a-zA-Z0-9-_]*``/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn inline_code_start2(&mut self, inline_code_start2: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let inline_code_start2 = inline_code_start2.token()?.clone();
+        let inline_code_start2_built = InlineCodeStart2 { inline_code_start2 };
+        // Calling user action here
+        self.user_grammar
+            .inline_code_start2(&inline_code_start2_built)?;
+        self.push(ASTType::InlineCodeStart2(inline_code_start2_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 129:
+    ///
+    /// `CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_start3(&mut self, code_block_start3: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_start3 = code_block_start3.token()?.clone();
+        let code_block_start3_built = CodeBlockStart3 { code_block_start3 };
+        // Calling user action here
+        self.user_grammar
+            .code_block_start3(&code_block_start3_built)?;
+        self.push(ASTType::CodeBlockStart3(code_block_start3_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 130:
+    ///
+    /// `CodeBlockStart4: /`{4}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_start4(&mut self, code_block_start4: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_start4 = code_block_start4.token()?.clone();
+        let code_block_start4_built = CodeBlockStart4 { code_block_start4 };
+        // Calling user action here
+        self.user_grammar
+            .code_block_start4(&code_block_start4_built)?;
+        self.push(ASTType::CodeBlockStart4(code_block_start4_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 131:
+    ///
+    /// `CodeBlockStart5: /`{5}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_start5(&mut self, code_block_start5: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_start5 = code_block_start5.token()?.clone();
+        let code_block_start5_built = CodeBlockStart5 { code_block_start5 };
+        // Calling user action here
+        self.user_grammar
+            .code_block_start5(&code_block_start5_built)?;
+        self.push(ASTType::CodeBlockStart5(code_block_start5_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 132:
+    ///
+    /// `CodeBlockStart6: /`{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_start6(&mut self, code_block_start6: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_start6 = code_block_start6.token()?.clone();
+        let code_block_start6_built = CodeBlockStart6 { code_block_start6 };
+        // Calling user action here
+        self.user_grammar
+            .code_block_start6(&code_block_start6_built)?;
+        self.push(ASTType::CodeBlockStart6(code_block_start6_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 133:
+    ///
+    /// `CodeBlockEnd3: <InCodeBlock3>/`{3}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_end3(&mut self, code_block_end3: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end3 = code_block_end3.token()?.clone();
+        let code_block_end3_built = CodeBlockEnd3 { code_block_end3 };
+        // Calling user action here
+        self.user_grammar.code_block_end3(&code_block_end3_built)?;
+        self.push(ASTType::CodeBlockEnd3(code_block_end3_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 134:
+    ///
+    /// `Backtick2: <InCodeBlock3>/`{1,2}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn backtick2(&mut self, backtick2: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick2 = backtick2.token()?.clone();
+        let backtick2_built = Backtick2 { backtick2 };
+        // Calling user action here
+        self.user_grammar.backtick2(&backtick2_built)?;
+        self.push(ASTType::Backtick2(backtick2_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 135:
+    ///
+    /// `CodeBlockEnd4: <InCodeBlock4>/`{4}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_end4(&mut self, code_block_end4: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end4 = code_block_end4.token()?.clone();
+        let code_block_end4_built = CodeBlockEnd4 { code_block_end4 };
+        // Calling user action here
+        self.user_grammar.code_block_end4(&code_block_end4_built)?;
+        self.push(ASTType::CodeBlockEnd4(code_block_end4_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 136:
+    ///
+    /// `Backtick3: <InCodeBlock4>/`{1,3}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn backtick3(&mut self, backtick3: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick3 = backtick3.token()?.clone();
+        let backtick3_built = Backtick3 { backtick3 };
+        // Calling user action here
+        self.user_grammar.backtick3(&backtick3_built)?;
+        self.push(ASTType::Backtick3(backtick3_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 137:
+    ///
+    /// `CodeBlockEnd5: <InCodeBlock5>/`{5}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_end5(&mut self, code_block_end5: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end5 = code_block_end5.token()?.clone();
+        let code_block_end5_built = CodeBlockEnd5 { code_block_end5 };
+        // Calling user action here
+        self.user_grammar.code_block_end5(&code_block_end5_built)?;
+        self.push(ASTType::CodeBlockEnd5(code_block_end5_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 138:
+    ///
+    /// `Backtick4: <InCodeBlock5>/`{1,4}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn backtick4(&mut self, backtick4: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick4 = backtick4.token()?.clone();
+        let backtick4_built = Backtick4 { backtick4 };
+        // Calling user action here
+        self.user_grammar.backtick4(&backtick4_built)?;
+        self.push(ASTType::Backtick4(backtick4_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 139:
+    ///
+    /// `CodeBlockEnd6: <InCodeBlock6>/`{6}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn code_block_end6(&mut self, code_block_end6: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let code_block_end6 = code_block_end6.token()?.clone();
+        let code_block_end6_built = CodeBlockEnd6 { code_block_end6 };
+        // Calling user action here
+        self.user_grammar.code_block_end6(&code_block_end6_built)?;
+        self.push(ASTType::CodeBlockEnd6(code_block_end6_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 140:
+    ///
+    /// `Backtick5: <InCodeBlock6>/`{1,5}/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn backtick5(&mut self, backtick5: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick5 = backtick5.token()?.clone();
+        let backtick5_built = Backtick5 { backtick5 };
+        // Calling user action here
+        self.user_grammar.backtick5(&backtick5_built)?;
+        self.push(ASTType::Backtick5(backtick5_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 141:
+    ///
+    /// `InlineCodeEnd2: <InInlineCode2>'``';`
+    ///
+    #[parol_runtime::function_name::named]
+    fn inline_code_end2(&mut self, inline_code_end2: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let inline_code_end2 = inline_code_end2.token()?.clone();
+        let inline_code_end2_built = InlineCodeEnd2 { inline_code_end2 };
+        // Calling user action here
+        self.user_grammar
+            .inline_code_end2(&inline_code_end2_built)?;
+        self.push(ASTType::InlineCodeEnd2(inline_code_end2_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 142:
+    ///
+    /// `Backtick1: <InInlineCode2>'`';`
+    ///
+    #[parol_runtime::function_name::named]
+    fn backtick1(&mut self, backtick1: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let backtick1 = backtick1.token()?.clone();
+        let backtick1_built = Backtick1 { backtick1 };
+        // Calling user action here
+        self.user_grammar.backtick1(&backtick1_built)?;
+        self.push(ASTType::Backtick1(backtick1_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 143:
+    ///
+    /// `NoBacktick: <InCodeBlock3, InCodeBlock4, InCodeBlock5, InCodeBlock6>/[^`]+/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn no_backtick(&mut self, no_backtick: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let no_backtick = no_backtick.token()?.clone();
+        let no_backtick_built = NoBacktick { no_backtick };
+        // Calling user action here
+        self.user_grammar.no_backtick(&no_backtick_built)?;
+        self.push(ASTType::NoBacktick(no_backtick_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 144:
+    ///
+    /// `NoBacktickInline: <InInlineCode2>/[^`\r\n]+/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn no_backtick_inline(&mut self, no_backtick_inline: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let no_backtick_inline = no_backtick_inline.token()?.clone();
+        let no_backtick_inline_built = NoBacktickInline { no_backtick_inline };
+        // Calling user action here
+        self.user_grammar
+            .no_backtick_inline(&no_backtick_inline_built)?;
+        self.push(ASTType::NoBacktickInline(no_backtick_inline_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 145:
     ///
     /// `GrammarNewline: <Text>/\r\n|\r|\n/;`
     ///
@@ -4157,7 +6014,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 101:
+    /// Semantic action for production 146:
     ///
     /// `Ws: <Text>/[\s--\r\n]+/;`
     ///
@@ -4173,7 +6030,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 102:
+    /// Semantic action for production 147:
     ///
     /// `At: '@';`
     ///
@@ -4189,7 +6046,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 103:
+    /// Semantic action for production 148:
     ///
     /// `MetaExt: '$$';`
     ///
@@ -4205,7 +6062,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 104:
+    /// Semantic action for production 149:
     ///
     /// `Ext: '$';`
     ///
@@ -4221,7 +6078,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 105:
+    /// Semantic action for production 150:
     ///
     /// `Dot: '.';`
     ///
@@ -4237,7 +6094,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 106:
+    /// Semantic action for production 151:
     ///
     /// `Begin: '{';`
     ///
@@ -4253,7 +6110,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 107:
+    /// Semantic action for production 152:
     ///
     /// `End: '}';`
     ///
@@ -4269,7 +6126,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 108:
+    /// Semantic action for production 153:
     ///
     /// `ArrayBegin: '[';`
     ///
@@ -4285,7 +6142,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 109:
+    /// Semantic action for production 154:
     ///
     /// `ArrayEnd: ']';`
     ///
@@ -4301,7 +6158,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 110:
+    /// Semantic action for production 155:
     ///
     /// `LParen: '(';`
     ///
@@ -4317,7 +6174,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 111:
+    /// Semantic action for production 156:
     ///
     /// `RParen: ')';`
     ///
@@ -4333,7 +6190,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 112:
+    /// Semantic action for production 157:
     ///
     /// `Bind: '=';`
     ///
@@ -4349,7 +6206,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 113:
+    /// Semantic action for production 158:
     ///
     /// `Comma: ',';`
     ///
@@ -4365,7 +6222,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 114:
+    /// Semantic action for production 159:
     ///
     /// `Continue: '\\';`
     ///
@@ -4381,7 +6238,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 115:
+    /// Semantic action for production 160:
     ///
     /// `TextStart: ":";`
     ///
@@ -4397,7 +6254,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 116:
+    /// Semantic action for production 161:
     ///
     /// `Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;`
     ///
@@ -4483,70 +6340,115 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             56 => self.value_9(&children[0]),
             57 => self.value_10(&children[0]),
             58 => self.value_11(&children[0]),
-            59 => self.value_12(&children[0]),
-            60 => self.object(&children[0], &children[1], &children[2]),
-            61 => self.object_list_0(
+            59 => self.object(&children[0], &children[1], &children[2]),
+            60 => self.object_list_0(
                 &children[0],
                 &children[1],
                 &children[2],
                 &children[3],
                 &children[4],
             ),
-            62 => self.object_list_1(),
-            63 => self.object_opt_0(&children[0]),
-            64 => self.object_opt_1(),
-            65 => self.array(&children[0], &children[1], &children[2]),
-            66 => self.array_opt_0(&children[0]),
-            67 => self.array_opt_1(),
-            68 => self.array_elements(&children[0], &children[1]),
-            69 => self.array_elements_opt_0(&children[0]),
-            70 => self.array_elements_opt_1(),
-            71 => self.array_elements_tail(&children[0], &children[1]),
-            72 => self.array_elements_tail_opt_0(&children[0]),
-            73 => self.array_elements_tail_opt_1(),
-            74 => self.tuple(&children[0], &children[1], &children[2]),
-            75 => self.tuple_opt_0(&children[0]),
-            76 => self.tuple_opt_1(),
-            77 => self.tuple_elements(&children[0], &children[1]),
-            78 => self.tuple_elements_opt_0(&children[0]),
-            79 => self.tuple_elements_opt_1(),
-            80 => self.tuple_elements_tail(&children[0], &children[1]),
-            81 => self.tuple_elements_tail_opt_0(&children[0]),
-            82 => self.tuple_elements_tail_opt_1(),
-            83 => self.float(&children[0]),
-            84 => self.integer(&children[0]),
-            85 => self.boolean_0(&children[0]),
-            86 => self.boolean_1(&children[0]),
-            87 => self.r#true(&children[0]),
-            88 => self.r#false(&children[0]),
-            89 => self.null(&children[0]),
-            90 => self.hole(&children[0]),
-            91 => self.path(&children[0], &children[1]),
-            92 => self.strings(&children[0], &children[1]),
-            93 => self.strings_list_0(&children[0], &children[1], &children[2]),
-            94 => self.strings_list_1(),
-            95 => self.str(&children[0]),
-            96 => self.text(&children[0]),
-            97 => self.code_block(&children[0]),
-            98 => self.named_code(&children[0]),
-            99 => self.code(&children[0]),
-            100 => self.grammar_newline(&children[0]),
-            101 => self.ws(&children[0]),
-            102 => self.at(&children[0]),
-            103 => self.meta_ext(&children[0]),
-            104 => self.ext(&children[0]),
-            105 => self.dot(&children[0]),
-            106 => self.begin(&children[0]),
-            107 => self.end(&children[0]),
-            108 => self.array_begin(&children[0]),
-            109 => self.array_end(&children[0]),
-            110 => self.l_paren(&children[0]),
-            111 => self.r_paren(&children[0]),
-            112 => self.bind(&children[0]),
-            113 => self.comma(&children[0]),
-            114 => self.r#continue(&children[0]),
-            115 => self.text_start(&children[0]),
-            116 => self.ident(&children[0]),
+            61 => self.object_list_1(),
+            62 => self.object_opt_0(&children[0]),
+            63 => self.object_opt_1(),
+            64 => self.array(&children[0], &children[1], &children[2]),
+            65 => self.array_opt_0(&children[0]),
+            66 => self.array_opt_1(),
+            67 => self.array_elements(&children[0], &children[1]),
+            68 => self.array_elements_opt_0(&children[0]),
+            69 => self.array_elements_opt_1(),
+            70 => self.array_elements_tail(&children[0], &children[1]),
+            71 => self.array_elements_tail_opt_0(&children[0]),
+            72 => self.array_elements_tail_opt_1(),
+            73 => self.tuple(&children[0], &children[1], &children[2]),
+            74 => self.tuple_opt_0(&children[0]),
+            75 => self.tuple_opt_1(),
+            76 => self.tuple_elements(&children[0], &children[1]),
+            77 => self.tuple_elements_opt_0(&children[0]),
+            78 => self.tuple_elements_opt_1(),
+            79 => self.tuple_elements_tail(&children[0], &children[1]),
+            80 => self.tuple_elements_tail_opt_0(&children[0]),
+            81 => self.tuple_elements_tail_opt_1(),
+            82 => self.float(&children[0]),
+            83 => self.integer(&children[0]),
+            84 => self.boolean_0(&children[0]),
+            85 => self.boolean_1(&children[0]),
+            86 => self.r#true(&children[0]),
+            87 => self.r#false(&children[0]),
+            88 => self.null(&children[0]),
+            89 => self.hole(&children[0]),
+            90 => self.path(&children[0], &children[1]),
+            91 => self.strings(&children[0], &children[1]),
+            92 => self.strings_list_0(&children[0], &children[1], &children[2]),
+            93 => self.strings_list_1(),
+            94 => self.str(&children[0]),
+            95 => self.text(&children[0]),
+            96 => self.inline_code_0(&children[0]),
+            97 => self.inline_code_1(&children[0]),
+            98 => self.inline_code1(&children[0]),
+            99 => self.inline_code2(&children[0], &children[1], &children[2]),
+            100 => self.inline_code2_list_0(&children[0], &children[1]),
+            101 => self.inline_code2_list_group_0(&children[0]),
+            102 => self.inline_code2_list_group_1(&children[0]),
+            103 => self.inline_code2_list_1(),
+            104 => self.code_block_0(&children[0]),
+            105 => self.code_block_1(&children[0]),
+            106 => self.code_block_2(&children[0]),
+            107 => self.code_block_3(&children[0]),
+            108 => self.code_block3(&children[0], &children[1], &children[2]),
+            109 => self.code_block3_list_0(&children[0], &children[1]),
+            110 => self.code_block3_list_group_0(&children[0]),
+            111 => self.code_block3_list_group_1(&children[0]),
+            112 => self.code_block3_list_1(),
+            113 => self.code_block4(&children[0], &children[1], &children[2]),
+            114 => self.code_block4_list_0(&children[0], &children[1]),
+            115 => self.code_block4_list_group_0(&children[0]),
+            116 => self.code_block4_list_group_1(&children[0]),
+            117 => self.code_block4_list_1(),
+            118 => self.code_block5(&children[0], &children[1], &children[2]),
+            119 => self.code_block5_list_0(&children[0], &children[1]),
+            120 => self.code_block5_list_group_0(&children[0]),
+            121 => self.code_block5_list_group_1(&children[0]),
+            122 => self.code_block5_list_1(),
+            123 => self.code_block6(&children[0], &children[1], &children[2]),
+            124 => self.code_block6_list_0(&children[0], &children[1]),
+            125 => self.code_block6_list_group_0(&children[0]),
+            126 => self.code_block6_list_group_1(&children[0]),
+            127 => self.code_block6_list_1(),
+            128 => self.inline_code_start2(&children[0]),
+            129 => self.code_block_start3(&children[0]),
+            130 => self.code_block_start4(&children[0]),
+            131 => self.code_block_start5(&children[0]),
+            132 => self.code_block_start6(&children[0]),
+            133 => self.code_block_end3(&children[0]),
+            134 => self.backtick2(&children[0]),
+            135 => self.code_block_end4(&children[0]),
+            136 => self.backtick3(&children[0]),
+            137 => self.code_block_end5(&children[0]),
+            138 => self.backtick4(&children[0]),
+            139 => self.code_block_end6(&children[0]),
+            140 => self.backtick5(&children[0]),
+            141 => self.inline_code_end2(&children[0]),
+            142 => self.backtick1(&children[0]),
+            143 => self.no_backtick(&children[0]),
+            144 => self.no_backtick_inline(&children[0]),
+            145 => self.grammar_newline(&children[0]),
+            146 => self.ws(&children[0]),
+            147 => self.at(&children[0]),
+            148 => self.meta_ext(&children[0]),
+            149 => self.ext(&children[0]),
+            150 => self.dot(&children[0]),
+            151 => self.begin(&children[0]),
+            152 => self.end(&children[0]),
+            153 => self.array_begin(&children[0]),
+            154 => self.array_end(&children[0]),
+            155 => self.l_paren(&children[0]),
+            156 => self.r_paren(&children[0]),
+            157 => self.bind(&children[0]),
+            158 => self.comma(&children[0]),
+            159 => self.r#continue(&children[0]),
+            160 => self.text_start(&children[0]),
+            161 => self.ident(&children[0]),
             _ => Err(ParserError::InternalError(format!(
                 "Unhandled production number: {prod_num}"
             ))

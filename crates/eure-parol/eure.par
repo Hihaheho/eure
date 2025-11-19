@@ -4,12 +4,22 @@
 %line_comment "#"
 
 %on TextStart %enter Text
+%on InlineCodeStart2 %enter InInlineCode2
+%on CodeBlockStart3 %enter InCodeBlock3
+%on CodeBlockStart4 %enter InCodeBlock4
+%on CodeBlockStart5 %enter InCodeBlock5
+%on CodeBlockStart6 %enter InCodeBlock6
 
 %scanner Text {
   %auto_newline_off
   %auto_ws_off
   %on Text %enter INITIAL
 }
+%scanner InInlineCode2 { %auto_newline_off %auto_ws_off %on InlineCodeEnd2 %enter INITIAL }
+%scanner InCodeBlock3 { %auto_newline_off %auto_ws_off %on CodeBlockEnd3 %enter INITIAL }
+%scanner InCodeBlock4 { %auto_newline_off %auto_ws_off %on CodeBlockEnd4 %enter INITIAL }
+%scanner InCodeBlock5 { %auto_newline_off %auto_ws_off %on CodeBlockEnd5 %enter INITIAL }
+%scanner InCodeBlock6 { %auto_newline_off %auto_ws_off %on CodeBlockEnd6 %enter INITIAL }
 
 %%
 
@@ -34,7 +44,7 @@ Section: At Keys SectionBody ;
   ExtensionNameSpace: Ext Ident ;
   MetaExtKey: MetaExt Ident ;
 
-Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | NamedCode | Code | Path ;
+Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | InlineCode | Path ;
   Object: Begin { Key Bind Value [ Comma ] } End ;
   Array: ArrayBegin [ ArrayElements ] ArrayEnd ;
   ArrayElements: Value [ ArrayElementsTail ] ;
@@ -57,10 +67,44 @@ Str: /"([^"]|\\")*"/ ;
 // No escape character in text
 Text: <Text>/[^\r\n]*/ ;
 
-CodeBlock: /```[a-zA-Z0-9-_]*(\r\n|\r|\n)([^`]|[`]{1,2})*```/;
+InlineCode: InlineCode2 | InlineCode1 ;
+InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/ ;
+InlineCode2: InlineCodeStart2 { NoBacktickInline | Backtick1 } InlineCodeEnd2;
 
-NamedCode: /[a-zA-Z0-9-_]+`([^`\r\n]|\\`)*`/ ;
-Code: /`([^`\r\n]|\\`)*`/ ;
+CodeBlock: CodeBlock3 | CodeBlock4 | CodeBlock5 | CodeBlock6;
+CodeBlock3: CodeBlockStart3 { NoBacktick | Backtick2 } CodeBlockEnd3;
+CodeBlock4: CodeBlockStart4 { NoBacktick | Backtick3 } CodeBlockEnd4;
+CodeBlock5: CodeBlockStart5 { NoBacktick | Backtick4 } CodeBlockEnd5;
+CodeBlock6: CodeBlockStart6 { NoBacktick | Backtick5 } CodeBlockEnd6;
+
+InlineCodeStart2: /[a-zA-Z0-9-_]*``/ ;
+CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
+CodeBlockStart4: /`{4}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
+CodeBlockStart5: /`{5}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
+CodeBlockStart6: /`{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
+
+// Order matters here. Scanner should eagarly match the longest pattern.
+CodeBlockEnd3: <InCodeBlock3>/`{3}/;
+Backtick2: <InCodeBlock3>/`{1,2}/;
+
+// Order matters here. Scanner should eagarly match the longest pattern.
+CodeBlockEnd4: <InCodeBlock4>/`{4}/;
+Backtick3: <InCodeBlock4>/`{1,3}/;
+
+// Order matters here. Scanner should eagarly match the longest pattern.
+CodeBlockEnd5: <InCodeBlock5>/`{5}/;
+Backtick4: <InCodeBlock5>/`{1,4}/;
+
+// Order matters here. Scanner should eagarly match the longest pattern.
+CodeBlockEnd6: <InCodeBlock6>/`{6}/;
+Backtick5: <InCodeBlock6>/`{1,5}/;
+
+// Order matters here. Scanner should eagarly match the longest pattern.
+InlineCodeEnd2: <InInlineCode2>'``';
+Backtick1: <InInlineCode2>'`';
+
+NoBacktick: <InCodeBlock3, InCodeBlock4, InCodeBlock5, InCodeBlock6>/[^`]+/ ;
+NoBacktickInline: <InInlineCode2>/[^`\r\n]+/ ;
 
 GrammarNewline: <Text>/\r\n|\r|\n/ ;
 Ws: <Text>/[\s--\r\n]+/ ;
