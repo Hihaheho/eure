@@ -441,6 +441,160 @@ mod tests {
         ConcreteSyntaxTree::new(root_data)
     }
 
+    // Tests for parse_inline_code_1
+    mod parse_inline_code_1_tests {
+        use super::*;
+
+        #[test]
+        fn test_simple_code_without_language() {
+            let (language, content) = ValueVisitor::parse_inline_code_1("`hello`");
+            assert_eq!(language, None);
+            assert_eq!(content, "hello");
+        }
+
+        #[test]
+        fn test_code_with_language() {
+            let (language, content) = ValueVisitor::parse_inline_code_1("rust`fn main() {}`");
+            assert_eq!(language, Some("rust".to_string()));
+            assert_eq!(content, "fn main() {}");
+        }
+
+        #[test]
+        fn test_empty_code() {
+            let (language, content) = ValueVisitor::parse_inline_code_1("``");
+            assert_eq!(language, None);
+            assert_eq!(content, "");
+        }
+
+        #[test]
+        fn test_code_with_special_chars() {
+            let (language, content) = ValueVisitor::parse_inline_code_1("`hello world!@#$%`");
+            assert_eq!(language, None);
+            assert_eq!(content, "hello world!@#$%");
+        }
+
+        #[test]
+        fn test_language_with_hyphen_and_underscore() {
+            let (language, content) = ValueVisitor::parse_inline_code_1("foo-bar_123`content`");
+            assert_eq!(language, Some("foo-bar_123".to_string()));
+            assert_eq!(content, "content");
+        }
+
+        #[test]
+        fn test_no_backticks() {
+            let (language, content) = ValueVisitor::parse_inline_code_1("no backticks");
+            assert_eq!(language, None);
+            assert_eq!(content, "");
+        }
+
+        #[test]
+        fn test_single_backtick() {
+            let (language, content) = ValueVisitor::parse_inline_code_1("`");
+            assert_eq!(language, None);
+            assert_eq!(content, "");
+        }
+    }
+
+    // Tests for parse_inline_code_start_2
+    mod parse_inline_code_start_2_tests {
+        use super::*;
+
+        #[test]
+        fn test_no_language() {
+            let language = ValueVisitor::parse_inline_code_start_2("``");
+            assert_eq!(language, None);
+        }
+
+        #[test]
+        fn test_with_language() {
+            let language = ValueVisitor::parse_inline_code_start_2("rust``");
+            assert_eq!(language, Some("rust".to_string()));
+        }
+
+        #[test]
+        fn test_with_complex_language() {
+            let language = ValueVisitor::parse_inline_code_start_2("foo-bar_123``");
+            assert_eq!(language, Some("foo-bar_123".to_string()));
+        }
+
+        #[test]
+        fn test_no_backticks() {
+            let language = ValueVisitor::parse_inline_code_start_2("rust");
+            assert_eq!(language, None);
+        }
+    }
+
+    // Tests for parse_code_block_start
+    mod parse_code_block_start_tests {
+        use super::*;
+
+        #[test]
+        fn test_no_language_3_backticks() {
+            let language = ValueVisitor::parse_code_block_start("```\n", 3);
+            assert_eq!(language, None);
+        }
+
+        #[test]
+        fn test_with_language_3_backticks() {
+            let language = ValueVisitor::parse_code_block_start("```rust\n", 3);
+            assert_eq!(language, Some("rust".to_string()));
+        }
+
+        #[test]
+        fn test_with_language_4_backticks() {
+            let language = ValueVisitor::parse_code_block_start("````python\n", 4);
+            assert_eq!(language, Some("python".to_string()));
+        }
+
+        #[test]
+        fn test_with_language_5_backticks() {
+            let language = ValueVisitor::parse_code_block_start("`````javascript\n", 5);
+            assert_eq!(language, Some("javascript".to_string()));
+        }
+
+        #[test]
+        fn test_with_language_6_backticks() {
+            let language = ValueVisitor::parse_code_block_start("``````typescript\n", 6);
+            assert_eq!(language, Some("typescript".to_string()));
+        }
+
+        #[test]
+        fn test_language_with_whitespace() {
+            let language = ValueVisitor::parse_code_block_start("```  rust  \n", 3);
+            assert_eq!(language, Some("rust".to_string()));
+        }
+
+        #[test]
+        fn test_language_with_carriage_return() {
+            let language = ValueVisitor::parse_code_block_start("```rust\r\n", 3);
+            assert_eq!(language, Some("rust".to_string()));
+        }
+
+        #[test]
+        fn test_language_with_only_carriage_return() {
+            let language = ValueVisitor::parse_code_block_start("```rust\r", 3);
+            assert_eq!(language, Some("rust".to_string()));
+        }
+
+        #[test]
+        fn test_empty_language_with_spaces() {
+            let language = ValueVisitor::parse_code_block_start("```   \n", 3);
+            assert_eq!(language, None);
+        }
+
+        #[test]
+        fn test_no_newline() {
+            let language = ValueVisitor::parse_code_block_start("```rust", 3);
+            assert_eq!(language, None);
+        }
+
+        #[test]
+        fn test_complex_language_tag() {
+            let language = ValueVisitor::parse_code_block_start("```foo-bar_123\n", 3);
+            assert_eq!(language, Some("foo-bar_123".to_string()));
+        }
+    }
+
     #[test]
     fn test_push_input() {
         let mut tokens = TerminalTokens::new();
