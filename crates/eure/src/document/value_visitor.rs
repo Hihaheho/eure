@@ -124,6 +124,8 @@ impl<'a> ValueVisitor<'a> {
     }
 
     /// Parse language from InlineCode1 token: [lang]`content`
+    /// Grammar: /[a-zA-Z0-9-_]*`[^`\r\n]*`/
+    /// Language tag must be alphanumeric/hyphen/underscore only, no whitespace
     fn parse_inline_code_1(token: &str) -> Result<(Option<String>, String), DocumentConstructionError> {
         // Find the first backtick
         let first_backtick = token.find('`')
@@ -155,6 +157,8 @@ impl<'a> ValueVisitor<'a> {
     }
 
     /// Parse language from InlineCodeStart2 token: [lang]``
+    /// Grammar: /[a-zA-Z0-9-_]*``/
+    /// Language tag must be alphanumeric/hyphen/underscore only, no whitespace
     fn parse_inline_code_start_2(token: &str) -> Result<Option<String>, DocumentConstructionError> {
         // Remove the trailing ``
         let idx = token.find("``")
@@ -171,6 +175,8 @@ impl<'a> ValueVisitor<'a> {
     }
 
     /// Parse language from CodeBlockStart token: ```[lang]\n or ````[lang]\n etc.
+    /// Grammar: /`{n}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/
+    /// Language tag must be alphanumeric/hyphen/underscore only, followed by optional whitespace
     fn parse_code_block_start(token: &str, backticks: u8) -> Result<Option<String>, DocumentConstructionError> {
         // Skip the backticks at the start
         let after_backticks = &token[backticks as usize..];
@@ -181,7 +187,16 @@ impl<'a> ValueVisitor<'a> {
                 format!("Missing newline after code block start in: {}", token)
             ))?;
 
-        let language_part = after_backticks[..newline_idx].trim();
+        // Extract the part before newline
+        let before_newline = &after_backticks[..newline_idx];
+
+        // Find where the language tag ends (first non-alphanumeric/hyphen/underscore char)
+        let lang_end = before_newline
+            .find(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_')
+            .unwrap_or(before_newline.len());
+
+        let language_part = &before_newline[..lang_end];
+
         if language_part.is_empty() {
             Ok(None)
         } else {
@@ -602,10 +617,19 @@ mod tests {
         }
 
         #[test]
-        fn test_language_with_whitespace() {
-            let result = ValueVisitor::parse_code_block_start("```  rust  \n", 3);
+        fn test_language_with_trailing_whitespace() {
+            let result = ValueVisitor::parse_code_block_start("```rust  \n", 3);
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Some("rust".to_string()));
+        }
+
+        #[test]
+        fn test_language_with_leading_whitespace_is_invalid() {
+            // Leading whitespace before language tag is not allowed by grammar
+            let result = ValueVisitor::parse_code_block_start("```  rust\n", 3);
+            assert!(result.is_ok());
+            // The language part should be empty because whitespace stops the language tag
+            assert_eq!(result.unwrap(), None);
         }
 
         #[test]
