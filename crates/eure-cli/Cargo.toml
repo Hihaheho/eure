@@ -3,26 +3,26 @@ name = "eure-cli"
 version = "0.1.0"
 edition = "2024"
 description = "Command-line tool for EURE format conversion and validation"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "cli", "conversion", "validation"]
+license = "MIT OR Apache-2.0"
+keywords = ["cli", "conversion", "eure", "validation"]
 
 [[bin]]
 name = "eure"
 path = "src/main.rs"
 
 [dependencies]
-eure-tree = { workspace = true }
+ahash = { workspace = true }
+clap = { version = "4.0", features = ["derive"] }
+eure = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }
 eure-json = { workspace = true }
-eure-yaml = { workspace = true }
-eure-value = { workspace = true }
-
-clap = { version = "4.0", features = ["derive"] }
 eure-parol = { workspace = true }
+eure-tree = { workspace = true }
+eure-value = { workspace = true }
+eure-yaml = { workspace = true }
+petgraph = "0.8.1"
 serde_json = { workspace = true }
 serde_yaml = "0.9"
-ahash = { workspace = true }
-petgraph = "0.8.1"

@@ -12,6 +12,9 @@
 !Cargo.toml
 !Cargo.lock
 
+!test-suite/**/*.eure
+!test-suite/**/*.rs
+
 !crates/eure-parol/eure.par
 
 !example.eure

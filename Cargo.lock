@@ -40,6 +40,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "annotate-snippets"
+version = "0.12.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a44baf24dd94e781f74dfe67ffee75a09a57971ddf0f615a178b4f6d404b48ff"
+dependencies = [
+ "anstyle",
+ "unicode-width",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1862,6 +1872,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "clap",
+ "eure",
  "eure-fmt",
  "eure-json",
  "eure-parol",
@@ -1928,7 +1939,6 @@ dependencies = [
  "ahash",
  "eure",
  "eure-fmt",
- "eure-parol",
  "indexmap",
  "serde",
  "serde_json",
@@ -2037,11 +2047,8 @@ name = "eure-yaml"
 version = "0.1.0"
 dependencies = [
  "ahash",
- "eure-parol",
- "eure-tree",
- "eure-value",
+ "eure",
  "serde",
- "serde_yaml",
  "thiserror 2.0.17",
 ]
 
@@ -4974,10 +4981,10 @@ name = "serde-eure"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "eure",
  "eure-json",
  "eure-parol",
  "eure-tree",
- "eure-value",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -5517,6 +5524,16 @@ name = "termtree"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
+
+[[package]]
+name = "test-suite"
+version = "0.1.0"
+dependencies = [
+ "annotate-snippets",
+ "eros",
+ "eure",
+ "rayon",
+]
 
 [[package]]
 name = "thiserror"

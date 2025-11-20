@@ -3,20 +3,20 @@ name = "serde-eure"
 version = "0.1.0"
 edition = "2024"
 description = "Serde support for EURE format"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "serde", "serialization", "deserialization"]
+license = "MIT OR Apache-2.0"
+keywords = ["deserialization", "eure", "serde", "serialization"]
 
 [dependencies]
-serde = { workspace = true }
-eure-value = { workspace = true }
+ahash = { workspace = true }
+eure = { workspace = true }
+eure-json = { workspace = true }
 eure-parol = { workspace = true }
 eure-tree = { workspace = true }
-eure-json = { workspace = true }
+serde = { workspace = true }
 thiserror = { workspace = true }
-ahash = { workspace = true }
 
 [dev-dependencies]
 serde = { workspace = true, features = ["derive"] }

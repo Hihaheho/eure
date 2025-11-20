@@ -1,0 +1,15 @@
+input_eure = ````eure
+inline = `ls -la`
+
+block = ```bash
+ls -la
+```
+````
+
+normalized = ````eure
+={ inline = `ls -la`, block = ```bash
+ls -la
+``` }
+````
+
+output_json = json`{ "inline": "ls -la", "block": "ls -la\n" }`

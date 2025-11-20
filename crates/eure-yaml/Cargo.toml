@@ -3,19 +3,14 @@ name = "eure-yaml"
 version = "0.1.0"
 edition = "2024"
 description = "YAML conversion support for EURE format"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "yaml", "conversion", "serialization"]
+license = "MIT OR Apache-2.0"
+keywords = ["conversion", "eure", "serialization", "yaml"]
 
 [dependencies]
-eure-value = { workspace = true }
-serde = { workspace = true }
-serde_yaml = "0.9"
-thiserror = { workspace = true }
 ahash = { workspace = true }
-
-[dev-dependencies]
-eure-parol = { workspace = true }
-eure-tree = { workspace = true }
+eure = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
