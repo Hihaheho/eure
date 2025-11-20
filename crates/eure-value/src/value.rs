@@ -17,6 +17,15 @@ pub enum PrimitiveValue {
     Variant(Variant),
     Path(EurePath),
 }
+impl PrimitiveValue {
+    pub fn as_code(&self) -> Option<&Code> {
+        if let Self::Code(code) = self {
+            Some(code)
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {

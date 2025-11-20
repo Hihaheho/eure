@@ -39,9 +39,15 @@ Section: At Keys SectionBody ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: Ident | ExtensionNameSpace | Str | Integer | Null | True | False | Hole ;
+  KeyBase: Ident | ExtensionNameSpace | Str | Integer | True | False | KeyTuple ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext Ident ;
+  // Key-specific tuple (only allows types that can be converted to ObjectKey)
+  KeyTuple: LParen [ KeyTupleElements ] RParen ;
+  KeyTupleElements: KeyValue [ KeyTupleElementsTail ] ;
+  KeyTupleElementsTail: Comma [ KeyTupleElements ] ;
+  // Values that can be used as object keys
+  KeyValue: Integer | Boolean | Str | KeyTuple ;
 
 Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | InlineCode | Path ;
   Object: Begin { Key Bind Value [ Comma ] } End ;

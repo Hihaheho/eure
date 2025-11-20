@@ -1904,6 +1904,125 @@ impl From<KeyOptNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for KeyTuple non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyTupleNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyTupleNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyTupleNode> for BuilderNodeId {
+    fn from(node: KeyTupleNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for KeyTupleElements non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyTupleElementsNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyTupleElementsNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyTupleElementsNode> for BuilderNodeId {
+    fn from(node: KeyTupleElementsNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for KeyTupleElementsOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyTupleElementsOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyTupleElementsOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyTupleElementsOptNode> for BuilderNodeId {
+    fn from(node: KeyTupleElementsOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for KeyTupleElementsTail non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyTupleElementsTailNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyTupleElementsTailNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyTupleElementsTailNode> for BuilderNodeId {
+    fn from(node: KeyTupleElementsTailNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for KeyTupleElementsTailOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyTupleElementsTailOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyTupleElementsTailOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyTupleElementsTailOptNode> for BuilderNodeId {
+    fn from(node: KeyTupleElementsTailOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for KeyTupleOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyTupleOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyTupleOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyTupleOptNode> for BuilderNodeId {
+    fn from(node: KeyTupleOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for KeyValue non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyValueNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyValueNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyValueNode> for BuilderNodeId {
+    fn from(node: KeyValueNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for Keys non-terminal
 #[derive(Debug, Clone)]
 pub struct KeysNode {
@@ -3695,10 +3814,9 @@ pub enum KeyBaseConstructor {
     ExtensionNameSpace(ExtensionNameSpaceNode),
     Str(StrNode),
     Integer(IntegerNode),
-    Null(NullNode),
     True(TrueNode),
     False(FalseNode),
-    Hole(HoleNode),
+    KeyTuple(KeyTupleNode),
 }
 impl KeyBaseConstructor {
     pub fn build(self) -> KeyBaseNode {
@@ -3708,10 +3826,9 @@ impl KeyBaseConstructor {
             Self::ExtensionNameSpace(node) => builder.embed(node.builder),
             Self::Str(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
-            Self::Null(node) => builder.embed(node.builder),
             Self::True(node) => builder.embed(node.builder),
             Self::False(node) => builder.embed(node.builder),
-            Self::Hole(node) => builder.embed(node.builder),
+            Self::KeyTuple(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::KeyBase, vec![child_id]);
         KeyBaseNode { node_id, builder }
@@ -3731,6 +3848,147 @@ impl KeyOptConstructor {
         };
         let node_id = builder.non_terminal(NonTerminalKind::KeyOpt, children);
         KeyOptNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct KeyTupleConstructor {
+    l_paren: LParenNode,
+    key_tuple_opt: KeyTupleOptNode,
+    r_paren: RParenNode,
+}
+impl KeyTupleConstructor {
+    pub fn build(self) -> KeyTupleNode {
+        let mut builder = CstBuilder::new();
+        let l_paren = builder.embed(self.l_paren.builder);
+        let key_tuple_opt = builder.embed(self.key_tuple_opt.builder);
+        let r_paren = builder.embed(self.r_paren.builder);
+        let node_id = builder
+            .non_terminal(
+                NonTerminalKind::KeyTuple,
+                vec![l_paren, key_tuple_opt, r_paren],
+            );
+        KeyTupleNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct KeyTupleElementsConstructor {
+    key_value: KeyValueNode,
+    key_tuple_elements_opt: KeyTupleElementsOptNode,
+}
+impl KeyTupleElementsConstructor {
+    pub fn build(self) -> KeyTupleElementsNode {
+        let mut builder = CstBuilder::new();
+        let key_value = builder.embed(self.key_value.builder);
+        let key_tuple_elements_opt = builder.embed(self.key_tuple_elements_opt.builder);
+        let node_id = builder
+            .non_terminal(
+                NonTerminalKind::KeyTupleElements,
+                vec![key_value, key_tuple_elements_opt],
+            );
+        KeyTupleElementsNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct KeyTupleElementsOptConstructor {
+    key_tuple_elements_tail: Option<KeyTupleElementsTailNode>,
+}
+impl KeyTupleElementsOptConstructor {
+    pub fn build(self) -> KeyTupleElementsOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.key_tuple_elements_tail {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder
+            .non_terminal(NonTerminalKind::KeyTupleElementsOpt, children);
+        KeyTupleElementsOptNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct KeyTupleElementsTailConstructor {
+    comma: CommaNode,
+    key_tuple_elements_tail_opt: KeyTupleElementsTailOptNode,
+}
+impl KeyTupleElementsTailConstructor {
+    pub fn build(self) -> KeyTupleElementsTailNode {
+        let mut builder = CstBuilder::new();
+        let comma = builder.embed(self.comma.builder);
+        let key_tuple_elements_tail_opt = builder
+            .embed(self.key_tuple_elements_tail_opt.builder);
+        let node_id = builder
+            .non_terminal(
+                NonTerminalKind::KeyTupleElementsTail,
+                vec![comma, key_tuple_elements_tail_opt],
+            );
+        KeyTupleElementsTailNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct KeyTupleElementsTailOptConstructor {
+    key_tuple_elements: Option<KeyTupleElementsNode>,
+}
+impl KeyTupleElementsTailOptConstructor {
+    pub fn build(self) -> KeyTupleElementsTailOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.key_tuple_elements {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder
+            .non_terminal(NonTerminalKind::KeyTupleElementsTailOpt, children);
+        KeyTupleElementsTailOptNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct KeyTupleOptConstructor {
+    key_tuple_elements: Option<KeyTupleElementsNode>,
+}
+impl KeyTupleOptConstructor {
+    pub fn build(self) -> KeyTupleOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.key_tuple_elements {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::KeyTupleOpt, children);
+        KeyTupleOptNode {
+            node_id,
+            builder,
+        }
+    }
+}
+pub enum KeyValueConstructor {
+    Integer(IntegerNode),
+    Boolean(BooleanNode),
+    Str(StrNode),
+    KeyTuple(KeyTupleNode),
+}
+impl KeyValueConstructor {
+    pub fn build(self) -> KeyValueNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::Integer(node) => builder.embed(node.builder),
+            Self::Boolean(node) => builder.embed(node.builder),
+            Self::Str(node) => builder.embed(node.builder),
+            Self::KeyTuple(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::KeyValue, vec![child_id]);
+        KeyValueNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]

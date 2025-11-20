@@ -3784,17 +3784,14 @@ impl NonTerminalHandle for KeyBaseHandle {
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 KeyBaseView::Integer(IntegerHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Null) => {
-                KeyBaseView::Null(NullHandle(child))
-            }
             NodeKind::NonTerminal(NonTerminalKind::True) => {
                 KeyBaseView::True(TrueHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::False) => {
                 KeyBaseView::False(FalseHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Hole) => {
-                KeyBaseView::Hole(HoleHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::KeyTuple) => {
+                KeyBaseView::KeyTuple(KeyTupleHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -3819,10 +3816,9 @@ pub enum KeyBaseView {
     ExtensionNameSpace(ExtensionNameSpaceHandle),
     Str(StrHandle),
     Integer(IntegerHandle),
-    Null(NullHandle),
     True(TrueHandle),
     False(FalseHandle),
-    Hole(HoleHandle),
+    KeyTuple(KeyTupleHandle),
 }
 impl KeyBaseView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3867,6 +3863,387 @@ impl NonTerminalHandle for KeyOptHandle {
         )
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyTupleHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyTupleHandle {
+    type View = KeyTupleView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyTuple)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyTuple
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::LParen),
+                NodeKind::NonTerminal(NonTerminalKind::KeyTupleOpt),
+                NodeKind::NonTerminal(NonTerminalKind::RParen),
+            ],
+            |[l_paren, key_tuple_opt, r_paren], visit_ignored| Ok(
+                visit(
+                    KeyTupleView {
+                        l_paren: LParenHandle(l_paren),
+                        key_tuple_opt: KeyTupleOptHandle(key_tuple_opt),
+                        r_paren: RParenHandle(r_paren),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KeyTupleView {
+    pub l_paren: LParenHandle,
+    pub key_tuple_opt: KeyTupleOptHandle,
+    pub r_paren: RParenHandle,
+}
+impl KeyTupleView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyTupleElementsHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyTupleElementsHandle {
+    type View = KeyTupleElementsView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyTupleElements)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyTupleElements
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::KeyValue),
+                NodeKind::NonTerminal(NonTerminalKind::KeyTupleElementsOpt),
+            ],
+            |[key_value, key_tuple_elements_opt], visit_ignored| Ok(
+                visit(
+                    KeyTupleElementsView {
+                        key_value: KeyValueHandle(key_value),
+                        key_tuple_elements_opt: KeyTupleElementsOptHandle(
+                            key_tuple_elements_opt,
+                        ),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KeyTupleElementsView {
+    pub key_value: KeyValueHandle,
+    pub key_tuple_elements_opt: KeyTupleElementsOptHandle,
+}
+impl KeyTupleElementsView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyTupleElementsOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyTupleElementsOptHandle {
+    type View = Option<KeyTupleElementsTailHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyTupleElementsOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyTupleElementsOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(
+            visit(
+                    Some(
+                        KeyTupleElementsTailHandle::new_with_visit(
+                            self.0,
+                            tree,
+                            visit_ignored,
+                        )?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyTupleElementsTailHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyTupleElementsTailHandle {
+    type View = KeyTupleElementsTailView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyTupleElementsTail)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyTupleElementsTail
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::Comma),
+                NodeKind::NonTerminal(NonTerminalKind::KeyTupleElementsTailOpt),
+            ],
+            |[comma, key_tuple_elements_tail_opt], visit_ignored| Ok(
+                visit(
+                    KeyTupleElementsTailView {
+                        comma: CommaHandle(comma),
+                        key_tuple_elements_tail_opt: KeyTupleElementsTailOptHandle(
+                            key_tuple_elements_tail_opt,
+                        ),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KeyTupleElementsTailView {
+    pub comma: CommaHandle,
+    pub key_tuple_elements_tail_opt: KeyTupleElementsTailOptHandle,
+}
+impl KeyTupleElementsTailView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyTupleElementsTailOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyTupleElementsTailOptHandle {
+    type View = Option<KeyTupleElementsHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyTupleElementsTailOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyTupleElementsTailOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(
+            visit(
+                    Some(
+                        KeyTupleElementsHandle::new_with_visit(
+                            self.0,
+                            tree,
+                            visit_ignored,
+                        )?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyTupleOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyTupleOptHandle {
+    type View = Option<KeyTupleElementsHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyTupleOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyTupleOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(
+            visit(
+                    Some(
+                        KeyTupleElementsHandle::new_with_visit(
+                            self.0,
+                            tree,
+                            visit_ignored,
+                        )?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyValueHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyValueHandle {
+    type View = KeyValueView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyValue)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyValue
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::Integer) => {
+                KeyValueView::Integer(IntegerHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Boolean) => {
+                KeyValueView::Boolean(BooleanHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Str) => {
+                KeyValueView::Str(StrHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::KeyTuple) => {
+                KeyValueView::KeyTuple(KeyTupleHandle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyValueView {
+    Integer(IntegerHandle),
+    Boolean(BooleanHandle),
+    Str(StrHandle),
+    KeyTuple(KeyTupleHandle),
+}
+impl KeyValueView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeysHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for KeysHandle {

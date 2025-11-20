@@ -568,6 +568,62 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_key_opt_super(handle, view, tree)
     }
+    fn visit_key_tuple(
+        &mut self,
+        handle: KeyTupleHandle,
+        view: KeyTupleView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_tuple_super(handle, view, tree)
+    }
+    fn visit_key_tuple_elements(
+        &mut self,
+        handle: KeyTupleElementsHandle,
+        view: KeyTupleElementsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_tuple_elements_super(handle, view, tree)
+    }
+    fn visit_key_tuple_elements_opt(
+        &mut self,
+        handle: KeyTupleElementsOptHandle,
+        view: KeyTupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_tuple_elements_opt_super(handle, view, tree)
+    }
+    fn visit_key_tuple_elements_tail(
+        &mut self,
+        handle: KeyTupleElementsTailHandle,
+        view: KeyTupleElementsTailView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_tuple_elements_tail_super(handle, view, tree)
+    }
+    fn visit_key_tuple_elements_tail_opt(
+        &mut self,
+        handle: KeyTupleElementsTailOptHandle,
+        view: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_tuple_elements_tail_opt_super(handle, view, tree)
+    }
+    fn visit_key_tuple_opt(
+        &mut self,
+        handle: KeyTupleOptHandle,
+        view: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_tuple_opt_super(handle, view, tree)
+    }
+    fn visit_key_value(
+        &mut self,
+        handle: KeyValueHandle,
+        view: KeyValueView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_value_super(handle, view, tree)
+    }
     fn visit_keys(
         &mut self,
         handle: KeysHandle,
@@ -1957,6 +2013,83 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: KeyOptHandle,
         view: ArrayMarkerHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_handle(
+        &mut self,
+        handle: KeyTupleHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_super(
+        &mut self,
+        handle: KeyTupleHandle,
+        view: KeyTupleView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_handle(
+        &mut self,
+        handle: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_super(
+        &mut self,
+        handle: KeyTupleElementsHandle,
+        view: KeyTupleElementsView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_opt_handle(
+        &mut self,
+        handle: KeyTupleElementsOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_opt_super(
+        &mut self,
+        handle: KeyTupleElementsOptHandle,
+        view: KeyTupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_tail_handle(
+        &mut self,
+        handle: KeyTupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_tail_super(
+        &mut self,
+        handle: KeyTupleElementsTailHandle,
+        view: KeyTupleElementsTailView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_tail_opt_handle(
+        &mut self,
+        handle: KeyTupleElementsTailOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_elements_tail_opt_super(
+        &mut self,
+        handle: KeyTupleElementsTailOptHandle,
+        view: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_opt_handle(
+        &mut self,
+        handle: KeyTupleOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_tuple_opt_super(
+        &mut self,
+        handle: KeyTupleOptHandle,
+        view: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_value_handle(
+        &mut self,
+        handle: KeyValueHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_value_super(
+        &mut self,
+        handle: KeyValueHandle,
+        view: KeyValueView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_keys_handle(&mut self, handle: KeysHandle, tree: &F) -> Result<(), E>;
@@ -5803,6 +5936,340 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_key_tuple_handle(
+        &mut self,
+        handle: KeyTupleHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_key_tuple(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_key_tuple_elements_handle(
+        &mut self,
+        handle: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_key_tuple_elements(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_key_tuple_elements_opt_handle(
+        &mut self,
+        handle: KeyTupleElementsOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_key_tuple_elements_opt(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_key_tuple_elements_tail_handle(
+        &mut self,
+        handle: KeyTupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_key_tuple_elements_tail(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_key_tuple_elements_tail_opt_handle(
+        &mut self,
+        handle: KeyTupleElementsTailOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_key_tuple_elements_tail_opt(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_key_tuple_opt_handle(
+        &mut self,
+        handle: KeyTupleOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_key_tuple_opt(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_key_value_handle(
+        &mut self,
+        handle: KeyValueHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_key_value(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_keys_handle(
         &mut self,
         handle: KeysHandle,
@@ -8687,17 +9154,14 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             KeyBaseView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
             }
-            KeyBaseView::Null(item) => {
-                self.visit_null_handle(item, tree)?;
-            }
             KeyBaseView::True(item) => {
                 self.visit_true_handle(item, tree)?;
             }
             KeyBaseView::False(item) => {
                 self.visit_false_handle(item, tree)?;
             }
-            KeyBaseView::Hole(item) => {
-                self.visit_hole_handle(item, tree)?;
+            KeyBaseView::KeyTuple(item) => {
+                self.visit_key_tuple_handle(item, tree)?;
             }
         }
         Ok(())
@@ -8710,6 +9174,99 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     ) -> Result<(), V::Error> {
         let _handle = handle;
         self.visit_array_marker_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_key_tuple_super(
+        &mut self,
+        handle: KeyTupleHandle,
+        view_param: KeyTupleView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let KeyTupleView { l_paren, key_tuple_opt, r_paren } = view_param;
+        self.visit_l_paren_handle(l_paren, tree)?;
+        self.visit_key_tuple_opt_handle(key_tuple_opt, tree)?;
+        self.visit_r_paren_handle(r_paren, tree)?;
+        Ok(())
+    }
+    fn visit_key_tuple_elements_super(
+        &mut self,
+        handle: KeyTupleElementsHandle,
+        view_param: KeyTupleElementsView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let KeyTupleElementsView { key_value, key_tuple_elements_opt } = view_param;
+        self.visit_key_value_handle(key_value, tree)?;
+        self.visit_key_tuple_elements_opt_handle(key_tuple_elements_opt, tree)?;
+        Ok(())
+    }
+    fn visit_key_tuple_elements_opt_super(
+        &mut self,
+        handle: KeyTupleElementsOptHandle,
+        view_param: KeyTupleElementsTailHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_key_tuple_elements_tail_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_key_tuple_elements_tail_super(
+        &mut self,
+        handle: KeyTupleElementsTailHandle,
+        view_param: KeyTupleElementsTailView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let KeyTupleElementsTailView { comma, key_tuple_elements_tail_opt } = view_param;
+        self.visit_comma_handle(comma, tree)?;
+        self.visit_key_tuple_elements_tail_opt_handle(
+            key_tuple_elements_tail_opt,
+            tree,
+        )?;
+        Ok(())
+    }
+    fn visit_key_tuple_elements_tail_opt_super(
+        &mut self,
+        handle: KeyTupleElementsTailOptHandle,
+        view_param: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_key_tuple_elements_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_key_tuple_opt_super(
+        &mut self,
+        handle: KeyTupleOptHandle,
+        view_param: KeyTupleElementsHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_key_tuple_elements_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_key_value_super(
+        &mut self,
+        handle: KeyValueHandle,
+        view_param: KeyValueView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            KeyValueView::Integer(item) => {
+                self.visit_integer_handle(item, tree)?;
+            }
+            KeyValueView::Boolean(item) => {
+                self.visit_boolean_handle(item, tree)?;
+            }
+            KeyValueView::Str(item) => {
+                self.visit_str_handle(item, tree)?;
+            }
+            KeyValueView::KeyTuple(item) => {
+                self.visit_key_tuple_handle(item, tree)?;
+            }
+        }
         Ok(())
     }
     fn visit_keys_super(
@@ -10043,6 +10600,34 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::KeyOpt => {
                         let handle = KeyOptHandle(id);
                         self.visit_key_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::KeyTuple => {
+                        let handle = KeyTupleHandle(id);
+                        self.visit_key_tuple_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::KeyTupleElements => {
+                        let handle = KeyTupleElementsHandle(id);
+                        self.visit_key_tuple_elements_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::KeyTupleElementsOpt => {
+                        let handle = KeyTupleElementsOptHandle(id);
+                        self.visit_key_tuple_elements_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::KeyTupleElementsTail => {
+                        let handle = KeyTupleElementsTailHandle(id);
+                        self.visit_key_tuple_elements_tail_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::KeyTupleElementsTailOpt => {
+                        let handle = KeyTupleElementsTailOptHandle(id);
+                        self.visit_key_tuple_elements_tail_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::KeyTupleOpt => {
+                        let handle = KeyTupleOptHandle(id);
+                        self.visit_key_tuple_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::KeyValue => {
+                        let handle = KeyValueHandle(id);
+                        self.visit_key_value_handle(handle, tree)?;
                     }
                     NonTerminalKind::Keys => {
                         let handle = KeysHandle(id);

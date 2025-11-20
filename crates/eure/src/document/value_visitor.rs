@@ -1,59 +1,18 @@
 use eure_tree::tree::InputSpan; // Added import
 use eure_tree::{prelude::*, tree::TerminalHandle};
 use eure_value::{
+    ObjectKey, PrimitiveValue,
     code::Code,
-    PrimitiveValue,
-    document::{EureDocument, InsertError, constructor::DocumentConstructor},
+    document::{EureDocument, constructor::DocumentConstructor},
+    identifier::Identifier,
     path::PathSegment,
+    string::{EureString, EureStringError},
 };
 use num_bigint::BigInt;
 use regex::Regex;
 use std::sync::LazyLock;
-use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum InlineCodeError {
-    #[error("Does not match InlineCode1 pattern")]
-    InvalidInlineCode1Pattern,
-    #[error("Does not match InlineCodeStart2 pattern")]
-    InvalidInlineCodeStart2Pattern,
-}
-
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum CodeBlockError {
-    #[error("Does not match CodeBlockStart pattern")]
-    InvalidCodeBlockStartPattern,
-}
-
-#[derive(Debug, Error)]
-pub enum DocumentConstructionError {
-    #[error(transparent)]
-    CstError(#[from] CstConstructError),
-    #[error("Invalid identifier: {0}")]
-    InvalidIdentifier(String),
-    #[error("Failed to parse integer: {0}")]
-    InvalidInteger(String),
-    #[error("Failed to parse float: {0}")]
-    InvalidFloat(String),
-    #[error("Document insert error: {0}")]
-    DocumentInsert(#[from] InsertError),
-    #[error("Unprocessed segments: {segments:?}")]
-    UnprocessedSegments { segments: Vec<PathSegment> },
-    #[error("Dynamic token not found: {0:?}")]
-    DynamicTokenNotFound(DynamicTokenId),
-    #[error("Failed to parse big integer: {0}")]
-    InvalidBigInt(String),
-    #[error("Invalid inline code at node {node_id:?}: {error}")]
-    InvalidInlineCode {
-        node_id: CstNodeId,
-        error: InlineCodeError,
-    },
-    #[error("Invalid code block at node {node_id:?}: {error}")]
-    InvalidCodeBlock {
-        node_id: CstNodeId,
-        error: CodeBlockError,
-    },
-}
+use crate::document::{CodeBlockError, DocumentConstructionError, InlineCodeError};
 
 #[derive(Debug, Clone, Default)]
 struct TerminalTokens {
@@ -111,20 +70,17 @@ impl TerminalTokens {
 }
 
 // Grammar: /[a-zA-Z0-9-_]*`[^`\r\n]*`/
-static INLINE_CODE_1_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^([a-zA-Z0-9_-]*)`([^`\r\n]*)`$").unwrap()
-});
+static INLINE_CODE_1_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^([a-zA-Z0-9_-]*)`([^`\r\n]*)`$").unwrap());
 
 // Grammar: /[a-zA-Z0-9-_]*``/
-static INLINE_CODE_START_2_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^([a-zA-Z0-9_-]*)``$").unwrap()
-});
+static INLINE_CODE_START_2_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^([a-zA-Z0-9_-]*)``$").unwrap());
 
 // Grammar: /`{n}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/
 // [\s--\r\n]* means whitespace except \r\n, i.e., [ \t]*
-static CODE_BLOCK_START_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^`+([a-zA-Z0-9_-]*)[ \t]*(?:\r\n|\r|\n)$").unwrap()
-});
+static CODE_BLOCK_START_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^`+([a-zA-Z0-9_-]*)[ \t]*(?:\r\n|\r|\n)$").unwrap());
 
 struct CodeStart {
     /// Number of start backticks for asserting on pop
@@ -150,6 +106,8 @@ pub struct ValueVisitor<'a> {
     document: DocumentConstructor,
     segments: Vec<PathSegment>,
     code_start: Option<CodeStart>,
+    // Stack for collecting ObjectKeys when processing KeyTuple
+    collecting_object_keys: Vec<Vec<ObjectKey>>,
 }
 
 impl<'a> ValueVisitor<'a> {
@@ -159,6 +117,7 @@ impl<'a> ValueVisitor<'a> {
             document: DocumentConstructor::new(),
             segments: vec![],
             code_start: None,
+            collecting_object_keys: vec![],
         }
     }
 
@@ -201,7 +160,10 @@ impl<'a> ValueVisitor<'a> {
     /// Parse language from CodeBlockStart token: ```[lang]\n or ````[lang]\n etc.
     /// Grammar: /`{n}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/
     /// Language tag must be alphanumeric/hyphen/underscore only, followed by optional whitespace (space/tab, not newlines)
-    fn parse_code_block_start(token: &str, _backticks: u8) -> Result<Option<String>, CodeBlockError> {
+    fn parse_code_block_start(
+        token: &str,
+        _backticks: u8,
+    ) -> Result<Option<String>, CodeBlockError> {
         let caps = CODE_BLOCK_START_REGEX
             .captures(token)
             .ok_or(CodeBlockError::InvalidCodeBlockStartPattern)?;
@@ -243,44 +205,239 @@ impl<'a> ValueVisitor<'a> {
             Err(id) => Err(DocumentConstructionError::DynamicTokenNotFound(id)),
         }
     }
+
+    /// Parse a Str terminal (with surrounding quotes) into a String
+    fn parse_str_terminal(
+        &self,
+        str_handle: StrHandle,
+        tree: &impl CstFacade,
+    ) -> Result<String, DocumentConstructionError> {
+        let str_view = str_handle.get_view(tree)?;
+        let str_with_quotes = self.get_terminal_str(tree, str_view.str)?;
+
+        // Remove surrounding quotes
+        let str_content = str_with_quotes
+            .strip_prefix('"')
+            .and_then(|s| s.strip_suffix('"'))
+            .ok_or_else(|| DocumentConstructionError::InvalidStringKey {
+                node_id: str_handle.node_id(),
+                error: EureStringError::InvalidEndOfStringAfterEscape,
+            })?;
+
+        // Parse the string content
+        let eure_string = EureString::parse_quoted_string(str_content).map_err(|error| {
+            DocumentConstructionError::InvalidStringKey {
+                node_id: str_handle.node_id(),
+                error,
+            }
+        })?;
+
+        Ok(eure_string.as_str().to_string())
+    }
 }
 
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     type Error = DocumentConstructionError;
 
+    fn visit_key(
+        &mut self,
+        _handle: KeyHandle,
+        view: KeyView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // 1. KeyBase から PathSegment を構築
+        let key_base_view = view.key_base.get_view(tree)?;
+
+        let segment = match key_base_view {
+            KeyBaseView::Ident(ident_handle) => {
+                let ident_view = ident_handle.get_view(tree)?;
+                let ident_str = self.get_terminal_str(tree, ident_view.ident)?;
+                let identifier: Identifier = ident_str.parse()?;
+                PathSegment::Ident(identifier)
+            }
+            KeyBaseView::ExtensionNameSpace(ext_handle) => {
+                let ext_view = ext_handle.get_view(tree)?;
+                let ident_view = ext_view.ident.get_view(tree)?;
+                let ident_str = self.get_terminal_str(tree, ident_view.ident)?;
+                let identifier: Identifier = ident_str.parse()?;
+                PathSegment::Extension(identifier)
+            }
+            KeyBaseView::Str(str_handle) => {
+                let string = self.parse_str_terminal(str_handle, tree)?;
+                PathSegment::Value(ObjectKey::String(string))
+            }
+            KeyBaseView::Integer(int_handle) => {
+                let int_view = int_handle.get_view(tree)?;
+                let str = self.get_terminal_str(tree, int_view.integer)?;
+                let big_int: BigInt = str
+                    .parse()
+                    .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
+                PathSegment::Value(ObjectKey::Number(big_int))
+            }
+            KeyBaseView::True(_) => PathSegment::Value(ObjectKey::Bool(true)),
+            KeyBaseView::False(_) => PathSegment::Value(ObjectKey::Bool(false)),
+            KeyBaseView::KeyTuple(tuple_handle) => {
+                // Use visitor pattern to collect ObjectKeys
+                self.collecting_object_keys.push(vec![]);
+                self.visit_key_tuple_handle(tuple_handle, tree)?;
+                let keys = self.collecting_object_keys.pop().expect(
+                    "collecting_object_keys stack should not be empty after visiting KeyTuple",
+                );
+                PathSegment::Value(ObjectKey::Tuple(eure_value::Tuple(keys)))
+            }
+        };
+
+        // 2. segments に push
+        self.segments.push(segment);
+
+        // 3. ArrayMarker の処理
+        let key_opt_view = view.key_opt.get_view(tree)?;
+        if let Some(array_marker_handle) = key_opt_view {
+            let array_marker_view = array_marker_handle.get_view(tree)?;
+            let index =
+                if let Some(int_handle) = array_marker_view.array_marker_opt.get_view(tree)? {
+                    let int_view = int_handle.get_view(tree)?;
+                    let str = self.get_terminal_str(tree, int_view.integer)?;
+                    let index: usize = str
+                        .parse()
+                        .map_err(|_| DocumentConstructionError::InvalidInteger(str.to_string()))?;
+                    Some(index)
+                } else {
+                    None
+                };
+            self.segments.push(PathSegment::ArrayIndex(index));
+        }
+
+        Ok(())
+    }
+
+    fn visit_key_value(
+        &mut self,
+        _handle: KeyValueHandle,
+        view: KeyValueView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Collect ObjectKey into the current collection stack
+        let object_key = match view {
+            KeyValueView::Integer(int_handle) => {
+                let int_view = int_handle.get_view(tree)?;
+                let str = self.get_terminal_str(tree, int_view.integer)?;
+                let big_int: BigInt = str
+                    .parse()
+                    .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
+                ObjectKey::Number(big_int)
+            }
+            KeyValueView::Boolean(bool_handle) => {
+                let bool_view = bool_handle.get_view(tree)?;
+                match bool_view {
+                    BooleanView::True(_) => ObjectKey::Bool(true),
+                    BooleanView::False(_) => ObjectKey::Bool(false),
+                }
+            }
+            KeyValueView::Str(str_handle) => {
+                let result = self.parse_str_terminal(str_handle, tree)?;
+                ObjectKey::String(result)
+            }
+            KeyValueView::KeyTuple(tuple_handle) => {
+                // Recursively handle nested tuple
+                self.collecting_object_keys.push(vec![]);
+                self.visit_key_tuple_handle(tuple_handle, tree)?;
+                let keys = self.collecting_object_keys.pop().expect(
+                    "collecting_object_keys stack should not be empty after visiting KeyTuple",
+                );
+                ObjectKey::Tuple(eure_value::Tuple(keys))
+            }
+        };
+
+        // Add to current collection
+        self.collecting_object_keys
+            .last_mut()
+            .expect("collecting_object_keys stack should not be empty when visiting KeyValue")
+            .push(object_key);
+
+        Ok(())
+    }
+
+    fn visit_binding(
+        &mut self,
+        handle: BindingHandle,
+        view: BindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let segments = self.collect_path_segments(|v| v.visit_keys_handle(view.keys, tree))?;
+        let node_id = self.document.push_binding_path(&segments).map_err(|e| {
+            let node_id = handle.node_id();
+            DocumentConstructionError::DocumentInsert { error: e, node_id }
+        })?;
+        self.visit_binding_rhs_handle(view.binding_rhs, tree)?;
+        self.document.pop(node_id)?;
+        Ok(())
+    }
+
+    fn visit_section(
+        &mut self,
+        handle: SectionHandle,
+        view: SectionView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let segments = self.collect_path_segments(|v| v.visit_keys_handle(view.keys, tree))?;
+        let node_id = self.document.push_path(&segments).map_err(|e| {
+            let node_id = handle.node_id();
+            DocumentConstructionError::DocumentInsert { error: e, node_id }
+        })?;
+        self.visit_section_body_handle(view.section_body, tree)?;
+        self.document.pop(node_id)?;
+        Ok(())
+    }
+
     fn visit_null(
         &mut self,
-        _handle: NullHandle,
+        handle: NullHandle,
         _view: NullView,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        self.document.bind_primitive(PrimitiveValue::Null)?;
+        self.document
+            .bind_primitive(PrimitiveValue::Null)
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
         Ok(())
     }
 
     fn visit_true(
         &mut self,
-        _handle: TrueHandle,
+        handle: TrueHandle,
         _view: TrueView,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        self.document.bind_primitive(PrimitiveValue::Bool(true))?;
+        self.document
+            .bind_primitive(PrimitiveValue::Bool(true))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
         Ok(())
     }
 
     fn visit_false(
         &mut self,
-        _handle: FalseHandle,
+        handle: FalseHandle,
         _view: FalseView,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        self.document.bind_primitive(PrimitiveValue::Bool(false))?;
+        self.document
+            .bind_primitive(PrimitiveValue::Bool(false))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
         Ok(())
     }
 
     fn visit_integer(
         &mut self,
-        _handle: IntegerHandle,
+        handle: IntegerHandle,
         view: IntegerView,
         tree: &F,
     ) -> Result<(), Self::Error> {
@@ -291,13 +448,17 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
 
         self.document
-            .bind_primitive(PrimitiveValue::BigInt(big_int))?;
+            .bind_primitive(PrimitiveValue::BigInt(big_int))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
         Ok(())
     }
 
     fn visit_inline_code_1(
         &mut self,
-        _handle: InlineCode1Handle,
+        handle: InlineCode1Handle,
         view: InlineCode1View,
         tree: &F,
     ) -> Result<(), Self::Error> {
@@ -310,14 +471,16 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         })?;
         let code = Code::new_inline(content);
         let code_with_lang = if language.is_some() {
-            Code {
-                language,
-                ..code
-            }
+            Code { language, ..code }
         } else {
             code
         };
-        self.document.bind_primitive(PrimitiveValue::Code(code_with_lang))?;
+        self.document
+            .bind_primitive(PrimitiveValue::Code(code_with_lang))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
         Ok(())
     }
 
@@ -340,7 +503,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
     fn visit_inline_code_end_2(
         &mut self,
-        _handle: InlineCodeEnd2Handle,
+        handle: InlineCodeEnd2Handle,
         _view: InlineCodeEnd2View,
         tree: &F,
     ) -> Result<(), Self::Error> {
@@ -355,7 +518,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             } else {
                 code
             };
-            self.document.bind_primitive(PrimitiveValue::Code(code_with_lang))?;
+            self.document
+                .bind_primitive(PrimitiveValue::Code(code_with_lang))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
         }
         Ok(())
     }
@@ -379,14 +547,19 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
     fn visit_code_block_end_3(
         &mut self,
-        _handle: CodeBlockEnd3Handle,
+        handle: CodeBlockEnd3Handle,
         _view: CodeBlockEnd3View,
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
-            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+            self.document
+                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
         }
         Ok(())
     }
@@ -410,14 +583,19 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
     fn visit_code_block_end_4(
         &mut self,
-        _handle: CodeBlockEnd4Handle,
+        handle: CodeBlockEnd4Handle,
         _view: CodeBlockEnd4View,
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
-            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+            self.document
+                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
         }
         Ok(())
     }
@@ -441,14 +619,19 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
     fn visit_code_block_end_5(
         &mut self,
-        _handle: CodeBlockEnd5Handle,
+        handle: CodeBlockEnd5Handle,
         _view: CodeBlockEnd5View,
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
-            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+            self.document
+                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
         }
         Ok(())
     }
@@ -472,14 +655,19 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
     fn visit_code_block_end_6(
         &mut self,
-        _handle: CodeBlockEnd6Handle,
+        handle: CodeBlockEnd6Handle,
         _view: CodeBlockEnd6View,
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
-            self.document.bind_primitive(PrimitiveValue::CodeBlock(code))?;
+            self.document
+                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
         }
         Ok(())
     }
@@ -620,6 +808,8 @@ mod tests {
 
     // Tests for parse_code_block_start
     mod parse_code_block_start_tests {
+        use crate::document::CodeBlockError;
+
         use super::*;
 
         #[test]

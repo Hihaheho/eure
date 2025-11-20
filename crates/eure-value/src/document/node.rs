@@ -113,6 +113,13 @@ impl Node {
         }
     }
 
+    pub fn as_primitive(&self) -> Option<&PrimitiveValue> {
+        match &self.content {
+            NodeValue::Primitive(primitive) => Some(primitive),
+            _ => None,
+        }
+    }
+
     pub fn get_extension(&self, ident: &Identifier) -> Option<NodeId> {
         self.extensions.get(ident).copied()
     }
