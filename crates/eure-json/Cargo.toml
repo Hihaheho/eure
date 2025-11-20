@@ -13,7 +13,9 @@ keywords = ["conversion", "eure", "json", "serialization"]
 ahash = { workspace = true }
 eure = { workspace = true }
 eure-fmt = { workspace = true }
+eure-value = { workspace = true }
 indexmap = { workspace = true }
+num-bigint = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

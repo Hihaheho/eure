@@ -24,14 +24,14 @@ pub struct EureDocument {
     nodes: Vec<Node>,
 }
 
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error, Clone)]
 #[error("Insert error: {kind} at {path}")]
 pub struct InsertError {
     pub kind: InsertErrorKind,
     pub path: EurePath,
 }
 
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error, Clone)]
 pub enum InsertErrorKind {
     #[error("Already assigned")]
     AlreadyAssigned { key: DocumentKey },

@@ -1,13 +1,10 @@
-use std::{path::PathBuf, str::FromStr as _};
+use std::path::PathBuf;
 
 use eure::{
     document::{DocumentConstructionError, DocumentKey, EureDocument},
     parol::parol_runtime::ParolError,
     tree::Cst,
-    value::{
-        code::Code,
-        identifier::{Identifier, IdentifierError},
-    },
+    value::{Code, IdentifierError},
 };
 
 use crate::case::Case;
@@ -31,6 +28,7 @@ pub enum ParseError {
     },
 }
 
+#[allow(clippy::result_large_err)]
 pub fn parse_case(input: &str, path: PathBuf) -> Result<ParseResult, ParseError> {
     let cst = eure::parol::parse(input).map_err(ParseError::ParolError)?;
     let doc = eure::document::cst_to_document(input, &cst).map_err(|e| {
@@ -68,7 +66,7 @@ fn get_code(doc: &EureDocument, key: &str) -> Result<Option<Code>, IdentifierErr
         .root()
         .as_map()
         .unwrap()
-        .get(&DocumentKey::Ident(Identifier::from_str(key)?))
+        .get(&DocumentKey::Ident(key.parse()?))
         .map(move |node| {
             doc.node(node)
                 .as_primitive()

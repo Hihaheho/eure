@@ -12,7 +12,7 @@ use eure_tree::prelude::*;
 use eure_tree::tree::InputSpan;
 use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum InlineCodeError {
     #[error("Does not match InlineCode1 pattern")]
     InvalidInlineCode1Pattern,
@@ -20,13 +20,13 @@ pub enum InlineCodeError {
     InvalidInlineCodeStart2Pattern,
 }
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum CodeBlockError {
     #[error("Does not match CodeBlockStart pattern")]
     InvalidCodeBlockStartPattern,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum DocumentConstructionError {
     #[error(transparent)]
     CstError(#[from] CstConstructError),

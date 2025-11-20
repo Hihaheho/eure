@@ -1,19 +1,25 @@
 use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("Unsupported value type: {0}")]
-    UnsupportedValue(String),
+#[derive(Debug, Error, PartialEq)]
+pub enum EureToJsonError {
+    #[error("Path type is not supported in JSON")]
+    PathNotSupported,
 
-    #[error("Invalid variant structure: {0}")]
-    InvalidVariant(String),
+    #[error("Hole (uninitialized value) is not supported in JSON")]
+    HoleNotSupported,
 
-    #[error("Conversion error: {0}")]
-    ConversionError(String),
+    #[error("Uninitialized node cannot be converted to JSON")]
+    UninitializedNode,
 
-    #[error("Invalid number: cannot represent {0} as JSON number")]
-    InvalidNumber(String),
+    #[error("BigInt value is out of range for JSON number")]
+    BigIntOutOfRange,
 
-    #[error("Missing variant tag in {0} representation")]
-    MissingVariantTag(String),
+    #[error("Non-finite floating point value (NaN or Infinity) is not supported in JSON")]
+    NonFiniteFloat,
+
+    #[error("Variant content already contains tag field '{tag}' in Internal representation")]
+    VariantTagConflict { tag: String },
+
+    #[error("Variant content already contains field '{field}' in Adjacent representation")]
+    VariantAdjacentConflict { field: String },
 }

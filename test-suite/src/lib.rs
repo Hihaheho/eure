@@ -10,6 +10,7 @@ use eure::tree::LineNumbers;
 use crate::parser::{ParseError, ParseResult, parse_case};
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum CollectCasesError {
     IoError {
         path: PathBuf,
@@ -23,7 +24,7 @@ pub enum CollectCasesError {
 }
 
 /// Format a ParseError using annotate-snippets
-fn format_parse_error(error: &ParseError, input: &str, path: &Path) -> String {
+pub fn format_parse_error(error: &ParseError, input: &str, path: &Path) -> String {
     match error {
         ParseError::ParolError(e) => {
             format!("Parse error: {}\n  --> {}\n", e, path.display())
@@ -127,20 +128,22 @@ fn run_test_suite() {
                 let (path, result) = match case_result {
                     Ok(parse_result) => {
                         let path = parse_result.case.path.clone();
-                        let result = match std::panic::catch_unwind(|| parse_result.case.run()) {
-                            Ok(Ok(())) => TestResult::Passed,
-                            Ok(Err(e)) => TestResult::ExecutionError(format!("{:?}", e)),
-                            Err(e) => {
-                                let panic_msg = if let Some(s) = e.downcast_ref::<&str>() {
-                                    s.to_string()
-                                } else if let Some(s) = e.downcast_ref::<String>() {
-                                    s.clone()
-                                } else {
-                                    "Unknown panic".to_string()
-                                };
-                                TestResult::Panicked(panic_msg)
-                            }
-                        };
+                        let result =
+                            match std::panic::catch_unwind(|| parse_result.case.preprocess().run())
+                            {
+                                Ok(Ok(())) => TestResult::Passed,
+                                Ok(Err(e)) => TestResult::ExecutionError(format!("{:?}", e)),
+                                Err(e) => {
+                                    let panic_msg = if let Some(s) = e.downcast_ref::<&str>() {
+                                        s.to_string()
+                                    } else if let Some(s) = e.downcast_ref::<String>() {
+                                        s.clone()
+                                    } else {
+                                        "Unknown panic".to_string()
+                                    };
+                                    TestResult::Panicked(panic_msg)
+                                }
+                            };
                         (path, result)
                     }
                     Err(collect_error) => {

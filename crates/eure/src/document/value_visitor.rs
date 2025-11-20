@@ -1,12 +1,14 @@
 use eure_tree::tree::InputSpan; // Added import
 use eure_tree::{prelude::*, tree::TerminalHandle};
+use eure_value::value::Tuple;
 use eure_value::{
-    ObjectKey, PrimitiveValue,
     code::Code,
     document::{EureDocument, constructor::DocumentConstructor},
     identifier::Identifier,
     path::PathSegment,
     string::{EureString, EureStringError},
+    value::ObjectKey,
+    value::PrimitiveValue,
 };
 use num_bigint::BigInt;
 use regex::Regex;
@@ -283,7 +285,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let keys = self.collecting_object_keys.pop().expect(
                     "collecting_object_keys stack should not be empty after visiting KeyTuple",
                 );
-                PathSegment::Value(ObjectKey::Tuple(eure_value::Tuple(keys)))
+                PathSegment::Value(ObjectKey::Tuple(Tuple(keys)))
             }
         };
 
@@ -345,7 +347,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let keys = self.collecting_object_keys.pop().expect(
                     "collecting_object_keys stack should not be empty after visiting KeyTuple",
                 );
-                ObjectKey::Tuple(eure_value::Tuple(keys))
+                ObjectKey::Tuple(Tuple(keys))
             }
         };
 

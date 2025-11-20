@@ -100,6 +100,10 @@ impl Code {
 
         Ok(Self::new_block(language, result))
     }
+
+    pub fn as_str(&self) -> &str {
+        &self.content
+    }
 }
 
 #[cfg(test)]

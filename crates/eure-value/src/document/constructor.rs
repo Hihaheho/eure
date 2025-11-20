@@ -1,6 +1,6 @@
 use crate::prelude_internal::*;
 
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error, Clone)]
 pub enum PopError {
     #[error("Cannot pop from root (stack is empty)")]
     CannotPopRoot,
