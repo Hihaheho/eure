@@ -94,6 +94,11 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
+    /// Semantic action for non-terminal 'TupleIndex'
+    fn tuple_index(&mut self, _arg: &TupleIndex<'t>) -> Result<()> {
+        Ok(())
+    }
+
     /// Semantic action for non-terminal 'ExtensionNameSpace'
     fn extension_name_space(&mut self, _arg: &ExtensionNameSpace<'t>) -> Result<()> {
         Ok(())
@@ -608,40 +613,6 @@ impl ToSpan for KeyBaseInteger<'_> {
 ///
 /// Type derived for production 40
 ///
-/// `KeyBase: True;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct KeyBaseTrue<'t> {
-    pub r#true: True<'t>,
-}
-
-impl ToSpan for KeyBaseTrue<'_> {
-    fn span(&self) -> Span {
-        self.r#true.span()
-    }
-}
-
-///
-/// Type derived for production 41
-///
-/// `KeyBase: False;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct KeyBaseFalse<'t> {
-    pub r#false: False<'t>,
-}
-
-impl ToSpan for KeyBaseFalse<'_> {
-    fn span(&self) -> Span {
-        self.r#false.span()
-    }
-}
-
-///
-/// Type derived for production 42
-///
 /// `KeyBase: KeyTuple;`
 ///
 #[allow(dead_code)]
@@ -653,6 +624,23 @@ pub struct KeyBaseKeyTuple<'t> {
 impl ToSpan for KeyBaseKeyTuple<'_> {
     fn span(&self) -> Span {
         self.key_tuple.span()
+    }
+}
+
+///
+/// Type derived for production 41
+///
+/// `KeyBase: TupleIndex;`
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct KeyBaseTupleIndex<'t> {
+    pub tuple_index: TupleIndex<'t>,
+}
+
+impl ToSpan for KeyBaseTupleIndex<'_> {
+    fn span(&self) -> Span {
+        self.tuple_index.span()
     }
 }
 
@@ -2405,9 +2393,8 @@ pub enum KeyBase<'t> {
     ExtensionNameSpace(KeyBaseExtensionNameSpace<'t>),
     Str(KeyBaseStr<'t>),
     Integer(KeyBaseInteger<'t>),
-    True(KeyBaseTrue<'t>),
-    False(KeyBaseFalse<'t>),
     KeyTuple(KeyBaseKeyTuple<'t>),
+    TupleIndex(KeyBaseTupleIndex<'t>),
 }
 
 impl ToSpan for KeyBase<'_> {
@@ -2417,9 +2404,8 @@ impl ToSpan for KeyBase<'_> {
             KeyBase::ExtensionNameSpace(v) => v.span(),
             KeyBase::Str(v) => v.span(),
             KeyBase::Integer(v) => v.span(),
-            KeyBase::True(v) => v.span(),
-            KeyBase::False(v) => v.span(),
             KeyBase::KeyTuple(v) => v.span(),
+            KeyBase::TupleIndex(v) => v.span(),
         }
     }
 }
@@ -3093,6 +3079,22 @@ impl ToSpan for TupleElementsTailOpt<'_> {
 }
 
 ///
+/// Type derived for non-terminal TupleIndex
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct TupleIndex<'t> {
+    pub hash: Token<'t>, /* # */
+    pub integer: Integer<'t>,
+}
+
+impl ToSpan for TupleIndex<'_> {
+    fn span(&self) -> Span {
+        self.hash.span() + self.integer.span()
+    }
+}
+
+///
 /// Type derived for non-terminal TupleOpt
 ///
 #[allow(dead_code)]
@@ -3292,6 +3294,7 @@ pub enum ASTType<'t> {
     TupleElementsOpt(Option<TupleElementsOpt<'t>>),
     TupleElementsTail(TupleElementsTail<'t>),
     TupleElementsTailOpt(Option<TupleElementsTailOpt<'t>>),
+    TupleIndex(TupleIndex<'t>),
     TupleOpt(Option<TupleOpt<'t>>),
     Value(Value<'t>),
     ValueBinding(ValueBinding<'t>),
@@ -3440,6 +3443,7 @@ impl ToSpan for ASTType<'_> {
             ASTType::TupleElementsOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::TupleElementsTail(v) => v.span(),
             ASTType::TupleElementsTailOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
+            ASTType::TupleIndex(v) => v.span(),
             ASTType::TupleOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::Value(v) => v.span(),
             ASTType::ValueBinding(v) => v.span(),
@@ -4231,15 +4235,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 40:
     ///
-    /// `KeyBase: True;`
+    /// `KeyBase: KeyTuple;`
     ///
     #[parol_runtime::function_name::named]
-    fn key_base_4(&mut self, _true: &ParseTreeType<'t>) -> Result<()> {
+    fn key_base_4(&mut self, _key_tuple: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let r#true = pop_item!(self, r#true, True, context);
-        let key_base_4_built = KeyBaseTrue { r#true };
-        let key_base_4_built = KeyBase::True(key_base_4_built);
+        let key_tuple = pop_item!(self, key_tuple, KeyTuple, context);
+        let key_base_4_built = KeyBaseKeyTuple { key_tuple };
+        let key_base_4_built = KeyBase::KeyTuple(key_base_4_built);
         // Calling user action here
         self.user_grammar.key_base(&key_base_4_built)?;
         self.push(ASTType::KeyBase(key_base_4_built), context);
@@ -4248,15 +4252,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 41:
     ///
-    /// `KeyBase: False;`
+    /// `KeyBase: TupleIndex;`
     ///
     #[parol_runtime::function_name::named]
-    fn key_base_5(&mut self, _false: &ParseTreeType<'t>) -> Result<()> {
+    fn key_base_5(&mut self, _tuple_index: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let r#false = pop_item!(self, r#false, False, context);
-        let key_base_5_built = KeyBaseFalse { r#false };
-        let key_base_5_built = KeyBase::False(key_base_5_built);
+        let tuple_index = pop_item!(self, tuple_index, TupleIndex, context);
+        let key_base_5_built = KeyBaseTupleIndex { tuple_index };
+        let key_base_5_built = KeyBase::TupleIndex(key_base_5_built);
         // Calling user action here
         self.user_grammar.key_base(&key_base_5_built)?;
         self.push(ASTType::KeyBase(key_base_5_built), context);
@@ -4265,18 +4269,22 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 42:
     ///
-    /// `KeyBase: KeyTuple;`
+    /// `TupleIndex: '#' Integer;`
     ///
     #[parol_runtime::function_name::named]
-    fn key_base_6(&mut self, _key_tuple: &ParseTreeType<'t>) -> Result<()> {
+    fn tuple_index(
+        &mut self,
+        hash: &ParseTreeType<'t>,
+        _integer: &ParseTreeType<'t>,
+    ) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let key_tuple = pop_item!(self, key_tuple, KeyTuple, context);
-        let key_base_6_built = KeyBaseKeyTuple { key_tuple };
-        let key_base_6_built = KeyBase::KeyTuple(key_base_6_built);
+        let hash = hash.token()?.clone();
+        let integer = pop_item!(self, integer, Integer, context);
+        let tuple_index_built = TupleIndex { hash, integer };
         // Calling user action here
-        self.user_grammar.key_base(&key_base_6_built)?;
-        self.push(ASTType::KeyBase(key_base_6_built), context);
+        self.user_grammar.tuple_index(&tuple_index_built)?;
+        self.push(ASTType::TupleIndex(tuple_index_built), context);
         Ok(())
     }
 
@@ -6650,7 +6658,7 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             39 => self.key_base_3(&children[0]),
             40 => self.key_base_4(&children[0]),
             41 => self.key_base_5(&children[0]),
-            42 => self.key_base_6(&children[0]),
+            42 => self.tuple_index(&children[0], &children[1]),
             43 => self.extension_name_space(&children[0], &children[1]),
             44 => self.key_tuple(&children[0], &children[1], &children[2]),
             45 => self.key_tuple_opt_0(&children[0]),

@@ -3784,14 +3784,11 @@ impl NonTerminalHandle for KeyBaseHandle {
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 KeyBaseView::Integer(IntegerHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::True) => {
-                KeyBaseView::True(TrueHandle(child))
-            }
-            NodeKind::NonTerminal(NonTerminalKind::False) => {
-                KeyBaseView::False(FalseHandle(child))
-            }
             NodeKind::NonTerminal(NonTerminalKind::KeyTuple) => {
                 KeyBaseView::KeyTuple(KeyTupleHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::TupleIndex) => {
+                KeyBaseView::TupleIndex(TupleIndexHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -3816,9 +3813,8 @@ pub enum KeyBaseView {
     ExtensionNameSpace(ExtensionNameSpaceHandle),
     Str(StrHandle),
     Integer(IntegerHandle),
-    True(TrueHandle),
-    False(FalseHandle),
     KeyTuple(KeyTupleHandle),
+    TupleIndex(TupleIndexHandle),
 }
 impl KeyBaseView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -5903,6 +5899,59 @@ impl NonTerminalHandle for TupleElementsTailOptHandle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TupleIndexHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for TupleIndexHandle {
+    type View = TupleIndexView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::TupleIndex)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::TupleIndex
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::Terminal(TerminalKind::Hash),
+                NodeKind::NonTerminal(NonTerminalKind::Integer),
+            ],
+            |[hash, integer], visit_ignored| Ok(
+                visit(
+                    TupleIndexView {
+                        hash: Hash(hash),
+                        integer: IntegerHandle(integer),
+                    },
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TupleIndexView {
+    pub hash: Hash,
+    pub integer: IntegerHandle,
+}
+impl TupleIndexView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TupleOptHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for TupleOptHandle {
     type View = Option<TupleElementsHandle>;
@@ -6233,6 +6282,16 @@ impl TerminalHandle for BlockComment {
     }
     fn kind(&self) -> TerminalKind {
         TerminalKind::BlockComment
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Hash(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Hash {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Hash
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

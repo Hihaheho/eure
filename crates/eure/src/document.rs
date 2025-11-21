@@ -66,6 +66,8 @@ pub enum DocumentConstructionError {
     InvalidKeyType { node_id: CstNodeId },
     #[error("Failed to pop path: {0}")]
     PopPath(#[from] PopError),
+    #[error("Failed to parse tuple index: {value}")]
+    InvalidTupleIndex { node_id: CstNodeId, value: String },
 }
 
 impl DocumentConstructionError {

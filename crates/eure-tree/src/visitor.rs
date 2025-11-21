@@ -864,6 +864,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_tuple_elements_tail_opt_super(handle, view, tree)
     }
+    fn visit_tuple_index(
+        &mut self,
+        handle: TupleIndexHandle,
+        view: TupleIndexView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_tuple_index_super(handle, view, tree)
+    }
     fn visit_tuple_opt(
         &mut self,
         handle: TupleOptHandle,
@@ -935,6 +943,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_block_comment_terminal_super(terminal, data, tree)
+    }
+    fn visit_hash_terminal(
+        &mut self,
+        terminal: Hash,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_hash_terminal_super(terminal, data, tree)
     }
     fn visit_float_terminal(
         &mut self,
@@ -2374,6 +2390,17 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: TupleElementsHandle,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_tuple_index_handle(
+        &mut self,
+        handle: TupleIndexHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_tuple_index_super(
+        &mut self,
+        handle: TupleIndexHandle,
+        view: TupleIndexView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_tuple_opt_handle(
         &mut self,
         handle: TupleOptHandle,
@@ -2438,6 +2465,12 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_block_comment_terminal_super(
         &mut self,
         terminal: BlockComment,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_hash_terminal_super(
+        &mut self,
+        terminal: Hash,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -7658,6 +7691,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_tuple_index_handle(
+        &mut self,
+        handle: TupleIndexHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_tuple_index(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_tuple_opt_handle(
         &mut self,
         handle: TupleOptHandle,
@@ -9154,14 +9233,11 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             KeyBaseView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
             }
-            KeyBaseView::True(item) => {
-                self.visit_true_handle(item, tree)?;
-            }
-            KeyBaseView::False(item) => {
-                self.visit_false_handle(item, tree)?;
-            }
             KeyBaseView::KeyTuple(item) => {
                 self.visit_key_tuple_handle(item, tree)?;
+            }
+            KeyBaseView::TupleIndex(item) => {
+                self.visit_tuple_index_handle(item, tree)?;
             }
         }
         Ok(())
@@ -9746,6 +9822,31 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_tuple_elements_handle(view_param, tree)?;
         Ok(())
     }
+    fn visit_tuple_index_super(
+        &mut self,
+        handle: TupleIndexHandle,
+        view_param: TupleIndexView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let TupleIndexView { hash, integer } = view_param;
+        let data = match hash.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        hash.0,
+                        NodeKind::Terminal(hash.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_hash_terminal(hash, data, tree)?;
+        self.visit_integer_handle(integer, tree)?;
+        Ok(())
+    }
     fn visit_tuple_opt_super(
         &mut self,
         handle: TupleOptHandle,
@@ -9880,6 +9981,15 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     fn visit_block_comment_terminal_super(
         &mut self,
         terminal: BlockComment,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_hash_terminal_super(
+        &mut self,
+        terminal: Hash,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -10749,6 +10859,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = TupleElementsTailOptHandle(id);
                         self.visit_tuple_elements_tail_opt_handle(handle, tree)?;
                     }
+                    NonTerminalKind::TupleIndex => {
+                        let handle = TupleIndexHandle(id);
+                        self.visit_tuple_index_handle(handle, tree)?;
+                    }
                     NonTerminalKind::TupleOpt => {
                         let handle = TupleOptHandle(id);
                         self.visit_tuple_opt_handle(handle, tree)?;
@@ -10788,6 +10902,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     TerminalKind::BlockComment => {
                         let terminal = BlockComment(id);
                         self.visit_block_comment_terminal(terminal, data, tree)?;
+                    }
+                    TerminalKind::Hash => {
+                        let terminal = Hash(id);
+                        self.visit_hash_terminal(terminal, data, tree)?;
                     }
                     TerminalKind::Float => {
                         let terminal = Float(id);

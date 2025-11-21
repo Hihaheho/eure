@@ -1,5 +1,22 @@
 use crate::builder::{CstBuilder, BuilderNodeId};
 use crate::node_kind::{NonTerminalKind, TerminalKind};
+///Branded type for Hash terminal
+#[derive(Debug, Clone)]
+pub struct HashToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl HashToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<HashToken> for BuilderNodeId {
+    fn from(token: HashToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for Float terminal
 #[derive(Debug, Clone)]
 pub struct FloatToken {
@@ -2533,6 +2550,23 @@ impl From<TupleElementsTailOptNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for TupleIndex non-terminal
+#[derive(Debug, Clone)]
+pub struct TupleIndexNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TupleIndexNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TupleIndexNode> for BuilderNodeId {
+    fn from(node: TupleIndexNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for TupleOpt non-terminal
 #[derive(Debug, Clone)]
 pub struct TupleOptNode {
@@ -3814,9 +3848,8 @@ pub enum KeyBaseConstructor {
     ExtensionNameSpace(ExtensionNameSpaceNode),
     Str(StrNode),
     Integer(IntegerNode),
-    True(TrueNode),
-    False(FalseNode),
     KeyTuple(KeyTupleNode),
+    TupleIndex(TupleIndexNode),
 }
 impl KeyBaseConstructor {
     pub fn build(self) -> KeyBaseNode {
@@ -3826,9 +3859,8 @@ impl KeyBaseConstructor {
             Self::ExtensionNameSpace(node) => builder.embed(node.builder),
             Self::Str(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
-            Self::True(node) => builder.embed(node.builder),
-            Self::False(node) => builder.embed(node.builder),
             Self::KeyTuple(node) => builder.embed(node.builder),
+            Self::TupleIndex(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::KeyBase, vec![child_id]);
         KeyBaseNode { node_id, builder }
@@ -4541,6 +4573,21 @@ impl TupleElementsTailOptConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct TupleIndexConstructor {
+    hash: HashToken,
+    integer: IntegerNode,
+}
+impl TupleIndexConstructor {
+    pub fn build(self) -> TupleIndexNode {
+        let mut builder = CstBuilder::new();
+        let hash = builder.embed(self.hash.builder);
+        let integer = builder.embed(self.integer.builder);
+        let node_id = builder
+            .non_terminal(NonTerminalKind::TupleIndex, vec![hash, integer]);
+        TupleIndexNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct TupleOptConstructor {
     tuple_elements: Option<TupleElementsNode>,
 }
@@ -4635,6 +4682,11 @@ impl RootConstructor {
 }
 pub mod terminals {
     use super::*;
+    pub fn hash() -> HashToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::Hash, "");
+        HashToken { node_id, builder }
+    }
     pub fn float() -> FloatToken {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::Float, "");

@@ -1,7 +1,8 @@
 %start EureRoot
 %title "EURE"
 %grammar_type 'LL(k)'
-%line_comment "#"
+%line_comment '//'
+%block_comment '/*' '*/'
 
 %on TextStart %enter Text
 %on InlineCodeStart2 %enter InInlineCode2
@@ -39,7 +40,8 @@ Section: At Keys SectionBody ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: Ident | ExtensionNameSpace | Str | Integer | True | False | KeyTuple ;
+  KeyBase: Ident | ExtensionNameSpace | Str | Integer | KeyTuple | TupleIndex ;
+  TupleIndex: '#' Integer ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext Ident ;
   // Key-specific tuple (only allows types that can be converted to ObjectKey)

@@ -276,8 +276,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
                 PathSegment::Value(ObjectKey::Number(big_int))
             }
-            KeyBaseView::True(_) => PathSegment::Value(ObjectKey::Bool(true)),
-            KeyBaseView::False(_) => PathSegment::Value(ObjectKey::Bool(false)),
             KeyBaseView::KeyTuple(tuple_handle) => {
                 // Use visitor pattern to collect ObjectKeys
                 self.collecting_object_keys.push(vec![]);
@@ -286,6 +284,18 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     "collecting_object_keys stack should not be empty after visiting KeyTuple",
                 );
                 PathSegment::Value(ObjectKey::Tuple(Tuple(keys)))
+            }
+            KeyBaseView::TupleIndex(tuple_index_handle) => {
+                let tuple_index_view = tuple_index_handle.get_view(tree)?;
+                let int_view = tuple_index_view.integer.get_view(tree)?;
+                let str = self.get_terminal_str(tree, int_view.integer)?;
+                let length: u8 =
+                    str.parse()
+                        .map_err(|_| DocumentConstructionError::InvalidTupleIndex {
+                            node_id: tuple_index_handle.node_id(),
+                            value: str.to_string(),
+                        })?;
+                PathSegment::TupleIndex(length)
             }
         };
 
