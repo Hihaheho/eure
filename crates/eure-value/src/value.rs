@@ -12,7 +12,6 @@ pub enum PrimitiveValue {
     String(EureString),
     Code(Code),
     CodeBlock(Code),
-    Unit,
     Hole,
     Variant(Variant),
     Path(EurePath),

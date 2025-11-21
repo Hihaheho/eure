@@ -92,7 +92,6 @@ fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue
         PrimitiveValue::String(s) => Ok(JsonValue::String(s.as_str().to_string())),
         PrimitiveValue::Code(code) => Ok(JsonValue::String(code.content.clone())),
         PrimitiveValue::CodeBlock(code) => Ok(JsonValue::String(code.content.clone())),
-        PrimitiveValue::Unit => Ok(JsonValue::Array(vec![])),
         PrimitiveValue::Hole => Err(EureToJsonError::HoleNotSupported),
         PrimitiveValue::Path(_) => Err(EureToJsonError::PathNotSupported),
         PrimitiveValue::Variant(variant) => convert_variant(variant, config),
