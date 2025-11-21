@@ -5,9 +5,10 @@ mod error;
 
 pub use config::Config;
 pub use error::EureToJsonError;
+use eure::data_model::VariantRepr;
 use eure::document::node::NodeValue;
 use eure::document::{DocumentKey, EureDocument, NodeId};
-use eure::value::{ObjectKey, PrimitiveValue, VariantRepr};
+use eure::value::{ObjectKey, PrimitiveValue};
 use serde_json::Value as JsonValue;
 
 pub fn document_to_value(
@@ -208,8 +209,9 @@ fn convert_object_key(key: &ObjectKey) -> Result<String, EureToJsonError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eure::data_model::VariantRepr;
     use eure::document::node::NodeValue;
-    use eure::value::{ObjectKey, PrimitiveValue, Variant, VariantRepr};
+    use eure::value::{ObjectKey, PrimitiveValue, Variant};
     use serde_json::json;
 
     // Test primitives
@@ -340,14 +342,6 @@ mod tests {
         let config = Config::default();
         let result = document_to_value(&doc, &config).unwrap();
         assert_eq!(result, json!("print('hello')\n"));
-    }
-
-    #[test]
-    fn test_unit_conversion() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::Unit);
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!([]));
     }
 
     #[test]

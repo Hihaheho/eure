@@ -25,6 +25,9 @@ pub mod path;
 /// Code type.
 pub mod code;
 
+/// Data structure for representing a data-model of EURE.
+pub mod data_model;
+
 #[cfg(feature = "std")]
 pub use ahash::AHashMap as Map;
 #[cfg(not(feature = "std"))]
@@ -34,6 +37,7 @@ pub(crate) mod prelude_internal {
     #![allow(unused_imports)]
     pub use crate::Map;
     pub use crate::code::Code;
+    pub use crate::data_model::*;
     pub use crate::document::constructor::DocumentConstructor;
     pub use crate::document::node::{Node, NodeMut, NodeValue};
     pub use crate::document::{DocumentKey, EureDocument, InsertError, InsertErrorKind, NodeId};
