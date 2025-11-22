@@ -20,6 +20,7 @@ eure-parol = { workspace = true }
 eure-tree = { workspace = true }
 eure-value = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
+num-bigint = { workspace = true }
 regex = { workspace = true }
 semver = { version = "1.0", optional = true }
 serde_json = { workspace = true }

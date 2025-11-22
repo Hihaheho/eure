@@ -3,10 +3,17 @@ name = "eure-json-schema"
 version = "0.1.0"
 edition = "2024"
 description = "JSON Schema compatibility for EURE format"
-license = "MIT OR Apache-2.0"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
+license = "MIT OR Apache-2.0"
 keywords = ["eure", "json-schema", "schema", "validation"]
 
 [dependencies]
+eure-schema = { workspace = true }
+eure-value = { workspace = true }
+indexmap = { workspace = true }
+num-bigint = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

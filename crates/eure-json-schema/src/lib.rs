@@ -1,14 +1,7 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+//! JSON Schema to EURE Schema conversion
+//!
+//! This crate provides functionality to convert JSON Schema (Draft-07) to EURE Schema format.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod json_schema;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use json_schema::JsonSchema;
