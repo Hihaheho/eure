@@ -41,8 +41,6 @@ pub enum ConversionError {
     /// Circular reference detected (not supported in JSON Schema)
     CircularReference(String),
 
-    /// EURE's untagged variant representation may be ambiguous in JSON Schema
-    UntaggedVariantAmbiguous { variant_name: String },
 
     /// Contains constraint with non-primitive value not supported
     ComplexContainsNotSupported,
@@ -77,13 +75,6 @@ impl std::fmt::Display for ConversionError {
             }
             ConversionError::CircularReference(path) => {
                 write!(f, "Circular reference detected: {}", path)
-            }
-            ConversionError::UntaggedVariantAmbiguous { variant_name } => {
-                write!(
-                    f,
-                    "Untagged variant '{}' may be ambiguous in JSON Schema",
-                    variant_name
-                )
             }
             ConversionError::ComplexContainsNotSupported => {
                 write!(
@@ -626,7 +617,7 @@ fn convert_union_schema(
 /// - External: oneOf with object schemas (each with a single property)
 /// - Internal: oneOf with allOf to merge tag and content
 /// - Adjacent: oneOf with schemas having tag and content properties
-/// - Untagged: Not well-supported in JSON Schema, returns error
+/// - Untagged: oneOf with just the variant schemas (no tagging)
 fn convert_variant_schema(
     ctx: &mut ConversionContext,
     eure: &VariantSchema,
@@ -638,13 +629,7 @@ fn convert_variant_schema(
         VariantRepr::Adjacent { tag, content } => {
             convert_adjacent_variant(ctx, eure, tag, content, metadata)
         }
-        VariantRepr::Untagged => {
-            // Untagged variants are ambiguous in JSON Schema
-            // Return error for now
-            Err(ConversionError::UntaggedVariantAmbiguous {
-                variant_name: eure.variants.keys().next().unwrap_or(&"unknown".to_string()).clone(),
-            })
-        }
+        VariantRepr::Untagged => convert_untagged_variant(ctx, eure, metadata),
     }
 }
 
@@ -754,14 +739,31 @@ fn convert_adjacent_variant(
     Ok(JsonSchema::OneOf(OneOfSchema { schemas, metadata }))
 }
 
+/// Convert untagged variant representation
+fn convert_untagged_variant(
+    ctx: &mut ConversionContext,
+    eure: &VariantSchema,
+    metadata: SchemaMetadata,
+) -> Result<JsonSchema, ConversionError> {
+    let mut schemas = Vec::new();
+
+    for (_variant_name, node_id) in &eure.variants {
+        let variant_schema = convert_node(ctx, *node_id)?;
+        schemas.push(variant_schema);
+    }
+
+    Ok(JsonSchema::OneOf(OneOfSchema { schemas, metadata }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use eure_schema::{
         CodeSchema, IntegerSchema as EureIntegerSchema,
         PathSchema, RecordSchema, SchemaDocument, SchemaNodeContent, StringSchema as EureStringSchema,
-        UnknownFieldsPolicy, Bound,
+        UnknownFieldsPolicy, Bound, VariantSchema,
     };
+    use eure_value::data_model::VariantRepr;
     use std::collections::HashMap;
 
     #[test]
@@ -859,6 +861,57 @@ mod tests {
                 assert_eq!(schema.schemas.len(), 2);
             }
             _ => panic!("Expected AnyOf schema"),
+        }
+    }
+
+    #[test]
+    fn test_convert_untagged_variant_to_oneof() {
+        let mut doc = SchemaDocument::new();
+
+        let string_id = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
+        let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
+
+        let mut variants = HashMap::new();
+        variants.insert("StringVariant".to_string(), string_id);
+        variants.insert("IntVariant".to_string(), int_id);
+
+        doc.root = doc.create_node(SchemaNodeContent::Variant(VariantSchema {
+            variants,
+            repr: VariantRepr::Untagged,
+        }));
+
+        let result = eure_to_json_schema(&doc).unwrap();
+        match result {
+            JsonSchema::OneOf(schema) => {
+                assert_eq!(schema.schemas.len(), 2);
+            }
+            _ => panic!("Expected OneOf schema for untagged variant"),
+        }
+    }
+
+    #[test]
+    fn test_convert_external_variant_to_oneof() {
+        let mut doc = SchemaDocument::new();
+
+        let string_id = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
+        let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
+
+        let mut variants = HashMap::new();
+        variants.insert("A".to_string(), string_id);
+        variants.insert("B".to_string(), int_id);
+
+        doc.root = doc.create_node(SchemaNodeContent::Variant(VariantSchema {
+            variants,
+            repr: VariantRepr::External,
+        }));
+
+        let result = eure_to_json_schema(&doc).unwrap();
+        match result {
+            JsonSchema::OneOf(schema) => {
+                assert_eq!(schema.schemas.len(), 2);
+                // Each variant should be wrapped in an object with a single property
+            }
+            _ => panic!("Expected OneOf schema for external variant"),
         }
     }
 }
