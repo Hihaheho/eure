@@ -23,6 +23,7 @@ eure-yaml = { path = "crates/eure-yaml", version = "0.1.0" }
 indexmap = "2"
 lsp-types = "0.97.0"
 num-bigint = "0.4"
+num-traits = "0.2"
 parol = "4.1"
 parol_runtime = "4"
 regex = "1.11"

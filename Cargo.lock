@@ -1955,6 +1955,7 @@ dependencies = [
  "eure-value",
  "indexmap",
  "num-bigint",
+ "num-traits",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
