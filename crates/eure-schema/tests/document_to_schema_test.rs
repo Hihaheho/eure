@@ -12,7 +12,7 @@
 //! - Metadata and annotations
 
 use eure::document::parse_to_document;
-use eure_schema::convert::document_to_schema;
+use eure_schema::convert::{ConversionError, document_to_schema};
 use eure_schema::{
     ArraySchema, BooleanSchema, Bound, CodeSchema, FloatSchema, IntegerSchema, MapSchema,
     PathSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId, StringSchema,
@@ -527,6 +527,44 @@ fn assert_union4<F1, F2, F3, F4>(
     }
 }
 
+/// Assert that a node is a Variant type with 3 variants
+fn assert_variant3<F1, F2, F3>(
+    schema: &SchemaDocument,
+    node_id: SchemaNodeId,
+    variant1: (&str, F1),
+    variant2: (&str, F2),
+    variant3: (&str, F3),
+) where
+    F1: Fn(&SchemaDocument, SchemaNodeId),
+    F2: Fn(&SchemaDocument, SchemaNodeId),
+    F3: Fn(&SchemaDocument, SchemaNodeId),
+{
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Variant(variant_schema) = &node.content {
+        assert_eq!(variant_schema.variants.len(), 3);
+        let (name1, check1) = variant1;
+        let (name2, check2) = variant2;
+        let (name3, check3) = variant3;
+        let id1 = variant_schema
+            .variants
+            .get(name1)
+            .unwrap_or_else(|| panic!("Variant '{}' missing", name1));
+        let id2 = variant_schema
+            .variants
+            .get(name2)
+            .unwrap_or_else(|| panic!("Variant '{}' missing", name2));
+        let id3 = variant_schema
+            .variants
+            .get(name3)
+            .unwrap_or_else(|| panic!("Variant '{}' missing", name3));
+        check1(schema, *id1);
+        check2(schema, *id2);
+        check3(schema, *id3);
+    } else {
+        panic!("Expected Variant type, got {:?}", node.content);
+    }
+}
+
 /// Assert that a node is a Variant type with 2 variants
 fn assert_variant2<F1, F2>(
     schema: &SchemaDocument,
@@ -798,7 +836,11 @@ tags.$contains = "required"
         schema.root,
         ("tags", |s, id| {
             assert_array_with(s, id, assert_string, |array_schema| {
-                assert!(array_schema.contains.is_some())
+                // Verify the contains value exists
+                assert!(
+                    array_schema.contains.is_some(),
+                    "Expected contains to be Some"
+                );
             })
         }),
     );
@@ -1068,6 +1110,77 @@ $types.event {
     });
 }
 
+#[test]
+fn test_variants_with_externally_tagged_repr() {
+    let input = r#"
+$types.status {
+  @ $variants.pending {
+    message.$type = .string
+  }
+  @ $variants.active {
+    started_at.$type = .integer
+  }
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    let status_id = schema.types[&ident("status")];
+
+    assert_variant2(
+        &schema,
+        status_id,
+        ("pending", |s, pending_id| {
+            assert_record1(s, pending_id, ("message", assert_string));
+        }),
+        ("active", |s, active_id| {
+            assert_record1(s, active_id, ("started_at", assert_integer));
+        }),
+    );
+
+    // Default representation should be External
+    assert_variant_repr(&schema, status_id, |repr| {
+        assert!(
+            matches!(repr, VariantRepr::External),
+            "Expected VariantRepr::External, got {:?}",
+            repr
+        );
+    });
+}
+
+#[test]
+fn test_variant_with_three_variants() {
+    let input = r#"
+$types.traffic-light {
+  @ $variants.red {
+    duration.$type = .integer
+  }
+  @ $variants.yellow {
+    duration.$type = .integer
+  }
+  @ $variants.green {
+    duration.$type = .integer
+  }
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    let light_id = schema.types[&ident("traffic-light")];
+
+    assert_variant3(
+        &schema,
+        light_id,
+        ("red", |s, red_id| {
+            assert_record1(s, red_id, ("duration", assert_integer));
+        }),
+        ("yellow", |s, yellow_id| {
+            assert_record1(s, yellow_id, ("duration", assert_integer));
+        }),
+        ("green", |s, green_id| {
+            assert_record1(s, green_id, ("duration", assert_integer));
+        }),
+    );
+}
+
 // ============================================================================
 // CUSTOM TYPE DEFINITIONS
 // ============================================================================
@@ -1075,10 +1188,8 @@ $types.event {
 #[test]
 fn test_custom_type_definition() {
     let input = r#"
-$types.username {
-  $type = .string
-  $length = (3, 20)
-}
+$types.username = .string
+$types.username.$length = (3, 20)
 
 user.$type = .$types.username
 "#;
@@ -1096,9 +1207,7 @@ user.$type = .$types.username
 #[test]
 fn test_type_reference() {
     let input = r#"
-$types.email {
-  $type = .code.email
-}
+$types.email = .code.email
 
 contact.$type = .$types.email
 "#;
@@ -1297,6 +1406,27 @@ temperature.$range = (-273.15, 1000.0)
             assert_float_with(s, id, |float_schema| {
                 assert_eq!(float_schema.min, Bound::Inclusive(-273.15));
                 assert_eq!(float_schema.max, Bound::Inclusive(1000.0));
+            })
+        }),
+    );
+}
+
+#[test]
+fn test_float_exclusive_min_max() {
+    let input = r#"
+probability.$type = .float
+probability.$exclusive-min = 0.0
+probability.$exclusive-max = 1.0
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("probability", |s, id| {
+            assert_float_with(s, id, |float_schema| {
+                assert_eq!(float_schema.min, Bound::Exclusive(0.0));
+                assert_eq!(float_schema.max, Bound::Exclusive(1.0));
             })
         }),
     );
@@ -1683,6 +1813,27 @@ host.$type = .string
 }
 
 #[test]
+fn test_unknown_fields_policy_deny() {
+    let input = r#"
+@ config
+$unknown-fields = "deny"
+host.$type = .string
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, config_id| {
+            assert_record1(s, config_id, ("host", assert_string));
+            assert_unknown_fields(s, config_id, |policy| {
+                assert!(matches!(policy, UnknownFieldsPolicy::Deny));
+            });
+        }),
+    );
+}
+
+#[test]
 fn test_metadata_description() {
     let input = r#"
 user.$type = .any
@@ -1789,12 +1940,17 @@ value.$union = [
 "#;
     let schema = parse_and_convert(input);
 
-    // This tests that unions can contain nested structures
+    // This tests that unions can contain nested structures (array as third variant)
     assert_record1(
         &schema,
         schema.root,
         ("value", |s, id| {
-            assert_union2(s, id, assert_string, assert_integer);
+            assert_union3(s, id, assert_string, assert_integer, |s, array_id| {
+                // Third variant should be an array containing union of [boolean, null]
+                assert_array(s, array_id, |s, item_id| {
+                    assert_union2(s, item_id, assert_boolean, assert_null);
+                });
+            });
         }),
     );
 }
@@ -1938,5 +2094,218 @@ user.$description = "User name"
                 assert_eq!(metadata.description, Some("User name".to_string()));
             })
         }),
+    );
+}
+
+// ============================================================================
+// ERROR CASES AND VALIDATION
+// ============================================================================
+
+#[test]
+fn test_invalid_type_reference() {
+    let input = r#"
+user.$type = .$types.nonexistent
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    // Should fail because the type doesn't exist
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidNodeReference("nonexistent".to_string())
+    );
+}
+
+#[test]
+fn test_circular_type_reference_is_valid() {
+    let input = r#"
+$types.a = .$types.b
+$types.b = .$types.a
+
+data.$type = .$types.a
+"#;
+    let schema = parse_and_convert(input);
+
+    // Circular references are allowed
+    assert!(schema.types.contains_key(&ident("a")));
+    assert!(schema.types.contains_key(&ident("b")));
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("data", |s, id| assert_reference(s, id, "a")),
+    );
+
+    // Verify the circular reference structure
+    let a_id = schema.types[&ident("a")];
+    assert_reference(&schema, a_id, "b");
+
+    let b_id = schema.types[&ident("b")];
+    assert_reference(&schema, b_id, "a");
+}
+
+// ============================================================================
+// EDGE CASES
+// ============================================================================
+
+#[test]
+fn test_empty_record() {
+    let input = r#"
+@ config
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, config_id| {
+            let node = s.node(config_id);
+            if let SchemaNodeContent::Record(record) = &node.content {
+                assert_eq!(record.properties.len(), 0, "Expected empty record");
+            } else {
+                panic!("Expected Record type, got {:?}", node.content);
+            }
+        }),
+    );
+}
+
+#[test]
+fn test_empty_array_schema() {
+    // Array must have an item type
+    let input = r#"
+items.$array = .any
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("items", |s, id| {
+            assert_array(s, id, assert_any);
+        }),
+    );
+}
+
+// ============================================================================
+// MAP TYPE COMPREHENSIVE TESTS
+// ============================================================================
+
+#[test]
+fn test_map_with_complex_types() {
+    let input = r#"
+$types.address = .string
+$types.address.$length = (1, 100)
+
+locations.$key = .string
+locations.$value = .$types.address
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("locations", |s, id| {
+            assert_map(s, id, assert_string, |s, value_id| {
+                assert_reference(s, value_id, "address")
+            });
+        }),
+    );
+}
+
+#[test]
+fn test_nested_maps() {
+    let input = r#"
+nested.$key = .string
+nested.$value.$key = .string
+nested.$value.$value = .integer
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("nested", |s, id| {
+            assert_map(s, id, assert_string, |s, value_id| {
+                assert_map(s, value_id, assert_string, assert_integer);
+            });
+        }),
+    );
+}
+
+// ============================================================================
+// COMPLEX TYPE REFERENCE CHAINS
+// ============================================================================
+
+#[test]
+fn test_type_reference_chain() {
+    let input = r#"
+$types.base-string = .string
+$types.base-string.$length = (1, 100)
+
+$types.username = .$types.base-string
+
+$types.user.$username = .$types.username
+$types.user.$email = .code.email
+
+data.$type = .$types.user
+"#;
+    let schema = parse_and_convert(input);
+
+    assert!(schema.types.contains_key(&ident("base-string")));
+    assert!(schema.types.contains_key(&ident("username")));
+    assert!(schema.types.contains_key(&ident("user")));
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("data", |s, id| assert_reference(s, id, "user")),
+    );
+
+    // user references username, which references base-string
+    let user_id = schema.types[&ident("user")];
+    assert_record2(
+        &schema,
+        user_id,
+        ("username", |s, id| assert_reference(s, id, "username")),
+        ("email", |s, id| assert_code(s, id, Some("email"))),
+    );
+
+    let username_id = schema.types[&ident("username")];
+    assert_reference(&schema, username_id, "base-string");
+}
+
+#[test]
+fn test_array_of_custom_types_complex() {
+    let input = r#"
+$types.item = .string
+$types.item.$length = (1, 100)
+
+$types.collection.$array = .$types.item
+$types.collection.$min-items = 1
+$types.collection.$unique = true
+
+data.$type = .$types.collection
+"#;
+    let schema = parse_and_convert(input);
+
+    assert!(schema.types.contains_key(&ident("item")));
+    assert!(schema.types.contains_key(&ident("collection")));
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("data", |s, id| assert_reference(s, id, "collection")),
+    );
+
+    let collection_id = schema.types[&ident("collection")];
+    // collection is an array type that references item
+    assert_array_with(
+        &schema,
+        collection_id,
+        |s, item_id| assert_reference(s, item_id, "item"),
+        |array_schema| {
+            assert_eq!(array_schema.min_items, Some(1));
+            assert!(array_schema.unique);
+        },
     );
 }

@@ -8,7 +8,7 @@ use eure_value::document::EureDocument;
 use thiserror::Error;
 
 /// Errors that can occur during document to schema conversion
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error, Clone, PartialEq)]
 pub enum ConversionError {
     #[error("Invalid type path: {0}")]
     InvalidTypePath(String),
