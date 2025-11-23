@@ -3,6 +3,7 @@
 //! This library provides schema extraction and validation for EURE documents.
 //! It supports both standalone schema files and inline schemas within documents.
 
+pub mod convert;
 pub mod identifiers;
 
 use eure_value::data_model::VariantRepr;

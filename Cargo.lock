@@ -2012,6 +2012,7 @@ dependencies = [
  "ahash",
  "chrono",
  "convert_case 0.9.0",
+ "eure",
  "eure-derive",
  "eure-parol",
  "eure-tree",
