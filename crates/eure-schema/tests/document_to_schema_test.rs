@@ -14,9 +14,9 @@
 use eure::document::parse_to_document;
 use eure_schema::convert::document_to_schema;
 use eure_schema::{
-    ArraySchema, BooleanSchema, Bound, CodeSchema, FloatSchema, IntegerSchema, PathSchema,
-    SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId, StringSchema, TupleSchema,
-    UnknownFieldsPolicy,
+    ArraySchema, BooleanSchema, Bound, CodeSchema, FloatSchema, IntegerSchema, MapSchema,
+    PathSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId, StringSchema,
+    TupleSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
 use eure_value::identifier::Identifier;
@@ -386,6 +386,43 @@ fn assert_array_with<F, G>(
     }
 }
 
+/// Assert that a node is a Map type with specific key and value checks
+fn assert_map<K, V>(schema: &SchemaDocument, node_id: SchemaNodeId, key_check: K, value_check: V)
+where
+    K: Fn(&SchemaDocument, SchemaNodeId),
+    V: Fn(&SchemaDocument, SchemaNodeId),
+{
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Map(map_schema) = &node.content {
+        key_check(schema, map_schema.key);
+        value_check(schema, map_schema.value);
+    } else {
+        panic!("Expected Map type, got {:?}", node.content);
+    }
+}
+
+/// Assert that a node is a Map type with specific constraints
+fn assert_map_with<K, V, C>(
+    schema: &SchemaDocument,
+    node_id: SchemaNodeId,
+    key_check: K,
+    value_check: V,
+    constraint_check: C,
+) where
+    K: Fn(&SchemaDocument, SchemaNodeId),
+    V: Fn(&SchemaDocument, SchemaNodeId),
+    C: Fn(&MapSchema),
+{
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Map(map_schema) = &node.content {
+        key_check(schema, map_schema.key);
+        value_check(schema, map_schema.value);
+        constraint_check(map_schema);
+    } else {
+        panic!("Expected Map type, got {:?}", node.content);
+    }
+}
+
 /// Assert that a node is a Tuple with 2 elements and check each
 fn assert_tuple2<F1, F2>(schema: &SchemaDocument, node_id: SchemaNodeId, check1: F1, check2: F2)
 where
@@ -535,6 +572,19 @@ where
         check(&variant_schema.repr);
     } else {
         panic!("Expected Variant type, got {:?}", node.content);
+    }
+}
+
+/// Assert unknown fields policy for a Record node
+fn assert_unknown_fields<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
+where
+    F: Fn(&UnknownFieldsPolicy),
+{
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Record(record) = &node.content {
+        check(&record.unknown_fields);
+    } else {
+        panic!("Expected Record type, got {:?}", node.content);
     }
 }
 
@@ -927,6 +977,17 @@ $types.response {
 
     let response_id = schema.types[&ident("response")];
 
+    assert_variant2(
+        &schema,
+        response_id,
+        ("success", |s, success_id| {
+            assert_record1(s, success_id, ("data", assert_any));
+        }),
+        ("error", |s, error_id| {
+            assert_record1(s, error_id, ("message", assert_string));
+        }),
+    );
+
     assert_variant_repr(&schema, response_id, |repr| {
         assert!(matches!(repr, VariantRepr::Untagged));
     });
@@ -949,11 +1010,22 @@ $types.message {
 
     let message_id = schema.types[&ident("message")];
 
+    assert_variant2(
+        &schema,
+        message_id,
+        ("text", |s, text_id| {
+            assert_record1(s, text_id, ("content", assert_string));
+        }),
+        ("image", |s, image_id| {
+            assert_record1(s, image_id, ("url", assert_string));
+        }),
+    );
+
     assert_variant_repr(&schema, message_id, |repr| {
         if let VariantRepr::Internal { tag } = repr {
             assert_eq!(tag, "type");
         } else {
-            panic!("Expected Internal variant repr");
+            panic!("Expected VariantRepr::Internal, got {:?}", repr);
         }
     });
 }
@@ -975,12 +1047,23 @@ $types.event {
 
     let event_id = schema.types[&ident("event")];
 
+    assert_variant2(
+        &schema,
+        event_id,
+        ("login", |s, login_id| {
+            assert_record1(s, login_id, ("username", assert_string));
+        }),
+        ("logout", |s, logout_id| {
+            assert_record1(s, logout_id, ("reason", assert_string));
+        }),
+    );
+
     assert_variant_repr(&schema, event_id, |repr| {
         if let VariantRepr::Adjacent { tag, content } = repr {
             assert_eq!(tag, "kind");
             assert_eq!(content, "data");
         } else {
-            panic!("Expected Adjacent variant repr");
+            panic!("Expected VariantRepr::Adjacent, got {:?}", repr);
         }
     });
 }
@@ -1106,14 +1189,8 @@ age.$range = (0, 150)
         schema.root,
         ("age", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert!(matches!(int_schema.min, Bound::Inclusive(_)));
-                assert!(matches!(int_schema.max, Bound::Inclusive(_)));
-                if let Bound::Inclusive(val) = &int_schema.min {
-                    assert_eq!(*val, BigInt::from(0));
-                }
-                if let Bound::Inclusive(val) = &int_schema.max {
-                    assert_eq!(*val, BigInt::from(150));
-                }
+                assert_eq!(int_schema.min, Bound::Inclusive(0.into()));
+                assert_eq!(int_schema.max, Bound::Inclusive(150.into()));
             })
         }),
     );
@@ -1179,14 +1256,8 @@ value.$exclusive-max = 100
         schema.root,
         ("value", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert!(matches!(int_schema.min, Bound::Exclusive(_)));
-                assert!(matches!(int_schema.max, Bound::Exclusive(_)));
-                if let Bound::Exclusive(val) = &int_schema.min {
-                    assert_eq!(*val, BigInt::from(0));
-                }
-                if let Bound::Exclusive(val) = &int_schema.max {
-                    assert_eq!(*val, BigInt::from(100));
-                }
+                assert_eq!(int_schema.min, Bound::Exclusive(0.into()));
+                assert_eq!(int_schema.max, Bound::Exclusive(100.into()));
             })
         }),
     );
@@ -1224,14 +1295,8 @@ temperature.$range = (-273.15, 1000.0)
         schema.root,
         ("temperature", |s, id| {
             assert_float_with(s, id, |float_schema| {
-                assert!(matches!(float_schema.min, Bound::Inclusive(-273.15)));
-                assert!(matches!(float_schema.max, Bound::Inclusive(1000.0)));
-                if let Bound::Inclusive(val) = &float_schema.min {
-                    assert_eq!(*val, -273.15);
-                }
-                if let Bound::Inclusive(val) = &float_schema.max {
-                    assert_eq!(*val, 1000.0);
-                }
+                assert_eq!(float_schema.min, Bound::Inclusive(-273.15));
+                assert_eq!(float_schema.max, Bound::Inclusive(1000.0));
             })
         }),
     );
@@ -1293,17 +1358,14 @@ $cascade-type = .string
         &schema,
         schema.root,
         ("config", |s, config_id| {
-            // Verify config has server field
-            let config_node = s.node(config_id);
-            if let SchemaNodeContent::Record(config_record) = &config_node.content {
-                let server_id = config_record
-                    .properties
-                    .get("server")
-                    .expect("server missing");
-                // Verify server field exists and is a record
-                let server_node = s.node(*server_id);
-                assert!(matches!(server_node.content, SchemaNodeContent::Record(_)));
-            }
+            // Verify config has server field with host
+            assert_record1(
+                s,
+                config_id,
+                ("server", |s, server_id| {
+                    assert_record1(s, server_id, ("host", assert_string));
+                }),
+            );
         }),
     );
 }
@@ -1363,8 +1425,7 @@ database_name.$type = .string
         schema.root,
         ("config", |s, config_id| {
             // Config is a record with fields
-            let config_node = s.node(config_id);
-            assert!(matches!(config_node.content, SchemaNodeContent::Record(_)));
+            assert_record1(s, config_id, ("host", assert_string));
             assert_metadata(s, config_id, |metadata| {
                 assert_eq!(metadata.rename_all, Some("camelCase".to_string()));
             })
@@ -1434,17 +1495,14 @@ $types.user {
                 s,
                 id,
                 |s, v_id| {
-                    let node = s.node(v_id);
                     // Union literals are represented as their types
-                    assert!(matches!(node.content, SchemaNodeContent::String(_)));
+                    assert_string(s, v_id);
                 },
                 |s, v_id| {
-                    let node = s.node(v_id);
-                    assert!(matches!(node.content, SchemaNodeContent::String(_)));
+                    assert_string(s, v_id);
                 },
                 |s, v_id| {
-                    let node = s.node(v_id);
-                    assert!(matches!(node.content, SchemaNodeContent::String(_)));
+                    assert_string(s, v_id);
                 },
             )
         }),
@@ -1505,13 +1563,21 @@ $types.api-response {
         response_id,
         ("success", |s, success_id| {
             // success variant has status and data fields
-            let success_node = s.node(success_id);
-            assert!(matches!(success_node.content, SchemaNodeContent::Record(_)));
+            assert_record2(
+                s,
+                success_id,
+                ("status", assert_integer),
+                ("data", assert_any),
+            );
         }),
         ("error", |s, error_id| {
             // error variant has status and message fields
-            let error_node = s.node(error_id);
-            assert!(matches!(error_node.content, SchemaNodeContent::Record(_)));
+            assert_record2(
+                s,
+                error_id,
+                ("status", assert_integer),
+                ("message", assert_string),
+            );
         }),
     );
 
@@ -1574,7 +1640,7 @@ $types.person {
 fn test_unknown_fields_policy_allow() {
     let input = r#"
 @ config
-$unknown = "allow"
+$unknown-fields = "allow"
 host.$type = .string
 "#;
     let schema = parse_and_convert(input);
@@ -1583,16 +1649,10 @@ host.$type = .string
         &schema,
         schema.root,
         ("config", |s, config_id| {
-            let config_node = s.node(config_id);
-            if let SchemaNodeContent::Record(config_record) = &config_node.content {
-                assert!(matches!(
-                    config_record.unknown_fields,
-                    UnknownFieldsPolicy::Allow
-                ));
-
-                // Verify host field exists
-                assert_record1(s, config_id, ("host", |s, id| assert_string(s, id)));
-            }
+            assert_record1(s, config_id, ("host", assert_string));
+            assert_unknown_fields(s, config_id, |policy| {
+                assert!(matches!(policy, UnknownFieldsPolicy::Allow));
+            });
         }),
     );
 }
@@ -1601,30 +1661,25 @@ host.$type = .string
 fn test_unknown_fields_policy_schema() {
     let input = r#"
 @ config
-$unknown = .string
+$unknown-fields = .string
 host.$type = .string
 "#;
     let schema = parse_and_convert(input);
 
-    let root = schema.node(schema.root);
-    if let SchemaNodeContent::Record(record) = &root.content {
-        let config_id = record
-            .properties
-            .get("config")
-            .expect("config field missing");
-        let config_node = schema.node(*config_id);
-
-        if let SchemaNodeContent::Record(config_record) = &config_node.content {
-            assert!(matches!(
-                config_record.unknown_fields,
-                UnknownFieldsPolicy::Schema(_)
-            ));
-        } else {
-            panic!("Expected Record type for config");
-        }
-    } else {
-        panic!("Expected Record at root");
-    }
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, config_id| {
+            assert_record1(s, config_id, ("host", assert_string));
+            assert_unknown_fields(s, config_id, |policy| {
+                if let UnknownFieldsPolicy::Schema(schema_id) = policy {
+                    assert_string(s, *schema_id);
+                } else {
+                    panic!("Expected UnknownFieldsPolicy::Schema, got {:?}", policy);
+                }
+            });
+        }),
+    );
 }
 
 #[test]
@@ -1714,24 +1769,13 @@ sql.$type = .code.sql
 "#;
     let schema = parse_and_convert(input);
 
-    let root = schema.node(schema.root);
-    if let SchemaNodeContent::Record(record) = &root.content {
-        assert_eq!(record.properties.len(), 3);
-
-        let rust_id = record.properties.get("rust").expect("rust field missing");
-        assert_code(&schema, *rust_id, Some("rust"));
-
-        let python_id = record
-            .properties
-            .get("python")
-            .expect("python field missing");
-        assert_code(&schema, *python_id, Some("python"));
-
-        let sql_id = record.properties.get("sql").expect("sql field missing");
-        assert_code(&schema, *sql_id, Some("sql"));
-    } else {
-        panic!("Expected Record at root");
-    }
+    assert_record3(
+        &schema,
+        schema.root,
+        ("rust", |s, id| assert_code(s, id, Some("rust"))),
+        ("python", |s, id| assert_code(s, id, Some("python"))),
+        ("sql", |s, id| assert_code(s, id, Some("sql"))),
+    );
 }
 
 #[test]
@@ -1750,8 +1794,7 @@ value.$union = [
         &schema,
         schema.root,
         ("value", |s, id| {
-            let node = s.node(id);
-            assert!(matches!(node.content, SchemaNodeContent::Union(_)));
+            assert_union2(s, id, assert_string, assert_integer);
         }),
     );
 }
@@ -1769,15 +1812,7 @@ headers.$value = .string
         &schema,
         schema.root,
         ("headers", |s, id| {
-            let node = s.node(id);
-            if let SchemaNodeContent::Map(map_schema) = &node.content {
-                let key_node = s.node(map_schema.key);
-                let value_node = s.node(map_schema.value);
-                assert!(matches!(key_node.content, SchemaNodeContent::String(_)));
-                assert!(matches!(value_node.content, SchemaNodeContent::String(_)));
-            } else {
-                panic!("Expected Map type");
-            }
+            assert_map(s, id, assert_string, assert_string);
         }),
     );
 }
@@ -1797,13 +1832,10 @@ attributes.$max-pairs = 10
         &schema,
         schema.root,
         ("attributes", |s, id| {
-            let node = s.node(id);
-            if let SchemaNodeContent::Map(map_schema) = &node.content {
+            assert_map_with(s, id, assert_string, assert_any, |map_schema| {
                 assert_eq!(map_schema.min_pairs, Some(1));
                 assert_eq!(map_schema.max_pairs, Some(10));
-            } else {
-                panic!("Expected Map type");
-            }
+            });
         }),
     );
 }
