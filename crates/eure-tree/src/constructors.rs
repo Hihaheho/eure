@@ -1479,23 +1479,6 @@ impl From<ContinueNode> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for DirectBind non-terminal
-#[derive(Debug, Clone)]
-pub struct DirectBindNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl DirectBindNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<DirectBindNode> for BuilderNodeId {
-    fn from(node: DirectBindNode) -> Self {
-        node.node_id
-    }
-}
 ///Branded type for Dot non-terminal
 #[derive(Debug, Clone)]
 pub struct DotNode {
@@ -1581,37 +1564,20 @@ impl From<EureSectionsNode> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for EureRoot non-terminal
+///Branded type for EureOpt non-terminal
 #[derive(Debug, Clone)]
-pub struct EureRootNode {
+pub struct EureOptNode {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl EureRootNode {
+impl EureOptNode {
     /// Consume this node and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<EureRootNode> for BuilderNodeId {
-    fn from(node: EureRootNode) -> Self {
-        node.node_id
-    }
-}
-///Branded type for EureRootOpt non-terminal
-#[derive(Debug, Clone)]
-pub struct EureRootOptNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl EureRootOptNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<EureRootOptNode> for BuilderNodeId {
-    fn from(node: EureRootOptNode) -> Self {
+impl From<EureOptNode> for BuilderNodeId {
+    fn from(node: EureOptNode) -> Self {
         node.node_id
     }
 }
@@ -2224,23 +2190,6 @@ impl RParenNode {
 }
 impl From<RParenNode> for BuilderNodeId {
     fn from(node: RParenNode) -> Self {
-        node.node_id
-    }
-}
-///Branded type for RootBinding non-terminal
-#[derive(Debug, Clone)]
-pub struct RootBindingNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl RootBindingNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<RootBindingNode> for BuilderNodeId {
-    fn from(node: RootBindingNode) -> Self {
         node.node_id
     }
 }
@@ -3439,21 +3388,6 @@ impl ContinueConstructor {
     }
 }
 #[derive(bon::Builder)]
-pub struct DirectBindConstructor {
-    bind: BindNode,
-    value: ValueNode,
-}
-impl DirectBindConstructor {
-    pub fn build(self) -> DirectBindNode {
-        let mut builder = CstBuilder::new();
-        let bind = builder.embed(self.bind.builder);
-        let value = builder.embed(self.value.builder);
-        let node_id = builder
-            .non_terminal(NonTerminalKind::DirectBind, vec![bind, value]);
-        DirectBindNode { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
 pub struct DotConstructor {
     dot: DotToken,
 }
@@ -3479,16 +3413,21 @@ impl EndConstructor {
 }
 #[derive(bon::Builder)]
 pub struct EureConstructor {
+    eure_opt: EureOptNode,
     eure_bindings: EureBindingsNode,
     eure_sections: EureSectionsNode,
 }
 impl EureConstructor {
     pub fn build(self) -> EureNode {
         let mut builder = CstBuilder::new();
+        let eure_opt = builder.embed(self.eure_opt.builder);
         let eure_bindings = builder.embed(self.eure_bindings.builder);
         let eure_sections = builder.embed(self.eure_sections.builder);
         let node_id = builder
-            .non_terminal(NonTerminalKind::Eure, vec![eure_bindings, eure_sections]);
+            .non_terminal(
+                NonTerminalKind::Eure,
+                vec![eure_opt, eure_bindings, eure_sections],
+            );
         EureNode { node_id, builder }
     }
 }
@@ -3551,37 +3490,19 @@ impl EureSectionsConstructor {
     }
 }
 #[derive(bon::Builder)]
-pub struct EureRootConstructor {
-    eure_root_opt: EureRootOptNode,
-    eure: EureNode,
+pub struct EureOptConstructor {
+    value_binding: Option<ValueBindingNode>,
 }
-impl EureRootConstructor {
-    pub fn build(self) -> EureRootNode {
+impl EureOptConstructor {
+    pub fn build(self) -> EureOptNode {
         let mut builder = CstBuilder::new();
-        let eure_root_opt = builder.embed(self.eure_root_opt.builder);
-        let eure = builder.embed(self.eure.builder);
-        let node_id = builder
-            .non_terminal(NonTerminalKind::EureRoot, vec![eure_root_opt, eure]);
-        EureRootNode { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
-pub struct EureRootOptConstructor {
-    root_binding: Option<RootBindingNode>,
-}
-impl EureRootOptConstructor {
-    pub fn build(self) -> EureRootOptNode {
-        let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.root_binding {
+        let children = if let Some(child) = self.value_binding {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()
         };
-        let node_id = builder.non_terminal(NonTerminalKind::EureRootOpt, children);
-        EureRootOptNode {
-            node_id,
-            builder,
-        }
+        let node_id = builder.non_terminal(NonTerminalKind::EureOpt, children);
+        EureOptNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4207,24 +4128,6 @@ impl RParenConstructor {
     }
 }
 #[derive(bon::Builder)]
-pub struct RootBindingConstructor {
-    bind: BindNode,
-    value: ValueNode,
-}
-impl RootBindingConstructor {
-    pub fn build(self) -> RootBindingNode {
-        let mut builder = CstBuilder::new();
-        let bind = builder.embed(self.bind.builder);
-        let value = builder.embed(self.value.builder);
-        let node_id = builder
-            .non_terminal(NonTerminalKind::RootBinding, vec![bind, value]);
-        RootBindingNode {
-            node_id,
-            builder,
-        }
-    }
-}
-#[derive(bon::Builder)]
 pub struct SectionConstructor {
     at: AtNode,
     keys: KeysNode,
@@ -4264,7 +4167,6 @@ impl SectionBindingConstructor {
 pub enum SectionBodyConstructor {
     SectionBodyList(SectionBodyListNode),
     SectionBinding(SectionBindingNode),
-    DirectBind(DirectBindNode),
 }
 impl SectionBodyConstructor {
     pub fn build(self) -> SectionBodyNode {
@@ -4272,7 +4174,6 @@ impl SectionBodyConstructor {
         let child_id = match self {
             Self::SectionBodyList(node) => builder.embed(node.builder),
             Self::SectionBinding(node) => builder.embed(node.builder),
-            Self::DirectBind(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::SectionBody, vec![child_id]);
         SectionBodyNode {
@@ -4670,13 +4571,13 @@ impl WsConstructor {
 }
 #[derive(bon::Builder)]
 pub struct RootConstructor {
-    eure_root: EureRootNode,
+    eure: EureNode,
 }
 impl RootConstructor {
     pub fn build(self) -> RootNode {
         let mut builder = CstBuilder::new();
-        let eure_root = builder.embed(self.eure_root.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::Root, vec![eure_root]);
+        let eure = builder.embed(self.eure.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::Root, vec![eure]);
         RootNode { node_id, builder }
     }
 }

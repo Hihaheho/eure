@@ -1,4 +1,4 @@
-%start EureRoot
+%start Eure
 %title "EURE"
 %grammar_type 'LL(k)'
 %line_comment '//'
@@ -24,10 +24,8 @@
 
 %%
 
-EureRoot: [ RootBinding ] Eure ;
-Eure: { Binding } { Section } ;
+Eure: [ ValueBinding ] { Binding } { Section } ;
 
-RootBinding: Bind Value ;
 Binding: Keys BindingRhs ;
   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
   ValueBinding: Bind Value ;
@@ -35,8 +33,7 @@ Binding: Keys BindingRhs ;
   TextBinding: TextStart [Ws^] Text [GrammarNewline] ;
 
 Section: At Keys SectionBody ;
-  SectionBody: { Binding } | SectionBinding | DirectBind ;
-  DirectBind: Bind Value ;
+  SectionBody: { Binding } | SectionBinding ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;

@@ -2435,59 +2435,6 @@ pub struct ContinueView {
 }
 impl ContinueView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DirectBindHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for DirectBindHandle {
-    type View = DirectBindView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::DirectBind)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::DirectBind
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [
-                NodeKind::NonTerminal(NonTerminalKind::Bind),
-                NodeKind::NonTerminal(NonTerminalKind::Value),
-            ],
-            |[bind, value], visit_ignored| Ok(
-                visit(
-                    DirectBindView {
-                        bind: BindHandle(bind),
-                        value: ValueHandle(value),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DirectBindView {
-    pub bind: BindHandle,
-    pub value: ValueHandle,
-}
-impl DirectBindView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DotHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for DotHandle {
     type View = DotView;
@@ -2607,12 +2554,14 @@ impl NonTerminalHandle for EureHandle {
         tree.collect_nodes(
             self.0,
             [
+                NodeKind::NonTerminal(NonTerminalKind::EureOpt),
                 NodeKind::NonTerminal(NonTerminalKind::EureList),
                 NodeKind::NonTerminal(NonTerminalKind::EureList0),
             ],
-            |[eure_bindings, eure_sections], visit_ignored| Ok(
+            |[eure_opt, eure_bindings, eure_sections], visit_ignored| Ok(
                 visit(
                     EureView {
+                        eure_opt: EureOptHandle(eure_opt),
                         eure_bindings: EureBindingsHandle(eure_bindings),
                         eure_sections: EureSectionsHandle(eure_sections),
                     },
@@ -2625,6 +2574,7 @@ impl NonTerminalHandle for EureHandle {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EureView {
+    pub eure_opt: EureOptHandle,
     pub eure_bindings: EureBindingsHandle,
     pub eure_sections: EureSectionsHandle,
 }
@@ -2790,9 +2740,9 @@ impl<F: CstFacade> RecursiveView<F> for EureSectionsView {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct EureRootHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for EureRootHandle {
-    type View = EureRootView;
+pub struct EureOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for EureOptHandle {
+    type View = Option<ValueBindingHandle>;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -2803,66 +2753,13 @@ impl NonTerminalHandle for EureRootHandle {
     ) -> Result<Self, CstConstructError<E>> {
         tree.collect_nodes(
             index,
-            [NodeKind::NonTerminal(NonTerminalKind::EureRoot)],
+            [NodeKind::NonTerminal(NonTerminalKind::EureOpt)],
             |[index], visit| Ok((Self(index), visit)),
             visit_ignored,
         )
     }
     fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::EureRoot
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [
-                NodeKind::NonTerminal(NonTerminalKind::EureRootOpt),
-                NodeKind::NonTerminal(NonTerminalKind::Eure),
-            ],
-            |[eure_root_opt, eure], visit_ignored| Ok(
-                visit(
-                    EureRootView {
-                        eure_root_opt: EureRootOptHandle(eure_root_opt),
-                        eure: EureHandle(eure),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EureRootView {
-    pub eure_root_opt: EureRootOptHandle,
-    pub eure: EureHandle,
-}
-impl EureRootView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct EureRootOptHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for EureRootOptHandle {
-    type View = Option<RootBindingHandle>;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::EureRootOpt)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::EureRootOpt
+        NonTerminalKind::EureOpt
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
@@ -2876,7 +2773,7 @@ impl NonTerminalHandle for EureRootOptHandle {
         Ok(
             visit(
                     Some(
-                        RootBindingHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                        ValueBindingHandle::new_with_visit(self.0, tree, visit_ignored)?,
                     ),
                     visit_ignored,
                 )
@@ -4868,59 +4765,6 @@ pub struct RParenView {
 }
 impl RParenView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RootBindingHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for RootBindingHandle {
-    type View = RootBindingView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::RootBinding)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::RootBinding
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [
-                NodeKind::NonTerminal(NonTerminalKind::Bind),
-                NodeKind::NonTerminal(NonTerminalKind::Value),
-            ],
-            |[bind, value], visit_ignored| Ok(
-                visit(
-                    RootBindingView {
-                        bind: BindHandle(bind),
-                        value: ValueHandle(value),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RootBindingView {
-    pub bind: BindHandle,
-    pub value: ValueHandle,
-}
-impl RootBindingView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SectionHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for SectionHandle {
     type View = SectionView;
@@ -5078,9 +4922,6 @@ impl NonTerminalHandle for SectionBodyHandle {
             NodeKind::NonTerminal(NonTerminalKind::SectionBinding) => {
                 SectionBodyView::SectionBinding(SectionBindingHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::DirectBind) => {
-                SectionBodyView::DirectBind(DirectBindHandle(child))
-            }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -5102,7 +4943,6 @@ impl NonTerminalHandle for SectionBodyHandle {
 pub enum SectionBodyView {
     SectionBodyList(SectionBodyListHandle),
     SectionBinding(SectionBindingHandle),
-    DirectBind(DirectBindHandle),
 }
 impl SectionBodyView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -6226,14 +6066,9 @@ impl NonTerminalHandle for RootHandle {
     ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [NodeKind::NonTerminal(NonTerminalKind::EureRoot)],
-            |[eure_root], visit_ignored| Ok(
-                visit(
-                    RootView {
-                        eure_root: EureRootHandle(eure_root),
-                    },
-                    visit_ignored,
-                ),
+            [NodeKind::NonTerminal(NonTerminalKind::Eure)],
+            |[eure], visit_ignored| Ok(
+                visit(RootView { eure: EureHandle(eure) }, visit_ignored),
             ),
             visit_ignored,
         )
@@ -6241,7 +6076,7 @@ impl NonTerminalHandle for RootHandle {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RootView {
-    pub eure_root: EureRootHandle,
+    pub eure: EureHandle,
 }
 impl RootView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
