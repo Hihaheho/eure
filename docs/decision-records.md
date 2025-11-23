@@ -8,7 +8,7 @@
 ## No implicit tuple key like array's -- 2025-05-10
 
 - Tuple's heart is what index a value is stored, not as like array only cares the order of values.
-- For tuple always explicit index is required like `@ tuple.0` or `tuple.5 = 1`.
+- For tuple always explicit index is required like `@ tuple.#0` or `tuple.#5 = 1`.
 
 ## Newline character inserted on the tail not on the head in code block -- 2025-05-10
 

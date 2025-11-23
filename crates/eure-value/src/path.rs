@@ -37,8 +37,8 @@ impl Display for EurePath {
             match segment {
                 PathSegment::Ident(id) => write!(f, ".{}", id)?,
                 PathSegment::Extension(id) => write!(f, ".${}", id)?,
-                PathSegment::Value(key) => write!(f, ".[{}]", key)?,
-                PathSegment::TupleIndex(index) => write!(f, ".{}", index)?,
+                PathSegment::Value(key) => write!(f, ".{}", key)?,
+                PathSegment::TupleIndex(index) => write!(f, ".#{}", index)?,
                 PathSegment::ArrayIndex(Some(index)) => write!(f, "[{}]", index)?,
                 PathSegment::ArrayIndex(None) => write!(f, "[]")?,
             }

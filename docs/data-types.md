@@ -99,5 +99,5 @@ Notation as type: `"object"`
 
 Same syntax as section path and binding path.
 
-Notation as value: `path = .[0].a.b.c`
+Notation as value: `path = .0.a.b.c`
 Notation as type: `"path"`
