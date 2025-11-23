@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use eure::{
-    document::{DocumentConstructionError, DocumentKey, EureDocument},
+    document::{DocumentConstructionError, EureDocument},
     parol::parol_runtime::ParolError,
     tree::Cst,
-    value::{Code, IdentifierError},
+    value::{Code, IdentifierError, ObjectKey},
 };
 
 use crate::case::Case;
@@ -66,7 +66,7 @@ fn get_code(doc: &EureDocument, key: &str) -> Result<Option<Code>, IdentifierErr
         .root()
         .as_map()
         .unwrap()
-        .get(&DocumentKey::Ident(key.parse()?))
+        .get(&ObjectKey::String(key.into()))
         .map(move |node| {
             doc.node(node)
                 .as_primitive()

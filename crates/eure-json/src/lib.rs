@@ -7,7 +7,7 @@ pub use config::Config;
 pub use error::EureToJsonError;
 use eure::data_model::VariantRepr;
 use eure::document::node::NodeValue;
-use eure::document::{DocumentKey, EureDocument, NodeId};
+use eure::document::{EureDocument, NodeId};
 use eure::value::{ObjectKey, PrimitiveValue};
 use serde_json::Value as JsonValue;
 
@@ -46,7 +46,7 @@ fn convert_node(
         NodeValue::Map(map) => {
             let mut result = serde_json::Map::new();
             for (key, &child_id) in &map.0 {
-                let key_string = convert_document_key(key)?;
+                let key_string = convert_object_key(key)?;
                 let value = convert_node(doc, child_id, config)?;
                 result.insert(key_string, value);
             }
@@ -92,7 +92,6 @@ fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue
         }
         PrimitiveValue::String(s) => Ok(JsonValue::String(s.as_str().to_string())),
         PrimitiveValue::Code(code) => Ok(JsonValue::String(code.content.clone())),
-        PrimitiveValue::CodeBlock(code) => Ok(JsonValue::String(code.content.clone())),
         PrimitiveValue::Hole => Err(EureToJsonError::HoleNotSupported),
         PrimitiveValue::Path(_) => Err(EureToJsonError::PathNotSupported),
         PrimitiveValue::Variant(variant) => convert_variant(variant, config),
@@ -180,14 +179,6 @@ fn convert_eure_value(
             }
             Ok(JsonValue::Object(result))
         }
-    }
-}
-
-fn convert_document_key(key: &DocumentKey) -> Result<String, EureToJsonError> {
-    match key {
-        DocumentKey::Ident(ident) => Ok(ident.as_ref().to_string()),
-        DocumentKey::Value(obj_key) => convert_object_key(obj_key),
-        DocumentKey::TupleIndex(idx) => Ok(idx.to_string()),
     }
 }
 
@@ -338,7 +329,7 @@ mod tests {
     fn test_code_block_conversion() {
         use eure_value::code::Code;
         let code = Code::new_block(Some("python".to_string()), "print('hello')".to_string());
-        let doc = EureDocument::new_primitive(PrimitiveValue::CodeBlock(code));
+        let doc = EureDocument::new_primitive(PrimitiveValue::Code(code));
         let config = Config::default();
         let result = document_to_value(&doc, &config).unwrap();
         assert_eq!(result, json!("print('hello')\n"));
@@ -627,11 +618,8 @@ mod tests {
         let value_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Bool(true)));
 
         if let NodeValue::Map(ref mut map) = doc.node_mut(map_node).content {
-            use eure::document::DocumentKey;
-            map.0.insert(
-                DocumentKey::Value(ObjectKey::String("nested".to_string())),
-                value_node,
-            );
+            map.0
+                .insert(ObjectKey::String("nested".to_string()), value_node);
         }
 
         if let NodeValue::Array(ref mut arr) = doc.node_mut(root).content {

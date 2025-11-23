@@ -4,17 +4,6 @@ pub mod node;
 use crate::document::node::{NodeArray, NodeMap, NodeTuple};
 use crate::prelude_internal::*;
 
-/// This does not include Extension since PathSegment::Extension is encoded into Node::extensions, and PathSegment::Array is encoded as NodeContent::Array.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum DocumentKey {
-    /// Regular identifiers like id, description
-    Ident(Identifier),
-    /// Arbitrary value used as key
-    Value(ObjectKey),
-    /// Tuple element index (0-255)
-    TupleIndex(u8),
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
@@ -34,7 +23,7 @@ pub struct InsertError {
 #[derive(Debug, PartialEq, thiserror::Error, Clone)]
 pub enum InsertErrorKind {
     #[error("Already assigned")]
-    AlreadyAssigned { key: DocumentKey },
+    AlreadyAssigned { key: ObjectKey },
     #[error("Extension already assigned: {identifier}")]
     AlreadyAssignedExtension { identifier: Identifier },
     #[error("Expected array")]
@@ -237,7 +226,7 @@ impl EureDocument {
         let node_id = self.create_node_uninitialized();
         let node = self.node_mut(parent_node_id);
         let map = node.require_map()?;
-        map.add(DocumentKey::Value(object_key), node_id)?;
+        map.add(object_key, node_id)?;
         Ok(NodeMut::new(self, node_id))
     }
 
@@ -296,14 +285,10 @@ impl EureDocument {
         let node = self.node(parent_node_id);
 
         let existing = match &segment {
-            PathSegment::Ident(identifier) => node.as_map().and_then(|m| {
-                m.get(&DocumentKey::Value(ObjectKey::String(
-                    identifier.clone().into_string(),
-                )))
-            }),
-            PathSegment::Value(object_key) => node
+            PathSegment::Ident(identifier) => node
                 .as_map()
-                .and_then(|m| m.get(&DocumentKey::Value(object_key.clone()))),
+                .and_then(|m| m.get(&ObjectKey::String(identifier.clone().into_string()))),
+            PathSegment::Value(object_key) => node.as_map().and_then(|m| m.get(object_key)),
             PathSegment::Extension(identifier) => node.get_extension(identifier),
             PathSegment::TupleIndex(index) => node.as_tuple().and_then(|t| t.get(*index as usize)),
             PathSegment::ArrayIndex(Some(index)) => node.as_array().and_then(|a| a.get(*index)),
@@ -384,7 +369,7 @@ mod tests {
             .node_id;
 
         let map = doc.node(map_id).as_map().expect("Expected map");
-        assert_eq!(map.get(&DocumentKey::Value(key)), Some(child_id));
+        assert_eq!(map.get(&key), Some(child_id));
     }
 
     #[test]
@@ -413,9 +398,7 @@ mod tests {
         let result2 = doc.add_map_child(key.clone(), root_id);
         assert_eq!(
             result2.err(),
-            Some(InsertErrorKind::AlreadyAssigned {
-                key: DocumentKey::Value(key)
-            })
+            Some(InsertErrorKind::AlreadyAssigned { key })
         );
     }
 
@@ -628,7 +611,7 @@ mod tests {
         assert!(result.is_ok());
 
         let map = doc.node(root_id).as_map().expect("Expected map");
-        let key = DocumentKey::Value(ObjectKey::String(identifier.into_string()));
+        let key = ObjectKey::String(identifier.into_string());
         assert!(map.get(&key).is_some());
     }
 
@@ -643,7 +626,7 @@ mod tests {
         assert!(result.is_ok());
 
         let map = doc.node(root_id).as_map().expect("Expected map");
-        assert!(map.get(&DocumentKey::Value(key)).is_some());
+        assert!(map.get(&key).is_some());
     }
 
     #[test]
@@ -731,7 +714,7 @@ mod tests {
 
         let root_node = doc.node(doc.get_root_id());
         let map = root_node.as_map().unwrap();
-        let key = DocumentKey::Value(ObjectKey::String(identifier.into_string()));
+        let key = ObjectKey::String(identifier.into_string());
         assert_eq!(map.get(&key), Some(node_id));
     }
 
@@ -833,7 +816,7 @@ mod tests {
 
         // Verify the field was added to map_id
         let map = doc.node(map_id).as_map().unwrap();
-        let key = DocumentKey::Value(ObjectKey::String(field_identifier.into_string()));
+        let key = ObjectKey::String(field_identifier.into_string());
         assert_eq!(map.get(&key), Some(node_id));
     }
 
@@ -917,7 +900,7 @@ mod tests {
         // Verify shared node exists only once
         let root = doc.root();
         let map = root.as_map().unwrap();
-        let shared_key = DocumentKey::Value(ObjectKey::String(id1.into_string()));
+        let shared_key = ObjectKey::String(id1.into_string());
         assert!(map.get(&shared_key).is_some());
     }
 

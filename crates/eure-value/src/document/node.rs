@@ -196,17 +196,17 @@ pub struct NodeArray(pub Vec<NodeId>);
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
 #[plural(len, is_empty, iter, into_iter, into_iter_ref, new)]
-pub struct NodeMap(pub Map<DocumentKey, NodeId>);
+pub struct NodeMap(pub Map<ObjectKey, NodeId>);
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Plural)]
 pub struct NodeTuple(pub Vec<NodeId>);
 
 impl NodeMap {
-    pub fn get(&self, key: &DocumentKey) -> Option<NodeId> {
+    pub fn get(&self, key: &ObjectKey) -> Option<NodeId> {
         self.0.get(key).copied()
     }
 
-    pub fn add(&mut self, key: DocumentKey, node_id: NodeId) -> Result<(), InsertErrorKind> {
+    pub fn add(&mut self, key: ObjectKey, node_id: NodeId) -> Result<(), InsertErrorKind> {
         if self.0.contains_key(&key) {
             return Err(InsertErrorKind::AlreadyAssigned { key });
         }
@@ -214,11 +214,11 @@ impl NodeMap {
         Ok(())
     }
 
-    pub fn replace(&mut self, key: DocumentKey, node_id: NodeId) {
+    pub fn replace(&mut self, key: ObjectKey, node_id: NodeId) {
         self.0.insert(key, node_id);
     }
 
-    pub fn remove(&mut self, key: &DocumentKey) -> Option<NodeId> {
+    pub fn remove(&mut self, key: &ObjectKey) -> Option<NodeId> {
         self.0.remove(key)
     }
 }
