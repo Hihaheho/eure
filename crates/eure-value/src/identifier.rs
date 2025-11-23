@@ -21,16 +21,6 @@ impl IdentifierParser {
     }
 
     pub fn parse(&self, s: &str) -> Result<Identifier, IdentifierError> {
-        // Check for reserved keywords first
-        match s {
-            "true" | "false" | "null" => {
-                return Err(IdentifierError::ReservedKeyword {
-                    keyword: s.to_string(),
-                });
-            }
-            _ => {}
-        }
-
         // Check if starts with $ (would be parsed as extension)
         if s.starts_with('$') {
             return Err(IdentifierError::InvalidChar {
@@ -89,8 +79,6 @@ pub enum IdentifierError {
         /// the invalid character
         invalid_char: char,
     },
-    #[error("Reserved keyword cannot be used as identifier: {keyword}")]
-    ReservedKeyword { keyword: String },
 }
 
 impl Identifier {
@@ -100,7 +88,6 @@ impl Identifier {
     /// The caller must ensure that the string is a valid identifier according to EURE rules:
     /// - Must start with XID_Start character or underscore
     /// - Can contain XID_Continue characters or hyphens
-    /// - Must not be a reserved keyword (true, false, null)
     /// - Must not start with $
     pub const unsafe fn new_unchecked(s: &'static str) -> Self {
         Identifier(Cow::Borrowed(s))
@@ -180,32 +167,18 @@ mod tests {
     }
 
     #[test]
-    fn test_identifier_reject_true() {
+    fn test_identifier_accept_literals() {
         assert_eq!(
             Identifier::from_str("true"),
-            Err(IdentifierError::ReservedKeyword {
-                keyword: "true".to_string()
-            })
+            Ok(Identifier(Cow::Owned("true".to_string())))
         );
-    }
-
-    #[test]
-    fn test_identifier_reject_false() {
         assert_eq!(
             Identifier::from_str("false"),
-            Err(IdentifierError::ReservedKeyword {
-                keyword: "false".to_string()
-            })
+            Ok(Identifier(Cow::Owned("false".to_string())))
         );
-    }
-
-    #[test]
-    fn test_identifier_reject_null() {
         assert_eq!(
             Identifier::from_str("null"),
-            Err(IdentifierError::ReservedKeyword {
-                keyword: "null".to_string()
-            })
+            Ok(Identifier(Cow::Owned("null".to_string())))
         );
     }
 

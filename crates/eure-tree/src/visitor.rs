@@ -544,6 +544,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_key_base_super(handle, view, tree)
     }
+    fn visit_key_ident(
+        &mut self,
+        handle: KeyIdentHandle,
+        view: KeyIdentView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_key_ident_super(handle, view, tree)
+    }
     fn visit_key_opt(
         &mut self,
         handle: KeyOptHandle,
@@ -727,6 +735,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_section_body_list_super(handle, view, tree)
+    }
+    fn visit_section_body_opt(
+        &mut self,
+        handle: SectionBodyOptHandle,
+        view: ValueBindingHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_section_body_opt_super(handle, view, tree)
     }
     fn visit_str(
         &mut self,
@@ -1978,6 +1994,17 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: KeyBaseView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_key_ident_handle(
+        &mut self,
+        handle: KeyIdentHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_key_ident_super(
+        &mut self,
+        handle: KeyIdentHandle,
+        view: KeyIdentView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_key_opt_handle(&mut self, handle: KeyOptHandle, tree: &F) -> Result<(), E>;
     fn visit_key_opt_super(
         &mut self,
@@ -2197,6 +2224,17 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: SectionBodyListHandle,
         view: SectionBodyListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_section_body_opt_handle(
+        &mut self,
+        handle: SectionBodyOptHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_section_body_opt_super(
+        &mut self,
+        handle: SectionBodyOptHandle,
+        view: ValueBindingHandle,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_str_handle(&mut self, handle: StrHandle, tree: &F) -> Result<(), E>;
@@ -5770,6 +5808,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_key_ident_handle(
+        &mut self,
+        handle: KeyIdentHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    visit.visit_key_ident(handle, view, tree),
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_key_opt_handle(
         &mut self,
         handle: KeyOptHandle,
@@ -6823,6 +6907,56 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 |view, visit: &mut Self| (
                     if let Some(view) = view {
                         visit.visit_section_body_list(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_section_body_opt_handle(
+        &mut self,
+        handle: SectionBodyOptHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_section_body_opt(handle, view, tree)
                     } else {
                         Ok(())
                     },
@@ -8699,9 +8833,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let ExtensionNameSpaceView { ext, ident } = view_param;
+        let ExtensionNameSpaceView { ext, key_ident } = view_param;
         self.visit_ext_handle(ext, tree)?;
-        self.visit_ident_handle(ident, tree)?;
+        self.visit_key_ident_handle(key_ident, tree)?;
         Ok(())
     }
     fn visit_false_super(
@@ -9003,8 +9137,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     ) -> Result<(), V::Error> {
         let _handle = handle;
         match view_param {
-            KeyBaseView::Ident(item) => {
-                self.visit_ident_handle(item, tree)?;
+            KeyBaseView::KeyIdent(item) => {
+                self.visit_key_ident_handle(item, tree)?;
             }
             KeyBaseView::ExtensionNameSpace(item) => {
                 self.visit_extension_name_space_handle(item, tree)?;
@@ -9020,6 +9154,29 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
             KeyBaseView::TupleIndex(item) => {
                 self.visit_tuple_index_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_key_ident_super(
+        &mut self,
+        handle: KeyIdentHandle,
+        view_param: KeyIdentView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            KeyIdentView::Ident(item) => {
+                self.visit_ident_handle(item, tree)?;
+            }
+            KeyIdentView::True(item) => {
+                self.visit_true_handle(item, tree)?;
+            }
+            KeyIdentView::False(item) => {
+                self.visit_false_handle(item, tree)?;
+            }
+            KeyIdentView::Null(item) => {
+                self.visit_null_handle(item, tree)?;
             }
         }
         Ok(())
@@ -9356,11 +9513,11 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     ) -> Result<(), V::Error> {
         let _handle = handle;
         match view_param {
-            SectionBodyView::SectionBodyList(item) => {
-                self.visit_section_body_list_handle(item, tree)?;
+            SectionBodyView::SectionBodyOpt(item) => {
+                self.visit_section_body_opt_handle(item, tree)?;
             }
-            SectionBodyView::SectionBinding(item) => {
-                self.visit_section_binding_handle(item, tree)?;
+            SectionBodyView::Begin(item) => {
+                self.visit_begin_handle(item, tree)?;
             }
         }
         Ok(())
@@ -9375,6 +9532,16 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let SectionBodyListView { binding, section_body_list } = view_param;
         self.visit_binding_handle(binding, tree)?;
         self.visit_section_body_list_handle(section_body_list, tree)?;
+        Ok(())
+    }
+    fn visit_section_body_opt_super(
+        &mut self,
+        handle: SectionBodyOptHandle,
+        view_param: ValueBindingHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_value_binding_handle(view_param, tree)?;
         Ok(())
     }
     fn visit_str_super(
@@ -10466,6 +10633,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                         let handle = KeyBaseHandle(id);
                         self.visit_key_base_handle(handle, tree)?;
                     }
+                    NonTerminalKind::KeyIdent => {
+                        let handle = KeyIdentHandle(id);
+                        self.visit_key_ident_handle(handle, tree)?;
+                    }
                     NonTerminalKind::KeyOpt => {
                         let handle = KeyOptHandle(id);
                         self.visit_key_opt_handle(handle, tree)?;
@@ -10557,6 +10728,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::SectionBodyList => {
                         let handle = SectionBodyListHandle(id);
                         self.visit_section_body_list_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::SectionBodyOpt => {
+                        let handle = SectionBodyOptHandle(id);
+                        self.visit_section_body_opt_handle(handle, tree)?;
                     }
                     NonTerminalKind::Str => {
                         let handle = StrHandle(id);

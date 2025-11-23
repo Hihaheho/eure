@@ -1870,6 +1870,23 @@ impl From<KeyBaseNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for KeyIdent non-terminal
+#[derive(Debug, Clone)]
+pub struct KeyIdentNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl KeyIdentNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<KeyIdentNode> for BuilderNodeId {
+    fn from(node: KeyIdentNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for KeyOpt non-terminal
 #[derive(Debug, Clone)]
 pub struct KeyOptNode {
@@ -2258,6 +2275,23 @@ impl SectionBodyListNode {
 }
 impl From<SectionBodyListNode> for BuilderNodeId {
     fn from(node: SectionBodyListNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SectionBodyOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct SectionBodyOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SectionBodyOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SectionBodyOptNode> for BuilderNodeId {
+    fn from(node: SectionBodyOptNode) -> Self {
         node.node_id
     }
 }
@@ -3520,15 +3554,15 @@ impl ExtConstructor {
 #[derive(bon::Builder)]
 pub struct ExtensionNameSpaceConstructor {
     ext: ExtNode,
-    ident: IdentNode,
+    key_ident: KeyIdentNode,
 }
 impl ExtensionNameSpaceConstructor {
     pub fn build(self) -> ExtensionNameSpaceNode {
         let mut builder = CstBuilder::new();
         let ext = builder.embed(self.ext.builder);
-        let ident = builder.embed(self.ident.builder);
+        let key_ident = builder.embed(self.key_ident.builder);
         let node_id = builder
-            .non_terminal(NonTerminalKind::ExtensionNameSpace, vec![ext, ident]);
+            .non_terminal(NonTerminalKind::ExtensionNameSpace, vec![ext, key_ident]);
         ExtensionNameSpaceNode {
             node_id,
             builder,
@@ -3765,7 +3799,7 @@ impl KeyConstructor {
     }
 }
 pub enum KeyBaseConstructor {
-    Ident(IdentNode),
+    KeyIdent(KeyIdentNode),
     ExtensionNameSpace(ExtensionNameSpaceNode),
     Str(StrNode),
     Integer(IntegerNode),
@@ -3776,7 +3810,7 @@ impl KeyBaseConstructor {
     pub fn build(self) -> KeyBaseNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
-            Self::Ident(node) => builder.embed(node.builder),
+            Self::KeyIdent(node) => builder.embed(node.builder),
             Self::ExtensionNameSpace(node) => builder.embed(node.builder),
             Self::Str(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
@@ -3785,6 +3819,25 @@ impl KeyBaseConstructor {
         };
         let node_id = builder.non_terminal(NonTerminalKind::KeyBase, vec![child_id]);
         KeyBaseNode { node_id, builder }
+    }
+}
+pub enum KeyIdentConstructor {
+    Ident(IdentNode),
+    True(TrueNode),
+    False(FalseNode),
+    Null(NullNode),
+}
+impl KeyIdentConstructor {
+    pub fn build(self) -> KeyIdentNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::Ident(node) => builder.embed(node.builder),
+            Self::True(node) => builder.embed(node.builder),
+            Self::False(node) => builder.embed(node.builder),
+            Self::Null(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::KeyIdent, vec![child_id]);
+        KeyIdentNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4165,15 +4218,15 @@ impl SectionBindingConstructor {
     }
 }
 pub enum SectionBodyConstructor {
-    SectionBodyList(SectionBodyListNode),
-    SectionBinding(SectionBindingNode),
+    SectionBodyOpt(SectionBodyOptNode),
+    Begin(BeginNode),
 }
 impl SectionBodyConstructor {
     pub fn build(self) -> SectionBodyNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
-            Self::SectionBodyList(node) => builder.embed(node.builder),
-            Self::SectionBinding(node) => builder.embed(node.builder),
+            Self::SectionBodyOpt(node) => builder.embed(node.builder),
+            Self::Begin(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::SectionBody, vec![child_id]);
         SectionBodyNode {
@@ -4209,6 +4262,25 @@ impl SectionBodyListConstructor {
                 vec![binding, section_body_list],
             );
         SectionBodyListNode {
+            node_id,
+            builder,
+        }
+    }
+}
+#[derive(bon::Builder)]
+pub struct SectionBodyOptConstructor {
+    value_binding: Option<ValueBindingNode>,
+}
+impl SectionBodyOptConstructor {
+    pub fn build(self) -> SectionBodyOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.value_binding {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::SectionBodyOpt, children);
+        SectionBodyOptNode {
             node_id,
             builder,
         }

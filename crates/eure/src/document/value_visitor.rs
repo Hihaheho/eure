@@ -236,6 +236,29 @@ impl<'a> ValueVisitor<'a> {
 
         Ok(eure_string.as_str().to_string())
     }
+
+    fn get_key_ident_str(
+        &'a self,
+        tree: &'a impl CstFacade,
+        ident_handle: KeyIdentHandle,
+    ) -> Result<&'a str, DocumentConstructionError> {
+        let ident_view = ident_handle.get_view(tree)?;
+        let ident_str = match ident_view {
+            KeyIdentView::Ident(ident_handle) => {
+                self.get_terminal_str(tree, ident_handle.get_view(tree)?.ident)?
+            }
+            KeyIdentView::True(true_handle) => {
+                self.get_terminal_str(tree, true_handle.get_view(tree)?.r#true)?
+            }
+            KeyIdentView::False(false_handle) => {
+                self.get_terminal_str(tree, false_handle.get_view(tree)?.r#false)?
+            }
+            KeyIdentView::Null(null_handle) => {
+                self.get_terminal_str(tree, null_handle.get_view(tree)?.r#null)?
+            }
+        };
+        Ok(ident_str)
+    }
 }
 
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
@@ -251,16 +274,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         let key_base_view = view.key_base.get_view(tree)?;
 
         let segment = match key_base_view {
-            KeyBaseView::Ident(ident_handle) => {
-                let ident_view = ident_handle.get_view(tree)?;
-                let ident_str = self.get_terminal_str(tree, ident_view.ident)?;
+            KeyBaseView::KeyIdent(ident_handle) => {
+                let ident_str = self.get_key_ident_str(tree, ident_handle)?;
                 let identifier: Identifier = ident_str.parse()?;
                 PathSegment::Ident(identifier)
             }
             KeyBaseView::ExtensionNameSpace(ext_handle) => {
                 let ext_view = ext_handle.get_view(tree)?;
-                let ident_view = ext_view.ident.get_view(tree)?;
-                let ident_str = self.get_terminal_str(tree, ident_view.ident)?;
+                let ident_str = self.get_key_ident_str(tree, ext_view.key_ident)?;
                 let identifier: Identifier = ident_str.parse()?;
                 PathSegment::Extension(identifier)
             }
@@ -567,7 +588,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
             self.document
-                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .bind_primitive(PrimitiveValue::Code(code))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -603,7 +624,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
             self.document
-                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .bind_primitive(PrimitiveValue::Code(code))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -639,7 +660,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
             self.document
-                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .bind_primitive(PrimitiveValue::Code(code))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -675,7 +696,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let code = Code::new_block(code_start.language, content);
             self.document
-                .bind_primitive(PrimitiveValue::CodeBlock(code))
+                .bind_primitive(PrimitiveValue::Code(code))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),

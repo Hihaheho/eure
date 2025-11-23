@@ -2856,13 +2856,13 @@ impl NonTerminalHandle for ExtensionNameSpaceHandle {
             self.0,
             [
                 NodeKind::NonTerminal(NonTerminalKind::Ext),
-                NodeKind::NonTerminal(NonTerminalKind::Ident),
+                NodeKind::NonTerminal(NonTerminalKind::KeyIdent),
             ],
-            |[ext, ident], visit_ignored| Ok(
+            |[ext, key_ident], visit_ignored| Ok(
                 visit(
                     ExtensionNameSpaceView {
                         ext: ExtHandle(ext),
-                        ident: IdentHandle(ident),
+                        key_ident: KeyIdentHandle(key_ident),
                     },
                     visit_ignored,
                 ),
@@ -2874,7 +2874,7 @@ impl NonTerminalHandle for ExtensionNameSpaceHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExtensionNameSpaceView {
     pub ext: ExtHandle,
-    pub ident: IdentHandle,
+    pub key_ident: KeyIdentHandle,
 }
 impl ExtensionNameSpaceView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3669,8 +3669,8 @@ impl NonTerminalHandle for KeyBaseHandle {
             });
         };
         let variant = match child_data.node_kind() {
-            NodeKind::NonTerminal(NonTerminalKind::Ident) => {
-                KeyBaseView::Ident(IdentHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::KeyIdent) => {
+                KeyBaseView::KeyIdent(KeyIdentHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::ExtensionNameSpace) => {
                 KeyBaseView::ExtensionNameSpace(ExtensionNameSpaceHandle(child))
@@ -3706,7 +3706,7 @@ impl NonTerminalHandle for KeyBaseHandle {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyBaseView {
-    Ident(IdentHandle),
+    KeyIdent(KeyIdentHandle),
     ExtensionNameSpace(ExtensionNameSpaceHandle),
     Str(StrHandle),
     Integer(IntegerHandle),
@@ -3714,6 +3714,83 @@ pub enum KeyBaseView {
     TupleIndex(TupleIndexHandle),
 }
 impl KeyBaseView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KeyIdentHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for KeyIdentHandle {
+    type View = KeyIdentView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::KeyIdent)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::KeyIdent
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren {
+                parent: self.0,
+            });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound {
+                node: child,
+            });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::Ident) => {
+                KeyIdentView::Ident(IdentHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::True) => {
+                KeyIdentView::True(TrueHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::False) => {
+                KeyIdentView::False(FalseHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Null) => {
+                KeyIdentView::Null(NullHandle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode {
+                node: child,
+            });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyIdentView {
+    Ident(IdentHandle),
+    True(TrueHandle),
+    False(FalseHandle),
+    Null(NullHandle),
+}
+impl KeyIdentView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyOptHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for KeyOptHandle {
@@ -4916,11 +4993,11 @@ impl NonTerminalHandle for SectionBodyHandle {
             });
         };
         let variant = match child_data.node_kind() {
-            NodeKind::NonTerminal(NonTerminalKind::SectionBodyList) => {
-                SectionBodyView::SectionBodyList(SectionBodyListHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::SectionBodyOpt) => {
+                SectionBodyView::SectionBodyOpt(SectionBodyOptHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::SectionBinding) => {
-                SectionBodyView::SectionBinding(SectionBindingHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::Begin) => {
+                SectionBodyView::Begin(BeginHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -4941,8 +5018,8 @@ impl NonTerminalHandle for SectionBodyHandle {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SectionBodyView {
-    SectionBodyList(SectionBodyListHandle),
-    SectionBinding(SectionBindingHandle),
+    SectionBodyOpt(SectionBodyOptHandle),
+    Begin(BeginHandle),
 }
 impl SectionBodyView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -5023,6 +5100,48 @@ impl<F: CstFacade> RecursiveView<F> for SectionBodyListView {
                 )?;
         }
         Ok(items)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SectionBodyOptHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SectionBodyOptHandle {
+    type View = Option<ValueBindingHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::SectionBodyOpt)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::SectionBodyOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(
+            visit(
+                    Some(
+                        ValueBindingHandle::new_with_visit(self.0, tree, visit_ignored)?,
+                    ),
+                    visit_ignored,
+                )
+                .0,
+        )
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
