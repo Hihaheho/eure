@@ -1,80 +1,420 @@
+/// This is a self-hosted schema of the EURE Schema.
+
+// ============================================================================
+// Eure Schema Meta-Schema (Self-Referential Bootstrap Schema)
+// ============================================================================
+//
+// This file defines the schema FOR schemas themselves. It is special because:
+//
+// 1. SELF-REFERENTIAL: This file references itself via $schema = "eure-schema.schema.eure"
+//    This means this file MUST be a valid Eure Schema according to its own rules.
+//
+// 2. BOOTSTRAP NATURE: To make this work, we define $cascade-ext-type which:
+//    - Defines what extensions can be used in ANY Eure Schema (including this one)
+//    - Contains its own definition (cascade-ext-type key) to allow self-reference
+//    - This is NOT recursion - it's a bootstrap mechanism for the type system
+//
+// 3. TWO LEVELS OF DEFINITION:
+//    - $ext-type.xxx: Defines extension types (e.g., $ext-type.types)
+//    - $cascade-ext-type.xxx: Makes those extensions available to use in schemas
+//
+//    Example:
+//    - $ext-type.types defines the TYPE of the $types extension
+//    - But we DON'T put it in $cascade-ext-type because $types should only
+//      be usable at document root, not cascaded down to nested fields
+//
+// 4. NAMING: "cascade" means extensions flow down the document tree.
+//    Users can override at any level: section.$cascade-ext-type = { custom = .string }
+//
+// 5. KEY CONCEPTS:
+//
+//    A. $ext-type.xxx = <type_definition>
+//       Defines extensions for specific fields/types in schemas.
+//       The $ext-type prefix is used in schemas but omitted when users write documents.
+//
+//       Schema side: field.$ext-type.xxx = <type>
+//       User side:   field.$xxx = <value>
+//
+//       Example:
+//         Schema: field.$ext-type.optional = .boolean
+//         User:   field.$optional = true
+//
+//    B. $cascade-ext-type = { xxx = <type>, ... }
+//       Defines which extensions can be used ANYWHERE in the document (cascade down).
+//       Unlike $ext-type, these are available globally at any nesting level.
+//
+//       Example:
+//         $cascade-ext-type.type = .$types.type
+//         → Users can write: field.$type = .string (anywhere in the document)
+//
+//       Example:
+//         $cascade-ext-type.description = { $variant: union, variants.string = .string, ... }
+//         → Users can write: field.$description: "..." (anywhere)
+//
+//    C. $types.yyy = <type_definition>
+//       Defines custom types at DOCUMENT ROOT only (does NOT cascade).
+//       Defined via $ext-type.types but NOT included in $cascade-ext-type.
+//
+//       Example:
+//         Schema: $types.my-type = { name = .string, age = .integer }
+//         Usage:  field.$type = .$types.my-type
+//
+//       Note: $types can only be used at document root, not in nested fields.
+//             This is why it's not in $cascade-ext-type.
+//
+// ============================================================================
+
 $schema = "eure-schema.schema.eure"
 
-@ $cascade-type.$union[] = .$types.expr
-@ $cascade-type.$union[]
-$ext-type.optional = .boolean
-$ext-type.optional.$optional = true
-$ext-type.prefer {
-  section = .boolean
-  section.$optional = true
-  $optional = true
+/// Set the root type of the target document.
+$ext-type.root-type = .$types.type
+
+/// Eure Schema's root type is a type.
+$root-type = .$types.type
+
+/// Allows users to define custom types in the schema.
+/// Users can define types like: $types.my-type = { field = .string }
+/// and reference them as: field.$type = .$types.my-type
+$ext-type.types = {
+  $variant: map
+  key = .string
+  value = .$types.type
 }
-$ext-type.serde.rename = .string
-$ext-type.serde.rename.$optional = true
-$ext-type.serde.rename-all.$union[].$literal = "camelCase"
-$ext-type.serde.rename-all.$union[].$literal = "snake_case"
-$ext-type.serde.rename-all.$union[].$literal = "kebab-case"
-$ext-type.serde.rename-all.$union[].$literal = "PascalCase"
-$ext-type.serde.rename-all.$union[].$literal = "lowercase"
-$ext-type.serde.rename-all.$union[].$literal = "UPPERCASE"
+
+/// How variants should be represented in the data model.
+@ $types.variant-repr {
+  $variant: union
+
+  /// Untagged variant representation (no $variant field).
+  @variants.untagged = { = "untagged", $variant: literal }
+
+  /// Internally tagged variant (custom tag field name).
+  @variants.internal {
+    tag = .string
+  }
+
+  /// Adjacently tagged variant (custom tag and content field names).
+  @variants.adjacent {
+    tag = .string
+    content = .string
+  }
+
+  /// Externally tagged variant (default).
+  @variants.external = { = "external", $variant: literal }
+}
+
+/// Policy for handling unknown fields in record types.
+@ $types.unknown-fields-policy {
+  $variant: union
+
+  /// Deny unknown fields (strict mode, default behavior).
+  @variants.deny = { = "deny", $variant: literal }
+
+  /// Allow any unknown fields without validation.
+  @variants.allow = { = "allow", $variant: literal }
+
+  /// Allow unknown fields with schema validation for their values.
+  @variants.schema = .$types.type
+}
+
+/// Which way to represent a document path in a document.
+@ $types.binding-style
+$variant: union
+variants {
+  /// Automatically determine the best way to represent the document path in the document.
+  auto = { = "auto", $variant: literal }
+
+  /// Pass through; defer to the preference of subsequent keys.
+  passthrough = { = "passthrough", $variant: literal }
+
+  /// Create a new section at the key.
+  /// @ a.b.c.this-key
+  /// /* rest */
+  section = { = "section", $variant: literal }
+
+  /// Create a new nested section at the key.
+  /// @ a.b.c.this-key {
+  ///   /* rest */
+  /// }
+  nested = { = "nested", $variant: literal }
+
+  /// Binding a value to the key.
+  /// a.b.c.this-key = /* rest */
+  binding = { = "binding", $variant: literal }
+
+  /// Binding a section to the key
+  /// a.b.c.this-key {
+  ///   /* rest */
+  /// }
+  section-binding = { = "section-binding", $variant: literal }
+
+  /// Create a new section at the key with root binding.
+  /// @ a.b.c.this-key = /* rest */
+  section-root-binding = { = "section-root-binding", $variant: literal }
+}
 
 @ $types.type {
-  # NOTE: `@ <keys> = <value>` will be introduced as new syntax called inline section
-  # path type
-  @ $union[].$literal = .path # In contrast to $variants, that is map, this is array since union types.
+  $variant: union
 
-  # string type
-  @ $union[].$literal = .string
+  // $optional is not here because it's a record variant's extension.
+  $cascade-ext-type = {
+    // Allows users to define or override cascading extensions at any level.
+    // Example: section.$cascade-ext-type = { custom-field = .string }
+    cascade-ext-type = {
+      $variant: map
+      key = .string
+      value = .$types.type
+    }
 
-  # There should be more primitive types here
+    // Field description (supports both plain text via text binding and rich markdown).
+    description = {
+      $variant: union
+      variants.string = .string
+      variants.markdown = .code.markdown
+    }
+    description.$optional = true
 
-  # NOTE: Extension types are defined using $ext-type namespace, which provides type information for extensions.
-  # array type
-  @ $union[].$ext-type.array.$type = .$types.type # recursive type
+    // Marks the field as deprecated.
+    deprecated = .boolean
+    deprecated.$optional = true
 
-  # map type
-  @ $union[].$ext-type.map
-  key.$type = .$types.type # map is also recursive type
-  value.$type = .$types.type
+    // Default value for the field (if omitted in the data).
+    default = .any
+    default.$optional = true
 
-  # any
-  @ $union[].$literal = .any
+    // Example values in Eure code format.
+    examples = [.code.eure]
+    examples.$optional = true
+  }
 
-  # variants type
-  @ $union[].$ext-type.variants
-  $key = .ident
-  $value = .$types.type
-  $ext-type.variant-repr.union[] = { $literal = "untagged" } # untagged variant
-  $ext-type.variant-repr.union[] = { tag = .string } # internally tagged
-  $ext-type.variant-repr.union[] = { tag = .string, content = .string } # adjacently tagged
-  $ext-type.variant-repr.union[] = { $literal = "external" } # external tagged
-  $ext-type.variant-repr.$optional = true # the default representation is externally tagged
+  /// String type with optional length and pattern constraints.
+  @variants.string
+  min-length = .integer
+  min-length.$optional = true
+  max-length = .integer
+  max-length.$optional = true
+  pattern = .string
+  pattern.$optional = true
 
-  # cascade type that cascades this type to all descendant keys (not including extensions of course)
-  @ $union[].$ext-type.cascade-type = .$types.type
+  /// Shorthand: field.$type = .string
+  @variants.string-shorthand = { = .string, $variant: literal }
 
-  # expr-based type
-  @ $union[].$cascade-type = .$types.expr
+  /// Code type for code blocks or inline code.
+  /// Can be used standalone (treated as plaintext) or with a language specifier.
+  @variants.code
+  language = .string
+  language.$optional = true
 
-  # json-schema type
-  @ $union[].$ext-type.json-schema.$union = [.any, .code.json.json-schema, .code.yaml.json-schema]
+  /// Shorthand for code type using path syntax.
+  /// Allows: .code (plaintext), .code.rust, .code.javascript, .code.email, etc.
+  @variants.code-shorthand
+  $variant: path
+  starts-with = .code
+  length-min = 1
+  length-max = 2
+
+  /// Integer type with optional range and multiple-of constraints.
+  @variants.integer
+  min = .integer
+  min.$optional = true
+  max = .integer
+  max.$optional = true
+  exclusive-min = .integer
+  exclusive-min.$optional = true
+  exclusive-max = .integer
+  exclusive-max.$optional = true
+  multiple-of = .integer
+  multiple-of.$optional = true
+
+  /// Shorthand: field.$type = .integer
+  @variants.integer-shorthand = { = .integer, $variant: literal }
+
+  /// Float type with optional range and multiple-of constraints.
+  @variants.float
+  min = .float
+  min.$optional = true
+  max = .float
+  max.$optional = true
+  exclusive-min = .float
+  exclusive-min.$optional = true
+  exclusive-max = .float
+  exclusive-max.$optional = true
+  multiple-of = .float
+  multiple-of.$optional = true
+
+  /// Shorthand: field.$type = .float
+  @variants.float-shorthand = { = .float, $variant: literal }
+
+  /// Boolean type (true/false).
+  /// Usage: field.$type = .boolean
+  @variants.boolean = { = .boolean, $variant: literal }
+
+  /// Null type.
+  /// Usage: field.$type = .null
+  @variants.null = { = .null, $variant: literal }
+
+  /// Any type (accepts any valid Eure value).
+  /// Usage: field.$type = .any
+  @variants.any = { = .any, $variant: literal }
+
+  /// Literal type accepts a constant value.
+  /// The schema matches only that exact value.
+  /// Example: status.$type = "active" will only accept the string "active".
+  @variants.literal = .any
+
+  /// Record type with fixed, named fields.
+  /// Each field has a specific name and type defined in the schema.
+  /// Shorthand: field.$type = { name = .string, age = .integer }
+  @variants.record
+  $variant: map
+  key = .string
+  value = .$types.type
+  value.$ext-type.optional = .boolean
+  value.$ext-type.optional.$optional = true
+  value.$ext-type.binding-style = .$types.binding-style
+  value.$ext-type.binding-style.$optional = true
+  $ext-type.unknown-fields = .$types.unknown-fields-policy
+  $ext-type.unknown-fields.$optional = true  // Default: deny
+
+  @variants.union
+  variants = { $variant: map, key = .string, value = .$types.type }
+  $ext-type.variant-repr = .$types.variant-repr
+  $ext-type.variant-repr.$optional = true  // Default: externally tagged
+
+  /// Array type with optional constraints.
+  @variants.array
+  item = .$types.type
+  min-length = .integer
+  min-length.$optional = true
+  max-length = .integer
+  max-length.$optional = true
+  unique = .boolean
+  unique.$optional = true
+  /// Requires at least one element to match this schema.
+  /// Example: contains = .integer means the array must contain at least one integer.
+  contains = .$types.type
+  contains.$optional = true
+  $ext-type.binding-style = .$types.binding-style
+  $ext-type.binding-style.$optional = true
+
+  // Shorthand: field.$type = [.integer]
+  @variants.array-shorthand
+  $variant: array
+  item = .$types.type
+  min-length = 1
+  max-length = 1
+
+  /// Map type with dynamic keys (all keys have the same type, all values have the same type).
+  /// Unlike record, keys are not fixed - any key matching the key type is allowed.
+  /// Example: { $variant: map, key = .string, value = .integer }
+  ///          Allows: { "a" = 1, "b" = 2, "any-key" = 3 }
+  @variants.map
+  key = .$types.type
+  value = .$types.type
+  min-size = .integer
+  min-size.$optional = true
+  max-size = .integer
+  max-size.$optional = true
+
+  /// Tuple type with fixed-length, ordered elements.
+  /// The number of elements in the data must exactly match the number defined in the schema.
+  /// Example: elements = [.string, .integer, .boolean]
+  ///          Requires exactly 3 elements in that order.
+  @variants.tuple
+  elements = [.$types.type]
+  $ext-type.binding-style = .$types.binding-style
+  $ext-type.binding-style.$optional = true
+
+  /// Shorthand for tuple types using parenthesis syntax.
+  /// Example: field.$type = (.string, .integer, .boolean)
+  /// Supports tuples with 1 to 16 elements.
+  /// For tuples with more than 16 elements, use the full tuple variant.
+  @variants.tuple-shorthand
+  variants.1 = (.$types.type)
+  variants.2 = (.$types.type, .$types.type)
+  variants.3 = (.$types.type, .$types.type, .$types.type)
+  variants.4 = (.$types.type, .$types.type, .$types.type, .$types.type)
+  variants.5 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.6 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.7 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.8 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.9 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.10 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.11 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.12 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.13 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.14 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.15 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.16 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+
+  // Type reference using path syntax (e.g., .$types.my-type).
+  // This is used to reference other type definitions within the schema.
+  @variants.ref
+  $variant: path
+  starts-with = .$types
+
+  // Path schema type with optional constraints like starts-with, min-length, max-length, etc.
+  // This is the actual data type for storing path values, not a type reference.
+  @variants.path
+  starts-with = .path
+  starts-with.$optional = true
+  min-length = .integer
+  min-length.$optional = true
+  max-length = .integer
+  max-length.$optional = true
+
+  @variants.path-shorthand = { = .path, $variant: literal }
 }
 
-@ $types.expr {
-  # normal type
-  @ $union[]
-  $type = .$types.type
+// ============================================================================
+// Design Principles and Notes
+// ============================================================================
 
-  # literal type
-  @ $union[]
-  $ext-type.literal = .value
+// Change Log:
+// - We moved to union style.
+// - Unified union and variants type to union which always has a discriminator field.
+// - Removed renaming since it's not related to schema.
 
-  # inlined array type
-  @ $union[]
-  $ext-type.array = .$types.type
-
-  # inlined map type
-  @ $union[]
-  $ext-type.key = .$types.type
-  $ext-type.value = .$types.type
-}
+// Design Decisions (compared to JSON Schema):
+//
+// 1. Logical Operators (allOf/anyOf/oneOf/not):
+//    Intentionally not adopted. Use union for alternatives and record for composition.
+//
+// 2. Format Attribute:
+//    Not adopted. Use typed code strings instead (e.g., .code.email, .code.url, .code.uuid).
+//    The .code type can be used standalone (treated as plaintext) or with a language
+//    specifier like .code.rust, .code.javascript, .code.email, etc.
+//
+// 3. Additional Properties:
+//    Default behavior: deny (unknown fields are not allowed in records).
+//    Options:
+//    - $unknown-fields = "deny": reject unknown fields (default)
+//    - $unknown-fields = "allow": allow any unknown fields without validation
+//    - $unknown-fields = <type>: allow unknown fields that match the type schema
+//      Example: $unknown-fields = .string  // allow any string-valued fields
+//
+// 4. Nullable Types:
+//    Expressed using union with null type.
+//    Example: { @variants.value = .string, @variants.null = .null }
+//
+// 5. Discriminators:
+//    Union types always have a discriminator field.
+//    Default representation: externally tagged (using $variant field).
+//    Can be customized using $ext-type.variant-repr:
+//    - "untagged": no discriminator field
+//    - { tag = "type" }: internally tagged with custom field name
+//    - { tag = "type", content = "data" }: adjacently tagged
+//    - "external": explicitly specify default behavior
+//
+// 6. Documentation Extensions:
+//    Types can have documentation extensions:
+//    - $description: field description (plain text via text binding or markdown)
+//    - $deprecated: marks the field as deprecated
+//    - $default: default value if field is omitted
+//    - $examples: example values (Eure code format)
+//    Example:
+//      field.$type = .string
+//      field.$description: User's email address for authentication.
+//      field.$examples = [eure`"user@example.com"`]
+//    Or with rich markdown:
+//      field.$description = markdown`User's **email address** for authentication.`
