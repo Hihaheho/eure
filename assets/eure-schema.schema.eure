@@ -1,68 +1,116 @@
 /// This is a self-hosted schema of the EURE Schema.
-
-// ============================================================================
-// Eure Schema Meta-Schema (Self-Referential Bootstrap Schema)
-// ============================================================================
-//
-// This file defines the schema FOR schemas themselves. It is special because:
-//
-// 1. SELF-REFERENTIAL: This file references itself via $schema = "eure-schema.schema.eure"
-//    This means this file MUST be a valid Eure Schema according to its own rules.
-//
-// 2. BOOTSTRAP NATURE: To make this work, we define $cascade-ext-type which:
-//    - Defines what extensions can be used in ANY Eure Schema (including this one)
-//    - Contains its own definition (cascade-ext-type key) to allow self-reference
-//    - This is NOT recursion - it's a bootstrap mechanism for the type system
-//
-// 3. TWO LEVELS OF DEFINITION:
-//    - $ext-type.xxx: Defines extension types (e.g., $ext-type.types)
-//    - $cascade-ext-type.xxx: Makes those extensions available to use in schemas
-//
-//    Example:
-//    - $ext-type.types defines the TYPE of the $types extension
-//    - But we DON'T put it in $cascade-ext-type because $types should only
-//      be usable at document root, not cascaded down to nested fields
-//
-// 4. NAMING: "cascade" means extensions flow down the document tree.
-//    Users can override at any level: section.$cascade-ext-type = { custom = .string }
-//
-// 5. KEY CONCEPTS:
-//
-//    A. $ext-type.xxx = <type_definition>
-//       Defines extensions for specific fields/types in schemas.
-//       The $ext-type prefix is used in schemas but omitted when users write documents.
-//
-//       Schema side: field.$ext-type.xxx = <type>
-//       User side:   field.$xxx = <value>
-//
-//       Example:
-//         Schema: field.$ext-type.optional = .boolean
-//         User:   field.$optional = true
-//
-//    B. $cascade-ext-type = { xxx = <type>, ... }
-//       Defines which extensions can be used ANYWHERE in the document (cascade down).
-//       Unlike $ext-type, these are available globally at any nesting level.
-//
-//       Example:
-//         $cascade-ext-type.type = .$types.type
-//         → Users can write: field.$type = .string (anywhere in the document)
-//
-//       Example:
-//         $cascade-ext-type.description = { $variant: union, variants.string = .string, ... }
-//         → Users can write: field.$description: "..." (anywhere)
-//
-//    C. $types.yyy = <type_definition>
-//       Defines custom types at DOCUMENT ROOT only (does NOT cascade).
-//       Defined via $ext-type.types but NOT included in $cascade-ext-type.
-//
-//       Example:
-//         Schema: $types.my-type = { name = .string, age = .integer }
-//         Usage:  field.$type = .$types.my-type
-//
-//       Note: $types can only be used at document root, not in nested fields.
-//             This is why it's not in $cascade-ext-type.
-//
-// ============================================================================
+///
+/// This file defines the schema for schemas themselves (meta-schema).
+/// It is self-referential via: $schema = "eure-schema.schema.eure"
+/// This means this file MUST be valid according to its own rules.
+///
+/// ============================================================================
+/// Key Concepts
+/// ============================================================================
+///
+/// 1. $root-type = <type>
+///    Specifies the root type of target documents validated by this schema.
+///    In this meta-schema: $root-type = .$types.type
+///    (Target documents are schema files, whose root must be a type definition)
+///
+/// 2. $ext-type.xxx = <type>
+///    Defines extension types for specific paths in schemas.
+///    (Can be used on fields, array items, tuple elements, etc.)
+///    When users write documents, the $ext-type prefix is omitted.
+///
+///    Schema side: field.$ext-type.xxx = <type>
+///    User side:   field.$xxx = <value>
+///
+///    Examples in this schema:
+///    - $ext-type.root-type: Allows schemas to specify their root type
+///    - $ext-type.types: Allows schemas to define custom types
+///    - value.$ext-type.optional: Marks a field as optional in records
+///    - value.$ext-type.binding-style: Controls document path representation
+///
+/// 3. $types.xxx = <type>
+///    Custom type definitions (defined at document root only).
+///
+///    Types defined in this schema:
+///    - $types.type: The main type definition (union of all type variants)
+///    - $types.variant-repr: How union variants are represented in data
+///    - $types.unknown-fields-policy: Policy for unknown fields in records
+///    - $types.binding-style: How document paths are represented
+///
+/// 4. $cascade-ext-type = { xxx = <type>, ... }
+///    Extensions that cascade down the document tree.
+///    Unlike $ext-type, these are available at any nesting level.
+///    Defined inside $types.type in this schema.
+///
+///    Cascading extensions:
+///    - cascade-ext-type: Allows users to define custom cascading extensions
+///    - description: Field documentation (plain text or markdown)
+///    - deprecated: Marks a field as deprecated
+///    - default: Default value for optional fields
+///    - examples: Example values in Eure code format
+///
+/// 5. Type Variants (inside $types.type)
+///    All types are variants of a union type:
+///
+///    Primitives:
+///    - string, integer, float, boolean, null, any
+///    - With shorthands: .string, .integer, .float, .boolean, .null, .any
+///
+///    Containers:
+///    - record: Fixed named fields { field1 = <type>, field2 = <type>, ... }
+///    - array: Ordered list { $variant: array, item = <type> }
+///    - map: Dynamic key-value pairs { $variant: map, key = <type>, value = <type> }
+///    - tuple: Fixed-length ordered elements { $variant: tuple, elements = [<types>] }
+///    - union: Tagged union { $variant: union, variants = { ... } }
+///
+///    Special:
+///    - literal: Exact value match (e.g., status.$type = "active")
+///    - code: Code blocks with optional language (.code, .code.rust)
+///    - path: Document path values with constraints
+///    - ref: Type reference (.$types.my-type)
+///
+///    Shorthands:
+///    - .string, .integer, etc. for primitive types
+///    - [.T] for arrays (e.g., [.string] = array of strings)
+///    - (.T1, .T2) for tuples (e.g., (.string, .integer))
+///    - .code.lang for code with language (e.g., .code.rust)
+///
+/// ============================================================================
+/// Design Decisions
+/// ============================================================================
+///
+/// 1. Logical Operators (allOf/anyOf/oneOf/not):
+///    Not adopted. Use union for alternatives and record for composition.
+///
+/// 2. Format Attribute:
+///    Not adopted. Use typed code strings instead.
+///    Examples: .code.email, .code.url, .code.uuid
+///
+/// 3. Unknown Fields Policy:
+///    Default: deny (unknown fields are rejected in records).
+///    Options:
+///    - $unknown-fields = "deny": reject unknown fields (default)
+///    - $unknown-fields = "allow": allow any unknown fields
+///    - $unknown-fields = <type>: allow unknown fields matching the type
+///
+/// 4. Nullable Types:
+///    Expressed using union with null type.
+///    Example: { variants.value = .string, variants.null = .null, $variant: union }
+///
+/// 5. Discriminators:
+///    Union types always have a discriminator field.
+///    Default: externally tagged (using $variant field).
+///    Options via $ext-type.variant-repr:
+///    - "untagged": no discriminator field
+///    - { tag = "type" }: internally tagged
+///    - { tag = "type", content = "data" }: adjacently tagged
+///    - "external": explicitly specify default
+///
+/// 6. Documentation Extensions:
+///    Types support documentation via cascading extensions:
+///    - $description: plain text or markdown
+///    - $deprecated: marks as deprecated
+///    - $default: default value
+///    - $examples: example values in Eure code
 
 $schema = "eure-schema.schema.eure"
 
@@ -365,56 +413,3 @@ variants {
 
   @variants.path-shorthand = { = .path, $variant: literal }
 }
-
-// ============================================================================
-// Design Principles and Notes
-// ============================================================================
-
-// Change Log:
-// - We moved to union style.
-// - Unified union and variants type to union which always has a discriminator field.
-// - Removed renaming since it's not related to schema.
-
-// Design Decisions (compared to JSON Schema):
-//
-// 1. Logical Operators (allOf/anyOf/oneOf/not):
-//    Intentionally not adopted. Use union for alternatives and record for composition.
-//
-// 2. Format Attribute:
-//    Not adopted. Use typed code strings instead (e.g., .code.email, .code.url, .code.uuid).
-//    The .code type can be used standalone (treated as plaintext) or with a language
-//    specifier like .code.rust, .code.javascript, .code.email, etc.
-//
-// 3. Additional Properties:
-//    Default behavior: deny (unknown fields are not allowed in records).
-//    Options:
-//    - $unknown-fields = "deny": reject unknown fields (default)
-//    - $unknown-fields = "allow": allow any unknown fields without validation
-//    - $unknown-fields = <type>: allow unknown fields that match the type schema
-//      Example: $unknown-fields = .string  // allow any string-valued fields
-//
-// 4. Nullable Types:
-//    Expressed using union with null type.
-//    Example: { @variants.value = .string, @variants.null = .null }
-//
-// 5. Discriminators:
-//    Union types always have a discriminator field.
-//    Default representation: externally tagged (using $variant field).
-//    Can be customized using $ext-type.variant-repr:
-//    - "untagged": no discriminator field
-//    - { tag = "type" }: internally tagged with custom field name
-//    - { tag = "type", content = "data" }: adjacently tagged
-//    - "external": explicitly specify default behavior
-//
-// 6. Documentation Extensions:
-//    Types can have documentation extensions:
-//    - $description: field description (plain text via text binding or markdown)
-//    - $deprecated: marks the field as deprecated
-//    - $default: default value if field is omitted
-//    - $examples: example values (Eure code format)
-//    Example:
-//      field.$type = .string
-//      field.$description: User's email address for authentication.
-//      field.$examples = [eure`"user@example.com"`]
-//    Or with rich markdown:
-//      field.$description = markdown`User's **email address** for authentication.`
