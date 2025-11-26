@@ -932,7 +932,11 @@ point.#1.$type = .integer
 #[test]
 fn test_union_type() {
     let input = r#"
-value.$union = [.string, .float]
+@ value {
+  $variant: union
+  variants.string = .string
+  variants.float = .float
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -948,7 +952,13 @@ value.$union = [.string, .float]
 #[test]
 fn test_union_with_multiple_types() {
     let input = r#"
-data.$union = [.string, .float, .boolean, .null]
+@ data {
+  $variant: union
+  variants.string = .string
+  variants.float = .float
+  variants.boolean = .boolean
+  variants.null = .null
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1592,8 +1602,12 @@ $types.user {
   $array = .string
   $unique = true
 
-  @ role
-  $union = ["admin", "user", "guest"]
+  @ role {
+    $variant: union
+    variants.admin = { = "admin", $variant: literal }
+    variants.user = { = "user", $variant: literal }
+    variants.guest = { = "guest", $variant: literal }
+  }
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1643,7 +1657,12 @@ $types.user {
 fn test_complex_api_schema() {
     let input = r#"
 $types.http-method {
-  $union = ["GET", "POST", "PUT", "DELETE", "PATCH"]
+  $variant: union
+  variants.GET = { = "GET", $variant: literal }
+  variants.POST = { = "POST", $variant: literal }
+  variants.PUT = { = "PUT", $variant: literal }
+  variants.DELETE = { = "DELETE", $variant: literal }
+  variants.PATCH = { = "PATCH", $variant: literal }
 }
 
 $types.api-request {
@@ -1932,11 +1951,16 @@ sql.$type = .code.sql
 #[test]
 fn test_nested_union_types() {
     let input = r#"
-value.$union = [
-    .string,
-    .integer,
-    [.boolean, .null]
-]
+@ value {
+  $variant: union
+  variants.string = .string
+  variants.integer = .integer
+  variants.array = [{
+    $variant: union
+    variants.boolean = .boolean
+    variants.null = .null
+  }]
+}
 "#;
     let schema = parse_and_convert(input);
 

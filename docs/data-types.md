@@ -1,5 +1,18 @@
 # Types
 
+## Formatting
+
+EURE recommends **2-space indentation** for nested structures.
+
+```eure
+@ config {
+  server = {
+    host = "localhost"
+    port = 8080
+  }
+}
+```
+
 ## Primitive Types
 
 - `string`
@@ -88,6 +101,73 @@ Notation as value: `= { a = 1, b = 2}`
 Notation as type: `"object"`
 
 ## Variant
+
+Variant types (also known as tagged unions or sum types) allow a value to be one of several possible variants. Each variant is identified by a name and can contain associated data.
+
+Notation as value:
+
+```eure
+@ result {
+  $variant = .ok
+  value = 42
+}
+
+@ error {
+  $variant = .err
+  message = "Something went wrong"
+}
+```
+
+Notation as type: Defined using `$variants` in schema (see [schema-extensions.md](./schema-extensions.md#variants))
+
+### Simple Variants
+
+Use a string or path to specify the variant:
+
+```eure
+$variant = "success"
+# or equivalently
+$variant = .success
+```
+
+### Nested Variants
+
+For nested variant structures (similar to Rust's `Result<Result<T, E>, E>` or `Option<Option<T>>`), use dot notation to specify the full variant path:
+
+```eure
+@ response {
+  $variant = .ok.ok.err
+  error_code = 404
+}
+```
+
+This represents a three-level nested structure:
+
+| EURE | Rust Equivalent |
+|------|----------------|
+| `$variant = .ok` | `Ok(value)` |
+| `$variant = .ok.ok` | `Ok(Ok(value))` |
+| `$variant = .ok.ok.err` | `Ok(Ok(Err(value)))` |
+| `$variant = .err` | `Err(value)` |
+
+Each segment in the path represents one level of variant selection:
+
+```eure
+# Two-level nesting
+@ outer {
+  $variant = .some.none
+}
+# Rust: Some(None)
+
+# Three-level nesting
+@ deep {
+  $variant = .some.some.some
+  value = "deeply nested"
+}
+# Rust: Some(Some(Some("deeply nested")))
+```
+
+The dot notation follows EURE's standard path syntax, making it consistent with other path-based features in the language.
 
 ## Unit
 

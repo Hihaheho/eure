@@ -41,8 +41,8 @@ Extensions can contain structured metadata:
 
 ```eure
 $my-extension {
-    schema = "https://example.com/my-extension/v1"
-    version = "1.0"
+  schema = "https://example.com/my-extension/v1"
+  version = "1.0"
 }
 ```
 
@@ -58,18 +58,18 @@ $ext-type.optional = .boolean
 
 # Define structure for $validation extension
 $ext-type.validation {
-    min = .number
-    max = .number
-    pattern = .string
+  min = .number
+  max = .number
+  pattern = .string
 }
 
 # Now these extensions follow the defined schemas
 field {
-    $optional = true
-    $validation {
-        min = 0
-        max = 100
-    }
+  $optional = true
+  $validation {
+    min = 0
+    max = 100
+  }
 }
 ```
 
@@ -93,13 +93,45 @@ Indicates variant selection in sum types:
 
 ```eure
 @ user {
-    $variant = "premium"
-    subscription_level = "gold"
-    benefits = ["priority-support", "advanced-features"]
+  $variant = "premium"
+  subscription_level = "gold"
+  benefits = ["priority-support", "advanced-features"]
 }
 ```
 
 The `$variant` extension is metadata that helps identify which variant of a sum type is being used. It doesn't affect the data structure itself.
+
+#### Nested Variants
+
+For nested variant types (similar to `Result<Result<T, E>, E>` in Rust), you can use dot notation to specify the variant path:
+
+```eure
+@ response {
+  $variant = .ok.ok.err
+  error_message = "Invalid input"
+}
+```
+
+This corresponds to Rust's `Ok(Ok(Err(value)))` structure, where:
+- The first `.ok` selects the outer `Ok` variant
+- The second `.ok` selects the middle `Ok` variant
+- The `.err` selects the inner `Err` variant
+
+Each segment in the path represents one level of variant nesting:
+
+```eure
+# Simple variant
+$variant = "success"  # or $variant = .success
+
+# Nested variants (2 levels)
+$variant = .ok.value
+
+# Deeply nested variants (3 levels)
+$variant = .ok.ok.err
+
+# Any depth is supported
+$variant = .a.b.c.d.e
+```
 
 ### $local
 
@@ -107,12 +139,12 @@ Provides document-local metadata storage:
 
 ```eure
 @ config {
-    $local.last-modified = "2024-01-15"
-    $local.author = "system"
+  $local.last-modified = "2024-01-15"
+  $local.author = "system"
 
-    # Actual configuration data
-    timeout = 30
-    retries = 3
+  # Actual configuration data
+  timeout = 30
+  retries = 3
 }
 ```
 
@@ -126,16 +158,16 @@ Specifies license information using SPDX License IDs for root or sub-document ob
 
 # Object-level license
 @ library {
-    $license = "Apache-2.0"
-    name = "my-library"
-    version = "1.0.0"
+  $license = "Apache-2.0"
+  name = "my-library"
+  version = "1.0.0"
 }
 
 # Sub-document with different license
 @ component {
-    $license = "GPL-3.0"
-    name = "gpl-component"
-    source = "https://example.com/component"
+  $license = "GPL-3.0"
+  name = "gpl-component"
+  source = "https://example.com/component"
 }
 ```
 

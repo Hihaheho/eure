@@ -13,13 +13,13 @@
 ///    In this meta-schema: $root-type = .$types.type
 ///    (Target documents are schema files, whose root must be a type definition)
 ///
-/// 2. $ext-type.xxx = <type>
+/// 2. $ext-type.foo = <type>
 ///    Defines extension types for specific paths in schemas.
 ///    (Can be used on fields, array items, tuple elements, etc.)
 ///    When users write documents, the $ext-type prefix is omitted.
 ///
-///    Schema side: field.$ext-type.xxx = <type>
-///    User side:   field.$xxx = <value>
+///    Schema side: field.$ext-type.foo = <type>
+///    User side:   field.$foo = <value>
 ///
 ///    Examples in this schema:
 ///    - $ext-type.root-type: Allows schemas to specify their root type
@@ -27,7 +27,7 @@
 ///    - value.$ext-type.optional: Marks a field as optional in records
 ///    - value.$ext-type.binding-style: Controls document path representation
 ///
-/// 3. $types.xxx = <type>
+/// 3. $types.foo = <type>
 ///    Custom type definitions (defined at document root only).
 ///
 ///    Types defined in this schema:
@@ -36,7 +36,7 @@
 ///    - $types.unknown-fields-policy: Policy for unknown fields in records
 ///    - $types.binding-style: How document paths are represented
 ///
-/// 4. $cascade-ext-type = { xxx = <type>, ... }
+/// 4. $cascade-ext-type = { foo = <type>, ... }
 ///    Extensions that cascade down the document tree.
 ///    Unlike $ext-type, these are available at any nesting level.
 ///    Defined inside $types.type in this schema.
@@ -245,7 +245,14 @@ variants {
   pattern.$optional = true
 
   /// Shorthand: field.$type = .string
+  /// Supports constraint extensions: $min-length, $max-length, $pattern
   @variants.string-shorthand = { = .string, $variant: literal }
+  @variants.string-shorthand.$ext-type.min-length = .integer
+  @variants.string-shorthand.$ext-type.min-length.$optional = true
+  @variants.string-shorthand.$ext-type.max-length = .integer
+  @variants.string-shorthand.$ext-type.max-length.$optional = true
+  @variants.string-shorthand.$ext-type.pattern = .string
+  @variants.string-shorthand.$ext-type.pattern.$optional = true
 
   /// Code type for code blocks or inline code.
   /// Can be used standalone (treated as plaintext) or with a language specifier.
@@ -275,7 +282,18 @@ variants {
   multiple-of.$optional = true
 
   /// Shorthand: field.$type = .integer
+  /// Supports constraint extensions: $min, $max, $exclusive-min, $exclusive-max, $multiple-of
   @variants.integer-shorthand = { = .integer, $variant: literal }
+  @variants.integer-shorthand.$ext-type.min = .integer
+  @variants.integer-shorthand.$ext-type.min.$optional = true
+  @variants.integer-shorthand.$ext-type.max = .integer
+  @variants.integer-shorthand.$ext-type.max.$optional = true
+  @variants.integer-shorthand.$ext-type.exclusive-min = .integer
+  @variants.integer-shorthand.$ext-type.exclusive-min.$optional = true
+  @variants.integer-shorthand.$ext-type.exclusive-max = .integer
+  @variants.integer-shorthand.$ext-type.exclusive-max.$optional = true
+  @variants.integer-shorthand.$ext-type.multiple-of = .integer
+  @variants.integer-shorthand.$ext-type.multiple-of.$optional = true
 
   /// Float type with optional range and multiple-of constraints.
   @variants.float
@@ -291,7 +309,18 @@ variants {
   multiple-of.$optional = true
 
   /// Shorthand: field.$type = .float
+  /// Supports constraint extensions: $min, $max, $exclusive-min, $exclusive-max, $multiple-of
   @variants.float-shorthand = { = .float, $variant: literal }
+  @variants.float-shorthand.$ext-type.min = .float
+  @variants.float-shorthand.$ext-type.min.$optional = true
+  @variants.float-shorthand.$ext-type.max = .float
+  @variants.float-shorthand.$ext-type.max.$optional = true
+  @variants.float-shorthand.$ext-type.exclusive-min = .float
+  @variants.float-shorthand.$ext-type.exclusive-min.$optional = true
+  @variants.float-shorthand.$ext-type.exclusive-max = .float
+  @variants.float-shorthand.$ext-type.exclusive-max.$optional = true
+  @variants.float-shorthand.$ext-type.multiple-of = .float
+  @variants.float-shorthand.$ext-type.multiple-of.$optional = true
 
   /// Boolean type (true/false).
   /// Usage: field.$type = .boolean
@@ -346,11 +375,20 @@ variants {
   $ext-type.binding-style.$optional = true
 
   // Shorthand: field.$type = [.integer]
+  // Supports constraint extensions: $min-length, $max-length, $unique, $contains
   @variants.array-shorthand
   $variant: array
   item = .$types.type
   min-length = 1
   max-length = 1
+  $ext-type.min-length = .integer
+  $ext-type.min-length.$optional = true
+  $ext-type.max-length = .integer
+  $ext-type.max-length.$optional = true
+  $ext-type.unique = .boolean
+  $ext-type.unique.$optional = true
+  $ext-type.contains = .$types.type
+  $ext-type.contains.$optional = true
 
   /// Map type with dynamic keys (all keys have the same type, all values have the same type).
   /// Unlike record, keys are not fixed - any key matching the key type is allowed.
@@ -411,5 +449,13 @@ variants {
   max-length = .integer
   max-length.$optional = true
 
+  /// Shorthand: field.$type = .path
+  /// Supports constraint extensions: $starts-with, $min-length, $max-length
   @variants.path-shorthand = { = .path, $variant: literal }
+  @variants.path-shorthand.$ext-type.starts-with = .path
+  @variants.path-shorthand.$ext-type.starts-with.$optional = true
+  @variants.path-shorthand.$ext-type.min-length = .integer
+  @variants.path-shorthand.$ext-type.min-length.$optional = true
+  @variants.path-shorthand.$ext-type.max-length = .integer
+  @variants.path-shorthand.$ext-type.max-length.$optional = true
 }

@@ -1,0 +1,92 @@
+// Test cases for primitive type schemas
+
+// ============================================================================
+// Input Data
+// ============================================================================
+
+input_eure = ```eure
+a = "hello"
+b = 1
+c = 1.0
+d = true
+e = null
+f = .a.b.c
+```
+
+// ============================================================================
+// Schema Definition
+// ============================================================================
+
+schema = ```eure
+// Shorthand syntax
+a = .string
+b = .integer
+c = .float
+
+// Explicit variant syntax
+@ d {
+  $variant: boolean
+}
+@ e {
+  $variant: null
+}
+@ f {
+  $variant: path
+}
+```
+
+// ============================================================================
+// Normalized Forms
+// ============================================================================
+
+normalized_input = ```eure
+= {
+  a = "hello",
+  b = 1,
+  c = 1.0,
+  d = true,
+  e = null,
+  f = .a.b.c,
+}
+```
+
+normalized_schema = ```eure
+= {
+  a = .string,
+  b = .integer,
+  c = .float,
+  d = .boolean,
+  e = .null,
+  f = .path,
+}
+```
+
+// ============================================================================
+// Expected Output
+// ============================================================================
+
+expected_json = ```json
+{
+  "a": "hello",
+  "b": 1,
+  "c": 1.0,
+  "d": true,
+  "e": null,
+  "f": ".a.b.c"
+}
+```
+
+expected_json_schema = ```json
+{
+  "type": "object",
+  "properties": {
+    "a": { "type": "string" },
+    "b": { "type": "integer" },
+    "c": { "type": "number" },
+    "d": { "type": "boolean" },
+    "e": { "type": "null" },
+    "f": { "type": "string" }
+  },
+  "required": ["a", "b", "c", "d", "e", "f"]
+}
+```
