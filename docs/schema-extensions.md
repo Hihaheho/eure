@@ -129,17 +129,18 @@ username.$pattern = "^[a-z0-9_]+$"
 ```eure
 @ age {
   $variant: integer
-  min = 0
-  max = 150
+  range = "[0, 150]"
 }
 
-// Or with exclusive bounds
-@ temperature {
+// Rust-style range syntax
+@ index {
   $variant: integer
-  exclusive-min = -273
-  exclusive-max = 1000
-  multiple-of = 1
+  range = "0..100"      // 0 <= x < 100
 }
+
+// Or using shorthand with extensions
+age = .integer
+age.$range = "0..=150"  // 0 <= x <= 150
 ```
 
 ### Float Type with Constraints
@@ -147,10 +148,32 @@ username.$pattern = "^[a-z0-9_]+$"
 ```eure
 @ probability {
   $variant: float
-  min = 0.0
-  max = 1.0
+  range = "[0.0, 1.0)"  // 0 <= x < 1
 }
+
+// Rust-style
+temperature = .float
+temperature.$range = "-273.15.."  // x >= -273.15
 ```
+
+### Range Syntax
+
+Two formats are supported:
+
+**Rust-style** (left side always inclusive):
+- `"0..100"` → 0 ≤ x < 100
+- `"0..=100"` → 0 ≤ x ≤ 100
+- `"0.."` → x ≥ 0
+- `"..100"` → x < 100
+- `"..=100"` → x ≤ 100
+
+**Interval notation** (supports all 4 combinations):
+- `"[0, 100]"` → 0 ≤ x ≤ 100 (both inclusive)
+- `"[0, 100)"` → 0 ≤ x < 100 (left inclusive, right exclusive)
+- `"(0, 100]"` → 0 < x ≤ 100 (left exclusive, right inclusive)
+- `"(0, 100)"` → 0 < x < 100 (both exclusive)
+- `"[0, )"` → x ≥ 0
+- `"(, 100]"` → x ≤ 100
 
 ### Code Type
 

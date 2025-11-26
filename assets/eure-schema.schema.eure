@@ -269,56 +269,38 @@ variants {
   length-max = 2
 
   /// Integer type with optional range and multiple-of constraints.
+  /// Range syntax supports two formats:
+  /// - Rust-style: "0..100" (exclusive end), "0..=100" (inclusive end), "0..", "..100", "..=100"
+  /// - Interval notation: "[0, 100]", "[0, 100)", "(0, 100]", "(0, 100)", "[0, )", "(, 100]"
   @variants.integer
-  min = .integer
-  min.$optional = true
-  max = .integer
-  max.$optional = true
-  exclusive-min = .integer
-  exclusive-min.$optional = true
-  exclusive-max = .integer
-  exclusive-max.$optional = true
+  range = .string
+  range.$optional = true
   multiple-of = .integer
   multiple-of.$optional = true
 
   /// Shorthand: field.$type = .integer
-  /// Supports constraint extensions: $min, $max, $exclusive-min, $exclusive-max, $multiple-of
+  /// Supports constraint extensions: $range, $multiple-of
   @variants.integer-shorthand = { => .integer, $variant: literal }
-  @variants.integer-shorthand.$ext-type.min = .integer
-  @variants.integer-shorthand.$ext-type.min.$optional = true
-  @variants.integer-shorthand.$ext-type.max = .integer
-  @variants.integer-shorthand.$ext-type.max.$optional = true
-  @variants.integer-shorthand.$ext-type.exclusive-min = .integer
-  @variants.integer-shorthand.$ext-type.exclusive-min.$optional = true
-  @variants.integer-shorthand.$ext-type.exclusive-max = .integer
-  @variants.integer-shorthand.$ext-type.exclusive-max.$optional = true
+  @variants.integer-shorthand.$ext-type.range = .string
+  @variants.integer-shorthand.$ext-type.range.$optional = true
   @variants.integer-shorthand.$ext-type.multiple-of = .integer
   @variants.integer-shorthand.$ext-type.multiple-of.$optional = true
 
   /// Float type with optional range and multiple-of constraints.
+  /// Range syntax supports two formats:
+  /// - Rust-style: "0.0..100.0" (exclusive end), "0.0..=100.0" (inclusive end), "0.0..", "..100.0", "..=100.0"
+  /// - Interval notation: "[0.0, 100.0]", "[0.0, 100.0)", "(0.0, 100.0]", "(0.0, 100.0)", "[0.0, )", "(, 100.0]"
   @variants.float
-  min = .float
-  min.$optional = true
-  max = .float
-  max.$optional = true
-  exclusive-min = .float
-  exclusive-min.$optional = true
-  exclusive-max = .float
-  exclusive-max.$optional = true
+  range = .string
+  range.$optional = true
   multiple-of = .float
   multiple-of.$optional = true
 
   /// Shorthand: field.$type = .float
-  /// Supports constraint extensions: $min, $max, $exclusive-min, $exclusive-max, $multiple-of
+  /// Supports constraint extensions: $range, $multiple-of
   @variants.float-shorthand = { => .float, $variant: literal }
-  @variants.float-shorthand.$ext-type.min = .float
-  @variants.float-shorthand.$ext-type.min.$optional = true
-  @variants.float-shorthand.$ext-type.max = .float
-  @variants.float-shorthand.$ext-type.max.$optional = true
-  @variants.float-shorthand.$ext-type.exclusive-min = .float
-  @variants.float-shorthand.$ext-type.exclusive-min.$optional = true
-  @variants.float-shorthand.$ext-type.exclusive-max = .float
-  @variants.float-shorthand.$ext-type.exclusive-max.$optional = true
+  @variants.float-shorthand.$ext-type.range = .string
+  @variants.float-shorthand.$ext-type.range.$optional = true
   @variants.float-shorthand.$ext-type.multiple-of = .float
   @variants.float-shorthand.$ext-type.multiple-of.$optional = true
 
