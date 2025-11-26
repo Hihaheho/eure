@@ -165,6 +165,15 @@ $ext-type.types = {
   @variants.schema = .$types.type
 }
 
+/// Range string format for numeric constraints.
+/// Supports two formats:
+/// - Rust-style: "0..100", "0..=100", "0..", "..100", "..=100"
+/// - Interval notation: "[0, 100]", "[0, 100)", "(0, 100]", "(0, 100)", "[0, )", "(, 100]"
+@ $types.range-string {
+  $variant: string
+  pattern = "^((-?\\d+(\\.\\d+)?)?\\.\\.=?(-?\\d+(\\.\\d+)?)?|[\\[\\(](-?\\d+(\\.\\d+)?)?, *(-?\\d+(\\.\\d+)?)?[\\]\\)])$"
+}
+
 /// Which way to represent a document path in a document.
 @ $types.binding-style
 $variant: union
@@ -269,11 +278,8 @@ variants {
   length-max = 2
 
   /// Integer type with optional range and multiple-of constraints.
-  /// Range syntax supports two formats:
-  /// - Rust-style: "0..100" (exclusive end), "0..=100" (inclusive end), "0..", "..100", "..=100"
-  /// - Interval notation: "[0, 100]", "[0, 100)", "(0, 100]", "(0, 100)", "[0, )", "(, 100]"
   @variants.integer
-  range = .string
+  range = .$types.range-string
   range.$optional = true
   multiple-of = .integer
   multiple-of.$optional = true
@@ -281,17 +287,14 @@ variants {
   /// Shorthand: field.$type = .integer
   /// Supports constraint extensions: $range, $multiple-of
   @variants.integer-shorthand = { => .integer, $variant: literal }
-  @variants.integer-shorthand.$ext-type.range = .string
+  @variants.integer-shorthand.$ext-type.range = .$types.range-string
   @variants.integer-shorthand.$ext-type.range.$optional = true
   @variants.integer-shorthand.$ext-type.multiple-of = .integer
   @variants.integer-shorthand.$ext-type.multiple-of.$optional = true
 
   /// Float type with optional range and multiple-of constraints.
-  /// Range syntax supports two formats:
-  /// - Rust-style: "0.0..100.0" (exclusive end), "0.0..=100.0" (inclusive end), "0.0..", "..100.0", "..=100.0"
-  /// - Interval notation: "[0.0, 100.0]", "[0.0, 100.0)", "(0.0, 100.0]", "(0.0, 100.0)", "[0.0, )", "(, 100.0]"
   @variants.float
-  range = .string
+  range = .$types.range-string
   range.$optional = true
   multiple-of = .float
   multiple-of.$optional = true
@@ -299,7 +302,7 @@ variants {
   /// Shorthand: field.$type = .float
   /// Supports constraint extensions: $range, $multiple-of
   @variants.float-shorthand = { => .float, $variant: literal }
-  @variants.float-shorthand.$ext-type.range = .string
+  @variants.float-shorthand.$ext-type.range = .$types.range-string
   @variants.float-shorthand.$ext-type.range.$optional = true
   @variants.float-shorthand.$ext-type.multiple-of = .float
   @variants.float-shorthand.$ext-type.multiple-of.$optional = true
