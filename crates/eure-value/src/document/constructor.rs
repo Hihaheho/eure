@@ -73,7 +73,13 @@ impl DocumentConstructor {
         &mut self.document
     }
 
-    pub fn finish(self) -> EureDocument {
+    pub fn finish(mut self) -> EureDocument {
+        // If the root node is Uninitialized, replace it with Null
+        let root_id = self.document.get_root_id();
+        let root_node = self.document.node_mut(root_id);
+        if matches!(root_node.content, NodeValue::Uninitialized) {
+            root_node.content = NodeValue::Primitive(PrimitiveValue::Null);
+        }
         self.document
     }
 }
@@ -479,6 +485,44 @@ mod tests {
         assert!(matches!(
             node.content,
             NodeValue::Primitive(PrimitiveValue::Null)
+        ));
+    }
+
+    #[test]
+    fn test_finish_replaces_uninitialized_root_with_null() {
+        let constructor = DocumentConstructor::new();
+
+        // Root should be Uninitialized before finish
+        let root_id = constructor.document().get_root_id();
+        assert!(matches!(
+            constructor.document().node(root_id).content,
+            NodeValue::Uninitialized
+        ));
+
+        // After finish, root should be Null
+        let document = constructor.finish();
+        let root_node = document.node(document.get_root_id());
+        assert!(matches!(
+            root_node.content,
+            NodeValue::Primitive(PrimitiveValue::Null)
+        ));
+    }
+
+    #[test]
+    fn test_finish_preserves_initialized_root() {
+        let mut constructor = DocumentConstructor::new();
+
+        // Bind a value to the root
+        constructor
+            .bind_primitive(PrimitiveValue::Bool(true))
+            .expect("Failed to bind");
+
+        // After finish, root should still have the bound value
+        let document = constructor.finish();
+        let root_node = document.node(document.get_root_id());
+        assert!(matches!(
+            root_node.content,
+            NodeValue::Primitive(PrimitiveValue::Bool(true))
         ));
     }
 }
