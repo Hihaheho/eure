@@ -400,6 +400,98 @@ contact = .$types.user
 
 ---
 
+## Cross-Schema Type References
+
+Schemas can import and reference types from other schemas for modularity and reuse.
+
+### $import
+
+Declare schema imports with namespace aliases:
+
+```eure
+// my-app.schema.eure
+$import = {
+  common => "common.schema.eure"
+  auth => "./auth/types.schema.eure"
+}
+
+// Reference imported types using: .$types.<namespace>.<type-name>
+@ user
+name = .$types.common.username      // from common.schema.eure
+email = .$types.common.email        // from common.schema.eure
+token = .$types.auth.jwt-token      // from auth/types.schema.eure
+local-field = .$types.my-local-type // local type (no namespace)
+```
+
+**Resolution rules:**
+- Path length 2 (`.$types.T`): Local type reference
+- Path length 3 (`.$types.N.T`): External type reference (N must be in `$import`)
+
+**Important:** Imports are resolved at schema bundling/validation time, not at runtime. Distributed schemas should be self-contained with all imports inlined. This follows EURE's design principle that documents should be self-contained.
+
+### $export
+
+Optionally declare which types are exported (public):
+
+```eure
+// common.schema.eure
+
+// Export all types (default if $export is omitted)
+$export = "*"
+
+// Or export only specific types
+$export = ["username", "email", "timestamp"]
+
+@ $types.username { ... }
+@ $types.email { ... }
+@ $types.timestamp { ... }
+@ $types.internal-helper { ... }  // Not exported, cannot be imported
+```
+
+### Example: Modular Schema Design
+
+**common.schema.eure:**
+```eure
+$export = ["username", "email"]
+
+@ $types.username {
+  $variant: string
+  min-length = 3
+  max-length = 20
+  pattern = "^[a-z0-9_]+$"
+}
+
+@ $types.email = .code.email
+```
+
+**user.schema.eure:**
+```eure
+$import = {
+  common => "common.schema.eure"
+}
+
+@ $types.user {
+  username = .$types.common.username
+  email = .$types.common.email
+  bio = .string
+  bio.$optional = true
+}
+
+$root-type = .$types.user
+```
+
+### Bundling
+
+For distribution, use the schema bundler to inline all imports:
+
+```bash
+eure-schema bundle user.schema.eure -o dist/user.schema.eure
+```
+
+The bundled schema will be self-contained with all external types inlined and renamed (e.g., `.$types.common.username` → `.$types.common__username`).
+
+---
+
 ## Metadata Extensions
 
 ### $optional
