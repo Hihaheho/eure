@@ -33,6 +33,18 @@ pub enum PreprocessedEure {
 }
 
 impl PreprocessedEure {
+    pub fn status(&self) -> String {
+        match self {
+            PreprocessedEure::Ok { .. } => "OK".to_string(),
+            PreprocessedEure::ErrParol(e) => format!("PARSE_ERROR({})", e),
+            PreprocessedEure::ErrDocument { error, .. } => format!("DOC_ERROR({})", error),
+        }
+    }
+
+    pub fn is_ok(&self) -> bool {
+        matches!(self, PreprocessedEure::Ok { .. })
+    }
+
     pub fn cst(&self) -> eros::Result<&Cst> {
         match self {
             PreprocessedEure::Ok { cst, .. } => Ok(cst),
@@ -99,6 +111,7 @@ impl NormalizationScenario<'_> {
 pub struct EureToJsonScenario<'a> {
     input: &'a PreprocessedEure,
     output_json: &'a serde_json::Value,
+    source: &'static str,
 }
 
 impl EureToJsonScenario<'_> {
@@ -115,12 +128,71 @@ impl EureToJsonScenario<'_> {
 
 impl PreprocessedCase {
     pub fn run(&self) -> eros::Result<()> {
+        let trace = std::env::var("EURE_TEST_TRACE").is_ok();
+
+        if trace {
+            eprintln!("\n=== PreprocessedCase Debug Trace ===");
+            eprintln!(
+                "input_eure: {}",
+                self.input_eure
+                    .as_ref()
+                    .map_or("None".to_string(), |e| e.status().to_string())
+            );
+            eprintln!(
+                "normalized: {}",
+                self.normalized
+                    .as_ref()
+                    .map_or("None".to_string(), |e| e.status().to_string())
+            );
+            eprintln!(
+                "output_json: {}",
+                if self.output_json.is_some() {
+                    "Some"
+                } else {
+                    "None"
+                }
+            );
+        }
+
         if let Some(normalization_scenario) = self.normalization_scenario() {
+            if trace {
+                eprintln!("\n--- Running Normalization Scenario ---");
+            }
             normalization_scenario.run()?;
+            if trace {
+                eprintln!("✓ Normalization scenario passed");
+            }
+        } else if trace {
+            eprintln!("\n--- Normalization Scenario: SKIPPED (missing fields) ---");
         }
-        for scenario in self.eure_to_json_scenario() {
+
+        let json_scenarios = self.eure_to_json_scenario();
+        if trace {
+            eprintln!(
+                "\n--- EureToJson Scenarios: {} total ---",
+                json_scenarios.len()
+            );
+        }
+
+        for (i, scenario) in json_scenarios.iter().enumerate() {
+            if trace {
+                eprintln!(
+                    "Running scenario {} (source: {}): input status = {}",
+                    i + 1,
+                    scenario.source,
+                    scenario.input.status()
+                );
+            }
             scenario.run()?;
+            if trace {
+                eprintln!("✓ Scenario {} passed", i + 1);
+            }
         }
+
+        if trace {
+            eprintln!("=== End Debug Trace ===\n");
+        }
+
         Ok(())
     }
 
@@ -134,12 +206,17 @@ impl PreprocessedCase {
     pub fn eure_to_json_scenario(&self) -> Vec<EureToJsonScenario<'_>> {
         let mut scenarios = Vec::new();
         if let (Some(input), Some(output_json)) = (&self.input_eure, &self.output_json) {
-            scenarios.push(EureToJsonScenario { input, output_json });
+            scenarios.push(EureToJsonScenario {
+                input,
+                output_json,
+                source: "input_eure",
+            });
         }
         if let (Some(normalized), Some(output_json)) = (&self.normalized, &self.output_json) {
             scenarios.push(EureToJsonScenario {
                 input: normalized,
                 output_json,
+                source: "normalized",
             });
         }
 
