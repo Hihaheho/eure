@@ -1,11 +1,11 @@
-use eure_tree::tree::InputSpan; // Added import
+use eure_tree::tree::{InputSpan, RecursiveView};
 use eure_tree::{prelude::*, tree::TerminalHandle};
 use eure_value::value::Tuple;
 use eure_value::{
     code::Code,
     document::{EureDocument, constructor::DocumentConstructor},
     identifier::Identifier,
-    path::PathSegment,
+    path::{EurePath, PathSegment},
     string::{EureString, EureStringError},
     value::ObjectKey,
     value::PrimitiveValue,
@@ -264,6 +264,120 @@ impl<'a> ValueVisitor<'a> {
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     type Error = DocumentConstructionError;
 
+    fn visit_object(
+        &mut self,
+        handle: ObjectHandle,
+        view: ObjectView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Process each entry in the ObjectList
+        // Each entry has: keys => value
+        // The keys can be nested (e.g., a.b => 1 becomes { a => { b => 1 } })
+        if let Some(object_list_view) = view.object_list.get_view(tree)? {
+            for item in object_list_view.get_all(tree)? {
+                // Collect path segments from the keys
+                let segments =
+                    self.collect_path_segments(|v| v.visit_keys_handle(item.keys, tree))?;
+
+                // Push the binding path - this will create the nested structure
+                let node_id = self.document.push_binding_path(&segments).map_err(|e| {
+                    DocumentConstructionError::DocumentInsert {
+                        error: e,
+                        node_id: handle.node_id(),
+                    }
+                })?;
+
+                // Visit the value
+                self.visit_value_handle(item.value, tree)?;
+
+                // Pop back to the Object level
+                self.document.pop(node_id)?;
+            }
+        } else {
+            self.document.bind_empty_map().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        }
+
+        Ok(())
+    }
+
+    fn visit_array(
+        &mut self,
+        handle: ArrayHandle,
+        view: ArrayView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Process array elements
+        if let Some(elements_handle) = view.array_opt.get_view(tree)? {
+            // Iterate through array elements
+            let mut current = Some(elements_handle);
+            let mut index = 0usize;
+
+            while let Some(elem_handle) = current {
+                let elem_view = elem_handle.get_view(tree)?;
+
+                // Push array index path
+                let node_id = self
+                    .document
+                    .push_path(&[PathSegment::ArrayIndex(Some(index))])
+                    .map_err(|e| DocumentConstructionError::DocumentInsert {
+                        error: e,
+                        node_id: handle.node_id(),
+                    })?;
+
+                // Visit the value at this index
+                self.visit_value_handle(elem_view.value, tree)?;
+
+                // Pop back to array level
+                self.document.pop(node_id)?;
+
+                // Move to next element if any
+                current = if let Some(tail_handle) = elem_view.array_elements_opt.get_view(tree)? {
+                    let tail_view = tail_handle.get_view(tree)?;
+                    tail_view.array_elements_tail_opt.get_view(tree)?
+                } else {
+                    None
+                };
+
+                index += 1;
+            }
+        } else {
+            self.document.bind_empty_array().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        }
+
+        Ok(())
+    }
+
+    fn visit_path(
+        &mut self,
+        handle: PathHandle,
+        view: PathView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Collect path segments from Keys
+        let segments = self.collect_path_segments(|v| v.visit_keys_handle(view.keys, tree))?;
+
+        // Create EurePath from segments and bind as primitive value
+        let path = EurePath(segments);
+        self.document
+            .bind_primitive(PrimitiveValue::Path(path))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+
+        Ok(())
+    }
+
     fn visit_key(
         &mut self,
         _handle: KeyHandle,
@@ -413,12 +527,17 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: SectionView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        let segments = self.collect_path_segments(|v| v.visit_keys_handle(view.keys, tree))?;
+        let SectionView {
+            at: _,
+            keys,
+            section_body,
+        } = view;
+        let segments = self.collect_path_segments(|v| v.visit_keys_handle(keys, tree))?;
         let node_id = self.document.push_path(&segments).map_err(|e| {
             let node_id = handle.node_id();
             DocumentConstructionError::DocumentInsert { error: e, node_id }
         })?;
-        self.visit_section_body_handle(view.section_body, tree)?;
+        self.visit_section_body_handle(section_body, tree)?;
         self.document.pop(node_id)?;
         Ok(())
     }
@@ -717,6 +836,17 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             code_start.terminals.push_terminal(data);
         }
         Ok(())
+    }
+
+    fn then_construct_error(
+        &mut self,
+        _node_data: Option<CstNode>,
+        _parent: CstNodeId,
+        _kind: NodeKind,
+        error: CstConstructError,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        Err(DocumentConstructionError::CstError(error))
     }
 }
 

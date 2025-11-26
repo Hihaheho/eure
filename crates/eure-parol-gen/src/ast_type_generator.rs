@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
 use parol::generators::export_node_types::{
-    ChildrenType, NodeName, NodeTypesInfo, NonTerminalInfo, TerminalInfo,
+    Child, NodeName, NodeTypesInfo, NonTerminalInfo, NonTerminalStructure, TerminalInfo,
 };
 use proc_macro2::TokenStream;
 use quote::{ToTokens, format_ident, quote};
@@ -71,7 +71,9 @@ impl AstTypeGenerator {
     }
 
     pub fn generate_imports(&self) -> proc_macro2::TokenStream {
+        let header = crate::generate_header_comment();
         quote! {
+            #header
             #![allow(unused_variables)]
             use super::tree::{TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId, ViewConstructionError, CstFacade};
             use super::visitor::BuiltinTerminalVisitor;
@@ -85,13 +87,19 @@ impl AstTypeGenerator {
         info: &NodeTypesInfo,
         nt: &NonTerminalInfo,
     ) -> proc_macro2::TokenStream {
-        match nt.kind {
-            ChildrenType::Sequence => self
+        match &nt.structure {
+            NonTerminalStructure::Sequence(_) => self
                 .generate_non_terminal_sequence(info, nt)
                 .to_token_stream(),
-            ChildrenType::OneOf => self.generate_one_of_handle(info, nt).to_token_stream(),
-            ChildrenType::Recursion => self.generate_recursion_handle(info, nt).to_token_stream(),
-            ChildrenType::Option => self.generate_option_handle(info, nt).to_token_stream(),
+            NonTerminalStructure::OneOf(_) => {
+                self.generate_one_of_handle(info, nt).to_token_stream()
+            }
+            NonTerminalStructure::Recursion(_) => {
+                self.generate_recursion_handle(info, nt).to_token_stream()
+            }
+            NonTerminalStructure::Option(_) => {
+                self.generate_option_handle(info, nt).to_token_stream()
+            }
         }
     }
 
@@ -125,7 +133,11 @@ impl AstTypeGenerator {
         let handle_name = format_ident!("{}Handle", nt.name);
         let view_name = format_ident!("{}View", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
-        let fields = self.fields(info, nt);
+        let children = match &nt.structure {
+            NonTerminalStructure::Sequence(children) => children,
+            _ => panic!("Expected Sequence structure"),
+        };
+        let fields = self.fields(info, children);
         let field_names = fields.iter().map(|f| &f.field_name).collect::<Vec<_>>();
         let field_types = fields.iter().map(|f| &f.field_type).collect::<Vec<_>>();
         let node_kinds = fields.iter().map(|f| &f.node_kind).collect::<Vec<_>>();
@@ -175,37 +187,37 @@ impl AstTypeGenerator {
         }
     }
 
-    fn fields(&self, info: &NodeTypesInfo, nt: &NonTerminalInfo) -> Vec<Field> {
-        let mut fields = nt
-            .children
-            .iter()
-            .map(|c| match &c.name {
-                NodeName::Terminal(name) => {
-                    let field_name = format_snake_case(&name.0);
-                    let field_type = format_ident!("{}", name.0);
-                    let terminal = self.get_terminal_by_name(info, &name.0);
-                    let variant_name = format_ident!("{}", terminal.variant);
-                    let node_kind = quote!(NodeKind::Terminal(TerminalKind::#variant_name));
-                    Field {
-                        field_name,
-                        field_type,
-                        node_kind,
-                    }
+    fn field(&self, info: &NodeTypesInfo, child: &Child) -> Field {
+        match &child.name {
+            NodeName::Terminal(name) => {
+                let field_name = format_snake_case(&name.0);
+                let field_type = format_ident!("{}", name.0);
+                let terminal = self.get_terminal_by_name(info, &name.0);
+                let variant_name = format_ident!("{}", terminal.variant);
+                let node_kind = quote!(NodeKind::Terminal(TerminalKind::#variant_name));
+                Field {
+                    field_name,
+                    field_type,
+                    node_kind,
                 }
-                NodeName::NonTerminal(name) => {
-                    let field_name = format_snake_case(&name.0);
-                    let field_type = format_ident!("{}Handle", name.0);
-                    let non_terminal = self.get_non_terminal_by_name(info, &name.0);
-                    let variant_name = format_ident!("{}", non_terminal.variant);
-                    let node_kind = quote!(NodeKind::NonTerminal(NonTerminalKind::#variant_name));
-                    Field {
-                        field_name,
-                        field_type,
-                        node_kind,
-                    }
+            }
+            NodeName::NonTerminal(name) => {
+                let field_name = format_snake_case(&name.0);
+                let field_type = format_ident!("{}Handle", name.0);
+                let non_terminal = self.get_non_terminal_by_name(info, &name.0);
+                let variant_name = format_ident!("{}", non_terminal.variant);
+                let node_kind = quote!(NodeKind::NonTerminal(NonTerminalKind::#variant_name));
+                Field {
+                    field_name,
+                    field_type,
+                    node_kind,
                 }
-            })
-            .collect::<Vec<_>>();
+            }
+        }
+    }
+
+    fn fields(&self, info: &NodeTypesInfo, children: &[Child]) -> Vec<Field> {
+        let mut fields: Vec<_> = children.iter().map(|c| self.field(info, c)).collect();
         let mut existing_fields = BTreeMap::new();
         for field in &mut fields {
             let existing_count = existing_fields
@@ -220,6 +232,122 @@ impl AstTypeGenerator {
         fields
     }
 
+    fn build_alt_info(
+        &self,
+        info: &NodeTypesInfo,
+        nt_name: &str,
+        idx: usize,
+        alt_children: &[Child],
+    ) -> AltInfo {
+        if alt_children.len() == 1 {
+            // Single element alternative - use the element name as variant name
+            let f = self.field(info, &alt_children[0]);
+            let variant_ty = {
+                let ty = &f.field_type;
+                quote!(#ty)
+            };
+            // Derive variant_name from field_type (strip "Handle" suffix for non-terminals)
+            let field_type_str = f.field_type.to_string();
+            let variant_name = if field_type_str.ends_with("Handle") {
+                format_ident!("{}", &field_type_str[..field_type_str.len() - 6])
+            } else {
+                f.field_type.clone()
+            };
+            AltInfo {
+                variant_name,
+                variant_ty,
+                first_child_kind: f.node_kind,
+                fields: vec![],
+                node_kinds: vec![],
+            }
+        } else {
+            // Multi-element alternative - create Alt{idx} variant with struct
+            let variant_name = format_ident!("Alt{}", idx);
+            let struct_name = format_ident!("{}Alt{}", nt_name, idx);
+
+            let fields = self.fields(info, alt_children);
+            let node_kinds: Vec<_> = fields.iter().map(|f| f.node_kind.clone()).collect();
+            let first_kind = node_kinds
+                .first()
+                .cloned()
+                .unwrap_or(quote!(NodeKind::Root));
+
+            AltInfo {
+                variant_name,
+                variant_ty: quote!(#struct_name),
+                first_child_kind: first_kind,
+                fields,
+                node_kinds,
+            }
+        }
+    }
+
+    fn generate_alt_structs(&self, alt_infos: &[AltInfo]) -> Vec<syn::ItemStruct> {
+        alt_infos
+            .iter()
+            .filter(|a| a.is_multi_element())
+            .map(|a| {
+                let struct_name = &a.variant_ty;
+                let field_names: Vec<_> = a.fields.iter().map(|f| &f.field_name).collect();
+                let field_types: Vec<_> = a.fields.iter().map(|f| &f.field_type).collect();
+                parse_quote! {
+                    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+                    pub struct #struct_name {
+                        #(pub #field_names: #field_types),*
+                    }
+                }
+            })
+            .collect()
+    }
+
+    fn generate_one_of_match_arms(
+        &self,
+        alt_infos: &[AltInfo],
+        view_name: &syn::Ident,
+        all_multi_element: bool,
+    ) -> Vec<proc_macro2::TokenStream> {
+        alt_infos
+            .iter()
+            .map(|a| {
+                let variant_name = &a.variant_name;
+                let expected_kind = &a.first_child_kind;
+
+                if a.is_multi_element() {
+                    // Multi-element: use collect_nodes
+                    let struct_ty = &a.variant_ty;
+                    let field_names: Vec<_> = a.fields.iter().map(|f| &f.field_name).collect();
+                    let field_types: Vec<_> = a.fields.iter().map(|f| &f.field_type).collect();
+                    let node_kinds: Vec<_> = a.node_kinds.iter().collect();
+
+                    let collect_nodes_call = quote! {
+                        tree.collect_nodes(
+                            self.0,
+                            [#(#node_kinds),*],
+                            |[#(#field_names),*], visit_ignored| {
+                                Ok(visit(#view_name::#variant_name(#struct_ty {
+                                    #(#field_names: #field_types(#field_names)),*
+                                }), visit_ignored))
+                            },
+                            visit_ignored,
+                        )
+                    };
+
+                    if all_multi_element {
+                        quote! { #expected_kind => { #collect_nodes_call } }
+                    } else {
+                        quote! { #expected_kind => { return #collect_nodes_call; } }
+                    }
+                } else {
+                    // Single element: simple match
+                    let ty = &a.variant_ty;
+                    quote! {
+                        #expected_kind => #view_name::#variant_name(#ty(child)),
+                    }
+                }
+            })
+            .collect()
+    }
+
     fn generate_one_of_handle(
         &self,
         info: &NodeTypesInfo,
@@ -229,58 +357,31 @@ impl AstTypeGenerator {
         let view_name = format_ident!("{}View", nt.name);
         let nt_variant_name = format_ident!("{}", nt.variant);
 
-        struct VariantInfo {
-            name: syn::Ident,
-            ty: proc_macro2::TokenStream,
-            expected_node_kind: proc_macro2::TokenStream,
-            view_constructor: proc_macro2::TokenStream,
-        }
+        // Get all alternatives from the structure
+        let NonTerminalStructure::OneOf(alternatives) = &nt.structure else {
+            panic!("Expected OneOf structure")
+        };
 
-        let variants = nt.children.iter().map(|child_info| {
-            match &child_info.name {
-                NodeName::Terminal(name) => {
-                    let terminal = self.get_terminal_by_name(info, &name.0);
-                    let variant_ident = format_ident!("{}", terminal.name);
-                    let type_ident = format_ident!("{}", name.0);
-                    let terminal_kind_variant = format_ident!("{}", terminal.variant);
+        let alt_infos: Vec<AltInfo> = alternatives
+            .iter()
+            .enumerate()
+            .map(|(idx, alt_children)| self.build_alt_info(info, &nt.name, idx, alt_children))
+            .collect();
 
-                    VariantInfo {
-                        name: variant_ident,
-                        ty: quote!(#type_ident),
-                        expected_node_kind: quote!(NodeKind::Terminal(TerminalKind::#terminal_kind_variant)),
-                        view_constructor: quote!(#type_ident(child)),
-                    }
-                }
-                NodeName::NonTerminal(name) => {
-                    let non_terminal = self.get_non_terminal_by_name(info, &name.0);
-                    let variant_ident = format_ident!("{}", non_terminal.name);
-                    let handle_ident = format_ident!("{}Handle", name.0);
-                    let non_terminal_kind_variant = format_ident!("{}", non_terminal.variant);
+        let alt_structs = self.generate_alt_structs(&alt_infos);
 
-                    VariantInfo {
-                        name: variant_ident,
-                        ty: quote!(#handle_ident),
-                        expected_node_kind: quote!(NodeKind::NonTerminal(NonTerminalKind::#non_terminal_kind_variant)),
-                        view_constructor: quote!(#handle_ident(child)),
-                    }
-                }
-            }
-        }).collect::<Vec<_>>();
-
-        let view_enum_variants = variants.iter().map(|v_info| {
-            let name = &v_info.name;
-            let ty = &v_info.ty;
+        // Generate view enum variants
+        let view_enum_variants = alt_infos.iter().map(|a| {
+            let name = &a.variant_name;
+            let ty = &a.variant_ty;
             quote!(#name(#ty))
         });
 
-        let get_view_match_arms = variants.iter().map(|v_info| {
-            let variant_name = &v_info.name;
-            let expected_kind = &v_info.expected_node_kind;
-            let constructor = &v_info.view_constructor;
-            quote! {
-                #expected_kind => #view_name::#variant_name(#constructor),
-            }
-        });
+        // Check if all alternatives are multi-element
+        let all_multi_element = alt_infos.iter().all(|a| a.is_multi_element());
+
+        let get_view_match_arms =
+            self.generate_one_of_match_arms(&alt_infos, &view_name, all_multi_element);
 
         let item_struct: syn::ItemStruct = parse_quote! {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -292,6 +393,52 @@ impl AstTypeGenerator {
         );
         let kind_method =
             self.generate_handle_kind_method(quote!(NonTerminalKind::#nt_variant_name));
+
+        // Common code snippets for get_view_with_visit body
+        let children_preamble = quote! {
+            let mut children = tree.children(self.0);
+            let Some(child) = children.next() else {
+                return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+            };
+            let Some(child_data) = tree.node_data(child) else {
+                return Err(ViewConstructionError::NodeIdNotFound { node: child });
+            };
+        };
+        let unexpected_node_error = quote! {
+            Err(ViewConstructionError::UnexpectedNode {
+                node: child,
+                data: child_data,
+                expected_kind: child_data.node_kind(),
+            })
+        };
+
+        // Generate get_view_with_visit body
+        let get_view_body = if all_multi_element {
+            // All multi-element alternatives: every match arm returns via collect_nodes
+            quote! {
+                #children_preamble
+                match child_data.node_kind() {
+                    #(#get_view_match_arms)*
+                    _ => #unexpected_node_error
+                }
+            }
+        } else {
+            // Mixed or all single-element: multi-element arms early return,
+            // single-element arms assign to variant
+            quote! {
+                #children_preamble
+                let variant = match child_data.node_kind() {
+                    #(#get_view_match_arms)*
+                    _ => { return #unexpected_node_error; }
+                };
+                let (result, _visit) = visit(variant, visit_ignored);
+                if let Some(extra_child) = children.next() {
+                    return Err(ViewConstructionError::UnexpectedExtraNode { node: extra_child });
+                }
+                Ok(result)
+            }
+        };
+
         let item_impl: syn::ItemImpl = parse_quote! {
             impl NonTerminalHandle for #handle_name {
                 type View = #view_name;
@@ -306,29 +453,7 @@ impl AstTypeGenerator {
                     mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
                     visit_ignored: &'v mut V,
                 ) -> Result<O, CstConstructError<E>> {
-                    let mut children = tree.children(self.0);
-                    let Some(child) = children.next() else {
-                        return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
-                    };
-                    let Some(child_data) = tree.node_data(child) else {
-                        return Err(ViewConstructionError::NodeIdNotFound { node: child });
-                    };
-
-                    let variant = match child_data.node_kind() {
-                        #(#get_view_match_arms)*
-                        _ => {
-                            return Err(ViewConstructionError::UnexpectedNode {
-                                node: child,
-                                data: child_data,
-                                expected_kind: child_data.node_kind(),
-                            });
-                        }
-                    };
-                    let (result, _visit) = visit(variant, visit_ignored);
-                    if let Some(child) = children.next() {
-                        return Err(ViewConstructionError::UnexpectedExtraNode { node: child });
-                    }
-                    Ok(result)
+                    #get_view_body
                 }
             }
         };
@@ -349,6 +474,7 @@ impl AstTypeGenerator {
             handle_impl: item_impl,
             view: view_enum,
             view_impl,
+            alt_structs,
         }
     }
 
@@ -362,7 +488,11 @@ impl AstTypeGenerator {
         let mut item_name = format_ident!("{}Item", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
 
-        let fields = self.fields(info, nt);
+        let children = match &nt.structure {
+            NonTerminalStructure::Recursion(children) => children,
+            _ => panic!("Expected Recursion structure"),
+        };
+        let fields = self.fields(info, children);
         let mut field_names = fields.iter().map(|f| &f.field_name).collect::<Vec<_>>();
         let mut field_types = fields.iter().map(|f| &f.field_type).collect::<Vec<_>>();
         let node_kinds = fields.iter().map(|f| &f.node_kind).collect::<Vec<_>>();
@@ -461,11 +591,15 @@ impl AstTypeGenerator {
     ) -> NonTerminalOption {
         let handle_name = format_ident!("{}Handle", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
+        let children = match &nt.structure {
+            NonTerminalStructure::Option(children) => children,
+            _ => panic!("Expected Option structure"),
+        };
 
         // If there are multiple children, treat it as a sequence
-        if nt.children.len() > 1 {
+        if children.len() > 1 {
             let view_name = format_ident!("{}View", nt.name);
-            let fields = self.fields(info, nt);
+            let fields = self.fields(info, children);
             let field_names = fields.iter().map(|f| &f.field_name).collect::<Vec<_>>();
             let field_types = fields.iter().map(|f| &f.field_type).collect::<Vec<_>>();
             let node_kinds = fields.iter().map(|f| &f.node_kind).collect::<Vec<_>>();
@@ -520,14 +654,14 @@ impl AstTypeGenerator {
         }
 
         // Handle single child case (existing logic)
-        if nt.children.len() != 1 {
+        if children.len() != 1 {
             panic!(
                 "Option non-terminal {} should have exactly one child, found {}",
                 nt.name,
-                nt.children.len()
+                children.len()
             );
         }
-        let child_info = &nt.children[0];
+        let child_info = &children[0];
 
         let child_handle_name = match &child_info.name {
             NodeName::Terminal(name) => {
@@ -611,6 +745,20 @@ struct Field {
     node_kind: TokenStream,
 }
 
+struct AltInfo {
+    variant_name: syn::Ident,
+    variant_ty: proc_macro2::TokenStream,
+    first_child_kind: proc_macro2::TokenStream,
+    fields: Vec<Field>,
+    node_kinds: Vec<proc_macro2::TokenStream>,
+}
+
+impl AltInfo {
+    fn is_multi_element(&self) -> bool {
+        !self.fields.is_empty()
+    }
+}
+
 struct NonTerminalSequence {
     handle: syn::ItemStruct,
     handle_impl: syn::ItemImpl,
@@ -632,6 +780,8 @@ struct NonTerminalOneOf {
     handle_impl: syn::ItemImpl,
     view: syn::ItemEnum,
     view_impl: syn::ItemImpl,
+    /// Additional structs for multi-element alternatives
+    alt_structs: Vec<syn::ItemStruct>,
 }
 
 impl ToTokens for NonTerminalOneOf {
@@ -640,6 +790,9 @@ impl ToTokens for NonTerminalOneOf {
         self.handle_impl.to_tokens(tokens);
         self.view.to_tokens(tokens);
         self.view_impl.to_tokens(tokens);
+        for alt_struct in &self.alt_structs {
+            alt_struct.to_tokens(tokens);
+        }
     }
 }
 

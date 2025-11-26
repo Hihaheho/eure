@@ -22,11 +22,16 @@ pub struct PreprocessedCase {
 
 pub enum PreprocessedEure {
     Ok {
+        input: String,
         cst: Cst,
         doc: EureDocument,
     },
-    ErrParol(ParolError),
+    ErrParol {
+        input: String,
+        error: ParolError,
+    },
     ErrDocument {
+        input: String,
         cst: Cst,
         error: DocumentConstructionError,
     },
@@ -36,8 +41,48 @@ impl PreprocessedEure {
     pub fn status(&self) -> String {
         match self {
             PreprocessedEure::Ok { .. } => "OK".to_string(),
-            PreprocessedEure::ErrParol(e) => format!("PARSE_ERROR({})", e),
-            PreprocessedEure::ErrDocument { error, .. } => format!("DOC_ERROR({})", error),
+            PreprocessedEure::ErrParol { error, .. } => format!("PARSE_ERROR({})", error),
+            PreprocessedEure::ErrDocument { input, cst, error } => {
+                // Get node_id and node_data for better debugging
+                let node_info = match error {
+                    DocumentConstructionError::CstError(cst_error) => {
+                        use eure::tree::CstConstructError;
+                        match cst_error {
+                            CstConstructError::UnexpectedExtraNode { node } => {
+                                let data = cst.node_data(*node);
+                                Some(format!("node_id={}, data={:?}", node, data))
+                            }
+                            CstConstructError::UnexpectedNode { node, data, expected_kind } => {
+                                Some(format!("node_id={}, expected={:?}, got={:?}", node, expected_kind, data))
+                            }
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                if let Some(info) = node_info {
+                    format!("DOC_ERROR({}) [{}]", error, info)
+                } else if let Some(span) = error.span(cst) {
+                    let start = span.start as usize;
+                    let end = span.end as usize;
+                    if start < input.len() && end <= input.len() && start <= end {
+                        let snippet = &input[start..end];
+                        format!("DOC_ERROR({}) at {}..{}: {:?}", error, start, end, snippet)
+                    } else {
+                        format!("DOC_ERROR({}) at {}..{} (invalid span)", error, start, end)
+                    }
+                } else {
+                    format!("DOC_ERROR({})", error)
+                }
+            }
+        }
+    }
+
+    pub fn input(&self) -> &str {
+        match self {
+            PreprocessedEure::Ok { input, .. } => input,
+            PreprocessedEure::ErrParol { input, .. } => input,
+            PreprocessedEure::ErrDocument { input, .. } => input,
         }
     }
 
@@ -49,14 +94,14 @@ impl PreprocessedEure {
         match self {
             PreprocessedEure::Ok { cst, .. } => Ok(cst),
             PreprocessedEure::ErrDocument { cst, .. } => Ok(cst),
-            PreprocessedEure::ErrParol(e) => Err(eros::traced!("{}", e)),
+            PreprocessedEure::ErrParol { error, .. } => Err(eros::traced!("{}", error)),
         }
     }
 
     pub fn doc(&self) -> eros::Result<&EureDocument> {
         match self {
             PreprocessedEure::Ok { doc, .. } => Ok(doc),
-            PreprocessedEure::ErrParol(e) => Err(eros::traced!("{}", e)),
+            PreprocessedEure::ErrParol { error, .. } => Err(eros::traced!("{}", error)),
             PreprocessedEure::ErrDocument { error, .. } => Err(eros::traced!("{}", error.clone())),
         }
     }
@@ -64,12 +109,17 @@ impl PreprocessedEure {
 
 impl Case {
     fn preprocess_eure(code: &str) -> PreprocessedEure {
+        let input = code.to_string();
         match eure::parol::parse(code) {
             Ok(cst) => match eure::document::cst_to_document(code, &cst) {
-                Ok(doc) => PreprocessedEure::Ok { cst, doc },
-                Err(e) => PreprocessedEure::ErrDocument { cst, error: e },
+                Ok(doc) => PreprocessedEure::Ok { input, cst, doc },
+                Err(e) => PreprocessedEure::ErrDocument {
+                    input,
+                    cst,
+                    error: e,
+                },
             },
-            Err(e) => PreprocessedEure::ErrParol(e),
+            Err(e) => PreprocessedEure::ErrParol { input, error: e },
         }
     }
     pub fn preprocess(&self) -> PreprocessedCase {
@@ -132,18 +182,26 @@ impl PreprocessedCase {
 
         if trace {
             eprintln!("\n=== PreprocessedCase Debug Trace ===");
-            eprintln!(
-                "input_eure: {}",
-                self.input_eure
-                    .as_ref()
-                    .map_or("None".to_string(), |e| e.status().to_string())
-            );
-            eprintln!(
-                "normalized: {}",
-                self.normalized
-                    .as_ref()
-                    .map_or("None".to_string(), |e| e.status().to_string())
-            );
+            if let Some(ref input_eure) = self.input_eure {
+                eprintln!("input_eure: {}", input_eure.status());
+                if !input_eure.is_ok() {
+                    eprintln!("--- input_eure source ---");
+                    eprintln!("{}", input_eure.input());
+                    eprintln!("--- end source ---");
+                }
+            } else {
+                eprintln!("input_eure: None");
+            }
+            if let Some(ref normalized) = self.normalized {
+                eprintln!("normalized: {}", normalized.status());
+                if !normalized.is_ok() {
+                    eprintln!("--- normalized source ---");
+                    eprintln!("{}", normalized.input());
+                    eprintln!("--- end source ---");
+                }
+            } else {
+                eprintln!("normalized: None");
+            }
             eprintln!(
                 "output_json: {}",
                 if self.output_json.is_some() {

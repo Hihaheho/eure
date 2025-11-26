@@ -41,23 +41,23 @@ c = .float
 
 normalized_input = ```eure
 = {
-  a = "hello",
-  b = 1,
-  c = 1.0,
-  d = true,
-  e = null,
-  f = .a.b.c,
+  a => "hello",
+  b => 1,
+  c => 1.0,
+  d => true,
+  e => null,
+  f => .a.b.c,
 }
 ```
 
 normalized_schema = ```eure
 = {
-  a = .string,
-  b = .integer,
-  c = .float,
-  d = .boolean,
-  e = .null,
-  f = .path,
+  a => .string,
+  b => .integer,
+  c => .float,
+  d => .boolean,
+  e => .null,
+  f => .path,
 }
 ```
 

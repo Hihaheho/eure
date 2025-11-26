@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use parol::generators::export_node_types::{
-    ChildrenType, NodeName, NodeTypesInfo, NonTerminalInfo, TerminalInfo,
+    Child, NodeName, NodeTypesInfo, NonTerminalInfo, NonTerminalStructure, TerminalInfo,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -43,7 +43,9 @@ impl ConstructorGenerator {
     }
 
     fn generate_imports(&self) -> TokenStream {
+        let header = crate::generate_header_comment();
         quote! {
+            #header
             use crate::builder::{CstBuilder, BuilderNodeId};
             use crate::node_kind::{NonTerminalKind, TerminalKind};
         }
@@ -69,12 +71,14 @@ impl ConstructorGenerator {
         node_info: &NodeTypesInfo,
         nt: &NonTerminalInfo,
     ) -> TokenStream {
-        // Generate constructor based on the ChildrenType, following grammar structure exactly
-        match nt.kind {
-            ChildrenType::Sequence => self.generate_sequence_constructor(node_info, nt),
-            ChildrenType::OneOf => self.generate_one_of_constructor(node_info, nt),
-            ChildrenType::Recursion => self.generate_recursion_constructor(node_info, nt),
-            ChildrenType::Option => self.generate_option_constructor(node_info, nt),
+        // Generate constructor based on the NonTerminalStructure, following grammar structure exactly
+        match &nt.structure {
+            NonTerminalStructure::Sequence(_) => self.generate_sequence_constructor(node_info, nt),
+            NonTerminalStructure::OneOf(_) => self.generate_one_of_constructor(node_info, nt),
+            NonTerminalStructure::Recursion(_) => {
+                self.generate_recursion_constructor(node_info, nt)
+            }
+            NonTerminalStructure::Option(_) => self.generate_option_constructor(node_info, nt),
         }
     }
 
@@ -87,13 +91,19 @@ impl ConstructorGenerator {
         let node_type = format_ident!("{}Node", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
 
+        let children = match &nt.structure {
+            NonTerminalStructure::Sequence(children) => children,
+            // Option with multiple children is also treated as sequence
+            NonTerminalStructure::Option(children) if children.len() > 1 => children,
+            _ => panic!("Expected Sequence or multi-child Option structure"),
+        };
+
         // Generate fields for each child
-        let fields: Vec<_> = nt
-            .children
+        let fields: Vec<_> = children
             .iter()
             .enumerate()
             .map(|(idx, child)| {
-                let field_name = self.derive_field_name(node_info, nt, idx);
+                let field_name = self.derive_field_name(children, idx);
                 let field_ident = format_ident!("{}", field_name);
 
                 let field_type = match &child.name {
@@ -151,9 +161,16 @@ impl ConstructorGenerator {
         let node_type = format_ident!("{}Node", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
 
-        let variants: Vec<_> = nt
-            .children
+        let alts = match &nt.structure {
+            NonTerminalStructure::OneOf(alts) => alts,
+            _ => panic!("Expected OneOf structure"),
+        };
+
+        // For now, only handle single-element alternatives (existing behavior)
+        // TODO: Handle multi-element alternatives properly
+        let variants: Vec<_> = alts
             .iter()
+            .filter_map(|alt| alt.first())
             .map(|child| match &child.name {
                 NodeName::Terminal(term) => {
                     let term_info = self.get_terminal_by_name(node_info, &term.0);
@@ -208,17 +225,21 @@ impl ConstructorGenerator {
         let node_type = format_ident!("{}Node", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
 
+        let children = match &nt.structure {
+            NonTerminalStructure::Recursion(children) => children,
+            _ => panic!("Expected Recursion structure"),
+        };
+
         // Recursion nodes have two cases:
         // 1. Empty (base case) - no children
         // 2. Push (recursive case) - with specific children including recursive reference
 
         // For the Push case, we need fields for all children
-        let fields: Vec<_> = nt
-            .children
+        let fields: Vec<_> = children
             .iter()
             .enumerate()
             .map(|(idx, child)| {
-                let field_name = self.derive_field_name(node_info, nt, idx);
+                let field_name = self.derive_field_name(children, idx);
                 let field_ident = format_ident!("{}", field_name);
 
                 let field_type = match &child.name {
@@ -287,7 +308,12 @@ impl ConstructorGenerator {
         let node_type = format_ident!("{}Node", nt.name);
         let variant_name = format_ident!("{}", nt.variant);
 
-        if nt.children.is_empty() {
+        let children = match &nt.structure {
+            NonTerminalStructure::Option(children) => children,
+            _ => panic!("Expected Option structure"),
+        };
+
+        if children.is_empty() {
             // Empty option - just None
             quote! {
                 #[derive(bon::Builder)]
@@ -304,9 +330,9 @@ impl ConstructorGenerator {
                     }
                 }
             }
-        } else if nt.children.len() == 1 {
+        } else if children.len() == 1 {
             // Single child option - Some(child) or None
-            let child = &nt.children[0];
+            let child = &children[0];
             let (child_type, field_name) = match &child.name {
                 NodeName::Terminal(term) => {
                     let term_info = self.get_terminal_by_name(node_info, &term.0);
@@ -353,13 +379,8 @@ impl ConstructorGenerator {
         }
     }
 
-    fn derive_field_name(
-        &self,
-        _node_info: &NodeTypesInfo,
-        nt: &NonTerminalInfo,
-        idx: usize,
-    ) -> String {
-        let child = &nt.children[idx];
+    fn derive_field_name(&self, children: &[Child], idx: usize) -> String {
+        let child = &children[idx];
 
         // Basic field name from the child
         let base_name = match &child.name {
@@ -369,7 +390,7 @@ impl ConstructorGenerator {
 
         // Check for naming conflicts and add suffix if needed
         let mut count = 0;
-        for (i, other_child) in nt.children.iter().enumerate() {
+        for (i, other_child) in children.iter().enumerate() {
             if i >= idx {
                 break;
             }

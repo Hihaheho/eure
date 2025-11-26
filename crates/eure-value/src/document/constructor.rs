@@ -92,6 +92,13 @@ impl DocumentConstructor {
             .document
             .prepare_node_from(target, base_path, path)?
             .node_id;
+        // Truncate path to current range before extending to avoid keeping stale segments
+        let current_range = self
+            .stack
+            .last()
+            .map(|item| item.path_range)
+            .unwrap_or(0);
+        self.path.truncate(current_range);
         self.path.extend(path.iter().cloned());
         self.stack.push(StackItem {
             node_id,
@@ -155,6 +162,32 @@ impl DocumentConstructor {
             });
         }
         node.content = NodeValue::Primitive(value);
+        Ok(())
+    }
+
+    /// Bind an empty map to the current node. Error if already bound.
+    pub fn bind_empty_map(&mut self) -> Result<(), InsertError> {
+        let node = self.current_node_mut();
+        if !matches!(node.content, NodeValue::Uninitialized) {
+            return Err(InsertError {
+                kind: InsertErrorKind::BindingTargetHasValue,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            });
+        }
+        node.content = NodeValue::Map(Default::default());
+        Ok(())
+    }
+
+    /// Bind an empty array to the current node. Error if already bound.
+    pub fn bind_empty_array(&mut self) -> Result<(), InsertError> {
+        let node = self.current_node_mut();
+        if !matches!(node.content, NodeValue::Uninitialized) {
+            return Err(InsertError {
+                kind: InsertErrorKind::BindingTargetHasValue,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            });
+        }
+        node.content = NodeValue::Array(Default::default());
         Ok(())
     }
 }

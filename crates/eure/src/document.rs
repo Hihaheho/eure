@@ -74,6 +74,17 @@ impl DocumentConstructionError {
     /// Get the span associated with this error, if available
     pub fn span(&self, cst: &Cst) -> Option<InputSpan> {
         match self {
+            DocumentConstructionError::CstError(cst_error) => {
+                let node_id = match cst_error {
+                    CstConstructError::UnexpectedNode { node, .. } => Some(*node),
+                    CstConstructError::UnexpectedExtraNode { node } => Some(*node),
+                    CstConstructError::UnexpectedEndOfChildren { parent } => Some(*parent),
+                    CstConstructError::UnexpectedEmptyChildren { node } => Some(*node),
+                    CstConstructError::NodeIdNotFound { node } => Some(*node),
+                    CstConstructError::Error(_) => None,
+                };
+                node_id.and_then(|id| get_node_span(cst, id))
+            }
             DocumentConstructionError::DocumentInsert { node_id, .. } => {
                 get_node_span(cst, *node_id)
             }

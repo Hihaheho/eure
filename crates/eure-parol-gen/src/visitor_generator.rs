@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use parol::generators::export_node_types::{
-    ChildrenType, NodeName, NodeTypesInfo, NonTerminalInfo, TerminalInfo,
+    Child, NodeName, NodeTypesInfo, NonTerminalInfo, NonTerminalStructure, TerminalInfo,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -56,7 +56,9 @@ impl VisitorGenerator {
     }
 
     fn generate_imports(&self) -> TokenStream {
+        let header = crate::generate_header_comment();
         quote! {
+            #header
             use crate::{
                 Cst, CstConstructError, NodeKind, CstNode,
                 nodes::*,
@@ -68,18 +70,18 @@ impl VisitorGenerator {
 
     fn get_view_param_type(&self, nt_info: &NonTerminalInfo) -> TokenStream {
         let view_name_ident = format_ident!("{}View", nt_info.name);
-        match nt_info.kind {
-            ChildrenType::Sequence | ChildrenType::OneOf => {
+        match &nt_info.structure {
+            NonTerminalStructure::Sequence(_) | NonTerminalStructure::OneOf(_) => {
                 quote!(#view_name_ident)
             }
-            ChildrenType::Recursion => {
+            NonTerminalStructure::Recursion(_) => {
                 quote!(#view_name_ident)
             }
-            ChildrenType::Option => {
-                if nt_info.children.len() > 1 {
+            NonTerminalStructure::Option(children) => {
+                if children.len() > 1 {
                     quote!(#view_name_ident)
                 } else {
-                    let child_node_name = &nt_info.children[0].name;
+                    let child_node_name = &children[0].name;
                     match child_node_name {
                         NodeName::Terminal(name) => {
                             let terminal_ident = format_ident!("{}", name.0);
@@ -275,13 +277,13 @@ impl VisitorGenerator {
         let visitor_method_name = crate::format_snake_case(&format!("visit_{}", nt_info.name));
         let handle_type_ident = format_ident!("{}Handle", nt_info.name);
 
-        let on_view = match nt_info.kind {
-            ChildrenType::Sequence | ChildrenType::OneOf => {
+        let on_view = match &nt_info.structure {
+            NonTerminalStructure::Sequence(_) | NonTerminalStructure::OneOf(_) => {
                 quote! {
                     visit.#visitor_method_name(handle, view, tree)
                 }
             }
-            ChildrenType::Option | ChildrenType::Recursion => {
+            NonTerminalStructure::Option(_) | NonTerminalStructure::Recursion(_) => {
                 quote! {
                     if let Some(view) = view {
                         visit.#visitor_method_name(handle, view, tree)
@@ -340,9 +342,8 @@ impl VisitorGenerator {
         }
     }
 
-    fn get_fields_for_view(&self, nt_info: &NonTerminalInfo) -> Vec<GenField> {
-        let mut gen_fields = nt_info
-            .children
+    fn get_fields_for_children(&self, children: &[Child]) -> Vec<GenField> {
+        let mut gen_fields = children
             .iter()
             .map(|child_prod_info| {
                 let (name_str_ref, is_nt) = match &child_prod_info.name {
@@ -378,9 +379,9 @@ impl VisitorGenerator {
         let actual_view_type_name = format_ident!("{}View", nt_info.name);
         let handle_type_ident = format_ident!("{}Handle", nt_info.name);
 
-        let body = match (&nt_info.kind, nt_info.children.len()) {
-            (ChildrenType::Option, 1) => {
-                let child_info = &nt_info.children[0];
+        let body = match &nt_info.structure {
+            NonTerminalStructure::Option(children) if children.len() == 1 => {
+                let child_info = &children[0];
                 let visit_call = match &child_info.name {
                     NodeName::NonTerminal(name) => {
                         let visit_child_handle_method =
@@ -402,10 +403,10 @@ impl VisitorGenerator {
                     Ok(())
                 }
             }
-            (ChildrenType::Sequence, _)
-            | (ChildrenType::Recursion, _)
-            | (ChildrenType::Option, _) => {
-                let view_fields = self.get_fields_for_view(nt_info);
+            NonTerminalStructure::Sequence(children)
+            | NonTerminalStructure::Recursion(children)
+            | NonTerminalStructure::Option(children) => {
+                let view_fields = self.get_fields_for_children(children);
                 let (field_names, visit_calls) = view_fields
                     .iter()
                     .map(|field_info| {
@@ -440,28 +441,76 @@ impl VisitorGenerator {
                     Ok(())
                 }
             }
-            (ChildrenType::OneOf, _) => {
-                let variants_handling = nt_info.children.iter().map(|child_prod_info| {
-                    let (child_name_str, is_child_nt) = match &child_prod_info.name {
-                        NodeName::Terminal(name) => (name.0.as_str(), false),
-                        NodeName::NonTerminal(name) => (name.0.as_str(), true),
-                    };
-                    let variant_name_ident = format_ident!("{}", child_name_str);
+            NonTerminalStructure::OneOf(alts) => {
+                let variants_handling = alts.iter().enumerate().map(|(idx, alt_children)| {
+                    if alt_children.len() == 1 {
+                        // Single-element alternative: Variant(item)
+                        let child_info = &alt_children[0];
+                        let (child_name_str, is_child_nt) = match &child_info.name {
+                            NodeName::Terminal(name) => (name.0.as_str(), false),
+                            NodeName::NonTerminal(name) => (name.0.as_str(), true),
+                        };
+                        let variant_name_ident = format_ident!("{}", child_name_str);
 
-                    if is_child_nt {
-                        let visit_child_handle_method =
-                            crate::format_snake_case(&format!("visit_{child_name_str}_handle"));
-                        quote! {
-                            #actual_view_type_name::#variant_name_ident(item) => {
-                                self.#visit_child_handle_method(item, tree)?;
+                        if is_child_nt {
+                            let visit_child_handle_method =
+                                crate::format_snake_case(&format!("visit_{child_name_str}_handle"));
+                            quote! {
+                                #actual_view_type_name::#variant_name_ident(item) => {
+                                    self.#visit_child_handle_method(item, tree)?;
+                                }
+                            }
+                        } else {
+                            let visit_terminal_method =
+                                crate::format_snake_case(&format!("visit_{child_name_str}_terminal"));
+                            quote! {
+                                #actual_view_type_name::#variant_name_ident(item) => {
+                                    let data = match item.get_data(tree) {
+                                        Ok(data) => data,
+                                        Err(error) => return self.then_construct_error(None, item.0, NodeKind::Terminal(item.kind()), error, tree),
+                                    };
+                                    self.#visit_terminal_method(item, data, tree)?;
+                                }
                             }
                         }
                     } else {
-                        let visit_terminal_method =
-                            crate::format_snake_case(&format!("visit_{child_name_str}_terminal"));
+                        // Multi-element alternative: AltN(struct)
+                        let variant_name_ident = format_ident!("Alt{}", idx);
+                        let view_fields = self.get_fields_for_children(alt_children);
+                        let (field_names, visit_calls): (Vec<_>, Vec<_>) = view_fields
+                            .iter()
+                            .map(|field_info| {
+                                let child_handle_field_name = &field_info.field_name_ident;
+                                let visit_call = if field_info.is_non_terminal {
+                                    let visit_child_handle_method = format_snake_case(&format!(
+                                        "visit_{}_handle",
+                                        field_info.original_name
+                                    ));
+                                    quote! {
+                                        self.#visit_child_handle_method(#child_handle_field_name, tree)?;
+                                    }
+                                } else {
+                                    let visit_terminal_method = format_snake_case(&format!(
+                                        "visit_{}_terminal",
+                                        field_info.original_name
+                                    ));
+                                    quote! {
+                                        let data = match #child_handle_field_name.get_data(tree) {
+                                            Ok(data) => data,
+                                            Err(error) => return self.then_construct_error(None, #child_handle_field_name.0, NodeKind::Terminal(#child_handle_field_name.kind()), error, tree),
+                                        };
+                                        self.#visit_terminal_method(#child_handle_field_name, data, tree)?;
+                                    }
+                                };
+                                (child_handle_field_name, visit_call)
+                            })
+                            .unzip();
+
+                        let alt_struct_name = format_ident!("{}Alt{}", nt_info.name, idx);
                         quote! {
-                            #actual_view_type_name::#variant_name_ident(item) => {
-                                self.#visit_terminal_method(item, data, tree)?;
+                            #actual_view_type_name::#variant_name_ident(alt_struct) => {
+                                let #alt_struct_name { #(#field_names),* } = alt_struct;
+                                #(#visit_calls)*
                             }
                         }
                     }

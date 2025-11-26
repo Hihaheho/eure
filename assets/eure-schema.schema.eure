@@ -101,8 +101,8 @@
 ///    Default: externally tagged (using $variant field).
 ///    Options via $ext-type.variant-repr:
 ///    - "untagged": no discriminator field
-///    - { tag = "type" }: internally tagged
-///    - { tag = "type", content = "data" }: adjacently tagged
+///    - { tag => "type" }: internally tagged
+///    - { tag => "type", content => "data" }: adjacently tagged
 ///    - "external": explicitly specify default
 ///
 /// 6. Documentation Extensions:
@@ -121,12 +121,12 @@ $ext-type.root-type = .$types.type
 $root-type = .$types.type
 
 /// Allows users to define custom types in the schema.
-/// Users can define types like: $types.my-type = { field = .string }
+/// Users can define types like: $types.my-type = { field => .string }
 /// and reference them as: field.$type = .$types.my-type
 $ext-type.types = {
   $variant: map
-  key = .string
-  value = .$types.type
+  key => .string
+  value => .$types.type
 }
 
 /// How variants should be represented in the data model.
@@ -134,7 +134,7 @@ $ext-type.types = {
   $variant: union
 
   /// Untagged variant representation (no $variant field).
-  @variants.untagged = { = "untagged", $variant: literal }
+  @variants.untagged = { => "untagged", $variant: literal }
 
   /// Internally tagged variant (custom tag field name).
   @variants.internal {
@@ -148,7 +148,7 @@ $ext-type.types = {
   }
 
   /// Externally tagged variant (default).
-  @variants.external = { = "external", $variant: literal }
+  @variants.external = { => "external", $variant: literal }
 }
 
 /// Policy for handling unknown fields in record types.
@@ -156,10 +156,10 @@ $ext-type.types = {
   $variant: union
 
   /// Deny unknown fields (strict mode, default behavior).
-  @variants.deny = { = "deny", $variant: literal }
+  @variants.deny = { => "deny", $variant: literal }
 
   /// Allow any unknown fields without validation.
-  @variants.allow = { = "allow", $variant: literal }
+  @variants.allow = { => "allow", $variant: literal }
 
   /// Allow unknown fields with schema validation for their values.
   @variants.schema = .$types.type
@@ -170,35 +170,35 @@ $ext-type.types = {
 $variant: union
 variants {
   /// Automatically determine the best way to represent the document path in the document.
-  auto = { = "auto", $variant: literal }
+  auto = { => "auto", $variant: literal }
 
   /// Pass through; defer to the preference of subsequent keys.
-  passthrough = { = "passthrough", $variant: literal }
+  passthrough = { => "passthrough", $variant: literal }
 
   /// Create a new section at the key.
   /// @ a.b.c.this-key
   /// /* rest */
-  section = { = "section", $variant: literal }
+  section = { => "section", $variant: literal }
 
   /// Create a new nested section at the key.
   /// @ a.b.c.this-key {
   ///   /* rest */
   /// }
-  nested = { = "nested", $variant: literal }
+  nested = { => "nested", $variant: literal }
 
   /// Binding a value to the key.
   /// a.b.c.this-key = /* rest */
-  binding = { = "binding", $variant: literal }
+  binding = { => "binding", $variant: literal }
 
   /// Binding a section to the key
   /// a.b.c.this-key {
   ///   /* rest */
   /// }
-  section-binding = { = "section-binding", $variant: literal }
+  section-binding = { => "section-binding", $variant: literal }
 
   /// Create a new section at the key with root binding.
   /// @ a.b.c.this-key = /* rest */
-  section-root-binding = { = "section-root-binding", $variant: literal }
+  section-root-binding = { => "section-root-binding", $variant: literal }
 }
 
 @ $types.type {
@@ -207,31 +207,31 @@ variants {
   // $optional is not here because it's a record variant's extension.
   $cascade-ext-type = {
     // Allows users to define or override cascading extensions at any level.
-    // Example: section.$cascade-ext-type = { custom-field = .string }
-    cascade-ext-type = {
+    // Example: section.$cascade-ext-type = { custom-field => .string }
+    cascade-ext-type => {
       $variant: map
-      key = .string
-      value = .$types.type
+      key => .string
+      value => .$types.type
     }
 
     // Field description (supports both plain text via text binding and rich markdown).
-    description = {
+    description => {
       $variant: union
-      variants.string = .string
-      variants.markdown = .code.markdown
+      variants.string => .string
+      variants.markdown => .code.markdown
     }
     description.$optional = true
 
     // Marks the field as deprecated.
-    deprecated = .boolean
+    deprecated => .boolean
     deprecated.$optional = true
 
     // Default value for the field (if omitted in the data).
-    default = .any
+    default => .any
     default.$optional = true
 
     // Example values in Eure code format.
-    examples = [.code.eure]
+    examples => [.code.eure]
     examples.$optional = true
   }
 
@@ -246,7 +246,7 @@ variants {
 
   /// Shorthand: field.$type = .string
   /// Supports constraint extensions: $min-length, $max-length, $pattern
-  @variants.string-shorthand = { = .string, $variant: literal }
+  @variants.string-shorthand = { => .string, $variant: literal }
   @variants.string-shorthand.$ext-type.min-length = .integer
   @variants.string-shorthand.$ext-type.min-length.$optional = true
   @variants.string-shorthand.$ext-type.max-length = .integer
@@ -283,7 +283,7 @@ variants {
 
   /// Shorthand: field.$type = .integer
   /// Supports constraint extensions: $min, $max, $exclusive-min, $exclusive-max, $multiple-of
-  @variants.integer-shorthand = { = .integer, $variant: literal }
+  @variants.integer-shorthand = { => .integer, $variant: literal }
   @variants.integer-shorthand.$ext-type.min = .integer
   @variants.integer-shorthand.$ext-type.min.$optional = true
   @variants.integer-shorthand.$ext-type.max = .integer
@@ -310,7 +310,7 @@ variants {
 
   /// Shorthand: field.$type = .float
   /// Supports constraint extensions: $min, $max, $exclusive-min, $exclusive-max, $multiple-of
-  @variants.float-shorthand = { = .float, $variant: literal }
+  @variants.float-shorthand = { => .float, $variant: literal }
   @variants.float-shorthand.$ext-type.min = .float
   @variants.float-shorthand.$ext-type.min.$optional = true
   @variants.float-shorthand.$ext-type.max = .float
@@ -324,15 +324,15 @@ variants {
 
   /// Boolean type (true/false).
   /// Usage: field.$type = .boolean
-  @variants.boolean = { = .boolean, $variant: literal }
+  @variants.boolean = { => .boolean, $variant: literal }
 
   /// Null type.
   /// Usage: field.$type = .null
-  @variants.null = { = .null, $variant: literal }
+  @variants.null = { => .null, $variant: literal }
 
   /// Any type (accepts any valid Eure value).
   /// Usage: field.$type = .any
-  @variants.any = { = .any, $variant: literal }
+  @variants.any = { => .any, $variant: literal }
 
   /// Literal type accepts a constant value.
   /// The schema matches only that exact value.
@@ -341,7 +341,7 @@ variants {
 
   /// Record type with fixed, named fields.
   /// Each field has a specific name and type defined in the schema.
-  /// Shorthand: field.$type = { name = .string, age = .integer }
+  /// Shorthand: field.$type = { name => .string, age => .integer }
   @variants.record
   $variant: map
   key = .string
@@ -354,7 +354,7 @@ variants {
   $ext-type.unknown-fields.$optional = true  // Default: deny
 
   @variants.union
-  variants = { $variant: map, key = .string, value = .$types.type }
+  variants = { $variant: map, key => .string, value => .$types.type }
   $ext-type.variant-repr = .$types.variant-repr
   $ext-type.variant-repr.$optional = true  // Default: externally tagged
 
@@ -392,8 +392,8 @@ variants {
 
   /// Map type with dynamic keys (all keys have the same type, all values have the same type).
   /// Unlike record, keys are not fixed - any key matching the key type is allowed.
-  /// Example: { $variant: map, key = .string, value = .integer }
-  ///          Allows: { "a" = 1, "b" = 2, "any-key" = 3 }
+  /// Example: { $variant: map, key => .string, value => .integer }
+  ///          Allows: { "a" => 1, "b" => 2, "any-key" => 3 }
   @variants.map
   key = .$types.type
   value = .$types.type
@@ -451,7 +451,7 @@ variants {
 
   /// Shorthand: field.$type = .path
   /// Supports constraint extensions: $starts-with, $min-length, $max-length
-  @variants.path-shorthand = { = .path, $variant: literal }
+  @variants.path-shorthand = { => .path, $variant: literal }
   @variants.path-shorthand.$ext-type.starts-with = .path
   @variants.path-shorthand.$ext-type.starts-with.$optional = true
   @variants.path-shorthand.$ext-type.min-length = .integer

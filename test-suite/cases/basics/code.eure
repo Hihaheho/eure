@@ -7,7 +7,7 @@ ls -la
 ````
 
 normalized = ````eure
-={ inline = `ls -la`, block = ```bash
+={ inline => `ls -la`, block => ```bash
 ls -la
 ``` }
 ````
