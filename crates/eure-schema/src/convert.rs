@@ -279,8 +279,10 @@ impl<'a> ConversionContext<'a> {
         match &node.content {
             NodeValue::Uninitialized => {
                 // Uninitialized with no type extension - could be an empty record or Any
-                // If there are no children, treat as Any
-                self.create_any_schema(node_id)
+                // If the node is a section (created via @ syntax), treat as empty record
+                // We detect this by checking if we came from a section path
+                // For now, treat uninitialized as empty record since sections create uninitialized nodes
+                self.convert_empty_record(node_id)
             }
             NodeValue::Map(map) => {
                 // A map is a record with fields
@@ -299,6 +301,16 @@ impl<'a> ConversionContext<'a> {
                 self.convert_literal_value(node_id, prim)
             }
         }
+    }
+
+    /// Convert an uninitialized node to an empty record
+    fn convert_empty_record(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
+        let record_schema = RecordSchema::default();
+        let schema_id = self
+            .schema
+            .create_node(SchemaNodeContent::Record(record_schema));
+        self.apply_metadata(node_id, schema_id)?;
+        Ok(schema_id)
     }
 
     /// Convert a node with $variants extension (variant type definition)
@@ -628,9 +640,12 @@ impl<'a> ConversionContext<'a> {
         &mut self,
         node_id: NodeId,
     ) -> Result<SchemaNodeId, ConversionError> {
+        let const_value = self.get_bool_extension(node_id, "const")?;
         let schema_id = self
             .schema
-            .create_node(SchemaNodeContent::Boolean(BooleanSchema::default()));
+            .create_node(SchemaNodeContent::Boolean(BooleanSchema {
+                r#const: const_value,
+            }));
         self.apply_metadata(node_id, schema_id)?;
         Ok(schema_id)
     }
@@ -648,9 +663,10 @@ impl<'a> ConversionContext<'a> {
     }
 
     fn create_path_schema(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
-        let schema_id = self
-            .schema
-            .create_node(SchemaNodeContent::Path(PathSchema::default()));
+        let const_value = self.get_path_extension(node_id, "const")?;
+        let schema_id = self.schema.create_node(SchemaNodeContent::Path(PathSchema {
+            r#const: const_value,
+        }));
         self.apply_metadata(node_id, schema_id)?;
         Ok(schema_id)
     }
@@ -1012,10 +1028,9 @@ impl<'a> ConversionContext<'a> {
             }
         }
 
-        // Check for $prefer.section
+        // Check for $prefer.section - section is a map child, not an extension
         if let Some(prefer_node_id) = node.get_extension(&Self::ident("prefer")) {
-            let prefer_node = self.doc.node(prefer_node_id);
-            if let Some(section_node_id) = prefer_node.get_extension(&Self::ident("section")) {
+            if let Some(section_node_id) = self.get_map_child(prefer_node_id, "section") {
                 let section_node = self.doc.node(section_node_id);
                 if let NodeValue::Primitive(PrimitiveValue::Bool(b)) = &section_node.content {
                     metadata.prefer_section = *b;
@@ -1108,6 +1123,21 @@ impl<'a> ConversionContext<'a> {
             let ext_node = self.doc.node(ext_node_id);
             if let NodeValue::Primitive(PrimitiveValue::BigInt(n)) = &ext_node.content {
                 return Ok(Some(n.clone()));
+            }
+        }
+        Ok(None)
+    }
+
+    fn get_path_extension(
+        &self,
+        node_id: NodeId,
+        name: &str,
+    ) -> Result<Option<EurePath>, ConversionError> {
+        let node = self.doc.node(node_id);
+        if let Some(ext_node_id) = node.get_extension(&Self::ident(name)) {
+            let ext_node = self.doc.node(ext_node_id);
+            if let NodeValue::Primitive(PrimitiveValue::Path(p)) = &ext_node.content {
+                return Ok(Some(p.clone()));
             }
         }
         Ok(None)
