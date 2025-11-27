@@ -5,6 +5,8 @@ b.x = 2
 @ d {
   x = 4
 }
+@ e
+x: 6
 ```
 
 normalized = ```eure
@@ -13,7 +15,8 @@ normalized = ```eure
   b => { x => 2 },
   c => { x => 3 },
   d => { x => 4 },
+  e => { x => "6" },
 }
 ```
 
-output_json = json`{ "a": { "x": 1 }, "b": { "x": 2 }, "c": { "x": 3 }, "d": { "x": 4 } }`
+output_json = json`{ "a": { "x": 1 }, "b": { "x": 2 }, "c": { "x": 3 }, "d": { "x": 4 }, "e": { "x": "6" } }`

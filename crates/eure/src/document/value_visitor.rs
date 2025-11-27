@@ -824,6 +824,61 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
+    fn visit_text_binding(
+        &mut self,
+        handle: TextBindingHandle,
+        view: TextBindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text_view = view.text.get_view(tree)?;
+        let text_str = self.get_terminal_str(tree, text_view.text)?;
+        let eure_string = EureString::parse_text_binding(text_str).map_err(|error| {
+            DocumentConstructionError::InvalidStringKey {
+                node_id: handle.node_id(),
+                error,
+            }
+        })?;
+        self.document
+            .bind_primitive(PrimitiveValue::String(eure_string))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+        Ok(())
+    }
+
+    fn visit_strings(
+        &mut self,
+        handle: StringsHandle,
+        view: StringsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Parse the first string
+        let first_str = self.parse_str_terminal(view.str, tree)?;
+
+        // Check for continuations
+        let result = if let Some(list_view) = view.strings_list.get_view(tree)? {
+            // There are continuation strings - collect and join them
+            let mut parts = vec![first_str];
+            for item in list_view.get_all(tree)? {
+                let part = self.parse_str_terminal(item.str, tree)?;
+                parts.push(part);
+            }
+            parts.join("")
+        } else {
+            first_str
+        };
+
+        let eure_string = EureString::new(result);
+        self.document
+            .bind_primitive(PrimitiveValue::String(eure_string))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+        Ok(())
+    }
+
     fn visit_terminal(
         &mut self,
         _id: CstNodeId,
