@@ -105,7 +105,42 @@
 ///    - { tag => "type", content => "data" }: adjacently tagged
 ///    - "external": explicitly specify default
 ///
-/// 6. Documentation Extensions:
+/// 6. Union Type Checking (oneOf semantics):
+///    Union types require EXACTLY ONE variant to match (not anyOf).
+///    - If no variant matches: error with the "closest" failure
+///    - If exactly one matches: success
+///    - If multiple match: ambiguity error (unless priority is set)
+///
+///    For untagged unions where multiple variants may match structurally,
+///    use "priority" to specify which variant takes precedence:
+///
+///    @ $types.response {
+///      $variant: union
+///      $variant-repr = "untagged"
+///      priority = ["error", "success"]  // error checked first
+///      variants.error = { code = .integer, message = .string }
+///      variants.success = { data = .any }
+///    }
+///
+///    When priority is set and multiple variants match, the first
+///    matching variant in priority order is selected.
+///
+/// 7. Hole Values:
+///    The hole value (!) acts like a "never" type in type checking:
+///    - Type checking passes (hole matches any schema)
+///    - But the document is not "complete" (has unfilled placeholders)
+///
+///    Validation returns two flags:
+///    - is_valid: no type errors (holes are allowed)
+///    - is_complete: no type errors AND no holes
+///
+/// 8. Extension Validation:
+///    Extensions on nodes are validated against:
+///    - Schema-defined extensions ($ext-type)
+///    - Built-in extensions (passed externally)
+///    - Unknown extensions: valid but emit a warning
+///
+/// 9. Documentation Extensions:
 ///    Types support documentation via cascading extensions:
 ///    - $description: plain text or markdown
 ///    - $deprecated: marks as deprecated
@@ -374,8 +409,16 @@ variants {
   $ext-type.unknown-fields = .$types.unknown-fields-policy
   $ext-type.unknown-fields.$optional = true  // Default: deny
 
+  /// Union type with named variants.
+  /// Requires exactly one variant to match (oneOf semantics).
+  /// Use priority to resolve ambiguity in untagged unions.
   @variants.union
   variants = { $variant: map, key => .string, value => .$types.type }
+  /// Priority order for variant matching (used when multiple variants match).
+  /// Only relevant for untagged unions. First matching variant in priority wins.
+  /// Example: priority = ["specific", "general"]
+  priority = [.string]
+  priority.$optional = true
   $ext-type.variant-repr = .$types.variant-repr
   $ext-type.variant-repr.$optional = true  // Default: externally tagged
 
