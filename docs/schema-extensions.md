@@ -376,6 +376,23 @@ No discriminator field (type is inferred from content).
 // "hello" or 42
 ```
 
+### Priority (Ambiguity Resolution)
+
+For untagged unions where multiple variants may match, use `priority` to specify resolution order.
+
+```eure
+@ $types.response {
+  $variant: union
+  $variant-repr = "untagged"
+  priority: ["error", "success"]  // error takes precedence
+
+  variants.error = { code = .integer, message = .string }
+  variants.success = { data = .any }
+}
+
+// If a value matches both error and success, error is selected
+```
+
 ---
 
 ## Literal Type
@@ -687,6 +704,104 @@ Union types always have a discriminator. Customize with `$variant-repr`:
 - `"untagged"` - No discriminator
 - `{ tag = "..." }` - Internal tagging
 - `{ tag = "...", content = "..." }` - Adjacent tagging
+
+---
+
+## Type Checking Algorithm
+
+EURE Schema uses a structural type checking algorithm that is both **sound** (accepted values always conform to the schema) and **complete** (all conforming values are accepted).
+
+### Core Algorithm
+
+Type checking traverses the value structure recursively, matching each node against its corresponding schema:
+
+```
+check(value, schema) -> Result<(), TypeError>
+```
+
+| Value Type | Schema Type | Validation |
+|------------|-------------|------------|
+| Null | Null | Type match only |
+| Bool | Boolean | const constraint |
+| Integer | Integer | min/max, multiple_of, const, enum |
+| Float | Float | min/max, const, enum |
+| String | String | length, pattern, format, const, enum |
+| Code | Code | language constraint |
+| Path | Path | path constraints |
+| Hole | Any | Always passes (but marks document incomplete) |
+| Array | Array | item type, min/max_items, unique, contains |
+| Map | Map | key/value types, min/max_pairs |
+| Tuple | Tuple | element types at each position |
+| Map | Record | field types + unknown_fields_policy |
+
+### Union Type Checking (oneOf Semantics)
+
+Union types use **oneOf** semantics—exactly one variant must match:
+
+```
+check_union(value, union_schema):
+  matching = []
+  failures = []
+
+  for (name, schema) in union_schema.variants:
+    if check(value, schema).is_ok():
+      matching.push(name)
+    else:
+      failures.push((name, error))
+
+  match matching.len():
+    0 -> return closest_error(failures)  // No match
+    1 -> return Ok                        // Exactly one match
+    _ -> resolve_ambiguity(matching, union_schema.priority)
+
+resolve_ambiguity(matching, priority):
+  if priority is set:
+    for name in priority:
+      if name in matching:
+        return Ok  // First priority match wins
+  return AmbiguityError(matching)
+```
+
+**Error Selection**: When no variant matches, the "closest" error is returned based on error depth (how deep into the structure the check progressed before failing).
+
+### Hole Values
+
+The hole value (`!`) represents an unfilled placeholder, similar to a "never" type:
+
+- **Type checking**: Holes match any schema (always pass)
+- **Completeness**: Documents containing holes are valid but not complete
+
+Validation returns two flags:
+
+```rust
+struct ValidationResult {
+    is_valid: bool,    // No type errors (holes allowed)
+    is_complete: bool, // No type errors AND no holes
+    errors: Vec<TypeError>,
+    warnings: Vec<Warning>,
+}
+```
+
+### Extension Validation
+
+Extensions attached to nodes are validated against three sources:
+
+1. **Schema-defined** (`$ext-type`): Extensions defined in the schema
+2. **Built-in**: Extensions provided externally (e.g., `$schema`, `$variant`)
+3. **Unknown**: Extensions not in either list
+
+Unknown extensions pass validation but emit a **warning**.
+
+```
+check_extensions(node, schema):
+  for (name, value) in node.extensions:
+    if name in schema.ext_types:
+      check(value, schema.ext_types[name])
+    else if name in builtin_extensions:
+      check(value, builtin_extensions[name])
+    else:
+      emit_warning(UnknownExtension(name))
+```
 
 ---
 
