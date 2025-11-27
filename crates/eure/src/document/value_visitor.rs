@@ -587,6 +587,36 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
+    fn visit_text_binding(
+        &mut self,
+        handle: TextBindingHandle,
+        view: TextBindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Get the text content from the Text terminal
+        let text_view = view.text.get_view(tree)?;
+        let text_str = self.get_terminal_str(tree, text_view.text)?;
+
+        // Parse the text binding (handles escape sequences and trailing newline)
+        let eure_string =
+            EureString::parse_text_binding(text_str).map_err(|error| {
+                DocumentConstructionError::InvalidTextBinding {
+                    node_id: handle.node_id(),
+                    error,
+                }
+            })?;
+
+        // Bind the parsed string as a primitive value
+        self.document
+            .bind_primitive(PrimitiveValue::String(eure_string))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+
+        Ok(())
+    }
+
     fn visit_integer(
         &mut self,
         handle: IntegerHandle,

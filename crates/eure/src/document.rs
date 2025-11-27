@@ -62,6 +62,11 @@ pub enum DocumentConstructionError {
         node_id: CstNodeId,
         error: EureStringError,
     },
+    #[error("Invalid text binding at node {node_id:?}: {error}")]
+    InvalidTextBinding {
+        node_id: CstNodeId,
+        error: EureStringError,
+    },
     #[error("Invalid key type at node {node_id:?}")]
     InvalidKeyType { node_id: CstNodeId },
     #[error("Failed to pop path: {0}")]
@@ -95,6 +100,9 @@ impl DocumentConstructionError {
                 get_node_span(cst, *node_id)
             }
             DocumentConstructionError::InvalidStringKey { node_id, .. } => {
+                get_node_span(cst, *node_id)
+            }
+            DocumentConstructionError::InvalidTextBinding { node_id, .. } => {
                 get_node_span(cst, *node_id)
             }
             DocumentConstructionError::InvalidKeyType { node_id } => get_node_span(cst, *node_id),
