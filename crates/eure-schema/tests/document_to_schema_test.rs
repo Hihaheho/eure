@@ -462,35 +462,23 @@ fn assert_tuple3<F1, F2, F3>(
     }
 }
 
-/// Helper to check if a check function passes without panicking
-fn check_passes<F: Fn(&SchemaDocument, SchemaNodeId)>(
-    schema: &SchemaDocument,
-    node_id: SchemaNodeId,
-    check: F,
-) -> bool {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        check(schema, node_id);
-    }))
-    .is_ok()
-}
-
-/// Assert that a node is a Union type with 2 variants (order-independent)
+/// Assert that a node is a Union type with 2 variants
 fn assert_union2<F1, F2>(schema: &SchemaDocument, node_id: SchemaNodeId, check1: F1, check2: F2)
 where
     F1: Fn(&SchemaDocument, SchemaNodeId),
     F2: Fn(&SchemaDocument, SchemaNodeId),
 {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 2, "Union should have 2 variants");
-        let checks: Vec<&dyn Fn(&SchemaDocument, SchemaNodeId)> = vec![&check1, &check2];
-        assert_union_matches(schema, union_variants, &checks);
+    if let SchemaNodeContent::Union(variants) = &node.content {
+        assert_eq!(variants.len(), 2);
+        check1(schema, variants[0]);
+        check2(schema, variants[1]);
     } else {
         panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Union type with 3 variants (order-independent)
+/// Assert that a node is a Union type with 3 variants
 fn assert_union3<F1, F2, F3>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -503,16 +491,17 @@ fn assert_union3<F1, F2, F3>(
     F3: Fn(&SchemaDocument, SchemaNodeId),
 {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 3, "Union should have 3 variants");
-        let checks: Vec<&dyn Fn(&SchemaDocument, SchemaNodeId)> = vec![&check1, &check2, &check3];
-        assert_union_matches(schema, union_variants, &checks);
+    if let SchemaNodeContent::Union(variants) = &node.content {
+        assert_eq!(variants.len(), 3);
+        check1(schema, variants[0]);
+        check2(schema, variants[1]);
+        check3(schema, variants[2]);
     } else {
         panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Union type with 4 variants (order-independent)
+/// Assert that a node is a Union type with 4 variants
 fn assert_union4<F1, F2, F3, F4>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -527,48 +516,14 @@ fn assert_union4<F1, F2, F3, F4>(
     F4: Fn(&SchemaDocument, SchemaNodeId),
 {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 4, "Union should have 4 variants");
-        let checks: Vec<&dyn Fn(&SchemaDocument, SchemaNodeId)> =
-            vec![&check1, &check2, &check3, &check4];
-        assert_union_matches(schema, union_variants, &checks);
+    if let SchemaNodeContent::Union(variants) = &node.content {
+        assert_eq!(variants.len(), 4);
+        check1(schema, variants[0]);
+        check2(schema, variants[1]);
+        check3(schema, variants[2]);
+        check4(schema, variants[3]);
     } else {
         panic!("Expected Union type, got {:?}", node.content);
-    }
-}
-
-/// Helper: Assert that each variant matches exactly one check (order-independent)
-fn assert_union_matches(
-    schema: &SchemaDocument,
-    variants: &[SchemaNodeId],
-    checks: &[&dyn Fn(&SchemaDocument, SchemaNodeId)],
-) {
-    let n = variants.len();
-    assert_eq!(checks.len(), n);
-
-    // For each check, find which variant it matches
-    let mut matched = vec![false; n];
-    for (check_idx, check) in checks.iter().enumerate() {
-        let mut found = None;
-        for (var_idx, &var_id) in variants.iter().enumerate() {
-            if !matched[var_idx] && check_passes(schema, var_id, *check) {
-                found = Some(var_idx);
-                break;
-            }
-        }
-        if let Some(var_idx) = found {
-            matched[var_idx] = true;
-        } else {
-            // Try to give a helpful error message
-            let variant_types: Vec<_> = variants
-                .iter()
-                .map(|&v| format!("{:?}", schema.node(v).content))
-                .collect();
-            panic!(
-                "Check {} didn't match any unmatched variant. Variants: {:?}",
-                check_idx, variant_types
-            );
-        }
     }
 }
 
@@ -996,9 +951,7 @@ fn test_union_type() {
     assert_record1(
         &schema,
         schema.root,
-        ("value", |s, id| {
-            assert_union2(s, id, assert_string, assert_float)
-        }),
+        ("value", |s, id| assert_union2(s, id, assert_string, assert_float)),
     );
 }
 

@@ -11,7 +11,7 @@ use eure_value::identifier::Identifier;
 use eure_value::path::EurePath;
 use eure_value::value::PrimitiveValue;
 use num_bigint::BigInt;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Schema document with arena-based node storage
 #[derive(Debug, Clone)]
@@ -70,8 +70,8 @@ pub enum SchemaNodeContent {
     Tuple(TupleSchema),
 
     // --- Logic ---
-    /// Union type ($union)
-    Union(Vec<SchemaNodeId>),
+    /// Union type ($union) - tagged variants by name
+    Union(BTreeMap<String, SchemaNodeId>),
     /// Variant type (tagged union, $variants)
     Variant(VariantSchema),
 

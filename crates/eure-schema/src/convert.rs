@@ -14,7 +14,7 @@ use eure_value::document::{EureDocument, NodeId};
 use eure_value::identifier::Identifier;
 use eure_value::path::{EurePath, PathSegment};
 use eure_value::value::{ObjectKey, PrimitiveValue};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use thiserror::Error;
 
 /// Errors that can occur during document to schema conversion
