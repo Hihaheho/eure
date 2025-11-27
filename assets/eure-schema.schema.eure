@@ -111,6 +111,23 @@
 ///    - $deprecated: marks as deprecated
 ///    - $default: default value
 ///    - $examples: example values in Eure code
+///
+/// 7. Cross-Schema Type References:
+///    Schemas can import types from other schemas using $import.
+///
+///    $import = { common => "common.schema.eure" }
+///
+///    Then reference imported types using: .$types.<namespace>.<type-name>
+///    - .$types.common.username    (imported from common.schema.eure)
+///    - .$types.local-type         (local type, no namespace)
+///
+///    Resolution rules:
+///    - Path length 2 (.$types.T): Local type reference
+///    - Path length 3 (.$types.N.T): External type reference (N must be in $import)
+///
+///    Schemas can optionally declare which types to export using $export.
+///    - $export = "*"              (export all types, default)
+///    - $export = ["username"]     (export only listed types)
 
 $schema = "eure-schema.schema.eure"
 
@@ -128,6 +145,39 @@ $ext-type.types = {
   key => .string
   value => .$types.type
 }
+
+/// Allows schemas to import types from other schemas.
+/// Users can define imports like: $import = { common => "common.schema.eure" }
+/// and reference imported types as: .$types.common.username
+///
+/// The namespace (e.g., "common") is used as a prefix when referencing types.
+/// The path (e.g., "common.schema.eure") is resolved relative to the current schema file.
+///
+/// Note: Imports are resolved at schema bundling/validation time, not at runtime.
+/// Distributed schemas should be self-contained (all imports inlined).
+$ext-type.import = {
+  $variant: map
+  key => .string    // namespace name
+  value => .string  // schema file path (relative or absolute)
+}
+$ext-type.import.$optional = true
+
+/// Allows schemas to declare which types are exported (public).
+/// - $export = "*" exports all types (default behavior if $export is omitted)
+/// - $export = ["type1", "type2"] exports only the listed types
+///
+/// Types not in the export list cannot be referenced from other schemas.
+@ $types.export-policy {
+  $variant: union
+
+  /// Export all types defined in this schema.
+  @variants.all = { => "*", $variant: literal }
+
+  /// Export only the explicitly listed types.
+  @variants.explicit = [.string]
+}
+$ext-type.export = .$types.export-policy
+$ext-type.export.$optional = true  // Default: export all ("*")
 
 /// How variants should be represented in the data model.
 @ $types.variant-repr {
@@ -163,6 +213,15 @@ $ext-type.types = {
 
   /// Allow unknown fields with schema validation for their values.
   @variants.schema = .$types.type
+}
+
+/// Range string format for numeric constraints.
+/// Supports two formats:
+/// - Rust-style: "0..100", "0..=100", "0..", "..100", "..=100"
+/// - Interval notation: "[0, 100]", "[0, 100)", "(0, 100]", "(0, 100)", "[0, )", "(, 100]"
+@ $types.range-string {
+  $variant: string
+  pattern = "^((-?\\d+(\\.\\d+)?)?\\.\\.=?(-?\\d+(\\.\\d+)?)?|[\\[\\(](-?\\d+(\\.\\d+)?)?, *(-?\\d+(\\.\\d+)?)?[\\]\\)])$"
 }
 
 /// Which way to represent a document path in a document.
@@ -264,14 +323,8 @@ variants {
 
   /// Integer type with optional range and multiple-of constraints.
   @variants.integer
-  min = .integer
-  min.$optional = true
-  max = .integer
-  max.$optional = true
-  exclusive-min = .integer
-  exclusive-min.$optional = true
-  exclusive-max = .integer
-  exclusive-max.$optional = true
+  range = .$types.range-string
+  range.$optional = true
   multiple-of = .integer
   multiple-of.$optional = true
 
@@ -281,14 +334,8 @@ variants {
 
   /// Float type with optional range and multiple-of constraints.
   @variants.float
-  min = .float
-  min.$optional = true
-  max = .float
-  max.$optional = true
-  exclusive-min = .float
-  exclusive-min.$optional = true
-  exclusive-max = .float
-  exclusive-max.$optional = true
+  range = .$types.range-string
+  range.$optional = true
   multiple-of = .float
   multiple-of.$optional = true
 
@@ -399,11 +446,25 @@ variants {
   variants.15 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
   variants.16 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
 
-  // Type reference using path syntax (e.g., .$types.my-type).
-  // This is used to reference other type definitions within the schema.
+  /// Type reference using path syntax.
+  /// Supports both local and cross-schema type references:
+  ///
+  /// Local reference (path length 2):
+  ///   .$types.my-type
+  ///   References a type defined in the current schema via $types.my-type
+  ///
+  /// Cross-schema reference (path length 3):
+  ///   .$types.common.username
+  ///   References type "username" from schema imported as "common" via $import
+  ///
+  /// Resolution:
+  /// - Local refs are resolved against $types in the current schema
+  /// - External refs require matching $import entry and exported type
   @variants.ref
   $variant: path
   starts-with = .$types
+  length-min = 2
+  length-max = 3
 
   // Path schema type with optional constraints like starts-with, min-length, max-length, etc.
   // This is the actual data type for storing path values, not a type reference.

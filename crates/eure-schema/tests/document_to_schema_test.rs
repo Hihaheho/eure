@@ -1313,12 +1313,12 @@ email = .code.email
 // ============================================================================
 
 #[test]
-fn test_integer_range_constraint() {
+fn test_integer_range_constraint_inclusive() {
+    // Interval notation: both inclusive
     let input = r#"
 @ age {
   $variant: integer
-  min = 0
-  max = 150
+  range = "[0, 150]"
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1336,11 +1336,12 @@ fn test_integer_range_constraint() {
 }
 
 #[test]
-fn test_integer_minimum_constraint() {
+fn test_integer_range_rust_style_inclusive() {
+    // Rust-style: ..= means inclusive end
     let input = r#"
-@ count {
+@ age {
   $variant: integer
-  min = 0
+  range = "0..=150"
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1348,24 +1349,22 @@ fn test_integer_minimum_constraint() {
     assert_record1(
         &schema,
         schema.root,
-        ("count", |s, id| {
+        ("age", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                if let Bound::Inclusive(val) = &int_schema.min {
-                    assert_eq!(*val, BigInt::from(0));
-                } else {
-                    panic!("Expected Inclusive minimum");
-                }
+                assert_eq!(int_schema.min, Bound::Inclusive(0.into()));
+                assert_eq!(int_schema.max, Bound::Inclusive(150.into()));
             })
         }),
     );
 }
 
 #[test]
-fn test_integer_maximum_constraint() {
+fn test_integer_range_rust_style_exclusive() {
+    // Rust-style: .. means exclusive end
     let input = r#"
-@ count {
+@ index {
   $variant: integer
-  max = 100
+  range = "0..100"
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1373,25 +1372,68 @@ fn test_integer_maximum_constraint() {
     assert_record1(
         &schema,
         schema.root,
-        ("count", |s, id| {
+        ("index", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                if let Bound::Inclusive(val) = &int_schema.max {
-                    assert_eq!(*val, BigInt::from(100));
-                } else {
-                    panic!("Expected Inclusive maximum");
-                }
+                assert_eq!(int_schema.min, Bound::Inclusive(0.into()));
+                assert_eq!(int_schema.max, Bound::Exclusive(100.into()));
             })
         }),
     );
 }
 
 #[test]
-fn test_integer_exclusive_min_max() {
+fn test_integer_range_min_only() {
+    // Rust-style: min only
+    let input = r#"
+@ positive {
+  $variant: integer
+  range = "1.."
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("positive", |s, id| {
+            assert_integer_with(s, id, |int_schema| {
+                assert_eq!(int_schema.min, Bound::Inclusive(1.into()));
+                assert_eq!(int_schema.max, Bound::Unbounded);
+            })
+        }),
+    );
+}
+
+#[test]
+fn test_integer_range_max_only() {
+    // Rust-style: max only (exclusive)
+    let input = r#"
+@ small {
+  $variant: integer
+  range = "..100"
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("small", |s, id| {
+            assert_integer_with(s, id, |int_schema| {
+                assert_eq!(int_schema.min, Bound::Unbounded);
+                assert_eq!(int_schema.max, Bound::Exclusive(100.into()));
+            })
+        }),
+    );
+}
+
+#[test]
+fn test_integer_range_interval_exclusive() {
+    // Interval notation: both exclusive
     let input = r#"
 @ value {
   $variant: integer
-  exclusive-min = 0
-  exclusive-max = 100
+  range = "(0, 100)"
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1403,6 +1445,29 @@ fn test_integer_exclusive_min_max() {
             assert_integer_with(s, id, |int_schema| {
                 assert_eq!(int_schema.min, Bound::Exclusive(0.into()));
                 assert_eq!(int_schema.max, Bound::Exclusive(100.into()));
+            })
+        }),
+    );
+}
+
+#[test]
+fn test_integer_range_interval_mixed() {
+    // Interval notation: left exclusive, right inclusive
+    let input = r#"
+@ value {
+  $variant: integer
+  range = "(0, 100]"
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("value", |s, id| {
+            assert_integer_with(s, id, |int_schema| {
+                assert_eq!(int_schema.min, Bound::Exclusive(0.into()));
+                assert_eq!(int_schema.max, Bound::Inclusive(100.into()));
             })
         }),
     );
@@ -1430,12 +1495,12 @@ fn test_integer_multiple_of() {
 }
 
 #[test]
-fn test_float_range_constraint() {
+fn test_float_range_constraint_inclusive() {
+    // Interval notation: both inclusive
     let input = r#"
 @ temperature {
   $variant: float
-  min = -273.15
-  max = 1000.0
+  range = "[-273.15, 1000.0]"
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1453,12 +1518,12 @@ fn test_float_range_constraint() {
 }
 
 #[test]
-fn test_float_exclusive_min_max() {
+fn test_float_range_interval_half_open() {
+    // Interval notation: left inclusive, right exclusive (common for probabilities)
     let input = r#"
 @ probability {
   $variant: float
-  exclusive-min = 0.0
-  exclusive-max = 1.0
+  range = "[0.0, 1.0)"
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1468,8 +1533,31 @@ fn test_float_exclusive_min_max() {
         schema.root,
         ("probability", |s, id| {
             assert_float_with(s, id, |float_schema| {
-                assert_eq!(float_schema.min, Bound::Exclusive(0.0));
+                assert_eq!(float_schema.min, Bound::Inclusive(0.0));
                 assert_eq!(float_schema.max, Bound::Exclusive(1.0));
+            })
+        }),
+    );
+}
+
+#[test]
+fn test_float_range_rust_style() {
+    // Rust-style: min only
+    let input = r#"
+@ positive {
+  $variant: float
+  range = "0.0.."
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("positive", |s, id| {
+            assert_float_with(s, id, |float_schema| {
+                assert_eq!(float_schema.min, Bound::Inclusive(0.0));
+                assert_eq!(float_schema.max, Bound::Unbounded);
             })
         }),
     );
