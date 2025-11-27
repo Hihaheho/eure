@@ -617,6 +617,44 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
+    fn visit_strings(
+        &mut self,
+        handle: StringsHandle,
+        view: StringsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Parse the first string
+        let first_str = self.parse_str_terminal(view.str, tree)?;
+
+        // Parse any continuation strings (strings separated by \ line continuation)
+        let combined = if let Some(strings_list_view) = view.strings_list.get_view(tree)? {
+            let continuation_strs = strings_list_view.get_all(tree)?;
+            if continuation_strs.is_empty() {
+                first_str
+            } else {
+                let mut result = first_str;
+                for item in continuation_strs {
+                    let continuation_str = self.parse_str_terminal(item.str, tree)?;
+                    result.push_str(&continuation_str);
+                }
+                result
+            }
+        } else {
+            first_str
+        };
+
+        // Bind the parsed string as a primitive value
+        let eure_string = EureString::new(combined);
+        self.document
+            .bind_primitive(PrimitiveValue::String(eure_string))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+
+        Ok(())
+    }
+
     fn visit_integer(
         &mut self,
         handle: IntegerHandle,
@@ -631,6 +669,25 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         self.document
             .bind_primitive(PrimitiveValue::BigInt(big_int))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+        Ok(())
+    }
+
+    fn visit_float(
+        &mut self,
+        handle: FloatHandle,
+        view: FloatView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let str = self.get_terminal_str(tree, view.float)?;
+
+        let float: f64 = str.parse().map_err(|_| DocumentConstructionError::InvalidFloat(str.to_string()))?;
+
+        self.document
+            .bind_primitive(PrimitiveValue::F64(float))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),

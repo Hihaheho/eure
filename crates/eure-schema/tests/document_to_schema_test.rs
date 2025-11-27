@@ -1058,7 +1058,7 @@ $types.response {
 fn test_variants_with_internally_tagged_repr() {
     let input = r#"
 $types.message {
-  $variant-repr = { tag = "type" }
+  $variant-repr = { tag => "type" }
   @ $variants.text {
     content.$type = .string
   }
@@ -1095,7 +1095,7 @@ $types.message {
 fn test_variants_with_adjacently_tagged_repr() {
     let input = r#"
 $types.event {
-  $variant-repr = { tag = "kind", content = "data" }
+  $variant-repr = { tag => "kind", content => "data" }
   @ $variants.login {
     username.$type = .string
   }

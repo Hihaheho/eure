@@ -6,8 +6,9 @@
 use crate::{
     ArraySchema, BooleanSchema, CodeSchema, FloatSchema, IntegerSchema, MapSchema, PathSchema,
     RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId, StringSchema,
-    TupleSchema, UnknownFieldsPolicy,
+    TupleSchema, UnknownFieldsPolicy, VariantSchema,
 };
+use eure_value::data_model::VariantRepr;
 use eure_value::document::node::NodeValue;
 use eure_value::document::{EureDocument, NodeId};
 use eure_value::identifier::Identifier;
@@ -82,6 +83,11 @@ impl<'a> ConversionContext<'a> {
         // 3. $array (array shorthand)
         // 4. $variants (variant type with named variants)
         // 5. Implicit type from content
+
+        // Check for $variants extension (variant type definition using sections)
+        if let Some(variants_node_id) = node.get_extension(&Self::ident("variants")) {
+            return self.convert_variants_definition(node_id, variants_node_id);
+        }
 
         // Check for $variant extension (explicit type marker like "array", "map", "string", etc.)
         if let Some(variant_node_id) = node.get_extension(&Self::ident("variant")) {
@@ -292,6 +298,146 @@ impl<'a> ConversionContext<'a> {
                 // A primitive value is a literal type
                 self.convert_literal_value(node_id, prim)
             }
+        }
+    }
+
+    /// Convert a node with $variants extension (variant type definition)
+    fn convert_variants_definition(
+        &mut self,
+        node_id: NodeId,
+        variants_node_id: NodeId,
+    ) -> Result<SchemaNodeId, ConversionError> {
+        let variants_node = self.doc.node(variants_node_id);
+
+        // The $variants node should have map content where each key is a variant name
+        // and each value is the variant's schema
+        let variants_map = match &variants_node.content {
+            NodeValue::Map(map) => map,
+            NodeValue::Uninitialized => {
+                // Empty variants - check for extensions on the variants node
+                // The variants may be defined as sections like @$variants.click { ... }
+                // In this case, we need to collect extensions from the variants_node
+                let mut variants = HashMap::new();
+                for (ext_name, &ext_node_id) in variants_node.extensions.iter() {
+                    let variant_schema_id = self.convert_node(ext_node_id)?;
+                    variants.insert(ext_name.as_ref().to_string(), variant_schema_id);
+                }
+
+                if variants.is_empty() {
+                    return Err(ConversionError::InvalidExtensionValue {
+                        extension: "variants".to_string(),
+                        path: format!("{}", self.current_path),
+                    });
+                }
+
+                // Get variant repr from node extensions
+                let node = self.doc.node(node_id);
+                let repr = self.get_variant_repr(node_id)?;
+
+                let variant_schema = VariantSchema { variants, repr };
+                let schema_id = self
+                    .schema
+                    .create_node(SchemaNodeContent::Variant(variant_schema));
+                self.apply_metadata(node_id, schema_id)?;
+                return Ok(schema_id);
+            }
+            _ => {
+                return Err(ConversionError::InvalidExtensionValue {
+                    extension: "variants".to_string(),
+                    path: format!("{}", self.current_path),
+                })
+            }
+        };
+
+        // Convert each variant from the map
+        let mut variants = HashMap::new();
+        for (key, &variant_node_id) in variants_map.iter() {
+            let variant_name = match key {
+                ObjectKey::String(s) => s.clone(),
+                _ => {
+                    return Err(ConversionError::UnsupportedConstruct(format!(
+                        "Non-string variant name at {}",
+                        self.current_path
+                    )))
+                }
+            };
+
+            let variant_schema_id = self.convert_node(variant_node_id)?;
+            variants.insert(variant_name, variant_schema_id);
+        }
+
+        // Get variant repr from node extensions
+        let repr = self.get_variant_repr(node_id)?;
+
+        let variant_schema = VariantSchema { variants, repr };
+        let schema_id = self
+            .schema
+            .create_node(SchemaNodeContent::Variant(variant_schema));
+        self.apply_metadata(node_id, schema_id)?;
+        Ok(schema_id)
+    }
+
+    /// Get variant representation from $variant-repr extension
+    fn get_variant_repr(&self, node_id: NodeId) -> Result<VariantRepr, ConversionError> {
+        let node = self.doc.node(node_id);
+
+        if let Some(repr_node_id) = node.get_extension(&Self::ident("variant-repr")) {
+            let repr_node = self.doc.node(repr_node_id);
+
+            match &repr_node.content {
+                NodeValue::Primitive(PrimitiveValue::String(s)) => {
+                    if s == "untagged" {
+                        Ok(VariantRepr::Untagged)
+                    } else if s == "external" {
+                        Ok(VariantRepr::External)
+                    } else {
+                        Err(ConversionError::InvalidExtensionValue {
+                            extension: "variant-repr".to_string(),
+                            path: format!("{}", self.current_path),
+                        })
+                    }
+                }
+                NodeValue::Map(map) => {
+                    // Check for tag and content fields
+                    let tag = map
+                        .get(&ObjectKey::String("tag".to_string()))
+                        .and_then(|id| {
+                            let node = self.doc.node(id);
+                            if let NodeValue::Primitive(PrimitiveValue::String(s)) = &node.content {
+                                Some(s.to_string())
+                            } else {
+                                None
+                            }
+                        });
+
+                    let content = map
+                        .get(&ObjectKey::String("content".to_string()))
+                        .and_then(|id| {
+                            let node = self.doc.node(id);
+                            if let NodeValue::Primitive(PrimitiveValue::String(s)) = &node.content {
+                                Some(s.to_string())
+                            } else {
+                                None
+                            }
+                        });
+
+                    match (tag, content) {
+                        (Some(tag), Some(content)) => Ok(VariantRepr::Adjacent { tag, content }),
+                        (Some(tag), None) => Ok(VariantRepr::Internal { tag }),
+                        _ => Err(ConversionError::InvalidExtensionValue {
+                            extension: "variant-repr".to_string(),
+                            path: format!("{}", self.current_path),
+                        }),
+                    }
+                }
+                _ => Err(ConversionError::InvalidExtensionValue {
+                    extension: "variant-repr".to_string(),
+                    path: format!("{}", self.current_path),
+                }),
+            }
+        } else {
+            // Default is external
+            Ok(VariantRepr::External)
         }
     }
 
