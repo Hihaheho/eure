@@ -462,7 +462,19 @@ fn assert_tuple3<F1, F2, F3>(
     }
 }
 
-/// Assert that a node is a Union type with 2 variants
+/// Helper to check if a check function passes without panicking
+fn check_passes<F: Fn(&SchemaDocument, SchemaNodeId)>(
+    schema: &SchemaDocument,
+    node_id: SchemaNodeId,
+    check: F,
+) -> bool {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        check(schema, node_id);
+    }))
+    .is_ok()
+}
+
+/// Assert that a node is a Union type with 2 variants (order-independent)
 fn assert_union2<F1, F2>(schema: &SchemaDocument, node_id: SchemaNodeId, check1: F1, check2: F2)
 where
     F1: Fn(&SchemaDocument, SchemaNodeId),
@@ -470,15 +482,15 @@ where
 {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 2);
-        check1(schema, union_variants[0]);
-        check2(schema, union_variants[1]);
+        assert_eq!(union_variants.len(), 2, "Union should have 2 variants");
+        let checks: Vec<&dyn Fn(&SchemaDocument, SchemaNodeId)> = vec![&check1, &check2];
+        assert_union_matches(schema, union_variants, &checks);
     } else {
         panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Union type with 3 variants
+/// Assert that a node is a Union type with 3 variants (order-independent)
 fn assert_union3<F1, F2, F3>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -492,16 +504,15 @@ fn assert_union3<F1, F2, F3>(
 {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 3);
-        check1(schema, union_variants[0]);
-        check2(schema, union_variants[1]);
-        check3(schema, union_variants[2]);
+        assert_eq!(union_variants.len(), 3, "Union should have 3 variants");
+        let checks: Vec<&dyn Fn(&SchemaDocument, SchemaNodeId)> = vec![&check1, &check2, &check3];
+        assert_union_matches(schema, union_variants, &checks);
     } else {
         panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Union type with 4 variants
+/// Assert that a node is a Union type with 4 variants (order-independent)
 fn assert_union4<F1, F2, F3, F4>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -517,13 +528,47 @@ fn assert_union4<F1, F2, F3, F4>(
 {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 4);
-        check1(schema, union_variants[0]);
-        check2(schema, union_variants[1]);
-        check3(schema, union_variants[2]);
-        check4(schema, union_variants[3]);
+        assert_eq!(union_variants.len(), 4, "Union should have 4 variants");
+        let checks: Vec<&dyn Fn(&SchemaDocument, SchemaNodeId)> =
+            vec![&check1, &check2, &check3, &check4];
+        assert_union_matches(schema, union_variants, &checks);
     } else {
         panic!("Expected Union type, got {:?}", node.content);
+    }
+}
+
+/// Helper: Assert that each variant matches exactly one check (order-independent)
+fn assert_union_matches(
+    schema: &SchemaDocument,
+    variants: &[SchemaNodeId],
+    checks: &[&dyn Fn(&SchemaDocument, SchemaNodeId)],
+) {
+    let n = variants.len();
+    assert_eq!(checks.len(), n);
+
+    // For each check, find which variant it matches
+    let mut matched = vec![false; n];
+    for (check_idx, check) in checks.iter().enumerate() {
+        let mut found = None;
+        for (var_idx, &var_id) in variants.iter().enumerate() {
+            if !matched[var_idx] && check_passes(schema, var_id, *check) {
+                found = Some(var_idx);
+                break;
+            }
+        }
+        if let Some(var_idx) = found {
+            matched[var_idx] = true;
+        } else {
+            // Try to give a helpful error message
+            let variant_types: Vec<_> = variants
+                .iter()
+                .map(|&v| format!("{:?}", schema.node(v).content))
+                .collect();
+            panic!(
+                "Check {} didn't match any unmatched variant. Variants: {:?}",
+                check_idx, variant_types
+            );
+        }
     }
 }
 
@@ -939,7 +984,6 @@ point = (.float, .integer)
 
 #[test]
 fn test_union_type() {
-    // Note: Union variants order depends on BTreeMap key sorting
     let input = r#"
 @ value {
   $variant: union
@@ -949,34 +993,17 @@ fn test_union_type() {
 "#;
     let schema = parse_and_convert(input);
 
-    // Verify both types are present (order may vary)
     assert_record1(
         &schema,
         schema.root,
         ("value", |s, id| {
-            let node = s.node(id);
-            if let SchemaNodeContent::Union(variants) = &node.content {
-                assert_eq!(variants.len(), 2, "Union should have 2 variants");
-                let types: Vec<_> = variants.iter().map(|&v| {
-                    match &s.node(v).content {
-                        SchemaNodeContent::String(_) => "string",
-                        SchemaNodeContent::Float(_) => "float",
-                        other => panic!("Unexpected type: {:?}", other),
-                    }
-                }).collect();
-                assert!(types.contains(&"string"), "Missing string type");
-                assert!(types.contains(&"float"), "Missing float type");
-            } else {
-                panic!("Expected Union type, got {:?}", node.content);
-            }
+            assert_union2(s, id, assert_string, assert_float)
         }),
     );
 }
 
 #[test]
 fn test_union_with_multiple_types() {
-    // Test union with multiple types
-    // Note: Order depends on BTreeMap sorting of ObjectKey::String keys
     let input = r#"
 @ data {
   $variant: union
@@ -988,31 +1015,11 @@ fn test_union_with_multiple_types() {
 "#;
     let schema = parse_and_convert(input);
 
-    // Verify that all 4 types are present in the union (order may vary)
     assert_record1(
         &schema,
         schema.root,
         ("data", |s, id| {
-            let node = s.node(id);
-            if let SchemaNodeContent::Union(variants) = &node.content {
-                assert_eq!(variants.len(), 4, "Union should have 4 variants");
-                // Just verify all expected types are present
-                let types: Vec<_> = variants.iter().map(|&v| {
-                    match &s.node(v).content {
-                        SchemaNodeContent::String(_) => "string",
-                        SchemaNodeContent::Float(_) => "float",
-                        SchemaNodeContent::Boolean(_) => "boolean",
-                        SchemaNodeContent::Null => "null",
-                        other => panic!("Unexpected type: {:?}", other),
-                    }
-                }).collect();
-                assert!(types.contains(&"string"), "Missing string type");
-                assert!(types.contains(&"float"), "Missing float type");
-                assert!(types.contains(&"boolean"), "Missing boolean type");
-                assert!(types.contains(&"null"), "Missing null type");
-            } else {
-                panic!("Expected Union type, got {:?}", node.content);
-            }
+            assert_union4(s, id, assert_string, assert_float, assert_boolean, assert_null)
         }),
     );
 }
@@ -2098,7 +2105,7 @@ sql.$type = .code.sql
 
 #[test]
 fn test_nested_union_types() {
-    // Note: Define inner union as a separate type since inline objects can't contain bindings
+    // Define inner union as a separate type since inline objects can't contain bindings
     let input = r#"
 $types.inner-union.$variant: union
 $types.inner-union.variants.boolean = .boolean
@@ -2113,23 +2120,22 @@ $types.inner-union.variants.null = .null
 "#;
     let schema = parse_and_convert(input);
 
-    // This tests that unions can contain nested structures (array as third variant)
     assert_record1(
         &schema,
         schema.root,
         ("value", |s, id| {
-            // Note: union order depends on BTreeMap key ordering
-            let node = s.node(id);
-            if let SchemaNodeContent::Union(variants) = &node.content {
-                assert_eq!(variants.len(), 3, "Union should have 3 variants");
-                // Just verify we have the expected types
-                let has_array = variants.iter().any(|&v| {
-                    matches!(&s.node(v).content, SchemaNodeContent::Array(_))
-                });
-                assert!(has_array, "Should have array variant");
-            } else {
-                panic!("Expected Union type, got {:?}", node.content);
-            }
+            assert_union3(
+                s,
+                id,
+                assert_string,
+                assert_integer,
+                |s, array_id| {
+                    // Third variant is an array of inner-union reference
+                    assert_array(s, array_id, |s, item_id| {
+                        assert_reference(s, item_id, "inner-union")
+                    })
+                },
+            )
         }),
     );
 }
@@ -2157,17 +2163,22 @@ fn test_nested_union_types_with_inline_object() {
         &schema,
         schema.root,
         ("value", |s, id| {
-            let node = s.node(id);
-            if let SchemaNodeContent::Union(variants) = &node.content {
-                assert_eq!(variants.len(), 3, "Union should have 3 variants");
-            } else {
-                panic!("Expected Union type, got {:?}", node.content);
-            }
+            assert_union3(
+                s,
+                id,
+                assert_string,
+                assert_integer,
+                |s, array_id| {
+                    // Third variant is an array containing a union
+                    assert_array(s, array_id, |s, item_id| {
+                        assert_union2(s, item_id, assert_boolean, assert_null)
+                    })
+                },
+            )
         }),
     );
 }
 
-// Keep original test structure for reference - array variant assertion
 #[test]
 fn test_nested_union_with_array_variant() {
     let input = r#"
@@ -2188,24 +2199,17 @@ $types.inner.variants.null = .null
         &schema,
         schema.root,
         ("value", |s, id| {
-            let node = s.node(id);
-            if let SchemaNodeContent::Union(variants) = &node.content {
-                assert_eq!(variants.len(), 3);
-                // Find the array variant
-                let array_variant = variants.iter().find(|&&v| {
-                    matches!(&s.node(v).content, SchemaNodeContent::Array(_))
-                });
-                assert!(array_variant.is_some(), "Should have array variant");
-
-                // Check the array item is a reference to inner union
-                if let Some(&array_id) = array_variant {
+            assert_union3(
+                s,
+                id,
+                assert_string,
+                assert_integer,
+                |s, array_id| {
                     assert_array(s, array_id, |s, item_id| {
                         assert_reference(s, item_id, "inner")
-                    });
-                }
-            } else {
-                panic!("Expected Union type, got {:?}", node.content);
-            }
+                    })
+                },
+            )
         }),
     );
 }
