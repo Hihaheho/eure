@@ -914,13 +914,11 @@ impl<'a> ConversionContext<'a> {
         &mut self,
         node_id: NodeId,
     ) -> Result<SchemaNodeId, ConversionError> {
-        let node = self.doc.node(node_id);
-
-        // Get the literal value from the root binding (empty key)
+        // Get the literal value from the "value" field
         let value_node_id = self
-            .get_map_child(node_id, "")
+            .get_map_child(node_id, "value")
             .ok_or_else(|| ConversionError::MissingRequiredExtension {
-                extension: "literal value".to_string(),
+                extension: "value".to_string(),
                 path: format!("{}", self.current_path),
             })?;
 
