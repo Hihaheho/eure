@@ -675,21 +675,23 @@ impl<'a> ConversionContext<'a> {
         &mut self,
         node_id: NodeId,
     ) -> Result<SchemaNodeId, ConversionError> {
-        let node = self.doc.node(node_id);
-
-        let min_length = self.get_integer_extension(node_id, "min-length")?;
-        let max_length = self.get_integer_extension(node_id, "max-length")?;
-        let pattern = self.get_string_extension(node_id, "pattern")?;
+        // String variant fields are record fields, not extensions
+        let min_length = self.get_integer_field(node_id, "min-length")?;
+        let max_length = self.get_integer_field(node_id, "max-length")?;
+        let pattern = self.get_string_field(node_id, "pattern")?;
+        let format = self.get_string_field(node_id, "format")?;
 
         let length = match (min_length, max_length) {
             (Some(min), Some(max)) => Some((min, max)),
-            _ => None,
+            (Some(min), None) => Some((min, u32::MAX)),
+            (None, Some(max)) => Some((0, max)),
+            (None, None) => None,
         };
 
         let string_schema = StringSchema {
             length,
             pattern,
-            format: None,
+            format,
             r#const: None,
             r#enum: None,
         };
@@ -705,10 +707,9 @@ impl<'a> ConversionContext<'a> {
         &mut self,
         node_id: NodeId,
     ) -> Result<SchemaNodeId, ConversionError> {
-        let node = self.doc.node(node_id);
-
-        let range = self.get_string_extension(node_id, "range")?;
-        let multiple_of = self.get_bigint_extension(node_id, "multiple-of")?;
+        // Integer variant fields are record fields, not extensions
+        let range = self.get_string_field(node_id, "range")?;
+        let multiple_of = self.get_bigint_field(node_id, "multiple-of")?;
 
         let (min, max) = if let Some(range_str) = range {
             parse_integer_range(&range_str)?
@@ -732,9 +733,8 @@ impl<'a> ConversionContext<'a> {
     }
 
     fn convert_float_variant(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
-        let node = self.doc.node(node_id);
-
-        let range = self.get_string_extension(node_id, "range")?;
+        // Float variant fields are record fields, not extensions
+        let range = self.get_string_field(node_id, "range")?;
 
         let (min, max) = if let Some(range_str) = range {
             parse_float_range(&range_str)?
@@ -1161,6 +1161,20 @@ impl<'a> ConversionContext<'a> {
             let field_node = self.doc.node(field_node_id);
             if let NodeValue::Primitive(PrimitiveValue::String(s)) = &field_node.content {
                 return Ok(Some(s.to_string()));
+            }
+        }
+        Ok(None)
+    }
+
+    fn get_bigint_field(
+        &self,
+        node_id: NodeId,
+        name: &str,
+    ) -> Result<Option<num_bigint::BigInt>, ConversionError> {
+        if let Some(field_node_id) = self.get_map_child(node_id, name) {
+            let field_node = self.doc.node(field_node_id);
+            if let NodeValue::Primitive(PrimitiveValue::BigInt(n)) = &field_node.content {
+                return Ok(Some(n.clone()));
             }
         }
         Ok(None)

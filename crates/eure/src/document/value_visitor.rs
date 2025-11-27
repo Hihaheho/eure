@@ -110,6 +110,8 @@ pub struct ValueVisitor<'a> {
     code_start: Option<CodeStart>,
     // Stack for collecting ObjectKeys when processing KeyTuple
     collecting_object_keys: Vec<Vec<ObjectKey>>,
+    // Counter for tracking tuple element indices
+    tuple_index_counter: u8,
 }
 
 impl<'a> ValueVisitor<'a> {
@@ -120,6 +122,7 @@ impl<'a> ValueVisitor<'a> {
             segments: vec![],
             code_start: None,
             collecting_object_keys: vec![],
+            tuple_index_counter: 0,
         }
     }
 
@@ -692,6 +695,76 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
+        Ok(())
+    }
+
+    fn visit_tuple_elements(
+        &mut self,
+        handle: TupleElementsHandle,
+        view: TupleElementsView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Get the current tuple index from context
+        let index = self.tuple_index_counter;
+
+        // Push tuple index segment
+        let node_id = self
+            .document
+            .push_path(&[PathSegment::TupleIndex(index)])
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+
+        // Visit the value at this index
+        self.visit_value_handle(view.value, tree)?;
+
+        // Pop back
+        self.document.pop(node_id)?;
+
+        // Increment counter and process tail if present
+        self.tuple_index_counter += 1;
+
+        // TupleElementsOptHandle -> Option<TupleElementsTailHandle>
+        if let Some(tail_handle) = view.tuple_elements_opt.get_view(tree)? {
+            // TupleElementsTailHandle -> TupleElementsTailView { comma, tuple_elements_tail_opt }
+            let tail_view = tail_handle.get_view(tree)?;
+            // tuple_elements_tail_opt: TupleElementsTailOptHandle -> Option<TupleElementsHandle>
+            if let Some(next_elements_handle) = tail_view.tuple_elements_tail_opt.get_view(tree)? {
+                // Recursively process the next elements
+                self.visit_tuple_elements_handle(next_elements_handle, tree)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn visit_tuple(
+        &mut self,
+        handle: TupleHandle,
+        view: TupleView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Bind an empty tuple to the current node
+        self.document
+            .bind_empty_tuple()
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+
+        // Reset tuple index counter before processing elements
+        let saved_counter = self.tuple_index_counter;
+        self.tuple_index_counter = 0;
+
+        // TupleOptHandle -> Option<TupleElementsHandle>
+        if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
+            self.visit_tuple_elements_handle(elements_handle, tree)?;
+        }
+
+        // Restore counter
+        self.tuple_index_counter = saved_counter;
+
         Ok(())
     }
 

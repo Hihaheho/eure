@@ -920,8 +920,7 @@ bio.$type = .string
 #[test]
 fn test_tuple_type() {
     let input = r#"
-point.#0.$type = .float
-point.#1.$type = .integer
+point = (.float, .integer)
 "#;
     let schema = parse_and_convert(input);
 
@@ -2024,9 +2023,7 @@ timeout.$default = 30
 #[test]
 fn test_tuple_with_mixed_types() {
     let input = r#"
-coordinate.#0.$type = .float
-coordinate.#1.$type = .integer
-coordinate.#2.$type = .string
+coordinate = (.float, .integer, .string)
 "#;
     let schema = parse_and_convert(input);
 

@@ -190,6 +190,19 @@ impl DocumentConstructor {
         node.content = NodeValue::Array(Default::default());
         Ok(())
     }
+
+    /// Bind an empty tuple to the current node. Error if already bound.
+    pub fn bind_empty_tuple(&mut self) -> Result<(), InsertError> {
+        let node = self.current_node_mut();
+        if !matches!(node.content, NodeValue::Uninitialized) {
+            return Err(InsertError {
+                kind: InsertErrorKind::BindingTargetHasValue,
+                path: EurePath::from_iter(self.current_path().iter().cloned()),
+            });
+        }
+        node.content = NodeValue::Tuple(Default::default());
+        Ok(())
+    }
 }
 
 #[cfg(test)]
