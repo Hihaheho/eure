@@ -106,22 +106,18 @@ metadata = .any
 
 **Shorthands:** `.string`, `.integer`, `.float`, `.boolean`, `.null`, `.any`
 
+Shorthands are for simple types without constraints. For constraints, use the full form.
+
 ### String Type with Constraints
 
 ```eure
-// Full form
+// Full form (required for constraints)
 @ username {
   $variant: string
   min-length = 3
   max-length = 20
   pattern = "^[a-z0-9_]+$"
 }
-
-// Or using shorthand with extensions
-username = .string
-username.$min-length = 3
-username.$max-length = 20
-username.$pattern = "^[a-z0-9_]+$"
 ```
 
 ### Integer Type with Constraints
@@ -533,9 +529,12 @@ $schema = "eure-schema.schema.eure"
   age.$optional = true
   age.$description: User's age in years.
 
-  tags = [.string]
+  @ tags {
+    $variant: array
+    item = .string
+    unique = true
+  }
   tags.$optional = true
-  tags.$unique = true
 }
 
 // Set root type

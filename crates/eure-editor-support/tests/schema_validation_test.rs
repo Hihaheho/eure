@@ -34,10 +34,13 @@ fn test_self_describing_validation() {
     let input = r#"
 # Pure schema document (no data mixed in)
 @ $types.Person {
-    name.$type = .string
-    name.$length = (1, 50)
-    
-    age.$type = .number
+    @ name {
+        $variant: string
+        min-length = 1
+        max-length = 50
+    }
+
+    age = .float
     age.$optional = true
 }
 "#;
