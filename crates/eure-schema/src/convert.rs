@@ -55,6 +55,8 @@ struct ConversionContext<'a> {
     type_definitions: HashMap<String, Option<SchemaNodeId>>,
     /// Current path for error reporting
     current_path: EurePath,
+    /// Cascade type from ancestor nodes (applies to leaf nodes without explicit types)
+    cascade_type: Option<EurePath>,
 }
 
 impl<'a> ConversionContext<'a> {
@@ -64,6 +66,7 @@ impl<'a> ConversionContext<'a> {
             schema: SchemaDocument::new(),
             type_definitions: HashMap::new(),
             current_path: EurePath::root(),
+            cascade_type: None,
         }
     }
 
@@ -76,36 +79,47 @@ impl<'a> ConversionContext<'a> {
     fn convert_node(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
 
+        // Save the current cascade type for restoration after processing this subtree
+        let saved_cascade_type = self.cascade_type.clone();
+
+        // Check for $cascade-type extension on this node
+        // If present, it becomes the cascade type for all descendants
+        if let Some(cascade_node_id) = node.get_extension(&Self::ident("cascade-type")) {
+            let cascade_node = self.doc.node(cascade_node_id);
+            if let NodeValue::Primitive(PrimitiveValue::Path(path)) = &cascade_node.content {
+                self.cascade_type = Some(path.clone());
+            }
+        }
+
         // First, check for type-specifying extensions
         // Priority order:
         // 1. $variant (explicit variant type marker)
         // 2. $type (type path or shorthand)
         // 3. $array (array shorthand)
         // 4. $variants (variant type with named variants)
-        // 5. Implicit type from content
+        // 5. Implicit type from content (uses cascade-type for leaf nodes)
 
-        // Check for $variants extension (variant type definition using sections)
-        if let Some(variants_node_id) = node.get_extension(&Self::ident("variants")) {
-            return self.convert_variants_definition(node_id, variants_node_id);
-        }
+        let result = if let Some(variants_node_id) = node.get_extension(&Self::ident("variants")) {
+            // Check for $variants extension (variant type definition using sections)
+            self.convert_variants_definition(node_id, variants_node_id)
+        } else if let Some(variant_node_id) = node.get_extension(&Self::ident("variant")) {
+            // Check for $variant extension (explicit type marker like "array", "map", "string", etc.)
+            self.convert_variant_marked_node(node_id, variant_node_id)
+        } else if let Some(type_node_id) = node.get_extension(&Self::ident("type")) {
+            // Check for $type extension
+            self.convert_type_extension(node_id, type_node_id)
+        } else if let Some(array_item_node_id) = node.get_extension(&Self::ident("array")) {
+            // Check for $array extension (array shorthand)
+            self.convert_array_shorthand(node_id, array_item_node_id)
+        } else {
+            // Check for implicit type from content
+            self.convert_implicit_type(node_id)
+        };
 
-        // Check for $variant extension (explicit type marker like "array", "map", "string", etc.)
-        if let Some(variant_node_id) = node.get_extension(&Self::ident("variant")) {
-            return self.convert_variant_marked_node(node_id, variant_node_id);
-        }
+        // Restore cascade type after processing this subtree
+        self.cascade_type = saved_cascade_type;
 
-        // Check for $type extension
-        if let Some(type_node_id) = node.get_extension(&Self::ident("type")) {
-            return self.convert_type_extension(node_id, type_node_id);
-        }
-
-        // Check for $array extension (array shorthand)
-        if let Some(array_item_node_id) = node.get_extension(&Self::ident("array")) {
-            return self.convert_array_shorthand(node_id, array_item_node_id);
-        }
-
-        // Check for implicit type from content
-        self.convert_implicit_type(node_id)
+        result
     }
 
     /// Convert a node with explicit $variant marker
@@ -303,8 +317,14 @@ impl<'a> ConversionContext<'a> {
         }
     }
 
-    /// Convert an uninitialized node to an empty record
+    /// Convert an uninitialized node to an empty record or cascade type
     fn convert_empty_record(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
+        // If there's an active cascade-type, use that instead of empty record
+        // This applies cascade-type to leaf nodes without explicit types
+        if let Some(cascade_type) = self.cascade_type.clone() {
+            return self.convert_type_path(node_id, &cascade_type);
+        }
+
         let record_schema = RecordSchema::default();
         let schema_id = self
             .schema

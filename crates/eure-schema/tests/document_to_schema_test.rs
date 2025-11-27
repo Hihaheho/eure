@@ -1644,7 +1644,6 @@ bio.$optional = true
 }
 
 #[test]
-#[ignore = "cascade-type feature not yet implemented"]
 fn test_cascade_type() {
     let input = r#"
 @ config
@@ -1657,17 +1656,26 @@ $cascade-type = .string
     let schema = parse_and_convert(input);
 
     // This test verifies that cascade-type applies to all descendant fields
-    // Implementation should handle this during conversion
     assert_record1(
         &schema,
         schema.root,
         ("config", |s, config_id| {
-            // Verify config has server field with host
-            assert_record1(
+            // config should be a record with server and database fields
+            assert_record2(
                 s,
                 config_id,
                 ("server", |s, server_id| {
-                    assert_record1(s, server_id, ("host", assert_string));
+                    // server should be a record with host and port as strings
+                    assert_record2(
+                        s,
+                        server_id,
+                        ("host", assert_string),
+                        ("port", assert_string),
+                    );
+                }),
+                ("database", |s, db_id| {
+                    // database should be a record with name as string
+                    assert_record1(s, db_id, ("name", assert_string));
                 }),
             );
         }),
