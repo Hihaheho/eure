@@ -786,8 +786,11 @@ tags.$array = .string
 #[test]
 fn test_array_with_unique_constraint() {
     let input = r#"
-tags.$array = .string
-tags.$unique = true
+@ tags {
+  $variant: array
+  item = .string
+  unique = true
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -805,9 +808,12 @@ tags.$unique = true
 #[test]
 fn test_array_with_min_max_items() {
     let input = r#"
-items.$array = .string
-items.$min-items = 1
-items.$max-items = 10
+@ items {
+  $variant: array
+  item = .string
+  min-length = 1
+  max-length = 10
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -826,8 +832,11 @@ items.$max-items = 10
 #[test]
 fn test_array_with_contains() {
     let input = r#"
-tags.$array = .string
-tags.$contains = "required"
+@ tags {
+  $variant: array
+  item = .string
+  contains = "required"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1198,10 +1207,13 @@ $types.traffic-light {
 #[test]
 fn test_custom_type_definition() {
     let input = r#"
-$types.username = .string
-$types.username.$length = (3, 20)
+@ $types.username {
+  $variant: string
+  min-length = 3
+  max-length = 20
+}
 
-user.$type = .$types.username
+user = .$types.username
 "#;
     let schema = parse_and_convert(input);
 
@@ -1237,8 +1249,11 @@ contact.$type = .$types.email
 #[test]
 fn test_string_length_constraint() {
     let input = r#"
-username.$type = .string
-username.$length = (3, 20)
+@ username {
+  $variant: string
+  min-length = 3
+  max-length = 20
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1256,8 +1271,10 @@ username.$length = (3, 20)
 #[test]
 fn test_string_pattern_constraint() {
     let input = r#"
-username.$type = .string
-username.$pattern = "^[a-z0-9_]+$"
+@ username {
+  $variant: string
+  pattern = "^[a-z0-9_]+$"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1274,9 +1291,9 @@ username.$pattern = "^[a-z0-9_]+$"
 
 #[test]
 fn test_string_format_constraint() {
+    // Note: format is not a standard string constraint, use .code.email instead
     let input = r#"
-email.$type = .string
-email.$format = "email"
+email = .code.email
 "#;
     let schema = parse_and_convert(input);
 
@@ -1299,8 +1316,10 @@ email.$format = "email"
 fn test_integer_range_constraint_inclusive() {
     // Interval notation: both inclusive
     let input = r#"
-age.$type = .integer
-age.$range = "[0, 150]"
+@ age {
+  $variant: integer
+  range = "[0, 150]"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1320,8 +1339,10 @@ age.$range = "[0, 150]"
 fn test_integer_range_rust_style_inclusive() {
     // Rust-style: ..= means inclusive end
     let input = r#"
-age.$type = .integer
-age.$range = "0..=150"
+@ age {
+  $variant: integer
+  range = "0..=150"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1341,8 +1362,10 @@ age.$range = "0..=150"
 fn test_integer_range_rust_style_exclusive() {
     // Rust-style: .. means exclusive end
     let input = r#"
-index.$type = .integer
-index.$range = "0..100"
+@ index {
+  $variant: integer
+  range = "0..100"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1362,8 +1385,10 @@ index.$range = "0..100"
 fn test_integer_range_min_only() {
     // Rust-style: min only
     let input = r#"
-positive.$type = .integer
-positive.$range = "1.."
+@ positive {
+  $variant: integer
+  range = "1.."
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1383,8 +1408,10 @@ positive.$range = "1.."
 fn test_integer_range_max_only() {
     // Rust-style: max only (exclusive)
     let input = r#"
-small.$type = .integer
-small.$range = "..100"
+@ small {
+  $variant: integer
+  range = "..100"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1404,8 +1431,10 @@ small.$range = "..100"
 fn test_integer_range_interval_exclusive() {
     // Interval notation: both exclusive
     let input = r#"
-value.$type = .integer
-value.$range = "(0, 100)"
+@ value {
+  $variant: integer
+  range = "(0, 100)"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1425,8 +1454,10 @@ value.$range = "(0, 100)"
 fn test_integer_range_interval_mixed() {
     // Interval notation: left exclusive, right inclusive
     let input = r#"
-value.$type = .integer
-value.$range = "(0, 100]"
+@ value {
+  $variant: integer
+  range = "(0, 100]"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1445,8 +1476,10 @@ value.$range = "(0, 100]"
 #[test]
 fn test_integer_multiple_of() {
     let input = r#"
-even.$type = .integer
-even.$multiple-of = 2
+@ even {
+  $variant: integer
+  multiple-of = 2
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1465,8 +1498,10 @@ even.$multiple-of = 2
 fn test_float_range_constraint_inclusive() {
     // Interval notation: both inclusive
     let input = r#"
-temperature.$type = .float
-temperature.$range = "[-273.15, 1000.0]"
+@ temperature {
+  $variant: float
+  range = "[-273.15, 1000.0]"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1486,8 +1521,10 @@ temperature.$range = "[-273.15, 1000.0]"
 fn test_float_range_interval_half_open() {
     // Interval notation: left inclusive, right exclusive (common for probabilities)
     let input = r#"
-probability.$type = .float
-probability.$range = "[0.0, 1.0)"
+@ probability {
+  $variant: float
+  range = "[0.0, 1.0)"
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1507,8 +1544,10 @@ probability.$range = "[0.0, 1.0)"
 fn test_float_range_rust_style() {
     // Rust-style: min only
     let input = r#"
-positive.$type = .float
-positive.$range = "0.0.."
+@ positive {
+  $variant: float
+  range = "0.0.."
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -1747,37 +1786,25 @@ $types.http-method {
   variants.PATCH = { = "PATCH", $variant: literal }
 }
 
-$types.api-request {
-  @ method
-  $type = .$types.http-method
+@ $types.api-request
+method = .$types.http-method
+path = { $variant: string, pattern => "^/" }
+headers = .any
+headers.$optional = true
+body = .any
+body.$optional = true
 
-  @ path
-  $type = .string
-  $pattern = "^/"
-
-  @ headers
-  $type = .any
-  $optional = true
-
-  @ body
-  $type = .any
-  $optional = true
-}
-
-$types.api-response {
+@ $types.api-response {
+  $variant: union
   $variant-repr = "untagged"
 
-  @ $variants.success {
-    status.$type = .integer
-    status.$range = (200, 299)
-    data.$type = .any
-  }
+  @ variants.success
+  status = { $variant: integer, min => 200, max => 299 }
+  data = .any
 
-  @ $variants.error {
-    status.$type = .integer
-    status.$range = (400, 599)
-    message.$type = .string
-  }
+  @ variants.error
+  status = { $variant: integer, min => 400, max => 599 }
+  message = .string
 }
 "#;
     let schema = parse_and_convert(input);
@@ -2064,9 +2091,11 @@ fn test_nested_union_types() {
 #[test]
 fn test_map_type() {
     let input = r#"
-headers.$type = .any
-headers.$key = .string
-headers.$value = .string
+@ headers {
+  $variant: map
+  key = .string
+  value = .string
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -2082,11 +2111,13 @@ headers.$value = .string
 #[test]
 fn test_map_with_constraints() {
     let input = r#"
-attributes.$type = .any
-attributes.$key = .string
-attributes.$value = .any
-attributes.$min-pairs = 1
-attributes.$max-pairs = 10
+@ attributes {
+  $variant: map
+  key = .string
+  value = .any
+  min-size = 1
+  max-size = 10
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -2299,11 +2330,17 @@ items.$array = .any
 #[test]
 fn test_map_with_complex_types() {
     let input = r#"
-$types.address = .string
-$types.address.$length = (1, 100)
+@ $types.address {
+  $variant: string
+  min-length = 1
+  max-length = 100
+}
 
-locations.$key = .string
-locations.$value = .$types.address
+@ locations {
+  $variant: map
+  key = .string
+  value = .$types.address
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -2321,9 +2358,15 @@ locations.$value = .$types.address
 #[test]
 fn test_nested_maps() {
     let input = r#"
-nested.$key = .string
-nested.$value.$key = .string
-nested.$value.$value = .integer
+@ nested {
+  $variant: map
+  key = .string
+  value = {
+    $variant: map
+    key => .string
+    value => .integer
+  }
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -2345,15 +2388,19 @@ nested.$value.$value = .integer
 #[test]
 fn test_type_reference_chain() {
     let input = r#"
-$types.base-string = .string
-$types.base-string.$length = (1, 100)
+@ $types.base-string {
+  $variant: string
+  min-length = 1
+  max-length = 100
+}
 
 $types.username = .$types.base-string
 
-$types.user.$username = .$types.username
-$types.user.$email = .code.email
+@ $types.user
+username = .$types.username
+email = .code.email
 
-data.$type = .$types.user
+data = .$types.user
 "#;
     let schema = parse_and_convert(input);
 
@@ -2383,14 +2430,20 @@ data.$type = .$types.user
 #[test]
 fn test_array_of_custom_types_complex() {
     let input = r#"
-$types.item = .string
-$types.item.$length = (1, 100)
+@ $types.item {
+  $variant: string
+  min-length = 1
+  max-length = 100
+}
 
-$types.collection.$array = .$types.item
-$types.collection.$min-items = 1
-$types.collection.$unique = true
+@ $types.collection {
+  $variant: array
+  item = .$types.item
+  min-length = 1
+  unique = true
+}
 
-data.$type = .$types.collection
+data = .$types.collection
 "#;
     let schema = parse_and_convert(input);
 
