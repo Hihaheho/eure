@@ -14,6 +14,50 @@ pub struct Case {
     pub output_json: Option<Code>,
 }
 
+/// Result of running a single scenario
+#[derive(Debug, Clone)]
+pub enum ScenarioResult {
+    Passed,
+    Failed { error: String },
+}
+
+impl ScenarioResult {
+    pub fn is_passed(&self) -> bool {
+        matches!(self, ScenarioResult::Passed)
+    }
+}
+
+/// Named scenario with its result
+#[derive(Debug, Clone)]
+pub struct NamedScenarioResult {
+    pub name: String,
+    pub result: ScenarioResult,
+}
+
+/// Result of running all scenarios in a test case
+#[derive(Debug, Clone)]
+pub struct CaseResult {
+    pub scenarios: Vec<NamedScenarioResult>,
+}
+
+impl CaseResult {
+    pub fn passed_count(&self) -> usize {
+        self.scenarios.iter().filter(|s| s.result.is_passed()).count()
+    }
+
+    pub fn total_count(&self) -> usize {
+        self.scenarios.len()
+    }
+
+    pub fn all_passed(&self) -> bool {
+        self.scenarios.iter().all(|s| s.result.is_passed())
+    }
+
+    pub fn failed_scenarios(&self) -> Vec<&NamedScenarioResult> {
+        self.scenarios.iter().filter(|s| !s.result.is_passed()).collect()
+    }
+}
+
 pub struct PreprocessedCase {
     pub input_eure: Option<PreprocessedEure>,
     pub normalized: Option<PreprocessedEure>,
@@ -177,6 +221,72 @@ impl EureToJsonScenario<'_> {
 }
 
 impl PreprocessedCase {
+    /// Run all scenarios and return structured results.
+    /// This does not panic on assertion failures - it captures them as failed scenarios.
+    pub fn run_all(&self) -> CaseResult {
+        let mut scenarios = Vec::new();
+
+        // Run normalization scenario
+        if let Some(normalization_scenario) = self.normalization_scenario() {
+            let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                normalization_scenario.run()
+            })) {
+                Ok(Ok(())) => ScenarioResult::Passed,
+                Ok(Err(e)) => ScenarioResult::Failed {
+                    error: format!("{:?}", e),
+                },
+                Err(panic) => {
+                    let msg = if let Some(s) = panic.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = panic.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "Unknown panic".to_string()
+                    };
+                    ScenarioResult::Failed {
+                        error: format!("panic: {}", msg),
+                    }
+                }
+            };
+            scenarios.push(NamedScenarioResult {
+                name: "normalization".to_string(),
+                result,
+            });
+        }
+
+        // Run eure-to-json scenarios
+        for scenario in self.eure_to_json_scenario() {
+            let source = scenario.source;
+            let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                scenario.run()
+            })) {
+                Ok(Ok(())) => ScenarioResult::Passed,
+                Ok(Err(e)) => ScenarioResult::Failed {
+                    error: format!("{:?}", e),
+                },
+                Err(panic) => {
+                    let msg = if let Some(s) = panic.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = panic.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "Unknown panic".to_string()
+                    };
+                    ScenarioResult::Failed {
+                        error: format!("panic: {}", msg),
+                    }
+                }
+            };
+            scenarios.push(NamedScenarioResult {
+                name: format!("eure_to_json({})", source),
+                result,
+            });
+        }
+
+        CaseResult { scenarios }
+    }
+
+    /// Legacy method that returns Result for backwards compatibility.
     pub fn run(&self) -> eros::Result<()> {
         let trace = std::env::var("EURE_TEST_TRACE").is_ok();
 
@@ -252,6 +362,16 @@ impl PreprocessedCase {
         }
 
         Ok(())
+    }
+
+    /// Returns the number of scenarios this case will run
+    pub fn scenario_count(&self) -> usize {
+        let mut count = 0;
+        if self.normalization_scenario().is_some() {
+            count += 1;
+        }
+        count += self.eure_to_json_scenario().len();
+        count
     }
 
     pub fn normalization_scenario(&self) -> Option<NormalizationScenario<'_>> {
