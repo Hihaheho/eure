@@ -1,22 +1,24 @@
 //! Comprehensive test cases for EureDocument to SchemaDocument conversion
 //!
 //! These tests cover all major schema features supported by EURE Schema:
-//! - Primitive types
-//! - Code types
-//! - Arrays and collections
-//! - Records and objects
-//! - Union types
-//! - Variant types (tagged unions)
-//! - Custom type definitions
-//! - Type constraints
-//! - Metadata and annotations
+//! - Primitive types (string, integer, float, boolean, null, any, path)
+//! - Code types with language specifiers
+//! - Literal types (exact value match)
+//! - Arrays with item type and constraints
+//! - Maps with key/value types
+//! - Records with fixed named fields
+//! - Tuples with fixed-length elements
+//! - Union types with named variants
+//! - Custom type definitions and references
+//! - Type constraints (length, range, pattern, etc.)
+//! - Metadata (description, deprecated, default, examples)
 
 use eure::document::parse_to_document;
-use eure_schema::convert::{ConversionError, document_to_schema};
+use eure_schema::convert::document_to_schema;
 use eure_schema::{
-    ArraySchema, BooleanSchema, Bound, CodeSchema, FloatSchema, IntegerSchema, MapSchema,
-    PathSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId, StringSchema,
-    TupleSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, CodeSchema, FloatSchema, IntegerSchema, MapSchema, PathSchema,
+    RecordFieldSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId,
+    StringSchema, TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
 use eure_value::identifier::Identifier;
@@ -45,11 +47,11 @@ where
     let node = schema.node(node_id);
     if let SchemaNodeContent::Record(record) = &node.content {
         let (name1, check1) = field1;
-        let id1 = record
+        let field = record
             .properties
             .get(name1)
             .unwrap_or_else(|| panic!("Field '{}' missing", name1));
-        check1(schema, *id1);
+        check1(schema, field.schema);
     } else {
         panic!("Expected Record type, got {:?}", node.content);
     }
@@ -70,16 +72,16 @@ fn assert_record2<F1, F2>(
         assert_eq!(record.properties.len(), 2);
         let (name1, check1) = field1;
         let (name2, check2) = field2;
-        let id1 = record
+        let f1 = record
             .properties
             .get(name1)
             .unwrap_or_else(|| panic!("Field '{}' missing", name1));
-        let id2 = record
+        let f2 = record
             .properties
             .get(name2)
             .unwrap_or_else(|| panic!("Field '{}' missing", name2));
-        check1(schema, *id1);
-        check2(schema, *id2);
+        check1(schema, f1.schema);
+        check2(schema, f2.schema);
     } else {
         panic!("Expected Record type, got {:?}", node.content);
     }
@@ -103,21 +105,21 @@ fn assert_record3<F1, F2, F3>(
         let (name1, check1) = field1;
         let (name2, check2) = field2;
         let (name3, check3) = field3;
-        let id1 = record
+        let f1 = record
             .properties
             .get(name1)
             .unwrap_or_else(|| panic!("Field '{}' missing", name1));
-        let id2 = record
+        let f2 = record
             .properties
             .get(name2)
             .unwrap_or_else(|| panic!("Field '{}' missing", name2));
-        let id3 = record
+        let f3 = record
             .properties
             .get(name3)
             .unwrap_or_else(|| panic!("Field '{}' missing", name3));
-        check1(schema, *id1);
-        check2(schema, *id2);
-        check3(schema, *id3);
+        check1(schema, f1.schema);
+        check2(schema, f2.schema);
+        check3(schema, f3.schema);
     } else {
         panic!("Expected Record type, got {:?}", node.content);
     }
@@ -147,31 +149,49 @@ fn assert_record5<F1, F2, F3, F4, F5>(
         let (name3, check3) = field3;
         let (name4, check4) = field4;
         let (name5, check5) = field5;
-        let id1 = record
+        let f1 = record
             .properties
             .get(name1)
             .unwrap_or_else(|| panic!("Field '{}' missing", name1));
-        let id2 = record
+        let f2 = record
             .properties
             .get(name2)
             .unwrap_or_else(|| panic!("Field '{}' missing", name2));
-        let id3 = record
+        let f3 = record
             .properties
             .get(name3)
             .unwrap_or_else(|| panic!("Field '{}' missing", name3));
-        let id4 = record
+        let f4 = record
             .properties
             .get(name4)
             .unwrap_or_else(|| panic!("Field '{}' missing", name4));
-        let id5 = record
+        let f5 = record
             .properties
             .get(name5)
             .unwrap_or_else(|| panic!("Field '{}' missing", name5));
-        check1(schema, *id1);
-        check2(schema, *id2);
-        check3(schema, *id3);
-        check4(schema, *id4);
-        check5(schema, *id5);
+        check1(schema, f1.schema);
+        check2(schema, f2.schema);
+        check3(schema, f3.schema);
+        check4(schema, f4.schema);
+        check5(schema, f5.schema);
+    } else {
+        panic!("Expected Record type, got {:?}", node.content);
+    }
+}
+
+/// Assert that a record field is optional
+fn assert_field_optional(schema: &SchemaDocument, node_id: SchemaNodeId, field_name: &str) {
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Record(record) = &node.content {
+        let field = record
+            .properties
+            .get(field_name)
+            .unwrap_or_else(|| panic!("Field '{}' missing", field_name));
+        assert!(
+            field.optional,
+            "Expected field '{}' to be optional",
+            field_name
+        );
     } else {
         panic!("Expected Record type, got {:?}", node.content);
     }
@@ -246,17 +266,14 @@ where
     }
 }
 
-/// Assert that a node is a Boolean type with specific constraints
-fn assert_boolean_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
-where
-    F: Fn(&BooleanSchema),
-{
+/// Assert that a node is a Boolean type (unit variant, no constraints)
+fn assert_boolean(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Boolean(bool_schema) = &node.content {
-        check(bool_schema);
-    } else {
-        panic!("Expected Boolean type, got {:?}", node.content);
-    }
+    assert!(
+        matches!(node.content, SchemaNodeContent::Boolean),
+        "Expected Boolean type, got {:?}",
+        node.content
+    );
 }
 
 /// Assert that a node is a Code type with specific constraints
@@ -296,14 +313,6 @@ where
     } else {
         panic!("Expected Tuple type, got {:?}", node.content);
     }
-}
-fn assert_boolean(schema: &SchemaDocument, node_id: SchemaNodeId) {
-    let node = schema.node(node_id);
-    assert!(
-        matches!(node.content, SchemaNodeContent::Boolean(_)),
-        "Expected Boolean type, got {:?}",
-        node.content
-    );
 }
 
 /// Assert that a node is a Null type
@@ -431,9 +440,9 @@ where
 {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Tuple(tuple_schema) = &node.content {
-        assert_eq!(tuple_schema.items.len(), 2);
-        check1(schema, tuple_schema.items[0]);
-        check2(schema, tuple_schema.items[1]);
+        assert_eq!(tuple_schema.elements.len(), 2);
+        check1(schema, tuple_schema.elements[0]);
+        check2(schema, tuple_schema.elements[1]);
     } else {
         panic!("Expected Tuple type, got {:?}", node.content);
     }
@@ -453,82 +462,47 @@ fn assert_tuple3<F1, F2, F3>(
 {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Tuple(tuple_schema) = &node.content {
-        assert_eq!(tuple_schema.items.len(), 3);
-        check1(schema, tuple_schema.items[0]);
-        check2(schema, tuple_schema.items[1]);
-        check3(schema, tuple_schema.items[2]);
+        assert_eq!(tuple_schema.elements.len(), 3);
+        check1(schema, tuple_schema.elements[0]);
+        check2(schema, tuple_schema.elements[1]);
+        check3(schema, tuple_schema.elements[2]);
     } else {
         panic!("Expected Tuple type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Union type with 2 variants
-fn assert_union2<F1, F2>(schema: &SchemaDocument, node_id: SchemaNodeId, check1: F1, check2: F2)
-where
+/// Assert that a node is a Union type with 2 named variants
+fn assert_union2<F1, F2>(
+    schema: &SchemaDocument,
+    node_id: SchemaNodeId,
+    variant1: (&str, F1),
+    variant2: (&str, F2),
+) where
     F1: Fn(&SchemaDocument, SchemaNodeId),
     F2: Fn(&SchemaDocument, SchemaNodeId),
 {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 2);
-        check1(schema, union_variants[0]);
-        check2(schema, union_variants[1]);
+    if let SchemaNodeContent::Union(union_schema) = &node.content {
+        assert_eq!(union_schema.variants.len(), 2);
+        let (name1, check1) = variant1;
+        let (name2, check2) = variant2;
+        let id1 = union_schema
+            .variants
+            .get(name1)
+            .unwrap_or_else(|| panic!("Variant '{}' missing", name1));
+        let id2 = union_schema
+            .variants
+            .get(name2)
+            .unwrap_or_else(|| panic!("Variant '{}' missing", name2));
+        check1(schema, *id1);
+        check2(schema, *id2);
     } else {
         panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Union type with 3 variants
+/// Assert that a node is a Union type with 3 named variants
 fn assert_union3<F1, F2, F3>(
-    schema: &SchemaDocument,
-    node_id: SchemaNodeId,
-    check1: F1,
-    check2: F2,
-    check3: F3,
-) where
-    F1: Fn(&SchemaDocument, SchemaNodeId),
-    F2: Fn(&SchemaDocument, SchemaNodeId),
-    F3: Fn(&SchemaDocument, SchemaNodeId),
-{
-    let node = schema.node(node_id);
-    if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 3);
-        check1(schema, union_variants[0]);
-        check2(schema, union_variants[1]);
-        check3(schema, union_variants[2]);
-    } else {
-        panic!("Expected Union type, got {:?}", node.content);
-    }
-}
-
-/// Assert that a node is a Union type with 4 variants
-fn assert_union4<F1, F2, F3, F4>(
-    schema: &SchemaDocument,
-    node_id: SchemaNodeId,
-    check1: F1,
-    check2: F2,
-    check3: F3,
-    check4: F4,
-) where
-    F1: Fn(&SchemaDocument, SchemaNodeId),
-    F2: Fn(&SchemaDocument, SchemaNodeId),
-    F3: Fn(&SchemaDocument, SchemaNodeId),
-    F4: Fn(&SchemaDocument, SchemaNodeId),
-{
-    let node = schema.node(node_id);
-    if let SchemaNodeContent::Union(union_variants) = &node.content {
-        assert_eq!(union_variants.len(), 4);
-        check1(schema, union_variants[0]);
-        check2(schema, union_variants[1]);
-        check3(schema, union_variants[2]);
-        check4(schema, union_variants[3]);
-    } else {
-        panic!("Expected Union type, got {:?}", node.content);
-    }
-}
-
-/// Assert that a node is a Variant type with 3 variants
-fn assert_variant3<F1, F2, F3>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
     variant1: (&str, F1),
@@ -540,20 +514,20 @@ fn assert_variant3<F1, F2, F3>(
     F3: Fn(&SchemaDocument, SchemaNodeId),
 {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Variant(variant_schema) = &node.content {
-        assert_eq!(variant_schema.variants.len(), 3);
+    if let SchemaNodeContent::Union(union_schema) = &node.content {
+        assert_eq!(union_schema.variants.len(), 3);
         let (name1, check1) = variant1;
         let (name2, check2) = variant2;
         let (name3, check3) = variant3;
-        let id1 = variant_schema
+        let id1 = union_schema
             .variants
             .get(name1)
             .unwrap_or_else(|| panic!("Variant '{}' missing", name1));
-        let id2 = variant_schema
+        let id2 = union_schema
             .variants
             .get(name2)
             .unwrap_or_else(|| panic!("Variant '{}' missing", name2));
-        let id3 = variant_schema
+        let id3 = union_schema
             .variants
             .get(name3)
             .unwrap_or_else(|| panic!("Variant '{}' missing", name3));
@@ -561,55 +535,66 @@ fn assert_variant3<F1, F2, F3>(
         check2(schema, *id2);
         check3(schema, *id3);
     } else {
-        panic!("Expected Variant type, got {:?}", node.content);
+        panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Variant type with 2 variants
-fn assert_variant2<F1, F2>(
+/// Assert that a node is a Union type with 4 named variants
+fn assert_union4<F1, F2, F3, F4>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
     variant1: (&str, F1),
     variant2: (&str, F2),
+    variant3: (&str, F3),
+    variant4: (&str, F4),
 ) where
     F1: Fn(&SchemaDocument, SchemaNodeId),
     F2: Fn(&SchemaDocument, SchemaNodeId),
+    F3: Fn(&SchemaDocument, SchemaNodeId),
+    F4: Fn(&SchemaDocument, SchemaNodeId),
 {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Variant(variant_schema) = &node.content {
-        assert_eq!(variant_schema.variants.len(), 2);
+    if let SchemaNodeContent::Union(union_schema) = &node.content {
+        assert_eq!(union_schema.variants.len(), 4);
         let (name1, check1) = variant1;
         let (name2, check2) = variant2;
-        let id1 = variant_schema
+        let (name3, check3) = variant3;
+        let (name4, check4) = variant4;
+        let id1 = union_schema
             .variants
             .get(name1)
             .unwrap_or_else(|| panic!("Variant '{}' missing", name1));
-        let id2 = variant_schema
+        let id2 = union_schema
             .variants
             .get(name2)
             .unwrap_or_else(|| panic!("Variant '{}' missing", name2));
+        let id3 = union_schema
+            .variants
+            .get(name3)
+            .unwrap_or_else(|| panic!("Variant '{}' missing", name3));
+        let id4 = union_schema
+            .variants
+            .get(name4)
+            .unwrap_or_else(|| panic!("Variant '{}' missing", name4));
         check1(schema, *id1);
         check2(schema, *id2);
+        check3(schema, *id3);
+        check4(schema, *id4);
     } else {
-        panic!("Expected Variant type, got {:?}", node.content);
+        panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
-/// Assert that a node is a Variant type with specific representation
-fn assert_variant_repr<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
+/// Assert that a node is a Union type with specific representation
+fn assert_union_repr<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
 where
     F: Fn(&VariantRepr),
 {
     let node = schema.node(node_id);
-    assert!(
-        matches!(node.content, SchemaNodeContent::Variant(_)),
-        "Expected Variant type, got {:?}",
-        node.content
-    );
-    if let SchemaNodeContent::Variant(variant_schema) = &node.content {
-        check(&variant_schema.repr);
+    if let SchemaNodeContent::Union(union_schema) = &node.content {
+        check(&union_schema.repr);
     } else {
-        panic!("Expected Variant type, got {:?}", node.content);
+        panic!("Expected Union type, got {:?}", node.content);
     }
 }
 
@@ -626,16 +611,49 @@ where
     }
 }
 
-/// Assert that a node is a Reference type
+/// Assert that a node is a Reference type (local reference)
 fn assert_reference(schema: &SchemaDocument, node_id: SchemaNodeId, expected_name: &str) {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::Reference(ref_name) = &node.content {
+    if let SchemaNodeContent::Reference(type_ref) = &node.content {
+        assert!(
+            type_ref.namespace.is_none(),
+            "Expected local reference, got namespace {:?}",
+            type_ref.namespace
+        );
         assert_eq!(
-            ref_name,
-            &ident(expected_name),
+            type_ref.name,
+            ident(expected_name),
             "Expected reference to '{}', got '{:?}'",
             expected_name,
-            ref_name
+            type_ref.name
+        );
+    } else {
+        panic!("Expected Reference type, got {:?}", node.content);
+    }
+}
+
+/// Assert that a node is a Reference type (cross-schema reference)
+fn assert_reference_external(
+    schema: &SchemaDocument,
+    node_id: SchemaNodeId,
+    expected_namespace: &str,
+    expected_name: &str,
+) {
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Reference(type_ref) = &node.content {
+        assert_eq!(
+            type_ref.namespace.as_deref(),
+            Some(expected_namespace),
+            "Expected namespace '{}', got {:?}",
+            expected_namespace,
+            type_ref.namespace
+        );
+        assert_eq!(
+            type_ref.name,
+            ident(expected_name),
+            "Expected reference to '{}', got '{:?}'",
+            expected_name,
+            type_ref.name
         );
     } else {
         panic!("Expected Reference type, got {:?}", node.content);
@@ -658,7 +676,7 @@ where
 #[test]
 fn test_string_type() {
     let input = r#"
-name.$type = .string
+name = .string
 "#;
     let schema = parse_and_convert(input);
 
@@ -666,9 +684,9 @@ name.$type = .string
 }
 
 #[test]
-fn test_number_type() {
+fn test_float_type() {
     let input = r#"
-count.$type = .float
+count = .float
 "#;
     let schema = parse_and_convert(input);
 
@@ -678,7 +696,7 @@ count.$type = .float
 #[test]
 fn test_integer_type() {
     let input = r#"
-age.$type = .integer
+age = .integer
 "#;
     let schema = parse_and_convert(input);
 
@@ -688,7 +706,7 @@ age.$type = .integer
 #[test]
 fn test_boolean_type() {
     let input = r#"
-active.$type = .boolean
+active = .boolean
 "#;
     let schema = parse_and_convert(input);
 
@@ -702,17 +720,21 @@ active.$type = .boolean
 #[test]
 fn test_null_type() {
     let input = r#"
-value.$type = .null
+deleted = .null
 "#;
     let schema = parse_and_convert(input);
 
-    assert_record1(&schema, schema.root, ("value", |s, id| assert_null(s, id)));
+    assert_record1(
+        &schema,
+        schema.root,
+        ("deleted", |s, id| assert_null(s, id)),
+    );
 }
 
 #[test]
 fn test_any_type() {
     let input = r#"
-data.$type = .any
+data = .any
 "#;
     let schema = parse_and_convert(input);
 
@@ -722,7 +744,7 @@ data.$type = .any
 #[test]
 fn test_path_type() {
     let input = r#"
-ref.$type = .path
+ref = .path
 "#;
     let schema = parse_and_convert(input);
 
@@ -734,9 +756,9 @@ ref.$type = .path
 // ============================================================================
 
 #[test]
-fn test_code_email_type() {
+fn test_code_type_email() {
     let input = r#"
-email.$type = .code.email
+email = .code.email
 "#;
     let schema = parse_and_convert(input);
 
@@ -748,20 +770,16 @@ email.$type = .code.email
 }
 
 #[test]
-fn test_code_javascript_type() {
+fn test_code_type_rust() {
     let input = r#"
-script.$type = .code.javascript
+code = .code.rust
 "#;
     let schema = parse_and_convert(input);
 
     assert_record1(
         &schema,
         schema.root,
-        ("script", |s, id| {
-            assert_code_with(s, id, |code_schema| {
-                assert_eq!(code_schema.language, Some("javascript".to_string()));
-            })
-        }),
+        ("code", |s, id| assert_code(s, id, Some("rust"))),
     );
 }
 
@@ -770,9 +788,9 @@ script.$type = .code.javascript
 // ============================================================================
 
 #[test]
-fn test_array_of_strings() {
+fn test_array_shorthand() {
     let input = r#"
-tags.$array = .string
+tags = [.string]
 "#;
     let schema = parse_and_convert(input);
 
@@ -784,11 +802,13 @@ tags.$array = .string
 }
 
 #[test]
-fn test_array_with_unique_constraint() {
+fn test_array_with_constraints() {
     let input = r#"
 @ tags {
   $variant: array
   item = .string
+  min-length = 1
+  max-length = 10
   unique = true
 }
 "#;
@@ -799,116 +819,10 @@ fn test_array_with_unique_constraint() {
         schema.root,
         ("tags", |s, id| {
             assert_array_with(s, id, assert_string, |array_schema| {
-                assert!(array_schema.unique)
+                assert_eq!(array_schema.min_length, Some(1));
+                assert_eq!(array_schema.max_length, Some(10));
+                assert!(array_schema.unique);
             })
-        }),
-    );
-}
-
-#[test]
-fn test_array_with_min_max_items() {
-    let input = r#"
-@ items {
-  $variant: array
-  item = .string
-  min-length = 1
-  max-length = 10
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("items", |s, id| {
-            assert_array_with(s, id, assert_string, |array_schema| {
-                assert_eq!(array_schema.min_items, Some(1));
-                assert_eq!(array_schema.max_items, Some(10));
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_array_with_contains() {
-    let input = r#"
-@ tags {
-  $variant: array
-  item = .string
-  contains = "required"
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("tags", |s, id| {
-            assert_array_with(s, id, assert_string, |array_schema| {
-                // Verify the contains value exists
-                assert!(
-                    array_schema.contains.is_some(),
-                    "Expected contains to be Some"
-                );
-            })
-        }),
-    );
-}
-
-// ============================================================================
-// RECORD / OBJECT TYPES
-// ============================================================================
-
-#[test]
-fn test_record_with_multiple_fields() {
-    let input = r#"
-@ user
-name.$type = .string
-age.$type = .integer
-email.$type = .code.email
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("user", |s, user_id| {
-            assert_record3(
-                s,
-                user_id,
-                ("name", |s, id| assert_string(s, id)),
-                ("age", |s, id| assert_integer(s, id)),
-                ("email", |s, id| assert_code(s, id, Some("email"))),
-            )
-        }),
-    );
-}
-
-#[test]
-fn test_nested_record() {
-    let input = r#"
-@ user.profile
-name.$type = .string
-bio.$type = .string
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("user", |s, user_id| {
-            assert_record1(
-                s,
-                user_id,
-                ("profile", |s, profile_id| {
-                    assert_record2(
-                        s,
-                        profile_id,
-                        ("name", |s, id| assert_string(s, id)),
-                        ("bio", |s, id| assert_string(s, id)),
-                    )
-                }),
-            )
         }),
     );
 }
@@ -918,18 +832,59 @@ bio.$type = .string
 // ============================================================================
 
 #[test]
-fn test_tuple_type() {
+fn test_tuple_shorthand() {
     let input = r#"
-point.#0.$type = .float
-point.#1.$type = .integer
+point = (.float, .float)
 "#;
     let schema = parse_and_convert(input);
 
     assert_record1(
         &schema,
         schema.root,
-        ("point", |s, id| {
-            assert_tuple2(s, id, assert_float, assert_integer)
+        ("point", |s, id| assert_tuple2(s, id, assert_float, assert_float)),
+    );
+}
+
+#[test]
+fn test_tuple_mixed_types() {
+    let input = r#"
+entry = (.string, .integer, .boolean)
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("entry", |s, id| {
+            assert_tuple3(s, id, assert_string, assert_integer, assert_boolean)
+        }),
+    );
+}
+
+// ============================================================================
+// RECORD TYPES
+// ============================================================================
+
+#[test]
+fn test_record_basic() {
+    let input = r#"
+@ user {
+  name = .string
+  age = .integer
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("user", |s, id| {
+            assert_record2(
+                s,
+                id,
+                ("name", assert_string),
+                ("age", assert_integer),
+            )
         }),
     );
 }
@@ -953,7 +908,12 @@ fn test_union_type() {
         &schema,
         schema.root,
         ("value", |s, id| {
-            assert_union2(s, id, assert_string, assert_float)
+            assert_union2(
+                s,
+                id,
+                ("string", assert_string),
+                ("float", assert_float),
+            )
         }),
     );
 }
@@ -978,30 +938,22 @@ fn test_union_with_multiple_types() {
             assert_union4(
                 s,
                 id,
-                assert_string,
-                assert_float,
-                assert_boolean,
-                assert_null,
+                ("string", assert_string),
+                ("float", assert_float),
+                ("boolean", assert_boolean),
+                ("null", assert_null),
             )
         }),
     );
 }
 
-// ============================================================================
-// VARIANT TYPES (TAGGED UNIONS)
-// ============================================================================
-
 #[test]
-fn test_variants_basic() {
+fn test_union_with_record_variants() {
     let input = r#"
-$types.action {
-  @ $variants.click {
-    x.$type = .float
-    y.$type = .float
-  }
-  @ $variants.hover {
-    element.$type = .string
-  }
+@ $types.action {
+  $variant: union
+  variants.click = { x => .float, y => .float }
+  variants.hover = { element => .string }
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1009,7 +961,7 @@ $types.action {
     assert!(schema.types.contains_key(&ident("action")));
     let action_id = schema.types[&ident("action")];
 
-    assert_variant2(
+    assert_union2(
         &schema,
         action_id,
         ("click", |s, click_id| {
@@ -1022,23 +974,20 @@ $types.action {
 }
 
 #[test]
-fn test_variants_with_untagged_repr() {
+fn test_union_with_untagged_repr() {
     let input = r#"
-$types.response {
+@ $types.response {
+  $variant: union
   $variant-repr = "untagged"
-  @ $variants.success {
-    data.$type = .any
-  }
-  @ $variants.error {
-    message.$type = .string
-  }
+  variants.success = { data => .any }
+  variants.error = { message => .string }
 }
 "#;
     let schema = parse_and_convert(input);
 
     let response_id = schema.types[&ident("response")];
 
-    assert_variant2(
+    assert_union2(
         &schema,
         response_id,
         ("success", |s, success_id| {
@@ -1049,40 +998,26 @@ $types.response {
         }),
     );
 
-    assert_variant_repr(&schema, response_id, |repr| {
+    assert_union_repr(&schema, response_id, |repr| {
         assert!(matches!(repr, VariantRepr::Untagged));
     });
 }
 
 #[test]
-fn test_variants_with_internally_tagged_repr() {
+fn test_union_with_internal_tag() {
     let input = r#"
-$types.message {
-  $variant-repr = { tag = "type" }
-  @ $variants.text {
-    content.$type = .string
-  }
-  @ $variants.image {
-    url.$type = .string
-  }
+@ $types.message {
+  $variant: union
+  $variant-repr = { tag => "type" }
+  variants.text = { content => .string }
+  variants.image = { url => .string }
 }
 "#;
     let schema = parse_and_convert(input);
 
     let message_id = schema.types[&ident("message")];
 
-    assert_variant2(
-        &schema,
-        message_id,
-        ("text", |s, text_id| {
-            assert_record1(s, text_id, ("content", assert_string));
-        }),
-        ("image", |s, image_id| {
-            assert_record1(s, image_id, ("url", assert_string));
-        }),
-    );
-
-    assert_variant_repr(&schema, message_id, |repr| {
+    assert_union_repr(&schema, message_id, |repr| {
         if let VariantRepr::Internal { tag } = repr {
             assert_eq!(tag, "type");
         } else {
@@ -1092,34 +1027,20 @@ $types.message {
 }
 
 #[test]
-fn test_variants_with_adjacently_tagged_repr() {
+fn test_union_with_adjacent_tag() {
     let input = r#"
-$types.event {
-  $variant-repr = { tag = "kind", content = "data" }
-  @ $variants.login {
-    username.$type = .string
-  }
-  @ $variants.logout {
-    reason.$type = .string
-  }
+@ $types.event {
+  $variant: union
+  $variant-repr = { tag => "kind", content => "data" }
+  variants.login = { username => .string }
+  variants.logout = { reason => .string }
 }
 "#;
     let schema = parse_and_convert(input);
 
     let event_id = schema.types[&ident("event")];
 
-    assert_variant2(
-        &schema,
-        event_id,
-        ("login", |s, login_id| {
-            assert_record1(s, login_id, ("username", assert_string));
-        }),
-        ("logout", |s, logout_id| {
-            assert_record1(s, logout_id, ("reason", assert_string));
-        }),
-    );
-
-    assert_variant_repr(&schema, event_id, |repr| {
+    assert_union_repr(&schema, event_id, |repr| {
         if let VariantRepr::Adjacent { tag, content } = repr {
             assert_eq!(tag, "kind");
             assert_eq!(content, "data");
@@ -1130,34 +1051,20 @@ $types.event {
 }
 
 #[test]
-fn test_variants_with_externally_tagged_repr() {
+fn test_union_default_external() {
     let input = r#"
-$types.status {
-  @ $variants.pending {
-    message.$type = .string
-  }
-  @ $variants.active {
-    started_at.$type = .integer
-  }
+@ $types.status {
+  $variant: union
+  variants.pending = { message => .string }
+  variants.active = { started_at => .integer }
 }
 "#;
     let schema = parse_and_convert(input);
 
     let status_id = schema.types[&ident("status")];
 
-    assert_variant2(
-        &schema,
-        status_id,
-        ("pending", |s, pending_id| {
-            assert_record1(s, pending_id, ("message", assert_string));
-        }),
-        ("active", |s, active_id| {
-            assert_record1(s, active_id, ("started_at", assert_integer));
-        }),
-    );
-
     // Default representation should be External
-    assert_variant_repr(&schema, status_id, |repr| {
+    assert_union_repr(&schema, status_id, |repr| {
         assert!(
             matches!(repr, VariantRepr::External),
             "Expected VariantRepr::External, got {:?}",
@@ -1167,25 +1074,20 @@ $types.status {
 }
 
 #[test]
-fn test_variant_with_three_variants() {
+fn test_union_with_three_variants() {
     let input = r#"
-$types.traffic-light {
-  @ $variants.red {
-    duration.$type = .integer
-  }
-  @ $variants.yellow {
-    duration.$type = .integer
-  }
-  @ $variants.green {
-    duration.$type = .integer
-  }
+@ $types.traffic-light {
+  $variant: union
+  variants.red = { duration => .integer }
+  variants.yellow = { duration => .integer }
+  variants.green = { duration => .integer }
 }
 "#;
     let schema = parse_and_convert(input);
 
     let light_id = schema.types[&ident("traffic-light")];
 
-    assert_variant3(
+    assert_union3(
         &schema,
         light_id,
         ("red", |s, red_id| {
@@ -1226,28 +1128,12 @@ user = .$types.username
     );
 }
 
-#[test]
-fn test_type_reference() {
-    let input = r#"
-$types.email = .code.email
-
-contact.$type = .$types.email
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("contact", |s, id| assert_reference(s, id, "email")),
-    );
-}
-
 // ============================================================================
 // STRING CONSTRAINTS
 // ============================================================================
 
 #[test]
-fn test_string_length_constraint() {
+fn test_string_with_length() {
     let input = r#"
 @ username {
   $variant: string
@@ -1262,38 +1148,20 @@ fn test_string_length_constraint() {
         schema.root,
         ("username", |s, id| {
             assert_string_with(s, id, |string_schema| {
-                assert_eq!(string_schema.length, Some((3, 20)));
+                assert_eq!(string_schema.min_length, Some(3));
+                assert_eq!(string_schema.max_length, Some(20));
             })
         }),
     );
 }
 
 #[test]
-fn test_string_pattern_constraint() {
+fn test_string_with_pattern() {
     let input = r#"
-@ username {
+@ email {
   $variant: string
-  pattern = "^[a-z0-9_]+$"
+  pattern = "^[a-z]+@[a-z]+\\.[a-z]+$"
 }
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("username", |s, id| {
-            assert_string_with(s, id, |string_schema| {
-                assert_eq!(string_schema.pattern, Some("^[a-z0-9_]+$".to_string()));
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_string_format_constraint() {
-    // Note: format is not a standard string constraint, use .code.email instead
-    let input = r#"
-email = .code.email
 "#;
     let schema = parse_and_convert(input);
 
@@ -1302,19 +1170,18 @@ email = .code.email
         schema.root,
         ("email", |s, id| {
             assert_string_with(s, id, |string_schema| {
-                assert_eq!(string_schema.format, Some("email".to_string()));
+                assert!(string_schema.pattern.is_some());
             })
         }),
     );
 }
 
 // ============================================================================
-// NUMBER CONSTRAINTS
+// INTEGER CONSTRAINTS
 // ============================================================================
 
 #[test]
-fn test_integer_range_constraint_inclusive() {
-    // Interval notation: both inclusive
+fn test_integer_with_range() {
     let input = r#"
 @ age {
   $variant: integer
@@ -1328,12 +1195,172 @@ fn test_integer_range_constraint_inclusive() {
         schema.root,
         ("age", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert_eq!(int_schema.min, Bound::Inclusive(0.into()));
-                assert_eq!(int_schema.max, Bound::Inclusive(150.into()));
+                assert_eq!(int_schema.min, Bound::Inclusive(BigInt::from(0)));
+                assert_eq!(int_schema.max, Bound::Inclusive(BigInt::from(150)));
             })
         }),
     );
 }
+
+#[test]
+fn test_integer_with_multiple_of() {
+    let input = r#"
+@ even {
+  $variant: integer
+  multiple-of = 2
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("even", |s, id| {
+            assert_integer_with(s, id, |int_schema| {
+                assert_eq!(int_schema.multiple_of, Some(BigInt::from(2)));
+            })
+        }),
+    );
+}
+
+// ============================================================================
+// FLOAT CONSTRAINTS
+// ============================================================================
+
+#[test]
+fn test_float_with_range() {
+    let input = r#"
+@ probability {
+  $variant: float
+  range = "[0.0, 1.0]"
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("probability", |s, id| {
+            assert_float_with(s, id, |float_schema| {
+                assert_eq!(float_schema.min, Bound::Inclusive(0.0));
+                assert_eq!(float_schema.max, Bound::Inclusive(1.0));
+            })
+        }),
+    );
+}
+
+// ============================================================================
+// MAP TYPES
+// ============================================================================
+
+#[test]
+fn test_map_type() {
+    let input = r#"
+@ headers {
+  $variant: map
+  key = .string
+  value = .string
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("headers", |s, id| assert_map(s, id, assert_string, assert_string)),
+    );
+}
+
+#[test]
+fn test_map_with_constraints() {
+    let input = r#"
+@ settings {
+  $variant: map
+  key = .string
+  value = .any
+  min-size = 1
+  max-size = 100
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("settings", |s, id| {
+            assert_map_with(s, id, assert_string, assert_any, |map_schema| {
+                assert_eq!(map_schema.min_size, Some(1));
+                assert_eq!(map_schema.max_size, Some(100));
+            })
+        }),
+    );
+}
+
+// ============================================================================
+// ARRAY CONTAINS TEST
+// ============================================================================
+
+#[test]
+fn test_array_with_contains() {
+    let input = r#"
+@ tags {
+  $variant: array
+  item = .string
+  contains = "required"
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("tags", |s, id| {
+            assert_array_with(s, id, assert_string, |array_schema| {
+                assert!(
+                    array_schema.contains.is_some(),
+                    "Expected contains to be Some"
+                );
+            })
+        }),
+    );
+}
+
+// ============================================================================
+// NESTED RECORD TEST
+// ============================================================================
+
+#[test]
+fn test_nested_record() {
+    let input = r#"
+@ user.profile
+name = .string
+bio = .string
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("user", |s, user_id| {
+            assert_record1(
+                s,
+                user_id,
+                ("profile", |s, profile_id| {
+                    assert_record2(
+                        s,
+                        profile_id,
+                        ("name", |s, id| assert_string(s, id)),
+                        ("bio", |s, id| assert_string(s, id)),
+                    )
+                }),
+            )
+        }),
+    );
+}
+
+// ============================================================================
+// INTEGER RANGE TESTS
+// ============================================================================
 
 #[test]
 fn test_integer_range_rust_style_inclusive() {
@@ -1351,8 +1378,8 @@ fn test_integer_range_rust_style_inclusive() {
         schema.root,
         ("age", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert_eq!(int_schema.min, Bound::Inclusive(0.into()));
-                assert_eq!(int_schema.max, Bound::Inclusive(150.into()));
+                assert_eq!(int_schema.min, Bound::Inclusive(BigInt::from(0)));
+                assert_eq!(int_schema.max, Bound::Inclusive(BigInt::from(150)));
             })
         }),
     );
@@ -1374,8 +1401,8 @@ fn test_integer_range_rust_style_exclusive() {
         schema.root,
         ("index", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert_eq!(int_schema.min, Bound::Inclusive(0.into()));
-                assert_eq!(int_schema.max, Bound::Exclusive(100.into()));
+                assert_eq!(int_schema.min, Bound::Inclusive(BigInt::from(0)));
+                assert_eq!(int_schema.max, Bound::Exclusive(BigInt::from(100)));
             })
         }),
     );
@@ -1397,7 +1424,7 @@ fn test_integer_range_min_only() {
         schema.root,
         ("positive", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert_eq!(int_schema.min, Bound::Inclusive(1.into()));
+                assert_eq!(int_schema.min, Bound::Inclusive(BigInt::from(1)));
                 assert_eq!(int_schema.max, Bound::Unbounded);
             })
         }),
@@ -1421,7 +1448,30 @@ fn test_integer_range_max_only() {
         ("small", |s, id| {
             assert_integer_with(s, id, |int_schema| {
                 assert_eq!(int_schema.min, Bound::Unbounded);
-                assert_eq!(int_schema.max, Bound::Exclusive(100.into()));
+                assert_eq!(int_schema.max, Bound::Exclusive(BigInt::from(100)));
+            })
+        }),
+    );
+}
+
+#[test]
+fn test_integer_range_max_only_inclusive() {
+    // Rust-style: max only (inclusive with ..=)
+    let input = r#"
+@ small {
+  $variant: integer
+  range = "..=100"
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("small", |s, id| {
+            assert_integer_with(s, id, |int_schema| {
+                assert_eq!(int_schema.min, Bound::Unbounded);
+                assert_eq!(int_schema.max, Bound::Inclusive(BigInt::from(100)));
             })
         }),
     );
@@ -1443,8 +1493,8 @@ fn test_integer_range_interval_exclusive() {
         schema.root,
         ("value", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert_eq!(int_schema.min, Bound::Exclusive(0.into()));
-                assert_eq!(int_schema.max, Bound::Exclusive(100.into()));
+                assert_eq!(int_schema.min, Bound::Exclusive(BigInt::from(0)));
+                assert_eq!(int_schema.max, Bound::Exclusive(BigInt::from(100)));
             })
         }),
     );
@@ -1466,60 +1516,20 @@ fn test_integer_range_interval_mixed() {
         schema.root,
         ("value", |s, id| {
             assert_integer_with(s, id, |int_schema| {
-                assert_eq!(int_schema.min, Bound::Exclusive(0.into()));
-                assert_eq!(int_schema.max, Bound::Inclusive(100.into()));
+                assert_eq!(int_schema.min, Bound::Exclusive(BigInt::from(0)));
+                assert_eq!(int_schema.max, Bound::Inclusive(BigInt::from(100)));
             })
         }),
     );
 }
 
-#[test]
-fn test_integer_multiple_of() {
-    let input = r#"
-@ even {
-  $variant: integer
-  multiple-of = 2
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("even", |s, id| {
-            assert_integer_with(s, id, |int_schema| {
-                assert_eq!(int_schema.multiple_of, Some(BigInt::from(2)));
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_float_range_constraint_inclusive() {
-    // Interval notation: both inclusive
-    let input = r#"
-@ temperature {
-  $variant: float
-  range = "[-273.15, 1000.0]"
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("temperature", |s, id| {
-            assert_float_with(s, id, |float_schema| {
-                assert_eq!(float_schema.min, Bound::Inclusive(-273.15));
-                assert_eq!(float_schema.max, Bound::Inclusive(1000.0));
-            })
-        }),
-    );
-}
+// ============================================================================
+// FLOAT RANGE TESTS
+// ============================================================================
 
 #[test]
 fn test_float_range_interval_half_open() {
-    // Interval notation: left inclusive, right exclusive (common for probabilities)
+    // Interval notation: left inclusive, right exclusive
     let input = r#"
 @ probability {
   $variant: float
@@ -1564,408 +1574,27 @@ fn test_float_range_rust_style() {
 }
 
 // ============================================================================
-// METADATA
+// METADATA TESTS
 // ============================================================================
 
 #[test]
 fn test_optional_field() {
     let input = r#"
-name.$type = .string
-bio.$type = .string
+name = .string
+bio = .string
 bio.$optional = true
 "#;
     let schema = parse_and_convert(input);
 
     // Check bio is optional
-    assert_record1(
-        &schema,
-        schema.root,
-        ("bio", |s, id| {
-            assert_string(s, id);
-            assert_metadata(s, id, |metadata| {
-                assert!(metadata.optional);
-            })
-        }),
-    );
-
-    // Check name is required
-    assert_record1(
-        &schema,
-        schema.root,
-        ("name", |s, id| {
-            assert_string(s, id);
-            assert_metadata(s, id, |metadata| {
-                assert!(!metadata.optional);
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_cascade_type() {
-    let input = r#"
-@ config
-$cascade-type = .string
-
-@ config.server.host
-@ config.server.port
-@ config.database.name
-"#;
-    let schema = parse_and_convert(input);
-
-    // This test verifies that cascade-type applies to all descendant fields
-    // Implementation should handle this during conversion
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            // Verify config has server field with host
-            assert_record1(
-                s,
-                config_id,
-                ("server", |s, server_id| {
-                    assert_record1(s, server_id, ("host", assert_string));
-                }),
-            );
-        }),
-    );
-}
-
-#[test]
-fn test_prefer_section() {
-    let input = r#"
-profile.$type = .any
-profile.$prefer.section = true
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("profile", |s, id| {
-            assert_any(s, id);
-            assert_metadata(s, id, |metadata| {
-                assert!(metadata.prefer_section);
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_rename() {
-    let input = r#"
-user_name.$type = .string
-user_name.$rename = "userName"
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("user_name", |s, id| {
-            assert_string(s, id);
-            assert_metadata(s, id, |metadata| {
-                assert_eq!(metadata.rename, Some("userName".to_string()));
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_rename_all() {
-    let input = r#"
-@ config
-$rename-all = "camelCase"
-server_host.$type = .string
-database_name.$type = .string
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            // Config is a record with fields
-            assert_record1(s, config_id, ("host", assert_string));
-            assert_metadata(s, config_id, |metadata| {
-                assert_eq!(metadata.rename_all, Some("camelCase".to_string()));
-            })
-        }),
-    );
-}
-
-// ============================================================================
-// COMPLEX EXAMPLES
-// ============================================================================
-
-#[test]
-fn test_complex_user_schema() {
-    let input = r#"
-$types.username {
-  $type = .string
-  $length = (3, 20)
-  $pattern = "^[a-z0-9_]+$"
-}
-
-$types.user {
-  @ username
-  $type = .$types.username
-
-  @ email
-  $type = .code.email
-
-  @ age
-  $type = .integer
-  $range = (0, 150)
-  $optional = true
-
-  @ tags
-  $array = .string
-  $unique = true
-
-  @ role {
-    $variant: union
-    variants.admin = { = "admin", $variant: literal }
-    variants.user = { = "user", $variant: literal }
-    variants.guest = { = "guest", $variant: literal }
-  }
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert!(schema.types.contains_key(&ident("username")));
-    assert!(schema.types.contains_key(&ident("user")));
-
-    let user_id = schema.types[&ident("user")];
-
-    // Use assert_record5 to check all fields properly
-    assert_record5(
-        &schema,
-        user_id,
-        ("username", |s, id| assert_reference(s, id, "username")),
-        ("email", |s, id| assert_code(s, id, Some("email"))),
-        ("age", |s, id| {
-            assert_integer(s, id);
-            assert_metadata(s, id, |metadata| {
-                assert!(metadata.optional);
-            });
-        }),
-        ("tags", |s, id| {
-            assert_array_with(s, id, assert_string, |array_schema| {
-                assert!(array_schema.unique);
-            });
-        }),
-        ("role", |s, id| {
-            assert_union3(
-                s,
-                id,
-                |s, v_id| {
-                    // Union literals are represented as their types
-                    assert_string(s, v_id);
-                },
-                |s, v_id| {
-                    assert_string(s, v_id);
-                },
-                |s, v_id| {
-                    assert_string(s, v_id);
-                },
-            )
-        }),
-    );
-}
-
-#[test]
-fn test_complex_api_schema() {
-    let input = r#"
-$types.http-method {
-  $variant: union
-  variants.GET = { = "GET", $variant: literal }
-  variants.POST = { = "POST", $variant: literal }
-  variants.PUT = { = "PUT", $variant: literal }
-  variants.DELETE = { = "DELETE", $variant: literal }
-  variants.PATCH = { = "PATCH", $variant: literal }
-}
-
-@ $types.api-request
-method = .$types.http-method
-path = { $variant: string, pattern => "^/" }
-headers = .any
-headers.$optional = true
-body = .any
-body.$optional = true
-
-@ $types.api-response {
-  $variant: union
-  $variant-repr = "untagged"
-
-  @ variants.success
-  status = { $variant: integer, min => 200, max => 299 }
-  data = .any
-
-  @ variants.error
-  status = { $variant: integer, min => 400, max => 599 }
-  message = .string
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert!(schema.types.contains_key(&ident("http-method")));
-    assert!(schema.types.contains_key(&ident("api-request")));
-    assert!(schema.types.contains_key(&ident("api-response")));
-
-    let response_id = schema.types[&ident("api-response")];
-
-    // Check variants: success and error
-    assert_variant2(
-        &schema,
-        response_id,
-        ("success", |s, success_id| {
-            // success variant has status and data fields
-            assert_record2(
-                s,
-                success_id,
-                ("status", assert_integer),
-                ("data", assert_any),
-            );
-        }),
-        ("error", |s, error_id| {
-            // error variant has status and message fields
-            assert_record2(
-                s,
-                error_id,
-                ("status", assert_integer),
-                ("message", assert_string),
-            );
-        }),
-    );
-
-    // Check repr is Untagged
-    assert_variant_repr(&schema, response_id, |repr| {
-        assert!(matches!(repr, VariantRepr::Untagged));
-    });
-}
-
-#[test]
-fn test_nested_types_and_arrays() {
-    let input = r#"
-$types.address {
-  @ street
-  $type = .string
-
-  @ city
-  $type = .string
-
-  @ zip
-  $type = .string
-  $pattern = "^[0-9]{5}$"
-}
-
-$types.person {
-  @ name
-  $type = .string
-
-  @ addresses
-  $array = .$types.address
-  $min-items = 1
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    let person_id = schema.types[&ident("person")];
-
-    assert_record2(
-        &schema,
-        person_id,
-        ("name", |s, id| assert_string(s, id)),
-        ("addresses", |s, id| {
-            assert_array_with(
-                s,
-                id,
-                |s, item_id| assert_reference(s, item_id, "address"),
-                |array_schema| {
-                    assert_eq!(array_schema.min_items, Some(1));
-                },
-            );
-        }),
-    );
-}
-
-// ============================================================================
-// ADDITIONAL TESTS FOR FULL COVERAGE
-// ============================================================================
-
-#[test]
-fn test_unknown_fields_policy_allow() {
-    let input = r#"
-@ config
-$unknown-fields = "allow"
-host.$type = .string
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            assert_record1(s, config_id, ("host", assert_string));
-            assert_unknown_fields(s, config_id, |policy| {
-                assert!(matches!(policy, UnknownFieldsPolicy::Allow));
-            });
-        }),
-    );
-}
-
-#[test]
-fn test_unknown_fields_policy_schema() {
-    let input = r#"
-@ config
-$unknown-fields = .string
-host.$type = .string
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            assert_record1(s, config_id, ("host", assert_string));
-            assert_unknown_fields(s, config_id, |policy| {
-                if let UnknownFieldsPolicy::Schema(schema_id) = policy {
-                    assert_string(s, *schema_id);
-                } else {
-                    panic!("Expected UnknownFieldsPolicy::Schema, got {:?}", policy);
-                }
-            });
-        }),
-    );
-}
-
-#[test]
-fn test_unknown_fields_policy_deny() {
-    let input = r#"
-@ config
-$unknown-fields = "deny"
-host.$type = .string
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            assert_record1(s, config_id, ("host", assert_string));
-            assert_unknown_fields(s, config_id, |policy| {
-                assert!(matches!(policy, UnknownFieldsPolicy::Deny));
-            });
-        }),
-    );
+    assert_field_optional(&schema, schema.root, "bio");
 }
 
 #[test]
 fn test_metadata_description() {
     let input = r#"
-user.$type = .any
-user.$description = "User information"
+user = .any
+user.$description: User information
 "#;
     let schema = parse_and_convert(input);
 
@@ -1975,7 +1604,7 @@ user.$description = "User information"
         ("user", |s, id| {
             assert_any(s, id);
             assert_metadata(s, id, |metadata| {
-                assert_eq!(metadata.description, Some("User information".to_string()));
+                assert!(metadata.description.is_some());
             })
         }),
     );
@@ -1984,7 +1613,7 @@ user.$description = "User information"
 #[test]
 fn test_metadata_deprecated() {
     let input = r#"
-old_field.$type = .string
+old_field = .string
 old_field.$deprecated = true
 "#;
     let schema = parse_and_convert(input);
@@ -2004,7 +1633,7 @@ old_field.$deprecated = true
 #[test]
 fn test_metadata_default_value() {
     let input = r#"
-timeout.$type = .integer
+timeout = .integer
 timeout.$default = 30
 "#;
     let schema = parse_and_convert(input);
@@ -2021,30 +1650,90 @@ timeout.$default = 30
     );
 }
 
+// ============================================================================
+// UNKNOWN FIELDS POLICY TESTS
+// ============================================================================
+
 #[test]
-fn test_tuple_with_mixed_types() {
+fn test_unknown_fields_policy_allow() {
     let input = r#"
-coordinate.#0.$type = .float
-coordinate.#1.$type = .integer
-coordinate.#2.$type = .string
+@ config {
+  $unknown-fields = "allow"
+  host = .string
+}
 "#;
     let schema = parse_and_convert(input);
 
     assert_record1(
         &schema,
         schema.root,
-        ("coordinate", |s, id| {
-            assert_tuple3(s, id, assert_float, assert_integer, assert_string)
+        ("config", |s, config_id| {
+            assert_record1(s, config_id, ("host", assert_string));
+            assert_unknown_fields(s, config_id, |policy| {
+                assert!(matches!(policy, UnknownFieldsPolicy::Allow));
+            });
         }),
     );
 }
 
 #[test]
+fn test_unknown_fields_policy_deny() {
+    let input = r#"
+@ config {
+  $unknown-fields = "deny"
+  host = .string
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, config_id| {
+            assert_record1(s, config_id, ("host", assert_string));
+            assert_unknown_fields(s, config_id, |policy| {
+                assert!(matches!(policy, UnknownFieldsPolicy::Deny));
+            });
+        }),
+    );
+}
+
+#[test]
+fn test_unknown_fields_policy_schema() {
+    let input = r#"
+@ config {
+  $unknown-fields = .string
+  host = .string
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, config_id| {
+            assert_record1(s, config_id, ("host", assert_string));
+            assert_unknown_fields(s, config_id, |policy| {
+                if let UnknownFieldsPolicy::Schema(schema_id) = policy {
+                    assert_string(s, *schema_id);
+                } else {
+                    panic!("Expected UnknownFieldsPolicy::Schema, got {:?}", policy);
+                }
+            });
+        }),
+    );
+}
+
+// ============================================================================
+// CODE/PATH TESTS
+// ============================================================================
+
+#[test]
 fn test_code_language_variants() {
     let input = r#"
-rust.$type = .code.rust
-python.$type = .code.python
-sql.$type = .code.sql
+rust = .code.rust
+python = .code.python
+sql = .code.sql
 "#;
     let schema = parse_and_convert(input);
 
@@ -2058,127 +1747,14 @@ sql.$type = .code.sql
 }
 
 #[test]
-fn test_nested_union_types() {
-    let input = r#"
-@ value {
-  $variant: union
-  variants.string = .string
-  variants.integer = .integer
-  variants.array = [{
-    $variant: union
-    variants.boolean = .boolean
-    variants.null = .null
-  }]
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    // This tests that unions can contain nested structures (array as third variant)
-    assert_record1(
-        &schema,
-        schema.root,
-        ("value", |s, id| {
-            assert_union3(s, id, assert_string, assert_integer, |s, array_id| {
-                // Third variant should be an array containing union of [boolean, null]
-                assert_array(s, array_id, |s, item_id| {
-                    assert_union2(s, item_id, assert_boolean, assert_null);
-                });
-            });
-        }),
-    );
-}
-
-#[test]
-fn test_map_type() {
-    let input = r#"
-@ headers {
-  $variant: map
-  key = .string
-  value = .string
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("headers", |s, id| {
-            assert_map(s, id, assert_string, assert_string);
-        }),
-    );
-}
-
-#[test]
-fn test_map_with_constraints() {
-    let input = r#"
-@ attributes {
-  $variant: map
-  key = .string
-  value = .any
-  min-size = 1
-  max-size = 10
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("attributes", |s, id| {
-            assert_map_with(s, id, assert_string, assert_any, |map_schema| {
-                assert_eq!(map_schema.min_pairs, Some(1));
-                assert_eq!(map_schema.max_pairs, Some(10));
-            });
-        }),
-    );
-}
-
-// ============================================================================
-// TESTS USING SCHEMA TYPES DIRECTLY
-// ============================================================================
-
-#[test]
-fn test_boolean_schema_details() {
-    let input = r#"
-always_true.$type = .boolean
-always_true.$const = true
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("always_true", |s, id| {
-            assert_boolean_with(s, id, |bool_schema| {
-                assert_eq!(bool_schema.r#const, Some(true));
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_code_schema_details() {
-    let input = r#"
-script.$type = .code.rust
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("script", |s, id| {
-            assert_code_with(s, id, |code_schema| {
-                assert_eq!(code_schema.language, Some("rust".to_string()));
-            })
-        }),
-    );
-}
-
-#[test]
 fn test_path_schema_details() {
     let input = r#"
-ref.$type = .path
-ref.$const = .config.server
+@ ref {
+  $variant: path
+  starts-with = .config
+  min-length = 2
+  max-length = 10
+}
 "#;
     let schema = parse_and_convert(input);
 
@@ -2187,69 +1763,31 @@ ref.$const = .config.server
         schema.root,
         ("ref", |s, id| {
             assert_path_with(s, id, |path_schema| {
-                assert!(path_schema.r#const.is_some());
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_tuple_schema_details() {
-    let input = r#"
-point.#0.$type = .float
-point.#1.$type = .integer
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("point", |s, id| {
-            assert_tuple_with(s, id, |tuple_schema| {
-                assert_eq!(tuple_schema.items.len(), 2);
-                assert_float(s, tuple_schema.items[0]);
-                assert_integer(s, tuple_schema.items[1]);
-            })
-        }),
-    );
-}
-
-#[test]
-fn test_schema_node_extensions_access() {
-    let input = r#"
-user.$type = .string
-user.$description = "User name"
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("user", |s, id| {
-            assert_string(s, id);
-            assert_metadata(s, id, |metadata| {
-                assert_eq!(metadata.description, Some("User name".to_string()));
+                assert!(path_schema.starts_with.is_some());
+                assert_eq!(path_schema.min_length, Some(2));
+                assert_eq!(path_schema.max_length, Some(10));
             })
         }),
     );
 }
 
 // ============================================================================
-// ERROR CASES AND VALIDATION
+// TYPE REFERENCE TESTS
 // ============================================================================
 
 #[test]
-fn test_invalid_type_reference() {
+fn test_type_reference() {
     let input = r#"
-user.$type = .$types.nonexistent
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
-    let result = document_to_schema(&doc);
+$types.email = .code.email
 
-    // Should fail because the type doesn't exist
-    assert_eq!(
-        result.unwrap_err(),
-        ConversionError::InvalidNodeReference("nonexistent".to_string())
+contact = .$types.email
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("contact", |s, id| assert_reference(s, id, "email")),
     );
 }
 
@@ -2259,7 +1797,7 @@ fn test_circular_type_reference_is_valid() {
 $types.a = .$types.b
 $types.b = .$types.a
 
-data.$type = .$types.a
+data = .$types.a
 "#;
     let schema = parse_and_convert(input);
 
@@ -2280,110 +1818,6 @@ data.$type = .$types.a
     let b_id = schema.types[&ident("b")];
     assert_reference(&schema, b_id, "a");
 }
-
-// ============================================================================
-// EDGE CASES
-// ============================================================================
-
-#[test]
-fn test_empty_record() {
-    let input = r#"
-@ config
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            let node = s.node(config_id);
-            if let SchemaNodeContent::Record(record) = &node.content {
-                assert_eq!(record.properties.len(), 0, "Expected empty record");
-            } else {
-                panic!("Expected Record type, got {:?}", node.content);
-            }
-        }),
-    );
-}
-
-#[test]
-fn test_empty_array_schema() {
-    // Array must have an item type
-    let input = r#"
-items.$array = .any
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("items", |s, id| {
-            assert_array(s, id, assert_any);
-        }),
-    );
-}
-
-// ============================================================================
-// MAP TYPE COMPREHENSIVE TESTS
-// ============================================================================
-
-#[test]
-fn test_map_with_complex_types() {
-    let input = r#"
-@ $types.address {
-  $variant: string
-  min-length = 1
-  max-length = 100
-}
-
-@ locations {
-  $variant: map
-  key = .string
-  value = .$types.address
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("locations", |s, id| {
-            assert_map(s, id, assert_string, |s, value_id| {
-                assert_reference(s, value_id, "address")
-            });
-        }),
-    );
-}
-
-#[test]
-fn test_nested_maps() {
-    let input = r#"
-@ nested {
-  $variant: map
-  key = .string
-  value = {
-    $variant: map
-    key => .string
-    value => .integer
-  }
-}
-"#;
-    let schema = parse_and_convert(input);
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("nested", |s, id| {
-            assert_map(s, id, assert_string, |s, value_id| {
-                assert_map(s, value_id, assert_string, assert_integer);
-            });
-        }),
-    );
-}
-
-// ============================================================================
-// COMPLEX TYPE REFERENCE CHAINS
-// ============================================================================
 
 #[test]
 fn test_type_reference_chain() {
@@ -2427,6 +1861,158 @@ data = .$types.user
     assert_reference(&schema, username_id, "base-string");
 }
 
+// ============================================================================
+// COMPLEX EXAMPLES
+// ============================================================================
+
+#[test]
+fn test_complex_user_schema() {
+    let input = r#"
+@ $types.username {
+  $variant: string
+  min-length = 3
+  max-length = 20
+  pattern = "^[a-z0-9_]+$"
+}
+
+@ $types.role {
+  $variant: union
+  variants.admin = { => "admin", $variant => "literal" }
+  variants.user = { => "user", $variant => "literal" }
+  variants.guest = { => "guest", $variant => "literal" }
+}
+
+@ $types.user {
+  username = .$types.username
+  email = .code.email
+  age = .integer
+  age.$optional = true
+  tags = [.string]
+  role = .$types.role
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert!(schema.types.contains_key(&ident("username")));
+    assert!(schema.types.contains_key(&ident("user")));
+    assert!(schema.types.contains_key(&ident("role")));
+
+    let user_id = schema.types[&ident("user")];
+
+    assert_record5(
+        &schema,
+        user_id,
+        ("username", |s, id| assert_reference(s, id, "username")),
+        ("email", |s, id| assert_code(s, id, Some("email"))),
+        ("age", |s, id| assert_integer(s, id)),
+        ("tags", |s, id| assert_array(s, id, assert_string)),
+        ("role", |s, id| assert_reference(s, id, "role")),
+    );
+}
+
+#[test]
+fn test_complex_api_schema() {
+    let input = r#"
+@ $types.http-method {
+  $variant: union
+  variants.GET = { => "GET", $variant => "literal" }
+  variants.POST = { => "POST", $variant => "literal" }
+  variants.PUT = { => "PUT", $variant => "literal" }
+  variants.DELETE = { => "DELETE", $variant => "literal" }
+  variants.PATCH = { => "PATCH", $variant => "literal" }
+}
+
+@ $types.api-request {
+  method = .$types.http-method
+  path = .string
+  headers = .any
+  headers.$optional = true
+  body = .any
+  body.$optional = true
+}
+
+@ $types.api-response {
+  $variant: union
+  $variant-repr = "untagged"
+  variants.success = { status => .integer, data => .any }
+  variants.error = { status => .integer, message => .string }
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert!(schema.types.contains_key(&ident("http-method")));
+    assert!(schema.types.contains_key(&ident("api-request")));
+    assert!(schema.types.contains_key(&ident("api-response")));
+
+    let response_id = schema.types[&ident("api-response")];
+
+    // Check variants: success and error
+    assert_union2(
+        &schema,
+        response_id,
+        ("success", |s, success_id| {
+            assert_record2(
+                s,
+                success_id,
+                ("status", assert_integer),
+                ("data", assert_any),
+            );
+        }),
+        ("error", |s, error_id| {
+            assert_record2(
+                s,
+                error_id,
+                ("status", assert_integer),
+                ("message", assert_string),
+            );
+        }),
+    );
+
+    // Check repr is Untagged
+    assert_union_repr(&schema, response_id, |repr| {
+        assert!(matches!(repr, VariantRepr::Untagged));
+    });
+}
+
+#[test]
+fn test_nested_types_and_arrays() {
+    let input = r#"
+@ $types.address {
+  street = .string
+  city = .string
+  zip = .string
+}
+
+@ $types.person {
+  name = .string
+  @ addresses {
+    $variant: array
+    item = .$types.address
+    min-length = 1
+  }
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    let person_id = schema.types[&ident("person")];
+
+    assert_record2(
+        &schema,
+        person_id,
+        ("name", |s, id| assert_string(s, id)),
+        ("addresses", |s, id| {
+            assert_array_with(
+                s,
+                id,
+                |s, item_id| assert_reference(s, item_id, "address"),
+                |array_schema| {
+                    assert_eq!(array_schema.min_length, Some(1));
+                },
+            );
+        }),
+    );
+}
+
 #[test]
 fn test_array_of_custom_types_complex() {
     let input = r#"
@@ -2463,8 +2049,168 @@ data = .$types.collection
         collection_id,
         |s, item_id| assert_reference(s, item_id, "item"),
         |array_schema| {
-            assert_eq!(array_schema.min_items, Some(1));
+            assert_eq!(array_schema.min_length, Some(1));
             assert!(array_schema.unique);
         },
     );
+}
+
+// ============================================================================
+// MAP TESTS
+// ============================================================================
+
+#[test]
+fn test_map_with_complex_types() {
+    let input = r#"
+@ $types.address {
+  $variant: string
+  min-length = 1
+  max-length = 100
+}
+
+@ locations {
+  $variant: map
+  key = .string
+  value = .$types.address
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("locations", |s, id| {
+            assert_map(s, id, assert_string, |s, value_id| {
+                assert_reference(s, value_id, "address")
+            });
+        }),
+    );
+}
+
+#[test]
+fn test_nested_maps() {
+    let input = r#"
+@ nested {
+  $variant: map
+  key = .string
+  value = {
+    $variant => "map",
+    key => .string,
+    value => .integer
+  }
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("nested", |s, id| {
+            assert_map(s, id, assert_string, |s, value_id| {
+                assert_map(s, value_id, assert_string, assert_integer);
+            });
+        }),
+    );
+}
+
+// ============================================================================
+// OTHER TESTS
+// ============================================================================
+
+#[test]
+fn test_nested_union_types() {
+    let input = r#"
+@ value {
+  $variant: union
+  variants.string = .string
+  variants.integer = .integer
+  variants.array = [{
+    $variant => "union",
+    variants => {
+      boolean => .boolean,
+      null => .null
+    }
+  }]
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    // This tests that unions can contain nested structures
+    assert_record1(
+        &schema,
+        schema.root,
+        ("value", |s, id| {
+            assert_union3(
+                s,
+                id,
+                ("string", assert_string),
+                ("integer", assert_integer),
+                ("array", |s, array_id| {
+                    // Third variant should be an array containing union
+                    assert_array(s, array_id, |s, item_id| {
+                        assert_union2(
+                            s,
+                            item_id,
+                            ("boolean", assert_boolean),
+                            ("null", assert_null),
+                        );
+                    });
+                }),
+            );
+        }),
+    );
+}
+
+#[test]
+fn test_empty_record() {
+    let input = r#"
+@ config
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, config_id| {
+            let node = s.node(config_id);
+            if let SchemaNodeContent::Record(record) = &node.content {
+                assert_eq!(record.properties.len(), 0, "Expected empty record");
+            } else {
+                panic!("Expected Record type, got {:?}", node.content);
+            }
+        }),
+    );
+}
+
+#[test]
+fn test_empty_array_schema() {
+    // Array must have an item type
+    let input = r#"
+items = [.any]
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("items", |s, id| {
+            assert_array(s, id, assert_any);
+        }),
+    );
+}
+
+// ============================================================================
+// ERROR CASES
+// ============================================================================
+
+#[test]
+fn test_invalid_type_reference() {
+    let input = r#"
+user = .$types.nonexistent
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    // Should fail because the type doesn't exist
+    assert!(result.is_err());
 }

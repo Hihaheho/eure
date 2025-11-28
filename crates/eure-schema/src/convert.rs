@@ -1,7 +1,46 @@
 //! Conversion from EureDocument to SchemaDocument
 //!
 //! This module provides functionality to convert EURE documents containing schema definitions
-//! (using extensions like $type, $array, $variants, etc.) into SchemaDocument structures.
+//! into SchemaDocument structures.
+//!
+//! # Schema Syntax
+//!
+//! Schema types are defined using the following syntax:
+//!
+//! **Primitives (shorthands):**
+//! - `.string`, `.integer`, `.float`, `.boolean`, `.null`, `.any`, `.path`
+//! - `.code`, `.code.rust`, `.code.javascript`, `.code.email`
+//!
+//! **Primitives with constraints:**
+//! ```eure
+//! @ field {
+//!   $variant: string
+//!   min-length = 3
+//!   max-length = 20
+//!   pattern = "^[a-z]+$"
+//! }
+//! ```
+//!
+//! **Array:** `[.string]` or `{ $variant: array, item = .string, ... }`
+//!
+//! **Tuple:** `(.string, .integer)` or `{ $variant: tuple, elements = [...] }`
+//!
+//! **Record:** `{ name = .string, age = .integer }`
+//!
+//! **Union with named variants:**
+//! ```eure
+//! @ field {
+//!   $variant: union
+//!   variants.success = { data = .any }
+//!   variants.error = { message = .string }
+//!   $variant-repr = "untagged"  // optional
+//!   priority = ["error", "success"]  // optional, for untagged unions
+//! }
+//! ```
+//!
+//! **Literal:** Any constant value (e.g., `"active"`, `42`, `true`)
+//!
+//! **Type reference:** `.$types.my-type` or `.$types.namespace.type`
 
 use crate::SchemaDocument;
 use eure_value::document::EureDocument;
@@ -33,12 +72,19 @@ pub enum ConversionError {
 
     #[error("Invalid constraint value: {constraint} with value {value}")]
     InvalidConstraintValue { constraint: String, value: String },
+
+    #[error("Invalid range string: {0}")]
+    InvalidRangeString(String),
 }
 
 /// Convert an EureDocument containing schema definitions to a SchemaDocument
 ///
-/// This function traverses the document and extracts schema information from extension fields
-/// like $type, $array, $variants, etc.
+/// This function traverses the document and extracts schema information from:
+/// - Type paths (`.string`, `.integer`, `.code.rust`, etc.)
+/// - `$variant` extension for explicit type variants
+/// - `variants.*` fields for union variant definitions
+/// - Constraint fields (`min-length`, `max-length`, `pattern`, `range`, etc.)
+/// - Metadata extensions (`$description`, `$deprecated`, `$default`, `$examples`)
 ///
 /// # Arguments
 ///
@@ -55,8 +101,8 @@ pub enum ConversionError {
 /// use eure_schema::convert::document_to_schema;
 ///
 /// let input = r#"
-/// name.$type = .string
-/// age.$type = .number
+/// name = .string
+/// age = .integer
 /// "#;
 ///
 /// let doc = parse_to_document(input).unwrap();
