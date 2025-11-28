@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
+[[bin]]
+name = "test-suite"
+path = "src/main.rs"
+
+[lib]
+name = "test_suite"
+path = "src/lib.rs"
+
 [dependencies]
 annotate-snippets = "0.12"
 eros.workspace = true
