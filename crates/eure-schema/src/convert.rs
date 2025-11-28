@@ -209,7 +209,7 @@ impl<'a> Converter<'a> {
         let node = self.doc.node(node_id);
 
         // Check for $variant extension to determine explicit type
-        let variant = self.get_variant_extension(node)?;
+        let variant = self.get_variant_extension(node);
 
         match &node.content {
             NodeValue::Uninitialized => {
@@ -261,30 +261,19 @@ impl<'a> Converter<'a> {
     }
 
     /// Get $variant extension value if present
-    /// Returns Ok(Some(tag)) if $variant is set to a valid value
-    /// Returns Ok(None) if $variant is not present
-    /// Returns Err if $variant is set to an invalid value (like a path)
-    fn get_variant_extension(&self, node: &Node) -> Result<Option<String>, ConversionError> {
+    fn get_variant_extension(&self, node: &Node) -> Option<String> {
         let variant_ident: Identifier = "variant".parse().unwrap();
         if let Some(&ext_node_id) = node.extensions.get(&variant_ident) {
             let ext_node = self.doc.node(ext_node_id);
             if let NodeValue::Primitive(PrimitiveValue::Variant(v)) = &ext_node.content {
-                return Ok(Some(v.tag.clone()));
+                return Some(v.tag.clone());
             }
             // Also check for string value (e.g., $variant = "union")
             if let NodeValue::Primitive(PrimitiveValue::String(s)) = &ext_node.content {
-                return Ok(Some(s.as_str().to_string()));
+                return Some(s.as_str().to_string());
             }
-            // $variant with a path or other invalid value is an error
-            return Err(ConversionError::InvalidExtensionValue {
-                extension: "variant".to_string(),
-                path: format!(
-                    "$variant must be a simple variant tag or string, got: {:?}",
-                    ext_node.content
-                ),
-            });
         }
-        Ok(None)
+        None
     }
 
     /// Convert a primitive value to a schema node
@@ -297,7 +286,7 @@ impl<'a> Converter<'a> {
             PrimitiveValue::Path(path) => self.convert_path_to_type(path, node),
             PrimitiveValue::String(s) => {
                 // Check if this has $variant: literal
-                let variant = self.get_variant_extension(node)?;
+                let variant = self.get_variant_extension(node);
                 if variant.as_deref() == Some("literal") {
                     let schema_id = self.schema.create_node(SchemaNodeContent::Literal(
                         Value::Primitive(PrimitiveValue::String(s.clone())),
