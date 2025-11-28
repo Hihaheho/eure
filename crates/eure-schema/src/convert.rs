@@ -207,8 +207,14 @@ impl<'a> Converter<'a> {
 
         match &node.content {
             NodeValue::Uninitialized => {
-                // Empty section = empty record
-                self.create_empty_record()
+                // Empty section - check for $variant extension
+                match variant.as_deref() {
+                    None | Some("record") => self.create_empty_record(),
+                    Some(other) => Err(ConversionError::UnsupportedConstruct(format!(
+                        "Unknown or invalid variant for empty section: {}",
+                        other
+                    ))),
+                }
             }
             NodeValue::Primitive(prim) => self.convert_primitive(prim, node),
             NodeValue::Array(arr) => {

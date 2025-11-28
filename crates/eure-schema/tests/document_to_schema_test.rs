@@ -2235,10 +2235,8 @@ fn test_error_unknown_variant_type() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // NOTE: Currently unknown variants are silently ignored and treated as records.
-    // This test documents current behavior - ideally it should return an error.
-    // TODO: Consider adding validation for unknown variant types.
-    assert!(result.is_ok());
+    // Should fail because "unknown_type" is not a valid variant
+    assert!(result.is_err());
 }
 
 #[test]
