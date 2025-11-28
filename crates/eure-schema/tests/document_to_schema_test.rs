@@ -2477,3 +2477,20 @@ fn test_error_literal_missing_value() {
         }
     );
 }
+
+#[test]
+fn test_error_types_not_map() {
+    let input = r#"
+$types = "not a map"
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "types".to_string(),
+            path: "$types must be a map".to_string(),
+        }
+    );
+}

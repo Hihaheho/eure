@@ -179,6 +179,11 @@ impl<'a> Converter<'a> {
                         self.deferred_types.insert(type_name, node_id);
                     }
                 }
+            } else {
+                return Err(ConversionError::InvalidExtensionValue {
+                    extension: "types".to_string(),
+                    path: "$types must be a map".to_string(),
+                });
             }
         }
         Ok(())
