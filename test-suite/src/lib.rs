@@ -9,7 +9,7 @@ use eure::tree::LineNumbers;
 
 pub use crate::case::{
     Case, CaseResult, EureToJsonScenario, NamedScenarioResult, NormalizationScenario,
-    PreprocessedCase, ScenarioResult,
+    PreprocessedCase, Scenario, ScenarioResult,
 };
 pub use crate::parser::{ParseError, ParseResult, parse_case};
 

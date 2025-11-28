@@ -58,6 +58,28 @@ impl CaseResult {
     }
 }
 
+/// A runnable scenario with its name
+pub enum Scenario<'a> {
+    Normalization(NormalizationScenario<'a>),
+    EureToJson(EureToJsonScenario<'a>),
+}
+
+impl Scenario<'_> {
+    pub fn name(&self) -> String {
+        match self {
+            Scenario::Normalization(_) => "normalization".to_string(),
+            Scenario::EureToJson(s) => format!("eure_to_json({})", s.source),
+        }
+    }
+
+    pub fn run(&self) -> eros::Result<()> {
+        match self {
+            Scenario::Normalization(s) => s.run(),
+            Scenario::EureToJson(s) => s.run(),
+        }
+    }
+}
+
 pub struct PreprocessedCase {
     pub input_eure: Option<PreprocessedEure>,
     pub normalized: Option<PreprocessedEure>,
@@ -221,69 +243,71 @@ impl EureToJsonScenario<'_> {
 }
 
 impl PreprocessedCase {
+    /// Returns all scenarios that this case will run.
+    /// This is the single source of truth for scenario collection.
+    pub fn scenarios(&self) -> Vec<Scenario<'_>> {
+        let mut scenarios = Vec::new();
+
+        // Normalization scenario
+        if let (Some(input), Some(normalized)) = (&self.input_eure, &self.normalized) {
+            scenarios.push(Scenario::Normalization(NormalizationScenario {
+                input,
+                normalized,
+            }));
+        }
+
+        // Eure-to-JSON scenarios
+        if let (Some(input), Some(output_json)) = (&self.input_eure, &self.output_json) {
+            scenarios.push(Scenario::EureToJson(EureToJsonScenario {
+                input,
+                output_json,
+                source: "input_eure",
+            }));
+        }
+        if let (Some(normalized), Some(output_json)) = (&self.normalized, &self.output_json) {
+            scenarios.push(Scenario::EureToJson(EureToJsonScenario {
+                input: normalized,
+                output_json,
+                source: "normalized",
+            }));
+        }
+
+        scenarios
+    }
+
     /// Run all scenarios and return structured results.
     /// This does not panic on assertion failures - it captures them as failed scenarios.
     pub fn run_all(&self) -> CaseResult {
-        let mut scenarios = Vec::new();
-
-        // Run normalization scenario
-        if let Some(normalization_scenario) = self.normalization_scenario() {
-            let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                normalization_scenario.run()
-            })) {
-                Ok(Ok(())) => ScenarioResult::Passed,
-                Ok(Err(e)) => ScenarioResult::Failed {
-                    error: format!("{:?}", e),
-                },
-                Err(panic) => {
-                    let msg = if let Some(s) = panic.downcast_ref::<&str>() {
-                        s.to_string()
-                    } else if let Some(s) = panic.downcast_ref::<String>() {
-                        s.clone()
-                    } else {
-                        "Unknown panic".to_string()
-                    };
-                    ScenarioResult::Failed {
-                        error: format!("panic: {}", msg),
+        let results = self
+            .scenarios()
+            .into_iter()
+            .map(|scenario| {
+                let name = scenario.name();
+                let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    scenario.run()
+                })) {
+                    Ok(Ok(())) => ScenarioResult::Passed,
+                    Ok(Err(e)) => ScenarioResult::Failed {
+                        error: format!("{:?}", e),
+                    },
+                    Err(panic) => {
+                        let msg = if let Some(s) = panic.downcast_ref::<&str>() {
+                            s.to_string()
+                        } else if let Some(s) = panic.downcast_ref::<String>() {
+                            s.clone()
+                        } else {
+                            "Unknown panic".to_string()
+                        };
+                        ScenarioResult::Failed {
+                            error: format!("panic: {}", msg),
+                        }
                     }
-                }
-            };
-            scenarios.push(NamedScenarioResult {
-                name: "normalization".to_string(),
-                result,
-            });
-        }
+                };
+                NamedScenarioResult { name, result }
+            })
+            .collect();
 
-        // Run eure-to-json scenarios
-        for scenario in self.eure_to_json_scenario() {
-            let source = scenario.source;
-            let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                scenario.run()
-            })) {
-                Ok(Ok(())) => ScenarioResult::Passed,
-                Ok(Err(e)) => ScenarioResult::Failed {
-                    error: format!("{:?}", e),
-                },
-                Err(panic) => {
-                    let msg = if let Some(s) = panic.downcast_ref::<&str>() {
-                        s.to_string()
-                    } else if let Some(s) = panic.downcast_ref::<String>() {
-                        s.clone()
-                    } else {
-                        "Unknown panic".to_string()
-                    };
-                    ScenarioResult::Failed {
-                        error: format!("panic: {}", msg),
-                    }
-                }
-            };
-            scenarios.push(NamedScenarioResult {
-                name: format!("eure_to_json({})", source),
-                result,
-            });
-        }
-
-        CaseResult { scenarios }
+        CaseResult { scenarios: results }
     }
 
     /// Legacy method that returns Result for backwards compatibility.
@@ -322,34 +346,14 @@ impl PreprocessedCase {
             );
         }
 
-        if let Some(normalization_scenario) = self.normalization_scenario() {
-            if trace {
-                eprintln!("\n--- Running Normalization Scenario ---");
-            }
-            normalization_scenario.run()?;
-            if trace {
-                eprintln!("✓ Normalization scenario passed");
-            }
-        } else if trace {
-            eprintln!("\n--- Normalization Scenario: SKIPPED (missing fields) ---");
-        }
-
-        let json_scenarios = self.eure_to_json_scenario();
+        let scenarios = self.scenarios();
         if trace {
-            eprintln!(
-                "\n--- EureToJson Scenarios: {} total ---",
-                json_scenarios.len()
-            );
+            eprintln!("\n--- Running {} scenarios ---", scenarios.len());
         }
 
-        for (i, scenario) in json_scenarios.iter().enumerate() {
+        for (i, scenario) in scenarios.iter().enumerate() {
             if trace {
-                eprintln!(
-                    "Running scenario {} (source: {}): input status = {}",
-                    i + 1,
-                    scenario.source,
-                    scenario.input.status()
-                );
+                eprintln!("Running scenario {}: {}", i + 1, scenario.name());
             }
             scenario.run()?;
             if trace {
@@ -366,12 +370,7 @@ impl PreprocessedCase {
 
     /// Returns the number of scenarios this case will run
     pub fn scenario_count(&self) -> usize {
-        let mut count = 0;
-        if self.normalization_scenario().is_some() {
-            count += 1;
-        }
-        count += self.eure_to_json_scenario().len();
-        count
+        self.scenarios().len()
     }
 
     pub fn normalization_scenario(&self) -> Option<NormalizationScenario<'_>> {
