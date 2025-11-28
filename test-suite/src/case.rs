@@ -400,3 +400,140 @@ impl PreprocessedCase {
         scenarios
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper to create a PreprocessedEure from a simple EURE string
+    fn preprocess(code: &str) -> PreprocessedEure {
+        let input = code.to_string();
+        match eure::parol::parse(code) {
+            Ok(cst) => match eure::document::cst_to_document(code, &cst) {
+                Ok(doc) => PreprocessedEure::Ok { input, cst, doc },
+                Err(e) => PreprocessedEure::ErrDocument {
+                    input,
+                    cst,
+                    error: e,
+                },
+            },
+            Err(e) => PreprocessedEure::ErrParol { input, error: e },
+        }
+    }
+
+    #[test]
+    fn scenarios_all_fields_present() {
+        let case = PreprocessedCase {
+            input_eure: Some(preprocess("a = 1")),
+            normalized: Some(preprocess("= { a => 1 }")),
+            output_json: Some(serde_json::json!({"a": 1})),
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 3);
+
+        let names: Vec<_> = scenarios.iter().map(|s| s.name()).collect();
+        assert_eq!(names[0], "normalization");
+        assert_eq!(names[1], "eure_to_json(input_eure)");
+        assert_eq!(names[2], "eure_to_json(normalized)");
+    }
+
+    #[test]
+    fn scenarios_input_and_normalized_only() {
+        let case = PreprocessedCase {
+            input_eure: Some(preprocess("a = 1")),
+            normalized: Some(preprocess("= { a => 1 }")),
+            output_json: None,
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].name(), "normalization");
+    }
+
+    #[test]
+    fn scenarios_input_and_json_only() {
+        let case = PreprocessedCase {
+            input_eure: Some(preprocess("a = 1")),
+            normalized: None,
+            output_json: Some(serde_json::json!({"a": 1})),
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].name(), "eure_to_json(input_eure)");
+    }
+
+    #[test]
+    fn scenarios_normalized_and_json_only() {
+        let case = PreprocessedCase {
+            input_eure: None,
+            normalized: Some(preprocess("= { a => 1 }")),
+            output_json: Some(serde_json::json!({"a": 1})),
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].name(), "eure_to_json(normalized)");
+    }
+
+    #[test]
+    fn scenarios_input_only() {
+        let case = PreprocessedCase {
+            input_eure: Some(preprocess("a = 1")),
+            normalized: None,
+            output_json: None,
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 0);
+    }
+
+    #[test]
+    fn scenarios_normalized_only() {
+        let case = PreprocessedCase {
+            input_eure: None,
+            normalized: Some(preprocess("= { a => 1 }")),
+            output_json: None,
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 0);
+    }
+
+    #[test]
+    fn scenarios_json_only() {
+        let case = PreprocessedCase {
+            input_eure: None,
+            normalized: None,
+            output_json: Some(serde_json::json!({"a": 1})),
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 0);
+    }
+
+    #[test]
+    fn scenarios_empty() {
+        let case = PreprocessedCase {
+            input_eure: None,
+            normalized: None,
+            output_json: None,
+        };
+
+        let scenarios = case.scenarios();
+        assert_eq!(scenarios.len(), 0);
+    }
+
+    #[test]
+    fn scenario_count_matches_scenarios_len() {
+        let case = PreprocessedCase {
+            input_eure: Some(preprocess("a = 1")),
+            normalized: Some(preprocess("= { a => 1 }")),
+            output_json: Some(serde_json::json!({"a": 1})),
+        };
+
+        assert_eq!(case.scenario_count(), case.scenarios().len());
+        assert_eq!(case.scenario_count(), 3);
+    }
+}
