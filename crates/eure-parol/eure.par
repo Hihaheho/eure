@@ -51,7 +51,7 @@ Section: At Keys SectionBody ;
   KeyIdent: Ident | True | False | Null ;
 
 Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | InlineCode | Path ;
-  Object: Begin { Keys MapBind Value [ Comma ] } End ;
+  Object: Begin [ ValueBinding [ Comma ] ] { Keys MapBind Value [ Comma ] } End ;
   MapBind: '=>' ;
   Array: ArrayBegin [ ArrayElements ] ArrayEnd ;
   ArrayElements: Value [ ArrayElementsTail ] ;

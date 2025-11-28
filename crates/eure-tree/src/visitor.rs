@@ -693,10 +693,26 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     fn visit_object_opt(
         &mut self,
         handle: ObjectOptHandle,
-        view: CommaHandle,
+        view: ObjectOptView,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_object_opt_super(handle, view, tree)
+    }
+    fn visit_object_opt_0(
+        &mut self,
+        handle: ObjectOpt0Handle,
+        view: CommaHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_object_opt_0_super(handle, view, tree)
+    }
+    fn visit_object_opt_1(
+        &mut self,
+        handle: ObjectOpt1Handle,
+        view: CommaHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_object_opt_1_super(handle, view, tree)
     }
     fn visit_path(
         &mut self,
@@ -2198,6 +2214,28 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_object_opt_super(
         &mut self,
         handle: ObjectOptHandle,
+        view: ObjectOptView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_object_opt_0_handle(
+        &mut self,
+        handle: ObjectOpt0Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_object_opt_0_super(
+        &mut self,
+        handle: ObjectOpt0Handle,
+        view: CommaHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_object_opt_1_handle(
+        &mut self,
+        handle: ObjectOpt1Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_object_opt_1_super(
+        &mut self,
+        handle: ObjectOpt1Handle,
         view: CommaHandle,
         tree: &F,
     ) -> Result<(), E>;
@@ -6736,6 +6774,106 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_object_opt_0_handle(
+        &mut self,
+        handle: ObjectOpt0Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_object_opt_0(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_object_opt_1_handle(
+        &mut self,
+        handle: ObjectOpt1Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self
+                    .then_construct_error(
+                        None,
+                        handle.node_id(),
+                        NodeKind::NonTerminal(handle.kind()),
+                        error,
+                        tree,
+                    );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (
+                    if let Some(view) = view {
+                        visit.visit_object_opt_1(handle, view, tree)
+                    } else {
+                        Ok(())
+                    },
+                    visit,
+                ),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => {
+                self.then_construct_error(
+                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    e,
+                    tree,
+                )
+            }
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_path_handle(
         &mut self,
         handle: PathHandle,
@@ -9517,8 +9655,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let ObjectView { begin, object_list, end } = view_param;
+        let ObjectView { begin, object_opt, object_list, end } = view_param;
         self.visit_begin_handle(begin, tree)?;
+        self.visit_object_opt_handle(object_opt, tree)?;
         self.visit_object_list_handle(object_list, tree)?;
         self.visit_end_handle(end, tree)?;
         Ok(())
@@ -9530,17 +9669,39 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let ObjectListView { keys, map_bind, value, object_opt, object_list } = view_param;
+        let ObjectListView { keys, map_bind, value, object_opt_0, object_list } = view_param;
         self.visit_keys_handle(keys, tree)?;
         self.visit_map_bind_handle(map_bind, tree)?;
         self.visit_value_handle(value, tree)?;
-        self.visit_object_opt_handle(object_opt, tree)?;
+        self.visit_object_opt_0_handle(object_opt_0, tree)?;
         self.visit_object_list_handle(object_list, tree)?;
         Ok(())
     }
     fn visit_object_opt_super(
         &mut self,
         handle: ObjectOptHandle,
+        view_param: ObjectOptView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let ObjectOptView { value_binding, object_opt_1 } = view_param;
+        self.visit_value_binding_handle(value_binding, tree)?;
+        self.visit_object_opt_1_handle(object_opt_1, tree)?;
+        Ok(())
+    }
+    fn visit_object_opt_0_super(
+        &mut self,
+        handle: ObjectOpt0Handle,
+        view_param: CommaHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_comma_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_object_opt_1_super(
+        &mut self,
+        handle: ObjectOpt1Handle,
         view_param: CommaHandle,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -10827,6 +10988,14 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::ObjectOpt => {
                         let handle = ObjectOptHandle(id);
                         self.visit_object_opt_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::ObjectOpt0 => {
+                        let handle = ObjectOpt0Handle(id);
+                        self.visit_object_opt_0_handle(handle, tree)?;
+                    }
+                    NonTerminalKind::ObjectOpt1 => {
+                        let handle = ObjectOpt1Handle(id);
+                        self.visit_object_opt_1_handle(handle, tree)?;
                     }
                     NonTerminalKind::Path => {
                         let handle = PathHandle(id);

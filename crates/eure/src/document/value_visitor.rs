@@ -270,6 +270,15 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: ObjectView,
         tree: &F,
     ) -> Result<(), Self::Error> {
+        // Check if there's a value binding (new syntax: { = value, ... })
+        let has_value_binding = if let Some(object_opt_view) = view.object_opt.get_view(tree)? {
+            // Visit the value binding - this binds the main value
+            self.visit_value_binding_handle(object_opt_view.value_binding, tree)?;
+            true
+        } else {
+            false
+        };
+
         // Process each entry in the ObjectList
         // Each entry has: keys => value
         // The keys can be nested (e.g., a.b => 1 becomes { a => { b => 1 } })
@@ -293,7 +302,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 // Pop back to the Object level
                 self.document.pop(node_id)?;
             }
-        } else {
+        } else if !has_value_binding {
+            // Empty object (no value binding, no entries)
             self.document.bind_empty_map().map_err(|e| {
                 DocumentConstructionError::DocumentInsert {
                     error: e,

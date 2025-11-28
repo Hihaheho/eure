@@ -2212,6 +2212,40 @@ impl From<ObjectOptNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for ObjectOpt0 non-terminal
+#[derive(Debug, Clone)]
+pub struct ObjectOpt0Node {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl ObjectOpt0Node {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<ObjectOpt0Node> for BuilderNodeId {
+    fn from(node: ObjectOpt0Node) -> Self {
+        node.node_id
+    }
+}
+///Branded type for ObjectOpt1 non-terminal
+#[derive(Debug, Clone)]
+pub struct ObjectOpt1Node {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl ObjectOpt1Node {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<ObjectOpt1Node> for BuilderNodeId {
+    fn from(node: ObjectOpt1Node) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for Path non-terminal
 #[derive(Debug, Clone)]
 pub struct PathNode {
@@ -4140,6 +4174,7 @@ impl NullConstructor {
 #[derive(bon::Builder)]
 pub struct ObjectConstructor {
     begin: BeginNode,
+    object_opt: ObjectOptNode,
     object_list: ObjectListNode,
     end: EndNode,
 }
@@ -4147,10 +4182,14 @@ impl ObjectConstructor {
     pub fn build(self) -> ObjectNode {
         let mut builder = CstBuilder::new();
         let begin = builder.embed(self.begin.builder);
+        let object_opt = builder.embed(self.object_opt.builder);
         let object_list = builder.embed(self.object_list.builder);
         let end = builder.embed(self.end.builder);
         let node_id = builder
-            .non_terminal(NonTerminalKind::Object, vec![begin, object_list, end]);
+            .non_terminal(
+                NonTerminalKind::Object,
+                vec![begin, object_opt, object_list, end],
+            );
         ObjectNode { node_id, builder }
     }
 }
@@ -4159,7 +4198,7 @@ pub struct ObjectListConstructor {
     keys: KeysNode,
     map_bind: MapBindNode,
     value: ValueNode,
-    object_opt: ObjectOptNode,
+    object_opt_0: ObjectOpt0Node,
     object_list: ObjectListNode,
 }
 impl ObjectListConstructor {
@@ -4176,30 +4215,61 @@ impl ObjectListConstructor {
         let keys = builder.embed(self.keys.builder);
         let map_bind = builder.embed(self.map_bind.builder);
         let value = builder.embed(self.value.builder);
-        let object_opt = builder.embed(self.object_opt.builder);
+        let object_opt_0 = builder.embed(self.object_opt_0.builder);
         let object_list = builder.embed(self.object_list.builder);
         let node_id = builder
             .non_terminal(
                 NonTerminalKind::ObjectList,
-                vec![keys, map_bind, value, object_opt, object_list],
+                vec![keys, map_bind, value, object_opt_0, object_list],
             );
         ObjectListNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
 pub struct ObjectOptConstructor {
-    comma: Option<CommaNode>,
+    value_binding: ValueBindingNode,
+    object_opt_1: ObjectOpt1Node,
 }
 impl ObjectOptConstructor {
     pub fn build(self) -> ObjectOptNode {
+        let mut builder = CstBuilder::new();
+        let value_binding = builder.embed(self.value_binding.builder);
+        let object_opt_1 = builder.embed(self.object_opt_1.builder);
+        let node_id = builder
+            .non_terminal(NonTerminalKind::ObjectOpt, vec![value_binding, object_opt_1]);
+        ObjectOptNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct ObjectOpt0Constructor {
+    comma: Option<CommaNode>,
+}
+impl ObjectOpt0Constructor {
+    pub fn build(self) -> ObjectOpt0Node {
         let mut builder = CstBuilder::new();
         let children = if let Some(child) = self.comma {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()
         };
-        let node_id = builder.non_terminal(NonTerminalKind::ObjectOpt, children);
-        ObjectOptNode { node_id, builder }
+        let node_id = builder.non_terminal(NonTerminalKind::ObjectOpt0, children);
+        ObjectOpt0Node { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct ObjectOpt1Constructor {
+    comma: Option<CommaNode>,
+}
+impl ObjectOpt1Constructor {
+    pub fn build(self) -> ObjectOpt1Node {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.comma {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::ObjectOpt1, children);
+        ObjectOpt1Node { node_id, builder }
     }
 }
 #[derive(bon::Builder)]

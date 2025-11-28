@@ -1,6 +1,8 @@
 input_eure = ```eure
 a = { x => 1 }
 b.x = 2
+f = { = "hello" }
+g = {}
 @ c = { x => 3 }
 @ d {
   x = 4
@@ -16,7 +18,9 @@ normalized = ```eure
   c => { x => 3 },
   d => { x => 4 },
   e => { x => "6" },
+  f => "hello",
+  g => {},
 }
 ```
 
-output_json = json`{ "a": { "x": 1 }, "b": { "x": 2 }, "c": { "x": 3 }, "d": { "x": 4 }, "e": { "x": "6" } }`
+output_json = json`{ "a": { "x": 1 }, "b": { "x": 2 }, "c": { "x": 3 }, "d": { "x": 4 }, "e": { "x": "6" }, "f": "hello", "g": {} }`
