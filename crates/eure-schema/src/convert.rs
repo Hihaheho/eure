@@ -187,12 +187,13 @@ impl<'a> Converter<'a> {
     /// Validate that all type references point to defined types
     fn validate_type_references(&self) -> Result<(), ConversionError> {
         for node in &self.schema.nodes {
-            if let SchemaNodeContent::Reference(type_ref) = &node.content {
-                if type_ref.namespace.is_none() && !self.schema.types.contains_key(&type_ref.name) {
-                    return Err(ConversionError::UndefinedTypeReference(
-                        type_ref.name.to_string(),
-                    ));
-                }
+            if let SchemaNodeContent::Reference(type_ref) = &node.content
+                && type_ref.namespace.is_none()
+                && !self.schema.types.contains_key(&type_ref.name)
+            {
+                return Err(ConversionError::UndefinedTypeReference(
+                    type_ref.name.to_string(),
+                ));
             }
         }
         Ok(())
@@ -732,13 +733,13 @@ impl<'a> Converter<'a> {
 
         if let NodeValue::Map(map) = &node.content {
             for (key, &value_id) in map.0.iter() {
-                if let ObjectKey::String(key_str) = key {
-                    if key_str == "elements" {
-                        let elem_node = self.doc.node(value_id);
-                        if let NodeValue::Array(arr) = &elem_node.content {
-                            for &elem_id in &arr.0 {
-                                elements.push(self.convert_node(elem_id)?);
-                            }
+                if let ObjectKey::String(key_str) = key
+                    && key_str == "elements"
+                {
+                    let elem_node = self.doc.node(value_id);
+                    if let NodeValue::Array(arr) = &elem_node.content {
+                        for &elem_id in &arr.0 {
+                            elements.push(self.convert_node(elem_id)?);
                         }
                     }
                 }
@@ -908,13 +909,13 @@ impl<'a> Converter<'a> {
         // Look for root binding value in the map
         if let NodeValue::Map(map) = &node.content {
             for (key, &value_id) in map.0.iter() {
-                if let ObjectKey::String(key_str) = key {
-                    if key_str.is_empty() {
-                        // Root binding: { => value, $variant: literal }
-                        let value = self.node_to_value(value_id)?;
-                        let schema_id = self.schema.create_node(SchemaNodeContent::Literal(value));
-                        return Ok(schema_id);
-                    }
+                if let ObjectKey::String(key_str) = key
+                    && key_str.is_empty()
+                {
+                    // Root binding: { => value, $variant: literal }
+                    let value = self.node_to_value(value_id)?;
+                    let schema_id = self.schema.create_node(SchemaNodeContent::Literal(value));
+                    return Ok(schema_id);
                 }
             }
         }
