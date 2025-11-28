@@ -272,6 +272,23 @@ impl<'a> Converter<'a> {
             if let NodeValue::Primitive(PrimitiveValue::String(s)) = &ext_node.content {
                 return Some(s.as_str().to_string());
             }
+            // Handle nested variant paths (e.g., $variant = .ok.ok.err)
+            if let NodeValue::Primitive(PrimitiveValue::Path(path)) = &ext_node.content {
+                let segments: Vec<&str> = path
+                    .0
+                    .iter()
+                    .filter_map(|seg| {
+                        if let PathSegment::Ident(ident) = seg {
+                            Some(ident.as_ref())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if !segments.is_empty() {
+                    return Some(segments.join("."));
+                }
+            }
         }
         None
     }
@@ -351,37 +368,37 @@ impl<'a> Converter<'a> {
             PathSegment::Ident(ident) => {
                 let name: &str = ident.as_ref();
                 match name {
-                    "string" if segments.as_slice() == &["string"] => {
+                    "string" if segments.as_slice() == ["string"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::String(StringSchema::default()));
                         Ok(schema_id)
                     }
-                    "integer" if segments.as_slice() == &["integer"] => {
+                    "integer" if segments.as_slice() == ["integer"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
                         Ok(schema_id)
                     }
-                    "float" if segments.as_slice() == &["float"] => {
+                    "float" if segments.as_slice() == ["float"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::Float(FloatSchema::default()));
                         Ok(schema_id)
                     }
-                    "boolean" if segments.as_slice() == &["boolean"] => {
+                    "boolean" if segments.as_slice() == ["boolean"] => {
                         let schema_id = self.schema.create_node(SchemaNodeContent::Boolean);
                         Ok(schema_id)
                     }
-                    "null" if segments.as_slice() == &["null"] => {
+                    "null" if segments.as_slice() == ["null"] => {
                         let schema_id = self.schema.create_node(SchemaNodeContent::Null);
                         Ok(schema_id)
                     }
-                    "any" if segments.as_slice() == &["any"] => {
+                    "any" if segments.as_slice() == ["any"] => {
                         let schema_id = self.schema.create_node(SchemaNodeContent::Any);
                         Ok(schema_id)
                     }
-                    "path" if segments.as_slice() == &["path"] => {
+                    "path" if segments.as_slice() == ["path"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::Path(PathSchema::default()));
@@ -503,10 +520,12 @@ impl<'a> Converter<'a> {
                 // No explicit variant - treat as record
                 self.convert_record_type_from_map(map, node)
             }
-            Some(other) => Err(ConversionError::UnsupportedConstruct(format!(
-                "Unknown variant: {}",
-                other
-            ))),
+            Some(_other) => {
+                // Unknown variant (including nested variant paths like "ok.ok.err")
+                // These are valid EURE syntax used for variant selection in data,
+                // so treat the map as a record schema
+                self.convert_record_type_from_map(map, node)
+            }
         }
     }
 

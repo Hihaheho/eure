@@ -2508,3 +2508,29 @@ fn test_error_invalid_type_path_extra_segment() {
         ConversionError::InvalidTypePath("Unknown type: .string.invalid".to_string())
     );
 }
+
+#[test]
+fn test_nested_variant_path_in_extension() {
+    // Nested variant paths like $variant = .ok.ok.err are valid EURE syntax
+    // They represent variant selection in nested union structures
+    let input = r#"
+@ response {
+    $variant = .ok.ok.err
+    error_code = .integer
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    // The nested variant path "ok.ok.err" doesn't match any known type specifier,
+    // so the map is treated as a record schema with the given fields
+    assert_record1(
+        &schema,
+        schema.root,
+        (
+            "response",
+            |s: &SchemaDocument, id: SchemaNodeId| {
+                assert_record1(s, id, ("error_code", assert_integer));
+            },
+        ),
+    );
+}
