@@ -2168,24 +2168,16 @@ fn test_nested_union_types() {
 }
 
 #[test]
-fn test_empty_record() {
+fn test_error_empty_section() {
+    // Empty section (uninitialized node) should be an error - incomplete document
     let input = r#"
 @ config
 "#;
-    let schema = parse_and_convert(input);
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
 
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            let node = s.node(config_id);
-            if let SchemaNodeContent::Record(record) = &node.content {
-                assert_eq!(record.properties.len(), 0, "Expected empty record");
-            } else {
-                panic!("Expected Record type, got {:?}", node.content);
-            }
-        }),
-    );
+    // Should fail because uninitialized nodes are incomplete
+    assert!(result.is_err());
 }
 
 #[test]

@@ -207,14 +207,10 @@ impl<'a> Converter<'a> {
 
         match &node.content {
             NodeValue::Uninitialized => {
-                // Empty section - check for $variant extension
-                match variant.as_deref() {
-                    None | Some("record") => self.create_empty_record(),
-                    Some(other) => Err(ConversionError::UnsupportedConstruct(format!(
-                        "Unknown or invalid variant for empty section: {}",
-                        other
-                    ))),
-                }
+                // Uninitialized node means incomplete document - always an error
+                Err(ConversionError::UnsupportedConstruct(
+                    "Incomplete document: uninitialized node".to_string(),
+                ))
             }
             NodeValue::Primitive(prim) => self.convert_primitive(prim, node),
             NodeValue::Array(arr) => {
