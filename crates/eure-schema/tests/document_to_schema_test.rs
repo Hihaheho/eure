@@ -2285,7 +2285,7 @@ field = .unknown_primitive
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::InvalidTypePath("Unknown type: unknown_primitive".to_string())
+        ConversionError::InvalidTypePath("Unknown type: .unknown_primitive".to_string())
     );
 }
 
@@ -2492,5 +2492,19 @@ $types = "not a map"
             extension: "types".to_string(),
             path: "$types must be a map".to_string(),
         }
+    );
+}
+
+#[test]
+fn test_error_invalid_type_path_extra_segment() {
+    let input = r#"
+@ field = .string.invalid
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Unknown type: .string.invalid".to_string())
     );
 }

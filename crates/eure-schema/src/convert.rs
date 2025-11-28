@@ -335,42 +335,53 @@ impl<'a> Converter<'a> {
             return Err(ConversionError::InvalidTypePath("Empty path".to_string()));
         }
 
+        // Convert path segments to string slices for matching
+        let segments: Vec<&str> = path
+            .0
+            .iter()
+            .filter_map(|seg| match seg {
+                PathSegment::Ident(ident) => Some(ident.as_ref()),
+                PathSegment::Extension(ident) => Some(ident.as_ref()),
+                _ => None,
+            })
+            .collect();
+
         // Check first segment
         match &path.0[0] {
             PathSegment::Ident(ident) => {
                 let name: &str = ident.as_ref();
                 match name {
-                    "string" => {
+                    "string" if segments.as_slice() == &["string"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::String(StringSchema::default()));
                         Ok(schema_id)
                     }
-                    "integer" => {
+                    "integer" if segments.as_slice() == &["integer"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
                         Ok(schema_id)
                     }
-                    "float" => {
+                    "float" if segments.as_slice() == &["float"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::Float(FloatSchema::default()));
                         Ok(schema_id)
                     }
-                    "boolean" => {
+                    "boolean" if segments.as_slice() == &["boolean"] => {
                         let schema_id = self.schema.create_node(SchemaNodeContent::Boolean);
                         Ok(schema_id)
                     }
-                    "null" => {
+                    "null" if segments.as_slice() == &["null"] => {
                         let schema_id = self.schema.create_node(SchemaNodeContent::Null);
                         Ok(schema_id)
                     }
-                    "any" => {
+                    "any" if segments.as_slice() == &["any"] => {
                         let schema_id = self.schema.create_node(SchemaNodeContent::Any);
                         Ok(schema_id)
                     }
-                    "path" => {
+                    "path" if segments.as_slice() == &["path"] => {
                         let schema_id = self
                             .schema
                             .create_node(SchemaNodeContent::Path(PathSchema::default()));
@@ -378,12 +389,15 @@ impl<'a> Converter<'a> {
                     }
                     "code" => {
                         // Check for language specifier: .code.rust, .code.email, etc.
-                        let language = if path.0.len() > 1 {
-                            if let PathSegment::Ident(lang_ident) = &path.0[1] {
-                                Some(lang_ident.to_string())
-                            } else {
-                                None
-                            }
+                        // Only allow .code or .code.language (exactly 1 or 2 segments)
+                        if segments.len() > 2 {
+                            return Err(ConversionError::InvalidTypePath(format!(
+                                "Invalid code type path: {}",
+                                path
+                            )));
+                        }
+                        let language = if segments.len() == 2 {
+                            Some(segments[1].to_string())
                         } else {
                             None
                         };
@@ -394,7 +408,7 @@ impl<'a> Converter<'a> {
                     }
                     _ => Err(ConversionError::InvalidTypePath(format!(
                         "Unknown type: {}",
-                        name
+                        path
                     ))),
                 }
             }
