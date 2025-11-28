@@ -2508,3 +2508,39 @@ fn test_error_invalid_type_path_extra_segment() {
         ConversionError::InvalidTypePath("Unknown type: .string.invalid".to_string())
     );
 }
+
+#[test]
+fn test_error_nested_variant_path_not_type() {
+    // Nested variant paths like .ok.ok.some are not valid type paths
+    let input = r#"
+@ field = .ok.ok.some
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Unknown type: .ok.ok.some".to_string())
+    );
+}
+
+#[test]
+fn test_error_variant_extension_with_path() {
+    // $variant extension with a path value should be an error
+    let input = r#"
+@ field {
+    $variant = .ok.ok.some
+    value = "test"
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "variant".to_string(),
+            path: "$variant must be a simple variant tag or string, got: Primitive(Path(EurePath([Ident(Identifier(\"ok\")), Ident(Identifier(\"ok\")), Ident(Identifier(\"some\"))])))".to_string(),
+        }
+    );
+}
