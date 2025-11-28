@@ -1108,14 +1108,15 @@ fn test_union_with_three_variants() {
 
 #[test]
 fn test_custom_type_definition() {
+    // Note: bindings must come before sections in EURE
     let input = r#"
+user = .$types.username
+
 @ $types.username {
   $variant: string
   min-length = 3
   max-length = 20
 }
-
-user = .$types.username
 "#;
     let schema = parse_and_convert(input);
 
@@ -1821,20 +1822,22 @@ data = .$types.a
 
 #[test]
 fn test_type_reference_chain() {
+    // Note: bindings must come before sections in EURE
+    // Also: type definitions must use @ $types.name section syntax
     let input = r#"
+data = .$types.user
+
 @ $types.base-string {
   $variant: string
   min-length = 1
   max-length = 100
 }
 
-$types.username = .$types.base-string
+@ $types.username = .$types.base-string
 
 @ $types.user
 username = .$types.username
 email = .code.email
-
-data = .$types.user
 "#;
     let schema = parse_and_convert(input);
 
@@ -1867,6 +1870,7 @@ data = .$types.user
 
 #[test]
 fn test_complex_user_schema() {
+    // For literal union variants, just use the literal value directly
     let input = r#"
 @ $types.username {
   $variant: string
@@ -1877,9 +1881,9 @@ fn test_complex_user_schema() {
 
 @ $types.role {
   $variant: union
-  variants.admin = { => "admin", $variant => "literal" }
-  variants.user = { => "user", $variant => "literal" }
-  variants.guest = { => "guest", $variant => "literal" }
+  variants.admin = "admin"
+  variants.user = "user"
+  variants.guest = "guest"
 }
 
 @ $types.user {
@@ -1912,14 +1916,15 @@ fn test_complex_user_schema() {
 
 #[test]
 fn test_complex_api_schema() {
+    // For literal union variants, just use the literal value directly
     let input = r#"
 @ $types.http-method {
   $variant: union
-  variants.GET = { => "GET", $variant => "literal" }
-  variants.POST = { => "POST", $variant => "literal" }
-  variants.PUT = { => "PUT", $variant => "literal" }
-  variants.DELETE = { => "DELETE", $variant => "literal" }
-  variants.PATCH = { => "PATCH", $variant => "literal" }
+  variants.GET = "GET"
+  variants.POST = "POST"
+  variants.PUT = "PUT"
+  variants.DELETE = "DELETE"
+  variants.PATCH = "PATCH"
 }
 
 @ $types.api-request {
@@ -2015,7 +2020,10 @@ fn test_nested_types_and_arrays() {
 
 #[test]
 fn test_array_of_custom_types_complex() {
+    // Note: bindings must come before sections in EURE
     let input = r#"
+data = .$types.collection
+
 @ $types.item {
   $variant: string
   min-length = 1
@@ -2028,8 +2036,6 @@ fn test_array_of_custom_types_complex() {
   min-length = 1
   unique = true
 }
-
-data = .$types.collection
 "#;
     let schema = parse_and_convert(input);
 

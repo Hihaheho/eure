@@ -367,6 +367,58 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
+    fn visit_tuple(
+        &mut self,
+        handle: TupleHandle,
+        view: TupleView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Process tuple elements (similar to array but with TupleIndex path segment)
+        if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
+            // Iterate through tuple elements
+            let mut current = Some(elements_handle);
+            let mut index = 0u8;
+
+            while let Some(elem_handle) = current {
+                let elem_view = elem_handle.get_view(tree)?;
+
+                // Push tuple index path
+                let node_id = self
+                    .document
+                    .push_path(&[PathSegment::TupleIndex(index)])
+                    .map_err(|e| DocumentConstructionError::DocumentInsert {
+                        error: e,
+                        node_id: handle.node_id(),
+                    })?;
+
+                // Visit the value at this index
+                self.visit_value_handle(elem_view.value, tree)?;
+
+                // Pop back to tuple level
+                self.document.pop(node_id)?;
+
+                // Move to next element if any
+                current = if let Some(tail_handle) = elem_view.tuple_elements_opt.get_view(tree)? {
+                    let tail_view = tail_handle.get_view(tree)?;
+                    tail_view.tuple_elements_tail_opt.get_view(tree)?
+                } else {
+                    None
+                };
+
+                index = index.saturating_add(1);
+            }
+        } else {
+            self.document.bind_empty_tuple().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        }
+
+        Ok(())
+    }
+
     fn visit_path(
         &mut self,
         handle: PathHandle,
