@@ -4624,13 +4624,15 @@ impl NonTerminalHandle for ObjectHandle {
             self.0,
             [
                 NodeKind::NonTerminal(NonTerminalKind::Begin),
+                NodeKind::NonTerminal(NonTerminalKind::ObjectOpt),
                 NodeKind::NonTerminal(NonTerminalKind::ObjectList),
                 NodeKind::NonTerminal(NonTerminalKind::End),
             ],
-            |[begin, object_list, end], visit_ignored| Ok(
+            |[begin, object_opt, object_list, end], visit_ignored| Ok(
                 visit(
                     ObjectView {
                         begin: BeginHandle(begin),
+                        object_opt: ObjectOptHandle(object_opt),
                         object_list: ObjectListHandle(object_list),
                         end: EndHandle(end),
                     },
@@ -4644,6 +4646,7 @@ impl NonTerminalHandle for ObjectHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectView {
     pub begin: BeginHandle,
+    pub object_opt: ObjectOptHandle,
     pub object_list: ObjectListHandle,
     pub end: EndHandle,
 }
@@ -4685,16 +4688,16 @@ impl NonTerminalHandle for ObjectListHandle {
                 NodeKind::NonTerminal(NonTerminalKind::Keys),
                 NodeKind::NonTerminal(NonTerminalKind::MapBind),
                 NodeKind::NonTerminal(NonTerminalKind::Value),
-                NodeKind::NonTerminal(NonTerminalKind::ObjectOpt),
+                NodeKind::NonTerminal(NonTerminalKind::ObjectOpt0),
                 NodeKind::NonTerminal(NonTerminalKind::ObjectList),
             ],
-            |[keys, map_bind, value, object_opt, object_list], visit_ignored| Ok(
+            |[keys, map_bind, value, object_opt_0, object_list], visit_ignored| Ok(
                 visit(
                     Some(ObjectListView {
                         keys: KeysHandle(keys),
                         map_bind: MapBindHandle(map_bind),
                         value: ValueHandle(value),
-                        object_opt: ObjectOptHandle(object_opt),
+                        object_opt_0: ObjectOpt0Handle(object_opt_0),
                         object_list: ObjectListHandle(object_list),
                     }),
                     visit_ignored,
@@ -4709,7 +4712,7 @@ pub struct ObjectListView {
     pub keys: KeysHandle,
     pub map_bind: MapBindHandle,
     pub value: ValueHandle,
-    pub object_opt: ObjectOptHandle,
+    pub object_opt_0: ObjectOpt0Handle,
     pub object_list: ObjectListHandle,
 }
 impl<F: CstFacade> RecursiveView<F> for ObjectListView {
@@ -4722,13 +4725,13 @@ impl<F: CstFacade> RecursiveView<F> for ObjectListView {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
-            let Self { keys, map_bind, value, object_opt, .. } = item;
+            let Self { keys, map_bind, value, object_opt_0, .. } = item;
             items
                 .push(ObjectListItem {
                     keys,
                     map_bind,
                     value,
-                    object_opt,
+                    object_opt_0,
                 });
             item.object_list
                 .get_view_with_visit(
@@ -4748,12 +4751,12 @@ pub struct ObjectListItem {
     pub keys: KeysHandle,
     pub map_bind: MapBindHandle,
     pub value: ValueHandle,
-    pub object_opt: ObjectOptHandle,
+    pub object_opt_0: ObjectOpt0Handle,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectOptHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for ObjectOptHandle {
-    type View = Option<CommaHandle>;
+    type View = Option<ObjectOptView>;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -4771,6 +4774,101 @@ impl NonTerminalHandle for ObjectOptHandle {
     }
     fn kind(&self) -> NonTerminalKind {
         NonTerminalKind::ObjectOpt
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        tree.collect_nodes(
+            self.0,
+            [
+                NodeKind::NonTerminal(NonTerminalKind::ValueBinding),
+                NodeKind::NonTerminal(NonTerminalKind::ObjectOpt1),
+            ],
+            |[value_binding, object_opt_1], visit_ignored| Ok(
+                visit(
+                    Some(ObjectOptView {
+                        value_binding: ValueBindingHandle(value_binding),
+                        object_opt_1: ObjectOpt1Handle(object_opt_1),
+                    }),
+                    visit_ignored,
+                ),
+            ),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectOptView {
+    pub value_binding: ValueBindingHandle,
+    pub object_opt_1: ObjectOpt1Handle,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ObjectOpt0Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for ObjectOpt0Handle {
+    type View = Option<CommaHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::ObjectOpt0)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::ObjectOpt0
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(
+            visit(
+                    Some(CommaHandle::new_with_visit(self.0, tree, visit_ignored)?),
+                    visit_ignored,
+                )
+                .0,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ObjectOpt1Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for ObjectOpt1Handle {
+    type View = Option<CommaHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::ObjectOpt1)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::ObjectOpt1
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
