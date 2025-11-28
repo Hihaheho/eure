@@ -14,7 +14,7 @@
 //! - Metadata (description, deprecated, default, examples)
 
 use eure::document::parse_to_document;
-use eure_schema::convert::document_to_schema;
+use eure_schema::convert::{document_to_schema, ConversionError};
 use eure_schema::{
     ArraySchema, Bound, CodeSchema, FloatSchema, IntegerSchema, MapSchema, PathSchema,
     RecordFieldSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId,
@@ -2176,8 +2176,12 @@ fn test_error_empty_section() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because uninitialized nodes are incomplete
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct(
+            "Incomplete document: uninitialized node".to_string()
+        )
+    );
 }
 
 #[test]
@@ -2209,8 +2213,10 @@ user = .$types.nonexistent
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because the type doesn't exist
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UndefinedTypeReference("nonexistent".to_string())
+    );
 }
 
 // ============================================================================
@@ -2227,8 +2233,12 @@ fn test_error_unknown_variant_type() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "unknown_type" is not a valid variant
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct(
+            "Incomplete document: uninitialized node".to_string()
+        )
+    );
 }
 
 #[test]
@@ -2242,8 +2252,10 @@ fn test_error_invalid_integer_range_format() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because the range format is invalid
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidRangeString("not a range".to_string())
+    );
 }
 
 #[test]
@@ -2257,8 +2269,10 @@ fn test_error_invalid_float_range_format() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because the range format is invalid
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidRangeString("invalid".to_string())
+    );
 }
 
 #[test]
@@ -2269,22 +2283,24 @@ field = .unknown_primitive
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "unknown_primitive" is not a valid type
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Unknown type: unknown_primitive".to_string())
+    );
 }
 
 #[test]
-fn test_error_empty_path() {
-    // Empty path should be an error - but this is caught at parse level
-    // Let's test an invalid extension path instead
+fn test_error_invalid_extension_path() {
     let input = r#"
 field = .$unknown.type
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "$unknown" is not a valid extension
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Unknown extension path: $unknown".to_string())
+    );
 }
 
 #[test]
@@ -2298,8 +2314,13 @@ fn test_error_map_missing_key() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "key" is required for map type
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "key".to_string(),
+            path: "map".to_string(),
+        }
+    );
 }
 
 #[test]
@@ -2313,8 +2334,13 @@ fn test_error_map_missing_value() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "value" is required for map type
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "value".to_string(),
+            path: "map".to_string(),
+        }
+    );
 }
 
 #[test]
@@ -2328,8 +2354,13 @@ fn test_error_array_missing_item() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "item" is required for explicit array variant
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "item".to_string(),
+            path: "array".to_string(),
+        }
+    );
 }
 
 #[test]
@@ -2344,13 +2375,17 @@ fn test_error_invalid_variant_repr() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "invalid_repr" is not a valid variant representation
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "variant-repr".to_string(),
+            path: "invalid_repr".to_string(),
+        }
+    );
 }
 
 #[test]
 fn test_error_adjacent_repr_missing_tag() {
-    // Note: bindings must come before sections in EURE
     let input = r#"
 @ field {
   $variant: union
@@ -2363,8 +2398,13 @@ fn test_error_adjacent_repr_missing_tag() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because adjacent repr requires "tag"
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "variant-repr".to_string(),
+            path: "missing tag".to_string(),
+        }
+    );
 }
 
 #[test]
@@ -2378,8 +2418,13 @@ fn test_error_invalid_unknown_fields_policy() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because "invalid_policy" is not a valid policy
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "unknown-fields".to_string(),
+            path: "invalid_policy".to_string(),
+        }
+    );
 }
 
 #[test]
@@ -2390,8 +2435,10 @@ field = [.string, .integer]
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because array shorthand only supports single item type
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct("Array with multiple elements".to_string())
+    );
 }
 
 #[test]
@@ -2405,13 +2452,14 @@ fn test_error_invalid_range_interval_format() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because interval format requires exactly 2 parts
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidRangeString("[1, 2, 3]".to_string())
+    );
 }
 
 #[test]
 fn test_error_literal_missing_value() {
-    // When using explicit $variant: literal, value must be provided via root binding
     let input = r#"
 @ field {
   $variant: literal
@@ -2421,6 +2469,11 @@ fn test_error_literal_missing_value() {
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because literal type requires a root binding value
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "value".to_string(),
+            path: "literal".to_string(),
+        }
+    );
 }
