@@ -8,31 +8,31 @@
 //! Schema types are defined using the following syntax:
 //!
 //! **Primitives (shorthands):**
-//! - `.string`, `.integer`, `.float`, `.boolean`, `.null`, `.any`, `.path`
-//! - `.code`, `.code.rust`, `.code.javascript`, `.code.email`
+//! - `.text`, `.integer`, `.float`, `.boolean`, `.null`, `.any`, `.path`
+//! - `.text.rust`, `.text.email`, `.text.plaintext`
 //!
 //! **Primitives with constraints:**
 //! ```eure
 //! @ field {
-//!   $variant: string
+//!   $variant: text
 //!   min-length = 3
 //!   max-length = 20
 //!   pattern = "^[a-z]+$"
 //! }
 //! ```
 //!
-//! **Array:** `[.string]` or `{ $variant: array, item = .string, ... }`
+//! **Array:** `[.text]` or `{ $variant: array, item = .text, ... }`
 //!
-//! **Tuple:** `(.string, .integer)` or `{ $variant: tuple, elements = [...] }`
+//! **Tuple:** `(.text, .integer)` or `{ $variant: tuple, elements = [...] }`
 //!
-//! **Record:** `{ name = .string, age = .integer }`
+//! **Record:** `{ name = .text, age = .integer }`
 //!
 //! **Union with named variants:**
 //! ```eure
 //! @ field {
 //!   $variant: union
 //!   variants.success = { data = .any }
-//!   variants.error = { message = .string }
+//!   variants.error = { message = .text }
 //!   $variant-repr = "untagged"  // optional
 //!   priority = ["error", "success"]  // optional, for untagged unions
 //! }
@@ -43,9 +43,9 @@
 //! **Type reference:** `.$types.my-type` or `.$types.namespace.type`
 
 use crate::{
-    ArraySchema, Bound, CodeSchema, Description, FloatSchema, IntegerSchema, MapSchema,
-    PathSchema, RecordFieldSchema, RecordSchema, SchemaDocument, SchemaNodeContent, SchemaNodeId,
-    StringSchema, TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, Description, FloatSchema, IntegerSchema, MapSchema, PathSchema,
+    RecordFieldSchema, RecordSchema, SchemaDocument, SchemaNodeContent, SchemaNodeId, TextSchema,
+    TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
 use eure_value::document::node::{Node, NodeValue};
@@ -142,9 +142,9 @@ impl<'a> Converter<'a> {
             if let NodeValue::Map(map) = &types_node.content {
                 for (key, &node_id) in map.0.iter() {
                     if let ObjectKey::String(name) = key {
-                        let type_name: Identifier = name.parse().map_err(|_| {
-                            ConversionError::InvalidTypeName(key.clone())
-                        })?;
+                        let type_name: Identifier = name
+                            .parse()
+                            .map_err(|_| ConversionError::InvalidTypeName(key.clone()))?;
                         let schema_id = self.convert_node(node_id)?;
                         self.schema.types.insert(type_name, schema_id);
                     } else {
@@ -195,14 +195,16 @@ impl<'a> Converter<'a> {
                 // Array shorthand: [.type]
                 if arr.0.len() == 1 {
                     let item_id = self.convert_node(arr.0[0])?;
-                    let schema_id = self.schema.create_node(SchemaNodeContent::Array(ArraySchema {
-                        item: item_id,
-                        min_length: None,
-                        max_length: None,
-                        unique: false,
-                        contains: None,
-                        binding_style: None,
-                    }));
+                    let schema_id =
+                        self.schema
+                            .create_node(SchemaNodeContent::Array(ArraySchema {
+                                item: item_id,
+                                min_length: None,
+                                max_length: None,
+                                unique: false,
+                                contains: None,
+                                binding_style: None,
+                            }));
                     Ok(schema_id)
                 } else {
                     Err(ConversionError::UnsupportedConstruct(
@@ -240,15 +242,15 @@ impl<'a> Converter<'a> {
         let variant_ident: Identifier = "variant".parse().unwrap();
         if let Some(&ext_node_id) = node.extensions.get(&variant_ident) {
             let ext_node = self.doc.node(ext_node_id);
-            // Simple variant: $variant = .string (parsed as Variant with tag "string")
+            // Simple variant: $variant = .text (parsed as Variant with tag "text")
             if let NodeValue::Primitive(PrimitiveValue::Variant(v)) = &ext_node.content {
                 return Ok(Some(v.tag.clone()));
             }
-            // String value: $variant = "union"
-            if let NodeValue::Primitive(PrimitiveValue::String(s)) = &ext_node.content {
-                return Ok(Some(s.as_str().to_string()));
+            // Text value: $variant = "union"
+            if let NodeValue::Primitive(PrimitiveValue::Text(t)) = &ext_node.content {
+                return Ok(Some(t.as_str().to_string()));
             }
-            // Path value: $variant = .string or $variant = .ok.ok (multi-segment)
+            // Path value: $variant = .text or $variant = .ok.ok (multi-segment)
             if let NodeValue::Primitive(PrimitiveValue::Path(path)) = &ext_node.content {
                 let segments: Vec<&str> = path
                     .0
@@ -263,7 +265,7 @@ impl<'a> Converter<'a> {
                     .collect();
 
                 if segments.len() == 1 {
-                    // Single-segment path like .string, .union - equivalent to string notation
+                    // Single-segment path like .text, .union - equivalent to string notation
                     return Ok(Some(segments[0].to_string()));
                 } else if segments.len() > 1 {
                     // Multi-segment path like .ok.ok - invalid in schema context
@@ -289,38 +291,37 @@ impl<'a> Converter<'a> {
     ) -> Result<SchemaNodeId, ConversionError> {
         match prim {
             PrimitiveValue::Path(path) => self.convert_path_to_type(path, node),
-            PrimitiveValue::String(s) => {
-                // Check if this has $variant: literal
-                let variant = self.get_variant_extension(node)?;
-                if variant.as_deref() == Some("literal") {
-                    let schema_id = self.schema.create_node(SchemaNodeContent::Literal(
-                        Value::Primitive(PrimitiveValue::String(s.clone())),
-                    ));
-                    Ok(schema_id)
-                } else {
-                    // Just a string literal without $variant: literal means it's a literal type
-                    let schema_id = self.schema.create_node(SchemaNodeContent::Literal(
-                        Value::Primitive(PrimitiveValue::String(s.clone())),
-                    ));
-                    Ok(schema_id)
-                }
+            PrimitiveValue::Text(t) => {
+                // Text literals are always literal types in schema context
+                let schema_id =
+                    self.schema
+                        .create_node(SchemaNodeContent::Literal(Value::Primitive(
+                            PrimitiveValue::Text(t.clone()),
+                        )));
+                Ok(schema_id)
             }
             PrimitiveValue::BigInt(i) => {
-                let schema_id = self.schema.create_node(SchemaNodeContent::Literal(
-                    Value::Primitive(PrimitiveValue::BigInt(i.clone())),
-                ));
+                let schema_id =
+                    self.schema
+                        .create_node(SchemaNodeContent::Literal(Value::Primitive(
+                            PrimitiveValue::BigInt(i.clone()),
+                        )));
                 Ok(schema_id)
             }
             PrimitiveValue::Bool(b) => {
-                let schema_id = self.schema.create_node(SchemaNodeContent::Literal(
-                    Value::Primitive(PrimitiveValue::Bool(*b)),
-                ));
+                let schema_id =
+                    self.schema
+                        .create_node(SchemaNodeContent::Literal(Value::Primitive(
+                            PrimitiveValue::Bool(*b),
+                        )));
                 Ok(schema_id)
             }
             PrimitiveValue::Null => {
-                let schema_id = self.schema.create_node(SchemaNodeContent::Literal(
-                    Value::Primitive(PrimitiveValue::Null),
-                ));
+                let schema_id =
+                    self.schema
+                        .create_node(SchemaNodeContent::Literal(Value::Primitive(
+                            PrimitiveValue::Null,
+                        )));
                 Ok(schema_id)
             }
             _ => Err(ConversionError::UnsupportedConstruct(format!(
@@ -339,26 +340,26 @@ impl<'a> Converter<'a> {
         match path.0.as_slice() {
             [] => Err(ConversionError::EmptyTypePath),
 
-            // Primitive types: .string, .integer, .float, .boolean, .null, .any, .path, .code
+            // Primitive types: .text, .integer, .float, .boolean, .null, .any, .path
             [PathSegment::Ident(ident)] => {
                 let content = match ident.as_ref() {
-                    "string" => SchemaNodeContent::String(StringSchema::default()),
+                    "text" => SchemaNodeContent::Text(TextSchema::default()),
                     "integer" => SchemaNodeContent::Integer(IntegerSchema::default()),
                     "float" => SchemaNodeContent::Float(FloatSchema::default()),
                     "boolean" => SchemaNodeContent::Boolean,
                     "null" => SchemaNodeContent::Null,
                     "any" => SchemaNodeContent::Any,
                     "path" => SchemaNodeContent::Path(PathSchema::default()),
-                    "code" => SchemaNodeContent::Code(CodeSchema { language: None }),
                     _ => return Err(ConversionError::UnknownPrimitiveType(path.clone())),
                 };
                 Ok(self.schema.create_node(content))
             }
 
-            // Code with language: .code.rust, .code.email
-            [PathSegment::Ident(first), PathSegment::Ident(lang)] if first.as_ref() == "code" => {
-                let content = SchemaNodeContent::Code(CodeSchema {
+            // Text with language: .text.rust, .text.email, .text.plaintext
+            [PathSegment::Ident(first), PathSegment::Ident(lang)] if first.as_ref() == "text" => {
+                let content = SchemaNodeContent::Text(TextSchema {
                     language: Some(lang.to_string()),
+                    ..Default::default()
                 });
                 Ok(self.schema.create_node(content))
             }
@@ -375,9 +376,11 @@ impl<'a> Converter<'a> {
             }
 
             // External type reference: .$types.namespace.typename
-            [PathSegment::Extension(ext), PathSegment::Ident(ns), PathSegment::Ident(type_name)]
-                if ext.as_ref() == "types" =>
-            {
+            [
+                PathSegment::Extension(ext),
+                PathSegment::Ident(ns),
+                PathSegment::Ident(type_name),
+            ] if ext.as_ref() == "types" => {
                 let content = SchemaNodeContent::Reference(TypeReference {
                     namespace: Some(ns.to_string()),
                     name: type_name.clone(),
@@ -404,7 +407,8 @@ impl<'a> Converter<'a> {
         node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         match variant.as_deref() {
-            Some("string") => self.convert_string_with_constraints(node_id, node),
+            // Text type with optional constraints
+            Some("text") => self.convert_text_with_constraints(node_id, node),
             Some("integer") => self.convert_integer_with_constraints(node_id, node),
             Some("float") => self.convert_float_with_constraints(node_id, node),
             Some("array") => self.convert_array_with_constraints(node_id, node),
@@ -433,27 +437,30 @@ impl<'a> Converter<'a> {
         Ok(schema_id)
     }
 
-    /// Convert a string type with constraints
-    fn convert_string_with_constraints(
+    /// Convert a text type with constraints
+    fn convert_text_with_constraints(
         &mut self,
         node_id: NodeId,
         _node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
-        let mut string_schema = StringSchema::default();
+        let mut text_schema = TextSchema::default();
 
         if let NodeValue::Map(map) = &node.content {
             for (key, &value_id) in map.0.iter() {
                 if let ObjectKey::String(key_str) = key {
                     match key_str.as_str() {
+                        "language" => {
+                            text_schema.language = self.get_string_value(value_id)?;
+                        }
                         "min-length" => {
-                            string_schema.min_length = self.get_integer_value(value_id)?;
+                            text_schema.min_length = self.get_integer_value(value_id)?;
                         }
                         "max-length" => {
-                            string_schema.max_length = self.get_integer_value(value_id)?;
+                            text_schema.max_length = self.get_integer_value(value_id)?;
                         }
                         "pattern" => {
-                            string_schema.pattern = self.get_string_value(value_id)?;
+                            text_schema.pattern = self.get_string_value(value_id)?;
                         }
                         _ => {}
                     }
@@ -463,7 +470,7 @@ impl<'a> Converter<'a> {
 
         let schema_id = self
             .schema
-            .create_node(SchemaNodeContent::String(string_schema));
+            .create_node(SchemaNodeContent::Text(text_schema));
         Ok(schema_id)
     }
 
@@ -481,9 +488,9 @@ impl<'a> Converter<'a> {
                 if let ObjectKey::String(key_str) = key {
                     match key_str.as_str() {
                         "range" => {
-                            let range_str = self
-                                .get_string_value(value_id)?
-                                .ok_or(ConversionError::InvalidRangeString("missing".to_string()))?;
+                            let range_str = self.get_string_value(value_id)?.ok_or(
+                                ConversionError::InvalidRangeString("missing".to_string()),
+                            )?;
                             let (min, max) = parse_integer_range(&range_str)?;
                             int_schema.min = min;
                             int_schema.max = max;
@@ -519,9 +526,9 @@ impl<'a> Converter<'a> {
                 if let ObjectKey::String(key_str) = key {
                     match key_str.as_str() {
                         "range" => {
-                            let range_str = self
-                                .get_string_value(value_id)?
-                                .ok_or(ConversionError::InvalidRangeString("missing".to_string()))?;
+                            let range_str = self.get_string_value(value_id)?.ok_or(
+                                ConversionError::InvalidRangeString("missing".to_string()),
+                            )?;
                             let (min, max) = parse_float_range(&range_str)?;
                             float_schema.min = min;
                             float_schema.max = max;
@@ -581,11 +588,9 @@ impl<'a> Converter<'a> {
             }
         }
 
-        let item = item_id.ok_or_else(|| {
-            ConversionError::MissingRequiredExtension {
-                extension: "item".to_string(),
-                path: "array".to_string(),
-            }
+        let item = item_id.ok_or_else(|| ConversionError::MissingRequiredExtension {
+            extension: "item".to_string(),
+            path: "array".to_string(),
         })?;
 
         let schema_id = self
@@ -645,14 +650,12 @@ impl<'a> Converter<'a> {
             path: "map".to_string(),
         })?;
 
-        let schema_id = self
-            .schema
-            .create_node(SchemaNodeContent::Map(MapSchema {
-                key,
-                value,
-                min_size,
-                max_size,
-            }));
+        let schema_id = self.schema.create_node(SchemaNodeContent::Map(MapSchema {
+            key,
+            value,
+            min_size,
+            max_size,
+        }));
         Ok(schema_id)
     }
 
@@ -746,8 +749,8 @@ impl<'a> Converter<'a> {
     fn parse_variant_repr(&self, node_id: NodeId) -> Result<VariantRepr, ConversionError> {
         let node = self.doc.node(node_id);
         match &node.content {
-            NodeValue::Primitive(PrimitiveValue::String(s)) => {
-                let s_str = s.as_str();
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => {
+                let s_str = t.as_str();
                 match s_str {
                     "untagged" => Ok(VariantRepr::Untagged),
                     "external" => Ok(VariantRepr::External),
@@ -846,7 +849,7 @@ impl<'a> Converter<'a> {
                 if let ObjectKey::String(key_str) = key
                     && key_str.is_empty()
                 {
-                    // Root binding: { => value, $variant: literal }
+                    // Root binding: { = value, $variant: literal }
                     let value = self.node_to_value(value_id)?;
                     let schema_id = self.schema.create_node(SchemaNodeContent::Literal(value));
                     return Ok(schema_id);
@@ -953,8 +956,8 @@ impl<'a> Converter<'a> {
         let description_ident: Identifier = "description".parse().unwrap();
         if let Some(&ext_node_id) = node.extensions.get(&description_ident) {
             let ext_node = self.doc.node(ext_node_id);
-            if let NodeValue::Primitive(PrimitiveValue::String(s)) = &ext_node.content {
-                description = Some(Description::String(s.as_str().to_string()));
+            if let NodeValue::Primitive(PrimitiveValue::Text(t)) = &ext_node.content {
+                description = Some(Description::String(t.as_str().to_string()));
             }
         }
 
@@ -980,12 +983,12 @@ impl<'a> Converter<'a> {
     ) -> Result<UnknownFieldsPolicy, ConversionError> {
         let node = self.doc.node(node_id);
         match &node.content {
-            NodeValue::Primitive(PrimitiveValue::String(s)) => match s.as_str() {
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => match t.as_str() {
                 "deny" => Ok(UnknownFieldsPolicy::Deny),
                 "allow" => Ok(UnknownFieldsPolicy::Allow),
                 _ => Err(ConversionError::InvalidExtensionValue {
                     extension: "unknown-fields".to_string(),
-                    path: s.as_str().to_string(),
+                    path: t.as_str().to_string(),
                 }),
             },
             NodeValue::Primitive(PrimitiveValue::Path(_)) => {
@@ -1000,16 +1003,17 @@ impl<'a> Converter<'a> {
         }
     }
 
-
     /// Helper: get integer value from a node
     fn get_integer_value(&self, node_id: NodeId) -> Result<Option<u32>, ConversionError> {
         let node = self.doc.node(node_id);
         match &node.content {
             NodeValue::Primitive(PrimitiveValue::BigInt(i)) => {
-                let value: u32 = i.try_into().map_err(|_| ConversionError::InvalidConstraintValue {
-                    constraint: "integer".to_string(),
-                    value: i.to_string(),
-                })?;
+                let value: u32 =
+                    i.try_into()
+                        .map_err(|_| ConversionError::InvalidConstraintValue {
+                            constraint: "integer".to_string(),
+                            value: i.to_string(),
+                        })?;
                 Ok(Some(value))
             }
             _ => Ok(None),
@@ -1032,21 +1036,23 @@ impl<'a> Converter<'a> {
             NodeValue::Primitive(PrimitiveValue::F64(f)) => Ok(Some(*f)),
             NodeValue::Primitive(PrimitiveValue::F32(f)) => Ok(Some(*f as f64)),
             NodeValue::Primitive(PrimitiveValue::BigInt(i)) => {
-                let value: i64 = i.try_into().map_err(|_| ConversionError::InvalidConstraintValue {
-                    constraint: "float".to_string(),
-                    value: i.to_string(),
-                })?;
+                let value: i64 =
+                    i.try_into()
+                        .map_err(|_| ConversionError::InvalidConstraintValue {
+                            constraint: "float".to_string(),
+                            value: i.to_string(),
+                        })?;
                 Ok(Some(value as f64))
             }
             _ => Ok(None),
         }
     }
 
-    /// Helper: get string value from a node
+    /// Helper: get string value from a node (accepts any Text value)
     fn get_string_value(&self, node_id: NodeId) -> Result<Option<String>, ConversionError> {
         let node = self.doc.node(node_id);
         match &node.content {
-            NodeValue::Primitive(PrimitiveValue::String(s)) => Ok(Some(s.as_str().to_string())),
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => Ok(Some(t.as_str().to_string())),
             _ => Ok(None),
         }
     }
@@ -1281,7 +1287,7 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 /// Convert an EureDocument containing schema definitions to a SchemaDocument
 ///
 /// This function traverses the document and extracts schema information from:
-/// - Type paths (`.string`, `.integer`, `.code.rust`, etc.)
+/// - Type paths (`.text`, `.integer`, `.text.rust`, etc.)
 /// - `$variant` extension for explicit type variants
 /// - `variants.*` fields for union variant definitions
 /// - Constraint fields (`min-length`, `max-length`, `pattern`, `range`, etc.)
@@ -1302,7 +1308,7 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 /// use eure_schema::convert::document_to_schema;
 ///
 /// let input = r#"
-/// name = .string
+/// name = .text
 /// age = .integer
 /// "#;
 ///

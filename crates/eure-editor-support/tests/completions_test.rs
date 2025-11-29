@@ -21,7 +21,7 @@ fn test_completion_after_at_symbol() {
     // Create a schema manager with a test schema
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ name
-$type = .string
+$type = .text
 
 @ age
 $type = .number
@@ -183,9 +183,9 @@ fn test_section_snippet_generation() {
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"
 user.$prefer.section = true
-user.name.first.$type = .string
-user.name.last.$type = .string
-user.name.middle.$type = .string
+user.name.first.$type = .text
+user.name.last.$type = .text
+user.name.middle.$type = .text
 user.name.middle.$optional = true
 user.age.$type = .number
 "#;
@@ -324,7 +324,7 @@ fn test_completion_with_types() {
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Person {
     @ name
-    $type = .string
+    $type = .text
     
     @ age
     $type = .number
@@ -385,21 +385,21 @@ fn test_nested_path_completion() {
     let schema_text = r#"@ user {
     @ address {
         @ street
-        $type = .string
+        $type = .text
         
         @ city
-        $type = .string
+        $type = .text
         
         @ zipcode
-        $type = .string
+        $type = .text
         
         @ country
-        $type = .string
+        $type = .text
         $optional = true
     }
     
     @ name
-    $type = .string
+    $type = .text
 }"#;
 
     match parse_document(schema_text) {
@@ -478,10 +478,10 @@ fn test_array_element_completion() {
     $type = .number
     
     @ name
-    $type = .string
+    $type = .text
     
     @ description
-    $type = .string
+    $type = .text
     $optional = true
     
     @ price
@@ -548,13 +548,13 @@ fn test_mixed_path_completion() {
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Server {
     @ host
-    $type = .string
+    $type = .text
     
     @ port
     $type = .number
     
     @ protocol
-    $type = .string
+    $type = .text
     $enum = ["http", "https", "ws", "wss"]
     
     @ enabled
@@ -625,32 +625,32 @@ $variant: "#;
     let schema_text = r#"$types.Action {
     @ $variants.set-text {
         @ speaker
-        $type = .string
+        $type = .text
         
         @ lines {
-            $array = .string
+            $array = .text
         }
     }
     
     @ $variants.set-choices {
         @ description
-        $type = .string
+        $type = .text
         
         @ choices.$array {
             @ text
-            $type = .string
+            $type = .text
             
             @ value
-            $type = .string
+            $type = .text
         }
     }
     
     @ $variants.navigate {
         @ target
-        $type = .string
+        $type = .text
         
         @ mode
-        $type = .string
+        $type = .text
         $enum = ["push", "replace", "pop"]
     }
 }
@@ -726,23 +726,23 @@ $variant: set-text
     let schema_text = r#"$types.Action {
     @ $variants.set-text {
         @ speaker
-        $type = .string
+        $type = .text
         
         @ lines {
-            $array = .string
+            $array = .text
         }
     }
     
     @ $variants.set-choices {
         @ description
-        $type = .string
+        $type = .text
         
         @ choices.$array {
             @ text
-            $type = .string
+            $type = .text
             
             @ value
-            $type = .string
+            $type = .text
         }
     }
 }
@@ -815,23 +815,23 @@ $variant: set-choices
     let schema_text = r#"$types.Action {
     @ $variants.set-text {
         @ speaker
-        $type = .string
+        $type = .text
         
         @ lines {
-            $array = .string
+            $array = .text
         }
     }
     
     @ $variants.set-choices {
         @ description
-        $type = .string
+        $type = .text
         
         @ choices.$array {
             @ text
-            $type = .string
+            $type = .text
             
             @ value
-            $type = .string
+            $type = .text
         }
     }
 }
@@ -902,7 +902,7 @@ $type = .$types."#;
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Person {
     @ name
-    $type = .string
+    $type = .text
     
     @ age
     $type = .number
@@ -910,18 +910,18 @@ $type = .$types."#;
 
 $types.Address {
     @ street
-    $type = .string
+    $type = .text
     
     @ city
-    $type = .string
+    $type = .text
     
     @ country
-    $type = .string
+    $type = .text
 }
 
 $types.Company {
     @ name
-    $type = .string
+    $type = .text
     
     @ employees {
         $array = .$types.Person
@@ -991,12 +991,12 @@ environment = "#;
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ config {
     @ environment {
-        $type = .string
+        $type = .text
         $enum = ["development", "staging", "production"]
     }
     
     @ log_level {
-        $type = .string
+        $type = .text
         $enum = ["debug", "info", "warn", "error", "fatal"]
     }
     
@@ -1062,7 +1062,7 @@ fn test_completion_with_default_values() {
     // Create schema with default values
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"
-database.host.$type = .string
+database.host.$type = .text
 database.host.$default = "localhost"
 database.port.$type = .number
 database.port.$default = 5432
@@ -1130,10 +1130,10 @@ fn test_completion_with_cascading_type() {
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Server {
     @ name
-    $type = .string
+    $type = .text
     
     @ host
-    $type = .string
+    $type = .text
     
     @ port
     $type = .number
@@ -1200,17 +1200,17 @@ fn test_completion_in_block_syntax() {
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ user {
     @ name
-    $type = .string
+    $type = .text
     
     @ email
-    $type = .string
+    $type = .text
     
     @ profile {
         @ bio
-        $type = .string
+        $type = .text
         
         @ avatar_url
-        $type = .string
+        $type = .text
         $optional = true
     }
 }"#;
@@ -1271,10 +1271,10 @@ em"#;
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ user {
     @ name
-    $type = .string
+    $type = .text
     
     @ email
-    $type = .string
+    $type = .text
     
     @ employee_id
     $type = .number
@@ -1334,7 +1334,7 @@ fn test_completion_at_document_boundary() {
     // Create schema
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ config
-$type = .string
+$type = .text
 
 @ version
 $type = .number"#;
@@ -1398,16 +1398,16 @@ fn test_completion_in_nested_block_with_arrays() {
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"$types.Endpoint {
     @ path
-    $type = .string
+    $type = .text
     
     @ method
-    $type = .string
+    $type = .text
     $enum = ["GET", "POST", "PUT", "DELETE"]
 }
 
 $types.Server {
     @ name
-    $type = .string
+    $type = .text
     
     @ endpoints {
         $array = .$types.Endpoint
@@ -1473,13 +1473,13 @@ fn test_completion_with_inline_objects() {
     let mut schema_manager = SchemaManager::new();
     let schema_text = r#"@ user {
     @ name
-    $type = .string
+    $type = .text
     
     @ age
     $type = .number
     
     @ email
-    $type = .string
+    $type = .text
 }"#;
 
     match parse_document(schema_text) {

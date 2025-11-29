@@ -16,9 +16,8 @@
 use eure::document::parse_to_document;
 use eure_schema::convert::{document_to_schema, ConversionError};
 use eure_schema::{
-    ArraySchema, Bound, CodeSchema, FloatSchema, IntegerSchema, MapSchema, PathSchema,
-    RecordFieldSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId,
-    StringSchema, TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, FloatSchema, IntegerSchema, MapSchema, PathSchema, SchemaDocument,
+    SchemaMetadata, SchemaNodeContent, SchemaNodeId, TextSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
 use eure_value::identifier::Identifier;
@@ -199,26 +198,46 @@ fn assert_field_optional(schema: &SchemaDocument, node_id: SchemaNodeId, field_n
     }
 }
 
-/// Assert that a node is a String type
-fn assert_string(schema: &SchemaDocument, node_id: SchemaNodeId) {
+/// Assert node is Text with no language constraint (accepts any language)
+fn assert_text(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
-    assert!(
-        matches!(node.content, SchemaNodeContent::String(_)),
-        "Expected String type, got {:?}",
-        node.content
-    );
+    if let SchemaNodeContent::Text(text_schema) = &node.content {
+        assert!(
+            text_schema.language.is_none(),
+            "Expected text with no language constraint, got {:?}",
+            text_schema.language
+        );
+    } else {
+        panic!("Expected Text type, got {:?}", node.content);
+    }
 }
 
-/// Assert that a node is a String type with specific constraints
-fn assert_string_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
+/// Assert node is Text with specific language constraint
+fn assert_text_language(schema: &SchemaDocument, node_id: SchemaNodeId, expected: &str) {
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Text(text_schema) = &node.content {
+        assert_eq!(
+            text_schema.language.as_deref(),
+            Some(expected),
+            "Expected language '{}', got {:?}",
+            expected,
+            text_schema.language
+        );
+    } else {
+        panic!("Expected Text type, got {:?}", node.content);
+    }
+}
+
+/// Assert node is Text with full constraint check
+fn assert_text_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
 where
-    F: Fn(&StringSchema),
+    F: Fn(&TextSchema),
 {
     let node = schema.node(node_id);
-    if let SchemaNodeContent::String(string_schema) = &node.content {
-        check(string_schema);
+    if let SchemaNodeContent::Text(text_schema) = &node.content {
+        check(text_schema);
     } else {
-        panic!("Expected String type, got {:?}", node.content);
+        panic!("Expected Text type, got {:?}", node.content);
     }
 }
 
@@ -278,19 +297,6 @@ fn assert_boolean(schema: &SchemaDocument, node_id: SchemaNodeId) {
     );
 }
 
-/// Assert that a node is a Code type with specific constraints
-fn assert_code_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
-where
-    F: Fn(&CodeSchema),
-{
-    let node = schema.node(node_id);
-    if let SchemaNodeContent::Code(code_schema) = &node.content {
-        check(code_schema);
-    } else {
-        panic!("Expected Code type, got {:?}", node.content);
-    }
-}
-
 /// Assert that a node is a Path type with specific constraints
 fn assert_path_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
 where
@@ -301,19 +307,6 @@ where
         check(path_schema);
     } else {
         panic!("Expected Path type, got {:?}", node.content);
-    }
-}
-
-/// Assert that a node is a Tuple type with specific checks
-fn assert_tuple_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
-where
-    F: Fn(&TupleSchema),
-{
-    let node = schema.node(node_id);
-    if let SchemaNodeContent::Tuple(tuple_schema) = &node.content {
-        check(tuple_schema);
-    } else {
-        panic!("Expected Tuple type, got {:?}", node.content);
     }
 }
 
@@ -347,23 +340,6 @@ fn assert_path(schema: &SchemaDocument, node_id: SchemaNodeId) {
     );
 }
 
-/// Assert that a node is a Code type with optional language check
-fn assert_code(schema: &SchemaDocument, node_id: SchemaNodeId, expected_language: Option<&str>) {
-    let node = schema.node(node_id);
-    if let SchemaNodeContent::Code(code_schema) = &node.content {
-        if let Some(expected_lang) = expected_language {
-            assert_eq!(
-                code_schema.language.as_deref(),
-                Some(expected_lang),
-                "Expected language '{}', got {:?}",
-                expected_lang,
-                code_schema.language
-            );
-        }
-    } else {
-        panic!("Expected Code type, got {:?}", node.content);
-    }
-}
 
 /// Assert that a node is an Array type
 fn assert_array<F>(schema: &SchemaDocument, node_id: SchemaNodeId, item_check: F)
@@ -678,11 +654,11 @@ where
 #[test]
 fn test_string_type() {
     let input = r#"
-name = .string
+name = .text
 "#;
     let schema = parse_and_convert(input);
 
-    assert_record1(&schema, schema.root, ("name", |s, id| assert_string(s, id)));
+    assert_record1(&schema, schema.root, ("name", |s, id| assert_text(s, id)));
 }
 
 #[test]
@@ -754,36 +730,63 @@ ref = .path
 }
 
 // ============================================================================
-// CODE TYPES
+// TEXT TYPES (unified String and Code)
 // ============================================================================
 
 #[test]
-fn test_code_type_email() {
+fn test_text_type() {
+    // .text accepts any language (no constraint)
     let input = r#"
-email = .code.email
+content = .text
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(&schema, schema.root, ("content", |s, id| assert_text(s, id)));
+}
+
+#[test]
+fn test_text_with_language() {
+    // .text.rust requires rust language
+    let input = r#"
+code = .text.rust
 "#;
     let schema = parse_and_convert(input);
 
     assert_record1(
         &schema,
         schema.root,
-        ("email", |s, id| assert_code(s, id, Some("email"))),
+        ("code", |s, id| assert_text_language(s, id, "rust")),
     );
 }
 
 #[test]
-fn test_code_type_rust() {
+fn test_text_with_constraints() {
+    // Text with length and pattern constraints
     let input = r#"
-code = .code.rust
+@ username {
+    $variant: text
+    language = "plaintext"
+    min-length = 3
+    max-length = 20
+    pattern = "^[a-z]+$"
+}
 "#;
     let schema = parse_and_convert(input);
 
     assert_record1(
         &schema,
         schema.root,
-        ("code", |s, id| assert_code(s, id, Some("rust"))),
+        ("username", |s, id| {
+            assert_text_with(s, id, |t| {
+                assert_eq!(t.language.as_deref(), Some("plaintext"));
+                assert_eq!(t.min_length, Some(3));
+                assert_eq!(t.max_length, Some(20));
+                assert!(t.pattern.is_some());
+            })
+        }),
     );
 }
+
 
 // ============================================================================
 // ARRAY TYPES
@@ -792,14 +795,14 @@ code = .code.rust
 #[test]
 fn test_array_shorthand() {
     let input = r#"
-tags = [.string]
+tags = [.text]
 "#;
     let schema = parse_and_convert(input);
 
     assert_record1(
         &schema,
         schema.root,
-        ("tags", |s, id| assert_array(s, id, assert_string)),
+        ("tags", |s, id| assert_array(s, id, assert_text)),
     );
 }
 
@@ -808,7 +811,7 @@ fn test_array_with_constraints() {
     let input = r#"
 @ tags {
   $variant: array
-  item = .string
+  item = .text
   min-length = 1
   max-length = 10
   unique = true
@@ -820,7 +823,7 @@ fn test_array_with_constraints() {
         &schema,
         schema.root,
         ("tags", |s, id| {
-            assert_array_with(s, id, assert_string, |array_schema| {
+            assert_array_with(s, id, assert_text, |array_schema| {
                 assert_eq!(array_schema.min_length, Some(1));
                 assert_eq!(array_schema.max_length, Some(10));
                 assert!(array_schema.unique);
@@ -850,7 +853,7 @@ point = (.float, .float)
 #[test]
 fn test_tuple_mixed_types() {
     let input = r#"
-entry = (.string, .integer, .boolean)
+entry = (.text, .integer, .boolean)
 "#;
     let schema = parse_and_convert(input);
 
@@ -858,7 +861,7 @@ entry = (.string, .integer, .boolean)
         &schema,
         schema.root,
         ("entry", |s, id| {
-            assert_tuple3(s, id, assert_string, assert_integer, assert_boolean)
+            assert_tuple3(s, id, assert_text, assert_integer, assert_boolean)
         }),
     );
 }
@@ -871,7 +874,7 @@ entry = (.string, .integer, .boolean)
 fn test_record_basic() {
     let input = r#"
 @ user {
-  name = .string
+  name = .text
   age = .integer
 }
 "#;
@@ -884,7 +887,7 @@ fn test_record_basic() {
             assert_record2(
                 s,
                 id,
-                ("name", assert_string),
+                ("name", assert_text),
                 ("age", assert_integer),
             )
         }),
@@ -900,7 +903,7 @@ fn test_union_type() {
     let input = r#"
 @ value {
   $variant: union
-  variants.string = .string
+  variants.string = .text
   variants.float = .float
 }
 "#;
@@ -913,7 +916,7 @@ fn test_union_type() {
             assert_union2(
                 s,
                 id,
-                ("string", assert_string),
+                ("string", assert_text),
                 ("float", assert_float),
             )
         }),
@@ -925,7 +928,7 @@ fn test_union_with_multiple_types() {
     let input = r#"
 @ data {
   $variant: union
-  variants.string = .string
+  variants.string = .text
   variants.float = .float
   variants.boolean = .boolean
   variants.null = .null
@@ -940,7 +943,7 @@ fn test_union_with_multiple_types() {
             assert_union4(
                 s,
                 id,
-                ("string", assert_string),
+                ("string", assert_text),
                 ("float", assert_float),
                 ("boolean", assert_boolean),
                 ("null", assert_null),
@@ -955,7 +958,7 @@ fn test_union_with_record_variants() {
 @ $types.action {
   $variant: union
   variants.click = { x => .float, y => .float }
-  variants.hover = { element => .string }
+  variants.hover = { element => .text }
 }
 "#;
     let schema = parse_and_convert(input);
@@ -970,7 +973,7 @@ fn test_union_with_record_variants() {
             assert_record2(s, click_id, ("x", assert_float), ("y", assert_float))
         }),
         ("hover", |s, hover_id| {
-            assert_record1(s, hover_id, ("element", |s, id| assert_string(s, id)))
+            assert_record1(s, hover_id, ("element", |s, id| assert_text(s, id)))
         }),
     );
 }
@@ -982,7 +985,7 @@ fn test_union_with_untagged_repr() {
   $variant: union
   $variant-repr = "untagged"
   variants.success = { data => .any }
-  variants.error = { message => .string }
+  variants.error = { message => .text }
 }
 "#;
     let schema = parse_and_convert(input);
@@ -996,7 +999,7 @@ fn test_union_with_untagged_repr() {
             assert_record1(s, success_id, ("data", assert_any));
         }),
         ("error", |s, error_id| {
-            assert_record1(s, error_id, ("message", assert_string));
+            assert_record1(s, error_id, ("message", assert_text));
         }),
     );
 
@@ -1011,8 +1014,8 @@ fn test_union_with_internal_tag() {
 @ $types.message {
   $variant: union
   $variant-repr = { tag => "type" }
-  variants.text = { content => .string }
-  variants.image = { url => .string }
+  variants.text = { content => .text }
+  variants.image = { url => .text }
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1034,8 +1037,8 @@ fn test_union_with_adjacent_tag() {
 @ $types.event {
   $variant: union
   $variant-repr = { tag => "kind", content => "data" }
-  variants.login = { username => .string }
-  variants.logout = { reason => .string }
+  variants.login = { username => .text }
+  variants.logout = { reason => .text }
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1057,7 +1060,7 @@ fn test_union_default_external() {
     let input = r#"
 @ $types.status {
   $variant: union
-  variants.pending = { message => .string }
+  variants.pending = { message => .text }
   variants.active = { started_at => .integer }
 }
 "#;
@@ -1115,7 +1118,7 @@ fn test_custom_type_definition() {
 user = .$types.username
 
 @ $types.username {
-  $variant: string
+  $variant: text
   min-length = 3
   max-length = 20
 }
@@ -1139,7 +1142,7 @@ user = .$types.username
 fn test_string_with_length() {
     let input = r#"
 @ username {
-  $variant: string
+  $variant: text
   min-length = 3
   max-length = 20
 }
@@ -1150,7 +1153,7 @@ fn test_string_with_length() {
         &schema,
         schema.root,
         ("username", |s, id| {
-            assert_string_with(s, id, |string_schema| {
+            assert_text_with(s, id, |string_schema| {
                 assert_eq!(string_schema.min_length, Some(3));
                 assert_eq!(string_schema.max_length, Some(20));
             })
@@ -1162,7 +1165,7 @@ fn test_string_with_length() {
 fn test_string_with_pattern() {
     let input = r#"
 @ email {
-  $variant: string
+  $variant: text
   pattern = "^[a-z]+@[a-z]+\\.[a-z]+$"
 }
 "#;
@@ -1172,7 +1175,7 @@ fn test_string_with_pattern() {
         &schema,
         schema.root,
         ("email", |s, id| {
-            assert_string_with(s, id, |string_schema| {
+            assert_text_with(s, id, |string_schema| {
                 assert!(string_schema.pattern.is_some());
             })
         }),
@@ -1261,8 +1264,8 @@ fn test_map_type() {
     let input = r#"
 @ headers {
   $variant: map
-  key = .string
-  value = .string
+  key = .text
+  value = .text
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1270,7 +1273,7 @@ fn test_map_type() {
     assert_record1(
         &schema,
         schema.root,
-        ("headers", |s, id| assert_map(s, id, assert_string, assert_string)),
+        ("headers", |s, id| assert_map(s, id, assert_text, assert_text)),
     );
 }
 
@@ -1279,7 +1282,7 @@ fn test_map_with_constraints() {
     let input = r#"
 @ settings {
   $variant: map
-  key = .string
+  key = .text
   value = .any
   min-size = 1
   max-size = 100
@@ -1291,7 +1294,7 @@ fn test_map_with_constraints() {
         &schema,
         schema.root,
         ("settings", |s, id| {
-            assert_map_with(s, id, assert_string, assert_any, |map_schema| {
+            assert_map_with(s, id, assert_text, assert_any, |map_schema| {
                 assert_eq!(map_schema.min_size, Some(1));
                 assert_eq!(map_schema.max_size, Some(100));
             })
@@ -1308,7 +1311,7 @@ fn test_array_with_contains() {
     let input = r#"
 @ tags {
   $variant: array
-  item = .string
+  item = .text
   contains = "required"
 }
 "#;
@@ -1318,7 +1321,7 @@ fn test_array_with_contains() {
         &schema,
         schema.root,
         ("tags", |s, id| {
-            assert_array_with(s, id, assert_string, |array_schema| {
+            assert_array_with(s, id, assert_text, |array_schema| {
                 assert!(
                     array_schema.contains.is_some(),
                     "Expected contains to be Some"
@@ -1336,8 +1339,8 @@ fn test_array_with_contains() {
 fn test_nested_record() {
     let input = r#"
 @ user.profile
-name = .string
-bio = .string
+name = .text
+bio = .text
 "#;
     let schema = parse_and_convert(input);
 
@@ -1352,8 +1355,8 @@ bio = .string
                     assert_record2(
                         s,
                         profile_id,
-                        ("name", |s, id| assert_string(s, id)),
-                        ("bio", |s, id| assert_string(s, id)),
+                        ("name", |s, id| assert_text(s, id)),
+                        ("bio", |s, id| assert_text(s, id)),
                     )
                 }),
             )
@@ -1583,8 +1586,8 @@ fn test_float_range_rust_style() {
 #[test]
 fn test_optional_field() {
     let input = r#"
-name = .string
-bio = .string
+name = .text
+bio = .text
 bio.$optional = true
 "#;
     let schema = parse_and_convert(input);
@@ -1616,7 +1619,7 @@ user.$description: User information
 #[test]
 fn test_metadata_deprecated() {
     let input = r#"
-old_field = .string
+old_field = .text
 old_field.$deprecated = true
 "#;
     let schema = parse_and_convert(input);
@@ -1625,7 +1628,7 @@ old_field.$deprecated = true
         &schema,
         schema.root,
         ("old_field", |s, id| {
-            assert_string(s, id);
+            assert_text(s, id);
             assert_metadata(s, id, |metadata| {
                 assert!(metadata.deprecated);
             })
@@ -1662,7 +1665,7 @@ fn test_unknown_fields_policy_allow() {
     let input = r#"
 @ config {
   $unknown-fields = "allow"
-  host = .string
+  host = .text
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1671,7 +1674,7 @@ fn test_unknown_fields_policy_allow() {
         &schema,
         schema.root,
         ("config", |s, config_id| {
-            assert_record1(s, config_id, ("host", assert_string));
+            assert_record1(s, config_id, ("host", assert_text));
             assert_unknown_fields(s, config_id, |policy| {
                 assert!(matches!(policy, UnknownFieldsPolicy::Allow));
             });
@@ -1684,7 +1687,7 @@ fn test_unknown_fields_policy_deny() {
     let input = r#"
 @ config {
   $unknown-fields = "deny"
-  host = .string
+  host = .text
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1693,7 +1696,7 @@ fn test_unknown_fields_policy_deny() {
         &schema,
         schema.root,
         ("config", |s, config_id| {
-            assert_record1(s, config_id, ("host", assert_string));
+            assert_record1(s, config_id, ("host", assert_text));
             assert_unknown_fields(s, config_id, |policy| {
                 assert!(matches!(policy, UnknownFieldsPolicy::Deny));
             });
@@ -1705,8 +1708,8 @@ fn test_unknown_fields_policy_deny() {
 fn test_unknown_fields_policy_schema() {
     let input = r#"
 @ config {
-  $unknown-fields = .string
-  host = .string
+  $unknown-fields = .text
+  host = .text
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1715,10 +1718,10 @@ fn test_unknown_fields_policy_schema() {
         &schema,
         schema.root,
         ("config", |s, config_id| {
-            assert_record1(s, config_id, ("host", assert_string));
+            assert_record1(s, config_id, ("host", assert_text));
             assert_unknown_fields(s, config_id, |policy| {
                 if let UnknownFieldsPolicy::Schema(schema_id) = policy {
-                    assert_string(s, *schema_id);
+                    assert_text(s, *schema_id);
                 } else {
                     panic!("Expected UnknownFieldsPolicy::Schema, got {:?}", policy);
                 }
@@ -1728,24 +1731,24 @@ fn test_unknown_fields_policy_schema() {
 }
 
 // ============================================================================
-// CODE/PATH TESTS
+// TEXT LANGUAGE AND PATH TESTS
 // ============================================================================
 
 #[test]
-fn test_code_language_variants() {
+fn test_text_language_variants() {
     let input = r#"
-rust = .code.rust
-python = .code.python
-sql = .code.sql
+rust = .text.rust
+python = .text.python
+sql = .text.sql
 "#;
     let schema = parse_and_convert(input);
 
     assert_record3(
         &schema,
         schema.root,
-        ("rust", |s, id| assert_code(s, id, Some("rust"))),
-        ("python", |s, id| assert_code(s, id, Some("python"))),
-        ("sql", |s, id| assert_code(s, id, Some("sql"))),
+        ("rust", |s, id| assert_text_language(s, id, "rust")),
+        ("python", |s, id| assert_text_language(s, id, "python")),
+        ("sql", |s, id| assert_text_language(s, id, "sql")),
     );
 }
 
@@ -1781,7 +1784,7 @@ fn test_path_schema_details() {
 #[test]
 fn test_type_reference() {
     let input = r#"
-$types.email = .code.email
+$types.email = .text.email
 
 contact = .$types.email
 "#;
@@ -1791,6 +1794,24 @@ contact = .$types.email
         &schema,
         schema.root,
         ("contact", |s, id| assert_reference(s, id, "email")),
+    );
+}
+
+#[test]
+fn test_external_type_reference() {
+    // External type reference: .$types.namespace.typename
+    let input = r#"
+user = .$types.common.User
+
+@ $types.common.User
+name = .text
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("user", |s, id| assert_reference_external(s, id, "common", "User")),
     );
 }
 
@@ -1830,7 +1851,7 @@ fn test_type_reference_chain() {
 data = .$types.user
 
 @ $types.base-string {
-  $variant: string
+  $variant: text
   min-length = 1
   max-length = 100
 }
@@ -1839,7 +1860,7 @@ data = .$types.user
 
 @ $types.user
 username = .$types.username
-email = .code.email
+email = .text.email
 "#;
     let schema = parse_and_convert(input);
 
@@ -1859,7 +1880,7 @@ email = .code.email
         &schema,
         user_id,
         ("username", |s, id| assert_reference(s, id, "username")),
-        ("email", |s, id| assert_code(s, id, Some("email"))),
+        ("email", |s, id| assert_text_language(s, id, "email")),
     );
 
     let username_id = schema.types[&ident("username")];
@@ -1875,7 +1896,7 @@ fn test_complex_user_schema() {
     // For literal union variants, just use the literal value directly
     let input = r#"
 @ $types.username {
-  $variant: string
+  $variant: text
   min-length = 3
   max-length = 20
   pattern = "^[a-z0-9_]+$"
@@ -1890,10 +1911,10 @@ fn test_complex_user_schema() {
 
 @ $types.user {
   username = .$types.username
-  email = .code.email
+  email = .text.email
   age = .integer
   age.$optional = true
-  tags = [.string]
+  tags = [.text]
   role = .$types.role
 }
 "#;
@@ -1909,9 +1930,9 @@ fn test_complex_user_schema() {
         &schema,
         user_id,
         ("username", |s, id| assert_reference(s, id, "username")),
-        ("email", |s, id| assert_code(s, id, Some("email"))),
+        ("email", |s, id| assert_text_language(s, id, "email")),
         ("age", |s, id| assert_integer(s, id)),
-        ("tags", |s, id| assert_array(s, id, assert_string)),
+        ("tags", |s, id| assert_array(s, id, assert_text)),
         ("role", |s, id| assert_reference(s, id, "role")),
     );
 }
@@ -1931,7 +1952,7 @@ fn test_complex_api_schema() {
 
 @ $types.api-request {
   method = .$types.http-method
-  path = .string
+  path = .text
   headers = .any
   headers.$optional = true
   body = .any
@@ -1942,7 +1963,7 @@ fn test_complex_api_schema() {
   $variant: union
   $variant-repr = "untagged"
   variants.success = { status => .integer, data => .any }
-  variants.error = { status => .integer, message => .string }
+  variants.error = { status => .integer, message => .text }
 }
 "#;
     let schema = parse_and_convert(input);
@@ -1970,7 +1991,7 @@ fn test_complex_api_schema() {
                 s,
                 error_id,
                 ("status", assert_integer),
-                ("message", assert_string),
+                ("message", assert_text),
             );
         }),
     );
@@ -1985,13 +2006,13 @@ fn test_complex_api_schema() {
 fn test_nested_types_and_arrays() {
     let input = r#"
 @ $types.address {
-  street = .string
-  city = .string
-  zip = .string
+  street = .text
+  city = .text
+  zip = .text
 }
 
 @ $types.person {
-  name = .string
+  name = .text
   @ addresses {
     $variant: array
     item = .$types.address
@@ -2006,7 +2027,7 @@ fn test_nested_types_and_arrays() {
     assert_record2(
         &schema,
         person_id,
-        ("name", |s, id| assert_string(s, id)),
+        ("name", |s, id| assert_text(s, id)),
         ("addresses", |s, id| {
             assert_array_with(
                 s,
@@ -2027,7 +2048,7 @@ fn test_array_of_custom_types_complex() {
 data = .$types.collection
 
 @ $types.item {
-  $variant: string
+  $variant: text
   min-length = 1
   max-length = 100
 }
@@ -2071,14 +2092,14 @@ data = .$types.collection
 fn test_map_with_complex_types() {
     let input = r#"
 @ $types.address {
-  $variant: string
+  $variant: text
   min-length = 1
   max-length = 100
 }
 
 @ locations {
   $variant: map
-  key = .string
+  key = .text
   value = .$types.address
 }
 "#;
@@ -2088,7 +2109,7 @@ fn test_map_with_complex_types() {
         &schema,
         schema.root,
         ("locations", |s, id| {
-            assert_map(s, id, assert_string, |s, value_id| {
+            assert_map(s, id, assert_text, |s, value_id| {
                 assert_reference(s, value_id, "address")
             });
         }),
@@ -2100,10 +2121,10 @@ fn test_nested_maps() {
     let input = r#"
 @ nested {
   $variant: map
-  key = .string
+  key = .text
   value = {
     $variant => "map",
-    key => .string,
+    key => .text,
     value => .integer
   }
 }
@@ -2114,8 +2135,8 @@ fn test_nested_maps() {
         &schema,
         schema.root,
         ("nested", |s, id| {
-            assert_map(s, id, assert_string, |s, value_id| {
-                assert_map(s, value_id, assert_string, assert_integer);
+            assert_map(s, id, assert_text, |s, value_id| {
+                assert_map(s, value_id, assert_text, assert_integer);
             });
         }),
     );
@@ -2130,7 +2151,7 @@ fn test_nested_union_types() {
     let input = r#"
 @ value {
   $variant: union
-  variants.string = .string
+  variants.string = .text
   variants.integer = .integer
   variants.array = [{
     $variant => "union",
@@ -2151,7 +2172,7 @@ fn test_nested_union_types() {
             assert_union3(
                 s,
                 id,
-                ("string", assert_string),
+                ("string", assert_text),
                 ("integer", assert_integer),
                 ("array", |s, array_id| {
                     // Third variant should be an array containing union
@@ -2315,7 +2336,7 @@ fn test_error_map_missing_key() {
     let input = r#"
 @ field {
   $variant: map
-  value = .string
+  value = .text
 }
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
@@ -2335,7 +2356,7 @@ fn test_error_map_missing_value() {
     let input = r#"
 @ field {
   $variant: map
-  key = .string
+  key = .text
 }
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
@@ -2376,7 +2397,7 @@ fn test_error_invalid_variant_repr() {
 @ field {
   $variant: union
   $variant-repr = "invalid_repr"
-  variants.a = .string
+  variants.a = .text
 }
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
@@ -2396,7 +2417,7 @@ fn test_error_adjacent_repr_missing_tag() {
     let input = r#"
 @ field {
   $variant: union
-  variants.a = .string
+  variants.a = .text
   @ $variant-repr {
     content = "data"
   }
@@ -2419,7 +2440,7 @@ fn test_error_invalid_unknown_fields_policy() {
     let input = r#"
 @ record {
   $unknown-fields = "invalid_policy"
-  name = .string
+  name = .text
 }
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
@@ -2437,7 +2458,7 @@ fn test_error_invalid_unknown_fields_policy() {
 #[test]
 fn test_error_array_with_multiple_items() {
     let input = r#"
-field = [.string, .integer]
+field = [.text, .integer]
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
@@ -2504,8 +2525,9 @@ $types = "not a map"
 
 #[test]
 fn test_error_invalid_type_path_extra_segment() {
+    // .integer.foo is invalid - only .text supports .X language suffix
     let input = r#"
-@ field = .string.invalid
+@ field = .integer.foo
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
@@ -2513,8 +2535,8 @@ fn test_error_invalid_type_path_extra_segment() {
     assert_eq!(
         result.unwrap_err(),
         ConversionError::InvalidTypePath(EurePath(vec![
-            PathSegment::Ident(ident("string")),
-            PathSegment::Ident(ident("invalid"))
+            PathSegment::Ident(ident("integer")),
+            PathSegment::Ident(ident("foo"))
         ]))
     );
 }
@@ -2543,10 +2565,10 @@ fn test_error_nested_variant_path() {
 
 #[test]
 fn test_variant_path_single_segment_valid() {
-    // Single-segment path $variant = .string is equivalent to $variant = "string"
+    // Single-segment path $variant = .text is equivalent to $variant = "text"
     let input = r#"
 @ field {
-    $variant = .string
+    $variant = .text
     min-length = 1
 }
 "#;
@@ -2556,7 +2578,7 @@ fn test_variant_path_single_segment_valid() {
         &schema,
         schema.root,
         ("field", |s: &SchemaDocument, id: SchemaNodeId| {
-            assert_string_with(s, id, |str_schema| {
+            assert_text_with(s, id, |str_schema| {
                 assert_eq!(str_schema.min_length, Some(1));
             });
         }),
@@ -2585,7 +2607,7 @@ fn test_error_variant_path_single_segment_unknown() {
 fn test_error_types_non_string_key() {
     // Type names in $types must be strings (identifiers), not tuples
     let input = r#"
-$types.("a", "b") = .string
+$types.("a", "b") = .text
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
@@ -2605,7 +2627,7 @@ fn test_error_types_integer_key() {
     // Type names in $types must be strings (identifiers), not integers
     // Note: This syntax currently fails to parse because .0 is lexed as a Float token
     let input = r#"
-$types.0 = .string
+$types.0 = .text
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
@@ -2618,9 +2640,9 @@ $types.0 = .string
 
 #[test]
 fn test_error_type_path_with_tuple_segment() {
-    // Type paths cannot contain tuple segments - .string.("a", "b") is invalid
+    // Type paths cannot contain tuple segments - .text.("a", "b") is invalid
     let input = r#"
-field = .string.("a", "b")
+field = .text.("a", "b")
 "#;
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
@@ -2628,7 +2650,7 @@ field = .string.("a", "b")
     assert_eq!(
         result.unwrap_err(),
         ConversionError::InvalidTypePath(EurePath(vec![
-            PathSegment::Ident(ident("string")),
+            PathSegment::Ident(ident("text")),
             PathSegment::Value(ObjectKey::Tuple(Tuple(vec![
                 ObjectKey::String("a".to_string()),
                 ObjectKey::String("b".to_string())

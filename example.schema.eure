@@ -2,22 +2,22 @@ $schema = "assets/eure-schema.schema.eure"
 
 $types.Action {
   @ $variants.set-text {
-    speaker = .string
-    lines.$array = .string
-    code1 = .code.rust
-    code2 = .code.rust
+    speaker = .text
+    lines.$array = .text
+    code1 = .text.rust
+    code2 = .text.rust
   }
   @ $variants.set-choices {
-    description = .string
+    description = .text
   }
   @ $variants.set-choices.choice.$array {
-    text = .string
-    value = .string
+    text = .text
+    value = .text
   }
 }
 
 @ script
-id.$type = .string
-description.$type = .string
+id.$type = .text
+description.$type = .text
 description.$optional = true
 actions.$array = .$types.Action

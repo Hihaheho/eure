@@ -75,10 +75,10 @@ $type = .any"#;
 fn test_completion_after_dot() {
     let schema_text = r#"@ script {
     @ name
-    $type = .string
+    $type = .text
     
     @ version
-    $type = .string
+    $type = .text
 }"#;
 
     let input = "@ script.";
@@ -135,7 +135,7 @@ key = "#;
 #[test]
 fn test_partial_key_completion() {
     let schema_text = r#"@ script
-$type = .string
+$type = .text
 
 @ screen
 $type = .number

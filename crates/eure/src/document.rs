@@ -4,7 +4,7 @@ use eros::Union as _;
 use eure_parol::parol_runtime::ParolError;
 pub use eure_value::document::*;
 use eure_value::identifier::IdentifierError;
-use eure_value::string::EureStringError;
+use eure_value::text::TextParseError;
 use eure_value::{document::constructor::PopError, path::PathSegment};
 
 use crate::document::value_visitor::ValueVisitor;
@@ -60,7 +60,7 @@ pub enum DocumentConstructionError {
     #[error("Invalid string key at node {node_id:?}: {error}")]
     InvalidStringKey {
         node_id: CstNodeId,
-        error: EureStringError,
+        error: TextParseError,
     },
     #[error("Invalid key type at node {node_id:?}")]
     InvalidKeyType { node_id: CstNodeId },

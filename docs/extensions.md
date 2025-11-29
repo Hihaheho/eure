@@ -60,7 +60,7 @@ $ext-type.optional = .boolean
 $ext-type.validation {
   min = .number
   max = .number
-  pattern = .string
+  pattern = .text
 }
 
 # Now these extensions follow the defined schemas

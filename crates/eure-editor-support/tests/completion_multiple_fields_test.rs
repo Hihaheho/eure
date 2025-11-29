@@ -7,10 +7,10 @@ fn test_completion_suggests_all_root_fields() {
     // Schema with multiple root-level fields
     let schema_text = r#"
 @ script
-$type = .string
+$type = .text
 
 @ name
-$type = .string
+$type = .text
 
 @ version
 $type = .number
@@ -24,7 +24,7 @@ $type = .number
 }
 
 @ users
-$array = .string
+$array = .text
 "#;
 
     // Test completion at root level
@@ -99,10 +99,10 @@ fn test_partial_completion_filters_correctly() {
     // Schema with multiple root-level fields
     let schema_text = r#"
 @ script
-$type = .string
+$type = .text
 
 @ screen
-$type = .string
+$type = .text
 
 @ settings
 $type = .object

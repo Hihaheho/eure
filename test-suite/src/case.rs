@@ -4,14 +4,14 @@ use eure::{
     document::{DocumentConstructionError, EureDocument},
     parol::parol_runtime::ParolError,
     tree::Cst,
-    value::Code,
+    value::Text,
 };
 
 pub struct Case {
     pub path: PathBuf,
-    pub input_eure: Option<Code>,
-    pub normalized: Option<Code>,
-    pub output_json: Option<Code>,
+    pub input_eure: Option<Text>,
+    pub normalized: Option<Text>,
+    pub output_json: Option<Text>,
 }
 
 /// Result of running a single scenario

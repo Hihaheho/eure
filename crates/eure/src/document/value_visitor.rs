@@ -2,11 +2,10 @@ use eure_tree::tree::{InputSpan, RecursiveView};
 use eure_tree::{prelude::*, tree::TerminalHandle};
 use eure_value::value::Tuple;
 use eure_value::{
-    code::Code,
     document::{EureDocument, constructor::DocumentConstructor},
     identifier::Identifier,
     path::{EurePath, PathSegment},
-    string::{EureString, EureStringError},
+    text::{Language, SyntaxHint, Text, TextParseError},
     value::ObjectKey,
     value::PrimitiveValue,
 };
@@ -85,18 +84,16 @@ static CODE_BLOCK_START_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^`+([a-zA-Z0-9_-]*)[ \t]*(?:\r\n|\r|\n)$").unwrap());
 
 struct CodeStart {
-    /// Number of start backticks for asserting on pop
-    #[allow(dead_code)]
-    backticks: u8,
-    language: Option<String>,
+    language: Language,
+    syntax_hint: SyntaxHint,
     terminals: TerminalTokens,
 }
 
 impl CodeStart {
-    fn new(backticks: u8, language: Option<String>) -> Self {
+    fn new(language: Language, syntax_hint: SyntaxHint) -> Self {
         Self {
-            backticks,
             language,
+            syntax_hint,
             terminals: TerminalTokens::new(),
         }
     }
@@ -126,7 +123,7 @@ impl<'a> ValueVisitor<'a> {
     /// Parse language from InlineCode1 token: [lang]`content`
     /// Grammar: /[a-zA-Z0-9-_]*`[^`\r\n]*`/
     /// Language tag must be alphanumeric/hyphen/underscore only, no whitespace
-    fn parse_inline_code_1(token: &str) -> Result<(Option<String>, String), InlineCodeError> {
+    fn parse_inline_code_1(token: &str) -> Result<(Language, String), InlineCodeError> {
         let caps = INLINE_CODE_1_REGEX
             .captures(token)
             .ok_or(InlineCodeError::InvalidInlineCode1Pattern)?;
@@ -135,9 +132,9 @@ impl<'a> ValueVisitor<'a> {
         let content = caps.get(2).unwrap().as_str();
 
         let language = if lang.is_empty() {
-            None
+            Language::Implicit
         } else {
-            Some(lang.to_string())
+            Language::new(lang)
         };
         Ok((language, content.to_string()))
     }
@@ -145,16 +142,16 @@ impl<'a> ValueVisitor<'a> {
     /// Parse language from InlineCodeStart2 token: [lang]``
     /// Grammar: /[a-zA-Z0-9-_]*``/
     /// Language tag must be alphanumeric/hyphen/underscore only, no whitespace
-    fn parse_inline_code_start_2(token: &str) -> Result<Option<String>, InlineCodeError> {
+    fn parse_inline_code_start_2(token: &str) -> Result<Language, InlineCodeError> {
         let caps = INLINE_CODE_START_2_REGEX
             .captures(token)
             .ok_or(InlineCodeError::InvalidInlineCodeStart2Pattern)?;
 
         let lang = caps.get(1).unwrap().as_str();
         let language = if lang.is_empty() {
-            None
+            Language::Implicit
         } else {
-            Some(lang.to_string())
+            Language::new(lang)
         };
         Ok(language)
     }
@@ -162,19 +159,16 @@ impl<'a> ValueVisitor<'a> {
     /// Parse language from CodeBlockStart token: ```[lang]\n or ````[lang]\n etc.
     /// Grammar: /`{n}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/
     /// Language tag must be alphanumeric/hyphen/underscore only, followed by optional whitespace (space/tab, not newlines)
-    fn parse_code_block_start(
-        token: &str,
-        _backticks: u8,
-    ) -> Result<Option<String>, CodeBlockError> {
+    fn parse_code_block_start(token: &str) -> Result<Language, CodeBlockError> {
         let caps = CODE_BLOCK_START_REGEX
             .captures(token)
             .ok_or(CodeBlockError::InvalidCodeBlockStartPattern)?;
 
         let lang = caps.get(1).unwrap().as_str();
         let language = if lang.is_empty() {
-            None
+            Language::Implicit
         } else {
-            Some(lang.to_string())
+            Language::new(lang)
         };
         Ok(language)
     }
@@ -223,18 +217,18 @@ impl<'a> ValueVisitor<'a> {
             .and_then(|s| s.strip_suffix('"'))
             .ok_or_else(|| DocumentConstructionError::InvalidStringKey {
                 node_id: str_handle.node_id(),
-                error: EureStringError::InvalidEndOfStringAfterEscape,
+                error: TextParseError::InvalidEndOfStringAfterEscape,
             })?;
 
         // Parse the string content
-        let eure_string = EureString::parse_quoted_string(str_content).map_err(|error| {
+        let text = Text::parse_quoted_string(str_content).map_err(|error| {
             DocumentConstructionError::InvalidStringKey {
                 node_id: str_handle.node_id(),
                 error,
             }
         })?;
 
-        Ok(eure_string.as_str().to_string())
+        Ok(text.content)
     }
 
     fn get_key_ident_str(
@@ -683,14 +677,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error,
             }
         })?;
-        let code = Code::new_inline(content);
-        let code_with_lang = if language.is_some() {
-            Code { language, ..code }
-        } else {
-            code
-        };
+        let text = Text::with_syntax_hint(content, language, SyntaxHint::Inline1);
         self.document
-            .bind_primitive(PrimitiveValue::Code(code_with_lang))
+            .bind_primitive(PrimitiveValue::Text(text))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -711,7 +700,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error,
             }
         })?;
-        self.code_start = Some(CodeStart::new(2, language));
+        self.code_start = Some(CodeStart::new(language, SyntaxHint::Inline2));
         Ok(())
     }
 
@@ -723,17 +712,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let code = Code::new_inline(content);
-            let code_with_lang = if code_start.language.is_some() {
-                Code {
-                    language: code_start.language,
-                    ..code
-                }
-            } else {
-                code
-            };
+            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             self.document
-                .bind_primitive(PrimitiveValue::Code(code_with_lang))
+                .bind_primitive(PrimitiveValue::Text(text))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -749,13 +730,13 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_3)?;
-        let language = Self::parse_code_block_start(token_str, 3).map_err(|error| {
+        let language = Self::parse_code_block_start(token_str).map_err(|error| {
             DocumentConstructionError::InvalidCodeBlock {
                 node_id: view.code_block_start_3.node_id(),
                 error,
             }
         })?;
-        self.code_start = Some(CodeStart::new(3, language));
+        self.code_start = Some(CodeStart::new(language, SyntaxHint::Block3));
         Ok(())
     }
 
@@ -767,9 +748,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let code = Code::new_block(code_start.language, content);
+            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             self.document
-                .bind_primitive(PrimitiveValue::Code(code))
+                .bind_primitive(PrimitiveValue::Text(text))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -785,13 +766,13 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_4)?;
-        let language = Self::parse_code_block_start(token_str, 4).map_err(|error| {
+        let language = Self::parse_code_block_start(token_str).map_err(|error| {
             DocumentConstructionError::InvalidCodeBlock {
                 node_id: view.code_block_start_4.node_id(),
                 error,
             }
         })?;
-        self.code_start = Some(CodeStart::new(4, language));
+        self.code_start = Some(CodeStart::new(language, SyntaxHint::Block4));
         Ok(())
     }
 
@@ -803,9 +784,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let code = Code::new_block(code_start.language, content);
+            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             self.document
-                .bind_primitive(PrimitiveValue::Code(code))
+                .bind_primitive(PrimitiveValue::Text(text))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -821,13 +802,13 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_5)?;
-        let language = Self::parse_code_block_start(token_str, 5).map_err(|error| {
+        let language = Self::parse_code_block_start(token_str).map_err(|error| {
             DocumentConstructionError::InvalidCodeBlock {
                 node_id: view.code_block_start_5.node_id(),
                 error,
             }
         })?;
-        self.code_start = Some(CodeStart::new(5, language));
+        self.code_start = Some(CodeStart::new(language, SyntaxHint::Block5));
         Ok(())
     }
 
@@ -839,9 +820,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let code = Code::new_block(code_start.language, content);
+            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             self.document
-                .bind_primitive(PrimitiveValue::Code(code))
+                .bind_primitive(PrimitiveValue::Text(text))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -857,13 +838,13 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         let token_str = self.get_terminal_str(tree, view.code_block_start_6)?;
-        let language = Self::parse_code_block_start(token_str, 6).map_err(|error| {
+        let language = Self::parse_code_block_start(token_str).map_err(|error| {
             DocumentConstructionError::InvalidCodeBlock {
                 node_id: view.code_block_start_6.node_id(),
                 error,
             }
         })?;
-        self.code_start = Some(CodeStart::new(6, language));
+        self.code_start = Some(CodeStart::new(language, SyntaxHint::Block6));
         Ok(())
     }
 
@@ -875,9 +856,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let code = Code::new_block(code_start.language, content);
+            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
             self.document
-                .bind_primitive(PrimitiveValue::Code(code))
+                .bind_primitive(PrimitiveValue::Text(text))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -894,14 +875,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         let text_view = view.text.get_view(tree)?;
         let text_str = self.get_terminal_str(tree, text_view.text)?;
-        let eure_string = EureString::parse_text_binding(text_str).map_err(|error| {
+        let text = Text::parse_text_binding(text_str).map_err(|error| {
             DocumentConstructionError::InvalidStringKey {
                 node_id: handle.node_id(),
                 error,
             }
         })?;
         self.document
-            .bind_primitive(PrimitiveValue::String(eure_string))
+            .bind_primitive(PrimitiveValue::Text(text))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -931,9 +912,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             first_str
         };
 
-        let eure_string = EureString::new(result);
+        let text = Text::plaintext(result);
         self.document
-            .bind_primitive(PrimitiveValue::String(eure_string))
+            .bind_primitive(PrimitiveValue::Text(text))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -989,7 +970,7 @@ mod tests {
             let result = ValueVisitor::parse_inline_code_1("`hello`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
-            assert_eq!(language, None);
+            assert_eq!(language, Language::Implicit);
             assert_eq!(content, "hello");
         }
 
@@ -998,7 +979,7 @@ mod tests {
             let result = ValueVisitor::parse_inline_code_1("rust`fn main() {}`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
-            assert_eq!(language, Some("rust".to_string()));
+            assert_eq!(language, Language::Other("rust".to_string()));
             assert_eq!(content, "fn main() {}");
         }
 
@@ -1007,7 +988,7 @@ mod tests {
             let result = ValueVisitor::parse_inline_code_1("``");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
-            assert_eq!(language, None);
+            assert_eq!(language, Language::Implicit);
             assert_eq!(content, "");
         }
 
@@ -1016,7 +997,7 @@ mod tests {
             let result = ValueVisitor::parse_inline_code_1("`hello world!@#$%`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
-            assert_eq!(language, None);
+            assert_eq!(language, Language::Implicit);
             assert_eq!(content, "hello world!@#$%");
         }
 
@@ -1025,7 +1006,7 @@ mod tests {
             let result = ValueVisitor::parse_inline_code_1("foo-bar_123`content`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
-            assert_eq!(language, Some("foo-bar_123".to_string()));
+            assert_eq!(language, Language::Other("foo-bar_123".to_string()));
             assert_eq!(content, "content");
         }
 
@@ -1058,21 +1039,21 @@ mod tests {
         fn test_no_language() {
             let result = ValueVisitor::parse_inline_code_start_2("``");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), None);
+            assert_eq!(result.unwrap(), Language::Implicit);
         }
 
         #[test]
         fn test_with_language() {
             let result = ValueVisitor::parse_inline_code_start_2("rust``");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_with_complex_language() {
             let result = ValueVisitor::parse_inline_code_start_2("foo-bar_123``");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("foo-bar_123".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("foo-bar_123".to_string()));
         }
 
         #[test]
@@ -1094,51 +1075,51 @@ mod tests {
 
         #[test]
         fn test_no_language_3_backticks() {
-            let result = ValueVisitor::parse_code_block_start("```\n", 3);
+            let result = ValueVisitor::parse_code_block_start("```\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), None);
+            assert_eq!(result.unwrap(), Language::Implicit);
         }
 
         #[test]
         fn test_with_language_3_backticks() {
-            let result = ValueVisitor::parse_code_block_start("```rust\n", 3);
+            let result = ValueVisitor::parse_code_block_start("```rust\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_with_language_4_backticks() {
-            let result = ValueVisitor::parse_code_block_start("````python\n", 4);
+            let result = ValueVisitor::parse_code_block_start("````python\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("python".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("python".to_string()));
         }
 
         #[test]
         fn test_with_language_5_backticks() {
-            let result = ValueVisitor::parse_code_block_start("`````javascript\n", 5);
+            let result = ValueVisitor::parse_code_block_start("`````javascript\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("javascript".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("javascript".to_string()));
         }
 
         #[test]
         fn test_with_language_6_backticks() {
-            let result = ValueVisitor::parse_code_block_start("``````typescript\n", 6);
+            let result = ValueVisitor::parse_code_block_start("``````typescript\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("typescript".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("typescript".to_string()));
         }
 
         #[test]
         fn test_language_with_trailing_whitespace() {
-            let result = ValueVisitor::parse_code_block_start("```rust  \n", 3);
+            let result = ValueVisitor::parse_code_block_start("```rust  \n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_language_with_leading_whitespace_is_invalid() {
             // Leading whitespace before language tag with non-whitespace after is grammar violation
             // Pattern: ```[a-zA-Z0-9_-]*[ \t]*\n but this has ``` [ \t]+ [a-z]+ which doesn't match
-            let result = ValueVisitor::parse_code_block_start("```  rust\n", 3);
+            let result = ValueVisitor::parse_code_block_start("```  rust\n");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1148,28 +1129,28 @@ mod tests {
 
         #[test]
         fn test_language_with_carriage_return() {
-            let result = ValueVisitor::parse_code_block_start("```rust\r\n", 3);
+            let result = ValueVisitor::parse_code_block_start("```rust\r\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_language_with_only_carriage_return() {
-            let result = ValueVisitor::parse_code_block_start("```rust\r", 3);
+            let result = ValueVisitor::parse_code_block_start("```rust\r");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_empty_language_with_spaces() {
-            let result = ValueVisitor::parse_code_block_start("```   \n", 3);
+            let result = ValueVisitor::parse_code_block_start("```   \n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), None);
+            assert_eq!(result.unwrap(), Language::Implicit);
         }
 
         #[test]
         fn test_no_newline() {
-            let result = ValueVisitor::parse_code_block_start("```rust", 3);
+            let result = ValueVisitor::parse_code_block_start("```rust");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1179,9 +1160,9 @@ mod tests {
 
         #[test]
         fn test_complex_language_tag() {
-            let result = ValueVisitor::parse_code_block_start("```foo-bar_123\n", 3);
+            let result = ValueVisitor::parse_code_block_start("```foo-bar_123\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Some("foo-bar_123".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("foo-bar_123".to_string()));
         }
     }
 

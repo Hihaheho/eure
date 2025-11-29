@@ -10,8 +10,8 @@ pub mod tree;
 /// Identifier type and parser.
 pub mod identifier;
 
-/// String type.
-pub mod string;
+/// Unified text type for strings and code.
+pub mod text;
 
 /// A type-safe data-type of EURE data-model.
 pub mod value;
@@ -21,9 +21,6 @@ pub mod document;
 
 /// Data structure for representing a path in a Eure document.
 pub mod path;
-
-/// Code type.
-pub mod code;
 
 /// Data structure for representing a data-model of EURE.
 pub mod data_model;
@@ -35,15 +32,15 @@ pub type Map<K, V> = alloc::collections::BTreeMap<K, V>;
 
 pub(crate) mod prelude_internal {
     #![allow(unused_imports)]
+    #![allow(deprecated)]
     pub use crate::Map;
-    pub use crate::code::Code;
     pub use crate::data_model::*;
     pub use crate::document::constructor::DocumentConstructor;
     pub use crate::document::node::{Node, NodeMut, NodeValue};
     pub use crate::document::{EureDocument, InsertError, InsertErrorKind, NodeId};
     pub use crate::identifier::Identifier;
     pub use crate::path::{EurePath, PathSegment};
-    pub use crate::string::EureString;
+    pub use crate::text::{Language, SyntaxHint, Text, TextParseError};
     pub use crate::value::PrimitiveValue;
     pub use crate::value::{ObjectKey, Value};
     pub use alloc::boxed::Box;

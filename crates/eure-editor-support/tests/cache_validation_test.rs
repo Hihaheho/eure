@@ -23,7 +23,7 @@ age = 30"#;
     };
 
     // Create schema manager and load a simple schema
-    let schema_input = r#"name.$type = .string
+    let schema_input = r#"name.$type = .text
 age.$type = .number"#;
 
     let schema_parse_result = parser::parse_document(schema_input);

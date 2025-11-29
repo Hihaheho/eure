@@ -1,6 +1,6 @@
 use num_bigint::BigInt;
 
-use crate::{code::Code, prelude_internal::*};
+use crate::{prelude_internal::*, text::Text};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PrimitiveValue {
@@ -9,19 +9,30 @@ pub enum PrimitiveValue {
     BigInt(BigInt),
     F32(f32),
     F64(f64),
-    String(EureString),
-    Code(Code),
+    /// Unified text type for strings and code.
+    ///
+    /// - `"..."` syntax produces `Text` with `Language::Plaintext`
+    /// - `` `...` `` syntax produces `Text` with `Language::Implicit`
+    /// - `` lang`...` `` syntax produces `Text` with `Language::Other(lang)`
+    Text(Text),
     Hole,
     Variant(Variant),
     Path(EurePath),
 }
+
 impl PrimitiveValue {
-    pub fn as_code(&self) -> Option<&Code> {
-        if let Self::Code(code) = self {
-            Some(code)
+    /// Returns the text if this is a `Text` variant.
+    pub fn as_text(&self) -> Option<&Text> {
+        if let Self::Text(text) = self {
+            Some(text)
         } else {
             None
         }
+    }
+
+    /// Returns the text content as a string slice if this is a `Text` variant.
+    pub fn as_str(&self) -> Option<&str> {
+        self.as_text().map(|t| t.as_str())
     }
 }
 

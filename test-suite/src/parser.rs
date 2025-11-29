@@ -4,7 +4,7 @@ use eure::{
     document::{DocumentConstructionError, EureDocument},
     parol::parol_runtime::ParolError,
     tree::Cst,
-    value::{Code, IdentifierError, ObjectKey},
+    value::{IdentifierError, ObjectKey, Text},
 };
 
 use crate::case::Case;
@@ -40,15 +40,15 @@ pub fn parse_case(input: &str, path: PathBuf) -> Result<ParseResult, ParseError>
 
     let case = Case {
         path: path.clone(),
-        input_eure: get_code(&doc, "input_eure").map_err(|e| ParseError::IdentifierError {
+        input_eure: get_text(&doc, "input_eure").map_err(|e| ParseError::IdentifierError {
             error: e,
             cst: cst.clone(),
         })?,
-        normalized: get_code(&doc, "normalized").map_err(|e| ParseError::IdentifierError {
+        normalized: get_text(&doc, "normalized").map_err(|e| ParseError::IdentifierError {
             error: e,
             cst: cst.clone(),
         })?,
-        output_json: get_code(&doc, "output_json").map_err(|e| ParseError::IdentifierError {
+        output_json: get_text(&doc, "output_json").map_err(|e| ParseError::IdentifierError {
             error: e,
             cst: cst.clone(),
         })?,
@@ -61,7 +61,7 @@ pub fn parse_case(input: &str, path: PathBuf) -> Result<ParseResult, ParseError>
     })
 }
 
-fn get_code(doc: &EureDocument, key: &str) -> Result<Option<Code>, IdentifierError> {
+fn get_text(doc: &EureDocument, key: &str) -> Result<Option<Text>, IdentifierError> {
     Ok(doc
         .root()
         .as_map()
@@ -71,8 +71,8 @@ fn get_code(doc: &EureDocument, key: &str) -> Result<Option<Code>, IdentifierErr
             doc.node(node)
                 .as_primitive()
                 .expect("Expected a primitive value")
-                .as_code()
-                .expect("Expected a code value")
+                .as_text()
+                .expect("Expected a text value")
                 .clone()
         }))
 }

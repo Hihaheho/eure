@@ -25,8 +25,8 @@ $schema = "my-config.schema.eure"
 
 // This schema's root type is a record with specific fields
 $root-type = {
-  name = .string
-  version = .string
+  name = .text
+  version = .text
 }
 ```
 
@@ -53,7 +53,7 @@ Custom type definitions at document root. Types are referenced using `.$types.ty
 ```eure
 // Define a custom type
 @ $types.username
-$variant: string
+$variant: text
 min-length = 3
 max-length = 20
 pattern = "^[a-z0-9_]+$"
@@ -84,7 +84,7 @@ All types in EURE Schema are variants of a union type (`$types.type`).
 
 ```eure
 // String type
-name = .string
+name = .text
 name.$description: User's display name
 
 // Integer type
@@ -104,16 +104,16 @@ deleted = .null
 metadata = .any
 ```
 
-**Shorthands:** `.string`, `.integer`, `.float`, `.boolean`, `.null`, `.any`
+**Shorthands:** `.text`, `.integer`, `.float`, `.boolean`, `.null`, `.any`
 
 Shorthands are for simple types without constraints. For constraints, use the full form.
 
-### String Type with Constraints
+### Text Type with Constraints
 
 ```eure
 // Full form (required for constraints)
 @ username {
-  $variant: string
+  $variant: text
   min-length = 3
   max-length = 20
   pattern = "^[a-z0-9_]+$"
@@ -171,22 +171,22 @@ Two formats are supported:
 - `"[0, )"` → x ≥ 0
 - `"(, 100]"` → x ≤ 100
 
-### Code Type
+### Text Type with Language
 
-Code type for code blocks or inline code with optional language specifier.
+Text type supports optional language specifier for code blocks or semantic text.
 
 ```eure
-// Plaintext code
-content = .code
+// Plain text
+content = .text
 
-// Code with language
-script = .code.javascript
-query = .code.sql
-email = .code.email
-url = .code.url
+// Text with language
+script = .text.javascript
+query = .text.sql
+email = .text.email
+url = .text.url
 ```
 
-**Shorthand:** `.code`, `.code.rust`, `.code.email`, etc.
+**Shorthand:** `.text`, `.text.rust`, `.text.email`, etc.
 
 ### Path Type
 
@@ -215,21 +215,21 @@ Fixed named fields where each field has a specific name and type.
 ```eure
 // Shorthand (implicit record)
 @ user
-name = .string
+name = .text
 age = .integer
-email = .code.email
+email = .text.email
 
 // Explicit record variant
 @ user {
   $variant: record
-  name = .string
+  name = .text
   age = .integer
 }
 
 // With unknown fields policy
 @ config {
   $variant: record
-  host = .string
+  host = .text
   port = .integer
   $unknown-fields = "allow"  // or "deny" (default) or a type schema
 }
@@ -241,12 +241,12 @@ Ordered list of elements with the same type.
 
 ```eure
 // Shorthand
-tags = [.string]
+tags = [.text]
 
 // Full form
 @ tags {
   $variant: array
-  item = .string
+  item = .text
   min-length = 1
   max-length = 10
   unique = true
@@ -265,8 +265,8 @@ Dynamic key-value pairs where all keys have the same type and all values have th
 // Full form
 @ headers {
   $variant: map
-  key = .string
-  value = .string
+  key = .text
+  value = .text
   min-size = 0
   max-size = 100
 }
@@ -297,7 +297,7 @@ Tagged union that accepts one of multiple variant types.
 @ $types.response {
   $variant: union
   variants.success = { data = .any }
-  variants.error = { message = .string, code = .integer }
+  variants.error = { message = .text, code = .integer }
 }
 
 // Using the union type
@@ -336,8 +336,8 @@ Custom tag field name inside the content.
 @ $types.message {
   $variant: union
   $variant-repr = { tag = "type" }
-  variants.text = { content = .string }
-  variants.image = { url = .string }
+  variants.text = { content = .text }
+  variants.image = { url = .text }
 }
 
 // Data example:
@@ -352,8 +352,8 @@ Separate tag and content fields.
 @ $types.event {
   $variant: union
   $variant-repr = { tag = "kind", content = "data" }
-  variants.login = { username = .string }
-  variants.logout = { reason = .string }
+  variants.login = { username = .text }
+  variants.logout = { reason = .text }
 }
 
 // Data example:
@@ -368,7 +368,7 @@ No discriminator field (type is inferred from content).
 @ $types.value {
   $variant: union
   $variant-repr = "untagged"
-  variants.string = .string
+  variants.string = .text
   variants.number = .integer
 }
 
@@ -386,7 +386,7 @@ For untagged unions where multiple variants may match, use `priority` to specify
   $variant-repr = "untagged"
   priority: ["error", "success"]  // error takes precedence
 
-  variants.error = { code = .integer, message = .string }
+  variants.error = { code = .integer, message = .text }
   variants.success = { data = .any }
 }
 
@@ -424,9 +424,9 @@ Reference other type definitions using path syntax.
 
 ```eure
 // Define types
-$types.email = .code.email
+$types.email = .text.email
 $types.user = {
-  name = .string
+  name = .text
   email = .$types.email
 }
 
@@ -491,13 +491,13 @@ $export = ["username", "email", "timestamp"]
 $export = ["username", "email"]
 
 @ $types.username {
-  $variant: string
+  $variant: text
   min-length = 3
   max-length = 20
   pattern = "^[a-z0-9_]+$"
 }
 
-@ $types.email = .code.email
+@ $types.email = .text.email
 ```
 
 **user.schema.eure:**
@@ -509,7 +509,7 @@ $import = {
 @ $types.user {
   username = .$types.common.username
   email = .$types.common.email
-  bio = .string
+  bio = .text
   bio.$optional = true
 }
 
@@ -536,8 +536,8 @@ Marks a field as optional. Fields are required by default.
 
 ```eure
 @ user
-name = .string           // Required
-bio = .string
+name = .text           // Required
+bio = .text
 bio.$optional = true     // Optional
 ```
 
@@ -547,7 +547,7 @@ Field description (supports plain text or rich markdown).
 
 ```eure
 @ user
-email = .code.email
+email = .text.email
 email.$description: User's primary email address for authentication.
 
 // Or with markdown
@@ -559,7 +559,7 @@ email.$description = markdown`User's **primary** email address.`
 Marks a field as deprecated.
 
 ```eure
-old_field = .string
+old_field = .text
 old_field.$deprecated = true
 ```
 
@@ -578,7 +578,7 @@ timeout.$default = 30
 Example values in Eure code format.
 
 ```eure
-email = .code.email
+email = .text.email
 email.$examples = [eure`"user@example.com"`, eure`"admin@company.org"`]
 ```
 
@@ -611,7 +611,7 @@ Controls handling of fields not defined in the schema.
 
 ```eure
 @ config {
-  host = .string
+  host = .text
   port = .integer
 
   // Reject unknown fields (default)
@@ -621,7 +621,7 @@ Controls handling of fields not defined in the schema.
   $unknown-fields = "allow"
 
   // Or validate unknown fields against a schema
-  $unknown-fields = .string
+  $unknown-fields = .text
 }
 ```
 
@@ -634,7 +634,7 @@ $schema = "eure-schema.schema.eure"
 
 // Custom types
 @ $types.username {
-  $variant: string
+  $variant: text
   min-length = 3
   max-length = 20
   pattern = "^[a-z0-9_]+$"
@@ -652,7 +652,7 @@ $schema = "eure-schema.schema.eure"
   username = .$types.username
   username.$description: Unique username for the account.
 
-  email = .code.email
+  email = .text.email
 
   role = .$types.role
   role.$default = "user"
@@ -663,7 +663,7 @@ $schema = "eure-schema.schema.eure"
 
   @ tags {
     $variant: array
-    item = .string
+    item = .text
     unique = true
   }
   tags.$optional = true
@@ -683,7 +683,7 @@ EURE Schema does not adopt `allOf`/`anyOf`/`oneOf`/`not` from JSON Schema. Use u
 
 ### No Format Attribute
 
-Instead of format strings, use typed code strings: `.code.email`, `.code.url`, `.code.uuid`, etc.
+Instead of format strings, use typed text: `.text.email`, `.text.url`, `.text.uuid`, etc.
 
 ### Nullable Types
 
@@ -692,7 +692,7 @@ Express nullable types using union with null:
 ```eure
 @ nullable-string {
   $variant: union
-  variants.value = .string
+  variants.value = .text
   variants.null = .null
 }
 ```
@@ -725,8 +725,7 @@ check(value, schema) -> Result<(), TypeError>
 | Bool | Boolean | const constraint |
 | Integer | Integer | min/max, multiple_of, const, enum |
 | Float | Float | min/max, const, enum |
-| String | String | length, pattern, format, const, enum |
-| Code | Code | language constraint |
+| Text | Text | length, pattern, language, const, enum |
 | Path | Path | path constraints |
 | Hole | Any | Always passes (but marks document incomplete) |
 | Array | Array | item type, min/max_items, unique, contains |

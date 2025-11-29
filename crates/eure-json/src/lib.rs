@@ -90,8 +90,7 @@ fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue
                 Err(EureToJsonError::NonFiniteFloat)
             }
         }
-        PrimitiveValue::String(s) => Ok(JsonValue::String(s.as_str().to_string())),
-        PrimitiveValue::Code(code) => Ok(JsonValue::String(code.content.clone())),
+        PrimitiveValue::Text(text) => Ok(JsonValue::String(text.content.clone())),
         PrimitiveValue::Hole => Err(EureToJsonError::HoleNotSupported),
         PrimitiveValue::Path(_) => Err(EureToJsonError::PathNotSupported),
         PrimitiveValue::Variant(variant) => convert_variant(variant, config),
@@ -305,34 +304,36 @@ mod tests {
     }
 
     #[test]
-    fn test_string_conversion() {
-        use eure_value::string::EureString;
-        let doc = EureDocument::new_primitive(PrimitiveValue::String(EureString::new(
-            "hello world".to_string(),
-        )));
+    fn test_text_plaintext_conversion() {
+        use eure_value::text::Text;
+        let text = Text::plaintext("hello world".to_string());
+        let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
         let config = Config::default();
         let result = document_to_value(&doc, &config).unwrap();
         assert_eq!(result, json!("hello world"));
     }
 
     #[test]
-    fn test_code_conversion() {
-        use eure_value::code::Code;
-        let code = Code::new(Some("rust".to_string()), "fn main() {}".to_string());
-        let doc = EureDocument::new_primitive(PrimitiveValue::Code(code));
+    fn test_text_with_language_conversion() {
+        use eure_value::text::{Language, Text};
+        let text = Text::new(
+            "fn main() {}".to_string(),
+            Language::Other("rust".to_string()),
+        );
+        let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
         let config = Config::default();
         let result = document_to_value(&doc, &config).unwrap();
         assert_eq!(result, json!("fn main() {}"));
     }
 
     #[test]
-    fn test_code_block_conversion() {
-        use eure_value::code::Code;
-        let code = Code::new_block(Some("python".to_string()), "print('hello')".to_string());
-        let doc = EureDocument::new_primitive(PrimitiveValue::Code(code));
+    fn test_text_implicit_conversion() {
+        use eure_value::text::{Language, Text};
+        let text = Text::new("print('hello')".to_string(), Language::Implicit);
+        let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
         let config = Config::default();
         let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!("print('hello')\n"));
+        assert_eq!(result, json!("print('hello')"));
     }
 
     #[test]

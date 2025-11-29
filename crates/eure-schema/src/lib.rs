@@ -8,8 +8,7 @@
 //! All types are variants of `SchemaNodeContent`:
 //!
 //! **Primitives:**
-//! - `String` - String type with optional length and pattern constraints
-//! - `Code` - Code type with optional language specifier
+//! - `Text` - Text type with optional language and length/pattern constraints
 //! - `Integer` - Integer type with optional range and multiple-of constraints
 //! - `Float` - Float type with optional range and multiple-of constraints
 //! - `Boolean` - Boolean type (no constraints)
@@ -82,13 +81,17 @@ pub enum SchemaNodeContent {
     /// Spec: line 391
     Any,
 
-    /// String type with optional constraints
-    /// Spec: lines 333-339
-    String(StringSchema),
-
-    /// Code type for code blocks or inline code
-    /// Spec: lines 347-349
-    Code(CodeSchema),
+    /// Text type
+    ///
+    /// # Language Matching
+    ///
+    /// When validating text values:
+    /// - `Language::Plaintext` (from `"..."`) must match `.text` schema only
+    /// - `Language::Implicit` (from `` `...` ``) can be coerced to any language by schema
+    /// - `Language::Other(lang)` (from `` lang`...` ``) must match `.text.{lang}` schema
+    ///
+    /// Spec: lines 333-349
+    Text(TextSchema),
 
     /// Integer type with optional constraints
     /// Spec: lines 360-364
@@ -160,36 +163,48 @@ pub enum Bound<T> {
     Exclusive(T),
 }
 
-/// String type constraints
+/// Text type constraints
 ///
-/// Spec: lines 333-339
+/// The `language` field determines what kind of text is expected:
+/// - `None` - accepts any text (no language constraint)
+/// - `Some("plaintext")` - expects plaintext (from `"..."` syntax or `Language::Plaintext`)
+/// - `Some("rust")` - expects Rust code (from `` rust`...` `` syntax or `Language::Other("rust")`)
+///
+/// # Schema Syntax
+///
+/// - `.text` - any text (language=None)
+/// - `.text.X` - text with language X (e.g., `.text.rust`, `.text.email`)
+///
+/// # Validation Rules
+///
+/// When validating a `Text` value against a `TextSchema`:
+/// - `Language::Plaintext` matches schema with `language=None` or `language=Some("plaintext")`
+/// - `Language::Implicit` matches any schema (the schema's language is applied)
+/// - `Language::Other(lang)` matches schema with `language=None` or `language=Some(lang)`
+///
 /// ```eure
-/// @variants.string
+/// @variants.text
+/// language = .text (optional)  # e.g., "rust", "email", "markdown"
 /// min-length = .integer (optional)
 /// max-length = .integer (optional)
-/// pattern = .string (optional)
+/// pattern = .text (optional)
 /// ```
 #[derive(Debug, Clone, Default)]
-pub struct StringSchema {
-    /// Minimum length constraint
-    pub min_length: Option<u32>,
-    /// Maximum length constraint
-    pub max_length: Option<u32>,
-    /// Regex pattern constraint
-    pub pattern: Option<String>,
-}
-
-/// Code type constraints
-///
-/// Spec: lines 347-349
-/// ```eure
-/// @variants.code
-/// language = .string (optional)
-/// ```
-#[derive(Debug, Clone, Default)]
-pub struct CodeSchema {
-    /// Language identifier (e.g., "rust", "javascript", "email")
+pub struct TextSchema {
+    /// Language identifier (e.g., "rust", "javascript", "email", "plaintext")
+    ///
+    /// - `None` - accepts any text regardless of language
+    /// - `Some(lang)` - expects text with the specific language tag
+    ///
+    /// Note: When a value has `Language::Implicit` (from `` `...` `` syntax),
+    /// it can be coerced to match the schema's expected language.
     pub language: Option<String>,
+    /// Minimum length constraint (in UTF-8 code points)
+    pub min_length: Option<u32>,
+    /// Maximum length constraint (in UTF-8 code points)
+    pub max_length: Option<u32>,
+    /// Regex pattern constraint (applied to the text content)
+    pub pattern: Option<String>,
 }
 
 /// Integer type constraints
@@ -328,7 +343,7 @@ pub struct RecordFieldSchema {
 /// ```eure
 /// @variants.record
 /// $variant: map
-/// key = .string
+/// key = .text
 /// value = .$types.type
 /// $ext-type.unknown-fields = .$types.unknown-fields-policy (optional)
 /// ```
@@ -381,8 +396,8 @@ pub struct TupleSchema {
 /// Spec: lines 415-423
 /// ```eure
 /// @variants.union
-/// variants = { $variant: map, key => .string, value => .$types.type }
-/// priority = [.string] (optional)
+/// variants = { $variant: map, key => .text, value => .$types.type }
+/// priority = [.text] (optional)
 /// $ext-type.variant-repr = .$types.variant-repr (optional)
 /// ```
 #[derive(Debug, Clone)]
@@ -460,7 +475,7 @@ pub struct TypeReference {
 ///
 /// Spec: lines 312-316
 /// ```eure
-/// description => { $variant: union, variants.string => .string, variants.markdown => .code.markdown }
+/// description => { $variant: union, variants.string => .text, variants.markdown => .text.markdown }
 /// ```
 #[derive(Debug, Clone)]
 pub enum Description {
@@ -474,10 +489,10 @@ pub enum Description {
 ///
 /// Spec: $cascade-ext-type (lines 302-330)
 /// ```eure
-/// description => union { string, .code.markdown } (optional)
+/// description => union { string, .text.markdown } (optional)
 /// deprecated => .boolean (optional)
 /// default => .any (optional)
-/// examples => [.code.eure] (optional)
+/// examples => [.text.eure] (optional)
 /// ```
 ///
 /// Note: `optional` and `binding_style` are per-field extensions stored in `RecordFieldSchema`

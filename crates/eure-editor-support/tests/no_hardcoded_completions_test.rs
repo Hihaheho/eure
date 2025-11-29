@@ -55,7 +55,7 @@ fn test_completions_come_from_schema() {
     // Test that completions come from the schema
     let schema_text = r#"@ myfield {
     @ subfield1
-    $type = .string
+    $type = .text
     
     @ subfield2
     $type = .number

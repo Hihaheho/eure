@@ -7,36 +7,36 @@ fn test_completion_in_nested_section_should_suggest_nested_fields() {
     // Schema with nested structure
     let schema_text = r#"
 @ script
-$type = .string
+$type = .text
 
 @ name
-$type = .string
+$type = .text
 
 @ database {
     @ host
-    $type = .string
+    $type = .text
     
     @ port
     $type = .number
     
     @ credentials {
         @ username
-        $type = .string
+        $type = .text
         
         @ password
-        $type = .string
+        $type = .text
         
         @ api_key
-        $type = .string
+        $type = .text
     }
 }
 
 @ logging {
     @ level
-    $type = .string
+    $type = .text
     
     @ file
-    $type = .string
+    $type = .text
 }
 "#;
 
@@ -129,32 +129,32 @@ fn test_completion_in_deeply_nested_array_element() {
 @ users
 $array {
     @ name
-    $type = .string
+    $type = .text
     
     @ email
-    $type = .string
+    $type = .text
     
     @ roles
     $array {
         @ role_name
-        $type = .string
+        $type = .text
         
         @ permissions
-        $array = .string
+        $array = .text
         
         @ metadata {
             @ created_at
-            $type = .string
+            $type = .text
             
             @ expires_at
-            $type = .string
+            $type = .text
         }
     }
 }
 
 @ settings {
     @ theme
-    $type = .string
+    $type = .text
 }
 "#;
 
@@ -243,21 +243,21 @@ fn test_completion_with_variants_in_nested_context() {
     $variants {
         @ pending {
             @ reason
-            $type = .string
+            $type = .text
         }
         @ approved {
             @ approved_by
-            $type = .string
+            $type = .text
             
             @ approved_at
-            $type = .string
+            $type = .text
         }
         @ rejected {
             @ rejected_by
-            $type = .string
+            $type = .text
             
             @ rejection_reason
-            $type = .string
+            $type = .text
         }
     }
 }
@@ -265,7 +265,7 @@ fn test_completion_with_variants_in_nested_context() {
 @ requests
 $array {
     @ id
-    $type = .string
+    $type = .text
     
     @ status
     $type = .$types.Status

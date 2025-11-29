@@ -17,7 +17,7 @@ fn test_schema_discovery() {
 
     // Create a schema file in the same directory
     let schema_path = temp_dir.join("test.schema.eure");
-    fs::write(&schema_path, "name.$type = .string").unwrap();
+    fs::write(&schema_path, "name.$type = .text").unwrap();
 
     // Test schema discovery
     let found_schema = schema_validation::find_schema_for_document(&doc_path, None);
@@ -35,7 +35,7 @@ fn test_self_describing_validation() {
 # Pure schema document (no data mixed in)
 @ $types.Person {
     @ name {
-        $variant: string
+        $variant: text
         min-length = 1
         max-length = 50
     }
@@ -71,7 +71,7 @@ fn test_self_describing_validation() {
 fn test_validation_with_errors() {
     let input = r#"
 # Self-describing document with inline schema  
-name.$type = .string
+name.$type = .text
 age.$type = .number
 
 # Actual data - number instead of string for name
@@ -121,7 +121,7 @@ name = 123
 fn test_schema_manager() {
     let schema_input = r#"
 @ $types.Person {
-    name.$type = .string
+    name.$type = .text
     age.$type = .number
 }
 "#;
@@ -250,7 +250,7 @@ fn test_schema_ref_priority() {
 $schema = "./custom.schema.eure"
 
 # Also has inline schema constraints (these should still work)
-name.$type = .string
+name.$type = .text
 name = "Test"
 "#;
 
