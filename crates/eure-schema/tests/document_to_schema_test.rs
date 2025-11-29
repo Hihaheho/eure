@@ -2570,3 +2570,35 @@ fn test_error_variant_path_single_segment_unknown() {
         ConversionError::UnsupportedConstruct("Unknown variant: unknown_type".to_string())
     );
 }
+
+#[test]
+fn test_error_types_non_string_key() {
+    // Type names in $types must be strings (identifiers), not tuples
+    let input = r#"
+$types.("a", "b") = .string
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Type name must be a string identifier, got: (a, b)".to_string())
+    );
+}
+
+#[test]
+#[ignore = "EURE grammar cannot parse $types.0 due to lexer precedence (.0 is tokenized as Float)"]
+fn test_error_types_integer_key() {
+    // Type names in $types must be strings (identifiers), not integers
+    // Note: This syntax currently fails to parse because .0 is lexed as a Float token
+    let input = r#"
+$types.0 = .string
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Type name must be a string identifier, got: 0".to_string())
+    );
+}

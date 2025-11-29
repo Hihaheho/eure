@@ -135,6 +135,11 @@ impl<'a> Converter<'a> {
                         })?;
                         let schema_id = self.convert_node(node_id)?;
                         self.schema.types.insert(type_name, schema_id);
+                    } else {
+                        return Err(ConversionError::InvalidTypePath(format!(
+                            "Type name must be a string identifier, got: {}",
+                            key
+                        )));
                     }
                 }
             } else {
