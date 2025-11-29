@@ -24,7 +24,7 @@ indexmap = "2"
 lsp-types = "0.97.0"
 num-bigint = "0.4"
 num-traits = "0.2"
-parol = { git = "https://github.com/ryo33/parol", rev = "93d0386eaafa3bd19617a13624be85e711495c96" }
+parol = "4.2"
 parol_runtime = "4"
 regex = "1.11"
 scnr2 = "0.3.3"

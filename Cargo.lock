@@ -1979,7 +1979,7 @@ name = "eure-parol"
 version = "0.1.0"
 dependencies = [
  "eure-tree",
- "parol_runtime 4.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parol_runtime",
  "pretty_assertions",
  "scnr2",
  "thiserror 2.0.17",
@@ -3965,8 +3965,9 @@ dependencies = [
 
 [[package]]
 name = "parol"
-version = "4.1.1"
-source = "git+https://github.com/ryo33/parol?rev=93d0386eaafa3bd19617a13624be85e711495c96#93d0386eaafa3bd19617a13624be85e711495c96"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1020d56fb78dea1c6cdf6dde2c7399cc80534f7e987c67699a1f8aa9990a9402"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -3979,8 +3980,8 @@ dependencies = [
  "lalry",
  "num_cpus",
  "owo-colors",
- "parol-macros 1.0.0 (git+https://github.com/ryo33/parol?rev=93d0386eaafa3bd19617a13624be85e711495c96)",
- "parol_runtime 4.1.0 (git+https://github.com/ryo33/parol?rev=93d0386eaafa3bd19617a13624be85e711495c96)",
+ "parol-macros",
+ "parol_runtime",
  "petgraph",
  "rand 0.9.2",
  "rand_regex",
@@ -4007,11 +4008,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54ec451836679aaa55158b454b441e21446a111ea34aa1917eba29245bafe4b8"
 
 [[package]]
-name = "parol-macros"
-version = "1.0.0"
-source = "git+https://github.com/ryo33/parol?rev=93d0386eaafa3bd19617a13624be85e711495c96#93d0386eaafa3bd19617a13624be85e711495c96"
-
-[[package]]
 name = "parol_runtime"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4023,27 +4019,7 @@ dependencies = [
  "function_name",
  "log",
  "once_cell",
- "parol-macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "petgraph",
- "scnr2",
- "serde_json",
- "syntree",
- "syntree_layout",
- "thiserror 2.0.17",
-]
-
-[[package]]
-name = "parol_runtime"
-version = "4.1.0"
-source = "git+https://github.com/ryo33/parol?rev=93d0386eaafa3bd19617a13624be85e711495c96#93d0386eaafa3bd19617a13624be85e711495c96"
-dependencies = [
- "anyhow",
- "codespan-reporting",
- "derive_builder",
- "function_name",
- "log",
- "once_cell",
- "parol-macros 1.0.0 (git+https://github.com/ryo33/parol?rev=93d0386eaafa3bd19617a13624be85e711495c96)",
+ "parol-macros",
  "petgraph",
  "scnr2",
  "serde_json",
