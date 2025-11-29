@@ -14,7 +14,7 @@
 //! - Metadata (description, deprecated, default, examples)
 
 use eure::document::parse_to_document;
-use eure_schema::convert::document_to_schema;
+use eure_schema::convert::{document_to_schema, ConversionError};
 use eure_schema::{
     ArraySchema, Bound, CodeSchema, FloatSchema, IntegerSchema, MapSchema, PathSchema,
     RecordFieldSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId,
@@ -1108,14 +1108,15 @@ fn test_union_with_three_variants() {
 
 #[test]
 fn test_custom_type_definition() {
+    // Note: bindings must come before sections in EURE
     let input = r#"
+user = .$types.username
+
 @ $types.username {
   $variant: string
   min-length = 3
   max-length = 20
 }
-
-user = .$types.username
 "#;
     let schema = parse_and_convert(input);
 
@@ -1821,20 +1822,22 @@ data = .$types.a
 
 #[test]
 fn test_type_reference_chain() {
+    // Note: bindings must come before sections in EURE
+    // Also: type definitions must use @ $types.name section syntax
     let input = r#"
+data = .$types.user
+
 @ $types.base-string {
   $variant: string
   min-length = 1
   max-length = 100
 }
 
-$types.username = .$types.base-string
+@ $types.username = .$types.base-string
 
 @ $types.user
 username = .$types.username
 email = .code.email
-
-data = .$types.user
 "#;
     let schema = parse_and_convert(input);
 
@@ -1867,6 +1870,7 @@ data = .$types.user
 
 #[test]
 fn test_complex_user_schema() {
+    // For literal union variants, just use the literal value directly
     let input = r#"
 @ $types.username {
   $variant: string
@@ -1877,9 +1881,9 @@ fn test_complex_user_schema() {
 
 @ $types.role {
   $variant: union
-  variants.admin = { => "admin", $variant => "literal" }
-  variants.user = { => "user", $variant => "literal" }
-  variants.guest = { => "guest", $variant => "literal" }
+  variants.admin = "admin"
+  variants.user = "user"
+  variants.guest = "guest"
 }
 
 @ $types.user {
@@ -1912,14 +1916,15 @@ fn test_complex_user_schema() {
 
 #[test]
 fn test_complex_api_schema() {
+    // For literal union variants, just use the literal value directly
     let input = r#"
 @ $types.http-method {
   $variant: union
-  variants.GET = { => "GET", $variant => "literal" }
-  variants.POST = { => "POST", $variant => "literal" }
-  variants.PUT = { => "PUT", $variant => "literal" }
-  variants.DELETE = { => "DELETE", $variant => "literal" }
-  variants.PATCH = { => "PATCH", $variant => "literal" }
+  variants.GET = "GET"
+  variants.POST = "POST"
+  variants.PUT = "PUT"
+  variants.DELETE = "DELETE"
+  variants.PATCH = "PATCH"
 }
 
 @ $types.api-request {
@@ -2015,7 +2020,10 @@ fn test_nested_types_and_arrays() {
 
 #[test]
 fn test_array_of_custom_types_complex() {
+    // Note: bindings must come before sections in EURE
     let input = r#"
+data = .$types.collection
+
 @ $types.item {
   $variant: string
   min-length = 1
@@ -2028,8 +2036,6 @@ fn test_array_of_custom_types_complex() {
   min-length = 1
   unique = true
 }
-
-data = .$types.collection
 "#;
     let schema = parse_and_convert(input);
 
@@ -2162,23 +2168,19 @@ fn test_nested_union_types() {
 }
 
 #[test]
-fn test_empty_record() {
+fn test_error_empty_section() {
+    // Empty section (uninitialized node) should be an error - incomplete document
     let input = r#"
 @ config
 "#;
-    let schema = parse_and_convert(input);
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
 
-    assert_record1(
-        &schema,
-        schema.root,
-        ("config", |s, config_id| {
-            let node = s.node(config_id);
-            if let SchemaNodeContent::Record(record) = &node.content {
-                assert_eq!(record.properties.len(), 0, "Expected empty record");
-            } else {
-                panic!("Expected Record type, got {:?}", node.content);
-            }
-        }),
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct(
+            "Incomplete document: uninitialized node".to_string()
+        )
     );
 }
 
@@ -2211,6 +2213,360 @@ user = .$types.nonexistent
     let doc = parse_to_document(input).expect("Failed to parse EURE document");
     let result = document_to_schema(&doc);
 
-    // Should fail because the type doesn't exist
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UndefinedTypeReference("nonexistent".to_string())
+    );
+}
+
+// ============================================================================
+// ERROR HANDLING TESTS
+// ============================================================================
+
+#[test]
+fn test_error_unknown_variant_type() {
+    let input = r#"
+@ field {
+  $variant: unknown_type
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct(
+            "Incomplete document: uninitialized node".to_string()
+        )
+    );
+}
+
+#[test]
+fn test_error_invalid_integer_range_format() {
+    let input = r#"
+@ field {
+  $variant: integer
+  range = "not a range"
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidRangeString("not a range".to_string())
+    );
+}
+
+#[test]
+fn test_error_invalid_float_range_format() {
+    let input = r#"
+@ field {
+  $variant: float
+  range = "invalid"
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidRangeString("invalid".to_string())
+    );
+}
+
+#[test]
+fn test_error_invalid_type_path() {
+    let input = r#"
+field = .unknown_primitive
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Unknown type: .unknown_primitive".to_string())
+    );
+}
+
+#[test]
+fn test_error_invalid_extension_path() {
+    let input = r#"
+field = .$unknown.type
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Unknown extension path: $unknown".to_string())
+    );
+}
+
+#[test]
+fn test_error_map_missing_key() {
+    let input = r#"
+@ field {
+  $variant: map
+  value = .string
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "key".to_string(),
+            path: "map".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_map_missing_value() {
+    let input = r#"
+@ field {
+  $variant: map
+  key = .string
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "value".to_string(),
+            path: "map".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_array_missing_item() {
+    let input = r#"
+@ field {
+  $variant: array
+  min-length = 1
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "item".to_string(),
+            path: "array".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_invalid_variant_repr() {
+    let input = r#"
+@ field {
+  $variant: union
+  $variant-repr = "invalid_repr"
+  variants.a = .string
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "variant-repr".to_string(),
+            path: "invalid_repr".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_adjacent_repr_missing_tag() {
+    let input = r#"
+@ field {
+  $variant: union
+  variants.a = .string
+  @ $variant-repr {
+    content = "data"
+  }
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "variant-repr".to_string(),
+            path: "missing tag".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_invalid_unknown_fields_policy() {
+    let input = r#"
+@ record {
+  $unknown-fields = "invalid_policy"
+  name = .string
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "unknown-fields".to_string(),
+            path: "invalid_policy".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_array_with_multiple_items() {
+    let input = r#"
+field = [.string, .integer]
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct("Array with multiple elements".to_string())
+    );
+}
+
+#[test]
+fn test_error_invalid_range_interval_format() {
+    let input = r#"
+@ field {
+  $variant: integer
+  range = "[1, 2, 3]"
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidRangeString("[1, 2, 3]".to_string())
+    );
+}
+
+#[test]
+fn test_error_literal_missing_value() {
+    let input = r#"
+@ field {
+  $variant: literal
+  other = "something"
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::MissingRequiredExtension {
+            extension: "value".to_string(),
+            path: "literal".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_types_not_map() {
+    let input = r#"
+$types = "not a map"
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "types".to_string(),
+            path: "$types must be a map".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_error_invalid_type_path_extra_segment() {
+    let input = r#"
+@ field = .string.invalid
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath("Unknown type: .string.invalid".to_string())
+    );
+}
+
+#[test]
+fn test_error_nested_variant_path() {
+    // Nested variant paths like $variant = .ok.ok.err are invalid in schema context
+    // The type type union doesn't have nested unions
+    let input = r#"
+@ response {
+    $variant = .ok.ok.err
+    error_code = .integer
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "variant".to_string(),
+            path: "nested variant path .ok.ok.err is invalid in schema context (type type has no nested unions)".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_variant_path_single_segment_valid() {
+    // Single-segment path $variant = .string is equivalent to $variant = "string"
+    let input = r#"
+@ field {
+    $variant = .string
+    min-length = 1
+}
+"#;
+    let schema = parse_and_convert(input);
+
+    assert_record1(
+        &schema,
+        schema.root,
+        ("field", |s: &SchemaDocument, id: SchemaNodeId| {
+            assert_string_with(s, id, |str_schema| {
+                assert_eq!(str_schema.min_length, Some(1));
+            });
+        }),
+    );
+}
+
+#[test]
+fn test_error_variant_path_single_segment_unknown() {
+    // Single-segment path with unknown type is invalid
+    let input = r#"
+@ field {
+    $variant = .unknown_type
+    value = 123
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct("Unknown variant: unknown_type".to_string())
+    );
 }
