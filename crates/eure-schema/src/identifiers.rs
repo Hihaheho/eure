@@ -1,6 +1,6 @@
 use eure_value::identifier::Identifier;
 
-// SAFETY: All these strings are valid identifiers according to EURE rules:
+// SAFETY: All these strings are valid identifiers according to Eure rules:
 // - Start with XID_Start character or underscore
 // - Contain only XID_Continue characters or hyphens
 // - Are not reserved keywords (true, false, null)

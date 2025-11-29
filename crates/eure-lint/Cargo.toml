@@ -2,11 +2,11 @@
 name = "eure-lint"
 version = "0.1.0"
 edition = "2024"
-description = "Linter for EURE files"
-license = "MIT OR Apache-2.0"
+description = "Linter for Eure files"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
+license = "MIT OR Apache-2.0"
 keywords = ["eure", "lint", "linter", "static-analysis"]
 
 [dependencies]

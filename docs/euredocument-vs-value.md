@@ -1,12 +1,12 @@
 # EureDocument vs Value: When to Use Each
 
-This guide helps you understand when to use `EureDocument` versus `Value` in the EURE ecosystem, their design philosophy, and practical use cases.
+This guide helps you understand when to use `EureDocument` versus `Value` in the Eure ecosystem, their design philosophy, and practical use cases.
 
 ## Overview
 
 ### EureDocument
 
-`EureDocument` is a tree-based representation that preserves the full structure and metadata of EURE documents, including:
+`EureDocument` is a tree-based representation that preserves the full structure and metadata of Eure documents, including:
 - Concrete Syntax Tree (CST) handles for precise source location tracking
 - Extension namespaces (`$` and `$$` prefixed fields)
 - Construction method information (how values were created in the source)
@@ -17,7 +17,7 @@ This guide helps you understand when to use `EureDocument` versus `Value` in the
 
 ### Value
 
-`Value` is a simplified, semantic representation of EURE data that focuses on the logical content:
+`Value` is a simplified, semantic representation of Eure data that focuses on the logical content:
 - Standard data types (null, bool, numbers, strings, arrays, maps, etc.)
 - Special types (Code, CodeBlock, Path, Variant, Unit, Hole)
 - No source location information
@@ -125,7 +125,7 @@ let value: Value = document.to_value();
 
 **Example**: Extensions are stripped during conversion:
 ```eure
-# Input EURE document
+# Input Eure document
 @ config
 debug = true
 debug.$description = "Enable debug mode"
@@ -306,7 +306,7 @@ pub fn get_completions(document: &EureDocument, cursor: Position) -> Vec<Complet
 2. Implementing business logic
 3. Serializing/deserializing to other formats
 4. Writing unit tests
-5. Building APIs that consume EURE data
+5. Building APIs that consume Eure data
 
 ### Hybrid Approach
 

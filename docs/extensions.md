@@ -1,12 +1,12 @@
 # Extensions
 
-Extensions provide metadata and additional information about data without being part of the data itself. The `$` syntax indicates an extension namespace in the EURE language.
+Extensions provide metadata and additional information about data without being part of the data itself. The `$` syntax indicates an extension namespace in the Eure language.
 
 ## Understanding Extensions
 
 ### Syntax vs Storage
 
-Extensions use `$` as a syntactic element in the EURE grammar, not as a string prefix:
+Extensions use `$` as a syntactic element in the Eure grammar, not as a string prefix:
 
 - `$variant` is recognized by the parser as an extension syntax
 - The `$` is a grammar token, similar to `{` or `=`
@@ -14,7 +14,7 @@ Extensions use `$` as a syntactic element in the EURE grammar, not as a string p
 
 ### Internal Representation
 
-When EURE documents are parsed:
+When Eure documents are parsed:
 
 1. **At CST Level**: `$variant` becomes `PathSegment::Extension(Identifier("variant"))`
 2. **In EureDocument**: Extensions are stored in `Node.extensions: HashMap<Identifier, NodeId>`
@@ -184,7 +184,7 @@ Extensions are metadata stored separately from data:
 
 ### No String Manipulation
 
-The `$` symbol is part of the EURE grammar, not a string prefix:
+The `$` symbol is part of the Eure grammar, not a string prefix:
 - Never use string operations like `starts_with("$")` or `strip_prefix("$")`
 - The parser recognizes extension syntax at the grammatical level
 - Extension names are stored as identifiers, not strings with prefixes

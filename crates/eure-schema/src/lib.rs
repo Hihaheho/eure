@@ -1,6 +1,6 @@
-//! EURE Schema types and structures
+//! Eure Schema types and structures
 //!
-//! This library provides schema type definitions for EURE documents,
+//! This library provides schema type definitions for Eure documents,
 //! following the specification in `assets/eure-schema.schema.eure`.
 //!
 //! # Type Variants
@@ -77,7 +77,7 @@ pub struct SchemaNode {
 #[derive(Debug, Clone)]
 pub enum SchemaNodeContent {
     // --- Primitives ---
-    /// Any type - accepts any valid EURE value
+    /// Any type - accepts any valid Eure value
     /// Spec: line 391
     Any,
 
@@ -504,7 +504,7 @@ pub struct SchemaMetadata {
     pub deprecated: bool,
     /// Default value for optional fields
     pub default: Option<Value>,
-    /// Example values in EURE code format
+    /// Example values in Eure code format
     pub examples: Option<Vec<String>>,
 }
 

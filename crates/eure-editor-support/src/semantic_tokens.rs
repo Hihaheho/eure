@@ -5,7 +5,7 @@ use eure_tree::{
 };
 use lsp_types::{SemanticTokenModifier, SemanticTokenType, SemanticTokens, SemanticTokensLegend};
 
-/// Define the token types we'll use for EURE syntax highlighting
+/// Define the token types we'll use for Eure syntax highlighting
 const TOKEN_TYPES: &[SemanticTokenType] = &[
     SemanticTokenType::KEYWORD,   // For keywords like true, false, null
     SemanticTokenType::STRING,    // For string literals
@@ -41,7 +41,7 @@ struct TokenData {
     token_modifiers: u32,
 }
 
-/// Build semantic tokens for a EURE CST
+/// Build semantic tokens for a Eure CST
 ///
 /// This is the main entry point for semantic token generation
 pub fn semantic_tokens(

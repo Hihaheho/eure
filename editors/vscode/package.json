@@ -39,12 +39,12 @@
   },
   "contributes": {
     "configuration": {
-      "title": "EURE Language Support",
+      "title": "Eure Language Support",
       "properties": {
         "eure.schema.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable/disable schema validation for EURE files"
+          "description": "Enable/disable schema validation for Eure files"
         },
         "eure.schema.searchPaths": {
           "type": "array",
@@ -76,11 +76,11 @@
       },
       {
         "command": "eure.validateWithSchema",
-        "title": "EURE: Validate current file with schema"
+        "title": "Eure: Validate current file with schema"
       },
       {
         "command": "eure.selectSchema",
-        "title": "EURE: Select schema for current file"
+        "title": "Eure: Select schema for current file"
       }
     ],
     "languages": [

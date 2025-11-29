@@ -2,23 +2,23 @@
 name = "eure-fmt"
 version = "0.1.0"
 edition = "2024"
-description = "Formatter for EURE files"
-license = "MIT OR Apache-2.0"
+description = "Formatter for Eure files"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "formatter", "pretty-print", "code-style"]
+license = "MIT OR Apache-2.0"
+keywords = ["code-style", "eure", "formatter", "pretty-print"]
+
+[dependencies]
+eure-tree = { workspace = true }
+rand = { version = "0.9.1", optional = true }
+rand_chacha = { version = "0.3.1", optional = true }
+
+[dev-dependencies]
+eure-parol = { workspace = true }
+rand = { version = "0.9.1" }
 
 [features]
 default = []
-unformat = ["dep:rand", "dep:rand_chacha"]
 test = ["unformat"]
-
-[dependencies]
-rand = { version = "0.9.1", optional = true }
-rand_chacha = { version = "0.3.1", optional = true }
-eure-tree = { workspace = true }
-
-[dev-dependencies]
-rand = { version = "0.9.1" }
-eure-parol = { workspace = true }
+unformat = ["dep:rand", "dep:rand_chacha"]

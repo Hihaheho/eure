@@ -1,8 +1,8 @@
-# EURE: Configuration Language Comparisons
+# Eure: Configuration Language Comparisons
 
 ## Introduction
 
-EURE is a minimalist, schema-friendly configuration language and data format designed for human readability and programmatic editing. It combines JSON compatibility with TOML-like minimalism, featuring algebraic data models, rich editor support, and templating capabilities.
+Eure is a minimalist, schema-friendly configuration language and data format designed for human readability and programmatic editing. It combines JSON compatibility with TOML-like minimalism, featuring algebraic data models, rich editor support, and templating capabilities.
 
 ### Core Design Principles
 
@@ -12,9 +12,9 @@ EURE is a minimalist, schema-friendly configuration language and data format des
 - **Algebraic data model** compatible with JSON
 - **Rich editor experience** with LSP support
 
-## EURE Language Features
+## Eure Language Features
 
-Based on the official grammar, EURE supports:
+Based on the official grammar, Eure supports:
 
 ### Basic Syntax
 
@@ -64,10 +64,10 @@ subtitle: A simple example
 ```eure
 @ actions[] {
   $variant = "set-text"
-  
+
   @ pages[]
   text = "Hi,"
-  
+
   @ pages[]
   speaker = "Ryo"
   text = "I'm Ryo."
@@ -101,11 +101,11 @@ ports = [8000, 8001, 8002]
 mixed = ["string", 42, true, null]
 ```
 
-## EURE vs YAML
+## Eure vs YAML
 
 ### Syntax Comparison
 
-**EURE:**
+**Eure:**
 ```eure
 $eure.version = "https://eure.dev/versions/v0.1.0"
 title = "test"
@@ -116,15 +116,15 @@ $variant = "use-script"
 script-id = "title"
 
 @ actions[]
-$variant = "sleep"  
+$variant = "sleep"
 seconds = 2.0
 
 @ actions[] {
   $variant = "set-text"
-  
+
   @ pages[]
   text = "Hi,"
-  
+
   @ pages[]
   speaker = "Ryo"
   text = "I'm Ryo."
@@ -149,7 +149,7 @@ actions:
 
 ### Key Differences
 
-| Feature | EURE | YAML |
+| Feature | Eure | YAML |
 |---------|------|------|
 | **Structure** | Sections with `@`, blocks with `{}` | Indentation-based |
 | **Text syntax** | `:` for unquoted text (unambiguous) | `:` overloaded (maps, strings, etc.) |
@@ -160,7 +160,7 @@ actions:
 | **Code blocks** | Native syntax with language tags | Multi-line strings only |
 | **Typed strings** | Built-in (url, email, etc.) | All strings are plain |
 
-### Advantages of EURE over YAML
+### Advantages of Eure over YAML
 
 1. **Simpler specification** - Fewer edge cases and parsing ambiguities
 2. **Built-in extensions** - Metadata without polluting data structure
@@ -168,11 +168,11 @@ actions:
 4. **Schema integration** - Designed for validation from the ground up
 5. **Code-friendly** - Better support for configuration-as-code scenarios
 
-## EURE vs TOML
+## Eure vs TOML
 
 ### Syntax Comparison
 
-**EURE:**
+**Eure:**
 ```eure
 title = "test"
 language = "en"
@@ -186,7 +186,7 @@ name = "alpha"
 ip = "10.0.0.1"
 
 @ servers[]
-name = "beta" 
+name = "beta"
 ip = "10.0.0.2"
 ```
 
@@ -210,7 +210,7 @@ ip = "10.0.0.2"
 
 ### Key Differences
 
-| Feature | EURE | TOML |
+| Feature | Eure | TOML |
 |---------|------|------|
 | **Section syntax** | `@ section[]` | `[[section]]` |
 | **Section nesting** | ✅ Supports nested sections with `{}` | ❌ No section nesting allowed |
@@ -221,9 +221,9 @@ ip = "10.0.0.2"
 | **Typed strings** | Built-in type prefixes | All strings are plain |
 | **Text blocks** | `:` syntax (unquoted, unambiguous) | Limited multi-line support |
 
-### Advantages of EURE over TOML
+### Advantages of Eure over TOML
 
-1. **Section nesting** - EURE allows nested sections, TOML does not
+1. **Section nesting** - Eure allows nested sections, TOML does not
 2. **Unquoted text** - `:` syntax allows natural text without quotes (like PKL)
 3. **Unambiguous syntax** - Text `:` is context-specific, unlike YAML's overloaded `:`
 4. **Richer data model** - Algebraic types and variants
@@ -231,11 +231,11 @@ ip = "10.0.0.2"
 6. **Code integration** - Native code block support
 7. **Schema support** - Built-in validation capabilities
 
-## EURE vs PKL
+## Eure vs PKL
 
 ### Philosophy Comparison
 
-**EURE:**
+**Eure:**
 - Configuration language focused on human readability
 - Schema-driven validation
 - Minimal syntax with rich features
@@ -243,13 +243,13 @@ ip = "10.0.0.2"
 
 **PKL:**
 - Programmable configuration language
-- Type system-based validation  
+- Type system-based validation
 - Rich programming constructs
 - Dynamic configuration generation
 
 ### Syntax Comparison
 
-**EURE:**
+**Eure:**
 ```eure
 $variant = "database-config"
 host = "localhost"
@@ -277,7 +277,7 @@ connections {
     url = "postgresql://localhost:5432/app"
   }
   new {
-    name = "replica" 
+    name = "replica"
     url = "postgresql://replica:5432/app"
   }
 }
@@ -285,7 +285,7 @@ connections {
 
 ### Key Differences
 
-| Feature | EURE | PKL |
+| Feature | Eure | PKL |
 |---------|------|-----|
 | **Focus** | Human-readable configuration | Programmable configuration |
 | **Validation** | JSON Schema compatible | Rich type system |
@@ -296,7 +296,7 @@ connections {
 
 ### Use Case Comparison
 
-**Choose EURE when:**
+**Choose Eure when:**
 - Configuration files need to be human-readable and editable
 - Schema validation is important
 - Minimal syntax is preferred
@@ -314,7 +314,7 @@ connections {
 
 ### Converting Between Formats
 
-EURE provides conversion tools through its ecosystem:
+Eure provides conversion tools through its ecosystem:
 
 - **eure-json** - Bidirectional JSON conversion
 - **eure-toml** - TOML import/export
@@ -322,27 +322,27 @@ EURE provides conversion tools through its ecosystem:
 
 ### Migration Strategies
 
-**From YAML to EURE:**
+**From YAML to Eure:**
 1. Convert basic key-value pairs directly
 2. Transform indentation-based nesting to `@` sections
 3. Add `$variant` fields for algebraic data types
 4. Utilize extensions for metadata
 
-**From TOML to EURE:**
+**From TOML to Eure:**
 1. Convert `[section]` to `@ section`
 2. Convert `[[array]]` to `@ array[]`
 3. Add extensions for metadata
 4. Utilize richer data types
 
-**From PKL to EURE:**
+**From PKL to Eure:**
 1. Extract static configuration values
 2. Convert computed values to static equivalents
-3. Use EURE templating for dynamic aspects
+3. Use Eure templating for dynamic aspects
 4. Leverage schema validation for type safety
 
 ## Tooling and Ecosystem
 
-### EURE Tooling
+### Eure Tooling
 
 - **eure-ls** - Language Server Protocol implementation
 - **eure-fmt** - Code formatter
@@ -360,11 +360,11 @@ EURE provides conversion tools through its ecosystem:
 
 ## Conclusion
 
-EURE occupies a unique position in the configuration language landscape:
+Eure occupies a unique position in the configuration language landscape:
 
 - **More expressive than TOML** while maintaining simplicity
-- **Simpler than YAML** with fewer parsing edge cases  
+- **Simpler than YAML** with fewer parsing edge cases
 - **More declarative than PKL** while supporting rich data models
 - **Schema-first design** unlike most alternatives
 
-Choose EURE when you need a human-friendly configuration language that scales from simple key-value pairs to complex, validated data structures while maintaining excellent tooling support and editor integration.
+Choose Eure when you need a human-friendly configuration language that scales from simple key-value pairs to complex, validated data structures while maintaining excellent tooling support and editor integration.

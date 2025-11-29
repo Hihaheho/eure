@@ -1,31 +1,30 @@
-//! Conversion from EURE Schema to JSON Schema (Draft-07)
+//! Conversion from Eure Schema to JSON Schema (Draft-07)
 //!
-//! This module provides functionality to convert EURE Schema documents to JSON Schema format.
-//! Since EURE Schema is a superset of JSON Schema with additional features, some constructs
+//! This module provides functionality to convert Eure Schema documents to JSON Schema format.
+//! Since Eure Schema is a superset of JSON Schema with additional features, some constructs
 //! cannot be represented in JSON Schema and will result in conversion errors.
 
 use crate::json_schema::*;
 use eure_schema::{
-    ArraySchema as EureArraySchema, BooleanSchema as EureBooleanSchema, Bound,
-    FloatSchema, IntegerSchema as EureIntegerSchema, MapSchema,
-    RecordSchema, SchemaDocument, SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent,
-    SchemaNodeId, StringSchema as EureStringSchema, TupleSchema, UnknownFieldsPolicy,
-    VariantSchema,
+    ArraySchema as EureArraySchema, BooleanSchema as EureBooleanSchema, Bound, FloatSchema,
+    IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
+    SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId,
+    StringSchema as EureStringSchema, TupleSchema, UnknownFieldsPolicy, VariantSchema,
 };
 use eure_value::data_model::VariantRepr;
 use indexmap::IndexMap;
 use num_traits::ToPrimitive;
 
-/// Errors that can occur during EURE Schema to JSON Schema conversion
+/// Errors that can occur during Eure Schema to JSON Schema conversion
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConversionError {
-    /// EURE Code type cannot be represented in JSON Schema
+    /// Eure Code type cannot be represented in JSON Schema
     CodeTypeNotSupported,
 
-    /// EURE Path type cannot be represented in JSON Schema
+    /// Eure Path type cannot be represented in JSON Schema
     PathTypeNotSupported,
 
-    /// EURE Map type with non-string keys cannot be represented in JSON Schema
+    /// Eure Map type with non-string keys cannot be represented in JSON Schema
     /// JSON Schema only supports string keys in objects
     NonStringMapKeysNotSupported,
 
@@ -41,7 +40,6 @@ pub enum ConversionError {
     /// Circular reference detected (not supported in JSON Schema)
     CircularReference(String),
 
-
     /// Contains constraint with non-primitive value not supported
     ComplexContainsNotSupported,
 
@@ -53,19 +51,23 @@ impl std::fmt::Display for ConversionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ConversionError::CodeTypeNotSupported => {
-                write!(f, "EURE Code type is not supported in JSON Schema")
+                write!(f, "Eure Code type is not supported in JSON Schema")
             }
             ConversionError::PathTypeNotSupported => {
-                write!(f, "EURE Path type is not supported in JSON Schema")
+                write!(f, "Eure Path type is not supported in JSON Schema")
             }
             ConversionError::NonStringMapKeysNotSupported => {
                 write!(
                     f,
-                    "EURE Map type with non-string keys cannot be represented in JSON Schema"
+                    "Eure Map type with non-string keys cannot be represented in JSON Schema"
                 )
             }
             ConversionError::BigIntOutOfRange(val) => {
-                write!(f, "BigInt value {} is out of range for JSON Schema i64", val)
+                write!(
+                    f,
+                    "BigInt value {} is out of range for JSON Schema i64",
+                    val
+                )
             }
             ConversionError::InvalidFloatValue(val) => {
                 write!(f, "Invalid float value: {}", val)
@@ -85,7 +87,7 @@ impl std::fmt::Display for ConversionError {
             ConversionError::TupleConstraintsNotSupported => {
                 write!(
                     f,
-                    "EURE Tuple constraints are not fully supported in JSON Schema"
+                    "Eure Tuple constraints are not fully supported in JSON Schema"
                 )
             }
         }
@@ -96,7 +98,7 @@ impl std::error::Error for ConversionError {}
 
 /// Conversion context to track state during conversion
 struct ConversionContext<'a> {
-    /// The source EURE schema document
+    /// The source Eure schema document
     document: &'a SchemaDocument,
     /// Track visited nodes to detect circular references
     visiting: Vec<SchemaNodeId>,
@@ -136,7 +138,7 @@ impl<'a> ConversionContext<'a> {
     }
 }
 
-/// Convert an EURE SchemaDocument to JSON Schema
+/// Convert an Eure SchemaDocument to JSON Schema
 ///
 /// The root schema will be converted, along with all referenced type definitions
 /// which will be placed in the `$defs` section of the JSON Schema.
@@ -163,10 +165,7 @@ pub fn eure_to_json_schema(doc: &SchemaDocument) -> Result<JsonSchema, Conversio
 }
 
 /// Wrap a schema with $defs
-fn wrap_with_definitions(
-    root: JsonSchema,
-    defs: IndexMap<String, JsonSchema>,
-) -> JsonSchema {
+fn wrap_with_definitions(root: JsonSchema, defs: IndexMap<String, JsonSchema>) -> JsonSchema {
     // If root is already a Generic schema, we can add defs to it
     if let JsonSchema::Generic(mut generic) = root {
         generic.defs = Some(defs);
@@ -187,7 +186,10 @@ fn wrap_with_definitions(
 }
 
 /// Convert a single schema node to JSON Schema
-fn convert_node(ctx: &mut ConversionContext, id: SchemaNodeId) -> Result<JsonSchema, ConversionError> {
+fn convert_node(
+    ctx: &mut ConversionContext,
+    id: SchemaNodeId,
+) -> Result<JsonSchema, ConversionError> {
     ctx.push_visiting(id)?;
 
     // Clone the content and metadata to avoid borrow checker issues
@@ -253,15 +255,15 @@ fn convert_schema_content(
     }
 }
 
-/// Convert EURE metadata to JSON Schema metadata
+/// Convert Eure metadata to JSON Schema metadata
 fn convert_metadata(eure_meta: &EureMetadata) -> SchemaMetadata {
     SchemaMetadata {
-        title: None, // EURE doesn't have title
+        title: None, // Eure doesn't have title
         description: eure_meta.description.clone(),
     }
 }
 
-/// Convert EURE String schema to JSON Schema
+/// Convert Eure String schema to JSON Schema
 fn convert_string_schema(
     eure: &EureStringSchema,
     metadata: SchemaMetadata,
@@ -301,7 +303,7 @@ fn convert_string_schema(
     })))
 }
 
-/// Convert EURE Integer schema to JSON Schema
+/// Convert Eure Integer schema to JSON Schema
 fn convert_integer_schema(
     eure: &EureIntegerSchema,
     metadata: SchemaMetadata,
@@ -319,9 +321,7 @@ fn convert_integer_schema(
     if let Some(enum_vals) = &eure.r#enum {
         let values: Result<Vec<_>, _> = enum_vals
             .iter()
-            .map(|v| {
-                bigint_to_i64(v).map(|i| serde_json::Value::Number(i.into()))
-            })
+            .map(|v| bigint_to_i64(v).map(|i| serde_json::Value::Number(i.into())))
             .collect();
         return Ok(JsonSchema::Enum(EnumSchema {
             values: values?,
@@ -342,11 +342,7 @@ fn convert_integer_schema(
         Bound::Exclusive(val) => (None, Some(bigint_to_i64(val)?)),
     };
 
-    let multiple_of = eure
-        .multiple_of
-        .as_ref()
-        .map(bigint_to_i64)
-        .transpose()?;
+    let multiple_of = eure.multiple_of.as_ref().map(bigint_to_i64).transpose()?;
 
     Ok(JsonSchema::Typed(TypedSchema::Integer(IntegerSchema {
         minimum,
@@ -365,7 +361,7 @@ fn bigint_to_i64(val: &num_bigint::BigInt) -> Result<i64, ConversionError> {
         .ok_or_else(|| ConversionError::BigIntOutOfRange(val.to_string()))
 }
 
-/// Convert EURE Float schema to JSON Schema
+/// Convert Eure Float schema to JSON Schema
 fn convert_float_schema(
     eure: &FloatSchema,
     metadata: SchemaMetadata,
@@ -418,13 +414,13 @@ fn convert_float_schema(
         maximum,
         exclusive_minimum,
         exclusive_maximum,
-        multiple_of: None, // EURE float doesn't have multiple_of
+        multiple_of: None, // Eure float doesn't have multiple_of
         default: None,
         metadata,
     })))
 }
 
-/// Convert EURE Boolean schema to JSON Schema
+/// Convert Eure Boolean schema to JSON Schema
 fn convert_boolean_schema(
     eure: &EureBooleanSchema,
     metadata: SchemaMetadata,
@@ -442,7 +438,7 @@ fn convert_boolean_schema(
     }
 }
 
-/// Convert EURE Array schema to JSON Schema
+/// Convert Eure Array schema to JSON Schema
 fn convert_array_schema(
     ctx: &mut ConversionContext,
     eure: &EureArraySchema,
@@ -451,7 +447,7 @@ fn convert_array_schema(
     let items = Some(Box::new(convert_node(ctx, eure.item)?));
 
     let contains = if let Some(prim_val) = &eure.contains {
-        // JSON Schema contains expects a schema, but EURE has a primitive value
+        // JSON Schema contains expects a schema, but Eure has a primitive value
         // We convert this to a const schema
         Some(Box::new(JsonSchema::Const(ConstSchema {
             value: primitive_value_to_json(prim_val)?,
@@ -471,7 +467,7 @@ fn convert_array_schema(
     })))
 }
 
-/// Convert EURE primitive value to JSON value
+/// Convert Eure primitive value to JSON value
 fn primitive_value_to_json(
     val: &eure_value::value::PrimitiveValue,
 ) -> Result<serde_json::Value, ConversionError> {
@@ -502,7 +498,7 @@ fn primitive_value_to_json(
     }
 }
 
-/// Convert EURE Map schema to JSON Schema
+/// Convert Eure Map schema to JSON Schema
 ///
 /// This is tricky because JSON Schema only supports string keys in objects.
 /// If the key type is not String, we return an error.
@@ -529,7 +525,7 @@ fn convert_map_schema(
     })))
 }
 
-/// Convert EURE Record schema to JSON Schema object
+/// Convert Eure Record schema to JSON Schema object
 fn convert_record_schema(
     ctx: &mut ConversionContext,
     eure: &RecordSchema,
@@ -579,7 +575,7 @@ fn convert_record_schema(
     })))
 }
 
-/// Convert EURE Tuple schema to JSON Schema
+/// Convert Eure Tuple schema to JSON Schema
 ///
 /// JSON Schema supports tuple validation via array with items as an array of schemas
 /// However, this is less well-supported, so we note this as a potential limitation
@@ -594,16 +590,13 @@ fn convert_tuple_schema(
     Err(ConversionError::TupleConstraintsNotSupported)
 }
 
-/// Convert EURE Union to JSON Schema anyOf
+/// Convert Eure Union to JSON Schema anyOf
 fn convert_union_schema(
     ctx: &mut ConversionContext,
     variants: &[SchemaNodeId],
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    let schemas: Result<Vec<_>, _> = variants
-        .iter()
-        .map(|id| convert_node(ctx, *id))
-        .collect();
+    let schemas: Result<Vec<_>, _> = variants.iter().map(|id| convert_node(ctx, *id)).collect();
 
     Ok(JsonSchema::AnyOf(AnyOfSchema {
         schemas: schemas?,
@@ -611,7 +604,7 @@ fn convert_union_schema(
     }))
 }
 
-/// Convert EURE Variant (tagged union) to JSON Schema
+/// Convert Eure Variant (tagged union) to JSON Schema
 ///
 /// The conversion strategy depends on the variant representation:
 /// - External: oneOf with object schemas (each with a single property)
@@ -759,9 +752,9 @@ fn convert_untagged_variant(
 mod tests {
     use super::*;
     use eure_schema::{
-        CodeSchema, IntegerSchema as EureIntegerSchema,
-        PathSchema, RecordSchema, SchemaDocument, SchemaNodeContent, StringSchema as EureStringSchema,
-        UnknownFieldsPolicy, Bound, VariantSchema,
+        Bound, CodeSchema, IntegerSchema as EureIntegerSchema, PathSchema, RecordSchema,
+        SchemaDocument, SchemaNodeContent, StringSchema as EureStringSchema, UnknownFieldsPolicy,
+        VariantSchema,
     };
     use eure_value::data_model::VariantRepr;
     use std::collections::HashMap;
@@ -772,10 +765,7 @@ mod tests {
         doc.root = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
 
         let result = eure_to_json_schema(&doc).unwrap();
-        assert!(matches!(
-            result,
-            JsonSchema::Typed(TypedSchema::String(_))
-        ));
+        assert!(matches!(result, JsonSchema::Typed(TypedSchema::String(_))));
     }
 
     #[test]

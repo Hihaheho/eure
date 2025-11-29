@@ -2,22 +2,21 @@
 name = "eure-ls"
 version = "0.1.0"
 edition = "2024"
-description = "Language Server Protocol implementation for EURE"
-license = "MIT OR Apache-2.0"
+description = "Language Server Protocol implementation for Eure"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "language-server", "lsp", "ide"]
+license = "MIT OR Apache-2.0"
+keywords = ["eure", "ide", "language-server", "lsp"]
 
 [dependencies]
+anyhow.workspace = true
 eure-editor-support = { workspace = true }
-eure-tree = { workspace = true }
 eure-schema = { workspace = true }
-
+eure-tree = { workspace = true }
 lsp-server = "0.7.6"
 lsp-types = "0.97.0"
 serde.workspace = true
 serde_json.workspace = true
-anyhow.workspace = true
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

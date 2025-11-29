@@ -1,6 +1,6 @@
 //! Conversion from EureDocument to SchemaDocument
 //!
-//! This module provides functionality to convert EURE documents containing schema definitions
+//! This module provides functionality to convert Eure documents containing schema definitions
 //! into SchemaDocument structures.
 //!
 //! # Schema Syntax

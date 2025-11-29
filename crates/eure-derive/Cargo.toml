@@ -2,7 +2,7 @@
 name = "eure-derive"
 version = "0.1.0"
 edition = "2024"
-description = "Derive macros for EURE schema generation"
+description = "Derive macros for Eure schema generation"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

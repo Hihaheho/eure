@@ -5,7 +5,7 @@ use eure_tree::{
 };
 use parol_runtime::{ParolError, Token, parser::parse_tree_type::TreeConstruct};
 
-/// EURE-specific tree builder that handles the peculiarities of the EURE grammar,
+/// Eure-specific tree builder that handles the peculiarities of the Eure grammar,
 /// particularly the reversed ordering of list elements
 #[derive(Debug, Clone)]
 pub struct CstBuilder {

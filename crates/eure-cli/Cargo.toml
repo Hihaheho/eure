@@ -2,7 +2,7 @@
 name = "eure-cli"
 version = "0.1.0"
 edition = "2024"
-description = "Command-line tool for EURE format conversion and validation"
+description = "Command-line tool for Eure format conversion and validation"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

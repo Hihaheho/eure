@@ -2,7 +2,7 @@
 name = "eure-parol"
 version = "0.1.0"
 edition = "2024"
-description = "EURE parser implementation using Parol"
+description = "Eure parser implementation using Parol"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

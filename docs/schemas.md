@@ -10,7 +10,7 @@
 
 ## Identical schema
 
-You can use another EURE file as a schema for another EURE file. This is convenient when you want to have a various version of the document, for example, for i18n or l10n.
+You can use another Eure file as a schema for another Eure file. This is convenient when you want to have a various version of the document, for example, for i18n or l10n.
 
 ## Extensions
 

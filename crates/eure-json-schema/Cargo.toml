@@ -2,7 +2,7 @@
 name = "eure-json-schema"
 version = "0.1.0"
 edition = "2024"
-description = "JSON Schema compatibility for EURE format"
+description = "JSON Schema compatibility for Eure format"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

@@ -1,12 +1,12 @@
 # eure-template
 
-Templating extension for EURE files.
+Templating extension for Eure files.
 
 A structured and type-safe templating tool for eure.
 
 **This crate is still under development and published for name reservation purpose.**
 
-Part of the [EURE](https://eure.dev) project - a minimalist, schema-friendly format with an algebraic data model that's compatible with JSON.
+Part of the [Eure](https://eure.dev) project - a minimalist, schema-friendly format with an algebraic data model that's compatible with JSON.
 
 ## Design
 

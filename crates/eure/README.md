@@ -1,8 +1,8 @@
 # eure
 
-EURE is a minimalist, schema-friendly format with an algebraic data model that's compatible with JSON.
+Eure is a minimalist, schema-friendly format with an algebraic data model that's compatible with JSON.
 
-This is the core library for working with EURE format.
+This is the core library for working with Eure format.
 
 **This crate is still under development and published for name reservation purpose.**
 

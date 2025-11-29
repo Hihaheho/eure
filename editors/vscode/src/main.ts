@@ -135,7 +135,7 @@ export function activate(
   async function validateWithSchema() {
     const activeEditor = window.activeTextEditor;
     if (!activeEditor || activeEditor.document.languageId !== "eure") {
-      window.showErrorMessage("No active EURE file to validate");
+      window.showErrorMessage("No active Eure file to validate");
       return;
     }
 
@@ -145,7 +145,7 @@ export function activate(
       return;
     }
 
-    // The language server already validates on change, so we just need to 
+    // The language server already validates on change, so we just need to
     // inform the user that validation is active
     window.showInformationMessage(
       "Schema validation is active. Check the Problems panel for any issues."
@@ -155,13 +155,13 @@ export function activate(
   async function selectSchema() {
     const activeEditor = window.activeTextEditor;
     if (!activeEditor || activeEditor.document.languageId !== "eure") {
-      window.showErrorMessage("No active EURE file");
+      window.showErrorMessage("No active Eure file");
       return;
     }
 
     // Show quick pick to select schema file
     const schemaFiles = await workspace.findFiles("**/*.schema.eure", "**/node_modules/**");
-    
+
     if (schemaFiles.length === 0) {
       window.showWarningMessage("No schema files found in workspace");
       return;

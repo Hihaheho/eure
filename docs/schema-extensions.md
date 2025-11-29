@@ -1,10 +1,10 @@
 # Schema Extensions
 
-EURE Schema uses extensions to define types and constraints within EURE documents. The schema system is self-hosted, meaning the schema language is defined using itself.
+Eure Schema uses extensions to define types and constraints within Eure documents. The schema system is self-hosted, meaning the schema language is defined using itself.
 
 ## Overview
 
-EURE Schema is embedded within EURE documents using extension namespaces (prefixed with `$`). The meta-schema can be found in `assets/eure-schema.schema.eure`.
+Eure Schema is embedded within Eure documents using extension namespaces (prefixed with `$`). The meta-schema can be found in `assets/eure-schema.schema.eure`.
 
 ### Extension Levels
 
@@ -78,7 +78,7 @@ Built-in cascading extensions:
 
 ## Type Definitions
 
-All types in EURE Schema are variants of a union type (`$types.type`).
+All types in Eure Schema are variants of a union type (`$types.type`).
 
 ### Primitive Types
 
@@ -100,7 +100,7 @@ active = .boolean
 // Null type
 deleted = .null
 
-// Any type (accepts any valid EURE value)
+// Any type (accepts any valid Eure value)
 metadata = .any
 ```
 
@@ -463,7 +463,7 @@ local-field = .$types.my-local-type // local type (no namespace)
 - Path length 2 (`.$types.T`): Local type reference
 - Path length 3 (`.$types.N.T`): External type reference (N must be in `$import`)
 
-**Important:** Imports are resolved at schema bundling/validation time, not at runtime. Distributed schemas should be self-contained with all imports inlined. This follows EURE's design principle that documents should be self-contained.
+**Important:** Imports are resolved at schema bundling/validation time, not at runtime. Distributed schemas should be self-contained with all imports inlined. This follows Eure's design principle that documents should be self-contained.
 
 ### $export
 
@@ -679,7 +679,7 @@ $root-type = .$types.user
 
 ### No Logical Operators
 
-EURE Schema does not adopt `allOf`/`anyOf`/`oneOf`/`not` from JSON Schema. Use union for alternatives and record for composition.
+Eure Schema does not adopt `allOf`/`anyOf`/`oneOf`/`not` from JSON Schema. Use union for alternatives and record for composition.
 
 ### No Format Attribute
 
@@ -709,7 +709,7 @@ Union types always have a discriminator. Customize with `$variant-repr`:
 
 ## Type Checking Algorithm
 
-EURE Schema uses a structural type checking algorithm that is both **sound** (accepted values always conform to the schema) and **complete** (all conforming values are accepted).
+Eure Schema uses a structural type checking algorithm that is both **sound** (accepted values always conform to the schema) and **complete** (all conforming values are accepted).
 
 ### Core Algorithm
 
@@ -806,4 +806,4 @@ check_extensions(node, schema):
 
 ## Meta-Schema
 
-The EURE Schema system is self-hosted. The complete meta-schema defining all schema constructs can be found in `assets/eure-schema.schema.eure`.
+The Eure Schema system is self-hosted. The complete meta-schema defining all schema constructs can be found in `assets/eure-schema.schema.eure`.

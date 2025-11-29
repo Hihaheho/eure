@@ -47,7 +47,7 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Key-comparable value which implements `Eq` and `Hash`.
 ///
-/// EURE restricts map keys to four types — `String`, `Bool`, `Integer`,
+/// Eure restricts map keys to four types — `String`, `Bool`, `Integer`,
 /// and `Tuple<Key...>` — for practical and predictable behavior.
 ///
 /// - **Deterministic equality:**

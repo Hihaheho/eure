@@ -2,7 +2,7 @@
 name = "serde-eure"
 version = "0.1.0"
 edition = "2024"
-description = "Serde support for EURE format"
+description = "Serde support for Eure format"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

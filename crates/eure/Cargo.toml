@@ -2,7 +2,7 @@
 name = "eure"
 version = "0.1.0"
 edition = "2024"
-description = "EURE core library"
+description = "Eure core library"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

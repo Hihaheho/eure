@@ -2,19 +2,19 @@
 name = "eure-editor-support"
 version = "0.1.0"
 edition = "2024"
-description = "Editor support utilities for EURE format"
-license = "MIT OR Apache-2.0"
+description = "Editor support utilities for Eure format"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "editor", "ide", "language-support"]
+license = "MIT OR Apache-2.0"
+keywords = ["editor", "eure", "ide", "language-support"]
 
 [dependencies]
-eure-parol = { workspace = true }
-eure-tree = { workspace = true }
-eure-schema = { workspace = true }
-eure-value = { workspace = true }
-lsp-types = { workspace = true }
-indexmap = { version = "2.0" }
 anyhow = { workspace = true }
+eure-parol = { workspace = true }
+eure-schema = { workspace = true }
+eure-tree = { workspace = true }
+eure-value = { workspace = true }
+indexmap = { version = "2.0" }
+lsp-types = { workspace = true }
 tracing = "0.1"

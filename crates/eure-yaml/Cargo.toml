@@ -2,7 +2,7 @@
 name = "eure-yaml"
 version = "0.1.0"
 edition = "2024"
-description = "YAML conversion support for EURE format"
+description = "YAML conversion support for Eure format"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

@@ -1,4 +1,4 @@
-/// This is a self-hosted schema of the EURE Schema.
+/// This is a self-hosted schema of the Eure Schema.
 ///
 /// This file defines the schema for schemas themselves (meta-schema).
 /// It is self-referential via: $schema = "eure-schema.schema.eure"
@@ -172,7 +172,7 @@ $ext-type.root-type = .$types.type
 $root-type = .$types.type
 
 /// Identifier type for type names, variant names, etc.
-/// Matches EURE identifier syntax using Unicode properties.
+/// Matches Eure identifier syntax using Unicode properties.
 @ $types.ident {
   $variant: text
   language = "plaintext"

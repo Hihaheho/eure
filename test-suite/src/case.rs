@@ -42,7 +42,10 @@ pub struct CaseResult {
 
 impl CaseResult {
     pub fn passed_count(&self) -> usize {
-        self.scenarios.iter().filter(|s| s.result.is_passed()).count()
+        self.scenarios
+            .iter()
+            .filter(|s| s.result.is_passed())
+            .count()
     }
 
     pub fn total_count(&self) -> usize {
@@ -54,7 +57,10 @@ impl CaseResult {
     }
 
     pub fn failed_scenarios(&self) -> Vec<&NamedScenarioResult> {
-        self.scenarios.iter().filter(|s| !s.result.is_passed()).collect()
+        self.scenarios
+            .iter()
+            .filter(|s| !s.result.is_passed())
+            .collect()
     }
 }
 
@@ -118,9 +124,14 @@ impl PreprocessedEure {
                                 let data = cst.node_data(*node);
                                 Some(format!("node_id={}, data={:?}", node, data))
                             }
-                            CstConstructError::UnexpectedNode { node, data, expected_kind } => {
-                                Some(format!("node_id={}, expected={:?}, got={:?}", node, expected_kind, data))
-                            }
+                            CstConstructError::UnexpectedNode {
+                                node,
+                                data,
+                                expected_kind,
+                            } => Some(format!(
+                                "node_id={}, expected={:?}, got={:?}",
+                                node, expected_kind, data
+                            )),
                             _ => None,
                         }
                     }
@@ -283,26 +294,26 @@ impl PreprocessedCase {
             .into_iter()
             .map(|scenario| {
                 let name = scenario.name();
-                let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    scenario.run()
-                })) {
-                    Ok(Ok(())) => ScenarioResult::Passed,
-                    Ok(Err(e)) => ScenarioResult::Failed {
-                        error: format!("{:?}", e),
-                    },
-                    Err(panic) => {
-                        let msg = if let Some(s) = panic.downcast_ref::<&str>() {
-                            s.to_string()
-                        } else if let Some(s) = panic.downcast_ref::<String>() {
-                            s.clone()
-                        } else {
-                            "Unknown panic".to_string()
-                        };
-                        ScenarioResult::Failed {
-                            error: format!("panic: {}", msg),
+                let result =
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scenario.run()))
+                    {
+                        Ok(Ok(())) => ScenarioResult::Passed,
+                        Ok(Err(e)) => ScenarioResult::Failed {
+                            error: format!("{:?}", e),
+                        },
+                        Err(panic) => {
+                            let msg = if let Some(s) = panic.downcast_ref::<&str>() {
+                                s.to_string()
+                            } else if let Some(s) = panic.downcast_ref::<String>() {
+                                s.clone()
+                            } else {
+                                "Unknown panic".to_string()
+                            };
+                            ScenarioResult::Failed {
+                                error: format!("panic: {}", msg),
+                            }
                         }
-                    }
-                };
+                    };
                 NamedScenarioResult { name, result }
             })
             .collect();
@@ -312,7 +323,7 @@ impl PreprocessedCase {
 
     /// Legacy method that returns Result for backwards compatibility.
     pub fn run(&self) -> eros::Result<()> {
-        let trace = std::env::var("EURE_TEST_TRACE").is_ok();
+        let trace = std::env::var("Eure_TEST_TRACE").is_ok();
 
         if trace {
             eprintln!("\n=== PreprocessedCase Debug Trace ===");
@@ -405,7 +416,7 @@ impl PreprocessedCase {
 mod tests {
     use super::*;
 
-    /// Helper to create a PreprocessedEure from a simple EURE string
+    /// Helper to create a PreprocessedEure from a simple Eure string
     fn preprocess(code: &str) -> PreprocessedEure {
         let input = code.to_string();
         match eure::parol::parse(code) {

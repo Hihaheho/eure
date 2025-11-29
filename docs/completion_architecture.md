@@ -1,8 +1,8 @@
-# EURE Completion System Architecture
+# Eure Completion System Architecture
 
 ## Overview
 
-This document describes a complete redesign of the EURE LSP completion system to use proper CST (Concrete Syntax Tree) traversal instead of string-based parsing.
+This document describes a complete redesign of the Eure LSP completion system to use proper CST (Concrete Syntax Tree) traversal instead of string-based parsing.
 
 ## Current Problems
 
@@ -42,7 +42,7 @@ impl PositionMapper {
         }
         Self { line_starts }
     }
-    
+
     fn position_to_offset(&self, pos: Position) -> Option<usize> {
         let line_start = *self.line_starts.get(pos.line as usize)?;
         // Handle UTF-16 column offset (LSP uses UTF-16)
@@ -58,19 +58,19 @@ impl PositionMapper {
 struct CompletionContext {
     /// Path to current location (e.g., ["script", "dependencies"])
     path: Vec<PathSegment>,
-    
+
     /// What kind of position we're in
     position: CompletionPosition,
-    
+
     /// Partial text being typed (e.g., "scr" in "@ scr|")
     partial: Option<String>,
-    
+
     /// Expected type from schema (if known)
     expected_type: Option<Type>,
-    
+
     /// Current variant context (if in variant)
     variant: Option<String>,
-    
+
     /// Whether we're in an array element
     in_array: bool,
 }
@@ -79,25 +79,25 @@ struct CompletionContext {
 enum CompletionPosition {
     /// After @ at start of line
     SectionStart,
-    
+
     /// In section key position (e.g., "@ script.|")
     SectionKey { prefix: Vec<String> },
-    
+
     /// In binding key position
     BindingKey,
-    
+
     /// After = (any value)
     ValueAny,
-    
+
     /// After : (string value only)
     ValueString,
-    
+
     /// After . in value (e.g., "type = .|")
     ValueDot,
-    
+
     /// After $variant: or $variant=
     VariantName,
-    
+
     /// Unknown/invalid position
     Unknown,
 }
@@ -112,7 +112,7 @@ enum CompletionPosition {
 //   visitor.visit_eure(handle, view, tree)?;
 //   let document: EureDocument = visitor.into_document();
 //
-// IMPORTANT: EURE uses a two-type system for representing parsed data:
+// IMPORTANT: Eure uses a two-type system for representing parsed data:
 //
 // 1. EureDocument - The span-aware representation with CST handles
 //    - Contains source location information (spans)
@@ -136,11 +136,11 @@ enum CompletionPosition {
 struct CompletionVisitor<'a> {
     input: &'a str,
     cursor_offset: usize,
-    
+
     // Current state as we traverse
     path_stack: Vec<PathSegment>,
     variant_stack: Vec<Option<String>>,
-    
+
     // Result
     context: Option<CompletionContext>,
 }
@@ -150,7 +150,7 @@ struct CompletionVisitor<'a> {
 impl<'a> CstVisitor for CompletionVisitor<'a> {
     fn visit_section(&mut self, handle: SectionHandle, view: SectionView, tree: &Cst) -> Result<(), Self::Error> {
         let span = self.get_span(handle, tree);
-        
+
         // Check if cursor is in section header
         if self.cursor_in_span(span) {
             // Analyze section header for completion position
@@ -162,33 +162,33 @@ impl<'a> CstVisitor for CompletionVisitor<'a> {
                 }
             }
         }
-        
+
         // Push section path
         let section_path = self.extract_section_path(view.keys, tree);
         self.path_stack.extend(section_path);
-        
+
         // Check for variant
         let variant = self.extract_variant_from_body(view.section_body, tree);
         self.variant_stack.push(variant);
-        
+
         // Continue traversal
         self.visit_section_super(handle, view, tree)?;
-        
+
         // Pop context
         self.path_stack.truncate(original_len);
         self.variant_stack.pop();
-        
+
         Ok(())
     }
-    
+
     fn visit_binding(&mut self, handle: BindingHandle, view: BindingView, tree: &Cst) -> Result<(), Self::Error> {
         let span = self.get_span(handle, tree);
-        
+
         if self.cursor_in_span(span) {
             // Analyze binding for completion position
             self.analyze_binding(view, tree);
         }
-        
+
         Ok(())
     }
 }
@@ -223,10 +223,10 @@ When cursor is in section keys like "@ script.dep|":
 fn analyze_section_keys(&mut self, keys: KeysHandle, tree: &Cst) {
     // Extract the key segments before cursor
     let keys_text = self.extract_text_before_cursor(keys, tree);
-    
+
     // Split by dots to get path segments
     let segments: Vec<_> = keys_text.split('.').collect();
-    
+
     // Last segment might be partial
     let (complete_segments, partial) = if keys_text.ends_with('.') {
         (segments, None)
@@ -234,7 +234,7 @@ fn analyze_section_keys(&mut self, keys: KeysHandle, tree: &Cst) {
         let partial = segments.last().map(|s| s.to_string());
         (&segments[..segments.len()-1], partial)
     };
-    
+
     self.context = Some(CompletionContext {
         path: self.path_stack.clone(),
         position: CompletionPosition::SectionKey {
@@ -268,7 +268,7 @@ fn analyze_binding(&mut self, view: BindingView, tree: &Cst) {
             return;
         }
     }
-    
+
     // Check if cursor is in value
     if let Some(rhs) = view.binding_rhs {
         match rhs {
@@ -294,7 +294,7 @@ fn analyze_binding(&mut self, view: BindingView, tree: &Cst) {
 
 **Challenge**: CST might have error nodes when syntax is incomplete.
 
-**Solution**: 
+**Solution**:
 - Handle error nodes gracefully
 - Use span boundaries flexibly
 - Extract text from raw input when needed
@@ -335,30 +335,30 @@ fn generate_completions(ctx: &CompletionContext, schema: &DocumentSchema) -> Vec
             // Suggest root-level fields from schema
             generate_field_completions(&schema.root, ctx.partial.as_deref())
         }
-        
+
         CompletionPosition::SectionKey { prefix } => {
             // Navigate schema to prefix path, then suggest fields
             let schema_node = navigate_schema_path(&prefix, schema);
             generate_field_completions(schema_node, ctx.partial.as_deref())
         }
-        
+
         CompletionPosition::BindingKey => {
             // Suggest fields at current path
             let schema_node = navigate_schema_path(&ctx.path, schema);
             generate_field_completions(schema_node, ctx.partial.as_deref())
         }
-        
+
         CompletionPosition::ValueAny => {
             // Generate based on expected type
             generate_value_completions(ctx.expected_type.as_ref())
         }
-        
+
         CompletionPosition::VariantName => {
             // Find variant type and suggest variant names
             let variant_type = find_variant_type(&ctx.path, schema);
             generate_variant_completions(variant_type)
         }
-        
+
         // ... other cases
     }
 }

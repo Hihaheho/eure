@@ -9,7 +9,7 @@ use std::fs;
 use std::io::{self, Read};
 
 #[derive(Parser)]
-#[command(name = "eure", about = "EURE file utilities")]
+#[command(name = "eure", about = "Eure file utilities")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -17,31 +17,31 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Parse and display EURE file syntax tree
+    /// Parse and display Eure file syntax tree
     Inspect(Inspect),
-    /// Unformat EURE file
+    /// Unformat Eure file
     Unformat(Unformat),
-    /// Format EURE file
+    /// Format Eure file
     Fmt(Fmt),
-    /// Convert EURE to JSON
+    /// Convert Eure to JSON
     ToJson(ToJson),
-    /// Convert JSON to EURE
+    /// Convert JSON to Eure
     FromJson(FromJson),
-    /// Convert EURE to YAML
+    /// Convert Eure to YAML
     ToYaml(ToYaml),
-    /// Convert YAML to EURE
+    /// Convert YAML to Eure
     FromYaml(FromYaml),
 }
 
 #[derive(Args)]
 struct Inspect {
-    /// Path to EURE file to inspect (use '-' or omit for stdin)
+    /// Path to Eure file to inspect (use '-' or omit for stdin)
     file: Option<String>,
 }
 
 #[derive(Args)]
 struct Unformat {
-    /// Path to EURE file to unformat (use '-' for stdin)
+    /// Path to Eure file to unformat (use '-' for stdin)
     file: Option<String>,
     /// Seed for unformatting
     #[arg(short, long)]
@@ -50,7 +50,7 @@ struct Unformat {
 
 #[derive(Args)]
 struct Fmt {
-    /// Path to EURE file to format (use '-' for stdin)
+    /// Path to Eure file to format (use '-' for stdin)
     file: Option<String>,
     /// Check mode - exit with non-zero status if formatting is needed
     #[arg(short, long)]
@@ -74,7 +74,7 @@ enum VariantFormat {
 
 #[derive(Args)]
 struct ToJson {
-    /// Path to EURE file to convert (use - for stdin)
+    /// Path to Eure file to convert (use - for stdin)
     file: String,
     /// Variant representation format
     #[arg(short = 'v', long, value_enum, default_value = "external")]
@@ -107,7 +107,7 @@ struct FromJson {
 
 #[derive(Args)]
 struct ToYaml {
-    /// Path to EURE file to convert (use - for stdin)
+    /// Path to Eure file to convert (use - for stdin)
     file: String,
     /// Variant representation format
     #[arg(short = 'v', long, value_enum, default_value = "external")]
@@ -308,11 +308,11 @@ fn handle_to_json(args: ToJson) {
         }
     };
 
-    // Parse EURE
+    // Parse Eure
     let tree = match eure_parol::parse(&contents) {
         Ok(tree) => tree,
         Err(e) => {
-            eprintln!("Error parsing EURE: {e:?}");
+            eprintln!("Error parsing Eure: {e:?}");
             return;
         }
     };
@@ -322,7 +322,7 @@ fn handle_to_json(args: ToJson) {
 
     // Visit the tree
     if let Err(e) = tree.visit_from_root(&mut visitor) {
-        eprintln!("Error visiting EURE tree: {e:?}");
+        eprintln!("Error visiting Eure tree: {e:?}");
         return;
     }
 
@@ -415,7 +415,7 @@ fn handle_from_json(args: FromJson) {
 
     let config = JsonConfig { variant_repr };
 
-    // Convert to EURE Value
+    // Convert to Eure Value
     let value = match json_to_value_with_config(&json_value, &config) {
         Ok(value) => value,
         Err(e) => {
@@ -424,7 +424,7 @@ fn handle_from_json(args: FromJson) {
         }
     };
 
-    // Format as EURE
+    // Format as Eure
     let eure_output = format_eure_bindings(&value);
     println!("{eure_output}");
 }
@@ -450,11 +450,11 @@ fn handle_to_yaml(args: ToYaml) {
         }
     };
 
-    // Parse EURE
+    // Parse Eure
     let tree = match eure_parol::parse(&contents) {
         Ok(tree) => tree,
         Err(e) => {
-            eprintln!("Error parsing EURE: {e:?}");
+            eprintln!("Error parsing Eure: {e:?}");
             return;
         }
     };
@@ -464,7 +464,7 @@ fn handle_to_yaml(args: ToYaml) {
 
     // Visit the tree
     if let Err(e) = tree.visit_from_root(&mut visitor) {
-        eprintln!("Error visiting EURE tree: {e:?}");
+        eprintln!("Error visiting Eure tree: {e:?}");
         return;
     }
 
@@ -544,7 +544,7 @@ fn handle_from_yaml(args: FromYaml) {
 
     let config = YamlConfig { variant_repr };
 
-    // Convert to EURE Value
+    // Convert to Eure Value
     let value = match yaml_to_value_with_config(&yaml_value, &config) {
         Ok(value) => value,
         Err(e) => {
@@ -553,7 +553,7 @@ fn handle_from_yaml(args: FromYaml) {
         }
     };
 
-    // Format as EURE
+    // Format as Eure
     let eure_output = eure_yaml::format_eure_bindings(&value);
     println!("{eure_output}");
 }

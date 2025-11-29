@@ -2,7 +2,7 @@
 
 ## Formatting
 
-EURE recommends **2-space indentation** for nested structures.
+Eure recommends **2-space indentation** for nested structures.
 
 ```eure
 @ config {
@@ -143,7 +143,7 @@ For nested variant structures (similar to Rust's `Result<Result<T, E>, E>` or `O
 
 This represents a three-level nested structure:
 
-| EURE | Rust Equivalent |
+| Eure | Rust Equivalent |
 |------|----------------|
 | `$variant = .ok` | `Ok(value)` |
 | `$variant = .ok.ok` | `Ok(Ok(value))` |
@@ -167,7 +167,7 @@ Each segment in the path represents one level of variant selection:
 # Rust: Some(Some(Some("deeply nested")))
 ```
 
-The dot notation follows EURE's standard path syntax, making it consistent with other path-based features in the language.
+The dot notation follows Eure's standard path syntax, making it consistent with other path-based features in the language.
 
 ## Unit
 

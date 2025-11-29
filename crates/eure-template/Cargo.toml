@@ -2,11 +2,11 @@
 name = "eure-template"
 version = "0.1.0"
 edition = "2024"
-description = "Templating extension for EURE files"
-license = "MIT OR Apache-2.0"
+description = "Templating extension for Eure files"
+readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"
-readme = "README.md"
-keywords = ["eure", "template", "templating", "code-generation"]
+license = "MIT OR Apache-2.0"
+keywords = ["code-generation", "eure", "template", "templating"]
 
 [dependencies]

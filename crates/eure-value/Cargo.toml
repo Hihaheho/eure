@@ -2,7 +2,7 @@
 name = "eure-value"
 version = "0.1.0"
 edition = "2024"
-description = "Value type for EURE"
+description = "Value type for Eure"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

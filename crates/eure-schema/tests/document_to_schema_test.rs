@@ -1,6 +1,6 @@
 //! Comprehensive test cases for EureDocument to SchemaDocument conversion
 //!
-//! These tests cover all major schema features supported by EURE Schema:
+//! These tests cover all major schema features supported by Eure Schema:
 //! - Primitive types (string, integer, float, boolean, null, any, path)
 //! - Code types with language specifiers
 //! - Literal types (exact value match)
@@ -14,7 +14,7 @@
 //! - Metadata (description, deprecated, default, examples)
 
 use eure::document::parse_to_document;
-use eure_schema::convert::{document_to_schema, ConversionError};
+use eure_schema::convert::{ConversionError, document_to_schema};
 use eure_schema::{
     ArraySchema, Bound, FloatSchema, IntegerSchema, MapSchema, PathSchema, SchemaDocument,
     SchemaMetadata, SchemaNodeContent, SchemaNodeId, TextSchema, UnknownFieldsPolicy,
@@ -25,9 +25,9 @@ use eure_value::path::{EurePath, PathSegment};
 use eure_value::value::{ObjectKey, Tuple};
 use num_bigint::BigInt;
 
-// Helper function to parse EURE text and convert to schema
+// Helper function to parse Eure text and convert to schema
 fn parse_and_convert(input: &str) -> SchemaDocument {
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     document_to_schema(&doc).expect("Failed to convert to schema")
 }
 
@@ -339,7 +339,6 @@ fn assert_path(schema: &SchemaDocument, node_id: SchemaNodeId) {
         node.content
     );
 }
-
 
 /// Assert that a node is an Array type
 fn assert_array<F>(schema: &SchemaDocument, node_id: SchemaNodeId, item_check: F)
@@ -741,7 +740,11 @@ content = .text
 "#;
     let schema = parse_and_convert(input);
 
-    assert_record1(&schema, schema.root, ("content", |s, id| assert_text(s, id)));
+    assert_record1(
+        &schema,
+        schema.root,
+        ("content", |s, id| assert_text(s, id)),
+    );
 }
 
 #[test]
@@ -786,7 +789,6 @@ fn test_text_with_constraints() {
         }),
     );
 }
-
 
 // ============================================================================
 // ARRAY TYPES
@@ -846,7 +848,9 @@ point = (.float, .float)
     assert_record1(
         &schema,
         schema.root,
-        ("point", |s, id| assert_tuple2(s, id, assert_float, assert_float)),
+        ("point", |s, id| {
+            assert_tuple2(s, id, assert_float, assert_float)
+        }),
     );
 }
 
@@ -884,12 +888,7 @@ fn test_record_basic() {
         &schema,
         schema.root,
         ("user", |s, id| {
-            assert_record2(
-                s,
-                id,
-                ("name", assert_text),
-                ("age", assert_integer),
-            )
+            assert_record2(s, id, ("name", assert_text), ("age", assert_integer))
         }),
     );
 }
@@ -913,12 +912,7 @@ fn test_union_type() {
         &schema,
         schema.root,
         ("value", |s, id| {
-            assert_union2(
-                s,
-                id,
-                ("string", assert_text),
-                ("float", assert_float),
-            )
+            assert_union2(s, id, ("string", assert_text), ("float", assert_float))
         }),
     );
 }
@@ -1113,7 +1107,7 @@ fn test_union_with_three_variants() {
 
 #[test]
 fn test_custom_type_definition() {
-    // Note: bindings must come before sections in EURE
+    // Note: bindings must come before sections in Eure
     let input = r#"
 user = .$types.username
 
@@ -1273,7 +1267,9 @@ fn test_map_type() {
     assert_record1(
         &schema,
         schema.root,
-        ("headers", |s, id| assert_map(s, id, assert_text, assert_text)),
+        ("headers", |s, id| {
+            assert_map(s, id, assert_text, assert_text)
+        }),
     );
 }
 
@@ -1811,7 +1807,9 @@ name = .text
     assert_record1(
         &schema,
         schema.root,
-        ("user", |s, id| assert_reference_external(s, id, "common", "User")),
+        ("user", |s, id| {
+            assert_reference_external(s, id, "common", "User")
+        }),
     );
 }
 
@@ -1845,7 +1843,7 @@ data = .$types.a
 
 #[test]
 fn test_type_reference_chain() {
-    // Note: bindings must come before sections in EURE
+    // Note: bindings must come before sections in Eure
     // Also: type definitions must use @ $types.name section syntax
     let input = r#"
 data = .$types.user
@@ -2043,7 +2041,7 @@ fn test_nested_types_and_arrays() {
 
 #[test]
 fn test_array_of_custom_types_complex() {
-    // Note: bindings must come before sections in EURE
+    // Note: bindings must come before sections in Eure
     let input = r#"
 data = .$types.collection
 
@@ -2196,7 +2194,7 @@ fn test_error_empty_section() {
     let input = r#"
 @ config
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2233,7 +2231,7 @@ fn test_invalid_type_reference() {
     let input = r#"
 user = .$types.nonexistent
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2253,7 +2251,7 @@ fn test_error_unknown_variant_type() {
   $variant: unknown_type
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2272,7 +2270,7 @@ fn test_error_invalid_integer_range_format() {
   range = "not a range"
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2289,7 +2287,7 @@ fn test_error_invalid_float_range_format() {
   range = "invalid"
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2303,14 +2301,14 @@ fn test_error_invalid_type_path() {
     let input = r#"
 field = .unknown_primitive
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::UnknownPrimitiveType(EurePath(vec![PathSegment::Ident(
-            ident("unknown_primitive")
-        )]))
+        ConversionError::UnknownPrimitiveType(EurePath(vec![PathSegment::Ident(ident(
+            "unknown_primitive"
+        ))]))
     );
 }
 
@@ -2319,7 +2317,7 @@ fn test_error_invalid_extension_path() {
     let input = r#"
 field = .$unknown.type
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2339,7 +2337,7 @@ fn test_error_map_missing_key() {
   value = .text
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2359,7 +2357,7 @@ fn test_error_map_missing_value() {
   key = .text
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2379,7 +2377,7 @@ fn test_error_array_missing_item() {
   min-length = 1
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2400,7 +2398,7 @@ fn test_error_invalid_variant_repr() {
   variants.a = .text
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2423,7 +2421,7 @@ fn test_error_adjacent_repr_missing_tag() {
   }
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2443,7 +2441,7 @@ fn test_error_invalid_unknown_fields_policy() {
   name = .text
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2460,7 +2458,7 @@ fn test_error_array_with_multiple_items() {
     let input = r#"
 field = [.text, .integer]
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2477,7 +2475,7 @@ fn test_error_invalid_range_interval_format() {
   range = "[1, 2, 3]"
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2494,7 +2492,7 @@ fn test_error_literal_missing_value() {
   other = "something"
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2511,7 +2509,7 @@ fn test_error_types_not_map() {
     let input = r#"
 $types = "not a map"
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2529,7 +2527,7 @@ fn test_error_invalid_type_path_extra_segment() {
     let input = r#"
 @ field = .integer.foo
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2551,7 +2549,7 @@ fn test_error_nested_variant_path() {
     error_code = .integer
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2594,7 +2592,7 @@ fn test_error_variant_path_single_segment_unknown() {
     value = 123
 }
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2609,7 +2607,7 @@ fn test_error_types_non_string_key() {
     let input = r#"
 $types.("a", "b") = .text
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2622,14 +2620,14 @@ $types.("a", "b") = .text
 }
 
 #[test]
-#[ignore = "EURE grammar cannot parse $types.0 due to lexer precedence (.0 is tokenized as Float)"]
+#[ignore = "Eure grammar cannot parse $types.0 due to lexer precedence (.0 is tokenized as Float)"]
 fn test_error_types_integer_key() {
     // Type names in $types must be strings (identifiers), not integers
     // Note: This syntax currently fails to parse because .0 is lexed as a Float token
     let input = r#"
 $types.0 = .text
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2644,7 +2642,7 @@ fn test_error_type_path_with_tuple_segment() {
     let input = r#"
 field = .text.("a", "b")
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
     assert_eq!(

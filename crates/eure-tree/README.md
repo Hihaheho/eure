@@ -1,3 +1,3 @@
 # eure-tree
 
-EURE tree data structure
+Eure tree data structure

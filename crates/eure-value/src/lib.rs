@@ -13,7 +13,7 @@ pub mod identifier;
 /// Unified text type for strings and code.
 pub mod text;
 
-/// A type-safe data-type of EURE data-model.
+/// A type-safe data-type of Eure data-model.
 pub mod value;
 
 /// A data structure for representing a Eure document including extensions.
@@ -22,7 +22,7 @@ pub mod document;
 /// Data structure for representing a path in a Eure document.
 pub mod path;
 
-/// Data structure for representing a data-model of EURE.
+/// Data structure for representing a data-model of Eure.
 pub mod data_model;
 
 #[cfg(feature = "std")]

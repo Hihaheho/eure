@@ -8,7 +8,7 @@ pub enum DataModel {
     Rust,
     /// JSON compatible data model.
     Json,
-    /// EURE full data model including path.
+    /// Eure full data model including path.
     #[default]
     Eure,
 }

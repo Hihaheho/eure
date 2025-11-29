@@ -1,6 +1,6 @@
-//! Text type unifying strings and code in EURE.
+//! Text type unifying strings and code in Eure.
 //!
-//! This module provides the [`Text`] type which represents all text values in EURE,
+//! This module provides the [`Text`] type which represents all text values in Eure,
 //! whether they originated from string syntax (`"..."`) or code syntax (`` `...` ``).
 
 use alloc::{borrow::Cow, string::String};
@@ -155,11 +155,11 @@ impl SyntaxHint {
     }
 }
 
-/// A text value in EURE, unifying strings and code.
+/// A text value in Eure, unifying strings and code.
 ///
 /// # Overview
 ///
-/// `Text` represents all text values in EURE, regardless of whether they were
+/// `Text` represents all text values in Eure, regardless of whether they were
 /// written using string syntax (`"..."`) or code syntax (`` `...` ``). This
 /// unification simplifies the data model while preserving the semantic distinction
 /// through the [`language`](Text::language) field.

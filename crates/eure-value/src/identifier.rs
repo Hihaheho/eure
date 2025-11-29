@@ -85,7 +85,7 @@ impl Identifier {
     /// Creates a new Identifier without validation.
     ///
     /// # Safety
-    /// The caller must ensure that the string is a valid identifier according to EURE rules:
+    /// The caller must ensure that the string is a valid identifier according to Eure rules:
     /// - Must start with XID_Start character or underscore
     /// - Can contain XID_Continue characters or hyphens
     /// - Must not start with $

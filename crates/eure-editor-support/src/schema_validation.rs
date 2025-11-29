@@ -1,4 +1,4 @@
-//! Schema validation support for EURE editor integration
+//! Schema validation support for Eure editor integration
 
 use eure_schema::{
     DocumentSchema, PathSegment, Severity, ValidationError, ValidationErrorKind,
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn test_validation_error_to_diagnostic() {
-        // Create a test input with valid EURE syntax
+        // Create a test input with valid Eure syntax
         let input = "field1 = \"value1\"\nfield2 = 123\nfield3 = \"value3\"";
         let line_numbers = LineNumbers::new(input);
 

@@ -1,4 +1,4 @@
-//! Custom test runner for the EURE test suite.
+//! Custom test runner for the Eure test suite.
 //!
 //! This binary runs all test cases and reports results in a friendly format:
 //! - basic/primitives 5/5 PASS
@@ -9,7 +9,7 @@ use std::sync::mpsc;
 
 use rayon::prelude::*;
 use test_suite::{
-    cases_dir, collect_cases, format_parse_error, CaseResult, CollectCasesError, ScenarioResult,
+    CaseResult, CollectCasesError, ScenarioResult, cases_dir, collect_cases, format_parse_error,
 };
 
 /// ANSI color codes
@@ -31,10 +31,7 @@ enum TestCaseOutcome {
         result: CaseResult,
     },
     /// Failed to parse the test case file
-    ParseError {
-        case_name: String,
-        error: String,
-    },
+    ParseError { case_name: String, error: String },
 }
 
 /// Extract a friendly case name from the full path
@@ -53,7 +50,7 @@ fn main() {
 
 fn run() -> i32 {
     println!(
-        "\n{}{}EURE Test Suite{}",
+        "\n{}{}Eure Test Suite{}",
         colors::BOLD,
         colors::CYAN,
         colors::RESET
@@ -95,10 +92,8 @@ fn run() -> i32 {
             cases.par_iter().for_each_with(tx, |tx, case_result| {
                 let outcome = match case_result {
                     Ok(parse_result) => {
-                        let case_name = case_name_from_path(
-                            &parse_result.case.path,
-                            &cases_base_dir,
-                        );
+                        let case_name =
+                            case_name_from_path(&parse_result.case.path, &cases_base_dir);
                         let preprocessed = parse_result.case.preprocess();
                         let result = preprocessed.run_all();
                         TestCaseOutcome::Ran { case_name, result }
@@ -212,12 +207,7 @@ fn run() -> i32 {
         }
 
         // Print summary
-        println!(
-            "\n{}{}Summary{}",
-            colors::BOLD,
-            colors::CYAN,
-            colors::RESET
-        );
+        println!("\n{}{}Summary{}", colors::BOLD, colors::CYAN, colors::RESET);
         println!("{}{}", colors::DIM, "-".repeat(50));
         println!("{}", colors::RESET);
 
@@ -236,12 +226,7 @@ fn run() -> i32 {
 
         // Print detailed failure reports
         if !failures.is_empty() {
-            println!(
-                "\n{}{}Failures{}",
-                colors::BOLD,
-                colors::RED,
-                colors::RESET
-            );
+            println!("\n{}{}Failures{}", colors::BOLD, colors::RED, colors::RESET);
             println!("{}{}", colors::DIM, "-".repeat(50));
             println!("{}", colors::RESET);
 

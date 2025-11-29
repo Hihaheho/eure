@@ -6,7 +6,7 @@ use syn::{Attribute, Data, DeriveInput, Fields, Lit, parse_macro_input};
 /// Derive macro for generating ToEureSchema implementations
 ///
 /// This macro generates an implementation of the `ToEureSchema` trait for
-/// a struct or enum, creating EURE schema definitions that match the structure.
+/// a struct or enum, creating Eure schema definitions that match the structure.
 ///
 /// # Example
 ///
@@ -390,7 +390,7 @@ fn generate_field_schema(
             }
         })
     } else if has_default {
-        // Field has default, so it's optional in EURE schema
+        // Field has default, so it's optional in Eure schema
         Ok(quote! {
             {
                 let mut schema = <#ty as ::eure_schema::ToEureSchema>::eure_field_schema();
@@ -596,7 +596,7 @@ fn extract_rename_all_fields_rule(attrs: &[Attribute]) -> syn::Result<Option<Str
                     }
                 } else {
                     // With serialize/deserialize: #[serde(rename_all_fields(serialize = "...", deserialize = "..."))]
-                    // For EURE schema, we'll use the serialize variant
+                    // For Eure schema, we'll use the serialize variant
                     let content;
                     syn::parenthesized!(content in meta.input);
                     while !content.is_empty() {

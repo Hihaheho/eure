@@ -2,7 +2,7 @@
 name = "eure-schema"
 version = "0.1.0"
 edition = "2024"
-description = "Schema specification and validation for EURE"
+description = "Schema specification and validation for Eure"
 readme = "README.md"
 homepage = "https://eure.dev"
 repository = "https://github.com/Hihaheho/eure"

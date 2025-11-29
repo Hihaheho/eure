@@ -2,9 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## About EURE
+## About Eure
 
-EURE is a minimalist, schema-friendly data format and language ecosystem designed for configuration and data exchange. It combines JSON compatibility with TOML-like minimalism, featuring algebraic data models, rich editor support, and templating capabilities.
+Eure is a minimalist, schema-friendly data format and language ecosystem designed for configuration and data exchange. It combines JSON compatibility with TOML-like minimalism, featuring algebraic data models, rich editor support, and templating capabilities.
 
 ## Commands
 
@@ -36,7 +36,7 @@ cargo run -p eure-parol-gen # Regenerate eure-parol and eure-tree based on @crat
 - **Parser-First Design:** Uses Parol LL(k) parser generator with type-safe structures
 - **Modular Format Support:** Each format converter is a separate crate sharing core data structures
 
-**EURE Syntax Features:**
+**Eure Syntax Features:**
 - Array indexing with `[]` notation (e.g., `actions[]`)
 - Extension namespaces with `$` prefix (e.g., `$variant`, `$eure.version`)
 - Multi-line text and code blocks with language tagging

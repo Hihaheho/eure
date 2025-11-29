@@ -1,4 +1,4 @@
-# EURE
+# Eure
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Hihaheho/eure)
 
@@ -57,19 +57,19 @@ scene: scenes/room_a.scn.ron
 
 - [ ] eure-parol: Complete the grammar and parser
 - [ ] eure-ls: Syntax highlighting
-- [ ] eure-schema: EURE Schema specification
+- [ ] eure-schema: Eure Schema specification
 - [ ] serde-eure: Serde support
 - [ ] eure-dev: Making the landing page on <https://eure.dev>
 - [ ] eure-fmt: Make the formatter
-- [ ] eure-cli: command to convert EURE to other formats
-- [ ] eure-check: EURE files validator
+- [ ] eure-cli: command to convert Eure to other formats
+- [ ] eure-check: Eure files validator
 - [ ] eure-lint: Some lint rules
-- [ ] eure-template: Templating extension for EURE files
-- [ ] eure-editor-support: Editor support for EURE files
+- [ ] eure-template: Templating extension for Eure files
+- [ ] eure-editor-support: Editor support for Eure files
 - [ ] eure-toml: TOML conversion support
 - [ ] eure-json: JSON conversion support
 - [ ] eure-yaml: YAML conversion support
-- [ ] eure-value: Type-safe data-type of EURE data-model
+- [ ] eure-value: Type-safe data-type of Eure data-model
 
 ## Credits
 

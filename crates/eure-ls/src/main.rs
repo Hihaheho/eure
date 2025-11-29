@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
-    tracing::info!("EURE Language Server starting");
+    tracing::info!("Eure Language Server starting");
 
     let (connection, io_threads) = Connection::stdio();
 
