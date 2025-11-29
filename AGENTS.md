@@ -19,6 +19,7 @@ cargo clippy         # Run linting
 ```bash
 cargo check -p eure-fmt     # Build specific crate
 cargo test -p eure-tree     # Test specific crate
+cargo run -p eure-parol-gen # Regenerate eure-parol and eure-tree based on @crates/eure-parol/eure.par
 ```
 
 ## Architecture
