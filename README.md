@@ -5,6 +5,10 @@
 > [!WARNING]
 > Under Construction!
 
+## Name
+
+Eure (not "EURE"), pronounced "your." Not an acronym, but think: Eureka, Extensible Universal Representation, "your" data.
+
 ## Focus
 
 - Minimalist
