@@ -95,10 +95,6 @@ pub enum ConversionError {
 struct Converter<'a> {
     doc: &'a EureDocument,
     schema: SchemaDocument,
-    /// Deferred type definitions that need to be resolved
-    deferred_types: HashMap<Identifier, NodeId>,
-    /// Types currently being converted (for cycle detection)
-    converting_types: std::collections::HashSet<Identifier>,
 }
 
 impl<'a> Converter<'a> {
@@ -106,8 +102,6 @@ impl<'a> Converter<'a> {
         Self {
             doc,
             schema: SchemaDocument::new(),
-            deferred_types: HashMap::new(),
-            converting_types: std::collections::HashSet::new(),
         }
     }
 
@@ -116,19 +110,11 @@ impl<'a> Converter<'a> {
         let root_id = self.doc.get_root_id();
         let root_node = self.doc.node(root_id);
 
-        // First pass: collect $types definitions
-        self.collect_types(root_node)?;
+        // Convert all type definitions from $types extension
+        self.convert_types(root_node)?;
 
-        // Second pass: convert ALL type definitions
-        // Clone the keys to avoid borrow issues
-        let type_names: Vec<Identifier> = self.deferred_types.keys().cloned().collect();
-        for type_name in type_names {
-            self.convert_type_definition(&type_name)?;
-        }
-
-        // Third pass: convert the root node (record structure)
-        let schema_root_id = self.convert_node(root_id)?;
-        self.schema.root = schema_root_id;
+        // Convert root node
+        self.schema.root = self.convert_node(root_id)?;
 
         // Validate all type references exist
         self.validate_type_references()?;
@@ -136,37 +122,8 @@ impl<'a> Converter<'a> {
         Ok(self.schema)
     }
 
-    /// Convert a type definition with cycle detection
-    fn convert_type_definition(&mut self, type_name: &Identifier) -> Result<(), ConversionError> {
-        // Already converted
-        if self.schema.types.contains_key(type_name) {
-            return Ok(());
-        }
-
-        // Currently being converted (cycle detected) - just skip, will be handled as reference
-        if self.converting_types.contains(type_name) {
-            return Ok(());
-        }
-
-        if let Some(node_id) = self.deferred_types.get(type_name).copied() {
-            // Mark as being converted
-            self.converting_types.insert(type_name.clone());
-
-            // Convert the type definition
-            let type_schema_id = self.convert_node(node_id)?;
-
-            // Remove from converting set
-            self.converting_types.remove(type_name);
-
-            // Add to types
-            self.schema.types.insert(type_name.clone(), type_schema_id);
-        }
-
-        Ok(())
-    }
-
-    /// Collect type definitions from $types extension
-    fn collect_types(&mut self, node: &Node) -> Result<(), ConversionError> {
+    /// Convert all type definitions from $types extension
+    fn convert_types(&mut self, node: &Node) -> Result<(), ConversionError> {
         let types_ident: Identifier = "types".parse().unwrap();
         if let Some(types_node_id) = node.extensions.get(&types_ident) {
             let types_node = self.doc.node(*types_node_id);
@@ -176,7 +133,8 @@ impl<'a> Converter<'a> {
                         let type_name: Identifier = name.parse().map_err(|_| {
                             ConversionError::InvalidTypePath(format!("Invalid type name: {}", name))
                         })?;
-                        self.deferred_types.insert(type_name, node_id);
+                        let schema_id = self.convert_node(node_id)?;
+                        self.schema.types.insert(type_name, schema_id);
                     }
                 }
             } else {
@@ -452,20 +410,15 @@ impl<'a> Converter<'a> {
                     if path.0.len() == 2 {
                         // Local reference: .$types.typename
                         if let PathSegment::Ident(type_ident) = &path.0[1] {
-                            // Check if type exists (for deferred processing)
                             let type_name: Identifier = type_ident.clone();
 
                             // Create reference node - validation happens later
                             let schema_id = self.schema.create_node(SchemaNodeContent::Reference(
                                 TypeReference {
                                     namespace: None,
-                                    name: type_name.clone(),
+                                    name: type_name,
                                 },
                             ));
-
-                            // If this type hasn't been converted yet, convert it now
-                            // Uses cycle detection to prevent infinite recursion
-                            self.convert_type_definition(&type_name)?;
 
                             Ok(schema_id)
                         } else {
