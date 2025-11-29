@@ -209,7 +209,7 @@ impl<'a> Converter<'a> {
         let node = self.doc.node(node_id);
 
         // Check for $variant extension to determine explicit type
-        let variant = self.get_variant_extension(node);
+        let variant = self.get_variant_extension(node)?;
 
         match &node.content {
             NodeValue::Uninitialized => {
@@ -261,18 +261,22 @@ impl<'a> Converter<'a> {
     }
 
     /// Get $variant extension value if present
-    fn get_variant_extension(&self, node: &Node) -> Option<String> {
+    /// Returns Ok(Some(tag)) for valid single-segment variant or string
+    /// Returns Ok(None) if $variant is not present
+    /// Returns Err for multi-segment paths (invalid in schema context - type type has no nested unions)
+    fn get_variant_extension(&self, node: &Node) -> Result<Option<String>, ConversionError> {
         let variant_ident: Identifier = "variant".parse().unwrap();
         if let Some(&ext_node_id) = node.extensions.get(&variant_ident) {
             let ext_node = self.doc.node(ext_node_id);
+            // Simple variant: $variant = .string (parsed as Variant with tag "string")
             if let NodeValue::Primitive(PrimitiveValue::Variant(v)) = &ext_node.content {
-                return Some(v.tag.clone());
+                return Ok(Some(v.tag.clone()));
             }
-            // Also check for string value (e.g., $variant = "union")
+            // String value: $variant = "union"
             if let NodeValue::Primitive(PrimitiveValue::String(s)) = &ext_node.content {
-                return Some(s.as_str().to_string());
+                return Ok(Some(s.as_str().to_string()));
             }
-            // Handle nested variant paths (e.g., $variant = .ok.ok.err)
+            // Path value: $variant = .string or $variant = .ok.ok (multi-segment)
             if let NodeValue::Primitive(PrimitiveValue::Path(path)) = &ext_node.content {
                 let segments: Vec<&str> = path
                     .0
@@ -285,12 +289,24 @@ impl<'a> Converter<'a> {
                         }
                     })
                     .collect();
-                if !segments.is_empty() {
-                    return Some(segments.join("."));
+
+                if segments.len() == 1 {
+                    // Single-segment path like .string, .union - equivalent to string notation
+                    return Ok(Some(segments[0].to_string()));
+                } else if segments.len() > 1 {
+                    // Multi-segment path like .ok.ok - invalid in schema context
+                    // The type type union doesn't have nested unions
+                    return Err(ConversionError::InvalidExtensionValue {
+                        extension: "variant".to_string(),
+                        path: format!(
+                            "nested variant path .{} is invalid in schema context (type type has no nested unions)",
+                            segments.join(".")
+                        ),
+                    });
                 }
             }
         }
-        None
+        Ok(None)
     }
 
     /// Convert a primitive value to a schema node
@@ -303,7 +319,7 @@ impl<'a> Converter<'a> {
             PrimitiveValue::Path(path) => self.convert_path_to_type(path, node),
             PrimitiveValue::String(s) => {
                 // Check if this has $variant: literal
-                let variant = self.get_variant_extension(node);
+                let variant = self.get_variant_extension(node)?;
                 if variant.as_deref() == Some("literal") {
                     let schema_id = self.schema.create_node(SchemaNodeContent::Literal(
                         Value::Primitive(PrimitiveValue::String(s.clone())),
@@ -520,12 +536,10 @@ impl<'a> Converter<'a> {
                 // No explicit variant - treat as record
                 self.convert_record_type_from_map(map, node)
             }
-            Some(_other) => {
-                // Unknown variant (including nested variant paths like "ok.ok.err")
-                // These are valid EURE syntax used for variant selection in data,
-                // so treat the map as a record schema
-                self.convert_record_type_from_map(map, node)
-            }
+            Some(other) => Err(ConversionError::UnsupportedConstruct(format!(
+                "Unknown variant: {}",
+                other
+            ))),
         }
     }
 

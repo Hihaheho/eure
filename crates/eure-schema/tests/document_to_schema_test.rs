@@ -2510,27 +2510,63 @@ fn test_error_invalid_type_path_extra_segment() {
 }
 
 #[test]
-fn test_nested_variant_path_in_extension() {
-    // Nested variant paths like $variant = .ok.ok.err are valid EURE syntax
-    // They represent variant selection in nested union structures
+fn test_error_nested_variant_path() {
+    // Nested variant paths like $variant = .ok.ok.err are invalid in schema context
+    // The type type union doesn't have nested unions
     let input = r#"
 @ response {
     $variant = .ok.ok.err
     error_code = .integer
 }
 "#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidExtensionValue {
+            extension: "variant".to_string(),
+            path: "nested variant path .ok.ok.err is invalid in schema context (type type has no nested unions)".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_variant_path_single_segment_valid() {
+    // Single-segment path $variant = .string is equivalent to $variant = "string"
+    let input = r#"
+@ field {
+    $variant = .string
+    min-length = 1
+}
+"#;
     let schema = parse_and_convert(input);
 
-    // The nested variant path "ok.ok.err" doesn't match any known type specifier,
-    // so the map is treated as a record schema with the given fields
     assert_record1(
         &schema,
         schema.root,
-        (
-            "response",
-            |s: &SchemaDocument, id: SchemaNodeId| {
-                assert_record1(s, id, ("error_code", assert_integer));
-            },
-        ),
+        ("field", |s: &SchemaDocument, id: SchemaNodeId| {
+            assert_string_with(s, id, |str_schema| {
+                assert_eq!(str_schema.min_length, Some(1));
+            });
+        }),
+    );
+}
+
+#[test]
+fn test_error_variant_path_single_segment_unknown() {
+    // Single-segment path with unknown type is invalid
+    let input = r#"
+@ field {
+    $variant = .unknown_type
+    value = 123
+}
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::UnsupportedConstruct("Unknown variant: unknown_type".to_string())
     );
 }
