@@ -22,6 +22,8 @@ use eure_schema::{
 };
 use eure_value::data_model::VariantRepr;
 use eure_value::identifier::Identifier;
+use eure_value::path::{EurePath, PathSegment};
+use eure_value::value::{ObjectKey, Tuple};
 use num_bigint::BigInt;
 
 // Helper function to parse EURE text and convert to schema
@@ -2285,7 +2287,9 @@ field = .unknown_primitive
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::InvalidTypePath("Unknown type: .unknown_primitive".to_string())
+        ConversionError::UnknownPrimitiveType(EurePath(vec![PathSegment::Ident(
+            ident("unknown_primitive")
+        )]))
     );
 }
 
@@ -2299,7 +2303,10 @@ field = .$unknown.type
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::InvalidTypePath("Unknown extension path: $unknown".to_string())
+        ConversionError::UnknownExtensionPath(EurePath(vec![
+            PathSegment::Extension(ident("unknown")),
+            PathSegment::Ident(ident("type"))
+        ]))
     );
 }
 
@@ -2505,7 +2512,10 @@ fn test_error_invalid_type_path_extra_segment() {
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::InvalidTypePath("Unknown type: .string.invalid".to_string())
+        ConversionError::InvalidTypePath(EurePath(vec![
+            PathSegment::Ident(ident("string")),
+            PathSegment::Ident(ident("invalid"))
+        ]))
     );
 }
 
@@ -2582,7 +2592,10 @@ $types.("a", "b") = .string
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::InvalidTypePath("Type name must be a string identifier, got: (a, b)".to_string())
+        ConversionError::InvalidTypeName(ObjectKey::Tuple(Tuple(vec![
+            ObjectKey::String("a".to_string()),
+            ObjectKey::String("b".to_string())
+        ])))
     );
 }
 
@@ -2599,6 +2612,27 @@ $types.0 = .string
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::InvalidTypePath("Type name must be a string identifier, got: 0".to_string())
+        ConversionError::InvalidTypeName(ObjectKey::Number(BigInt::from(0)))
+    );
+}
+
+#[test]
+fn test_error_type_path_with_tuple_segment() {
+    // Type paths cannot contain tuple segments - .string.("a", "b") is invalid
+    let input = r#"
+field = .string.("a", "b")
+"#;
+    let doc = parse_to_document(input).expect("Failed to parse EURE document");
+    let result = document_to_schema(&doc);
+
+    assert_eq!(
+        result.unwrap_err(),
+        ConversionError::InvalidTypePath(EurePath(vec![
+            PathSegment::Ident(ident("string")),
+            PathSegment::Value(ObjectKey::Tuple(Tuple(vec![
+                ObjectKey::String("a".to_string()),
+                ObjectKey::String("b".to_string())
+            ])))
+        ]))
     );
 }

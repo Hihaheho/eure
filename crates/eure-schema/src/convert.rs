@@ -60,8 +60,20 @@ use thiserror::Error;
 /// Errors that can occur during document to schema conversion
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum ConversionError {
+    #[error("Empty type path")]
+    EmptyTypePath,
+
+    #[error("Unknown primitive type: {0}")]
+    UnknownPrimitiveType(EurePath),
+
+    #[error("Unknown extension in type path: {0}")]
+    UnknownExtensionPath(EurePath),
+
     #[error("Invalid type path: {0}")]
-    InvalidTypePath(String),
+    InvalidTypePath(EurePath),
+
+    #[error("Invalid type name: {0}")]
+    InvalidTypeName(ObjectKey),
 
     #[error("Unsupported schema construct at path: {0}")]
     UnsupportedConstruct(String),
@@ -131,15 +143,12 @@ impl<'a> Converter<'a> {
                 for (key, &node_id) in map.0.iter() {
                     if let ObjectKey::String(name) = key {
                         let type_name: Identifier = name.parse().map_err(|_| {
-                            ConversionError::InvalidTypePath(format!("Invalid type name: {}", name))
+                            ConversionError::InvalidTypeName(key.clone())
                         })?;
                         let schema_id = self.convert_node(node_id)?;
                         self.schema.types.insert(type_name, schema_id);
                     } else {
-                        return Err(ConversionError::InvalidTypePath(format!(
-                            "Type name must be a string identifier, got: {}",
-                            key
-                        )));
+                        return Err(ConversionError::InvalidTypeName(key.clone()));
                     }
                 }
             } else {
@@ -327,147 +336,62 @@ impl<'a> Converter<'a> {
         path: &EurePath,
         _node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
-        if path.0.is_empty() {
-            return Err(ConversionError::InvalidTypePath("Empty path".to_string()));
-        }
+        match path.0.as_slice() {
+            [] => Err(ConversionError::EmptyTypePath),
 
-        // Convert path segments to string slices for matching
-        let segments: Vec<&str> = path
-            .0
-            .iter()
-            .filter_map(|seg| match seg {
-                PathSegment::Ident(ident) => Some(ident.as_ref()),
-                PathSegment::Extension(ident) => Some(ident.as_ref()),
-                _ => None,
-            })
-            .collect();
-
-        // Check first segment
-        match &path.0[0] {
-            PathSegment::Ident(ident) => {
-                let name: &str = ident.as_ref();
-                match name {
-                    "string" if segments.as_slice() == ["string"] => {
-                        let schema_id = self
-                            .schema
-                            .create_node(SchemaNodeContent::String(StringSchema::default()));
-                        Ok(schema_id)
-                    }
-                    "integer" if segments.as_slice() == ["integer"] => {
-                        let schema_id = self
-                            .schema
-                            .create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
-                        Ok(schema_id)
-                    }
-                    "float" if segments.as_slice() == ["float"] => {
-                        let schema_id = self
-                            .schema
-                            .create_node(SchemaNodeContent::Float(FloatSchema::default()));
-                        Ok(schema_id)
-                    }
-                    "boolean" if segments.as_slice() == ["boolean"] => {
-                        let schema_id = self.schema.create_node(SchemaNodeContent::Boolean);
-                        Ok(schema_id)
-                    }
-                    "null" if segments.as_slice() == ["null"] => {
-                        let schema_id = self.schema.create_node(SchemaNodeContent::Null);
-                        Ok(schema_id)
-                    }
-                    "any" if segments.as_slice() == ["any"] => {
-                        let schema_id = self.schema.create_node(SchemaNodeContent::Any);
-                        Ok(schema_id)
-                    }
-                    "path" if segments.as_slice() == ["path"] => {
-                        let schema_id = self
-                            .schema
-                            .create_node(SchemaNodeContent::Path(PathSchema::default()));
-                        Ok(schema_id)
-                    }
-                    "code" => {
-                        // Check for language specifier: .code.rust, .code.email, etc.
-                        // Only allow .code or .code.language (exactly 1 or 2 segments)
-                        if segments.len() > 2 {
-                            return Err(ConversionError::InvalidTypePath(format!(
-                                "Invalid code type path: {}",
-                                path
-                            )));
-                        }
-                        let language = if segments.len() == 2 {
-                            Some(segments[1].to_string())
-                        } else {
-                            None
-                        };
-                        let schema_id =
-                            self.schema
-                                .create_node(SchemaNodeContent::Code(CodeSchema { language }));
-                        Ok(schema_id)
-                    }
-                    _ => Err(ConversionError::InvalidTypePath(format!(
-                        "Unknown type: {}",
-                        path
-                    ))),
-                }
+            // Primitive types: .string, .integer, .float, .boolean, .null, .any, .path, .code
+            [PathSegment::Ident(ident)] => {
+                let content = match ident.as_ref() {
+                    "string" => SchemaNodeContent::String(StringSchema::default()),
+                    "integer" => SchemaNodeContent::Integer(IntegerSchema::default()),
+                    "float" => SchemaNodeContent::Float(FloatSchema::default()),
+                    "boolean" => SchemaNodeContent::Boolean,
+                    "null" => SchemaNodeContent::Null,
+                    "any" => SchemaNodeContent::Any,
+                    "path" => SchemaNodeContent::Path(PathSchema::default()),
+                    "code" => SchemaNodeContent::Code(CodeSchema { language: None }),
+                    _ => return Err(ConversionError::UnknownPrimitiveType(path.clone())),
+                };
+                Ok(self.schema.create_node(content))
             }
-            PathSegment::Extension(ident) => {
-                let name: &str = ident.as_ref();
-                if name == "types" {
-                    // Type reference: .$types.typename or .$types.namespace.typename
-                    if path.0.len() == 2 {
-                        // Local reference: .$types.typename
-                        if let PathSegment::Ident(type_ident) = &path.0[1] {
-                            let type_name: Identifier = type_ident.clone();
 
-                            // Create reference node - validation happens later
-                            let schema_id = self.schema.create_node(SchemaNodeContent::Reference(
-                                TypeReference {
-                                    namespace: None,
-                                    name: type_name,
-                                },
-                            ));
-
-                            Ok(schema_id)
-                        } else {
-                            Err(ConversionError::InvalidTypePath(format!(
-                                "Invalid type reference: {}",
-                                path
-                            )))
-                        }
-                    } else if path.0.len() == 3 {
-                        // External reference: .$types.namespace.typename
-                        if let (PathSegment::Ident(ns_ident), PathSegment::Ident(type_ident)) =
-                            (&path.0[1], &path.0[2])
-                        {
-                            let type_name: Identifier = type_ident.clone();
-                            let schema_id = self.schema.create_node(SchemaNodeContent::Reference(
-                                TypeReference {
-                                    namespace: Some(ns_ident.to_string()),
-                                    name: type_name,
-                                },
-                            ));
-                            Ok(schema_id)
-                        } else {
-                            Err(ConversionError::InvalidTypePath(format!(
-                                "Invalid external type reference: {}",
-                                path
-                            )))
-                        }
-                    } else {
-                        Err(ConversionError::InvalidTypePath(format!(
-                            "Invalid type reference path length: {}",
-                            path
-                        )))
-                    }
-                } else {
-                    Err(ConversionError::InvalidTypePath(format!(
-                        "Unknown extension path: ${}",
-                        name
-                    )))
-                }
+            // Code with language: .code.rust, .code.email
+            [PathSegment::Ident(first), PathSegment::Ident(lang)] if first.as_ref() == "code" => {
+                let content = SchemaNodeContent::Code(CodeSchema {
+                    language: Some(lang.to_string()),
+                });
+                Ok(self.schema.create_node(content))
             }
-            _ => Err(ConversionError::InvalidTypePath(format!(
-                "Invalid path segment: {:?}",
-                path.0[0]
-            ))),
+
+            // Local type reference: .$types.typename
+            [PathSegment::Extension(ext), PathSegment::Ident(type_name)]
+                if ext.as_ref() == "types" =>
+            {
+                let content = SchemaNodeContent::Reference(TypeReference {
+                    namespace: None,
+                    name: type_name.clone(),
+                });
+                Ok(self.schema.create_node(content))
+            }
+
+            // External type reference: .$types.namespace.typename
+            [PathSegment::Extension(ext), PathSegment::Ident(ns), PathSegment::Ident(type_name)]
+                if ext.as_ref() == "types" =>
+            {
+                let content = SchemaNodeContent::Reference(TypeReference {
+                    namespace: Some(ns.to_string()),
+                    name: type_name.clone(),
+                });
+                Ok(self.schema.create_node(content))
+            }
+
+            // Unknown extension
+            [PathSegment::Extension(_), ..] => {
+                Err(ConversionError::UnknownExtensionPath(path.clone()))
+            }
+
+            // Catch-all for invalid paths
+            _ => Err(ConversionError::InvalidTypePath(path.clone())),
         }
     }
 
