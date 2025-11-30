@@ -1,10 +1,9 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use eure_fmt::unformat::{unformat, unformat_with_seed};
-use eure_json::{
-    Config as JsonConfig, VariantRepr, format_eure_bindings, json_to_value_with_config,
-    value_to_json_with_config,
-};
-use eure_yaml::{Config as YamlConfig, value_to_yaml_with_config, yaml_to_value_with_config};
+use eure_json::{Config as JsonConfig, document_to_value};
+use eure::data_model::VariantRepr;
+use eure::document::cst_to_document;
+use eure::tree::{inspect_cst, write_cst};
 use std::fs;
 use std::io::{self, Read};
 
@@ -27,10 +26,6 @@ enum Commands {
     ToJson(ToJson),
     /// Convert JSON to Eure
     FromJson(FromJson),
-    /// Convert Eure to YAML
-    ToYaml(ToYaml),
-    /// Convert YAML to Eure
-    FromYaml(FromYaml),
 }
 
 #[derive(Args)]
@@ -105,36 +100,6 @@ struct FromJson {
     content: String,
 }
 
-#[derive(Args)]
-struct ToYaml {
-    /// Path to Eure file to convert (use - for stdin)
-    file: String,
-    /// Variant representation format
-    #[arg(short = 'v', long, value_enum, default_value = "external")]
-    variant: VariantFormat,
-    /// Tag field name for internal/adjacent representations
-    #[arg(short = 't', long, default_value = "type")]
-    tag: String,
-    /// Content field name for adjacent representation
-    #[arg(short = 'c', long, default_value = "content")]
-    content: String,
-}
-
-#[derive(Args)]
-struct FromYaml {
-    /// Path to YAML file to convert (use - for stdin)
-    file: String,
-    /// Variant representation format
-    #[arg(short = 'v', long, value_enum, default_value = "external")]
-    variant: VariantFormat,
-    /// Tag field name for internal/adjacent representations
-    #[arg(short = 't', long, default_value = "type")]
-    tag: String,
-    /// Content field name for adjacent representation
-    #[arg(short = 'c', long, default_value = "content")]
-    content: String,
-}
-
 fn main() {
     let cli = Cli::parse();
 
@@ -170,7 +135,10 @@ fn main() {
 
             let tree = parse_result.cst();
             let mut out = String::new();
-            tree.inspect(&contents, &mut out).unwrap();
+            if let Err(e) = inspect_cst(&contents, &tree, &mut out) {
+                eprintln!("Error inspecting tree: {e}");
+                std::process::exit(1);
+            }
             println!("{out}");
         }
         Commands::Unformat(Unformat { file, seed }) => {
@@ -209,93 +177,30 @@ fn main() {
             }
 
             let mut out = String::new();
-            if let Err(e) = tree.write(&contents, &mut out) {
+            if let Err(e) = write_cst(&contents, &tree, &mut out) {
                 eprintln!("Error writing output: {e}");
                 std::process::exit(1);
             }
             print!("{out}");
         }
-        Commands::Fmt(Fmt {
-            file,
-            check,
-            indent_width,
-        }) => {
-            // Read input from file or stdin
-            let contents = match file.as_deref() {
-                None | Some("-") => {
-                    // Read from stdin
-                    let mut buffer = String::new();
-                    if let Err(e) = io::stdin().read_to_string(&mut buffer) {
-                        eprintln!("Error reading from stdin: {e}");
-                        std::process::exit(1);
-                    }
-                    buffer
-                }
-                Some(path) => match fs::read_to_string(path) {
-                    Ok(contents) => contents,
-                    Err(e) => {
-                        eprintln!("Error reading file: {e}");
-                        std::process::exit(1);
-                    }
-                },
-            };
-
-            // Parse the input
-            let mut tree = match eure_parol::parse(&contents) {
-                Ok(tree) => tree,
-                Err(e) => {
-                    eprintln!("Parse error: {e:?}");
-                    std::process::exit(1);
-                }
-            };
-
-            let config = eure_fmt::FmtConfig::new(indent_width);
-
-            if check {
-                // Check mode - just verify if formatting is needed
-                match eure_fmt::check_formatting_with_config(&contents, &tree, config) {
-                    Ok(errors) => {
-                        if !errors.is_empty() {
-                            eprintln!("File needs formatting ({} issues found)", errors.len());
-                            std::process::exit(1);
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error checking formatting: {e}");
-                        std::process::exit(1);
-                    }
-                }
-            } else {
-                // Format mode - apply formatting
-                if let Err(e) = eure_fmt::fmt_with_config(&contents, &mut tree, config) {
-                    eprintln!("Error formatting: {e}");
-                    std::process::exit(1);
-                }
-
-                let mut out = String::new();
-                if let Err(e) = tree.write(&contents, &mut out) {
-                    eprintln!("Error writing output: {e}");
-                    std::process::exit(1);
-                }
-                print!("{out}");
-            }
+        Commands::Fmt(_) => {
+            eprintln!("Error: Formatting is not yet implemented.");
+            eprintln!("The formatter API is currently under development.");
+            eprintln!("Use `eure unformat` to remove all formatting instead.");
+            std::process::exit(1);
         }
         Commands::ToJson(args) => handle_to_json(args),
         Commands::FromJson(args) => handle_from_json(args),
-        Commands::ToYaml(args) => handle_to_yaml(args),
-        Commands::FromYaml(args) => handle_from_yaml(args),
     }
 }
 
 fn handle_to_json(args: ToJson) {
-    use eure_tree::value_visitor::ValueVisitor;
-
     // Read input
     let contents = if args.file == "-" {
         let mut buffer = String::new();
         if let Err(e) = io::stdin().read_to_string(&mut buffer) {
             eprintln!("Error reading from stdin: {e}");
-            return;
+            std::process::exit(1);
         }
         buffer
     } else {
@@ -303,7 +208,7 @@ fn handle_to_json(args: ToJson) {
             Ok(contents) => contents,
             Err(e) => {
                 eprintln!("Error reading file: {e}");
-                return;
+                std::process::exit(1);
             }
         }
     };
@@ -313,22 +218,18 @@ fn handle_to_json(args: ToJson) {
         Ok(tree) => tree,
         Err(e) => {
             eprintln!("Error parsing Eure: {e:?}");
-            return;
+            std::process::exit(1);
         }
     };
 
-    // Extract values using ValueVisitor
-    let mut visitor = ValueVisitor::new(&contents);
-
-    // Visit the tree
-    if let Err(e) = tree.visit_from_root(&mut visitor) {
-        eprintln!("Error visiting Eure tree: {e:?}");
-        return;
-    }
-
-    // Convert document to value
-    let document = visitor.into_document();
-    let value = document.to_value();
+    // Extract document from CST
+    let document = match cst_to_document(&contents, &tree) {
+        Ok(doc) => doc,
+        Err(e) => {
+            eprintln!("Error converting CST to document: {e:?}");
+            std::process::exit(1);
+        }
+    };
 
     // Configure variant representation
     let variant_repr = match args.variant {
@@ -343,12 +244,12 @@ fn handle_to_json(args: ToJson) {
 
     let config = JsonConfig { variant_repr };
 
-    // Convert to JSON
-    let json_value = match value_to_json_with_config(&value, &config) {
+    // Convert document to JSON
+    let json_value = match document_to_value(&document, &config) {
         Ok(json) => json,
         Err(e) => {
             eprintln!("Error converting to JSON: {e}");
-            return;
+            std::process::exit(1);
         }
     };
 
@@ -358,7 +259,7 @@ fn handle_to_json(args: ToJson) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Error serializing JSON: {e}");
-                return;
+                std::process::exit(1);
             }
         }
     } else {
@@ -366,7 +267,7 @@ fn handle_to_json(args: ToJson) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Error serializing JSON: {e}");
-                return;
+                std::process::exit(1);
             }
         }
     };
@@ -374,186 +275,9 @@ fn handle_to_json(args: ToJson) {
     println!("{output}");
 }
 
-fn handle_from_json(args: FromJson) {
-    // Read input
-    let contents = if args.file == "-" {
-        let mut buffer = String::new();
-        if let Err(e) = io::stdin().read_to_string(&mut buffer) {
-            eprintln!("Error reading from stdin: {e}");
-            return;
-        }
-        buffer
-    } else {
-        match fs::read_to_string(&args.file) {
-            Ok(contents) => contents,
-            Err(e) => {
-                eprintln!("Error reading file: {e}");
-                return;
-            }
-        }
-    };
-
-    // Parse JSON
-    let json_value: serde_json::Value = match serde_json::from_str(&contents) {
-        Ok(json) => json,
-        Err(e) => {
-            eprintln!("Error parsing JSON: {e}");
-            return;
-        }
-    };
-
-    // Configure variant representation
-    let variant_repr = match args.variant {
-        VariantFormat::External => VariantRepr::External,
-        VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent {
-            tag: args.tag,
-            content: args.content,
-        },
-        VariantFormat::Untagged => VariantRepr::Untagged,
-    };
-
-    let config = JsonConfig { variant_repr };
-
-    // Convert to Eure Value
-    let value = match json_to_value_with_config(&json_value, &config) {
-        Ok(value) => value,
-        Err(e) => {
-            eprintln!("Error converting from JSON: {e}");
-            return;
-        }
-    };
-
-    // Format as Eure
-    let eure_output = format_eure_bindings(&value);
-    println!("{eure_output}");
-}
-
-fn handle_to_yaml(args: ToYaml) {
-    use eure_tree::value_visitor::ValueVisitor;
-
-    // Read input
-    let contents = if args.file == "-" {
-        let mut buffer = String::new();
-        if let Err(e) = io::stdin().read_to_string(&mut buffer) {
-            eprintln!("Error reading from stdin: {e}");
-            return;
-        }
-        buffer
-    } else {
-        match fs::read_to_string(&args.file) {
-            Ok(contents) => contents,
-            Err(e) => {
-                eprintln!("Error reading file: {e}");
-                return;
-            }
-        }
-    };
-
-    // Parse Eure
-    let tree = match eure_parol::parse(&contents) {
-        Ok(tree) => tree,
-        Err(e) => {
-            eprintln!("Error parsing Eure: {e:?}");
-            return;
-        }
-    };
-
-    // Extract values using ValueVisitor
-    let mut visitor = ValueVisitor::new(&contents);
-
-    // Visit the tree
-    if let Err(e) = tree.visit_from_root(&mut visitor) {
-        eprintln!("Error visiting Eure tree: {e:?}");
-        return;
-    }
-
-    // Convert document to value
-    let document = visitor.into_document();
-    let value = document.to_value();
-
-    // Configure variant representation
-    let variant_repr = match args.variant {
-        VariantFormat::External => VariantRepr::External,
-        VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent {
-            tag: args.tag,
-            content: args.content,
-        },
-        VariantFormat::Untagged => VariantRepr::Untagged,
-    };
-
-    let config = YamlConfig { variant_repr };
-
-    // Convert to YAML
-    let yaml_value = match value_to_yaml_with_config(&value, &config) {
-        Ok(yaml) => yaml,
-        Err(e) => {
-            eprintln!("Error converting to YAML: {e}");
-            return;
-        }
-    };
-
-    // Output YAML
-    match serde_yaml::to_string(&yaml_value) {
-        Ok(s) => println!("{s}"),
-        Err(e) => {
-            eprintln!("Error serializing YAML: {e}");
-        }
-    }
-}
-
-fn handle_from_yaml(args: FromYaml) {
-    // Read input
-    let contents = if args.file == "-" {
-        let mut buffer = String::new();
-        if let Err(e) = io::stdin().read_to_string(&mut buffer) {
-            eprintln!("Error reading from stdin: {e}");
-            return;
-        }
-        buffer
-    } else {
-        match fs::read_to_string(&args.file) {
-            Ok(contents) => contents,
-            Err(e) => {
-                eprintln!("Error reading file: {e}");
-                return;
-            }
-        }
-    };
-
-    // Parse YAML
-    let yaml_value: serde_yaml::Value = match serde_yaml::from_str(&contents) {
-        Ok(yaml) => yaml,
-        Err(e) => {
-            eprintln!("Error parsing YAML: {e}");
-            return;
-        }
-    };
-
-    // Configure variant representation
-    let variant_repr = match args.variant {
-        VariantFormat::External => VariantRepr::External,
-        VariantFormat::Internal => VariantRepr::Internal { tag: args.tag },
-        VariantFormat::Adjacent => VariantRepr::Adjacent {
-            tag: args.tag,
-            content: args.content,
-        },
-        VariantFormat::Untagged => VariantRepr::Untagged,
-    };
-
-    let config = YamlConfig { variant_repr };
-
-    // Convert to Eure Value
-    let value = match yaml_to_value_with_config(&yaml_value, &config) {
-        Ok(value) => value,
-        Err(e) => {
-            eprintln!("Error converting from YAML: {e}");
-            return;
-        }
-    };
-
-    // Format as Eure
-    let eure_output = eure_yaml::format_eure_bindings(&value);
-    println!("{eure_output}");
+fn handle_from_json(_args: FromJson) {
+    eprintln!("Error: JSON to Eure conversion is not yet implemented.");
+    eprintln!("The reverse conversion API is currently under development.");
+    eprintln!("You can only convert Eure → JSON using `eure to-json`.");
+    std::process::exit(1);
 }
