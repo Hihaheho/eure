@@ -554,6 +554,8 @@ mod tests {
             input_eure: Some(preprocess("a = 1")),
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -571,6 +573,8 @@ mod tests {
             input_eure: Some(preprocess("a = 1")),
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: None,
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -584,6 +588,8 @@ mod tests {
             input_eure: Some(preprocess("a = 1")),
             normalized: None,
             output_json: Some(serde_json::json!({"a": 1})),
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -597,6 +603,8 @@ mod tests {
             input_eure: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -610,6 +618,8 @@ mod tests {
             input_eure: Some(preprocess("a = 1")),
             normalized: None,
             output_json: None,
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -622,6 +632,8 @@ mod tests {
             input_eure: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: None,
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -634,6 +646,8 @@ mod tests {
             input_eure: None,
             normalized: None,
             output_json: Some(serde_json::json!({"a": 1})),
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -646,6 +660,8 @@ mod tests {
             input_eure: None,
             normalized: None,
             output_json: None,
+            schema: None,
+            schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -658,6 +674,8 @@ mod tests {
             input_eure: Some(preprocess("a = 1")),
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
+            schema: None,
+            schema_errors: vec![],
         };
 
         assert_eq!(case.scenario_count(), case.scenarios().len());
