@@ -13,9 +13,11 @@ name = "test_suite"
 path = "src/lib.rs"
 
 [dependencies]
+ahash.workspace = true
 annotate-snippets = "0.12"
 eros.workspace = true
 eure = { workspace = true }
 eure-json.workspace = true
+eure-schema.workspace = true
 rayon = "1.10"
 serde_json.workspace = true

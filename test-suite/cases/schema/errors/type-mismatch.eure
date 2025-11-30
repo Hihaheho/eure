@@ -1,0 +1,13 @@
+// Test schema validation error for type mismatch
+
+input_eure = ```eure
+name = 42
+```
+
+schema = ```eure
+name = `text`
+```
+
+schema_errors = [
+  "Type mismatch: expected text, got integer"
+]

@@ -52,6 +52,16 @@ pub fn parse_case(input: &str, path: PathBuf) -> Result<ParseResult, ParseError>
             error: e,
             cst: cst.clone(),
         })?,
+        schema: get_text(&doc, "schema").map_err(|e| ParseError::IdentifierError {
+            error: e,
+            cst: cst.clone(),
+        })?,
+        schema_errors: get_text_array(&doc, "schema_errors").map_err(|e| {
+            ParseError::IdentifierError {
+                error: e,
+                cst: cst.clone(),
+            }
+        })?,
     };
 
     Ok(ParseResult {
@@ -75,4 +85,28 @@ fn get_text(doc: &EureDocument, key: &str) -> Result<Option<Text>, IdentifierErr
                 .expect("Expected a text value")
                 .clone()
         }))
+}
+
+fn get_text_array(doc: &EureDocument, key: &str) -> Result<Vec<Text>, IdentifierError> {
+    Ok(doc
+        .root()
+        .as_map()
+        .unwrap()
+        .get(&ObjectKey::String(key.into()))
+        .map(move |node| {
+            doc.node(node)
+                .as_array()
+                .expect("Expected an array value")
+                .iter()
+                .map(|item| {
+                    doc.node(*item)
+                        .as_primitive()
+                        .expect("Expected a primitive value")
+                        .as_text()
+                        .expect("Expected a text value")
+                        .clone()
+                })
+                .collect()
+        })
+        .unwrap_or_default())
 }

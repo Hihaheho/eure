@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use eure::{
-    document::{DocumentConstructionError, EureDocument},
+    document::{DocumentConstructionError, EureDocument, NodeId},
     parol::parol_runtime::ParolError,
     tree::Cst,
-    value::Text,
+    value::{Array, Map, ObjectKey, PrimitiveValue, Text, Tuple, Value},
 };
 
 pub struct Case {
@@ -12,6 +12,10 @@ pub struct Case {
     pub input_eure: Option<Text>,
     pub normalized: Option<Text>,
     pub output_json: Option<Text>,
+    /// Schema to validate input_eure against
+    pub schema: Option<Text>,
+    /// Expected validation errors (for error test cases)
+    pub schema_errors: Vec<Text>,
 }
 
 /// Result of running a single scenario
@@ -68,6 +72,8 @@ impl CaseResult {
 pub enum Scenario<'a> {
     Normalization(NormalizationScenario<'a>),
     EureToJson(EureToJsonScenario<'a>),
+    SchemaValidation(SchemaValidationScenario<'a>),
+    SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
 }
 
 impl Scenario<'_> {
@@ -75,6 +81,8 @@ impl Scenario<'_> {
         match self {
             Scenario::Normalization(_) => "normalization".to_string(),
             Scenario::EureToJson(s) => format!("eure_to_json({})", s.source),
+            Scenario::SchemaValidation(_) => "schema_validation".to_string(),
+            Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
         }
     }
 
@@ -82,6 +90,8 @@ impl Scenario<'_> {
         match self {
             Scenario::Normalization(s) => s.run(),
             Scenario::EureToJson(s) => s.run(),
+            Scenario::SchemaValidation(s) => s.run(),
+            Scenario::SchemaErrorValidation(s) => s.run(),
         }
     }
 }
@@ -90,6 +100,8 @@ pub struct PreprocessedCase {
     pub input_eure: Option<PreprocessedEure>,
     pub normalized: Option<PreprocessedEure>,
     pub output_json: Option<serde_json::Value>,
+    pub schema: Option<PreprocessedEure>,
+    pub schema_errors: Vec<String>,
 }
 
 pub enum PreprocessedEure {
@@ -212,11 +224,22 @@ impl Case {
             .output_json
             .as_ref()
             .map(|code| serde_json::from_str(code.as_str()).unwrap());
+        let schema = self
+            .schema
+            .as_ref()
+            .map(|schema| Self::preprocess_eure(schema.as_str()));
+        let schema_errors = self
+            .schema_errors
+            .iter()
+            .map(|e| e.as_str().to_string())
+            .collect();
 
         PreprocessedCase {
             input_eure,
             normalized,
             output_json,
+            schema,
+            schema_errors,
         }
     }
 }
@@ -253,6 +276,117 @@ impl EureToJsonScenario<'_> {
     }
 }
 
+/// Convert an EureDocument to a Value for validation
+fn document_to_value(doc: &EureDocument) -> Value {
+    node_to_value(doc, doc.get_root_id())
+}
+
+/// Convert a document node to a Value
+fn node_to_value(doc: &EureDocument, node_id: NodeId) -> Value {
+    use eure::document::node::NodeValue;
+
+    let node = doc.node(node_id);
+    match &node.content {
+        NodeValue::Uninitialized => Value::Primitive(PrimitiveValue::Null),
+        NodeValue::Primitive(p) => Value::Primitive(p.clone()),
+        NodeValue::Array(arr) => {
+            let values: Vec<Value> = arr.0.iter().map(|&id| node_to_value(doc, id)).collect();
+            Value::Array(Array(values))
+        }
+        NodeValue::Tuple(tup) => {
+            let values: Vec<Value> = tup.0.iter().map(|&id| node_to_value(doc, id)).collect();
+            Value::Tuple(Tuple(values))
+        }
+        NodeValue::Map(map) => {
+            let entries: ahash::AHashMap<ObjectKey, Value> = map
+                .0
+                .iter()
+                .map(|(k, &id)| (k.clone(), node_to_value(doc, id)))
+                .collect();
+            Value::Map(Map(entries))
+        }
+    }
+}
+
+pub struct SchemaValidationScenario<'a> {
+    input: &'a PreprocessedEure,
+    schema: &'a PreprocessedEure,
+}
+
+impl SchemaValidationScenario<'_> {
+    pub fn run(&self) -> eros::Result<()> {
+        let input_doc = self.input.doc()?;
+        let schema_doc = self.schema.doc()?;
+
+        // Convert schema document to SchemaDocument
+        let schema = eure_schema::convert::document_to_schema(schema_doc)
+            .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
+
+        // Convert input document to Value for validation
+        let value = document_to_value(input_doc);
+
+        // Validate
+        let result = eure_schema::validate::validate(&value, &schema);
+
+        if !result.is_valid {
+            let error_msgs: Vec<String> = result.errors.iter().map(|e| e.to_string()).collect();
+            return Err(eros::traced!(
+                "Schema validation failed: {}",
+                error_msgs.join("; ")
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+pub struct SchemaErrorValidationScenario<'a> {
+    input: &'a PreprocessedEure,
+    schema: &'a PreprocessedEure,
+    expected_errors: &'a [String],
+}
+
+impl SchemaErrorValidationScenario<'_> {
+    pub fn run(&self) -> eros::Result<()> {
+        let input_doc = self.input.doc()?;
+        let schema_doc = self.schema.doc()?;
+
+        // Convert schema document to SchemaDocument
+        let schema = eure_schema::convert::document_to_schema(schema_doc)
+            .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
+
+        // Convert input document to Value for validation
+        let value = document_to_value(input_doc);
+
+        // Validate
+        let result = eure_schema::validate::validate(&value, &schema);
+
+        // Should have errors
+        if result.is_valid {
+            return Err(eros::traced!(
+                "Expected validation to fail with errors {:?}, but validation passed",
+                self.expected_errors
+            ));
+        }
+
+        // Check that expected errors are present
+        let actual_errors: Vec<String> = result.errors.iter().map(|e| e.to_string()).collect();
+
+        for expected in self.expected_errors {
+            let found = actual_errors.iter().any(|actual| actual.contains(expected));
+            if !found {
+                return Err(eros::traced!(
+                    "Expected error containing '{}' not found. Actual errors: {:?}",
+                    expected,
+                    actual_errors
+                ));
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl PreprocessedCase {
     /// Returns all scenarios that this case will run.
     /// This is the single source of truth for scenario collection.
@@ -281,6 +415,26 @@ impl PreprocessedCase {
                 output_json,
                 source: "normalized",
             }));
+        }
+
+        // Schema validation scenarios
+        if let (Some(input), Some(schema)) = (&self.input_eure, &self.schema) {
+            if self.schema_errors.is_empty() {
+                // No expected errors - validation should pass
+                scenarios.push(Scenario::SchemaValidation(SchemaValidationScenario {
+                    input,
+                    schema,
+                }));
+            } else {
+                // Expected errors - validation should fail with specific errors
+                scenarios.push(Scenario::SchemaErrorValidation(
+                    SchemaErrorValidationScenario {
+                        input,
+                        schema,
+                        expected_errors: &self.schema_errors,
+                    },
+                ));
+            }
         }
 
         scenarios
