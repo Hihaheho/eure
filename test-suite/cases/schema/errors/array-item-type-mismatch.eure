@@ -1,0 +1,15 @@
+// Test schema validation error for array item type mismatch
+
+input_eure = ```eure
+numbers[] = 1
+numbers[] = "two"
+numbers[] = 3
+```
+
+schema = ```eure
+numbers = [`integer`]
+```
+
+schema_errors = [
+  "Type mismatch: expected integer, got text"
+]

@@ -1,0 +1,13 @@
+// Test schema validation with type references
+
+input_eure = ```eure
+name = "Alice"
+friend = "Bob"
+```
+
+schema = ```eure
+$types.username = `text`
+
+name = `$types.username`
+friend = `$types.username`
+```
