@@ -1,8 +1,8 @@
 unimplemented = true
 
-# Test: completion in nested block with arrays
-# From: crates/eure-editor-support/tests/completions_test.rs:test_completion_in_nested_block_with_arrays
-# Complex nesting: blocks containing arrays containing blocks
+// Test: completion in nested block with arrays
+// From: crates/eure-editor-support/tests/completions_test.rs:test_completion_in_nested_block_with_arrays
+// Complex nesting: blocks containing arrays containing blocks
 
 schema = ```eure
 $types.Endpoint {
@@ -38,7 +38,7 @@ editor = ```eure
 }
 ```
 
-# Should have server array element fields: name, endpoints
+// Should have server array element fields: name, endpoints
 
 @ completions[]
 label = "name"

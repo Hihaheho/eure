@@ -1,8 +1,8 @@
 unimplemented = true
 
-# Test: diagnostic span excludes whitespace
-# From: crates/eure-editor-support/tests/diagnostic_span_test.rs:test_diagnostic_span_excludes_whitespace
-# Diagnostic spans should not include leading whitespace or newlines
+// Test: diagnostic span excludes whitespace
+// From: crates/eure-editor-support/tests/diagnostic_span_test.rs:test_diagnostic_span_excludes_whitespace
+// Diagnostic spans should not include leading whitespace or newlines
 
 schema = ```eure
 @ value
@@ -16,9 +16,9 @@ key2 = "invalid type"
 key3 = 123
 ```
 
-# Should have type mismatch diagnostic
-# The span should not start with newline, spaces, or tabs
-# The span should start with "@ value" (the section name)
+// Should have type mismatch diagnostic
+// The span should not start with newline, spaces, or tabs
+// The span should start with "@ value" (the section name)
 
 @ diagnostics[]
 message_contains = "Type mismatch"

@@ -1,7 +1,7 @@
 unimplemented = true
 
-# Test: completion with variants in nested context
-# From: crates/eure-editor-support/tests/completion_nested_context_test.rs:test_completion_with_variants_in_nested_context
+// Test: completion with variants in nested context
+// From: crates/eure-editor-support/tests/completion_nested_context_test.rs:test_completion_with_variants_in_nested_context
 
 schema = ```eure
 @ $types {
@@ -48,10 +48,10 @@ approved_by = "manager"
 |_|
 ```
 
-# SHOULD suggest fields from the approved variant
+// SHOULD suggest fields from the approved variant
 @ completions[]
 label = "approved_at"
 kind = "field"
 
-# SHOULD NOT suggest fields from other variants or parent contexts
+// SHOULD NOT suggest fields from other variants or parent contexts
 completions_should_not_contain = ["reason", "rejected_by", "rejection_reason", "id", "status"]

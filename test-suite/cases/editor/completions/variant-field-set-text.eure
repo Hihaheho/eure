@@ -1,8 +1,8 @@
 unimplemented = true
 
-# Test: variant field completion (set-text)
-# From: crates/eure-editor-support/tests/completions_test.rs:test_variant_field_completion
-# Completion of fields specific to selected variant
+// Test: variant field completion (set-text)
+// From: crates/eure-editor-support/tests/completions_test.rs:test_variant_field_completion
+// Completion of fields specific to selected variant
 
 schema = ```eure
 $types.Action {
@@ -40,8 +40,8 @@ $variant: set-text
 |_|
 ```
 
-# Should have set-text variant fields: speaker, lines
-# Should NOT have fields from other variants: description, choices
+// Should have set-text variant fields: speaker, lines
+// Should NOT have fields from other variants: description, choices
 
 @ completions[]
 label = "speaker"

@@ -1,9 +1,9 @@
 unimplemented = true
 
-# Test: string only vs any value completion
-# From: crates/eure-editor-support/tests/completions_test.rs:test_string_only_vs_any_value_completion
-# After ":" should NOT suggest booleans/null
-# After "=" should suggest booleans/null
+// Test: string only vs any value completion
+// From: crates/eure-editor-support/tests/completions_test.rs:test_string_only_vs_any_value_completion
+// After ":" should NOT suggest booleans/null
+// After "=" should suggest booleans/null
 
 @ cases[]
 name = "after-colon"
@@ -11,7 +11,7 @@ editor = ```eure
 name: |_|
 ```
 trigger = ":"
-# Should NOT have boolean/null values after ":"
+// Should NOT have boolean/null values after ":"
 completions_should_not_contain = ["true", "false", "null"]
 
 @ cases[]
@@ -20,7 +20,7 @@ editor = ```eure
 active = |_|
 ```
 trigger = "="
-# Should have boolean/null values after "="
+// Should have boolean/null values after "="
 @ completions[]
 label = "true"
 
