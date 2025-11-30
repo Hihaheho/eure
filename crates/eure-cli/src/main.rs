@@ -1,9 +1,9 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use eure_fmt::unformat::{unformat, unformat_with_seed};
-use eure_json::{Config as JsonConfig, document_to_value};
 use eure::data_model::VariantRepr;
 use eure::document::cst_to_document;
 use eure::tree::{inspect_cst, write_cst};
+use eure_fmt::unformat::{unformat, unformat_with_seed};
+use eure_json::{Config as JsonConfig, document_to_value};
 use std::fs;
 use std::io::{self, Read};
 

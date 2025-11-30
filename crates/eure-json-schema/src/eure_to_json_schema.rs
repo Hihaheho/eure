@@ -206,7 +206,7 @@ fn convert_schema_content(
         SchemaNodeContent::Literal(val) => Ok(JsonSchema::Const(ConstSchema {
             value: value_to_json(val)?,
             metadata: json_metadata,
-        }))
+        })),
     }
 }
 
