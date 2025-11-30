@@ -16,6 +16,17 @@ cargo clippy         # Run linting
 cargo run -p test-suite # Run Eure test suite
 ```
 
+**Local checks**
+
+You must ensure those commands succeeds before commit.
+
+```bash
+cargo clippy
+cargo test
+cargo fmt --check
+cargo run -p test-suite
+```
+
 **Individual Crate Development:**
 ```bash
 cargo run -p eure-parol-gen # Regenerate eure-parol and eure-tree based on @crates/eure-parol/eure.par
