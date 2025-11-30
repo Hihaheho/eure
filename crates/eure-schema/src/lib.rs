@@ -13,7 +13,6 @@
 //! - `Float` - Float type with optional range and multiple-of constraints
 //! - `Boolean` - Boolean type (no constraints)
 //! - `Null` - Null type
-//! - `Path` - Path type with optional constraints
 //! - `Any` - Any type (accepts any value)
 //!
 //! **Literal:**
@@ -34,7 +33,6 @@ pub mod identifiers;
 
 use eure_value::data_model::VariantRepr;
 use eure_value::identifier::Identifier;
-use eure_value::path::EurePath;
 use eure_value::value::Value;
 use num_bigint::BigInt;
 use std::collections::HashMap;
@@ -108,10 +106,6 @@ pub enum SchemaNodeContent {
     /// Null type
     /// Spec: line 387
     Null,
-
-    /// Path type with optional constraints
-    /// Spec: lines 514-520
-    Path(PathSchema),
 
     // --- Literal ---
     /// Literal type - accepts only the exact specified value
@@ -245,25 +239,6 @@ pub struct FloatSchema {
     pub max: Bound<f64>,
     /// Multiple-of constraint
     pub multiple_of: Option<f64>,
-}
-
-/// Path type constraints
-///
-/// Spec: lines 514-520
-/// ```eure
-/// @variants.path
-/// starts-with = .path (optional)
-/// min-length = .integer (optional)
-/// max-length = .integer (optional)
-/// ```
-#[derive(Debug, Clone, Default)]
-pub struct PathSchema {
-    /// Path must start with this prefix
-    pub starts_with: Option<EurePath>,
-    /// Minimum path length (number of segments)
-    pub min_length: Option<u32>,
-    /// Maximum path length (number of segments)
-    pub max_length: Option<u32>,
 }
 
 // ============================================================================

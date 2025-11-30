@@ -4,7 +4,7 @@ use eure_value::value::Tuple;
 use eure_value::{
     document::{EureDocument, constructor::DocumentConstructor},
     identifier::Identifier,
-    path::{EurePath, PathSegment},
+    path::PathSegment,
     text::{Language, SyntaxHint, Text, TextParseError},
     value::ObjectKey,
     value::PrimitiveValue,
@@ -409,27 +409,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 }
             })?;
         }
-
-        Ok(())
-    }
-
-    fn visit_path(
-        &mut self,
-        handle: PathHandle,
-        view: PathView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        // Collect path segments from Keys
-        let segments = self.collect_path_segments(|v| v.visit_keys_handle(view.keys, tree))?;
-
-        // Create EurePath from segments and bind as primitive value
-        let path = EurePath(segments);
-        self.document
-            .bind_primitive(PrimitiveValue::Path(path))
-            .map_err(|e| DocumentConstructionError::DocumentInsert {
-                error: e,
-                node_id: handle.node_id(),
-            })?;
 
         Ok(())
     }

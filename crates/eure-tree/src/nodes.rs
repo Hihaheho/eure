@@ -4889,59 +4889,6 @@ impl NonTerminalHandle for ObjectOpt1Handle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PathHandle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for PathHandle {
-    type View = PathView;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::Path)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::Path
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [
-                NodeKind::NonTerminal(NonTerminalKind::Dot),
-                NodeKind::NonTerminal(NonTerminalKind::Keys),
-            ],
-            |[dot, keys], visit_ignored| Ok(
-                visit(
-                    PathView {
-                        dot: DotHandle(dot),
-                        keys: KeysHandle(keys),
-                    },
-                    visit_ignored,
-                ),
-            ),
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PathView {
-    pub dot: DotHandle,
-    pub keys: KeysHandle,
-}
-impl PathView {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RParenHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for RParenHandle {
     type View = RParenView;
@@ -6215,9 +6162,6 @@ impl NonTerminalHandle for ValueHandle {
             NodeKind::NonTerminal(NonTerminalKind::InlineCode) => {
                 ValueView::InlineCode(InlineCodeHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Path) => {
-                ValueView::Path(PathHandle(child))
-            }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
                     node: child,
@@ -6248,7 +6192,6 @@ pub enum ValueView {
     Hole(HoleHandle),
     CodeBlock(CodeBlockHandle),
     InlineCode(InlineCodeHandle),
-    Path(PathHandle),
 }
 impl ValueView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

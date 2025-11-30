@@ -714,14 +714,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_object_opt_1_super(handle, view, tree)
     }
-    fn visit_path(
-        &mut self,
-        handle: PathHandle,
-        view: PathView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_path_super(handle, view, tree)
-    }
     fn visit_r_paren(
         &mut self,
         handle: RParenHandle,
@@ -2237,13 +2229,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: ObjectOpt1Handle,
         view: CommaHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_path_handle(&mut self, handle: PathHandle, tree: &F) -> Result<(), E>;
-    fn visit_path_super(
-        &mut self,
-        handle: PathHandle,
-        view: PathView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_r_paren_handle(&mut self, handle: RParenHandle, tree: &F) -> Result<(), E>;
@@ -6874,49 +6859,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_path_handle(
-        &mut self,
-        handle: PathHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self
-                    .then_construct_error(
-                        None,
-                        handle.node_id(),
-                        NodeKind::NonTerminal(handle.kind()),
-                        error,
-                        tree,
-                    );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_path(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => {
-                self.then_construct_error(
-                    Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    e,
-                    tree,
-                )
-            }
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
     fn visit_r_paren_handle(
         &mut self,
         handle: RParenHandle,
@@ -9709,18 +9651,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_comma_handle(view_param, tree)?;
         Ok(())
     }
-    fn visit_path_super(
-        &mut self,
-        handle: PathHandle,
-        view_param: PathView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let PathView { dot, keys } = view_param;
-        self.visit_dot_handle(dot, tree)?;
-        self.visit_keys_handle(keys, tree)?;
-        Ok(())
-    }
     fn visit_r_paren_super(
         &mut self,
         handle: RParenHandle,
@@ -10102,9 +10032,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
             ValueView::InlineCode(item) => {
                 self.visit_inline_code_handle(item, tree)?;
-            }
-            ValueView::Path(item) => {
-                self.visit_path_handle(item, tree)?;
             }
         }
         Ok(())
@@ -10996,10 +10923,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     NonTerminalKind::ObjectOpt1 => {
                         let handle = ObjectOpt1Handle(id);
                         self.visit_object_opt_1_handle(handle, tree)?;
-                    }
-                    NonTerminalKind::Path => {
-                        let handle = PathHandle(id);
-                        self.visit_path_handle(handle, tree)?;
                     }
                     NonTerminalKind::RParen => {
                         let handle = RParenHandle(id);

@@ -10,7 +10,7 @@ use syn::{Attribute, Data, DeriveInput, Fields, Lit, parse_macro_input};
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use eure_derive::Eure;
 /// use serde::{Serialize, Deserialize};
 ///

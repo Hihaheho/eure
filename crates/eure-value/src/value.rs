@@ -17,7 +17,6 @@ pub enum PrimitiveValue {
     Text(Text),
     Hole,
     Variant(Variant),
-    Path(EurePath),
 }
 
 impl PrimitiveValue {

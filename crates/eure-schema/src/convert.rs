@@ -7,51 +7,51 @@
 //!
 //! Schema types are defined using the following syntax:
 //!
-//! **Primitives (shorthands):**
-//! - `.text`, `.integer`, `.float`, `.boolean`, `.null`, `.any`, `.path`
-//! - `.text.rust`, `.text.email`, `.text.plaintext`
+//! **Primitives (shorthands via inline code):**
+//! - `` `text` ``, `` `integer` ``, `` `float` ``, `` `boolean` ``, `` `null` ``, `` `any` ``
+//! - `` `text.rust` ``, `` `text.email` ``, `` `text.plaintext` ``
 //!
 //! **Primitives with constraints:**
 //! ```eure
 //! @ field {
-//!   $variant: text
+//!   $variant = "text"
 //!   min-length = 3
 //!   max-length = 20
 //!   pattern = "^[a-z]+$"
 //! }
 //! ```
 //!
-//! **Array:** `[.text]` or `{ $variant: array, item = .text, ... }`
+//! **Array:** `` [`text`] `` or `` { $variant = "array", item = `text`, ... } ``
 //!
-//! **Tuple:** `(.text, .integer)` or `{ $variant: tuple, elements = [...] }`
+//! **Tuple:** `` (`text`, `integer`) `` or `{ $variant = "tuple", elements = [...] }`
 //!
-//! **Record:** `{ name = .text, age = .integer }`
+//! **Record:** `` { name = `text`, age = `integer` } ``
 //!
 //! **Union with named variants:**
 //! ```eure
 //! @ field {
-//!   $variant: union
-//!   variants.success = { data = .any }
-//!   variants.error = { message = .text }
+//!   $variant = "union"
+//!   variants.success = { data = `any` }
+//!   variants.error = { message = `text` }
 //!   $variant-repr = "untagged"  // optional
 //!   priority = ["error", "success"]  // optional, for untagged unions
 //! }
 //! ```
 //!
-//! **Literal:** Any constant value (e.g., `"active"`, `42`, `true`)
+//! **Literal:** Any constant value (e.g., `{ = "active", $variant = "literal" }`, `42`, `true`)
 //!
-//! **Type reference:** `.$types.my-type` or `.$types.namespace.type`
+//! **Type reference:** `` `$types.my-type` `` or `` `$types.namespace.type` ``
 
 use crate::{
-    ArraySchema, Bound, Description, FloatSchema, IntegerSchema, MapSchema, PathSchema,
-    RecordFieldSchema, RecordSchema, SchemaDocument, SchemaNodeContent, SchemaNodeId, TextSchema,
-    TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, Description, FloatSchema, IntegerSchema, MapSchema, RecordFieldSchema,
+    RecordSchema, SchemaDocument, SchemaNodeContent, SchemaNodeId, TextSchema, TupleSchema,
+    TypeReference, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
 use eure_value::document::node::{Node, NodeValue};
 use eure_value::document::{EureDocument, NodeId};
 use eure_value::identifier::Identifier;
-use eure_value::path::{EurePath, PathSegment};
+use eure_value::text::Language;
 use eure_value::value::{ObjectKey, PrimitiveValue, Value};
 use num_bigint::BigInt;
 use std::collections::HashMap;
@@ -60,17 +60,17 @@ use thiserror::Error;
 /// Errors that can occur during document to schema conversion
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum ConversionError {
-    #[error("Empty type path")]
-    EmptyTypePath,
+    #[error("Empty type reference")]
+    EmptyTypeReference,
 
     #[error("Unknown primitive type: {0}")]
-    UnknownPrimitiveType(EurePath),
+    UnknownPrimitiveType(String),
 
-    #[error("Unknown extension in type path: {0}")]
-    UnknownExtensionPath(EurePath),
+    #[error("Unknown extension in type reference: {0}")]
+    UnknownExtensionReference(String),
 
-    #[error("Invalid type path: {0}")]
-    InvalidTypePath(EurePath),
+    #[error("Invalid type reference: {0}")]
+    InvalidTypeReference(String),
 
     #[error("Invalid type name: {0}")]
     InvalidTypeName(ObjectKey),
@@ -190,7 +190,7 @@ impl<'a> Converter<'a> {
                     "Incomplete document: uninitialized node".to_string(),
                 ))
             }
-            NodeValue::Primitive(prim) => self.convert_primitive(prim, node),
+            NodeValue::Primitive(prim) => self.convert_primitive(prim),
             NodeValue::Array(arr) => {
                 // Array shorthand: [.type]
                 if arr.0.len() == 1 {
@@ -250,35 +250,6 @@ impl<'a> Converter<'a> {
             if let NodeValue::Primitive(PrimitiveValue::Text(t)) = &ext_node.content {
                 return Ok(Some(t.as_str().to_string()));
             }
-            // Path value: $variant = .text or $variant = .ok.ok (multi-segment)
-            if let NodeValue::Primitive(PrimitiveValue::Path(path)) = &ext_node.content {
-                let segments: Vec<&str> = path
-                    .0
-                    .iter()
-                    .filter_map(|seg| {
-                        if let PathSegment::Ident(ident) = seg {
-                            Some(ident.as_ref())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                if segments.len() == 1 {
-                    // Single-segment path like .text, .union - equivalent to string notation
-                    return Ok(Some(segments[0].to_string()));
-                } else if segments.len() > 1 {
-                    // Multi-segment path like .ok.ok - invalid in schema context
-                    // The type type union doesn't have nested unions
-                    return Err(ConversionError::InvalidExtensionValue {
-                        extension: "variant".to_string(),
-                        path: format!(
-                            "nested variant path .{} is invalid in schema context (type type has no nested unions)",
-                            segments.join(".")
-                        ),
-                    });
-                }
-            }
         }
         Ok(None)
     }
@@ -287,18 +258,28 @@ impl<'a> Converter<'a> {
     fn convert_primitive(
         &mut self,
         prim: &PrimitiveValue,
-        node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         match prim {
-            PrimitiveValue::Path(path) => self.convert_path_to_type(path, node),
             PrimitiveValue::Text(t) => {
-                // Text literals are always literal types in schema context
-                let schema_id =
-                    self.schema
-                        .create_node(SchemaNodeContent::Literal(Value::Primitive(
-                            PrimitiveValue::Text(t.clone()),
-                        )));
-                Ok(schema_id)
+                // Check if this is inline code (type reference) or plaintext (literal)
+                match &t.language {
+                    // Inline code without language tag: `text`, `$types.user`
+                    Language::Implicit => self.convert_type_reference_string(t.as_str()),
+                    // Explicit eure-path language: eure-path`text`
+                    Language::Other(lang) if lang == "eure-path" => {
+                        self.convert_type_reference_string(t.as_str())
+                    }
+                    // FIXME: This should be an error, not a literal.
+                    // Plaintext string "..." or other inline code language - treat as literal
+                    _ => {
+                        let schema_id =
+                            self.schema
+                                .create_node(SchemaNodeContent::Literal(Value::Primitive(
+                                    PrimitiveValue::Text(t.clone()),
+                                )));
+                        Ok(schema_id)
+                    }
+                }
             }
             PrimitiveValue::BigInt(i) => {
                 let schema_id =
@@ -331,32 +312,31 @@ impl<'a> Converter<'a> {
         }
     }
 
-    /// Convert a path value to a schema type
-    fn convert_path_to_type(
-        &mut self,
-        path: &EurePath,
-        _node: &Node,
-    ) -> Result<SchemaNodeId, ConversionError> {
-        match path.0.as_slice() {
-            [] => Err(ConversionError::EmptyTypePath),
+    /// Convert a type reference string to a schema node.
+    /// Handles: "text", "integer", "text.rust", "$types.typename", "$types.ns.typename"
+    fn convert_type_reference_string(&mut self, s: &str) -> Result<SchemaNodeId, ConversionError> {
+        if s.is_empty() {
+            return Err(ConversionError::EmptyTypeReference);
+        }
 
-            // Primitive types: .text, .integer, .float, .boolean, .null, .any, .path
-            [PathSegment::Ident(ident)] => {
-                let content = match ident.as_ref() {
-                    "text" => SchemaNodeContent::Text(TextSchema::default()),
-                    "integer" => SchemaNodeContent::Integer(IntegerSchema::default()),
-                    "float" => SchemaNodeContent::Float(FloatSchema::default()),
-                    "boolean" => SchemaNodeContent::Boolean,
-                    "null" => SchemaNodeContent::Null,
-                    "any" => SchemaNodeContent::Any,
-                    "path" => SchemaNodeContent::Path(PathSchema::default()),
-                    _ => return Err(ConversionError::UnknownPrimitiveType(path.clone())),
-                };
-                Ok(self.schema.create_node(content))
-            }
+        let segments: Vec<&str> = s.split('.').collect();
+        match segments.as_slice() {
+            // Primitive types
+            ["text"] => Ok(self
+                .schema
+                .create_node(SchemaNodeContent::Text(TextSchema::default()))),
+            ["integer"] => Ok(self
+                .schema
+                .create_node(SchemaNodeContent::Integer(IntegerSchema::default()))),
+            ["float"] => Ok(self
+                .schema
+                .create_node(SchemaNodeContent::Float(FloatSchema::default()))),
+            ["boolean"] => Ok(self.schema.create_node(SchemaNodeContent::Boolean)),
+            ["null"] => Ok(self.schema.create_node(SchemaNodeContent::Null)),
+            ["any"] => Ok(self.schema.create_node(SchemaNodeContent::Any)),
 
-            // Text with language: .text.rust, .text.email, .text.plaintext
-            [PathSegment::Ident(first), PathSegment::Ident(lang)] if first.as_ref() == "text" => {
+            // Text with language: text.rust, text.email, etc.
+            ["text", lang] if !lang.is_empty() => {
                 let content = SchemaNodeContent::Text(TextSchema {
                     language: Some(lang.to_string()),
                     ..Default::default()
@@ -364,37 +344,40 @@ impl<'a> Converter<'a> {
                 Ok(self.schema.create_node(content))
             }
 
-            // Local type reference: .$types.typename
-            [PathSegment::Extension(ext), PathSegment::Ident(type_name)]
-                if ext.as_ref() == "types" =>
-            {
+            // Local type reference: $types.typename
+            ["$types", type_name] if !type_name.is_empty() => {
+                let name: Identifier = type_name
+                    .parse()
+                    .map_err(|_| ConversionError::InvalidTypeReference(s.to_string()))?;
                 let content = SchemaNodeContent::Reference(TypeReference {
                     namespace: None,
-                    name: type_name.clone(),
+                    name,
                 });
                 Ok(self.schema.create_node(content))
             }
 
-            // External type reference: .$types.namespace.typename
-            [
-                PathSegment::Extension(ext),
-                PathSegment::Ident(ns),
-                PathSegment::Ident(type_name),
-            ] if ext.as_ref() == "types" => {
+            // External type reference: $types.namespace.typename
+            ["$types", namespace, type_name] if !namespace.is_empty() && !type_name.is_empty() => {
+                let name: Identifier = type_name
+                    .parse()
+                    .map_err(|_| ConversionError::InvalidTypeReference(s.to_string()))?;
                 let content = SchemaNodeContent::Reference(TypeReference {
-                    namespace: Some(ns.to_string()),
-                    name: type_name.clone(),
+                    namespace: Some(namespace.to_string()),
+                    name,
                 });
                 Ok(self.schema.create_node(content))
             }
 
-            // Unknown extension
-            [PathSegment::Extension(_), ..] => {
-                Err(ConversionError::UnknownExtensionPath(path.clone()))
+            // Invalid $types reference (too many or zero segments after $types)
+            ["$types", ..] => Err(ConversionError::InvalidTypeReference(s.to_string())),
+
+            // Unknown extension (starts with $ but not $types)
+            [ext, ..] if ext.starts_with('$') => {
+                Err(ConversionError::UnknownExtensionReference(s.to_string()))
             }
 
-            // Catch-all for invalid paths
-            _ => Err(ConversionError::InvalidTypePath(path.clone())),
+            // Unknown primitive type
+            _ => Err(ConversionError::UnknownPrimitiveType(s.to_string())),
         }
     }
 
@@ -408,15 +391,14 @@ impl<'a> Converter<'a> {
     ) -> Result<SchemaNodeId, ConversionError> {
         match variant.as_deref() {
             // Text type with optional constraints
-            Some("text") => self.convert_text_with_constraints(node_id, node),
-            Some("integer") => self.convert_integer_with_constraints(node_id, node),
-            Some("float") => self.convert_float_with_constraints(node_id, node),
-            Some("array") => self.convert_array_with_constraints(node_id, node),
-            Some("map") => self.convert_map_type(node_id, node),
-            Some("tuple") => self.convert_tuple_with_constraints(node_id, node),
+            Some("text") => self.convert_text_with_constraints(node_id),
+            Some("integer") => self.convert_integer_with_constraints(node_id),
+            Some("float") => self.convert_float_with_constraints(node_id),
+            Some("array") => self.convert_array_with_constraints(node_id),
+            Some("map") => self.convert_map_type(node_id),
+            Some("tuple") => self.convert_tuple_with_constraints(node_id),
             Some("union") => self.convert_union_type(node_id, node),
-            Some("path") => self.convert_path_with_constraints(node_id, node),
-            Some("literal") => self.convert_literal_type(node_id, node),
+            Some("literal") => self.convert_literal_type(node_id),
             Some("record") => self.convert_record_type(node_id, node),
             None => {
                 // No explicit variant - treat as record
@@ -441,7 +423,6 @@ impl<'a> Converter<'a> {
     fn convert_text_with_constraints(
         &mut self,
         node_id: NodeId,
-        _node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
         let mut text_schema = TextSchema::default();
@@ -478,7 +459,6 @@ impl<'a> Converter<'a> {
     fn convert_integer_with_constraints(
         &mut self,
         node_id: NodeId,
-        _node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
         let mut int_schema = IntegerSchema::default();
@@ -516,7 +496,6 @@ impl<'a> Converter<'a> {
     fn convert_float_with_constraints(
         &mut self,
         node_id: NodeId,
-        _node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
         let mut float_schema = FloatSchema::default();
@@ -554,7 +533,6 @@ impl<'a> Converter<'a> {
     fn convert_array_with_constraints(
         &mut self,
         node_id: NodeId,
-        _node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
         let mut min_length = None;
@@ -607,11 +585,7 @@ impl<'a> Converter<'a> {
     }
 
     /// Convert a map type
-    fn convert_map_type(
-        &mut self,
-        node_id: NodeId,
-        _node: &Node,
-    ) -> Result<SchemaNodeId, ConversionError> {
+    fn convert_map_type(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
         let mut key_id = None;
         let mut value_id = None;
@@ -663,7 +637,6 @@ impl<'a> Converter<'a> {
     fn convert_tuple_with_constraints(
         &mut self,
         node_id: NodeId,
-        _node: &Node,
     ) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
         let mut elements = Vec::new();
@@ -801,46 +774,8 @@ impl<'a> Converter<'a> {
         }
     }
 
-    /// Convert a path type with constraints
-    fn convert_path_with_constraints(
-        &mut self,
-        node_id: NodeId,
-        _node: &Node,
-    ) -> Result<SchemaNodeId, ConversionError> {
-        let node = self.doc.node(node_id);
-        let mut path_schema = PathSchema::default();
-
-        if let NodeValue::Map(map) = &node.content {
-            for (key, &value_id) in map.0.iter() {
-                if let ObjectKey::String(key_str) = key {
-                    match key_str.as_str() {
-                        "starts-with" => {
-                            path_schema.starts_with = self.get_path_value(value_id)?;
-                        }
-                        "min-length" => {
-                            path_schema.min_length = self.get_integer_value(value_id)?;
-                        }
-                        "max-length" => {
-                            path_schema.max_length = self.get_integer_value(value_id)?;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        let schema_id = self
-            .schema
-            .create_node(SchemaNodeContent::Path(path_schema));
-        Ok(schema_id)
-    }
-
     /// Convert a literal type
-    fn convert_literal_type(
-        &mut self,
-        node_id: NodeId,
-        _node: &Node,
-    ) -> Result<SchemaNodeId, ConversionError> {
+    fn convert_literal_type(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
         let node = self.doc.node(node_id);
 
         // Look for root binding value in the map
@@ -983,18 +918,22 @@ impl<'a> Converter<'a> {
     ) -> Result<UnknownFieldsPolicy, ConversionError> {
         let node = self.doc.node(node_id);
         match &node.content {
-            NodeValue::Primitive(PrimitiveValue::Text(t)) => match t.as_str() {
-                "deny" => Ok(UnknownFieldsPolicy::Deny),
-                "allow" => Ok(UnknownFieldsPolicy::Allow),
-                _ => Err(ConversionError::InvalidExtensionValue {
-                    extension: "unknown-fields".to_string(),
-                    path: t.as_str().to_string(),
-                }),
-            },
-            NodeValue::Primitive(PrimitiveValue::Path(_)) => {
-                // Schema type for unknown fields
-                let schema_id = self.convert_node(node_id)?;
-                Ok(UnknownFieldsPolicy::Schema(schema_id))
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => {
+                // Plaintext strings: "deny", "allow"
+                if matches!(t.language, Language::Plaintext) {
+                    match t.as_str() {
+                        "deny" => Ok(UnknownFieldsPolicy::Deny),
+                        "allow" => Ok(UnknownFieldsPolicy::Allow),
+                        _ => Err(ConversionError::InvalidExtensionValue {
+                            extension: "unknown-fields".to_string(),
+                            path: t.as_str().to_string(),
+                        }),
+                    }
+                } else {
+                    // Inline code: `text`, `any` - schema type for unknown fields
+                    let schema_id = self.convert_node(node_id)?;
+                    Ok(UnknownFieldsPolicy::Schema(schema_id))
+                }
             }
             _ => Err(ConversionError::InvalidExtensionValue {
                 extension: "unknown-fields".to_string(),
@@ -1062,15 +1001,6 @@ impl<'a> Converter<'a> {
         let node = self.doc.node(node_id);
         match &node.content {
             NodeValue::Primitive(PrimitiveValue::Bool(b)) => Ok(Some(*b)),
-            _ => Ok(None),
-        }
-    }
-
-    /// Helper: get path value from a node
-    fn get_path_value(&self, node_id: NodeId) -> Result<Option<EurePath>, ConversionError> {
-        let node = self.doc.node(node_id);
-        match &node.content {
-            NodeValue::Primitive(PrimitiveValue::Path(p)) => Ok(Some(p.clone())),
             _ => Ok(None),
         }
     }

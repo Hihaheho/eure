@@ -2246,23 +2246,6 @@ impl From<ObjectOpt1Node> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for Path non-terminal
-#[derive(Debug, Clone)]
-pub struct PathNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl PathNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<PathNode> for BuilderNodeId {
-    fn from(node: PathNode) -> Self {
-        node.node_id
-    }
-}
 ///Branded type for RParen non-terminal
 #[derive(Debug, Clone)]
 pub struct RParenNode {
@@ -4273,20 +4256,6 @@ impl ObjectOpt1Constructor {
     }
 }
 #[derive(bon::Builder)]
-pub struct PathConstructor {
-    dot: DotNode,
-    keys: KeysNode,
-}
-impl PathConstructor {
-    pub fn build(self) -> PathNode {
-        let mut builder = CstBuilder::new();
-        let dot = builder.embed(self.dot.builder);
-        let keys = builder.embed(self.keys.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::Path, vec![dot, keys]);
-        PathNode { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
 pub struct RParenConstructor {
     r_paren: RParenToken,
 }
@@ -4706,7 +4675,6 @@ pub enum ValueConstructor {
     Hole(HoleNode),
     CodeBlock(CodeBlockNode),
     InlineCode(InlineCodeNode),
-    Path(PathNode),
 }
 impl ValueConstructor {
     pub fn build(self) -> ValueNode {
@@ -4723,7 +4691,6 @@ impl ValueConstructor {
             Self::Hole(node) => builder.embed(node.builder),
             Self::CodeBlock(node) => builder.embed(node.builder),
             Self::InlineCode(node) => builder.embed(node.builder),
-            Self::Path(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::Value, vec![child_id]);
         ValueNode { node_id, builder }

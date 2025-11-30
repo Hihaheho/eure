@@ -1963,9 +1963,9 @@ name = "eure-ls"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "eure",
  "eure-editor-support",
  "eure-schema",
- "eure-tree",
  "lsp-server",
  "lsp-types",
  "serde",

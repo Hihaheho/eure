@@ -92,7 +92,6 @@ fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue
         }
         PrimitiveValue::Text(text) => Ok(JsonValue::String(text.content.clone())),
         PrimitiveValue::Hole => Err(EureToJsonError::HoleNotSupported),
-        PrimitiveValue::Path(_) => Err(EureToJsonError::PathNotSupported),
         PrimitiveValue::Variant(variant) => convert_variant(variant, config),
     }
 }
@@ -342,15 +341,6 @@ mod tests {
         let config = Config::default();
         let result = document_to_value(&doc, &config);
         assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
-    }
-
-    #[test]
-    fn test_path_error() {
-        use eure_value::path::EurePath;
-        let doc = EureDocument::new_primitive(PrimitiveValue::Path(EurePath::root()));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::PathNotSupported));
     }
 
     #[test]

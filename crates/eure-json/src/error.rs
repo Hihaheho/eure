@@ -2,9 +2,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum EureToJsonError {
-    #[error("Path type is not supported in JSON")]
-    PathNotSupported,
-
     #[error("Hole (uninitialized value) is not supported in JSON")]
     HoleNotSupported,
 

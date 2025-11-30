@@ -10,7 +10,7 @@
 ///
 /// 1. $root-type = <type>
 ///    Specifies the root type of target documents validated by this schema.
-///    In this meta-schema: $root-type = .$types.type
+///    In this meta-schema: $root-type = `$types.type`
 ///    (Target documents are schema files, whose root must be a type definition)
 ///
 /// 2. $ext-type.foo = <type>
@@ -53,7 +53,7 @@
 ///
 ///    Primitives:
 ///    - text, integer, float, boolean, null, any
-///    - With shorthands: .text, .integer, .float, .boolean, .null, .any
+///    - With shorthands: `text`, `integer`, `float`, `boolean`, `null`, `any`
 ///
 ///    Containers:
 ///    - record: Fixed named fields { field1 = <type>, field2 = <type>, ... }
@@ -64,14 +64,13 @@
 ///
 ///    Special:
 ///    - literal: Exact value match (e.g., status.$type = "active")
-///    - path: Document path values with constraints
-///    - ref: Type reference (.$types.my-type)
+///    - ref: Type reference (`$types.my-type`)
 ///
-///    Shorthands:
-///    - .text, .integer, etc. for primitive types
-///    - [.T] for arrays (e.g., [.text] = array of text)
-///    - (.T1, .T2) for tuples (e.g., (.text, .integer))
-///    - .text.lang for text with language (e.g., .text.rust)
+///    Shorthands (using inline code):
+///    - `text`, `integer`, etc. for primitive types
+///    - [`T`] for arrays (e.g., [`text`] = array of text)
+///    - (`T1`, `T2`) for tuples (e.g., (`text`, `integer`))
+///    - `text.lang` for text with language (e.g., `text.rust`)
 ///
 /// ============================================================================
 /// Design Decisions
@@ -82,7 +81,7 @@
 ///
 /// 2. Format Attribute:
 ///    Not adopted. Use typed text instead.
-///    Examples: .text.email, .text.url, .text.uuid
+///    Examples: `text.email`, `text.url`, `text.uuid`
 ///
 /// 3. Unknown Fields Policy:
 ///    Default: deny (unknown fields are rejected in records).
@@ -93,7 +92,7 @@
 ///
 /// 4. Nullable Types:
 ///    Expressed using union with null type.
-///    Example: { variants.value = .text, variants.null = .null, $variant: union }
+///    Example: { variants.value = `text`, variants.null = `null`, $variant: union }
 ///
 /// 5. Discriminators:
 ///    Union types always have a discriminator field.
@@ -117,8 +116,8 @@
 ///      $variant: union
 ///      $variant-repr = "untagged"
 ///      priority = ["error", "success"]  // error checked first
-///      variants.error = { code = .integer, message = .text }
-///      variants.success = { data = .any }
+///      variants.error = { code = `integer`, message = `text` }
+///      variants.success = { data = `any` }
 ///    }
 ///
 ///    When priority is set and multiple variants match, the first
@@ -151,13 +150,13 @@
 ///
 ///    $import = { common => "common.schema.eure" }
 ///
-///    Then reference imported types using: .$types.<namespace>.<type-name>
-///    - .$types.common.username    (imported from common.schema.eure)
-///    - .$types.local-type         (local type, no namespace)
+///    Then reference imported types using: `$types.<namespace>.<type-name>`
+///    - `$types.common.username`   (imported from common.schema.eure)
+///    - `$types.local-type`        (local type, no namespace)
 ///
 ///    Resolution rules:
-///    - Path length 2 (.$types.T): Local type reference
-///    - Path length 3 (.$types.N.T): External type reference (N must be in $import)
+///    - `$types.T`: Local type reference
+///    - `$types.N.T`: External type reference (N must be in $import)
 ///
 ///    Schemas can optionally declare which types to export using $export.
 ///    - $export = "*"              (export all types, default)
@@ -166,26 +165,18 @@
 $schema = "eure-schema.schema.eure"
 
 /// Set the root type of the target document.
-$ext-type.root-type = .$types.type
+$ext-type.root-type = `$types.type`
 
 /// Eure Schema's root type is a type.
-$root-type = .$types.type
-
-/// Identifier type for type names, variant names, etc.
-/// Matches Eure identifier syntax using Unicode properties.
-@ $types.ident {
-  $variant: text
-  language = "plaintext"
-  pattern = regex`[\p{XID_Start}_][\p{XID_Continue}-]*`
-}
+$root-type = `$types.type`
 
 /// Allows users to define custom types in the schema.
-/// Users can define types like: $types.my-type = { field => .text }
-/// and reference them as: field.$type = .$types.my-type
-$ext-type.types = {
-  $variant: map
-  key => .$types.ident
-  value => .$types.type
+/// Users can define types like: $types.my-type = { field => `text` }
+/// and reference them as: field.$type = `$types.my-type`
+$ext-type.types {
+  $variant: "map"
+  key = `$types.ident`
+  value = `$types.type`
 }
 
 /// Allows schemas to import types from other schemas.
@@ -197,12 +188,23 @@ $ext-type.types = {
 ///
 /// Note: Imports are resolved at schema bundling/validation time, not at runtime.
 /// Distributed schemas should be self-contained (all imports inlined).
-$ext-type.import = {
+$ext-type.import {
   $variant: map
-  key => .$types.ident  // namespace name
-  value => .text        // schema file path (relative or absolute)
+  key = `$types.ident`  // namespace name
+  value = `text`        // schema file path (relative or absolute)
 }
 $ext-type.import.$optional = true
+
+$ext-type.export = `$types.export-policy`
+$ext-type.export.$optional = true  // Default: export all ("*")
+
+/// Identifier type for type names, variant names, etc.
+/// Matches Eure identifier syntax using Unicode properties.
+@ $types.ident {
+  $variant: text
+  language = "plaintext"
+  pattern = regex`[\p{XID_Start}_][\p{XID_Continue}-]*`
+}
 
 /// Allows schemas to declare which types are exported (public).
 /// - $export = "*" exports all types (default behavior if $export is omitted)
@@ -216,10 +218,8 @@ $ext-type.import.$optional = true
   @variants.all = { = "*", $variant: literal }
 
   /// Export only the explicitly listed types.
-  @variants.explicit = [.$types.ident]
+  @variants.explicit = [`$types.ident`]
 }
-$ext-type.export = .$types.export-policy
-$ext-type.export.$optional = true  // Default: export all ("*")
 
 /// How variants should be represented in the data model.
 @ $types.variant-repr {
@@ -230,13 +230,13 @@ $ext-type.export.$optional = true  // Default: export all ("*")
 
   /// Internally tagged variant (custom tag field name).
   @variants.internal {
-    tag = .text
+    tag = `text`
   }
 
   /// Adjacently tagged variant (custom tag and content field names).
   @variants.adjacent {
-    tag = .text
-    content = .text
+    tag = `text`
+    content = `text`
   }
 
   /// Externally tagged variant (default).
@@ -254,7 +254,7 @@ $ext-type.export.$optional = true  // Default: export all ("*")
   @variants.allow = { = "allow", $variant: literal }
 
   /// Allow unknown fields with schema validation for their values.
-  @variants.schema = .$types.type
+  @variants.schema = `$types.type`
 }
 
 /// Range string format for numeric constraints.
@@ -311,151 +311,150 @@ variants {
     // Example: section.$cascade-ext-type = { custom-field => .text }
     cascade-ext-type => {
       $variant: map
-      key => .$types.ident
-      value => .$types.type
+      key => `$types.ident`
+      value => `$types.type`
     }
 
     // Field description (supports both plain text via text binding and rich markdown).
     description => {
       $variant: union
-      variants.string => .text
-      variants.markdown => .text.markdown
+      variants.string => `text`
+      variants.markdown => `text.markdown`
     }
     description.$optional = true
 
     // Marks the field as deprecated.
-    deprecated => .boolean
+    deprecated => `boolean`
     deprecated.$optional = true
 
     // Default value for the field (if omitted in the data).
-    default => .any
+    default => `any`
     default.$optional = true
 
     // Example values in Eure code format.
-    examples => [.text.eure]
+    examples => [`text.eure`]
     examples.$optional = true
   }
 
   /// Text type with optional language and length/pattern constraints.
   /// Use for both plain text and code with language tags.
   @variants.text
-  language = .text
+  language = `text`
   language.$optional = true
-  min-length = .integer
+  min-length = `integer`
   min-length.$optional = true
-  max-length = .integer
+  max-length = `integer`
   max-length.$optional = true
-  pattern = .text.regex
+  pattern = `text.regex`
   pattern.$optional = true
 
-  /// Shorthand for text type using path syntax.
-  /// Allows: .text (no language), .text.rust, .text.email, etc.
+  /// Shorthand for text type using inline code syntax.
+  /// Allows: `text` (no language), `text.rust`, `text.email`, etc.
+  /// For constraints, use the full form with $variant: text
   @variants.text-shorthand
-  $variant: path
-  starts-with = .text
-  length-min = 1
-  length-max = 2
+  $variant: text
+  pattern = "^text(\\.[a-zA-Z0-9-]+)?$"
 
   /// Integer type with optional range and multiple-of constraints.
   @variants.integer
-  range = .$types.range-string
+  range = `$types.range-string`
   range.$optional = true
-  multiple-of = .integer
+  multiple-of = `integer`
   multiple-of.$optional = true
 
-  /// Shorthand: field.$type = .integer
+  /// Shorthand: field.$type = `integer`
   /// For constraints, use the full form with $variant: integer
-  @variants.integer-shorthand = { = .integer, $variant: literal }
+  @variants.integer-shorthand = { = `integer`, $variant: literal }
 
   /// Float type with optional range and multiple-of constraints.
   @variants.float
-  range = .$types.range-string
+  range = `$types.range-string`
   range.$optional = true
-  multiple-of = .float
+  multiple-of = `float`
   multiple-of.$optional = true
 
-  /// Shorthand: field.$type = .float
+  /// Shorthand: field.$type = `float`
   /// For constraints, use the full form with $variant: float
-  @variants.float-shorthand = { = .float, $variant: literal }
+  @variants.float-shorthand = { = `float`, $variant: literal }
 
   /// Boolean type (true/false).
-  /// Usage: field.$type = .boolean
-  @variants.boolean = { = .boolean, $variant: literal }
+  /// Usage: field.$type = `boolean`
+  @variants.boolean = { = `boolean`, $variant: literal }
 
   /// Null type.
-  /// Usage: field.$type = .null
-  @variants.null = { = .null, $variant: literal }
+  /// Usage: field.$type = `null`
+  @variants.null = { = `null`, $variant: literal }
 
   /// Any type (accepts any valid Eure value).
-  /// Usage: field.$type = .any
-  @variants.any = { = .any, $variant: literal }
+  /// Usage: field.$type = `any`
+  @variants.any = { = `any`, $variant: literal }
 
   /// Literal type accepts a constant value.
   /// The schema matches only that exact value.
   /// Example: status.$type = "active" will only accept the string "active".
-  @variants.literal = .any
+  @variants.literal = `any`
 
   /// Record type with fixed, named fields.
   /// Each field has a specific name and type defined in the schema.
-  /// Shorthand: field.$type = { name => .text, age => .integer }
+  /// Shorthand: field.$type = { name => `text`, age => .integer }
   @variants.record
   $variant: map
-  key = .text
-  value = .$types.type
-  value.$ext-type.optional = .boolean
+  key = `text`
+  value = `$types.type`
+  value.$ext-type.optional = `boolean`
   value.$ext-type.optional.$optional = true
-  value.$ext-type.binding-style = .$types.binding-style
+  value.$ext-type.binding-style = `$types.binding-style`
   value.$ext-type.binding-style.$optional = true
-  $ext-type.unknown-fields = .$types.unknown-fields-policy
+  $ext-type.unknown-fields = `$types.unknown-fields-policy`
   $ext-type.unknown-fields.$optional = true  // Default: deny
 
   /// Union type with named variants.
   /// Requires exactly one variant to match (oneOf semantics).
   /// Use priority to resolve ambiguity in untagged unions.
   @variants.union
-  variants = { $variant: map, key => .$types.ident, value => .$types.type }
+  variants = { $variant: map, key => `$types.ident`, value => `$types.type` }
   /// Priority order for variant matching (used when multiple variants match).
   /// Only relevant for untagged unions. First matching variant in priority wins.
   /// Example: priority = ["specific", "general"]
-  priority = [.$types.ident]
+  priority = [`$types.ident`]
   priority.$optional = true
-  $ext-type.variant-repr = .$types.variant-repr
+  $ext-type.variant-repr = `$types.variant-repr`
   $ext-type.variant-repr.$optional = true  // Default: externally tagged
 
   /// Array type with optional constraints.
   @variants.array
-  item = .$types.type
-  min-length = .integer
+  item = `$types.type`
+  min-length = `integer`
   min-length.$optional = true
-  max-length = .integer
+  max-length = `integer`
   max-length.$optional = true
-  unique = .boolean
+  unique = `boolean`
   unique.$optional = true
   /// Requires at least one element to match this schema.
   /// Example: contains = .integer means the array must contain at least one integer.
-  contains = .$types.type
+  contains = `$types.type`
   contains.$optional = true
-  $ext-type.binding-style = .$types.binding-style
+  $ext-type.binding-style = `$types.binding-style`
   $ext-type.binding-style.$optional = true
 
   // Shorthand: field.$type = [.integer]
   // For constraints, use the full form with $variant: array
   @variants.array-shorthand
   $variant: array
-  item = .$types.type
+  item = `$types.type`
   min-length = 1
   max-length = 1
 
   /// Map type with dynamic keys (all keys have the same type, all values have the same type).
   /// Unlike record, keys are not fixed - any key matching the key type is allowed.
-  /// Example: { $variant: map, key => .text, value => .integer }
+  /// Example: { $variant: map, key => `text`, value => .integer }
   ///          Allows: { "a" => 1, "b" => 2, "any-key" => 3 }
   @variants.map
-  key = .$types.type
-  value = .$types.type
-  min-size = .integer
+  key = `$types.type`
+  value = `$types.type`
+  min-size = `integer`
   min-size.$optional = true
-  max-size = .integer
+  max-size = `integer`
   max-size.$optional = true
 
   /// Tuple type with fixed-length, ordered elements.
@@ -463,8 +462,8 @@ variants {
   /// Example: elements = [.text, .integer, .boolean]
   ///          Requires exactly 3 elements in that order.
   @variants.tuple
-  elements = [.$types.type]
-  $ext-type.binding-style = .$types.binding-style
+  elements = [`$types.type`]
+  $ext-type.binding-style = `$types.binding-style`
   $ext-type.binding-style.$optional = true
 
   /// Shorthand for tuple types using parenthesis syntax.
@@ -472,54 +471,29 @@ variants {
   /// Supports tuples with 1 to 16 elements.
   /// For tuples with more than 16 elements, use the full tuple variant.
   @variants.tuple-shorthand
-  variants.1 = (.$types.type)
-  variants.2 = (.$types.type, .$types.type)
-  variants.3 = (.$types.type, .$types.type, .$types.type)
-  variants.4 = (.$types.type, .$types.type, .$types.type, .$types.type)
-  variants.5 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.6 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.7 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.8 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.9 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.10 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.11 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.12 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.13 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.14 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.15 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
-  variants.16 = (.$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type, .$types.type)
+  variants.1 = (`$types.type`)
+  variants.2 = (`$types.type`, `$types.type`)
+  variants.3 = (`$types.type`, `$types.type`, `$types.type`)
+  variants.4 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.5 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.6 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.7 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.8 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.9 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.10 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.11 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.12 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.13 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.14 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.15 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.16 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
 
-  /// Type reference using path syntax.
+  /// Type reference using inline code syntax.
   /// Supports both local and cross-schema type references:
-  ///
-  /// Local reference (path length 2):
-  ///   .$types.my-type
-  ///   References a type defined in the current schema via $types.my-type
-  ///
-  /// Cross-schema reference (path length 3):
-  ///   .$types.common.username
-  ///   References type "username" from schema imported as "common" via $import
-  ///
-  /// Resolution:
-  /// - Local refs are resolved against $types in the current schema
-  /// - External refs require matching $import entry and exported type
+  /// - `$types.my-type` - local type reference
+  /// - `$types.common.username` - external type reference (from imported schema)
   @variants.ref
-  $variant: path
-  starts-with = .$types
-  length-min = 2
-  length-max = 3
+  $variant: text
+  pattern = "^\\$types\\.[a-zA-Z_][a-zA-Z0-9_-]*(\\.[a-zA-Z_][a-zA-Z0-9_-]*)?$"
 
-  // Path schema type with optional constraints like starts-with, min-length, max-length, etc.
-  // This is the actual data type for storing path values, not a type reference.
-  @variants.path
-  starts-with = .path
-  starts-with.$optional = true
-  min-length = .integer
-  min-length.$optional = true
-  max-length = .integer
-  max-length.$optional = true
-
-  /// Shorthand: field.$type = .path
-  /// For constraints, use the full form with $variant: path
-  @variants.path-shorthand = { = .path, $variant: literal }
 }
