@@ -1,8 +1,8 @@
 unimplemented = true
 
-# Test: schema manager
-# From: crates/eure-editor-support/tests/schema_validation_test.rs:test_schema_manager
-# Tests loading schemas and associating documents with schemas
+// Test: schema manager
+// From: crates/eure-editor-support/tests/schema_validation_test.rs:test_schema_manager
+// Tests loading schemas and associating documents with schemas
 
 schema = ```eure
 @ $types.Person {
@@ -20,9 +20,9 @@ person = {
 }
 ```
 
-# Schema manager should:
-# 1. Successfully load the schema
-# 2. Associate document with schema URI
-# 3. Make schema available via get_schema()
+// Schema manager should:
+// 1. Successfully load the schema
+// 2. Associate document with schema URI
+// 3. Make schema available via get_schema()
 schema_uri = "test://person.schema.eure"
 document_uri = "test://doc.eure"

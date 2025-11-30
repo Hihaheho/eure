@@ -1,9 +1,9 @@
 unimplemented = true
 
-# Test: completion with default values
-# From: crates/eure-editor-support/tests/completions_test.rs:test_completion_with_default_values
-# Fields with default values show the default in completion details
-# TODO: default value display not yet implemented
+// Test: completion with default values
+// From: crates/eure-editor-support/tests/completions_test.rs:test_completion_with_default_values
+// Fields with default values show the default in completion details
+// TODO: default value display not yet implemented
 
 schema = ```eure
 database.host.$type = .text
@@ -22,25 +22,25 @@ editor = ```eure
 |_|
 ```
 
-# Completions should show default values in details
-# TODO: Once implemented, check that details contain defaults
+// Completions should show default values in details
+// TODO: Once implemented, check that details contain defaults
 
 @ completions[]
 label = "host"
 kind = "field"
-# detail should contain "localhost"
+// detail should contain "localhost"
 
 @ completions[]
 label = "port"
 kind = "field"
-# detail should contain "5432"
+// detail should contain "5432"
 
 @ completions[]
 label = "ssl_enabled"
 kind = "field"
-# detail should contain "true"
+// detail should contain "true"
 
 @ completions[]
 label = "connection_timeout"
 kind = "field"
-# detail should contain "30"
+// detail should contain "30"

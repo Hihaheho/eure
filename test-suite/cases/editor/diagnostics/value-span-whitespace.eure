@@ -1,8 +1,8 @@
 unimplemented = true
 
-# Test: value span excludes whitespace
-# From: crates/eure-editor-support/tests/diagnostic_span_test.rs:test_value_span_excludes_whitespace
-# Value spans should not include preceding whitespace
+// Test: value span excludes whitespace
+// From: crates/eure-editor-support/tests/diagnostic_span_test.rs:test_value_span_excludes_whitespace
+// Value spans should not include preceding whitespace
 
 schema = ```eure
 @ myfield
@@ -15,8 +15,8 @@ editor = ```eure
   value = "string instead of number"
 ```
 
-# Should have type mismatch diagnostic
-# The span should focus on the value, not include preceding whitespace
+// Should have type mismatch diagnostic
+// The span should focus on the value, not include preceding whitespace
 
 @ diagnostics[]
 message_contains = "type"

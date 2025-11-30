@@ -1,16 +1,16 @@
 unimplemented = true
 
-# Test: path extraction at binding
-# From: crates/eure-editor-support/tests/cst_path_test.rs:test_path_extraction_at_binding
-# When in a binding under section a.b, should get section path
+// Test: path extraction at binding
+// From: crates/eure-editor-support/tests/cst_path_test.rs:test_path_extraction_at_binding
+// When in a binding under section a.b, should get section path
 
 editor = ```eure
 @ a.b
 key|_| = value
 ```
 
-# Cursor byte offset: 9 (at 'key')
+// Cursor byte offset: 9 (at 'key')
 cursor_offset = 9
 
-# Should get section path when in binding
+// Should get section path when in binding
 expected_path = ["a", "b"]

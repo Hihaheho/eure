@@ -2564,4 +2564,3 @@ $types.0 = `text`
         ConversionError::InvalidTypeName(ObjectKey::Number(BigInt::from(0)))
     );
 }
-

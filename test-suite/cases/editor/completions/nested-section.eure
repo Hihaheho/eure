@@ -1,7 +1,7 @@
 unimplemented = true
 
-# Test: completion in nested section
-# From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_in_nested_section
+// Test: completion in nested section
+// From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_in_nested_section
 
 schema = ```eure
 @ a {
@@ -19,7 +19,7 @@ editor = ```eure
 key = |_|
 ```
 
-# Should suggest values in the context of a.b.c
+// Should suggest values in the context of a.b.c
 
 @ completions[]
 label = "true"

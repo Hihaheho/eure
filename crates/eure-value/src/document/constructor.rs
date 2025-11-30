@@ -93,11 +93,7 @@ impl DocumentConstructor {
             .prepare_node_from(target, base_path, path)?
             .node_id;
         // Truncate path to current range before extending to avoid keeping stale segments
-        let current_range = self
-            .stack
-            .last()
-            .map(|item| item.path_range)
-            .unwrap_or(0);
+        let current_range = self.stack.last().map(|item| item.path_range).unwrap_or(0);
         self.path.truncate(current_range);
         self.path.extend(path.iter().cloned());
         self.stack.push(StackItem {

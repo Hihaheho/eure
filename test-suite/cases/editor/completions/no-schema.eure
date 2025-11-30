@@ -1,9 +1,9 @@
 unimplemented = true
 
-# Test: no hardcoded completions without schema
-# From: crates/eure-editor-support/tests/no_hardcoded_completions_test.rs:test_no_hardcoded_completions_without_schema
+// Test: no hardcoded completions without schema
+// From: crates/eure-editor-support/tests/no_hardcoded_completions_test.rs:test_no_hardcoded_completions_without_schema
 
-# No schema provided
+// No schema provided
 
 editor = ```eure
 @ script.|_|
@@ -11,6 +11,6 @@ editor = ```eure
 
 trigger = "."
 
-# Should not have any hardcoded values without schema
+// Should not have any hardcoded values without schema
 expect_empty_completions = true
 completions_should_not_contain = ["commands", "options", "field1", "field2"]

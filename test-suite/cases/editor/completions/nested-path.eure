@@ -1,8 +1,8 @@
 unimplemented = true
 
-# Test: nested path completion
-# From: crates/eure-editor-support/tests/completions_test.rs:test_nested_path_completion
-# Completion for nested paths like user.address.
+// Test: nested path completion
+// From: crates/eure-editor-support/tests/completions_test.rs:test_nested_path_completion
+// Completion for nested paths like user.address.
 
 schema = ```eure
 @ user {
@@ -32,8 +32,8 @@ user.address.|_|
 
 trigger = "."
 
-# Should have address fields: street, city, zipcode, country
-# Should only show 4 fields from address schema
+// Should have address fields: street, city, zipcode, country
+// Should only show 4 fields from address schema
 
 @ completions[]
 label = "street"
