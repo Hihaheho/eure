@@ -1,0 +1,27 @@
+unimplemented = true
+
+# Test: completion after equals
+# From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_after_equals
+
+schema = ```eure
+@ key
+$type = .any
+```
+
+editor = ```eure
+key = |_|
+```
+
+# Should suggest basic value types
+
+@ completions[]
+label = "true"
+kind = "value"
+
+@ completions[]
+label = "false"
+kind = "value"
+
+@ completions[]
+label = "null"
+kind = "value"

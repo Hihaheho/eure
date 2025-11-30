@@ -1,0 +1,57 @@
+unimplemented = true
+
+# Test: completion with variants in nested context
+# From: crates/eure-editor-support/tests/completion_nested_context_test.rs:test_completion_with_variants_in_nested_context
+
+schema = ```eure
+@ $types {
+    @ Status
+    $variants {
+        @ pending {
+            @ reason
+            $type = .text
+        }
+        @ approved {
+            @ approved_by
+            $type = .text
+
+            @ approved_at
+            $type = .text
+        }
+        @ rejected {
+            @ rejected_by
+            $type = .text
+
+            @ rejection_reason
+            $type = .text
+        }
+    }
+}
+
+@ requests
+$array {
+    @ id
+    $type = .text
+
+    @ status
+    $type = .$types.Status
+}
+```
+
+editor = ```eure
+@ requests[]
+id = 123
+
+@ requests[].status
+$variant: approved
+approved_by = "manager"
+|_|
+```
+
+# SHOULD suggest fields from the approved variant
+@ completions[]
+label = "approved_at"
+kind = "field"
+
+# SHOULD NOT suggest fields from other variants or parent contexts
+completions_should_not_contain = ["reason", "rejected_by", "rejection_reason", "id", "status"]

@@ -1,0 +1,18 @@
+unimplemented = true
+
+# Test: no cached document fallback
+# From: crates/eure-editor-support/tests/cache_validation_test.rs:test_no_cached_document_fallback
+# Graceful handling when no cached document available
+
+editor = ```eure
+person {
+    name = "Alice"
+    # Missing closing brace
+```
+
+# No cached document provided
+cached_document = null
+
+# Should not crash
+# Should NOT produce "eure-cached-validation" diagnostic
+diagnostics_should_not_contain_code = "eure-cached-validation"

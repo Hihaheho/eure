@@ -1,0 +1,22 @@
+unimplemented = true
+
+# Test: self-describing validation
+# From: crates/eure-editor-support/tests/schema_validation_test.rs:test_self_describing_validation
+# Pure schema document (no data mixed in)
+
+editor = ```eure
+# Pure schema document (no data mixed in)
+@ $types.Person {
+    @ name {
+        $variant: text
+        min-length = 1
+        max-length = 50
+    }
+
+    age = .float
+    age.$optional = true
+}
+```
+
+# Should have no validation errors
+expect_no_diagnostics = true

@@ -1,0 +1,26 @@
+unimplemented = true
+
+# Test: validation with errors
+# From: crates/eure-editor-support/tests/schema_validation_test.rs:test_validation_with_errors
+# Self-describing document with type mismatch and missing required field
+
+editor = ```eure
+# Self-describing document with inline schema
+name.$type = .text
+age.$type = .number
+
+# Actual data - number instead of string for name
+name = 123
+# age is missing (required field)
+```
+
+# Should have validation errors
+
+@ diagnostics[]
+severity = "error"
+message_contains = "Type mismatch"
+
+@ diagnostics[]
+severity = "error"
+message_contains = "Required field"
+message_contains_also = "missing"

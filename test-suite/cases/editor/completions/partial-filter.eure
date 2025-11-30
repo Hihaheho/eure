@@ -1,0 +1,35 @@
+unimplemented = true
+
+# Test: partial completion filters correctly
+# From: crates/eure-editor-support/tests/completion_multiple_fields_test.rs:test_partial_completion_filters_correctly
+
+schema = ```eure
+@ script
+$type = .text
+
+@ screen
+$type = .text
+
+@ settings
+$type = .object
+
+@ users
+$type = .array
+```
+
+editor = ```eure
+@ scr|_|
+```
+
+# Should only suggest fields starting with "scr"
+# All completions should start with 'scr'
+
+@ completions[]
+label = "script"
+kind = "field"
+
+@ completions[]
+label = "screen"
+kind = "field"
+
+completions_should_not_contain = ["settings", "users"]

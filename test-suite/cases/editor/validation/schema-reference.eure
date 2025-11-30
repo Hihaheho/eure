@@ -1,0 +1,28 @@
+unimplemented = true
+
+# Test: schema reference resolution
+# From: crates/eure-editor-support/tests/schema_validation_test.rs:test_schema_reference_resolution
+# Tests resolving relative paths, parent directory refs, file:// URLs
+
+# Test cases for schema reference resolution
+document_path = "/home/user/project/data/config.eure"
+
+@ reference_tests[]
+input = "./schemas/config.schema.eure"
+expected_ends_with = "data/schemas/config.schema.eure"
+should_succeed = true
+
+@ reference_tests[]
+input = "../shared/types.schema.eure"
+expected_contains = "shared/types.schema.eure"
+should_succeed = true
+
+@ reference_tests[]
+input = "file:///etc/schemas/global.schema.eure"
+expected = "/etc/schemas/global.schema.eure"
+should_succeed = true
+
+@ reference_tests[]
+input = "https://example.com/schemas/api.schema.eure"
+should_succeed = false
+expected_error = "Remote schemas are not yet supported"

@@ -1,0 +1,16 @@
+unimplemented = true
+
+# Test: nested path extraction
+# From: crates/eure-editor-support/tests/cst_path_test.rs:test_nested_path_extraction
+# Extract path at position after 'c'
+
+editor = ```eure
+@ a.b.c
+key = |_|
+```
+
+# Cursor byte offset: 7 (after 'c')
+cursor_offset = 7
+
+# Should extract full nested path
+expected_path = ["a", "b", "c"]

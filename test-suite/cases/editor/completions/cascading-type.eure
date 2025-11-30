@@ -1,0 +1,42 @@
+unimplemented = true
+
+# Test: completion with cascading type
+# From: crates/eure-editor-support/tests/completions_test.rs:test_completion_with_cascading_type
+# Cascading type application in arrays
+
+schema = ```eure
+$types.Server {
+    @ name
+    $type = .text
+
+    @ host
+    $type = .text
+
+    @ port
+    $type = .number
+    $default = 8080
+}
+
+@ servers {
+    $array = .$types.Server
+}
+```
+
+editor = ```eure
+@ servers[]
+|_|
+```
+
+# Should have cascaded array element fields: name, host, port
+
+@ completions[]
+label = "name"
+kind = "field"
+
+@ completions[]
+label = "host"
+kind = "field"
+
+@ completions[]
+label = "port"
+kind = "field"

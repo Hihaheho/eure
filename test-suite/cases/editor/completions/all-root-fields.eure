@@ -1,0 +1,53 @@
+unimplemented = true
+
+# Test: completion suggests all root fields
+# From: crates/eure-editor-support/tests/completion_multiple_fields_test.rs:test_completion_suggests_all_root_fields
+
+schema = ```eure
+@ script
+$type = .text
+
+@ name
+$type = .text
+
+@ version
+$type = .number
+
+@ settings {
+    @ debug
+    $type = .boolean
+
+    @ timeout
+    $type = .number
+}
+
+@ users
+$array = .text
+```
+
+editor = ```eure
+@ |_|
+```
+
+# Should suggest all root-level fields
+# All should be fields
+
+@ completions[]
+label = "script"
+kind = "field"
+
+@ completions[]
+label = "name"
+kind = "field"
+
+@ completions[]
+label = "version"
+kind = "field"
+
+@ completions[]
+label = "settings"
+kind = "field"
+
+@ completions[]
+label = "users"
+kind = "field"

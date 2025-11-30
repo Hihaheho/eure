@@ -1,0 +1,13 @@
+unimplemented = true
+
+# Test: schema discovery
+# From: crates/eure-editor-support/tests/schema_validation_test.rs:test_schema_discovery
+# Tests finding schema files by convention (test.schema.eure for test.eure)
+
+# This test creates a temporary directory structure:
+# - temp_dir/test.eure with content: name = "test"
+# - temp_dir/test.schema.eure with content: name.$type = .text
+
+# The schema discovery should find test.schema.eure for test.eure
+document_path = "test.eure"
+expected_schema_path = "test.schema.eure"

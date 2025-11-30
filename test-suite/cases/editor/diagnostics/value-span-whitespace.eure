@@ -1,0 +1,23 @@
+unimplemented = true
+
+# Test: value span excludes whitespace
+# From: crates/eure-editor-support/tests/diagnostic_span_test.rs:test_value_span_excludes_whitespace
+# Value spans should not include preceding whitespace
+
+schema = ```eure
+@ myfield
+$type = .number
+```
+
+editor = ```eure
+@ myfield
+
+  value = "string instead of number"
+```
+
+# Should have type mismatch diagnostic
+# The span should focus on the value, not include preceding whitespace
+
+@ diagnostics[]
+message_contains = "type"
+span_should_not_start_with = ["\n", " "]

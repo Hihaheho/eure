@@ -1,0 +1,28 @@
+unimplemented = true
+
+# Test: validation error to diagnostic
+# From: crates/eure-editor-support/src/schema_validation.rs:test_validation_error_to_diagnostic
+# Tests converting ValidationError to LSP Diagnostic
+
+editor = ```eure
+field1 = "value1"
+field2 = 123
+field3 = "value3"
+```
+
+# Create a type mismatch error for testing
+error.kind = "TypeMismatch"
+error.expected = "string"
+error.actual = "number"
+error.severity = "error"
+error.node_id = 0
+
+# Expected diagnostic properties
+@ diagnostics[]
+severity = "error"
+source = "eure-schema"
+message = "Type mismatch: expected string, found number"
+code = "eure-schema-type"
+range.start.line = 0
+range.start.character = 0
+range.end.line = 0

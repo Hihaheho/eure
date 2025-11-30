@@ -1,0 +1,14 @@
+unimplemented = true
+
+# Test: partial key without schema returns empty
+# From: crates/eure-editor-support/tests/no_hardcoded_completions_test.rs:test_partial_key_without_schema_returns_empty
+
+# No schema provided
+
+editor = ```eure
+@ scr|_|
+```
+
+# Should not have any completions without schema
+expect_empty_completions = true
+completions_should_not_contain = ["script"]

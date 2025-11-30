@@ -1,0 +1,52 @@
+unimplemented = true
+
+# Test: mixed path completion
+# From: crates/eure-editor-support/tests/completions_test.rs:test_mixed_path_completion
+# Completion for complex paths like config.servers[].
+
+schema = ```eure
+$types.Server {
+    @ host
+    $type = .text
+
+    @ port
+    $type = .number
+
+    @ protocol
+    $type = .text
+    $enum = ["http", "https", "ws", "wss"]
+
+    @ enabled
+    $type = .boolean
+    $default = true
+}
+
+@ config {
+    @ servers {
+        $array = .$types.Server
+    }
+}
+```
+
+editor = ```eure
+@ config.servers[]
+|_|
+```
+
+# Should have server fields: host, port, protocol, enabled
+
+@ completions[]
+label = "host"
+kind = "field"
+
+@ completions[]
+label = "port"
+kind = "field"
+
+@ completions[]
+label = "protocol"
+kind = "field"
+
+@ completions[]
+label = "enabled"
+kind = "field"

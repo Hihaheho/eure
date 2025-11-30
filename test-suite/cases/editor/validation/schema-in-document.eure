@@ -1,0 +1,17 @@
+unimplemented = true
+
+# Test: document with schema reference
+# From: crates/eure-editor-support/tests/schema_validation_test.rs:test_document_with_schema_reference
+# TODO: Re-enable when validate_and_extract_schema is implemented
+
+editor = ```eure
+# Document with $schema reference
+$schema = "./person.schema.eure"
+
+# Actual data
+name = "John Doe"
+age = 30
+```
+
+# Schema reference should be extracted
+expected_schema_ref = "./person.schema.eure"

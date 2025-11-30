@@ -1,0 +1,54 @@
+unimplemented = true
+
+# Test: variant field completion (set-text)
+# From: crates/eure-editor-support/tests/completions_test.rs:test_variant_field_completion
+# Completion of fields specific to selected variant
+
+schema = ```eure
+$types.Action {
+    @ $variants.set-text {
+        @ speaker
+        $type = .text
+
+        @ lines {
+            $array = .text
+        }
+    }
+
+    @ $variants.set-choices {
+        @ description
+        $type = .text
+
+        @ choices.$array {
+            @ text
+            $type = .text
+
+            @ value
+            $type = .text
+        }
+    }
+}
+
+@ actions {
+    $array = .$types.Action
+}
+```
+
+editor = ```eure
+@ actions[]
+$variant: set-text
+|_|
+```
+
+# Should have set-text variant fields: speaker, lines
+# Should NOT have fields from other variants: description, choices
+
+@ completions[]
+label = "speaker"
+kind = "field"
+
+@ completions[]
+label = "lines"
+kind = "field"
+
+completions_should_not_contain = ["description", "choices"]

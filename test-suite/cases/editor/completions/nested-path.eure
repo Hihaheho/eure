@@ -1,0 +1,52 @@
+unimplemented = true
+
+# Test: nested path completion
+# From: crates/eure-editor-support/tests/completions_test.rs:test_nested_path_completion
+# Completion for nested paths like user.address.
+
+schema = ```eure
+@ user {
+    @ address {
+        @ street
+        $type = .text
+
+        @ city
+        $type = .text
+
+        @ zipcode
+        $type = .text
+
+        @ country
+        $type = .text
+        $optional = true
+    }
+
+    @ name
+    $type = .text
+}
+```
+
+editor = ```eure
+user.address.|_|
+```
+
+trigger = "."
+
+# Should have address fields: street, city, zipcode, country
+# Should only show 4 fields from address schema
+
+@ completions[]
+label = "street"
+kind = "field"
+
+@ completions[]
+label = "city"
+kind = "field"
+
+@ completions[]
+label = "zipcode"
+kind = "field"
+
+@ completions[]
+label = "country"
+kind = "field"

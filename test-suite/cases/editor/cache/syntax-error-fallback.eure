@@ -1,0 +1,37 @@
+unimplemented = true
+
+# Test: cached document validation with syntax error
+# From: crates/eure-editor-support/tests/cache_validation_test.rs:test_cached_document_validation_with_syntax_error
+# Schema validation uses cached document when current has syntax errors
+
+schema = ```eure
+name.$type = .text
+age.$type = .number
+```
+
+# First, valid document (creates cache)
+valid_editor = ```eure
+name = "Alice"
+age = 30
+```
+
+# Then, invalid document with syntax error (missing closing brace)
+invalid_editor = ```eure
+name = "Alice"
+age = 30
+invalid {
+    # Syntax error: missing closing brace
+```
+
+# Valid document should have no schema errors
+valid_expect_no_schema_errors = true
+
+# Invalid document with cache should:
+# 1. Have "eure-cached-validation" diagnostic
+# 2. Still validate using cached structure with no schema errors
+
+@ diagnostics[]
+code = "eure-cached-validation"
+
+# No schema validation errors when using cached document
+expect_no_schema_errors_with_cache = true

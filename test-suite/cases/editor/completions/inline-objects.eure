@@ -1,0 +1,35 @@
+unimplemented = true
+
+# Test: completion with inline objects
+# From: crates/eure-editor-support/tests/completions_test.rs:test_completion_with_inline_objects
+# Completion inside inline object syntax { key = value, ... }
+# TODO: Inline object context and used-field filtering may not be implemented
+
+schema = ```eure
+@ user {
+    @ name
+    $type = .text
+
+    @ age
+    $type = .number
+
+    @ email
+    $type = .text
+}
+```
+
+editor = ```eure
+user = { name = "Alice", |_| }
+```
+
+# Should suggest remaining fields (age, email) but not already-used field (name)
+# TODO: Once implemented, uncomment:
+# @ completions[]
+# label = "age"
+# kind = "field"
+#
+# @ completions[]
+# label = "email"
+# kind = "field"
+#
+# completions_should_not_contain = ["name"]

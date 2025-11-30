@@ -1,0 +1,18 @@
+unimplemented = true
+
+# Test: schema ref priority
+# From: crates/eure-editor-support/tests/schema_validation_test.rs:test_schema_ref_priority
+# TODO: Re-enable when validate_and_extract_schema is implemented
+# $schema in document should take priority over convention-based discovery
+
+editor = ```eure
+# Document with explicit schema reference
+$schema = "./custom.schema.eure"
+
+# Also has inline schema constraints (these should still work)
+name.$type = .text
+name = "Test"
+```
+
+# Both $schema reference and inline constraints should be captured
+expected_schema_ref = "./custom.schema.eure"
