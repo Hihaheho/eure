@@ -13,13 +13,13 @@ Eure is a minimalist, schema-friendly data format and language ecosystem designe
 cargo check          # Build all crates
 cargo test           # Run all tests
 cargo clippy         # Run linting
+cargo run -p test-suite # Run Eure test suite
 ```
 
 **Individual Crate Development:**
 ```bash
-cargo check -p eure-fmt     # Build specific crate
-cargo test -p eure-tree     # Test specific crate
 cargo run -p eure-parol-gen # Regenerate eure-parol and eure-tree based on @crates/eure-parol/eure.par
+cargo run --bin eure -- <commands> # Run eure CLI for validating file or conversion reasons.
 ```
 
 ## Architecture
