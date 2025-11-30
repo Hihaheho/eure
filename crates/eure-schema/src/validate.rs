@@ -349,7 +349,7 @@ impl<'a> Validator<'a> {
                     expected: "text".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -383,25 +383,25 @@ impl<'a> Validator<'a> {
 
         // Validate length constraints
         let len = text.as_str().chars().count();
-        if let Some(min) = schema.min_length {
-            if len < min as usize {
-                return ValidationResult::failure(ValidationError::StringLengthOutOfBounds {
-                    length: len,
-                    min: Some(min),
-                    max: schema.max_length,
-                    path: self.current_path(),
-                });
-            }
+        if let Some(min) = schema.min_length
+            && len < min as usize
+        {
+            return ValidationResult::failure(ValidationError::StringLengthOutOfBounds {
+                length: len,
+                min: Some(min),
+                max: schema.max_length,
+                path: self.current_path(),
+            });
         }
-        if let Some(max) = schema.max_length {
-            if len > max as usize {
-                return ValidationResult::failure(ValidationError::StringLengthOutOfBounds {
-                    length: len,
-                    min: schema.min_length,
-                    max: Some(max),
-                    path: self.current_path(),
-                });
-            }
+        if let Some(max) = schema.max_length
+            && len > max as usize
+        {
+            return ValidationResult::failure(ValidationError::StringLengthOutOfBounds {
+                length: len,
+                min: schema.min_length,
+                max: Some(max),
+                path: self.current_path(),
+            });
         }
 
         // Validate pattern
@@ -412,7 +412,7 @@ impl<'a> Validator<'a> {
                     return ValidationResult::failure(ValidationError::InvalidRegexPattern {
                         pattern: pattern.clone(),
                         error: e.to_string(),
-                    })
+                    });
                 }
             };
             if !regex.is_match(text.as_str()) {
@@ -434,7 +434,7 @@ impl<'a> Validator<'a> {
                     expected: "integer".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -453,13 +453,13 @@ impl<'a> Validator<'a> {
         }
 
         // Validate multiple-of
-        if let Some(divisor) = &schema.multiple_of {
-            if int_val % divisor != BigInt::from(0) {
-                return ValidationResult::failure(ValidationError::NotMultipleOf {
-                    divisor: divisor.to_string(),
-                    path: self.current_path(),
-                });
-            }
+        if let Some(divisor) = &schema.multiple_of
+            && int_val % divisor != BigInt::from(0)
+        {
+            return ValidationResult::failure(ValidationError::NotMultipleOf {
+                divisor: divisor.to_string(),
+                path: self.current_path(),
+            });
         }
 
         ValidationResult::success(self.has_holes)
@@ -486,7 +486,7 @@ impl<'a> Validator<'a> {
                     expected: "float".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -505,13 +505,13 @@ impl<'a> Validator<'a> {
         }
 
         // Validate multiple-of
-        if let Some(divisor) = &schema.multiple_of {
-            if (float_val % divisor).abs() > f64::EPSILON {
-                return ValidationResult::failure(ValidationError::NotMultipleOf {
-                    divisor: divisor.to_string(),
-                    path: self.current_path(),
-                });
-            }
+        if let Some(divisor) = &schema.multiple_of
+            && (float_val % divisor).abs() > f64::EPSILON
+        {
+            return ValidationResult::failure(ValidationError::NotMultipleOf {
+                divisor: divisor.to_string(),
+                path: self.current_path(),
+            });
         }
 
         ValidationResult::success(self.has_holes)
@@ -566,32 +566,32 @@ impl<'a> Validator<'a> {
                     expected: "array".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
         let len = arr.0.len();
 
         // Validate length constraints
-        if let Some(min) = schema.min_length {
-            if len < min as usize {
-                return ValidationResult::failure(ValidationError::ArrayLengthOutOfBounds {
-                    length: len,
-                    min: Some(min),
-                    max: schema.max_length,
-                    path: self.current_path(),
-                });
-            }
+        if let Some(min) = schema.min_length
+            && len < min as usize
+        {
+            return ValidationResult::failure(ValidationError::ArrayLengthOutOfBounds {
+                length: len,
+                min: Some(min),
+                max: schema.max_length,
+                path: self.current_path(),
+            });
         }
-        if let Some(max) = schema.max_length {
-            if len > max as usize {
-                return ValidationResult::failure(ValidationError::ArrayLengthOutOfBounds {
-                    length: len,
-                    min: schema.min_length,
-                    max: Some(max),
-                    path: self.current_path(),
-                });
-            }
+        if let Some(max) = schema.max_length
+            && len > max as usize
+        {
+            return ValidationResult::failure(ValidationError::ArrayLengthOutOfBounds {
+                length: len,
+                min: schema.min_length,
+                max: Some(max),
+                path: self.current_path(),
+            });
         }
 
         // Validate uniqueness
@@ -647,32 +647,32 @@ impl<'a> Validator<'a> {
                     expected: "map".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
         let size = map.0.len();
 
         // Validate size constraints
-        if let Some(min) = schema.min_size {
-            if size < min as usize {
-                return ValidationResult::failure(ValidationError::MapSizeOutOfBounds {
-                    size,
-                    min: Some(min),
-                    max: schema.max_size,
-                    path: self.current_path(),
-                });
-            }
+        if let Some(min) = schema.min_size
+            && size < min as usize
+        {
+            return ValidationResult::failure(ValidationError::MapSizeOutOfBounds {
+                size,
+                min: Some(min),
+                max: schema.max_size,
+                path: self.current_path(),
+            });
         }
-        if let Some(max) = schema.max_size {
-            if size > max as usize {
-                return ValidationResult::failure(ValidationError::MapSizeOutOfBounds {
-                    size,
-                    min: schema.min_size,
-                    max: Some(max),
-                    path: self.current_path(),
-                });
-            }
+        if let Some(max) = schema.max_size
+            && size > max as usize
+        {
+            return ValidationResult::failure(ValidationError::MapSizeOutOfBounds {
+                size,
+                min: schema.min_size,
+                max: Some(max),
+                path: self.current_path(),
+            });
         }
 
         // Validate each key-value pair
@@ -684,7 +684,8 @@ impl<'a> Validator<'a> {
             // Validate key
             let key_value = object_key_to_value(key);
             let key_node = value_to_temp_node(&key_value);
-            let key_result = self.validate_content(&key_node, &self.schema.node(schema.key).content, schema.key);
+            let key_result =
+                self.validate_content(&key_node, &self.schema.node(schema.key).content, schema.key);
             if !key_result.is_valid {
                 result.merge(ValidationResult::failure(ValidationError::InvalidKeyType {
                     path: self.current_path(),
@@ -714,7 +715,7 @@ impl<'a> Validator<'a> {
                     expected: "record".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -795,7 +796,7 @@ impl<'a> Validator<'a> {
                     expected: "tuple".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -810,7 +811,8 @@ impl<'a> Validator<'a> {
 
         // Validate each element
         let mut result = ValidationResult::success(self.has_holes);
-        for (i, (&item_id, &elem_schema)) in tuple.0.iter().zip(schema.elements.iter()).enumerate() {
+        for (i, (&item_id, &elem_schema)) in tuple.0.iter().zip(schema.elements.iter()).enumerate()
+        {
             self.push_path_index(i);
             let item_result = self.validate(item_id, elem_schema);
             result.merge(item_result);
@@ -844,7 +846,11 @@ impl<'a> Validator<'a> {
             if let Some(&variant_schema) = schema.variants.get(&tag) {
                 // Validate the node content against the variant schema
                 self.push_path(&tag);
-                let result = self.validate_content(node, &self.schema.node(variant_schema).content, variant_schema);
+                let result = self.validate_content(
+                    node,
+                    &self.schema.node(variant_schema).content,
+                    variant_schema,
+                );
                 self.pop_path();
                 return result;
             } else {
@@ -861,7 +867,11 @@ impl<'a> Validator<'a> {
                 self.push_path(&v.tag);
                 // Convert content to node for validation
                 let content_node = value_to_temp_node(&v.content);
-                let result = self.validate_content(&content_node, &self.schema.node(variant_schema).content, variant_schema);
+                let result = self.validate_content(
+                    &content_node,
+                    &self.schema.node(variant_schema).content,
+                    variant_schema,
+                );
                 self.pop_path();
                 return result;
             } else {
@@ -891,7 +901,7 @@ impl<'a> Validator<'a> {
                     expected: "union (internal)".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -903,7 +913,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: tag_field.to_string(),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -915,13 +925,17 @@ impl<'a> Validator<'a> {
                     expected: "string tag".to_string(),
                     actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
         if let Some(&variant_schema) = schema.variants.get(&tag) {
             // Validate the entire node against the variant schema
-            self.validate_content(node, &self.schema.node(variant_schema).content, variant_schema)
+            self.validate_content(
+                node,
+                &self.schema.node(variant_schema).content,
+                variant_schema,
+            )
         } else {
             ValidationResult::failure(ValidationError::InvalidVariantTag {
                 tag,
@@ -945,7 +959,7 @@ impl<'a> Validator<'a> {
                     expected: "union (adjacent)".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -957,7 +971,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: tag_field.to_string(),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -969,7 +983,7 @@ impl<'a> Validator<'a> {
                     expected: "string tag".to_string(),
                     actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -981,7 +995,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: content_field.to_string(),
                     path: self.current_path(),
-                })
+                });
             }
         };
 
@@ -1004,7 +1018,11 @@ impl<'a> Validator<'a> {
         let mut failures: Vec<(String, ValidationError)> = Vec::new();
 
         for (name, &variant_schema) in &schema.variants {
-            let result = self.validate_content(node, &self.schema.node(variant_schema).content, variant_schema);
+            let result = self.validate_content(
+                node,
+                &self.schema.node(variant_schema).content,
+                variant_schema,
+            );
             if result.is_valid {
                 matching.push(name.clone());
             } else if let Some(err) = result.errors.into_iter().next() {
@@ -1046,11 +1064,7 @@ impl<'a> Validator<'a> {
         // Only handle local references for now
         if type_ref.namespace.is_some() {
             return ValidationResult::failure(ValidationError::UndefinedTypeReference {
-                name: format!(
-                    "{}.{}",
-                    type_ref.namespace.as_ref().unwrap(),
-                    type_ref.name
-                ),
+                name: format!("{}.{}", type_ref.namespace.as_ref().unwrap(), type_ref.name),
                 path: self.current_path(),
             });
         }
@@ -1184,18 +1198,26 @@ fn values_equal(a: &Value, b: &Value) -> bool {
         (Value::Primitive(pa), Value::Primitive(pb)) => primitives_equal(pa, pb),
         (Value::Array(aa), Value::Array(ab)) => {
             aa.0.len() == ab.0.len()
-                && aa.0.iter().zip(ab.0.iter()).all(|(a, b)| values_equal(a, b))
+                && aa
+                    .0
+                    .iter()
+                    .zip(ab.0.iter())
+                    .all(|(a, b)| values_equal(a, b))
         }
         (Value::Tuple(ta), Value::Tuple(tb)) => {
             ta.0.len() == tb.0.len()
-                && ta.0.iter().zip(tb.0.iter()).all(|(a, b)| values_equal(a, b))
+                && ta
+                    .0
+                    .iter()
+                    .zip(tb.0.iter())
+                    .all(|(a, b)| values_equal(a, b))
         }
         (Value::Map(ma), Value::Map(mb)) => {
             ma.0.len() == mb.0.len()
-                && ma.0.iter().all(|(k, v)| {
-                    mb.0.get(k)
-                        .map_or(false, |other_v| values_equal(v, other_v))
-                })
+                && ma
+                    .0
+                    .iter()
+                    .all(|(k, v)| mb.0.get(k).is_some_and(|other_v| values_equal(v, other_v)))
         }
         _ => false,
     }
@@ -1378,9 +1400,8 @@ mod tests {
     #[test]
     fn test_validate_any() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Any);
-        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
-            "hello".to_string(),
-        )));
+        let doc =
+            create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string())));
 
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
@@ -1401,9 +1422,8 @@ mod tests {
     fn test_validate_text_basic() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Text(TextSchema::default()));
 
-        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
-            "hello".to_string(),
-        )));
+        let doc =
+            create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string())));
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
@@ -1421,14 +1441,14 @@ mod tests {
         }));
 
         // Too short
-        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("ab".to_string())));
+        let doc =
+            create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("ab".to_string())));
         let result = validate(&doc, &schema);
         assert!(!result.is_valid);
 
         // Just right
-        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
-            "hello".to_string(),
-        )));
+        let doc =
+            create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string())));
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
@@ -1447,9 +1467,8 @@ mod tests {
             ..Default::default()
         }));
 
-        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
-            "hello".to_string(),
-        )));
+        let doc =
+            create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string())));
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
@@ -1527,9 +1546,8 @@ mod tests {
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
-            "true".to_string(),
-        )));
+        let doc =
+            create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("true".to_string())));
         let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
@@ -1549,14 +1567,12 @@ mod tests {
 
     #[test]
     fn test_validate_literal() {
-        let expected = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
-            "active".to_string(),
-        )));
+        let expected =
+            Value::Primitive(PrimitiveValue::Text(Text::plaintext("active".to_string())));
         let (schema, _) = create_simple_schema(SchemaNodeContent::Literal(expected.clone()));
 
-        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
-            "active".to_string(),
-        )));
+        let doc =
+            create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("active".to_string())));
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
@@ -1651,9 +1667,7 @@ mod tests {
 
         // Valid tuple
         let value = Value::Tuple(Tuple(vec![
-            Value::Primitive(PrimitiveValue::Text(Text::plaintext(
-                "hello".to_string(),
-            ))),
+            Value::Primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string()))),
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(42))),
         ]));
         let result = validate_value(&value, &schema);
@@ -1669,9 +1683,7 @@ mod tests {
         // Wrong types
         let value = Value::Tuple(Tuple(vec![
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(42))),
-            Value::Primitive(PrimitiveValue::Text(Text::plaintext(
-                "hello".to_string(),
-            ))),
+            Value::Primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string()))),
         ]));
         let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
