@@ -6,95 +6,51 @@
 
 use crate::json_schema::*;
 use eure_schema::{
-    ArraySchema as EureArraySchema, BooleanSchema as EureBooleanSchema, Bound, FloatSchema,
+    ArraySchema as EureArraySchema, Bound, Description, FloatSchema,
     IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
-    SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId,
-    StringSchema as EureStringSchema, TupleSchema, UnknownFieldsPolicy, VariantSchema,
+    SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId, TextSchema,
+    TupleSchema, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
+use eure_value::value::{ObjectKey, PrimitiveValue, Value};
 use indexmap::IndexMap;
 use num_traits::ToPrimitive;
 
 /// Errors that can occur during Eure Schema to JSON Schema conversion
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ConversionError {
-    /// Eure Code type cannot be represented in JSON Schema
-    CodeTypeNotSupported,
+    /// Eure Hole type cannot be represented in JSON Schema
+    #[error("Eure Hole type cannot be represented in JSON Schema")]
+    HoleNotSupported,
 
-    /// Eure Path type cannot be represented in JSON Schema
-    PathTypeNotSupported,
+    /// Eure Variant value cannot be represented in JSON Schema
+    #[error("Eure Variant value cannot be represented in JSON Schema")]
+    VariantValueNotSupported,
 
     /// Eure Map type with non-string keys cannot be represented in JSON Schema
-    /// JSON Schema only supports string keys in objects
+    #[error("Eure Map with non-string keys cannot be represented in JSON Schema")]
     NonStringMapKeysNotSupported,
 
     /// BigInt value is too large to fit in i64 for JSON Schema
+    #[error("BigInt value {0} is out of range for JSON Schema i64")]
     BigIntOutOfRange(String),
 
     /// Float value (NaN or Infinity) cannot be represented in JSON Schema
+    #[error("Invalid float value: {0}")]
     InvalidFloatValue(String),
 
     /// Invalid schema node reference
+    #[error("Invalid schema node reference: {0}")]
     InvalidNodeReference(usize),
 
     /// Circular reference detected (not supported in JSON Schema)
+    #[error("Circular reference detected: {0}")]
     CircularReference(String),
 
-    /// Contains constraint with non-primitive value not supported
-    ComplexContainsNotSupported,
-
     /// Tuple with more constraints than JSON Schema array tuple validation supports
+    #[error("Tuple constraints not fully supported in JSON Schema")]
     TupleConstraintsNotSupported,
 }
-
-impl std::fmt::Display for ConversionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConversionError::CodeTypeNotSupported => {
-                write!(f, "Eure Code type is not supported in JSON Schema")
-            }
-            ConversionError::PathTypeNotSupported => {
-                write!(f, "Eure Path type is not supported in JSON Schema")
-            }
-            ConversionError::NonStringMapKeysNotSupported => {
-                write!(
-                    f,
-                    "Eure Map type with non-string keys cannot be represented in JSON Schema"
-                )
-            }
-            ConversionError::BigIntOutOfRange(val) => {
-                write!(
-                    f,
-                    "BigInt value {} is out of range for JSON Schema i64",
-                    val
-                )
-            }
-            ConversionError::InvalidFloatValue(val) => {
-                write!(f, "Invalid float value: {}", val)
-            }
-            ConversionError::InvalidNodeReference(id) => {
-                write!(f, "Invalid schema node reference: {}", id)
-            }
-            ConversionError::CircularReference(path) => {
-                write!(f, "Circular reference detected: {}", path)
-            }
-            ConversionError::ComplexContainsNotSupported => {
-                write!(
-                    f,
-                    "Array contains constraint with complex values not supported in JSON Schema"
-                )
-            }
-            ConversionError::TupleConstraintsNotSupported => {
-                write!(
-                    f,
-                    "Eure Tuple constraints are not fully supported in JSON Schema"
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for ConversionError {}
 
 /// Conversion context to track state during conversion
 struct ConversionContext<'a> {
@@ -217,21 +173,17 @@ fn convert_schema_content(
             ..Default::default()
         })),
 
-        SchemaNodeContent::String(s) => convert_string_schema(s, json_metadata),
-
-        SchemaNodeContent::Code(_) => Err(ConversionError::CodeTypeNotSupported),
+        SchemaNodeContent::Text(t) => convert_text_schema(t, json_metadata),
 
         SchemaNodeContent::Integer(i) => convert_integer_schema(i, json_metadata),
 
         SchemaNodeContent::Float(f) => convert_float_schema(f, json_metadata),
 
-        SchemaNodeContent::Boolean(b) => convert_boolean_schema(b, json_metadata),
+        SchemaNodeContent::Boolean => convert_boolean_schema(json_metadata),
 
         SchemaNodeContent::Null => Ok(JsonSchema::Typed(TypedSchema::Null(NullSchema {
             metadata: json_metadata,
         }))),
-
-        SchemaNodeContent::Path(_) => Err(ConversionError::PathTypeNotSupported),
 
         SchemaNodeContent::Array(a) => convert_array_schema(ctx, a, json_metadata),
 
@@ -241,17 +193,20 @@ fn convert_schema_content(
 
         SchemaNodeContent::Tuple(t) => convert_tuple_schema(ctx, t, json_metadata),
 
-        SchemaNodeContent::Union(variants) => convert_union_schema(ctx, variants, json_metadata),
+        SchemaNodeContent::Union(u) => convert_union_schema(ctx, u, json_metadata),
 
-        SchemaNodeContent::Variant(v) => convert_variant_schema(ctx, v, json_metadata),
-
-        SchemaNodeContent::Reference(name) => {
+        SchemaNodeContent::Reference(ref_type) => {
             // Convert to JSON Schema $ref
             Ok(JsonSchema::Reference(ReferenceSchema {
-                reference: format!("#/$defs/{}", name),
+                reference: format!("#/$defs/{}", ref_type.name),
                 metadata: json_metadata,
             }))
         }
+
+        SchemaNodeContent::Literal(val) => Ok(JsonSchema::Const(ConstSchema {
+            value: value_to_json(val)?,
+            metadata: json_metadata,
+        }))
     }
 }
 
@@ -259,45 +214,58 @@ fn convert_schema_content(
 fn convert_metadata(eure_meta: &EureMetadata) -> SchemaMetadata {
     SchemaMetadata {
         title: None, // Eure doesn't have title
-        description: eure_meta.description.clone(),
+        description: eure_meta.description.as_ref().map(|d| match d {
+            Description::String(s) => s.clone(),
+            Description::Markdown(s) => s.clone(),
+        }),
     }
 }
 
-/// Convert Eure String schema to JSON Schema
-fn convert_string_schema(
-    eure: &EureStringSchema,
+/// Known JSON Schema format names (Draft 2020-12)
+const JSON_SCHEMA_FORMATS: &[&str] = &[
+    "date-time",
+    "date",
+    "time",
+    "duration",
+    "email",
+    "idn-email",
+    "hostname",
+    "idn-hostname",
+    "ipv4",
+    "ipv6",
+    "uri",
+    "uri-reference",
+    "iri",
+    "iri-reference",
+    "uuid",
+    "uri-template",
+    "json-pointer",
+    "relative-json-pointer",
+    "regex",
+];
+
+/// Convert Eure Text schema to JSON Schema
+///
+/// Text (which unifies the old String and Code types) maps to JSON Schema string type.
+/// If the language matches a known JSON Schema format, it's mapped to the format field.
+fn convert_text_schema(
+    eure: &TextSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    // Handle const
-    if let Some(const_val) = &eure.r#const {
-        return Ok(JsonSchema::Const(ConstSchema {
-            value: serde_json::Value::String(const_val.clone()),
-            metadata,
-        }));
-    }
-
-    // Handle enum
-    if let Some(enum_vals) = &eure.r#enum {
-        return Ok(JsonSchema::Enum(EnumSchema {
-            values: enum_vals
-                .iter()
-                .map(|s| serde_json::Value::String(s.clone()))
-                .collect(),
-            metadata,
-        }));
-    }
-
-    // Regular string schema
-    let (min_length, max_length) = match eure.length {
-        Some((min, max)) => (Some(min), Some(max)),
-        None => (None, None),
-    };
+    // Map language to format if it's a known JSON Schema format
+    let format = eure.language.as_ref().and_then(|lang| {
+        if JSON_SCHEMA_FORMATS.contains(&lang.as_str()) {
+            Some(lang.clone())
+        } else {
+            None
+        }
+    });
 
     Ok(JsonSchema::Typed(TypedSchema::String(StringSchema {
-        min_length,
-        max_length,
+        min_length: eure.min_length,
+        max_length: eure.max_length,
         pattern: eure.pattern.clone(),
-        format: eure.format.clone(),
+        format,
         default: None,
         metadata,
     })))
@@ -308,27 +276,6 @@ fn convert_integer_schema(
     eure: &EureIntegerSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    // Handle const
-    if let Some(const_val) = &eure.r#const {
-        let val = bigint_to_i64(const_val)?;
-        return Ok(JsonSchema::Const(ConstSchema {
-            value: serde_json::Value::Number(val.into()),
-            metadata,
-        }));
-    }
-
-    // Handle enum
-    if let Some(enum_vals) = &eure.r#enum {
-        let values: Result<Vec<_>, _> = enum_vals
-            .iter()
-            .map(|v| bigint_to_i64(v).map(|i| serde_json::Value::Number(i.into())))
-            .collect();
-        return Ok(JsonSchema::Enum(EnumSchema {
-            values: values?,
-            metadata,
-        }));
-    }
-
     // Convert bounds
     let (minimum, exclusive_minimum) = match &eure.min {
         Bound::Unbounded => (None, None),
@@ -375,27 +322,6 @@ fn convert_float_schema(
         }
     };
 
-    // Handle const
-    if let Some(const_val) = &eure.r#const {
-        let val = validate_float(*const_val)?;
-        return Ok(JsonSchema::Const(ConstSchema {
-            value: serde_json::json!(val),
-            metadata,
-        }));
-    }
-
-    // Handle enum
-    if let Some(enum_vals) = &eure.r#enum {
-        let values: Result<Vec<_>, _> = enum_vals
-            .iter()
-            .map(|v| validate_float(*v).map(|f| serde_json::json!(f)))
-            .collect();
-        return Ok(JsonSchema::Enum(EnumSchema {
-            values: values?,
-            metadata,
-        }));
-    }
-
     // Convert bounds
     let (minimum, exclusive_minimum) = match &eure.min {
         Bound::Unbounded => (None, None),
@@ -409,33 +335,25 @@ fn convert_float_schema(
         Bound::Exclusive(val) => (None, Some(validate_float(*val)?)),
     };
 
+    let multiple_of = eure.multiple_of.map(validate_float).transpose()?;
+
     Ok(JsonSchema::Typed(TypedSchema::Number(NumberSchema {
         minimum,
         maximum,
         exclusive_minimum,
         exclusive_maximum,
-        multiple_of: None, // Eure float doesn't have multiple_of
+        multiple_of,
         default: None,
         metadata,
     })))
 }
 
 /// Convert Eure Boolean schema to JSON Schema
-fn convert_boolean_schema(
-    eure: &EureBooleanSchema,
-    metadata: SchemaMetadata,
-) -> Result<JsonSchema, ConversionError> {
-    if let Some(const_val) = &eure.r#const {
-        Ok(JsonSchema::Const(ConstSchema {
-            value: serde_json::Value::Bool(*const_val),
-            metadata,
-        }))
-    } else {
-        Ok(JsonSchema::Typed(TypedSchema::Boolean(BooleanSchema {
-            default: None,
-            metadata,
-        })))
-    }
+fn convert_boolean_schema(metadata: SchemaMetadata) -> Result<JsonSchema, ConversionError> {
+    Ok(JsonSchema::Typed(TypedSchema::Boolean(BooleanSchema {
+        default: None,
+        metadata,
+    })))
 }
 
 /// Convert Eure Array schema to JSON Schema
@@ -446,70 +364,94 @@ fn convert_array_schema(
 ) -> Result<JsonSchema, ConversionError> {
     let items = Some(Box::new(convert_node(ctx, eure.item)?));
 
-    let contains = if let Some(prim_val) = &eure.contains {
-        // JSON Schema contains expects a schema, but Eure has a primitive value
-        // We convert this to a const schema
-        Some(Box::new(JsonSchema::Const(ConstSchema {
-            value: primitive_value_to_json(prim_val)?,
-            metadata: SchemaMetadata::default(),
-        })))
+    let contains = if let Some(contains_id) = &eure.contains {
+        // Contains is now a schema node reference
+        Some(Box::new(convert_node(ctx, *contains_id)?))
     } else {
         None
     };
 
     Ok(JsonSchema::Typed(TypedSchema::Array(ArraySchema {
         items,
-        min_items: eure.min_items,
-        max_items: eure.max_items,
+        min_items: eure.min_length,
+        max_items: eure.max_length,
         unique_items: if eure.unique { Some(true) } else { None },
         contains,
         metadata,
     })))
 }
 
-/// Convert Eure primitive value to JSON value
-fn primitive_value_to_json(
-    val: &eure_value::value::PrimitiveValue,
-) -> Result<serde_json::Value, ConversionError> {
-    use eure_value::value::PrimitiveValue;
+/// Convert Eure Value to JSON value
+fn value_to_json(val: &Value) -> Result<serde_json::Value, ConversionError> {
     match val {
-        PrimitiveValue::String(s) => Ok(serde_json::Value::String(s.to_string())),
-        PrimitiveValue::BigInt(i) => {
-            let val = bigint_to_i64(i)?;
-            Ok(serde_json::Value::Number(val.into()))
+        Value::Primitive(p) => primitive_to_json(p),
+        Value::Array(arr) => {
+            let items: Result<Vec<_>, _> = arr.0.iter().map(value_to_json).collect();
+            Ok(serde_json::Value::Array(items?))
         }
-        PrimitiveValue::F64(f) => {
-            if f.is_nan() || f.is_infinite() {
-                Err(ConversionError::InvalidFloatValue(f.to_string()))
-            } else {
-                Ok(serde_json::json!(f))
+        Value::Tuple(tuple) => {
+            let items: Result<Vec<_>, _> = tuple.0.iter().map(value_to_json).collect();
+            Ok(serde_json::Value::Array(items?))
+        }
+        Value::Map(map) => {
+            let mut obj = serde_json::Map::new();
+            for (key, value) in &map.0 {
+                let key_str = object_key_to_string(key)?;
+                obj.insert(key_str, value_to_json(value)?);
             }
+            Ok(serde_json::Value::Object(obj))
         }
-        PrimitiveValue::F32(f) => {
-            if f.is_nan() || f.is_infinite() {
-                Err(ConversionError::InvalidFloatValue(f.to_string()))
-            } else {
-                Ok(serde_json::json!(f))
-            }
-        }
-        PrimitiveValue::Bool(b) => Ok(serde_json::Value::Bool(*b)),
+    }
+}
+
+/// Convert Eure PrimitiveValue to JSON value
+fn primitive_to_json(val: &PrimitiveValue) -> Result<serde_json::Value, ConversionError> {
+    match val {
         PrimitiveValue::Null => Ok(serde_json::Value::Null),
-        _ => Err(ConversionError::ComplexContainsNotSupported),
+        PrimitiveValue::Bool(b) => Ok(serde_json::Value::Bool(*b)),
+        PrimitiveValue::BigInt(i) => {
+            let n = bigint_to_i64(i)?;
+            Ok(serde_json::Value::Number(n.into()))
+        }
+        PrimitiveValue::F32(f) => float_to_json(*f as f64),
+        PrimitiveValue::F64(f) => float_to_json(*f),
+        PrimitiveValue::Text(t) => Ok(serde_json::Value::String(t.as_str().to_string())),
+        PrimitiveValue::Hole => Err(ConversionError::HoleNotSupported),
+        PrimitiveValue::Variant(_) => Err(ConversionError::VariantValueNotSupported),
+    }
+}
+
+/// Convert ObjectKey to string for JSON object keys
+fn object_key_to_string(key: &ObjectKey) -> Result<String, ConversionError> {
+    match key {
+        ObjectKey::String(s) => Ok(s.clone()),
+        ObjectKey::Bool(b) => Ok(b.to_string()),
+        ObjectKey::Number(n) => Ok(n.to_string()),
+        ObjectKey::Tuple(_) => Err(ConversionError::NonStringMapKeysNotSupported),
+    }
+}
+
+/// Convert float to JSON, rejecting NaN and Infinity
+fn float_to_json(f: f64) -> Result<serde_json::Value, ConversionError> {
+    if f.is_nan() || f.is_infinite() {
+        Err(ConversionError::InvalidFloatValue(f.to_string()))
+    } else {
+        Ok(serde_json::json!(f))
     }
 }
 
 /// Convert Eure Map schema to JSON Schema
 ///
 /// This is tricky because JSON Schema only supports string keys in objects.
-/// If the key type is not String, we return an error.
+/// If the key type is not Text, we return an error.
 fn convert_map_schema(
     ctx: &mut ConversionContext,
     eure: &MapSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    // Check if key is string type
+    // Check if key is text type (JSON Schema only supports string keys)
     let key_node = ctx.get_node(eure.key)?;
-    if !matches!(key_node.content, SchemaNodeContent::String(_)) {
+    if !matches!(key_node.content, SchemaNodeContent::Text(_)) {
         return Err(ConversionError::NonStringMapKeysNotSupported);
     }
 
@@ -534,9 +476,9 @@ fn convert_record_schema(
     let mut properties = IndexMap::new();
     let mut required = Vec::new();
 
-    for (field_name, node_id) in &eure.properties {
-        let is_optional = ctx.get_node(*node_id)?.metadata.optional;
-        let field_schema = convert_node(ctx, *node_id)?;
+    for (field_name, field) in &eure.properties {
+        let is_optional = field.optional;
+        let field_schema = convert_node(ctx, field.schema)?;
 
         properties.insert(field_name.clone(), field_schema);
 
@@ -590,30 +532,16 @@ fn convert_tuple_schema(
     Err(ConversionError::TupleConstraintsNotSupported)
 }
 
-/// Convert Eure Union to JSON Schema anyOf
-fn convert_union_schema(
-    ctx: &mut ConversionContext,
-    variants: &[SchemaNodeId],
-    metadata: SchemaMetadata,
-) -> Result<JsonSchema, ConversionError> {
-    let schemas: Result<Vec<_>, _> = variants.iter().map(|id| convert_node(ctx, *id)).collect();
-
-    Ok(JsonSchema::AnyOf(AnyOfSchema {
-        schemas: schemas?,
-        metadata,
-    }))
-}
-
-/// Convert Eure Variant (tagged union) to JSON Schema
+/// Convert Eure Union to JSON Schema
 ///
 /// The conversion strategy depends on the variant representation:
 /// - External: oneOf with object schemas (each with a single property)
 /// - Internal: oneOf with allOf to merge tag and content
 /// - Adjacent: oneOf with schemas having tag and content properties
 /// - Untagged: oneOf with just the variant schemas (no tagging)
-fn convert_variant_schema(
+fn convert_union_schema(
     ctx: &mut ConversionContext,
-    eure: &VariantSchema,
+    eure: &UnionSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
     match &eure.repr {
@@ -629,7 +557,7 @@ fn convert_variant_schema(
 /// Convert external variant representation
 fn convert_external_variant(
     ctx: &mut ConversionContext,
-    eure: &VariantSchema,
+    eure: &UnionSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
     let mut schemas = Vec::new();
@@ -657,7 +585,7 @@ fn convert_external_variant(
 /// Convert internal variant representation
 fn convert_internal_variant(
     ctx: &mut ConversionContext,
-    eure: &VariantSchema,
+    eure: &UnionSchema,
     tag: &str,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
@@ -698,7 +626,7 @@ fn convert_internal_variant(
 /// Convert adjacent variant representation
 fn convert_adjacent_variant(
     ctx: &mut ConversionContext,
-    eure: &VariantSchema,
+    eure: &UnionSchema,
     tag: &str,
     content: &str,
     metadata: SchemaMetadata,
@@ -735,12 +663,12 @@ fn convert_adjacent_variant(
 /// Convert untagged variant representation
 fn convert_untagged_variant(
     ctx: &mut ConversionContext,
-    eure: &VariantSchema,
+    eure: &UnionSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
     let mut schemas = Vec::new();
 
-    for (_variant_name, node_id) in &eure.variants {
+    for node_id in eure.variants.values() {
         let variant_schema = convert_node(ctx, *node_id)?;
         schemas.push(variant_schema);
     }
@@ -752,38 +680,32 @@ fn convert_untagged_variant(
 mod tests {
     use super::*;
     use eure_schema::{
-        Bound, CodeSchema, IntegerSchema as EureIntegerSchema, PathSchema, RecordSchema,
-        SchemaDocument, SchemaNodeContent, StringSchema as EureStringSchema, UnknownFieldsPolicy,
-        VariantSchema,
+        Bound, IntegerSchema as EureIntegerSchema, RecordFieldSchema, RecordSchema, SchemaDocument,
+        SchemaNodeContent, UnknownFieldsPolicy,
     };
     use eure_value::data_model::VariantRepr;
     use std::collections::HashMap;
 
     #[test]
-    fn test_convert_simple_string() {
+    fn test_convert_simple_text() {
         let mut doc = SchemaDocument::new();
-        doc.root = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
+        doc.root = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
 
         let result = eure_to_json_schema(&doc).unwrap();
         assert!(matches!(result, JsonSchema::Typed(TypedSchema::String(_))));
     }
 
     #[test]
-    fn test_convert_code_returns_error() {
+    fn test_convert_text_with_language() {
+        // Text with language (e.g., code) should still convert to JSON Schema string
         let mut doc = SchemaDocument::new();
-        doc.root = doc.create_node(SchemaNodeContent::Code(CodeSchema::default()));
+        doc.root = doc.create_node(SchemaNodeContent::Text(TextSchema {
+            language: Some("rust".to_string()),
+            ..Default::default()
+        }));
 
-        let result = eure_to_json_schema(&doc);
-        assert!(matches!(result, Err(ConversionError::CodeTypeNotSupported)));
-    }
-
-    #[test]
-    fn test_convert_path_returns_error() {
-        let mut doc = SchemaDocument::new();
-        doc.root = doc.create_node(SchemaNodeContent::Path(PathSchema::default()));
-
-        let result = eure_to_json_schema(&doc);
-        assert!(matches!(result, Err(ConversionError::PathTypeNotSupported)));
+        let result = eure_to_json_schema(&doc).unwrap();
+        assert!(matches!(result, JsonSchema::Typed(TypedSchema::String(_))));
     }
 
     #[test]
@@ -793,8 +715,6 @@ mod tests {
             min: Bound::Inclusive(0.into()),
             max: Bound::Exclusive(100.into()),
             multiple_of: None,
-            r#const: None,
-            r#enum: None,
         }));
 
         let result = eure_to_json_schema(&doc).unwrap();
@@ -811,12 +731,26 @@ mod tests {
     fn test_convert_record_to_object() {
         let mut doc = SchemaDocument::new();
 
-        let string_id = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
+        let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
         let mut properties = HashMap::new();
-        properties.insert("name".to_string(), string_id);
-        properties.insert("age".to_string(), int_id);
+        properties.insert(
+            "name".to_string(),
+            RecordFieldSchema {
+                schema: text_id,
+                optional: false,
+                binding_style: None,
+            },
+        );
+        properties.insert(
+            "age".to_string(),
+            RecordFieldSchema {
+                schema: int_id,
+                optional: false,
+                binding_style: None,
+            },
+        );
 
         doc.root = doc.create_node(SchemaNodeContent::Record(RecordSchema {
             properties,
@@ -837,36 +771,19 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_union_to_anyof() {
+    fn test_convert_untagged_union_to_oneof() {
         let mut doc = SchemaDocument::new();
 
-        let string_id = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
-        let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
-
-        doc.root = doc.create_node(SchemaNodeContent::Union(vec![string_id, int_id]));
-
-        let result = eure_to_json_schema(&doc).unwrap();
-        match result {
-            JsonSchema::AnyOf(schema) => {
-                assert_eq!(schema.schemas.len(), 2);
-            }
-            _ => panic!("Expected AnyOf schema"),
-        }
-    }
-
-    #[test]
-    fn test_convert_untagged_variant_to_oneof() {
-        let mut doc = SchemaDocument::new();
-
-        let string_id = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
+        let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
         let mut variants = HashMap::new();
-        variants.insert("StringVariant".to_string(), string_id);
+        variants.insert("TextVariant".to_string(), text_id);
         variants.insert("IntVariant".to_string(), int_id);
 
-        doc.root = doc.create_node(SchemaNodeContent::Variant(VariantSchema {
+        doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
+            priority: None,
             repr: VariantRepr::Untagged,
         }));
 
@@ -875,23 +792,24 @@ mod tests {
             JsonSchema::OneOf(schema) => {
                 assert_eq!(schema.schemas.len(), 2);
             }
-            _ => panic!("Expected OneOf schema for untagged variant"),
+            _ => panic!("Expected OneOf schema for untagged union"),
         }
     }
 
     #[test]
-    fn test_convert_external_variant_to_oneof() {
+    fn test_convert_external_union_to_oneof() {
         let mut doc = SchemaDocument::new();
 
-        let string_id = doc.create_node(SchemaNodeContent::String(EureStringSchema::default()));
+        let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
         let mut variants = HashMap::new();
-        variants.insert("A".to_string(), string_id);
+        variants.insert("A".to_string(), text_id);
         variants.insert("B".to_string(), int_id);
 
-        doc.root = doc.create_node(SchemaNodeContent::Variant(VariantSchema {
+        doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
+            priority: None,
             repr: VariantRepr::External,
         }));
 
@@ -901,7 +819,7 @@ mod tests {
                 assert_eq!(schema.schemas.len(), 2);
                 // Each variant should be wrapped in an object with a single property
             }
-            _ => panic!("Expected OneOf schema for external variant"),
+            _ => panic!("Expected OneOf schema for external union"),
         }
     }
 }
