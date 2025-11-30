@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use eure::{
-    document::{DocumentConstructionError, EureDocument, NodeId},
+    document::{DocumentConstructionError, EureDocument},
     parol::parol_runtime::ParolError,
     tree::Cst,
-    value::{Array, Map, ObjectKey, PrimitiveValue, Text, Tuple, Value},
+    value::Text,
 };
 
 pub struct Case {
@@ -276,38 +276,6 @@ impl EureToJsonScenario<'_> {
     }
 }
 
-/// Convert an EureDocument to a Value for validation
-fn document_to_value(doc: &EureDocument) -> Value {
-    node_to_value(doc, doc.get_root_id())
-}
-
-/// Convert a document node to a Value
-fn node_to_value(doc: &EureDocument, node_id: NodeId) -> Value {
-    use eure::document::node::NodeValue;
-
-    let node = doc.node(node_id);
-    match &node.content {
-        NodeValue::Uninitialized => Value::Primitive(PrimitiveValue::Null),
-        NodeValue::Primitive(p) => Value::Primitive(p.clone()),
-        NodeValue::Array(arr) => {
-            let values: Vec<Value> = arr.0.iter().map(|&id| node_to_value(doc, id)).collect();
-            Value::Array(Array(values))
-        }
-        NodeValue::Tuple(tup) => {
-            let values: Vec<Value> = tup.0.iter().map(|&id| node_to_value(doc, id)).collect();
-            Value::Tuple(Tuple(values))
-        }
-        NodeValue::Map(map) => {
-            let entries: ahash::AHashMap<ObjectKey, Value> = map
-                .0
-                .iter()
-                .map(|(k, &id)| (k.clone(), node_to_value(doc, id)))
-                .collect();
-            Value::Map(Map(entries))
-        }
-    }
-}
-
 pub struct SchemaValidationScenario<'a> {
     input: &'a PreprocessedEure,
     schema: &'a PreprocessedEure,
@@ -322,11 +290,8 @@ impl SchemaValidationScenario<'_> {
         let schema = eure_schema::convert::document_to_schema(schema_doc)
             .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
 
-        // Convert input document to Value for validation
-        let value = document_to_value(input_doc);
-
-        // Validate
-        let result = eure_schema::validate::validate(&value, &schema);
+        // Validate document directly
+        let result = eure_schema::validate::validate(input_doc, &schema);
 
         if !result.is_valid {
             let error_msgs: Vec<String> = result.errors.iter().map(|e| e.to_string()).collect();
@@ -355,11 +320,8 @@ impl SchemaErrorValidationScenario<'_> {
         let schema = eure_schema::convert::document_to_schema(schema_doc)
             .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
 
-        // Convert input document to Value for validation
-        let value = document_to_value(input_doc);
-
-        // Validate
-        let result = eure_schema::validate::validate(&value, &schema);
+        // Validate document directly
+        let result = eure_schema::validate::validate(input_doc, &schema);
 
         // Should have errors
         if result.is_valid {

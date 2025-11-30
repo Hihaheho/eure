@@ -1,6 +1,6 @@
 //! Document schema validation
 //!
-//! This module provides functionality to validate Eure values against schema definitions.
+//! This module provides functionality to validate Eure documents against schema definitions.
 //!
 //! # Validation Result
 //!
@@ -20,6 +20,13 @@
 //! The hole value (`!`) represents an unfilled placeholder:
 //! - Type checking: Holes match any schema (always pass)
 //! - Completeness: Documents containing holes are valid but not complete
+//!
+//! # Extension Validation
+//!
+//! Extensions on nodes are validated against:
+//! - Schema-defined extensions (`$ext-type.X`)
+//! - Built-in extensions (e.g., `$variant` for unions)
+//! - Unknown extensions: valid but emit a warning
 
 use crate::{
     ArraySchema, Bound, FloatSchema, IntegerSchema, MapSchema, RecordSchema, SchemaDocument,
@@ -27,13 +34,16 @@ use crate::{
     UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
+use eure_value::document::node::{Node, NodeValue};
+use eure_value::document::{EureDocument, NodeId};
+use eure_value::identifier::Identifier;
 use eure_value::text::Language;
 use eure_value::value::{ObjectKey, PrimitiveValue, Tuple, Value};
 use num_bigint::BigInt;
 use regex::Regex;
 use thiserror::Error;
 
-/// Result of validating a value against a schema
+/// Result of validating a document against a schema
 #[derive(Debug, Clone, Default)]
 pub struct ValidationResult {
     /// No type errors (holes are allowed)
@@ -167,6 +177,9 @@ pub enum ValidationError {
     #[error("Invalid variant tag '{tag}' at path {path}")]
     InvalidVariantTag { tag: String, path: String },
 
+    #[error("Missing $variant extension at path {path}")]
+    MissingVariantExtension { path: String },
+
     #[error("Literal value mismatch at path {path}")]
     LiteralMismatch {
         expected: String,
@@ -192,6 +205,9 @@ pub enum ValidationError {
 
     #[error("Invalid regex pattern '{pattern}': {error}")]
     InvalidRegexPattern { pattern: String, error: String },
+
+    #[error("Invalid extension type for '{name}' at path {path}")]
+    InvalidExtensionType { name: String, path: String },
 }
 
 /// Validation warnings
@@ -203,17 +219,22 @@ pub enum ValidationWarning {
     DeprecatedField { field: String, path: String },
 }
 
+/// Well-known extension identifiers
+const VARIANT_EXT: &str = "variant";
+
 /// Internal validator state
 struct Validator<'a> {
     schema: &'a SchemaDocument,
+    document: &'a EureDocument,
     path: Vec<String>,
     has_holes: bool,
 }
 
 impl<'a> Validator<'a> {
-    fn new(schema: &'a SchemaDocument) -> Self {
+    fn new(document: &'a EureDocument, schema: &'a SchemaDocument) -> Self {
         Self {
             schema,
+            document,
             path: Vec::new(),
             has_holes: false,
         }
@@ -235,52 +256,98 @@ impl<'a> Validator<'a> {
         self.path.push(format!("[{}]", index));
     }
 
+    #[allow(dead_code)]
+    fn push_path_extension(&mut self, name: &str) {
+        self.path.push(format!("${}", name));
+    }
+
     fn pop_path(&mut self) {
         self.path.pop();
     }
 
-    /// Main validation entry point
-    fn validate(&mut self, value: &Value, schema_id: SchemaNodeId) -> ValidationResult {
-        let node = self.schema.node(schema_id);
-        self.validate_content(value, &node.content)
+    /// Get extension value as a string (for variant tags)
+    fn get_extension_as_string(&self, node: &Node, name: &str) -> Option<String> {
+        let ext_id: Identifier = name.parse().ok()?;
+        let ext_node_id = node.extensions.get(&ext_id)?;
+        let ext_node = self.document.node(*ext_node_id);
+        match &ext_node.content {
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => Some(t.as_str().to_string()),
+            _ => None,
+        }
     }
 
-    /// Validate value against schema content
-    fn validate_content(&mut self, value: &Value, content: &SchemaNodeContent) -> ValidationResult {
+    /// Main validation entry point
+    fn validate(&mut self, node_id: NodeId, schema_id: SchemaNodeId) -> ValidationResult {
+        let node = self.document.node(node_id);
+        let schema_node = self.schema.node(schema_id);
+        self.validate_content(node, &schema_node.content, schema_id)
+    }
+
+    /// Validate node content against schema content
+    fn validate_content(
+        &mut self,
+        node: &Node,
+        content: &SchemaNodeContent,
+        schema_id: SchemaNodeId,
+    ) -> ValidationResult {
         // Handle hole values first - they match any schema but mark document incomplete
-        if let Value::Primitive(PrimitiveValue::Hole) = value {
+        if let NodeValue::Primitive(PrimitiveValue::Hole) = &node.content {
             self.has_holes = true;
             return ValidationResult::success(true);
         }
 
-        match content {
-            SchemaNodeContent::Any => ValidationResult::success(self.has_holes),
-            SchemaNodeContent::Text(text_schema) => self.validate_text(value, text_schema),
-            SchemaNodeContent::Integer(int_schema) => self.validate_integer(value, int_schema),
-            SchemaNodeContent::Float(float_schema) => self.validate_float(value, float_schema),
-            SchemaNodeContent::Boolean => self.validate_boolean(value),
-            SchemaNodeContent::Null => self.validate_null(value),
-            SchemaNodeContent::Literal(expected) => self.validate_literal(value, expected),
-            SchemaNodeContent::Array(array_schema) => self.validate_array(value, array_schema),
-            SchemaNodeContent::Map(map_schema) => self.validate_map(value, map_schema),
-            SchemaNodeContent::Record(record_schema) => self.validate_record(value, record_schema),
-            SchemaNodeContent::Tuple(tuple_schema) => self.validate_tuple(value, tuple_schema),
-            SchemaNodeContent::Union(union_schema) => self.validate_union(value, union_schema),
-            SchemaNodeContent::Reference(type_ref) => self.validate_reference(value, type_ref),
+        // Handle uninitialized nodes as holes too
+        if let NodeValue::Uninitialized = &node.content {
+            self.has_holes = true;
+            return ValidationResult::success(true);
         }
+
+        let mut result = match content {
+            SchemaNodeContent::Any => ValidationResult::success(self.has_holes),
+            SchemaNodeContent::Text(text_schema) => self.validate_text(node, text_schema),
+            SchemaNodeContent::Integer(int_schema) => self.validate_integer(node, int_schema),
+            SchemaNodeContent::Float(float_schema) => self.validate_float(node, float_schema),
+            SchemaNodeContent::Boolean => self.validate_boolean(node),
+            SchemaNodeContent::Null => self.validate_null(node),
+            SchemaNodeContent::Literal(expected) => self.validate_literal(node, expected),
+            SchemaNodeContent::Array(array_schema) => self.validate_array(node, array_schema),
+            SchemaNodeContent::Map(map_schema) => self.validate_map(node, map_schema),
+            SchemaNodeContent::Record(record_schema) => {
+                self.validate_record(node, record_schema, schema_id)
+            }
+            SchemaNodeContent::Tuple(tuple_schema) => self.validate_tuple(node, tuple_schema),
+            SchemaNodeContent::Union(union_schema) => self.validate_union(node, union_schema),
+            SchemaNodeContent::Reference(type_ref) => self.validate_reference(node, type_ref),
+        };
+
+        // Warn about unknown extensions (except well-known ones like $variant)
+        for (ext_ident, _) in &node.extensions {
+            let ext_name = ext_ident.to_string();
+            // Skip well-known extensions used for variant discrimination
+            if ext_name == VARIANT_EXT {
+                continue;
+            }
+            // Unknown extensions are allowed but generate warnings
+            result.add_warning(ValidationWarning::UnknownExtension {
+                name: ext_name,
+                path: self.current_path(),
+            });
+        }
+
+        result
     }
 
     // =========================================================================
     // Primitive Type Validation
     // =========================================================================
 
-    fn validate_text(&mut self, value: &Value, schema: &TextSchema) -> ValidationResult {
-        let text = match value {
-            Value::Primitive(PrimitiveValue::Text(t)) => t,
+    fn validate_text(&mut self, node: &Node, schema: &TextSchema) -> ValidationResult {
+        let text = match &node.content {
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => t,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "text".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -303,7 +370,7 @@ impl<'a> Validator<'a> {
                 Language::Implicit => {}
                 // Explicit language (lang`...`) must match
                 Language::Other(lang) => {
-                    if lang != expected_lang {
+                    if lang != expected_lang.as_str() {
                         return ValidationResult::failure(ValidationError::LanguageMismatch {
                             expected: expected_lang.clone(),
                             actual: lang.clone(),
@@ -359,13 +426,13 @@ impl<'a> Validator<'a> {
         ValidationResult::success(self.has_holes)
     }
 
-    fn validate_integer(&mut self, value: &Value, schema: &IntegerSchema) -> ValidationResult {
-        let int_val = match value {
-            Value::Primitive(PrimitiveValue::BigInt(i)) => i,
+    fn validate_integer(&mut self, node: &Node, schema: &IntegerSchema) -> ValidationResult {
+        let int_val = match &node.content {
+            NodeValue::Primitive(PrimitiveValue::BigInt(i)) => i,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "integer".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -398,11 +465,11 @@ impl<'a> Validator<'a> {
         ValidationResult::success(self.has_holes)
     }
 
-    fn validate_float(&mut self, value: &Value, schema: &FloatSchema) -> ValidationResult {
-        let float_val = match value {
-            Value::Primitive(PrimitiveValue::F64(f)) => *f,
-            Value::Primitive(PrimitiveValue::F32(f)) => *f as f64,
-            Value::Primitive(PrimitiveValue::BigInt(i)) => {
+    fn validate_float(&mut self, node: &Node, schema: &FloatSchema) -> ValidationResult {
+        let float_val = match &node.content {
+            NodeValue::Primitive(PrimitiveValue::F64(f)) => *f,
+            NodeValue::Primitive(PrimitiveValue::F32(f)) => *f as f64,
+            NodeValue::Primitive(PrimitiveValue::BigInt(i)) => {
                 // Allow integer to be coerced to float
                 if let Ok(i64_val) = i64::try_from(i) {
                     i64_val as f64
@@ -417,7 +484,7 @@ impl<'a> Validator<'a> {
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "float".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -450,35 +517,38 @@ impl<'a> Validator<'a> {
         ValidationResult::success(self.has_holes)
     }
 
-    fn validate_boolean(&mut self, value: &Value) -> ValidationResult {
-        match value {
-            Value::Primitive(PrimitiveValue::Bool(_)) => ValidationResult::success(self.has_holes),
+    fn validate_boolean(&mut self, node: &Node) -> ValidationResult {
+        match &node.content {
+            NodeValue::Primitive(PrimitiveValue::Bool(_)) => {
+                ValidationResult::success(self.has_holes)
+            }
             _ => ValidationResult::failure(ValidationError::TypeMismatch {
                 expected: "boolean".to_string(),
-                actual: value_type_name(value),
+                actual: node_type_name(&node.content),
                 path: self.current_path(),
             }),
         }
     }
 
-    fn validate_null(&mut self, value: &Value) -> ValidationResult {
-        match value {
-            Value::Primitive(PrimitiveValue::Null) => ValidationResult::success(self.has_holes),
+    fn validate_null(&mut self, node: &Node) -> ValidationResult {
+        match &node.content {
+            NodeValue::Primitive(PrimitiveValue::Null) => ValidationResult::success(self.has_holes),
             _ => ValidationResult::failure(ValidationError::TypeMismatch {
                 expected: "null".to_string(),
-                actual: value_type_name(value),
+                actual: node_type_name(&node.content),
                 path: self.current_path(),
             }),
         }
     }
 
-    fn validate_literal(&mut self, value: &Value, expected: &Value) -> ValidationResult {
-        if values_equal(value, expected) {
+    fn validate_literal(&mut self, node: &Node, expected: &Value) -> ValidationResult {
+        let actual = node_to_value(self.document, node);
+        if values_equal(&actual, expected) {
             ValidationResult::success(self.has_holes)
         } else {
             ValidationResult::failure(ValidationError::LiteralMismatch {
                 expected: format!("{:?}", expected),
-                actual: format!("{:?}", value),
+                actual: format!("{:?}", actual),
                 path: self.current_path(),
             })
         }
@@ -488,13 +558,13 @@ impl<'a> Validator<'a> {
     // Container Type Validation
     // =========================================================================
 
-    fn validate_array(&mut self, value: &Value, schema: &ArraySchema) -> ValidationResult {
-        let arr = match value {
-            Value::Array(a) => a,
+    fn validate_array(&mut self, node: &Node, schema: &ArraySchema) -> ValidationResult {
+        let arr = match &node.content {
+            NodeValue::Array(a) => a,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "array".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -525,17 +595,24 @@ impl<'a> Validator<'a> {
         }
 
         // Validate uniqueness
-        if schema.unique && !are_values_unique(&arr.0) {
-            return ValidationResult::failure(ValidationError::ArrayNotUnique {
-                path: self.current_path(),
-            });
+        if schema.unique {
+            let values: Vec<Value> = arr
+                .0
+                .iter()
+                .map(|&id| node_to_value(self.document, self.document.node(id)))
+                .collect();
+            if !are_values_unique(&values) {
+                return ValidationResult::failure(ValidationError::ArrayNotUnique {
+                    path: self.current_path(),
+                });
+            }
         }
 
         // Validate each item
         let mut result = ValidationResult::success(self.has_holes);
-        for (i, item) in arr.0.iter().enumerate() {
+        for (i, &item_id) in arr.0.iter().enumerate() {
             self.push_path_index(i);
-            let item_result = self.validate(item, schema.item);
+            let item_result = self.validate(item_id, schema.item);
             result.merge(item_result);
             self.pop_path();
         }
@@ -543,9 +620,8 @@ impl<'a> Validator<'a> {
         // Validate contains constraint
         if let Some(contains_schema) = schema.contains {
             let mut found = false;
-            for item in &arr.0 {
-                // Create a temporary validator to test without affecting main state
-                let test_result = self.validate(item, contains_schema);
+            for &item_id in &arr.0 {
+                let test_result = self.validate(item_id, contains_schema);
                 if test_result.is_valid {
                     found = true;
                     break;
@@ -563,13 +639,13 @@ impl<'a> Validator<'a> {
         result
     }
 
-    fn validate_map(&mut self, value: &Value, schema: &MapSchema) -> ValidationResult {
-        let map = match value {
-            Value::Map(m) => m,
+    fn validate_map(&mut self, node: &Node, schema: &MapSchema) -> ValidationResult {
+        let map = match &node.content {
+            NodeValue::Map(m) => m,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "map".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -601,13 +677,14 @@ impl<'a> Validator<'a> {
 
         // Validate each key-value pair
         let mut result = ValidationResult::success(self.has_holes);
-        for (key, val) in map.0.iter() {
+        for (key, &val_id) in map.0.iter() {
             let key_str = key.to_string();
             self.push_path(&key_str);
 
             // Validate key
             let key_value = object_key_to_value(key);
-            let key_result = self.validate(&key_value, schema.key);
+            let key_node = value_to_temp_node(&key_value);
+            let key_result = self.validate_content(&key_node, &self.schema.node(schema.key).content, schema.key);
             if !key_result.is_valid {
                 result.merge(ValidationResult::failure(ValidationError::InvalidKeyType {
                     path: self.current_path(),
@@ -615,7 +692,7 @@ impl<'a> Validator<'a> {
             }
 
             // Validate value
-            let value_result = self.validate(val, schema.value);
+            let value_result = self.validate(val_id, schema.value);
             result.merge(value_result);
 
             self.pop_path();
@@ -624,13 +701,18 @@ impl<'a> Validator<'a> {
         result
     }
 
-    fn validate_record(&mut self, value: &Value, schema: &RecordSchema) -> ValidationResult {
-        let map = match value {
-            Value::Map(m) => m,
+    fn validate_record(
+        &mut self,
+        node: &Node,
+        schema: &RecordSchema,
+        _schema_id: SchemaNodeId,
+    ) -> ValidationResult {
+        let map = match &node.content {
+            NodeValue::Map(m) => m,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "record".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -654,7 +736,7 @@ impl<'a> Validator<'a> {
         }
 
         // Validate each field
-        for (key, val) in map.0.iter() {
+        for (key, &val_id) in map.0.iter() {
             let field_name = match key {
                 ObjectKey::String(s) => s.clone(),
                 _ => {
@@ -669,15 +751,15 @@ impl<'a> Validator<'a> {
 
             if let Some(field_schema) = schema.properties.get(&field_name) {
                 // Check deprecated
-                let node = self.schema.node(field_schema.schema);
-                if node.metadata.deprecated {
+                let schema_node = self.schema.node(field_schema.schema);
+                if schema_node.metadata.deprecated {
                     result.add_warning(ValidationWarning::DeprecatedField {
                         field: field_name.clone(),
                         path: self.current_path(),
                     });
                 }
 
-                let field_result = self.validate(val, field_schema.schema);
+                let field_result = self.validate(val_id, field_schema.schema);
                 result.merge(field_result);
             } else {
                 // Unknown field - check policy
@@ -693,7 +775,7 @@ impl<'a> Validator<'a> {
                     }
                     UnknownFieldsPolicy::Schema(schema_id) => {
                         // Validate against the schema
-                        let field_result = self.validate(val, *schema_id);
+                        let field_result = self.validate(val_id, *schema_id);
                         result.merge(field_result);
                     }
                 }
@@ -705,13 +787,13 @@ impl<'a> Validator<'a> {
         result
     }
 
-    fn validate_tuple(&mut self, value: &Value, schema: &TupleSchema) -> ValidationResult {
-        let tuple = match value {
-            Value::Tuple(t) => t,
+    fn validate_tuple(&mut self, node: &Node, schema: &TupleSchema) -> ValidationResult {
+        let tuple = match &node.content {
+            NodeValue::Tuple(t) => t,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "tuple".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -728,9 +810,9 @@ impl<'a> Validator<'a> {
 
         // Validate each element
         let mut result = ValidationResult::success(self.has_holes);
-        for (i, (item, &elem_schema)) in tuple.0.iter().zip(schema.elements.iter()).enumerate() {
+        for (i, (&item_id, &elem_schema)) in tuple.0.iter().zip(schema.elements.iter()).enumerate() {
             self.push_path_index(i);
-            let item_result = self.validate(item, elem_schema);
+            let item_result = self.validate(item_id, elem_schema);
             result.merge(item_result);
             self.pop_path();
         }
@@ -742,91 +824,72 @@ impl<'a> Validator<'a> {
     // Union Type Validation
     // =========================================================================
 
-    fn validate_union(&mut self, value: &Value, schema: &UnionSchema) -> ValidationResult {
+    fn validate_union(&mut self, node: &Node, schema: &UnionSchema) -> ValidationResult {
         match &schema.repr {
-            VariantRepr::External => self.validate_union_external(value, schema),
-            VariantRepr::Internal { tag } => self.validate_union_internal(value, schema, tag),
+            VariantRepr::External => self.validate_union_external(node, schema),
+            VariantRepr::Internal { tag } => self.validate_union_internal(node, schema, tag),
             VariantRepr::Adjacent { tag, content } => {
-                self.validate_union_adjacent(value, schema, tag, content)
+                self.validate_union_adjacent(node, schema, tag, content)
             }
-            VariantRepr::Untagged => self.validate_union_untagged(value, schema),
+            VariantRepr::Untagged => self.validate_union_untagged(node, schema),
         }
     }
 
-    fn validate_union_external(&mut self, value: &Value, schema: &UnionSchema) -> ValidationResult {
-        // External representation: the value is a map with a single key being the variant name
-        // Example: { circle = { radius = 5.0 } }
-        let map = match value {
-            Value::Map(m) => m,
-            // Also handle Variant type directly
-            Value::Primitive(PrimitiveValue::Variant(v)) => {
-                // Check if variant name matches
-                if let Some(&variant_schema) = schema.variants.get(&v.tag) {
-                    self.push_path(&v.tag);
-                    let result = self.validate(&v.content, variant_schema);
-                    self.pop_path();
-                    return result;
-                } else {
-                    return ValidationResult::failure(ValidationError::InvalidVariantTag {
-                        tag: v.tag.clone(),
-                        path: self.current_path(),
-                    });
-                }
-            }
-            _ => {
-                return ValidationResult::failure(ValidationError::TypeMismatch {
-                    expected: "union (external)".to_string(),
-                    actual: value_type_name(value),
-                    path: self.current_path(),
-                })
-            }
-        };
+    fn validate_union_external(&mut self, node: &Node, schema: &UnionSchema) -> ValidationResult {
+        // External representation in Eure uses $variant extension
+        // Example: { $variant = "circle", radius = 5.0 }
 
-        // Must have exactly one key
-        if map.0.len() != 1 {
-            return ValidationResult::failure(ValidationError::TypeMismatch {
-                expected: "union with single variant key".to_string(),
-                actual: format!("map with {} keys", map.0.len()),
-                path: self.current_path(),
-            });
+        // Check for $variant extension
+        if let Some(tag) = self.get_extension_as_string(node, VARIANT_EXT) {
+            if let Some(&variant_schema) = schema.variants.get(&tag) {
+                // Validate the node content against the variant schema
+                self.push_path(&tag);
+                let result = self.validate_content(node, &self.schema.node(variant_schema).content, variant_schema);
+                self.pop_path();
+                return result;
+            } else {
+                return ValidationResult::failure(ValidationError::InvalidVariantTag {
+                    tag,
+                    path: self.current_path(),
+                });
+            }
         }
 
-        let (key, val) = map.0.iter().next().unwrap();
-        let tag = match key {
-            ObjectKey::String(s) => s.clone(),
-            _ => {
-                return ValidationResult::failure(ValidationError::InvalidKeyType {
+        // Also support PrimitiveValue::Variant for backward compatibility
+        if let NodeValue::Primitive(PrimitiveValue::Variant(v)) = &node.content {
+            if let Some(&variant_schema) = schema.variants.get(&v.tag) {
+                self.push_path(&v.tag);
+                // Convert content to node for validation
+                let content_node = value_to_temp_node(&v.content);
+                let result = self.validate_content(&content_node, &self.schema.node(variant_schema).content, variant_schema);
+                self.pop_path();
+                return result;
+            } else {
+                return ValidationResult::failure(ValidationError::InvalidVariantTag {
+                    tag: v.tag.clone(),
                     path: self.current_path(),
-                })
+                });
             }
-        };
-
-        if let Some(&variant_schema) = schema.variants.get(&tag) {
-            self.push_path(&tag);
-            let result = self.validate(val, variant_schema);
-            self.pop_path();
-            result
-        } else {
-            ValidationResult::failure(ValidationError::InvalidVariantTag {
-                tag,
-                path: self.current_path(),
-            })
         }
+
+        // No $variant extension found - try untagged matching as fallback
+        // (This allows literal variants like `integer` shorthand to work)
+        self.validate_union_untagged(node, schema)
     }
 
     fn validate_union_internal(
         &mut self,
-        value: &Value,
+        node: &Node,
         schema: &UnionSchema,
         tag_field: &str,
     ) -> ValidationResult {
         // Internal representation: { type = "text", content = "Hello" }
-        let map = match value {
-            Value::Map(m) => m,
+        let map = match &node.content {
+            NodeValue::Map(m) => m,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "union (internal)".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -834,8 +897,8 @@ impl<'a> Validator<'a> {
 
         // Get the tag value
         let tag_key = ObjectKey::String(tag_field.to_string());
-        let tag_value = match map.0.get(&tag_key) {
-            Some(v) => v,
+        let tag_node_id = match map.0.get(&tag_key) {
+            Some(&id) => id,
             None => {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: tag_field.to_string(),
@@ -844,21 +907,21 @@ impl<'a> Validator<'a> {
             }
         };
 
-        let tag = match tag_value {
-            Value::Primitive(PrimitiveValue::Text(t)) => t.as_str().to_string(),
+        let tag_node = self.document.node(tag_node_id);
+        let tag = match &tag_node.content {
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => t.as_str().to_string(),
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "string tag".to_string(),
-                    actual: value_type_name(tag_value),
+                    actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
                 })
             }
         };
 
         if let Some(&variant_schema) = schema.variants.get(&tag) {
-            // Validate the entire map against the variant schema
-            // The variant schema should be a record that includes all fields except the tag
-            self.validate(value, variant_schema)
+            // Validate the entire node against the variant schema
+            self.validate_content(node, &self.schema.node(variant_schema).content, variant_schema)
         } else {
             ValidationResult::failure(ValidationError::InvalidVariantTag {
                 tag,
@@ -869,18 +932,18 @@ impl<'a> Validator<'a> {
 
     fn validate_union_adjacent(
         &mut self,
-        value: &Value,
+        node: &Node,
         schema: &UnionSchema,
         tag_field: &str,
         content_field: &str,
     ) -> ValidationResult {
         // Adjacent representation: { kind = "login", data = { username = "alice" } }
-        let map = match value {
-            Value::Map(m) => m,
+        let map = match &node.content {
+            NodeValue::Map(m) => m,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "union (adjacent)".to_string(),
-                    actual: value_type_name(value),
+                    actual: node_type_name(&node.content),
                     path: self.current_path(),
                 })
             }
@@ -888,8 +951,8 @@ impl<'a> Validator<'a> {
 
         // Get the tag value
         let tag_key = ObjectKey::String(tag_field.to_string());
-        let tag_value = match map.0.get(&tag_key) {
-            Some(v) => v,
+        let tag_node_id = match map.0.get(&tag_key) {
+            Some(&id) => id,
             None => {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: tag_field.to_string(),
@@ -898,12 +961,13 @@ impl<'a> Validator<'a> {
             }
         };
 
-        let tag = match tag_value {
-            Value::Primitive(PrimitiveValue::Text(t)) => t.as_str().to_string(),
+        let tag_node = self.document.node(tag_node_id);
+        let tag = match &tag_node.content {
+            NodeValue::Primitive(PrimitiveValue::Text(t)) => t.as_str().to_string(),
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "string tag".to_string(),
-                    actual: value_type_name(tag_value),
+                    actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
                 })
             }
@@ -911,8 +975,8 @@ impl<'a> Validator<'a> {
 
         // Get the content value
         let content_key = ObjectKey::String(content_field.to_string());
-        let content_value = match map.0.get(&content_key) {
-            Some(v) => v,
+        let content_node_id = match map.0.get(&content_key) {
+            Some(&id) => id,
             None => {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: content_field.to_string(),
@@ -923,7 +987,7 @@ impl<'a> Validator<'a> {
 
         if let Some(&variant_schema) = schema.variants.get(&tag) {
             self.push_path(content_field);
-            let result = self.validate(content_value, variant_schema);
+            let result = self.validate(content_node_id, variant_schema);
             self.pop_path();
             result
         } else {
@@ -934,13 +998,13 @@ impl<'a> Validator<'a> {
         }
     }
 
-    fn validate_union_untagged(&mut self, value: &Value, schema: &UnionSchema) -> ValidationResult {
+    fn validate_union_untagged(&mut self, node: &Node, schema: &UnionSchema) -> ValidationResult {
         // Untagged: try each variant, exactly one must match
         let mut matching: Vec<String> = Vec::new();
         let mut failures: Vec<(String, ValidationError)> = Vec::new();
 
         for (name, &variant_schema) in &schema.variants {
-            let result = self.validate(value, variant_schema);
+            let result = self.validate_content(node, &self.schema.node(variant_schema).content, variant_schema);
             if result.is_valid {
                 matching.push(name.clone());
             } else if let Some(err) = result.errors.into_iter().next() {
@@ -978,12 +1042,9 @@ impl<'a> Validator<'a> {
     // Type Reference Validation
     // =========================================================================
 
-    fn validate_reference(&mut self, value: &Value, type_ref: &TypeReference) -> ValidationResult {
+    fn validate_reference(&mut self, node: &Node, type_ref: &TypeReference) -> ValidationResult {
         // Only handle local references for now
-        // External references would require import resolution
         if type_ref.namespace.is_some() {
-            // For now, external references are not resolved
-            // They would need to be inlined during schema bundling
             return ValidationResult::failure(ValidationError::UndefinedTypeReference {
                 name: format!(
                     "{}.{}",
@@ -996,7 +1057,7 @@ impl<'a> Validator<'a> {
 
         // Look up the type in the schema's types map
         if let Some(&schema_id) = self.schema.types.get(&type_ref.name) {
-            self.validate(value, schema_id)
+            self.validate_content(node, &self.schema.node(schema_id).content, schema_id)
         } else {
             ValidationResult::failure(ValidationError::UndefinedTypeReference {
                 name: type_ref.name.to_string(),
@@ -1010,10 +1071,11 @@ impl<'a> Validator<'a> {
 // Helper Functions
 // =============================================================================
 
-/// Get a descriptive name for a value's type
-fn value_type_name(value: &Value) -> String {
-    match value {
-        Value::Primitive(p) => match p {
+/// Get a descriptive name for a node's content type
+fn node_type_name(content: &NodeValue) -> String {
+    match content {
+        NodeValue::Uninitialized => "uninitialized".to_string(),
+        NodeValue::Primitive(p) => match p {
             PrimitiveValue::Null => "null".to_string(),
             PrimitiveValue::Bool(_) => "boolean".to_string(),
             PrimitiveValue::BigInt(_) => "integer".to_string(),
@@ -1022,9 +1084,55 @@ fn value_type_name(value: &Value) -> String {
             PrimitiveValue::Hole => "hole".to_string(),
             PrimitiveValue::Variant(_) => "variant".to_string(),
         },
-        Value::Array(_) => "array".to_string(),
-        Value::Tuple(_) => "tuple".to_string(),
-        Value::Map(_) => "map".to_string(),
+        NodeValue::Array(_) => "array".to_string(),
+        NodeValue::Tuple(_) => "tuple".to_string(),
+        NodeValue::Map(_) => "map".to_string(),
+    }
+}
+
+/// Convert a node to a Value for comparison purposes
+fn node_to_value(document: &EureDocument, node: &Node) -> Value {
+    match &node.content {
+        NodeValue::Uninitialized => Value::Primitive(PrimitiveValue::Null),
+        NodeValue::Primitive(p) => Value::Primitive(p.clone()),
+        NodeValue::Array(arr) => {
+            let values: Vec<Value> = arr
+                .0
+                .iter()
+                .map(|&id| node_to_value(document, document.node(id)))
+                .collect();
+            Value::Array(eure_value::value::Array(values))
+        }
+        NodeValue::Tuple(tup) => {
+            let values: Vec<Value> = tup
+                .0
+                .iter()
+                .map(|&id| node_to_value(document, document.node(id)))
+                .collect();
+            Value::Tuple(Tuple(values))
+        }
+        NodeValue::Map(map) => {
+            let entries: std::collections::HashMap<ObjectKey, Value> = map
+                .0
+                .iter()
+                .map(|(k, &id)| (k.clone(), node_to_value(document, document.node(id))))
+                .collect();
+            Value::Map(eure_value::value::Map(entries.into_iter().collect()))
+        }
+    }
+}
+
+/// Create a temporary node from a value for validation
+fn value_to_temp_node(value: &Value) -> Node {
+    let content = match value {
+        Value::Primitive(p) => NodeValue::Primitive(p.clone()),
+        Value::Array(_) => NodeValue::Array(Default::default()), // Simplified - real impl would be recursive
+        Value::Tuple(_) => NodeValue::Tuple(Default::default()),
+        Value::Map(_) => NodeValue::Map(Default::default()),
+    };
+    Node {
+        content,
+        extensions: Default::default(),
     }
 }
 
@@ -1112,8 +1220,6 @@ fn primitives_equal(a: &PrimitiveValue, b: &PrimitiveValue) -> bool {
 
 /// Check if all values in an array are unique
 fn are_values_unique(values: &[Value]) -> bool {
-    // Use a simple O(n^2) comparison for now
-    // Could be optimized with hashing for primitive types
     for i in 0..values.len() {
         for j in (i + 1)..values.len() {
             if values_equal(&values[i], &values[j]) {
@@ -1143,11 +1249,11 @@ fn object_key_to_value(key: &ObjectKey) -> Value {
 // Public API
 // =============================================================================
 
-/// Validate a value against a schema document
+/// Validate an Eure document against a schema document
 ///
 /// # Arguments
 ///
-/// * `value` - The value to validate
+/// * `document` - The Eure document to validate
 /// * `schema` - The schema document to validate against
 ///
 /// # Returns
@@ -1162,16 +1268,16 @@ fn object_key_to_value(key: &ObjectKey) -> Value {
 ///
 /// ```ignore
 /// use eure_schema::validate::validate;
-/// use eure_value::value::Value;
+/// use eure_value::document::EureDocument;
 ///
 /// let schema = // ... load or convert schema
-/// let value = // ... parse value
-/// let result = validate(&value, &schema);
+/// let document = // ... parse document
+/// let result = validate(&document, &schema);
 ///
 /// if result.is_valid {
-///     println!("Value is valid!");
+///     println!("Document is valid!");
 ///     if result.is_complete {
-///         println!("Value is also complete (no holes)");
+///         println!("Document is also complete (no holes)");
 ///     }
 /// } else {
 ///     for error in &result.errors {
@@ -1179,28 +1285,77 @@ fn object_key_to_value(key: &ObjectKey) -> Value {
 ///     }
 /// }
 /// ```
-pub fn validate(value: &Value, schema: &SchemaDocument) -> ValidationResult {
-    let mut validator = Validator::new(schema);
-    validator.validate(value, schema.root)
+pub fn validate(document: &EureDocument, schema: &SchemaDocument) -> ValidationResult {
+    let mut validator = Validator::new(document, schema);
+    validator.validate(document.get_root_id(), schema.root)
 }
 
-/// Validate a value against a specific schema node
+/// Validate a specific node in the document against a specific schema node
 ///
-/// This is useful when you want to validate a value against a specific type
-/// defined in the schema, rather than the root type.
+/// This is useful when you want to validate a specific part of the document
+/// against a specific type defined in the schema.
 ///
 /// # Arguments
 ///
-/// * `value` - The value to validate
+/// * `document` - The Eure document
+/// * `node_id` - The ID of the node to validate
 /// * `schema` - The schema document
 /// * `schema_id` - The ID of the schema node to validate against
-pub fn validate_against(
-    value: &Value,
+pub fn validate_node(
+    document: &EureDocument,
+    node_id: NodeId,
     schema: &SchemaDocument,
     schema_id: SchemaNodeId,
 ) -> ValidationResult {
-    let mut validator = Validator::new(schema);
-    validator.validate(value, schema_id)
+    let mut validator = Validator::new(document, schema);
+    validator.validate(node_id, schema_id)
+}
+
+/// Validate a value against a schema (convenience wrapper)
+///
+/// This converts the value to a temporary document for validation.
+/// Use `validate()` directly for better performance with existing documents.
+pub fn validate_value(value: &Value, schema: &SchemaDocument) -> ValidationResult {
+    let document = value_to_document(value);
+    validate(&document, schema)
+}
+
+/// Convert a Value to an EureDocument
+fn value_to_document(value: &Value) -> EureDocument {
+    let mut doc = EureDocument::new();
+    let root_id = doc.get_root_id();
+    set_node_value(&mut doc, root_id, value);
+    doc
+}
+
+/// Recursively set a node's value from a Value
+fn set_node_value(doc: &mut EureDocument, node_id: NodeId, value: &Value) {
+    match value {
+        Value::Primitive(p) => {
+            doc.node_mut(node_id).content = NodeValue::Primitive(p.clone());
+        }
+        Value::Array(arr) => {
+            doc.node_mut(node_id).content = NodeValue::Array(Default::default());
+            for (i, item) in arr.0.iter().enumerate() {
+                let child_id = doc.add_array_element(Some(i), node_id).unwrap().node_id;
+                set_node_value(doc, child_id, item);
+            }
+        }
+        Value::Tuple(tup) => {
+            doc.node_mut(node_id).content = NodeValue::Tuple(Default::default());
+            for (i, item) in tup.0.iter().enumerate() {
+                let child_id = doc.add_tuple_element(i as u8, node_id).unwrap().node_id;
+                set_node_value(doc, child_id, item);
+            }
+        }
+        Value::Map(map) => {
+            doc.node_mut(node_id).content = NodeValue::Map(Default::default());
+            for (key, val) in map.0.iter() {
+                let child_id = doc.add_map_child(key.clone(), node_id).unwrap().node_id;
+                set_node_value(doc, child_id, val);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1216,14 +1371,18 @@ mod tests {
         (schema, id)
     }
 
+    fn create_doc_with_primitive(value: PrimitiveValue) -> EureDocument {
+        EureDocument::new_primitive(value)
+    }
+
     #[test]
     fn test_validate_any() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Any);
-
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "hello".to_string(),
         )));
-        let result = validate(&value, &schema);
+
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
         assert!(result.is_complete);
     }
@@ -1231,9 +1390,9 @@ mod tests {
     #[test]
     fn test_validate_hole() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Any);
+        let doc = create_doc_with_primitive(PrimitiveValue::Hole);
 
-        let value = Value::Primitive(PrimitiveValue::Hole);
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
         assert!(!result.is_complete); // Holes make the document incomplete
     }
@@ -1242,14 +1401,14 @@ mod tests {
     fn test_validate_text_basic() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Text(TextSchema::default()));
 
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "hello".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::BigInt(BigInt::from(42)));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(42)));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1262,22 +1421,22 @@ mod tests {
         }));
 
         // Too short
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext("ab".to_string())));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("ab".to_string())));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
 
         // Just right
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "hello".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
         // Too long
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "hello world!".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1288,16 +1447,16 @@ mod tests {
             ..Default::default()
         }));
 
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "hello".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "Hello123".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1309,16 +1468,16 @@ mod tests {
             multiple_of: None,
         }));
 
-        let value = Value::Primitive(PrimitiveValue::BigInt(BigInt::from(50)));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(50)));
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::BigInt(BigInt::from(-1)));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(-1)));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::BigInt(BigInt::from(101)));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(101)));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1330,12 +1489,12 @@ mod tests {
             multiple_of: Some(BigInt::from(5)),
         }));
 
-        let value = Value::Primitive(PrimitiveValue::BigInt(BigInt::from(15)));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(15)));
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::BigInt(BigInt::from(13)));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(13)));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1347,16 +1506,16 @@ mod tests {
             multiple_of: None,
         }));
 
-        let value = Value::Primitive(PrimitiveValue::F64(0.5));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::F64(0.5));
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::F64(-0.1));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::F64(-0.1));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::F64(1.0));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::F64(1.0));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid); // Exclusive bound
     }
 
@@ -1364,14 +1523,14 @@ mod tests {
     fn test_validate_boolean() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Boolean);
 
-        let value = Value::Primitive(PrimitiveValue::Bool(true));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::Bool(true));
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "true".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1379,12 +1538,12 @@ mod tests {
     fn test_validate_null() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Null);
 
-        let value = Value::Primitive(PrimitiveValue::Null);
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::Null);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::Bool(false));
-        let result = validate(&value, &schema);
+        let doc = create_doc_with_primitive(PrimitiveValue::Bool(false));
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1395,16 +1554,16 @@ mod tests {
         )));
         let (schema, _) = create_simple_schema(SchemaNodeContent::Literal(expected.clone()));
 
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "active".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let value = Value::Primitive(PrimitiveValue::Text(Text::plaintext(
+        let doc = create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext(
             "inactive".to_string(),
         )));
-        let result = validate(&value, &schema);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1427,12 +1586,12 @@ mod tests {
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(1))),
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(2))),
         ]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(result.is_valid);
 
         // Too short
         let value = Value::Array(eure_value::value::Array(vec![]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
 
         // Too long
@@ -1442,7 +1601,7 @@ mod tests {
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(3))),
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(4))),
         ]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1466,7 +1625,7 @@ mod tests {
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(2))),
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(3))),
         ]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(result.is_valid);
 
         // Duplicate values
@@ -1475,7 +1634,7 @@ mod tests {
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(2))),
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(1))),
         ]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
     }
 
@@ -1497,14 +1656,14 @@ mod tests {
             ))),
             Value::Primitive(PrimitiveValue::BigInt(BigInt::from(42))),
         ]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(result.is_valid);
 
         // Wrong length
         let value = Value::Tuple(Tuple(vec![Value::Primitive(PrimitiveValue::Text(
             Text::plaintext("hello".to_string()),
         ))]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
 
         // Wrong types
@@ -1514,7 +1673,7 @@ mod tests {
                 "hello".to_string(),
             ))),
         ]));
-        let result = validate(&value, &schema);
+        let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
     }
 }
