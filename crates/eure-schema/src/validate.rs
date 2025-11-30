@@ -313,6 +313,9 @@ struct Validator<'a> {
     document: &'a EureDocument,
     path: EurePath,
     has_holes: bool,
+    /// Current node being validated - used for error location reporting
+    /// None when validating temporary nodes (e.g., variant content converted from Value)
+    current_node_id: Option<NodeId>,
 }
 
 impl<'a> Validator<'a> {
@@ -322,6 +325,7 @@ impl<'a> Validator<'a> {
             document,
             path: EurePath::root(),
             has_holes: false,
+            current_node_id: None,
         }
     }
 
@@ -331,6 +335,11 @@ impl<'a> Validator<'a> {
         } else {
             format!("${}", self.path)
         }
+    }
+
+    /// Get current node ID for error reporting
+    fn node_id(&self) -> Option<NodeId> {
+        self.current_node_id
     }
 
     /// Push an identifier path segment (for record field names that are valid identifiers)
@@ -374,9 +383,24 @@ impl<'a> Validator<'a> {
 
     /// Main validation entry point
     fn validate(&mut self, node_id: NodeId, schema_id: SchemaNodeId) -> ValidationResult {
+        self.current_node_id = Some(node_id);
         let node = self.document.node(node_id);
         let schema_node = self.schema.node(schema_id);
         self.validate_content(node, &schema_node.content, schema_id)
+    }
+
+    /// Validate a temporary node (no source location)
+    fn validate_temp_node(
+        &mut self,
+        node: &Node,
+        content: &SchemaNodeContent,
+        schema_id: SchemaNodeId,
+    ) -> ValidationResult {
+        let prev_node_id = self.current_node_id;
+        self.current_node_id = None;
+        let result = self.validate_content(node, content, schema_id);
+        self.current_node_id = prev_node_id;
+        result
     }
 
     /// Validate node content against schema content
@@ -444,7 +468,7 @@ impl<'a> Validator<'a> {
                     expected: "text".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -459,7 +483,7 @@ impl<'a> Validator<'a> {
                             expected: expected_lang.clone(),
                             actual: "plaintext".to_string(),
                             path: self.current_path(),
-                            node_id: None,
+                            node_id: self.node_id(),
                         });
                     }
                 }
@@ -472,7 +496,7 @@ impl<'a> Validator<'a> {
                             expected: expected_lang.clone(),
                             actual: lang.clone(),
                             path: self.current_path(),
-                            node_id: None,
+                            node_id: self.node_id(),
                         });
                     }
                 }
@@ -489,7 +513,7 @@ impl<'a> Validator<'a> {
                 min: Some(min),
                 max: schema.max_length,
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
         if let Some(max) = schema.max_length
@@ -500,7 +524,7 @@ impl<'a> Validator<'a> {
                 min: schema.min_length,
                 max: Some(max),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -512,7 +536,7 @@ impl<'a> Validator<'a> {
                     return ValidationResult::failure(ValidationError::InvalidRegexPattern {
                         pattern: pattern.clone(),
                         error: e.to_string(),
-                        node_id: None,
+                        node_id: self.node_id(),
                     });
                 }
             };
@@ -520,7 +544,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::PatternMismatch {
                     pattern: pattern.clone(),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         }
@@ -536,7 +560,7 @@ impl<'a> Validator<'a> {
                     expected: "integer".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -546,14 +570,14 @@ impl<'a> Validator<'a> {
             return ValidationResult::failure(ValidationError::OutOfRange {
                 value: int_val.to_string(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
         if !check_integer_bound(int_val, &schema.max, false) {
             return ValidationResult::failure(ValidationError::OutOfRange {
                 value: int_val.to_string(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -564,7 +588,7 @@ impl<'a> Validator<'a> {
             return ValidationResult::failure(ValidationError::NotMultipleOf {
                 divisor: divisor.to_string(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -584,7 +608,7 @@ impl<'a> Validator<'a> {
                         expected: "float".to_string(),
                         actual: "integer (too large)".to_string(),
                         path: self.current_path(),
-                        node_id: None,
+                        node_id: self.node_id(),
                     });
                 }
             }
@@ -593,7 +617,7 @@ impl<'a> Validator<'a> {
                     expected: "float".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -603,14 +627,14 @@ impl<'a> Validator<'a> {
             return ValidationResult::failure(ValidationError::OutOfRange {
                 value: float_val.to_string(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
         if !check_float_bound(float_val, &schema.max, false) {
             return ValidationResult::failure(ValidationError::OutOfRange {
                 value: float_val.to_string(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -621,7 +645,7 @@ impl<'a> Validator<'a> {
             return ValidationResult::failure(ValidationError::NotMultipleOf {
                 divisor: divisor.to_string(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -637,7 +661,7 @@ impl<'a> Validator<'a> {
                 expected: "boolean".to_string(),
                 actual: node_type_name(&node.content),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             }),
         }
     }
@@ -649,7 +673,7 @@ impl<'a> Validator<'a> {
                 expected: "null".to_string(),
                 actual: node_type_name(&node.content),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             }),
         }
     }
@@ -663,7 +687,7 @@ impl<'a> Validator<'a> {
                 expected: format!("{:?}", expected),
                 actual: format!("{:?}", actual),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             })
         }
     }
@@ -680,7 +704,7 @@ impl<'a> Validator<'a> {
                     expected: "array".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -696,7 +720,7 @@ impl<'a> Validator<'a> {
                 min: Some(min),
                 max: schema.max_length,
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
         if let Some(max) = schema.max_length
@@ -707,7 +731,7 @@ impl<'a> Validator<'a> {
                 min: schema.min_length,
                 max: Some(max),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -721,7 +745,7 @@ impl<'a> Validator<'a> {
             if !are_values_unique(&values) {
                 return ValidationResult::failure(ValidationError::ArrayNotUnique {
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         }
@@ -749,7 +773,7 @@ impl<'a> Validator<'a> {
                 result.merge(ValidationResult::failure(
                     ValidationError::ArrayMissingContains {
                         path: self.current_path(),
-                        node_id: None,
+                        node_id: self.node_id(),
                     },
                 ));
             }
@@ -766,7 +790,7 @@ impl<'a> Validator<'a> {
                     expected: "map".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -782,7 +806,7 @@ impl<'a> Validator<'a> {
                 min: Some(min),
                 max: schema.max_size,
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
         if let Some(max) = schema.max_size
@@ -793,7 +817,7 @@ impl<'a> Validator<'a> {
                 min: schema.min_size,
                 max: Some(max),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -802,15 +826,18 @@ impl<'a> Validator<'a> {
         for (key, &val_id) in map.0.iter() {
             self.push_path_key(key.clone());
 
-            // Validate key
+            // Validate key (using temp node since key is not from document)
             let key_value = object_key_to_value(key);
             let key_node = value_to_temp_node(&key_value);
-            let key_result =
-                self.validate_content(&key_node, &self.schema.node(schema.key).content, schema.key);
+            let key_result = self.validate_temp_node(
+                &key_node,
+                &self.schema.node(schema.key).content,
+                schema.key,
+            );
             if !key_result.is_valid {
                 result.merge(ValidationResult::failure(ValidationError::InvalidKeyType {
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 }));
             }
 
@@ -837,7 +864,7 @@ impl<'a> Validator<'a> {
                     expected: "record".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -853,7 +880,7 @@ impl<'a> Validator<'a> {
                         ValidationError::MissingRequiredField {
                             field: field_name.clone(),
                             path: self.current_path(),
-                            node_id: None,
+                            node_id: self.node_id(),
                         },
                     ));
                 }
@@ -867,7 +894,7 @@ impl<'a> Validator<'a> {
                 _ => {
                     result.merge(ValidationResult::failure(ValidationError::InvalidKeyType {
                         path: self.current_path(),
-                        node_id: None,
+                        node_id: self.node_id(),
                     }));
                     continue;
                 }
@@ -899,7 +926,7 @@ impl<'a> Validator<'a> {
                         result.merge(ValidationResult::failure(ValidationError::UnknownField {
                             field: field_name.clone(),
                             path: self.current_path(),
-                            node_id: None,
+                            node_id: self.node_id(),
                         }));
                     }
                     UnknownFieldsPolicy::Allow => {
@@ -927,7 +954,7 @@ impl<'a> Validator<'a> {
                     expected: "tuple".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -938,7 +965,7 @@ impl<'a> Validator<'a> {
                 expected: schema.elements.len(),
                 actual: tuple.0.len(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -995,7 +1022,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::InvalidVariantTag {
                     tag,
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         }
@@ -1010,9 +1037,10 @@ impl<'a> Validator<'a> {
                     self.push_path_key(ObjectKey::String(v.tag.clone()));
                 }
                 // Convert content to a document for proper validation of complex values
+                // Use validate_temp_node since content comes from Value, not the original document
                 let content_doc = value_to_document(&v.content);
                 let content_node = content_doc.node(content_doc.get_root_id());
-                let result = self.validate_content(
+                let result = self.validate_temp_node(
                     content_node,
                     &self.schema.node(variant_schema).content,
                     variant_schema,
@@ -1023,7 +1051,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::InvalidVariantTag {
                     tag: v.tag.clone(),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         }
@@ -1047,7 +1075,7 @@ impl<'a> Validator<'a> {
                     expected: "union (internal)".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -1060,7 +1088,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: tag_field.to_string(),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -1073,7 +1101,7 @@ impl<'a> Validator<'a> {
                     expected: "string tag".to_string(),
                     actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -1089,7 +1117,7 @@ impl<'a> Validator<'a> {
             ValidationResult::failure(ValidationError::InvalidVariantTag {
                 tag,
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             })
         }
     }
@@ -1109,7 +1137,7 @@ impl<'a> Validator<'a> {
                     expected: "union (adjacent)".to_string(),
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -1122,7 +1150,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: tag_field.to_string(),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -1135,7 +1163,7 @@ impl<'a> Validator<'a> {
                     expected: "string tag".to_string(),
                     actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -1148,7 +1176,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::MissingRequiredField {
                     field: content_field.to_string(),
                     path: self.current_path(),
-                    node_id: None,
+                    node_id: self.node_id(),
                 });
             }
         };
@@ -1167,7 +1195,7 @@ impl<'a> Validator<'a> {
             ValidationResult::failure(ValidationError::InvalidVariantTag {
                 tag,
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             })
         }
     }
@@ -1196,7 +1224,7 @@ impl<'a> Validator<'a> {
                 ValidationResult::failure(ValidationError::NoVariantMatched {
                     path: self.current_path(),
                     variant_errors: failures,
-                    node_id: None,
+                    node_id: self.node_id(),
                 })
             }
             1 => ValidationResult::success(self.has_holes),
@@ -1212,7 +1240,7 @@ impl<'a> Validator<'a> {
                 ValidationResult::failure(ValidationError::AmbiguousUnion {
                     path: self.current_path(),
                     variants: matching,
-                    node_id: None,
+                    node_id: self.node_id(),
                 })
             }
         }
@@ -1228,7 +1256,7 @@ impl<'a> Validator<'a> {
             return ValidationResult::failure(ValidationError::UndefinedTypeReference {
                 name: format!("{}.{}", type_ref.namespace.as_ref().unwrap(), type_ref.name),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             });
         }
 
@@ -1239,7 +1267,7 @@ impl<'a> Validator<'a> {
             ValidationResult::failure(ValidationError::UndefinedTypeReference {
                 name: type_ref.name.to_string(),
                 path: self.current_path(),
-                node_id: None,
+                node_id: self.node_id(),
             })
         }
     }
