@@ -17,7 +17,7 @@ f = .a.b.c
 // Schema Definition
 // ============================================================================
 
-schema = ```eure
+type_schema = ```eure
 // Shorthand syntax
 a = .string
 b = .integer
