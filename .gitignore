@@ -28,3 +28,5 @@
 !playground/**/*.html
 !playground/**/*.md
 !playground/**/.gitignore
+
+!.github/workflows/**/*.yml
