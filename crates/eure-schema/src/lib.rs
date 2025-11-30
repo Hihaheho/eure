@@ -30,6 +30,7 @@
 
 pub mod convert;
 pub mod identifiers;
+pub mod validate;
 
 use eure_value::data_model::VariantRepr;
 use eure_value::identifier::Identifier;

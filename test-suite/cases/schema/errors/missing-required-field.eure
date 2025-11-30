@@ -1,0 +1,14 @@
+// Test schema validation error for missing required field
+
+input_eure = ```eure
+name = "Alice"
+```
+
+schema = ```eure
+name = `text`
+email = `text`
+```
+
+schema_errors = [
+  "Missing required field 'email'"
+]

@@ -1,0 +1,11 @@
+// Test schema validation for arrays
+
+input_eure = ```eure
+tags[] = "rust"
+tags[] = "eure"
+tags[] = "schema"
+```
+
+schema = ```eure
+tags = [`text`]
+```

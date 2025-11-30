@@ -1,0 +1,15 @@
+// Test schema validation for nested records
+
+input_eure = ```eure
+user.name = "Alice"
+user.email = "alice@example.com"
+user.age = 25
+```
+
+schema = ```eure
+@ user {
+  name = `text`
+  email = `text`
+  age = `integer`
+}
+```

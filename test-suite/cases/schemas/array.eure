@@ -17,11 +17,11 @@ e = [{ array => [1, 2, 3] }, { array => [4, 5, 6] }]
 // ============================================================================
 
 schema = ```eure
-a = [.integer]
-b = [.integer]
-c = [[.integer]]
-d = [{ a => .integer, b => .integer }]
-e = [{ array => [.integer] }]
+a = [`integer`]
+b = [`integer`]
+c = [[`integer`]]
+d = [{ a => `integer`, b => `integer` }]
+e = [{ array => [`integer`] }]
 ```
 
 // ============================================================================

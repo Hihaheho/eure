@@ -10,7 +10,6 @@ b = 1
 c = 1.0
 d = true
 e = null
-f = .a.b.c
 ```
 
 // ============================================================================
@@ -18,47 +17,11 @@ f = .a.b.c
 // ============================================================================
 
 schema = ```eure
-// Shorthand syntax
-a = .string
-b = .integer
-c = .float
-
-// Explicit variant syntax
-@ d {
-  $variant: boolean
-}
-@ e {
-  $variant: null
-}
-@ f {
-  $variant: path
-}
-```
-
-// ============================================================================
-// Normalized Forms
-// ============================================================================
-
-normalized_input = ```eure
-= {
-  a => "hello",
-  b => 1,
-  c => 1.0,
-  d => true,
-  e => null,
-  f => .a.b.c,
-}
-```
-
-normalized_schema = ```eure
-= {
-  a => .string,
-  b => .integer,
-  c => .float,
-  d => .boolean,
-  e => .null,
-  f => .path,
-}
+a = `text`
+b = `integer`
+c = `float`
+d = `boolean`
+e = `null`
 ```
 
 // ============================================================================
@@ -71,8 +34,7 @@ expected_json = ```json
   "b": 1,
   "c": 1.0,
   "d": true,
-  "e": null,
-  "f": ".a.b.c"
+  "e": null
 }
 ```
 
@@ -84,9 +46,8 @@ expected_json_schema = ```json
     "b": { "type": "integer" },
     "c": { "type": "number" },
     "d": { "type": "boolean" },
-    "e": { "type": "null" },
-    "f": { "type": "string" }
+    "e": { "type": "null" }
   },
-  "required": ["a", "b", "c", "d", "e", "f"]
+  "required": ["a", "b", "c", "d", "e"]
 }
 ```
