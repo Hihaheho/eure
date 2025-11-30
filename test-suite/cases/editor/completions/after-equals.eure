@@ -1,7 +1,7 @@
 unimplemented = true
 
-# Test: completion after equals
-# From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_after_equals
+// Test: completion after equals
+// From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_after_equals
 
 schema = ```eure
 @ key
@@ -12,7 +12,7 @@ editor = ```eure
 key = |_|
 ```
 
-# Should suggest basic value types
+// Should suggest basic value types
 
 @ completions[]
 label = "true"

@@ -1,8 +1,8 @@
 unimplemented = true
 
-# Test: variant name completion
-# From: crates/eure-editor-support/tests/completions_test.rs:test_variant_name_completion
-# Completion of variant names after $variant:
+// Test: variant name completion
+// From: crates/eure-editor-support/tests/completions_test.rs:test_variant_name_completion
+// Completion of variant names after $variant:
 
 schema = ```eure
 $types.Action {
@@ -50,7 +50,7 @@ $variant: |_|
 
 trigger = ":"
 
-# Should have variant names: set-text, set-choices, navigate
+// Should have variant names: set-text, set-choices, navigate
 
 @ completions[]
 label = "set-text"

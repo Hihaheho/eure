@@ -1,7 +1,7 @@
 unimplemented = true
 
-# Test: completion in deeply nested array element
-# From: crates/eure-editor-support/tests/completion_nested_context_test.rs:test_completion_in_deeply_nested_array_element
+// Test: completion in deeply nested array element
+// From: crates/eure-editor-support/tests/completion_nested_context_test.rs:test_completion_in_deeply_nested_array_element
 
 schema = ```eure
 @ users
@@ -48,10 +48,10 @@ created_at = "2024-01-01"
 |_|
 ```
 
-# SHOULD suggest fields from roles[].metadata context
+// SHOULD suggest fields from roles[].metadata context
 @ completions[]
 label = "expires_at"
 kind = "field"
 
-# SHOULD NOT suggest fields from other contexts
+// SHOULD NOT suggest fields from other contexts
 completions_should_not_contain = ["role_name", "permissions", "name", "email", "settings", "theme"]

@@ -1,7 +1,7 @@
 unimplemented = true
 
-# Test: partial key completion
-# From: crates/eure-editor-support/tests/completion_basic_test.rs:test_partial_key_completion
+// Test: partial key completion
+// From: crates/eure-editor-support/tests/completion_basic_test.rs:test_partial_key_completion
 
 schema = ```eure
 @ script
@@ -18,8 +18,8 @@ editor = ```eure
 @ scr|_|
 ```
 
-# Should suggest keys starting with "scr"
-# All completions should start with 'scr'
+// Should suggest keys starting with "scr"
+// All completions should start with 'scr'
 
 @ completions[]
 label = "script"
@@ -29,5 +29,5 @@ kind = "field"
 label = "screen"
 kind = "field"
 
-# Should not suggest 'settings' (doesn't start with 'scr')
+// Should not suggest 'settings' (doesn't start with 'scr')
 completions_should_not_contain = ["settings"]

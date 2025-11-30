@@ -1,7 +1,7 @@
 unimplemented = true
 
-# Test: completion after dot
-# From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_after_dot
+// Test: completion after dot
+// From: crates/eure-editor-support/tests/completion_basic_test.rs:test_completion_after_dot
 
 schema = ```eure
 @ script {
@@ -19,8 +19,8 @@ editor = ```eure
 
 trigger = "."
 
-# Should suggest keys that can follow script
-# All completions should be fields
+// Should suggest keys that can follow script
+// All completions should be fields
 
 @ completions[]
 label = "name"
@@ -30,5 +30,5 @@ kind = "field"
 label = "version"
 kind = "field"
 
-# Should not have dummy fields
+// Should not have dummy fields
 completions_should_not_contain = ["field1", "field2"]
