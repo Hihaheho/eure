@@ -1,0 +1,11 @@
+// Valid: $description is provided with correct text type
+
+input_eure = ```eure
+name = "Alice"
+name.$description = "The user's name"
+```
+
+schema = ```eure
+name = `text`
+name.$ext-type.description = `text`
+```

@@ -191,13 +191,16 @@ impl NodeValue {
     }
 }
 
+// TODO: Remove `pub`
 #[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
 pub struct NodeArray(pub Vec<NodeId>);
 
+// TODO: Remove `pub`
 #[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
 #[plural(len, is_empty, iter, into_iter, into_iter_ref, new)]
 pub struct NodeMap(pub Map<ObjectKey, NodeId>);
 
+// TODO: Remove `pub`
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Plural)]
 pub struct NodeTuple(pub Vec<NodeId>);
 

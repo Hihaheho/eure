@@ -42,10 +42,11 @@
 //!
 //! **Type reference:** `` `$types.my-type` `` or `` `$types.namespace.type` ``
 
+use crate::identifiers::{EXT_TYPE, OPTIONAL};
 use crate::{
-    ArraySchema, Bound, Description, FloatSchema, IntegerSchema, MapSchema, RecordFieldSchema,
-    RecordSchema, SchemaDocument, SchemaNodeContent, SchemaNodeId, TextSchema, TupleSchema,
-    TypeReference, UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, Description, ExtTypeSchema, FloatSchema, IntegerSchema, MapSchema,
+    RecordFieldSchema, RecordSchema, SchemaDocument, SchemaNodeContent, SchemaNodeId, TextSchema,
+    TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
 use eure_value::document::node::{Node, NodeValue};
@@ -841,6 +842,9 @@ impl<'a> Converter<'a> {
                 let (optional, description, deprecated, default) =
                     self.extract_field_metadata(field_node)?;
 
+                // Extract $ext-type definitions for this field
+                let ext_types = self.extract_ext_types(value_id)?;
+
                 // Apply metadata to the schema node
                 {
                     let schema_node = self.schema.node_mut(field_schema_id);
@@ -849,6 +853,7 @@ impl<'a> Converter<'a> {
                     }
                     schema_node.metadata.deprecated = deprecated;
                     schema_node.metadata.default = default;
+                    schema_node.ext_types = ext_types;
                 }
 
                 properties.insert(
@@ -909,6 +914,72 @@ impl<'a> Converter<'a> {
         }
 
         Ok((optional, description, deprecated, default))
+    }
+
+    /// Extract $ext-type definitions from a node
+    fn extract_ext_types(
+        &mut self,
+        node_id: NodeId,
+    ) -> Result<HashMap<Identifier, ExtTypeSchema>, ConversionError> {
+        let mut ext_types = HashMap::new();
+
+        let node = self.doc.node(node_id);
+        if let Some(&ext_type_node_id) = node.extensions.get(&EXT_TYPE) {
+            let ext_type_node = self.doc.node(ext_type_node_id);
+            let map = match &ext_type_node.content {
+                NodeValue::Map(map) => map,
+                _ => {
+                    return Err(ConversionError::InvalidExtensionValue {
+                        extension: "ext-type".to_string(),
+                        path: "$ext-type must be a map".to_string(),
+                    });
+                }
+            };
+
+            for (key, &type_node_id) in map.0.iter() {
+                let name = match key {
+                    ObjectKey::String(name) => name,
+                    _ => {
+                        return Err(ConversionError::InvalidTypeName(key.clone()));
+                    }
+                };
+
+                let ext_name: Identifier = name
+                    .parse()
+                    .map_err(|_| ConversionError::InvalidTypeName(key.clone()))?;
+
+                // Convert the extension type schema
+                let schema_id = self.convert_node(type_node_id)?;
+
+                // Check for $optional extension on the ext-type definition
+                let ext_type_def_node = self.doc.node(type_node_id);
+                let is_optional =
+                    if let Some(&opt_node_id) = ext_type_def_node.extensions.get(&OPTIONAL) {
+                        let opt_node = self.doc.node(opt_node_id);
+                        match &opt_node.content {
+                            NodeValue::Primitive(PrimitiveValue::Bool(b)) => *b,
+                            _ => {
+                                return Err(ConversionError::InvalidExtensionValue {
+                                    extension: "optional".to_string(),
+                                    path: "$optional must be a boolean".to_string(),
+                                });
+                            }
+                        }
+                    } else {
+                        false
+                    };
+
+                ext_types.insert(
+                    ext_name,
+                    ExtTypeSchema {
+                        schema: schema_id,
+                        optional: is_optional,
+                    },
+                );
+            }
+        }
+
+        Ok(ext_types)
     }
 
     /// Parse unknown fields policy
@@ -1247,4 +1318,142 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 /// ```
 pub fn document_to_schema(doc: &EureDocument) -> Result<SchemaDocument, ConversionError> {
     Converter::new(doc).convert()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eure_value::document::node::NodeMap;
+    use eure_value::text::Text;
+
+    /// Create a document with a record containing a single field with $ext-type extension
+    fn create_schema_with_field_ext_type(ext_type_content: NodeValue) -> EureDocument {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Create field value: `text`
+        let field_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("text"),
+        )));
+
+        // Add $ext-type extension to the field
+        let ext_type_id = doc.create_node(ext_type_content);
+        doc.node_mut(field_value_id)
+            .extensions
+            .insert(EXT_TYPE.clone(), ext_type_id);
+
+        // Create root as record with field: { name = `text` }
+        let mut root_map = NodeMap::default();
+        root_map
+            .0
+            .insert(ObjectKey::String("name".to_string()), field_value_id);
+        doc.node_mut(root_id).content = NodeValue::Map(root_map);
+
+        doc
+    }
+
+    #[test]
+    fn extract_ext_types_not_map() {
+        // name.$ext-type = 1 should error, not silently ignore
+        let doc = create_schema_with_field_ext_type(NodeValue::Primitive(PrimitiveValue::BigInt(
+            1.into(),
+        )));
+
+        let err = document_to_schema(&doc).unwrap_err();
+        assert_eq!(
+            err,
+            ConversionError::InvalidExtensionValue {
+                extension: "ext-type".to_string(),
+                path: "$ext-type must be a map".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn extract_ext_types_invalid_key() {
+        // name.$ext-type = { 0 => `text` } should error, not silently ignore
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Create field value: `text`
+        let field_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("text"),
+        )));
+
+        // Create $ext-type as map with integer key
+        let ext_type_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("text"),
+        )));
+        let mut ext_type_map = NodeMap::default();
+        ext_type_map
+            .0
+            .insert(ObjectKey::Number(0.into()), ext_type_value_id);
+
+        let ext_type_id = doc.create_node(NodeValue::Map(ext_type_map));
+        doc.node_mut(field_value_id)
+            .extensions
+            .insert(EXT_TYPE.clone(), ext_type_id);
+
+        // Create root as record
+        let mut root_map = NodeMap::default();
+        root_map
+            .0
+            .insert(ObjectKey::String("name".to_string()), field_value_id);
+        doc.node_mut(root_id).content = NodeValue::Map(root_map);
+
+        let err = document_to_schema(&doc).unwrap_err();
+        assert_eq!(
+            err,
+            ConversionError::InvalidTypeName(ObjectKey::Number(0.into()))
+        );
+    }
+
+    #[test]
+    fn extract_ext_types_invalid_optional() {
+        // name.$ext-type.desc.$optional = 1 should error, not silently default to false
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Create field value: `text`
+        let field_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("text"),
+        )));
+
+        // Create ext-type value with invalid $optional = 1
+        let ext_type_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("text"),
+        )));
+        let optional_node_id =
+            doc.create_node(NodeValue::Primitive(PrimitiveValue::BigInt(1.into())));
+        doc.node_mut(ext_type_value_id)
+            .extensions
+            .insert(OPTIONAL.clone(), optional_node_id);
+
+        // Create $ext-type map
+        let mut ext_type_map = NodeMap::default();
+        ext_type_map
+            .0
+            .insert(ObjectKey::String("desc".to_string()), ext_type_value_id);
+
+        let ext_type_id = doc.create_node(NodeValue::Map(ext_type_map));
+        doc.node_mut(field_value_id)
+            .extensions
+            .insert(EXT_TYPE.clone(), ext_type_id);
+
+        // Create root as record
+        let mut root_map = NodeMap::default();
+        root_map
+            .0
+            .insert(ObjectKey::String("name".to_string()), field_value_id);
+        doc.node_mut(root_id).content = NodeValue::Map(root_map);
+
+        let err = document_to_schema(&doc).unwrap_err();
+        assert_eq!(
+            err,
+            ConversionError::InvalidExtensionValue {
+                extension: "optional".to_string(),
+                path: "$optional must be a boolean".to_string(),
+            }
+        );
+    }
 }

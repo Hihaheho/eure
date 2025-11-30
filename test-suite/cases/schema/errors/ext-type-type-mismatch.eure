@@ -1,0 +1,16 @@
+// Invalid: $description is defined as text but given integer
+// NOTE: Currently FAILS because extension type validation is not implemented
+
+input_eure = ```eure
+name = "Alice"
+name.$description = 42
+```
+
+schema = ```eure
+name = `text`
+name.$ext-type.description = `text`
+```
+
+schema_errors = [
+  "Type mismatch"
+]

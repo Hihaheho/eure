@@ -1,0 +1,15 @@
+// Invalid: $description is required but not provided
+// NOTE: Currently FAILS because extension validation is not implemented
+
+input_eure = ```eure
+name = "Alice"
+```
+
+schema = ```eure
+name = `text`
+name.$ext-type.description = `text`
+```
+
+schema_errors = [
+  "Missing required extension"
+]

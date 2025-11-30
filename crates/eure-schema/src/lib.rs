@@ -53,6 +53,15 @@ pub struct SchemaDocument {
     pub types: HashMap<Identifier, SchemaNodeId>,
 }
 
+/// Extension type definition with optionality
+#[derive(Debug, Clone)]
+pub struct ExtTypeSchema {
+    /// Schema for the extension value
+    pub schema: SchemaNodeId,
+    /// Whether the extension is optional (default: false = required)
+    pub optional: bool,
+}
+
 /// Reference to a schema node by index
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SchemaNodeId(pub usize);
@@ -64,6 +73,8 @@ pub struct SchemaNode {
     pub content: SchemaNodeContent,
     /// Cascading metadata (description, deprecated, default, examples)
     pub metadata: SchemaMetadata,
+    /// Extension type definitions for this node ($ext-type.X)
+    pub ext_types: HashMap<Identifier, ExtTypeSchema>,
 }
 
 // ============================================================================
@@ -495,6 +506,7 @@ impl SchemaDocument {
             nodes: vec![SchemaNode {
                 content: SchemaNodeContent::Any,
                 metadata: SchemaMetadata::default(),
+                ext_types: HashMap::new(),
             }],
             root: SchemaNodeId(0),
             types: HashMap::new(),
@@ -517,6 +529,7 @@ impl SchemaDocument {
         self.nodes.push(SchemaNode {
             content,
             metadata: SchemaMetadata::default(),
+            ext_types: HashMap::new(),
         });
         id
     }

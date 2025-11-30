@@ -296,6 +296,14 @@ pub enum ValidationError {
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
     },
+
+    #[error("Missing required extension '{extension}' at path {path}")]
+    MissingRequiredExtension {
+        extension: String,
+        path: String,
+        /// Source node ID for editor diagnostics
+        node_id: Option<NodeId>,
+    },
 }
 
 /// Validation warnings
@@ -440,17 +448,47 @@ impl<'a> Validator<'a> {
             SchemaNodeContent::Reference(type_ref) => self.validate_reference(node, type_ref),
         };
 
-        // Warn about unknown extensions (except well-known ones like $variant)
-        for (ext_ident, _) in &node.extensions {
+        // Validate extensions against schema-defined ext_types
+        let schema_node = self.schema.node(schema_id);
+        let ext_types = &schema_node.ext_types;
+
+        // Check for missing required extensions
+        for (ext_ident, ext_schema) in ext_types {
+            if !ext_schema.optional && !node.extensions.contains_key(ext_ident) {
+                result.merge(ValidationResult::failure(
+                    ValidationError::MissingRequiredExtension {
+                        extension: ext_ident.to_string(),
+                        path: self.current_path(),
+                        node_id: self.current_node_id,
+                    },
+                ));
+            }
+        }
+
+        // Validate present extensions
+        for (ext_ident, &ext_node_id) in &node.extensions {
             // Skip well-known extensions used for variant discrimination
             if ext_ident == &identifiers::VARIANT {
                 continue;
             }
-            // Unknown extensions are allowed but generate warnings
-            result.add_warning(ValidationWarning::UnknownExtension {
-                name: ext_ident.to_string(),
-                path: self.current_path(),
-            });
+
+            // Check if this extension is defined in schema
+            if let Some(ext_schema) = ext_types.get(ext_ident) {
+                // Validate the extension value against its schema
+                self.push_path_extension(ext_ident.clone());
+                let ext_node = self.document.node(ext_node_id);
+                let ext_schema_node = self.schema.node(ext_schema.schema);
+                let ext_result =
+                    self.validate_content(ext_node, &ext_schema_node.content, ext_schema.schema);
+                result.merge(ext_result);
+                self.pop_path();
+            } else {
+                // Unknown extensions are allowed but generate warnings
+                result.add_warning(ValidationWarning::UnknownExtension {
+                    name: ext_ident.to_string(),
+                    path: self.current_path(),
+                });
+            }
         }
 
         result
