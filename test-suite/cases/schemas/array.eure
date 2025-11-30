@@ -16,12 +16,12 @@ e = [{ array => [1, 2, 3] }, { array => [4, 5, 6] }]
 // Schema Definition
 // ============================================================================
 
-type_schema = ```eure
-a = [.integer]
-b = [.integer]
-c = [[.integer]]
-d = [{ a => .integer, b => .integer }]
-e = [{ array => [.integer] }]
+schema = ```eure
+a = [`integer`]
+b = [`integer`]
+c = [[`integer`]]
+d = [{ a => `integer`, b => `integer` }]
+e = [{ array => [`integer`] }]
 ```
 
 // ============================================================================
