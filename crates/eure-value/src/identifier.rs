@@ -84,12 +84,16 @@ pub enum IdentifierError {
 impl Identifier {
     /// Creates a new Identifier without validation.
     ///
-    /// # Safety
-    /// The caller must ensure that the string is a valid identifier according to Eure rules:
+    /// This function is intended for creating compile-time constants where the
+    /// identifier string is known to be valid. The caller should ensure that the
+    /// string is a valid identifier according to Eure rules:
     /// - Must start with XID_Start character or underscore
     /// - Can contain XID_Continue characters or hyphens
     /// - Must not start with $
-    pub const unsafe fn new_unchecked(s: &'static str) -> Self {
+    ///
+    /// Note: This function is not marked `unsafe` because passing an invalid string
+    /// does not cause memory unsafety - it only results in a logically invalid Identifier.
+    pub const fn new_unchecked(s: &'static str) -> Self {
         Identifier(Cow::Borrowed(s))
     }
 
@@ -196,11 +200,11 @@ mod tests {
     #[test]
     fn test_identifier_new_unchecked() {
         // This test verifies that const construction works
-        const TEST_ID: Identifier = unsafe { Identifier::new_unchecked("test-const") };
+        const TEST_ID: Identifier = Identifier::new_unchecked("test-const");
         assert_eq!(TEST_ID.as_ref(), "test-const");
 
         // Verify it's using borrowed variant
-        let id = unsafe { Identifier::new_unchecked("borrowed") };
+        let id = Identifier::new_unchecked("borrowed");
         assert_eq!(id.as_ref(), "borrowed");
     }
 }
