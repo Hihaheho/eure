@@ -59,8 +59,8 @@ Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hol
   Tuple: LParen [ TupleElements ] RParen ;
   TupleElements: Value [ TupleElementsTail ] ;
   TupleElementsTail: Comma [ TupleElements ] ;
-  Float: /[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
   Integer: /\d[\d_]*/ ;
+  Float: /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
   Boolean: True | False ;
   True: 'true' ;
   False: 'false';

@@ -159,13 +159,13 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'Float'
-    fn float(&mut self, _arg: &Float<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'Integer'
+    fn integer(&mut self, _arg: &Integer<'t>) -> Result<()> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'Integer'
-    fn integer(&mut self, _arg: &Integer<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'Float'
+    fn float(&mut self, _arg: &Float<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -2172,7 +2172,7 @@ impl ToSpan for False<'_> {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Float<'t> {
-    pub float: Token<'t>, /* [-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn] */
+    pub float: Token<'t>, /* [-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn] */
 }
 
 impl ToSpan for Float<'_> {
@@ -5359,22 +5359,6 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 98:
     ///
-    /// `Float: /[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn float(&mut self, float: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let float = float.token()?.clone();
-        let float_built = Float { float };
-        // Calling user action here
-        self.user_grammar.float(&float_built)?;
-        self.push(ASTType::Float(float_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 99:
-    ///
     /// `Integer: /\d[\d_]*/;`
     ///
     #[parol_runtime::function_name::named]
@@ -5386,6 +5370,22 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         // Calling user action here
         self.user_grammar.integer(&integer_built)?;
         self.push(ASTType::Integer(integer_built), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 99:
+    ///
+    /// `Float: /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn float(&mut self, float: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let float = float.token()?.clone();
+        let float_built = Float { float };
+        // Calling user action here
+        self.user_grammar.float(&float_built)?;
+        self.push(ASTType::Float(float_built), context);
         Ok(())
     }
 
@@ -6860,8 +6860,8 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             95 => self.tuple_elements_tail(&children[0], &children[1]),
             96 => self.tuple_elements_tail_opt_0(&children[0]),
             97 => self.tuple_elements_tail_opt_1(),
-            98 => self.float(&children[0]),
-            99 => self.integer(&children[0]),
+            98 => self.integer(&children[0]),
+            99 => self.float(&children[0]),
             100 => self.boolean_0(&children[0]),
             101 => self.boolean_1(&children[0]),
             102 => self.r#true(&children[0]),

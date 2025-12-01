@@ -24,8 +24,8 @@ pub const TERMINAL_NAMES: &[&str; 50] = &[
     /*  4 */ "BlockComment",
     /*  5 */ "Hash",
     /*  6 */ "MapBind",
-    /*  7 */ "Float",
-    /*  8 */ "Integer",
+    /*  7 */ "Integer",
+    /*  8 */ "Float",
     /*  9 */ "True",
     /* 10 */ "False",
     /* 11 */ "Null",
@@ -78,8 +78,8 @@ scanner! {
             token r"/\*/?([^/]|[^*]/)*\*/" => 4; // "BlockComment"
             token r"\#" => 5; // "Hash"
             token r"=>" => 6; // "MapBind"
-            token r"[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]" => 7; // "Float"
-            token r"\d[\d_]*" => 8; // "Integer"
+            token r"\d[\d_]*" => 7; // "Integer"
+            token r"[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]" => 8; // "Float"
             token r"true" => 9; // "True"
             token r"false" => 10; // "False"
             token r"null" => 11; // "Null"
@@ -346,7 +346,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
     /* 8 - "ArrayMarkerOpt" */
     LookaheadDFA {
         prod0: -1,
-        transitions: &[Trans(0, 8, 1, 32), Trans(0, 41, 2, 33)],
+        transitions: &[Trans(0, 7, 1, 32), Trans(0, 41, 2, 33)],
         k: 1,
     },
     /* 9 - "ArrayOpt" */
@@ -622,7 +622,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         transitions: &[
             Trans(0, 0, 2, 4),
             Trans(0, 5, 1, 3),
-            Trans(0, 8, 1, 3),
+            Trans(0, 7, 1, 3),
             Trans(0, 9, 1, 3),
             Trans(0, 10, 1, 3),
             Trans(0, 11, 1, 3),
@@ -647,7 +647,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         transitions: &[
             Trans(0, 0, 2, 6),
             Trans(0, 5, 2, 6),
-            Trans(0, 8, 2, 6),
+            Trans(0, 7, 2, 6),
             Trans(0, 9, 2, 6),
             Trans(0, 10, 2, 6),
             Trans(0, 11, 2, 6),
@@ -681,7 +681,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
     },
     /* 53 - "Float" */
     LookaheadDFA {
-        prod0: 98,
+        prod0: 99,
         transitions: &[],
         k: 0,
     },
@@ -751,7 +751,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
     },
     /* 64 - "Integer" */
     LookaheadDFA {
-        prod0: 99,
+        prod0: 98,
         transitions: &[],
         k: 0,
     },
@@ -766,7 +766,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         prod0: -1,
         transitions: &[
             Trans(0, 5, 6, 39),
-            Trans(0, 8, 4, 37),
+            Trans(0, 7, 4, 37),
             Trans(0, 9, 1, 34),
             Trans(0, 10, 1, 34),
             Trans(0, 11, 1, 34),
@@ -795,7 +795,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
             Trans(0, 0, 2, 30),
             Trans(0, 5, 2, 30),
             Trans(0, 6, 2, 30),
-            Trans(0, 8, 2, 30),
+            Trans(0, 7, 2, 30),
             Trans(0, 9, 2, 30),
             Trans(0, 10, 2, 30),
             Trans(0, 11, 2, 30),
@@ -841,7 +841,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
     LookaheadDFA {
         prod0: -1,
         transitions: &[
-            Trans(0, 8, 1, 49),
+            Trans(0, 7, 1, 49),
             Trans(0, 9, 1, 49),
             Trans(0, 10, 1, 49),
             Trans(0, 13, 1, 49),
@@ -854,7 +854,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
     LookaheadDFA {
         prod0: -1,
         transitions: &[
-            Trans(0, 8, 1, 43),
+            Trans(0, 7, 1, 43),
             Trans(0, 9, 1, 43),
             Trans(0, 10, 1, 43),
             Trans(0, 13, 1, 43),
@@ -867,7 +867,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
     LookaheadDFA {
         prod0: -1,
         transitions: &[
-            Trans(0, 8, 1, 51),
+            Trans(0, 7, 1, 51),
             Trans(0, 9, 2, 52),
             Trans(0, 10, 2, 52),
             Trans(0, 13, 3, 53),
@@ -888,7 +888,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
             Trans(0, 0, 2, 27),
             Trans(0, 5, 2, 27),
             Trans(0, 6, 2, 27),
-            Trans(0, 8, 2, 27),
+            Trans(0, 7, 2, 27),
             Trans(0, 9, 2, 27),
             Trans(0, 10, 2, 27),
             Trans(0, 11, 2, 27),
@@ -946,7 +946,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         prod0: -1,
         transitions: &[
             Trans(0, 5, 1, 71),
-            Trans(0, 8, 1, 71),
+            Trans(0, 7, 1, 71),
             Trans(0, 9, 1, 71),
             Trans(0, 10, 1, 71),
             Trans(0, 11, 1, 71),
@@ -963,7 +963,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         prod0: -1,
         transitions: &[
             Trans(0, 5, 2, 78),
-            Trans(0, 8, 2, 78),
+            Trans(0, 7, 2, 78),
             Trans(0, 9, 2, 78),
             Trans(0, 10, 2, 78),
             Trans(0, 11, 2, 78),
@@ -981,7 +981,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         prod0: -1,
         transitions: &[
             Trans(0, 5, 2, 74),
-            Trans(0, 8, 2, 74),
+            Trans(0, 7, 2, 74),
             Trans(0, 9, 2, 74),
             Trans(0, 10, 2, 74),
             Trans(0, 11, 2, 74),
@@ -999,7 +999,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         prod0: -1,
         transitions: &[
             Trans(0, 5, 2, 77),
-            Trans(0, 8, 2, 77),
+            Trans(0, 7, 2, 77),
             Trans(0, 9, 2, 77),
             Trans(0, 10, 2, 77),
             Trans(0, 11, 2, 77),
@@ -1036,7 +1036,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         transitions: &[
             Trans(0, 0, 1, 19),
             Trans(0, 5, 1, 19),
-            Trans(0, 8, 1, 19),
+            Trans(0, 7, 1, 19),
             Trans(0, 9, 1, 19),
             Trans(0, 10, 1, 19),
             Trans(0, 11, 1, 19),
@@ -1057,7 +1057,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         transitions: &[
             Trans(0, 0, 2, 21),
             Trans(0, 5, 1, 20),
-            Trans(0, 8, 1, 20),
+            Trans(0, 7, 1, 20),
             Trans(0, 9, 1, 20),
             Trans(0, 10, 1, 20),
             Trans(0, 11, 1, 20),
@@ -1076,7 +1076,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         transitions: &[
             Trans(0, 0, 2, 24),
             Trans(0, 5, 2, 24),
-            Trans(0, 8, 2, 24),
+            Trans(0, 7, 2, 24),
             Trans(0, 9, 2, 24),
             Trans(0, 10, 2, 24),
             Trans(0, 11, 2, 24),
@@ -1108,7 +1108,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         transitions: &[
             Trans(0, 0, 2, 108),
             Trans(0, 5, 2, 108),
-            Trans(0, 8, 2, 108),
+            Trans(0, 7, 2, 108),
             Trans(0, 9, 2, 108),
             Trans(0, 10, 2, 108),
             Trans(0, 11, 2, 108),
@@ -1149,7 +1149,7 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
         transitions: &[
             Trans(0, 0, 2, 15),
             Trans(0, 5, 2, 15),
-            Trans(0, 8, 2, 15),
+            Trans(0, 7, 2, 15),
             Trans(0, 9, 2, 15),
             Trans(0, 10, 2, 15),
             Trans(0, 11, 2, 15),
@@ -1257,8 +1257,8 @@ pub const LOOKAHEAD_AUTOMATA: &[LookaheadDFA; 113] = &[
     LookaheadDFA {
         prod0: -1,
         transitions: &[
-            Trans(0, 7, 4, 62),
-            Trans(0, 8, 5, 63),
+            Trans(0, 7, 5, 63),
+            Trans(0, 8, 4, 62),
             Trans(0, 9, 6, 64),
             Trans(0, 10, 6, 64),
             Trans(0, 11, 7, 65),
@@ -1797,14 +1797,14 @@ pub const PRODUCTIONS: &[Production; 176] = &[
         lhs: 107,
         production: &[],
     },
-    // 98 - Float: /[-+]?(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/;
-    Production {
-        lhs: 53,
-        production: &[ParseType::T(7)],
-    },
-    // 99 - Integer: /\d[\d_]*/;
+    // 98 - Integer: /\d[\d_]*/;
     Production {
         lhs: 64,
+        production: &[ParseType::T(7)],
+    },
+    // 99 - Float: /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/;
+    Production {
+        lhs: 53,
         production: &[ParseType::T(8)],
     },
     // 100 - Boolean: True;
