@@ -1,0 +1,37 @@
+$types {
+  @ adr-id
+  $variant: text
+  pattern = regex`[0-9]{4}-[a-z0-9-]+`
+}
+
+$variant: record
+
+// ---- Required fields ----
+id = `$types.adr-id`
+title = `text`
+status {
+  $variant: union
+  variants.proposed = { = "proposed", $variant => "literal" }
+  variants.accepted = { = "accepted", $variant => "literal" }
+  variants.rejected = { reason => `text.markdown` }
+  variants.deprecated = { reason => `text.markdown` }
+  variants.superseded = { superseded_by => `$types.adr-id` }
+}
+decision-date = `text.date`
+context = `text.markdown`
+decision = `text.markdown`
+consequences = `text.markdown`
+
+// ---- Optional fields ----
+
+related-adrs: [`$types.adr-id`]
+related-adrs.$optional = true
+
+related-links: [`text.url`]
+related-links.$optional = true
+
+alternatives-considered: [`text.markdown`]
+alternatives-considered.$optional = true
+
+tags: [`text`]
+tags.$optional = true

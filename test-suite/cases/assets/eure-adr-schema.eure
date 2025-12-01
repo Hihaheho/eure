@@ -1,0 +1,11 @@
+input_eure = ```eure
+id = "1234-my-adr"
+title = "My ADR"
+status = "proposed"
+decision-date = `2025-01-01`
+context = `This is the context of the ADR`
+decision = `This is the decision of the ADR`
+consequences = `These are the consequences of the ADR`
+```
+
+schema = path`assets/schemas/eure-adr.schema.eure`

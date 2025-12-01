@@ -3,11 +3,13 @@
 input_eure = ```eure
 name = "Alice"
 age = 30
+score = 1.0
 active = true
 ```
 
 schema = ```eure
 name = `text`
 age = `integer`
+score = `float`
 active = `boolean`
 ```
