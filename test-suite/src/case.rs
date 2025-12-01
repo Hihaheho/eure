@@ -21,6 +21,8 @@ pub struct Case {
     pub output_json_schema: Option<Text>,
     /// Expected conversion errors (for eure-schema to json-schema error test cases)
     pub json_schema_errors: Vec<Text>,
+    /// Marks test case as unimplemented. None = not unimplemented, Some("") = unimplemented without reason, Some(reason) = unimplemented with reason
+    pub unimplemented: Option<String>,
 }
 
 /// Configuration for running test cases

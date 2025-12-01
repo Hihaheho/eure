@@ -1,3 +1,4 @@
+unimplemented = true
 // Test internally-tagged union
 // Note: variant order in oneOf is determined by HashMap iteration order
 

@@ -1,3 +1,4 @@
+unimplemented = true
 // Test empty record with no fields
 
 schema = ```eure

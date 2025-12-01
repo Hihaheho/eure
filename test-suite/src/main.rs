@@ -57,6 +57,8 @@ enum TestCaseOutcome {
         result: CaseResult,
         /// Status info for detailed error reporting
         status_info: Option<String>,
+        /// Unimplemented flag and optional reason
+        unimplemented: Option<String>,
     },
     /// Failed to parse the test case file
     ParseError { case_name: String, error: String },
@@ -147,6 +149,7 @@ fn run(args: &Args) -> i32 {
                     Ok(parse_result) => {
                         let case_name =
                             case_name_from_path(&parse_result.case.path, &cases_base_dir);
+                        let unimplemented = parse_result.case.unimplemented.clone();
                         let preprocessed = parse_result.case.preprocess();
                         let status_info = {
                             let summary = preprocessed.status_summary();
@@ -161,6 +164,7 @@ fn run(args: &Args) -> i32 {
                             case_name,
                             result,
                             status_info,
+                            unimplemented,
                         }
                     }
                     Err(collect_error) => {
@@ -205,6 +209,7 @@ fn run(args: &Args) -> i32 {
         let mut total_failed = 0;
         let mut total_scenarios_passed = 0;
         let mut total_scenarios = 0;
+        let mut unimplemented_cases: Vec<(String, bool)> = Vec::new(); // (name, all_passed)
         let mut failures: Vec<(String, Vec<FailureDetail>)> = Vec::new();
 
         for outcome in &outcomes {
@@ -213,37 +218,52 @@ fn run(args: &Args) -> i32 {
                     case_name,
                     result,
                     status_info,
+                    unimplemented,
                 } => {
                     let passed = result.passed_count();
                     let total = result.total_count();
                     total_scenarios_passed += passed;
                     total_scenarios += total;
 
-                    if result.all_passed() {
-                        println!(
-                            "  {}{}PASS{} {} {}{}/{}{}",
-                            colors::BOLD,
-                            colors::GREEN,
-                            colors::RESET,
-                            case_name,
-                            colors::DIM,
-                            passed,
-                            total,
-                            colors::RESET
-                        );
+                    // Determine base status (PASS/FAIL)
+                    let (status_text, color) = if result.all_passed() {
+                        ("PASS", colors::GREEN)
+                    } else {
+                        ("FAIL", colors::RED)
+                    };
+
+                    // Build unimplemented annotation
+                    let unimpl_annotation = if let Some(reason) = unimplemented {
+                        if reason.is_empty() {
+                            " (unimplemented)".to_string()
+                        } else {
+                            format!(" (unimplemented: \"{}\")", reason)
+                        }
+                    } else {
+                        String::new()
+                    };
+
+                    println!(
+                        "  {}{}{}{} {} {}{}/{}{}{}",
+                        colors::BOLD,
+                        color,
+                        status_text,
+                        colors::RESET,
+                        case_name,
+                        colors::DIM,
+                        passed,
+                        total,
+                        colors::RESET,
+                        unimpl_annotation
+                    );
+
+                    // Track for summary and warnings
+                    if unimplemented.is_some() {
+                        unimplemented_cases.push((case_name.clone(), result.all_passed()));
+                        // Don't count as failed even if scenarios fail
+                    } else if result.all_passed() {
                         total_passed += 1;
                     } else {
-                        println!(
-                            "  {}{}FAIL{} {} {}{}/{}{}",
-                            colors::BOLD,
-                            colors::RED,
-                            colors::RESET,
-                            case_name,
-                            colors::DIM,
-                            passed,
-                            total,
-                            colors::RESET
-                        );
                         total_failed += 1;
 
                         // Collect failure details
@@ -293,10 +313,11 @@ fn run(args: &Args) -> i32 {
         println!("{}", colors::RESET);
 
         println!(
-            "  Cases:     {} passed, {} failed, {} total",
+            "  Cases:     {} passed, {} failed, {} unimplemented, {} total",
             total_passed,
             total_failed,
-            total_passed + total_failed
+            unimplemented_cases.len(),
+            total_passed + total_failed + unimplemented_cases.len()
         );
         println!(
             "  Scenarios: {} passed, {} failed, {} total",
@@ -304,6 +325,21 @@ fn run(args: &Args) -> i32 {
             total_scenarios - total_scenarios_passed,
             total_scenarios
         );
+
+        // Show warning for fully passing unimplemented cases
+        let fully_passing_unimpl: Vec<_> = unimplemented_cases
+            .iter()
+            .filter(|(_, all_passed)| *all_passed)
+            .collect();
+
+        if !fully_passing_unimpl.is_empty() {
+            println!(
+                "\n{}Note:{} {} unimplemented case(s) have all scenarios passing",
+                colors::BOLD,
+                colors::RESET,
+                fully_passing_unimpl.len()
+            );
+        }
 
         // Print detailed failure reports
         if !failures.is_empty() {

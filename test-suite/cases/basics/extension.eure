@@ -1,0 +1,22 @@
+unimplemented = "Uninitialized node error"
+
+input_eure = ```eure
+$ext = "ext"
+key = 1
+key.$ext-key = 2
+object = { $ext-object => 3 }
+text {
+  $ext-text: hello
+}
+```
+
+normalized = ```eure
+= {
+  $ext => "ext",
+  key => { = 1, $ext-key => 2 },
+  object => { = {}, $ext-object => 3 },
+  text => { = "hello", $ext-text => "hello" },
+}
+```
+
+output_json = json`{ "key": 1, "object": {}, "text": "hello" }`

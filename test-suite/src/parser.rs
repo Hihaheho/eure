@@ -74,6 +74,12 @@ pub fn parse_case(input: &str, path: PathBuf) -> Result<ParseResult, ParseError>
                 cst: cst.clone(),
             }
         })?,
+        unimplemented: get_unimplemented(&doc, "unimplemented").map_err(|e| {
+            ParseError::IdentifierError {
+                error: e,
+                cst: cst.clone(),
+            }
+        })?,
     };
 
     Ok(ParseResult {
@@ -121,4 +127,36 @@ fn get_text_array(doc: &EureDocument, key: &str) -> Result<Vec<Text>, Identifier
                 .collect()
         })
         .unwrap_or_default())
+}
+
+fn get_unimplemented(doc: &EureDocument, key: &str) -> Result<Option<String>, IdentifierError> {
+    use eure::value::PrimitiveValue;
+
+    // Try to get the field from document
+    let value = doc
+        .root()
+        .as_map()
+        .unwrap()
+        .get(&ObjectKey::String(key.into()));
+
+    match value {
+        None => Ok(None), // Field not present
+        Some(node) => {
+            let primitive = doc
+                .node(node)
+                .as_primitive()
+                .expect("Expected primitive value");
+
+            match primitive {
+                // Check if it's true - return empty string (no reason)
+                PrimitiveValue::Bool(true) => Ok(Some(String::new())),
+                // Check if it's false - treat as not unimplemented
+                PrimitiveValue::Bool(false) => Ok(None),
+                // Check if it's a string
+                PrimitiveValue::Text(text) => Ok(Some(text.content.clone())),
+                // Any other type is invalid
+                _ => panic!("unimplemented field must be boolean or string"),
+            }
+        }
+    }
 }

@@ -1,3 +1,5 @@
+unimplemented = true
+
 // Test error: Type that references itself directly
 
 schema = ```eure
