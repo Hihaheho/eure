@@ -1,0 +1,45 @@
+// Test multiple type definitions in $types
+
+schema = ```eure
+= `$types.Person`
+
+@ $types.Person {
+    name = `text`
+    address = `$types.Address`
+}
+
+@ $types.Address {
+    street = `text`
+    city = `text`
+}
+```
+
+output_json_schema = ```json
+{
+    "allOf": [
+        {"$ref": "#/$defs/Person"},
+        {
+            "$defs": {
+                "Address": {
+                    "type": "object",
+                    "properties": {
+                        "street": {"type": "string"},
+                        "city": {"type": "string"}
+                    },
+                    "required": ["city", "street"],
+                    "additionalProperties": false
+                },
+                "Person": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "address": {"$ref": "#/$defs/Address"}
+                    },
+                    "required": ["address", "name"],
+                    "additionalProperties": false
+                }
+            }
+        }
+    ]
+}
+```

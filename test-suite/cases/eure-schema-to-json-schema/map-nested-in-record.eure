@@ -1,0 +1,23 @@
+// Test record field that is a map type
+
+schema = ```eure
+name = `text`
+metadata.$variant = "map"
+metadata.key = `text`
+metadata.value = `text`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "metadata": {
+            "type": "object",
+            "additionalProperties": {"type": "string"}
+        }
+    },
+    "required": ["metadata", "name"],
+    "additionalProperties": false
+}
+```

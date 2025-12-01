@@ -1,0 +1,9 @@
+// Test text with IPv4 format
+
+schema = ```eure
+= `text.ipv4`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "ipv4"}
+```

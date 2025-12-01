@@ -1,0 +1,9 @@
+// Test text with URI template format
+
+schema = ```eure
+= `text.uri-template`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "uri-template"}
+```

@@ -1,0 +1,17 @@
+// Test record with unknown-fields policy = schema
+
+schema = ```eure
+name = `text`
+$unknown-fields = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"}
+    },
+    "required": ["name"],
+    "additionalProperties": {"type": "integer"}
+}
+```

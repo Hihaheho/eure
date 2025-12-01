@@ -1,0 +1,40 @@
+// Test record field using type reference
+
+schema = ```eure
+id = `integer`
+user = `$types.User`
+
+@ $types.User {
+    name = `text`
+    email = `text`
+}
+```
+
+output_json_schema = ```json
+{
+    "allOf": [
+        {
+            "type": "object",
+            "properties": {
+                "id": {"type": "integer"},
+                "user": {"$ref": "#/$defs/User"}
+            },
+            "required": ["id", "user"],
+            "additionalProperties": false
+        },
+        {
+            "$defs": {
+                "User": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "email": {"type": "string"}
+                    },
+                    "required": ["email", "name"],
+                    "additionalProperties": false
+                }
+            }
+        }
+    ]
+}
+```

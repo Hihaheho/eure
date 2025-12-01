@@ -1,0 +1,8 @@
+// Test error: Float constraint with NaN value
+
+schema = ```eure
+$variant = "float"
+range = "[NaN, 1.0]"
+```
+
+json_schema_errors[] = "NaN"

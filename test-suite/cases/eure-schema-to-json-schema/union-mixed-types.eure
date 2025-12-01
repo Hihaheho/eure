@@ -1,0 +1,39 @@
+// Test union with mixed primitive and record variants
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "external"
+variants.none = `null`
+variants.user.name = `text`
+variants.user.id = `integer`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {"none": {"type": "null"}},
+            "required": ["none"],
+            "additionalProperties": false
+        },
+        {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "id": {"type": "integer"}
+                    },
+                    "required": ["id", "name"],
+                    "additionalProperties": false
+                }
+            },
+            "required": ["user"],
+            "additionalProperties": false
+        }
+    ]
+}
+```

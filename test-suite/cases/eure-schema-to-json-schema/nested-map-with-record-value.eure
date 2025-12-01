@@ -1,0 +1,23 @@
+// Test map with record value type
+
+schema = ```eure
+$variant = "map"
+key = `text`
+value.name = `text`
+value.age = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "additionalProperties": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer"}
+        },
+        "required": ["age", "name"],
+        "additionalProperties": false
+    }
+}
+```

@@ -1,0 +1,16 @@
+// Test array with array items
+
+schema = ```eure
+$variant = "array"
+item = [`text`]
+```
+
+output_json_schema = ```json
+{
+    "type": "array",
+    "items": {
+        "type": "array",
+        "items": {"type": "string"}
+    }
+}
+```

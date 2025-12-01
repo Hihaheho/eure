@@ -1,0 +1,9 @@
+// Test text with time format
+
+schema = ```eure
+= `text.time`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "time"}
+```

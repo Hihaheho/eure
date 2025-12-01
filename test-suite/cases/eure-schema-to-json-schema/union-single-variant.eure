@@ -1,0 +1,20 @@
+// Test union with only one variant (degenerate case)
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "external"
+variants.only = `text`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {"only": {"type": "string"}},
+            "required": ["only"],
+            "additionalProperties": false
+        }
+    ]
+}
+```

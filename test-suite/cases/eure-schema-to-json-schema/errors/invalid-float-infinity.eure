@@ -1,0 +1,8 @@
+// Test error: Float constraint with Infinity value
+
+schema = ```eure
+$variant = "float"
+range = "[0.0, Inf]"
+```
+
+json_schema_errors[] = "Inf"

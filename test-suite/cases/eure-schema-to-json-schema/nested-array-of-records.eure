@@ -1,0 +1,22 @@
+// Test array with record items
+
+schema = ```eure
+$variant = "array"
+item.name = `text`
+item.age = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer"}
+        },
+        "required": ["age", "name"],
+        "additionalProperties": false
+    }
+}
+```

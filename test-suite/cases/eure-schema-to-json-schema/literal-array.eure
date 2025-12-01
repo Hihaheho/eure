@@ -1,0 +1,9 @@
+// Test literal array value
+
+schema = ```eure
+= [1, 2, 3]
+```
+
+output_json_schema = ```json
+{"const": [1, 2, 3]}
+```

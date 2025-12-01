@@ -1,0 +1,15 @@
+// Test array with contains constraint
+
+schema = ```eure
+$variant = "array"
+item = `integer`
+contains = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "array",
+    "items": {"type": "integer"},
+    "contains": {"type": "integer"}
+}
+```

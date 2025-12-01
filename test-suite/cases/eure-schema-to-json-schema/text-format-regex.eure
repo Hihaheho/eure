@@ -1,0 +1,9 @@
+// Test text with regex format
+
+schema = ```eure
+= `text.regex`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "regex"}
+```

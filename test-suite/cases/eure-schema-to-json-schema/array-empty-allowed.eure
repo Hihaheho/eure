@@ -1,0 +1,11 @@
+// Test array with min-length = 0 (explicitly allowing empty)
+
+schema = ```eure
+$variant = "array"
+item = `text`
+min-length = 0
+```
+
+output_json_schema = ```json
+{"type": "array", "items": {"type": "string"}, "minItems": 0}
+```

@@ -1,0 +1,9 @@
+// Test literal null value
+
+schema = ```eure
+= null
+```
+
+output_json_schema = ```json
+{"const": null}
+```

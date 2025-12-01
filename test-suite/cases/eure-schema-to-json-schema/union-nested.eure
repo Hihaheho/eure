@@ -1,0 +1,48 @@
+// Test union with nested union variant
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "external"
+variants.text = `text`
+variants.result.$variant = "union"
+variants.result.$variant-repr = "external"
+variants.result.variants.ok = `boolean`
+variants.result.variants.error = `text`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "properties": {"error": {"type": "string"}},
+                            "required": ["error"],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {"ok": {"type": "boolean"}},
+                            "required": ["ok"],
+                            "additionalProperties": false
+                        }
+                    ]
+                }
+            },
+            "required": ["result"],
+            "additionalProperties": false
+        },
+        {
+            "type": "object",
+            "properties": {"text": {"type": "string"}},
+            "required": ["text"],
+            "additionalProperties": false
+        }
+    ]
+}
+```

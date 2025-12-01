@@ -1,0 +1,8 @@
+// Test error: Integer constraint exceeding i64 bounds
+
+schema = ```eure
+$variant = "integer"
+range = "[0, 99999999999999999999999999]"
+```
+
+json_schema_errors[] = "BigInt"

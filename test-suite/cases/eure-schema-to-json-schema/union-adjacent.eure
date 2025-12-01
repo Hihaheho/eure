@@ -1,0 +1,36 @@
+// Test adjacently-tagged union
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "adjacent"
+tag = "kind"
+content = "data"
+variants.text = `text`
+variants.number = `integer`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {
+                "kind": {"const": "number"},
+                "data": {"type": "integer"}
+            },
+            "required": ["data", "kind"],
+            "additionalProperties": false
+        },
+        {
+            "type": "object",
+            "properties": {
+                "kind": {"const": "text"},
+                "data": {"type": "string"}
+            },
+            "required": ["data", "kind"],
+            "additionalProperties": false
+        }
+    ]
+}
+```

@@ -1,0 +1,14 @@
+// Test empty record with no fields
+
+schema = ```eure
+= {}
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+}
+```

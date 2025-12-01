@@ -1,0 +1,22 @@
+// Test array where item type is a union
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "array"
+item.$variant = "union"
+item.$variant-repr = "untagged"
+item.variants.text = `text`
+item.variants.number = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "array",
+    "items": {
+        "oneOf": [
+            {"type": "integer"},
+            {"type": "string"}
+        ]
+    }
+}
+```

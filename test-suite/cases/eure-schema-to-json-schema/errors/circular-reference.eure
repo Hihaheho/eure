@@ -1,0 +1,12 @@
+// Test error: Type that references itself directly
+
+schema = ```eure
+= `$types.Node`
+
+@ $types.Node {
+    value = `integer`
+    next = `$types.Node`
+}
+```
+
+json_schema_errors[] = "cycle"

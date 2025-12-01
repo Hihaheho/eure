@@ -1,0 +1,9 @@
+// Test literal object value
+
+schema = ```eure
+= { key => "value" }
+```
+
+output_json_schema = ```json
+{"const": {"key": "value"}}
+```

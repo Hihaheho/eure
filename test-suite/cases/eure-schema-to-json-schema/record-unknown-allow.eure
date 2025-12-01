@@ -1,0 +1,17 @@
+// Test record with unknown-fields policy = allow
+
+schema = ```eure
+name = `text`
+$unknown-fields = "allow"
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"}
+    },
+    "required": ["name"],
+    "additionalProperties": true
+}
+```

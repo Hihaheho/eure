@@ -1,0 +1,13 @@
+// Test schema with description metadata
+
+schema = ```eure
+$variant = "text"
+$description = "A user's email address"
+```
+
+output_json_schema = ```json
+{
+    "type": "string",
+    "description": "A user's email address"
+}
+```

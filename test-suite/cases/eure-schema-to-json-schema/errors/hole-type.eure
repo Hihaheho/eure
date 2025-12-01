@@ -1,0 +1,7 @@
+// Test error: Hole type cannot be converted to JSON Schema
+
+schema = ```eure
+= `!`
+```
+
+json_schema_errors[] = "Hole"

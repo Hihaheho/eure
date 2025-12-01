@@ -1,0 +1,27 @@
+// Test nested record (record field with record type)
+
+schema = ```eure
+name = `text`
+address.street = `text`
+address.city = `text`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "address": {
+            "type": "object",
+            "properties": {
+                "street": {"type": "string"},
+                "city": {"type": "string"}
+            },
+            "required": ["city", "street"],
+            "additionalProperties": false
+        }
+    },
+    "required": ["address", "name"],
+    "additionalProperties": false
+}
+```

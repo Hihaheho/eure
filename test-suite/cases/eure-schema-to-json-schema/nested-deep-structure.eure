@@ -1,0 +1,40 @@
+// Test deeply nested structure (record → array → record)
+
+schema = ```eure
+users[].name = `text`
+users[].posts[].title = `text`
+users[].posts[].content = `text`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "users": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "posts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "content": {"type": "string"}
+                            },
+                            "required": ["content", "title"],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": ["name", "posts"],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": ["users"],
+    "additionalProperties": false
+}
+```

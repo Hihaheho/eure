@@ -1,0 +1,33 @@
+// Test externally-tagged union with optional fields in variant
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "external"
+variants.user.name = `text`
+variants.user.email.$optional = true
+variants.user.email = `text`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "email": {"type": "string"}
+                    },
+                    "required": ["name"],
+                    "additionalProperties": false
+                }
+            },
+            "required": ["user"],
+            "additionalProperties": false
+        }
+    ]
+}
+```

@@ -1,0 +1,24 @@
+// Test text with length constraints AND pattern
+
+schema = ```eure
+field.$variant = "text"
+field.min-length = 3
+field.max-length = 20
+field.pattern = "^[a-z]+$"
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "field": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 20,
+            "pattern": "^[a-z]+$"
+        }
+    },
+    "required": ["field"],
+    "additionalProperties": false
+}
+```

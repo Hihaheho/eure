@@ -1,0 +1,9 @@
+// Test text with IDN email format
+
+schema = ```eure
+= `text.idn-email`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "idn-email"}
+```

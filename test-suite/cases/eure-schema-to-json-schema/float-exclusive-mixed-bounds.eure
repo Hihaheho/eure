@@ -1,0 +1,10 @@
+// Test float with mixed exclusive/inclusive bounds
+
+schema = ```eure
+$variant = "float"
+range = "(0.0, 1.0]"
+```
+
+output_json_schema = ```json
+{"type": "number", "exclusiveMinimum": 0.0, "maximum": 1.0}
+```

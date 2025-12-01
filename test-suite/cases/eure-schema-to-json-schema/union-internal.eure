@@ -1,0 +1,29 @@
+// Test internally-tagged union
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "internal"
+tag = "type"
+variants.success = `text`
+variants.error = `text`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {
+            "allOf": [
+                {"properties": {"type": {"const": "error"}}, "required": ["type"]},
+                {"type": "string"}
+            ]
+        },
+        {
+            "allOf": [
+                {"properties": {"type": {"const": "success"}}, "required": ["type"]},
+                {"type": "string"}
+            ]
+        }
+    ]
+}
+```

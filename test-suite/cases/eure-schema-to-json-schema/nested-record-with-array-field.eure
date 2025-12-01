@@ -1,0 +1,21 @@
+// Test record with array field
+
+schema = ```eure
+name = `text`
+tags = [`text`]
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "tags": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": ["name", "tags"],
+    "additionalProperties": false
+}
+```

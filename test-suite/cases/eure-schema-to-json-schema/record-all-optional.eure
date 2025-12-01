@@ -1,0 +1,20 @@
+// Test record where all fields are optional
+
+schema = ```eure
+name.$optional = true
+name = `text`
+age.$optional = true
+age = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "age": {"type": "integer"}
+    },
+    "required": [],
+    "additionalProperties": false
+}
+```

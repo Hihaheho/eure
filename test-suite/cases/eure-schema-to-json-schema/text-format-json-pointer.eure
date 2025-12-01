@@ -1,0 +1,9 @@
+// Test text with JSON pointer format
+
+schema = ```eure
+= `text.json-pointer`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "json-pointer"}
+```

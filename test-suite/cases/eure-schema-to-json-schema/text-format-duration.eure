@@ -1,0 +1,9 @@
+// Test text with duration format
+
+schema = ```eure
+= `text.duration`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "duration"}
+```
