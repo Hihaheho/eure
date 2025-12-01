@@ -4,17 +4,18 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-[[bin]]
-name = "test-suite"
-path = "src/main.rs"
-
 [lib]
 name = "test_suite"
 path = "src/lib.rs"
 
+[[bin]]
+name = "test-suite"
+path = "src/main.rs"
+
 [dependencies]
 ahash.workspace = true
-annotate-snippets = "0.12"
+annotate-snippets.workspace = true
+clap = { workspace = true, features = ["derive"] }
 eros.workspace = true
 eure = { workspace = true }
 eure-json.workspace = true

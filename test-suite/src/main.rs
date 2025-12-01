@@ -7,10 +7,28 @@
 use std::path::Path;
 use std::sync::mpsc;
 
+use clap::Parser;
 use rayon::prelude::*;
 use test_suite::{
-    CaseResult, CollectCasesError, ScenarioResult, cases_dir, collect_cases, format_parse_error,
+    CaseResult, CollectCasesError, RunConfig, ScenarioResult, cases_dir, collect_cases,
+    format_parse_error,
 };
+
+#[derive(Parser)]
+#[command(name = "test-suite", about = "Eure test suite runner")]
+struct Args {
+    /// Enable trace output for debugging
+    #[arg(short, long)]
+    trace: bool,
+
+    /// Filter tests by name pattern (substring match)
+    #[arg(short, long)]
+    filter: Option<String>,
+
+    /// Show short error summaries instead of detailed output
+    #[arg(short, long)]
+    short: bool,
+}
 
 /// ANSI color codes
 mod colors {
@@ -23,12 +41,22 @@ mod colors {
     pub const RESET: &str = "\x1b[0m";
 }
 
+/// Detailed failure information
+struct FailureDetail {
+    /// Short one-line description
+    short: String,
+    /// Detailed multi-line description
+    detailed: String,
+}
+
 /// Result of a single test case execution
 enum TestCaseOutcome {
     /// Case ran successfully with scenario results
     Ran {
         case_name: String,
         result: CaseResult,
+        /// Status info for detailed error reporting
+        status_info: Option<String>,
     },
     /// Failed to parse the test case file
     ParseError { case_name: String, error: String },
@@ -44,11 +72,14 @@ fn case_name_from_path(path: &Path, cases_dir: &Path) -> String {
 }
 
 fn main() {
-    let exit_code = run();
+    let args = Args::parse();
+    let exit_code = run(&args);
     std::process::exit(exit_code);
 }
 
-fn run() -> i32 {
+fn run(args: &Args) -> i32 {
+    let config = RunConfig { trace: args.trace };
+
     println!(
         "\n{}{}Eure Test Suite{}",
         colors::BOLD,
@@ -73,13 +104,35 @@ fn run() -> i32 {
         }
     };
 
+    // Filter cases by name if --filter is specified
+    let cases: Vec<_> = if let Some(ref filter) = args.filter {
+        cases
+            .into_iter()
+            .filter(|case_result| {
+                let path = match case_result {
+                    Ok(parse_result) => &parse_result.case.path,
+                    Err(CollectCasesError::IoError { path, .. }) => path,
+                    Err(CollectCasesError::ParseError { path, .. }) => path,
+                };
+                let case_name = case_name_from_path(path, &cases_base_dir);
+                case_name.contains(filter.as_str())
+            })
+            .collect()
+    } else {
+        cases
+    };
+
     if cases.is_empty() {
         println!(
-            "{}{}Warning:{} No test cases found in {}",
+            "{}{}Warning:{} No test cases found{}",
             colors::BOLD,
             colors::YELLOW,
             colors::RESET,
-            cases_base_dir.display()
+            if args.filter.is_some() {
+                " matching filter"
+            } else {
+                ""
+            }
         );
         return 0;
     }
@@ -95,8 +148,20 @@ fn run() -> i32 {
                         let case_name =
                             case_name_from_path(&parse_result.case.path, &cases_base_dir);
                         let preprocessed = parse_result.case.preprocess();
-                        let result = preprocessed.run_all();
-                        TestCaseOutcome::Ran { case_name, result }
+                        let status_info = {
+                            let summary = preprocessed.status_summary();
+                            if summary.is_empty() {
+                                None
+                            } else {
+                                Some(summary)
+                            }
+                        };
+                        let result = preprocessed.run_all(&config);
+                        TestCaseOutcome::Ran {
+                            case_name,
+                            result,
+                            status_info,
+                        }
                     }
                     Err(collect_error) => {
                         let (path, error_msg) = match collect_error {
@@ -140,11 +205,15 @@ fn run() -> i32 {
         let mut total_failed = 0;
         let mut total_scenarios_passed = 0;
         let mut total_scenarios = 0;
-        let mut failures: Vec<(String, Vec<String>)> = Vec::new();
+        let mut failures: Vec<(String, Vec<FailureDetail>)> = Vec::new();
 
         for outcome in &outcomes {
             match outcome {
-                TestCaseOutcome::Ran { case_name, result } => {
+                TestCaseOutcome::Ran {
+                    case_name,
+                    result,
+                    status_info,
+                } => {
                     let passed = result.passed_count();
                     let total = result.total_count();
                     total_scenarios_passed += passed;
@@ -178,7 +247,7 @@ fn run() -> i32 {
                         total_failed += 1;
 
                         // Collect failure details
-                        let failed_details: Vec<String> = result
+                        let failed_details: Vec<FailureDetail> = result
                             .failed_scenarios()
                             .iter()
                             .map(|s| {
@@ -186,7 +255,13 @@ fn run() -> i32 {
                                     ScenarioResult::Failed { error } => error.clone(),
                                     _ => "Unknown error".to_string(),
                                 };
-                                format!("    - {}: {}", s.name, error)
+                                let short = format!("{}: {}", s.name, error);
+                                let detailed = if let Some(info) = status_info {
+                                    format!("{}\n\n{}", info, error)
+                                } else {
+                                    error
+                                };
+                                FailureDetail { short, detailed }
                             })
                             .collect();
                         failures.push((case_name.clone(), failed_details));
@@ -201,7 +276,13 @@ fn run() -> i32 {
                         case_name
                     );
                     total_failed += 1;
-                    failures.push((case_name.clone(), vec![error.clone()]));
+                    failures.push((
+                        case_name.clone(),
+                        vec![FailureDetail {
+                            short: "Parse error".to_string(),
+                            detailed: error.clone(),
+                        }],
+                    ));
                 }
             }
         }
@@ -239,20 +320,15 @@ fn run() -> i32 {
                     colors::RESET
                 );
                 for detail in details {
-                    // Indent multi-line errors properly
-                    let indented = detail
-                        .lines()
-                        .enumerate()
-                        .map(|(i, line)| {
-                            if i == 0 {
-                                line.to_string()
-                            } else {
-                                format!("      {}", line)
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    println!("{}", indented);
+                    let text = if args.short {
+                        &detail.short
+                    } else {
+                        &detail.detailed
+                    };
+                    // Indent all lines
+                    for line in text.lines() {
+                        println!("    {}", line);
+                    }
                 }
             }
         }
