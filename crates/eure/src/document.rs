@@ -1,7 +1,7 @@
 mod value_visitor;
 
 use eros::Union as _;
-use eure_parol::parol_runtime::ParolError;
+use eure_parol::EureParseError;
 pub use eure_value::document::*;
 use eure_value::identifier::IdentifierError;
 use eure_value::text::TextParseError;
@@ -120,7 +120,7 @@ fn get_node_span(cst: &Cst, node_id: CstNodeId) -> Option<InputSpan> {
 
 pub fn parse_to_document(
     input: &str,
-) -> eros::UResult<EureDocument, (ParolError, DocumentConstructionError)> {
+) -> eros::UResult<EureDocument, (EureParseError, DocumentConstructionError)> {
     let tree = eure_parol::parse(input).union()?;
     let document = cst_to_document(input, &tree).union()?;
     Ok(document)

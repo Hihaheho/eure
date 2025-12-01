@@ -1,10 +1,11 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use eure::{
     document::{DocumentConstructionError, EureDocument},
-    parol::parol_runtime::ParolError,
+    error::format_parse_error,
+    parol::EureParseError,
     tree::Cst,
-    value::Text,
+    value::{Language, Text},
 };
 
 pub struct Case {
@@ -16,6 +17,13 @@ pub struct Case {
     pub schema: Option<Text>,
     /// Expected validation errors (for error test cases)
     pub schema_errors: Vec<Text>,
+}
+
+/// Configuration for running test cases
+#[derive(Debug, Clone, Default)]
+pub struct RunConfig {
+    /// Enable trace output for debugging
+    pub trace: bool,
 }
 
 /// Result of running a single scenario
@@ -112,20 +120,42 @@ pub enum PreprocessedEure {
     },
     ErrParol {
         input: String,
-        error: ParolError,
+        error: EureParseError,
     },
     ErrDocument {
         input: String,
         cst: Cst,
         error: DocumentConstructionError,
     },
+    ErrFileRead {
+        path: PathBuf,
+        error: std::io::Error,
+    },
 }
 
 impl PreprocessedEure {
+    /// Short status string for summary display
     pub fn status(&self) -> String {
         match self {
             PreprocessedEure::Ok { .. } => "OK".to_string(),
-            PreprocessedEure::ErrParol { error, .. } => format!("PARSE_ERROR({})", error),
+            PreprocessedEure::ErrParol { .. } => "PARSE_ERROR".to_string(),
+            PreprocessedEure::ErrFileRead { path, .. } => {
+                format!("FILE_READ_ERROR({})", path.display())
+            }
+            PreprocessedEure::ErrDocument { .. } => "DOC_ERROR".to_string(),
+        }
+    }
+
+    /// Detailed error message for failure reporting
+    pub fn detailed_error(&self) -> Option<String> {
+        match self {
+            PreprocessedEure::Ok { .. } => None,
+            PreprocessedEure::ErrParol { input, error } => {
+                Some(format_parse_error(error, input, "<test>"))
+            }
+            PreprocessedEure::ErrFileRead { path, error } => {
+                Some(format!("Failed to read '{}': {}", path.display(), error))
+            }
             PreprocessedEure::ErrDocument { input, cst, error } => {
                 // Get node_id and node_data for better debugging
                 let node_info = match error {
@@ -149,20 +179,21 @@ impl PreprocessedEure {
                     }
                     _ => None,
                 };
-                if let Some(info) = node_info {
-                    format!("DOC_ERROR({}) [{}]", error, info)
+                let msg = if let Some(info) = node_info {
+                    format!("{} [{}]", error, info)
                 } else if let Some(span) = error.span(cst) {
                     let start = span.start as usize;
                     let end = span.end as usize;
                     if start < input.len() && end <= input.len() && start <= end {
                         let snippet = &input[start..end];
-                        format!("DOC_ERROR({}) at {}..{}: {:?}", error, start, end, snippet)
+                        format!("{} at {}..{}: {:?}", error, start, end, snippet)
                     } else {
-                        format!("DOC_ERROR({}) at {}..{} (invalid span)", error, start, end)
+                        format!("{} at {}..{} (invalid span)", error, start, end)
                     }
                 } else {
-                    format!("DOC_ERROR({})", error)
-                }
+                    format!("{}", error)
+                };
+                Some(msg)
             }
         }
     }
@@ -172,6 +203,7 @@ impl PreprocessedEure {
             PreprocessedEure::Ok { input, .. } => input,
             PreprocessedEure::ErrParol { input, .. } => input,
             PreprocessedEure::ErrDocument { input, .. } => input,
+            PreprocessedEure::ErrFileRead { path, .. } => path.to_str().unwrap_or("<invalid path>"),
         }
     }
 
@@ -184,6 +216,11 @@ impl PreprocessedEure {
             PreprocessedEure::Ok { cst, .. } => Ok(cst),
             PreprocessedEure::ErrDocument { cst, .. } => Ok(cst),
             PreprocessedEure::ErrParol { error, .. } => Err(eros::traced!("{}", error)),
+            PreprocessedEure::ErrFileRead { path, error } => Err(eros::traced!(
+                "Failed to read file '{}': {}",
+                path.display(),
+                error
+            )),
         }
     }
 
@@ -192,15 +229,40 @@ impl PreprocessedEure {
             PreprocessedEure::Ok { doc, .. } => Ok(doc),
             PreprocessedEure::ErrParol { error, .. } => Err(eros::traced!("{}", error)),
             PreprocessedEure::ErrDocument { error, .. } => Err(eros::traced!("{}", error.clone())),
+            PreprocessedEure::ErrFileRead { path, error } => Err(eros::traced!(
+                "Failed to read file '{}': {}",
+                path.display(),
+                error
+            )),
         }
     }
 }
 
 impl Case {
-    fn preprocess_eure(code: &str) -> PreprocessedEure {
-        let input = code.to_string();
-        match eure::parol::parse(code) {
-            Ok(cst) => match eure::document::cst_to_document(code, &cst) {
+    fn preprocess_eure(code: &Text) -> PreprocessedEure {
+        // Check if language is "path" - load file from workspace root
+        let input = if let Language::Other(lang) = &code.language {
+            if lang == "path" {
+                let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+                let file_path = workspace_root.join(code.content.trim());
+                match std::fs::read_to_string(&file_path) {
+                    Ok(content) => content,
+                    Err(e) => {
+                        return PreprocessedEure::ErrFileRead {
+                            path: file_path,
+                            error: e,
+                        };
+                    }
+                }
+            } else {
+                code.content.clone()
+            }
+        } else {
+            code.content.clone()
+        };
+
+        match eure::parol::parse(&input) {
+            Ok(cst) => match eure::document::cst_to_document(&input, &cst) {
                 Ok(doc) => PreprocessedEure::Ok { input, cst, doc },
                 Err(e) => PreprocessedEure::ErrDocument {
                     input,
@@ -212,22 +274,13 @@ impl Case {
         }
     }
     pub fn preprocess(&self) -> PreprocessedCase {
-        let input_eure = self
-            .input_eure
-            .as_ref()
-            .map(|input_eure| Self::preprocess_eure(input_eure.as_str()));
-        let normalized = self
-            .normalized
-            .as_ref()
-            .map(|normalized| Self::preprocess_eure(normalized.as_str()));
+        let input_eure = self.input_eure.as_ref().map(Self::preprocess_eure);
+        let normalized = self.normalized.as_ref().map(Self::preprocess_eure);
         let output_json = self
             .output_json
             .as_ref()
             .map(|code| serde_json::from_str(code.as_str()).unwrap());
-        let schema = self
-            .schema
-            .as_ref()
-            .map(|schema| Self::preprocess_eure(schema.as_str()));
+        let schema = self.schema.as_ref().map(Self::preprocess_eure);
         let schema_errors = self
             .schema_errors
             .iter()
@@ -404,16 +457,33 @@ impl PreprocessedCase {
 
     /// Run all scenarios and return structured results.
     /// This does not panic on assertion failures - it captures them as failed scenarios.
-    pub fn run_all(&self) -> CaseResult {
-        let results = self
-            .scenarios()
+    pub fn run_all(&self, config: &RunConfig) -> CaseResult {
+        if config.trace {
+            self.print_trace_header();
+        }
+
+        let scenarios = self.scenarios();
+        if config.trace {
+            eprintln!("\n--- Running {} scenarios ---", scenarios.len());
+        }
+
+        let results = scenarios
             .into_iter()
-            .map(|scenario| {
+            .enumerate()
+            .map(|(i, scenario)| {
                 let name = scenario.name();
+                if config.trace {
+                    eprintln!("Running scenario {}: {}", i + 1, name);
+                }
                 let result =
                     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scenario.run()))
                     {
-                        Ok(Ok(())) => ScenarioResult::Passed,
+                        Ok(Ok(())) => {
+                            if config.trace {
+                                eprintln!("✓ Scenario {} passed", i + 1);
+                            }
+                            ScenarioResult::Passed
+                        }
                         Ok(Err(e)) => ScenarioResult::Failed {
                             error: format!("{:?}", e),
                         },
@@ -434,61 +504,77 @@ impl PreprocessedCase {
             })
             .collect();
 
+        if config.trace {
+            eprintln!("=== End Debug Trace ===\n");
+        }
+
         CaseResult { scenarios: results }
     }
 
-    /// Legacy method that returns Result for backwards compatibility.
-    pub fn run(&self) -> eros::Result<()> {
-        let trace = std::env::var("Eure_TEST_TRACE").is_ok();
+    fn print_trace_header(&self) {
+        eprintln!("\n=== PreprocessedCase Debug Trace ===");
+        if let Some(ref input_eure) = self.input_eure {
+            eprintln!("input_eure: {}", input_eure.status());
+            if !input_eure.is_ok() {
+                eprintln!("--- input_eure source ---");
+                eprintln!("{}", input_eure.input());
+                eprintln!("--- end source ---");
+            }
+        } else {
+            eprintln!("input_eure: None");
+        }
+        if let Some(ref normalized) = self.normalized {
+            eprintln!("normalized: {}", normalized.status());
+            if !normalized.is_ok() {
+                eprintln!("--- normalized source ---");
+                eprintln!("{}", normalized.input());
+                eprintln!("--- end source ---");
+            }
+        } else {
+            eprintln!("normalized: None");
+        }
+        if let Some(ref schema) = self.schema {
+            eprintln!("schema: {}", schema.status());
+            if !schema.is_ok() {
+                eprintln!("--- schema source ---");
+                eprintln!("{}", schema.input());
+                eprintln!("--- end source ---");
+            }
+        } else {
+            eprintln!("schema: None");
+        }
+        eprintln!(
+            "output_json: {}",
+            if self.output_json.is_some() {
+                "Some"
+            } else {
+                "None"
+            }
+        );
+    }
 
-        if trace {
-            eprintln!("\n=== PreprocessedCase Debug Trace ===");
-            if let Some(ref input_eure) = self.input_eure {
-                eprintln!("input_eure: {}", input_eure.status());
-                if !input_eure.is_ok() {
-                    eprintln!("--- input_eure source ---");
-                    eprintln!("{}", input_eure.input());
-                    eprintln!("--- end source ---");
-                }
-            } else {
-                eprintln!("input_eure: None");
-            }
-            if let Some(ref normalized) = self.normalized {
-                eprintln!("normalized: {}", normalized.status());
-                if !normalized.is_ok() {
-                    eprintln!("--- normalized source ---");
-                    eprintln!("{}", normalized.input());
-                    eprintln!("--- end source ---");
-                }
-            } else {
-                eprintln!("normalized: None");
-            }
-            eprintln!(
-                "output_json: {}",
-                if self.output_json.is_some() {
-                    "Some"
-                } else {
-                    "None"
-                }
-            );
+    /// Legacy method that returns Result for backwards compatibility.
+    pub fn run(&self, config: &RunConfig) -> eros::Result<()> {
+        if config.trace {
+            self.print_trace_header();
         }
 
         let scenarios = self.scenarios();
-        if trace {
+        if config.trace {
             eprintln!("\n--- Running {} scenarios ---", scenarios.len());
         }
 
         for (i, scenario) in scenarios.iter().enumerate() {
-            if trace {
+            if config.trace {
                 eprintln!("Running scenario {}: {}", i + 1, scenario.name());
             }
             scenario.run()?;
-            if trace {
+            if config.trace {
                 eprintln!("✓ Scenario {} passed", i + 1);
             }
         }
 
-        if trace {
+        if config.trace {
             eprintln!("=== End Debug Trace ===\n");
         }
 
@@ -498,6 +584,29 @@ impl PreprocessedCase {
     /// Returns the number of scenarios this case will run
     pub fn scenario_count(&self) -> usize {
         self.scenarios().len()
+    }
+
+    /// Returns a status summary for error reporting
+    pub fn status_summary(&self) -> String {
+        let mut lines = Vec::new();
+
+        if let Some(ref input_eure) = self.input_eure
+            && let Some(err) = input_eure.detailed_error()
+        {
+            lines.push(format!("input_eure error:\n{}", err));
+        }
+        if let Some(ref normalized) = self.normalized
+            && let Some(err) = normalized.detailed_error()
+        {
+            lines.push(format!("normalized error:\n{}", err));
+        }
+        if let Some(ref schema) = self.schema
+            && let Some(err) = schema.detailed_error()
+        {
+            lines.push(format!("schema error:\n{}", err));
+        }
+
+        lines.join("\n\n")
     }
 
     pub fn normalization_scenario(&self) -> Option<NormalizationScenario<'_>> {

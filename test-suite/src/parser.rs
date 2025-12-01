@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use eure::{
     document::{DocumentConstructionError, EureDocument},
-    parol::parol_runtime::ParolError,
+    parol::EureParseError,
     tree::Cst,
     value::{IdentifierError, ObjectKey, Text},
 };
@@ -17,7 +17,7 @@ pub struct ParseResult {
 
 #[derive(Debug)]
 pub enum ParseError {
-    ParolError(ParolError),
+    ParolError(EureParseError),
     DocumentConstructionError {
         error: DocumentConstructionError,
         cst: Cst,

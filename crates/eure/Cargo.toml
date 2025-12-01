@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["configuration", "data-format", "eure", "serialization"]
 
 [dependencies]
+annotate-snippets = { workspace = true }
 eros = { workspace = true }
 eure-parol = { workspace = true }
 eure-tree = { workspace = true }

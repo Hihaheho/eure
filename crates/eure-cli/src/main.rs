@@ -1,6 +1,7 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use eure::data_model::VariantRepr;
 use eure::document::cst_to_document;
+use eure::error::format_parse_error;
 use eure::tree::{inspect_cst, write_cst};
 use eure_fmt::unformat::{unformat, unformat_with_seed};
 use eure_json::{Config as JsonConfig, document_to_value};
@@ -128,7 +129,8 @@ fn main() {
 
             // Print any parse errors
             if let Some(error) = parse_result.error() {
-                eprintln!("Parse error: {error:?}");
+                let path = file.as_deref().unwrap_or("<stdin>");
+                eprintln!("{}", format_parse_error(error, &contents, path));
                 eprintln!("Note: Showing partial syntax tree below");
                 eprintln!();
             }
@@ -165,7 +167,8 @@ fn main() {
             let mut tree = match eure_parol::parse(&contents) {
                 Ok(tree) => tree,
                 Err(e) => {
-                    eprintln!("Parse error: {e:?}");
+                    let path = file.as_deref().unwrap_or("<stdin>");
+                    eprintln!("{}", format_parse_error(&e, &contents, path));
                     std::process::exit(1);
                 }
             };
@@ -217,7 +220,12 @@ fn handle_to_json(args: ToJson) {
     let tree = match eure_parol::parse(&contents) {
         Ok(tree) => tree,
         Err(e) => {
-            eprintln!("Error parsing Eure: {e:?}");
+            let path = if args.file == "-" {
+                "<stdin>"
+            } else {
+                &args.file
+            };
+            eprintln!("{}", format_parse_error(&e, &contents, path));
             std::process::exit(1);
         }
     };
