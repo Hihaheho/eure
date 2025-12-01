@@ -3,10 +3,12 @@ use eure::data_model::VariantRepr;
 use eure::document::cst_to_document;
 use eure::error::format_parse_error;
 use eure::tree::{inspect_cst, write_cst};
+use eure_editor_support::semantic_token::{SemanticTokenType, semantic_tokens};
 use eure_fmt::unformat::{unformat, unformat_with_seed};
 use eure_json::{Config as JsonConfig, document_to_value};
+use nu_ansi_term::Color;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
 #[derive(Parser)]
 #[command(name = "eure", about = "Eure file utilities")]
@@ -27,6 +29,8 @@ enum Commands {
     ToJson(ToJson),
     /// Convert JSON to Eure
     FromJson(FromJson),
+    /// Syntax highlight Eure file with colors
+    Highlight(Highlight),
 }
 
 #[derive(Args)]
@@ -99,6 +103,12 @@ struct FromJson {
     /// Content field name for adjacent representation
     #[arg(short = 'c', long, default_value = "content")]
     content: String,
+}
+
+#[derive(Args)]
+struct Highlight {
+    /// Path to Eure file to highlight (use '-' or omit for stdin)
+    file: Option<String>,
 }
 
 fn main() {
@@ -194,6 +204,7 @@ fn main() {
         }
         Commands::ToJson(args) => handle_to_json(args),
         Commands::FromJson(args) => handle_from_json(args),
+        Commands::Highlight(args) => handle_highlight(args),
     }
 }
 
@@ -288,4 +299,85 @@ fn handle_from_json(_args: FromJson) {
     eprintln!("The reverse conversion API is currently under development.");
     eprintln!("You can only convert Eure → JSON using `eure to-json`.");
     std::process::exit(1);
+}
+
+fn handle_highlight(args: Highlight) {
+    // Read input from file or stdin
+    let contents = match args.file.as_deref() {
+        None | Some("-") => {
+            let mut buffer = String::new();
+            if let Err(e) = io::stdin().read_to_string(&mut buffer) {
+                eprintln!("Error reading from stdin: {e}");
+                std::process::exit(1);
+            }
+            buffer
+        }
+        Some(path) => match fs::read_to_string(path) {
+            Ok(contents) => contents,
+            Err(e) => {
+                eprintln!("Error reading file: {e}");
+                std::process::exit(1);
+            }
+        },
+    };
+
+    // Parse with tolerant mode to show partial highlighting even with errors
+    let parse_result = eure_parol::parse_tolerant(&contents);
+
+    // Print any parse errors to stderr
+    if let Some(error) = parse_result.error() {
+        let path = args.file.as_deref().unwrap_or("<stdin>");
+        eprintln!("{}", format_parse_error(error, &contents, path));
+        eprintln!();
+    }
+
+    let cst = parse_result.cst();
+
+    // Get semantic tokens
+    let tokens = semantic_tokens(&contents, &cst);
+
+    // Build colored output
+    let mut stdout = io::stdout().lock();
+    let mut pos = 0usize;
+
+    for token in &tokens {
+        let start = token.start as usize;
+        let end = start + token.length as usize;
+
+        // Print any content before this token (whitespace, etc.) without color
+        if pos < start {
+            let _ = write!(stdout, "{}", &contents[pos..start]);
+        }
+
+        // Print the token with its color
+        let text = &contents[start..end];
+        let color = token_type_to_color(token.token_type);
+        let _ = write!(stdout, "{}", color.paint(text));
+
+        pos = end;
+    }
+
+    // Print any remaining content after the last token
+    if pos < contents.len() {
+        let _ = write!(stdout, "{}", &contents[pos..]);
+    }
+
+    let _ = stdout.flush();
+}
+
+fn token_type_to_color(token_type: SemanticTokenType) -> Color {
+    match token_type {
+        SemanticTokenType::Keyword => Color::Purple,
+        SemanticTokenType::Number => Color::Cyan,
+        SemanticTokenType::String => Color::Green,
+        SemanticTokenType::Comment => Color::DarkGray,
+        SemanticTokenType::Operator => Color::White,
+        SemanticTokenType::Property => Color::Yellow,
+        SemanticTokenType::Punctuation => Color::LightGray,
+        SemanticTokenType::Macro => Color::LightCyan,
+        SemanticTokenType::Decorator => Color::Magenta,
+        SemanticTokenType::SectionMarker => Color::LightRed,
+        SemanticTokenType::ExtensionMarker => Color::LightMagenta,
+        SemanticTokenType::ExtensionIdent => Color::LightPurple,
+    }
 }

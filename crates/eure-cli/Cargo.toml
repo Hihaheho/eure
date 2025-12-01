@@ -17,11 +17,13 @@ path = "src/main.rs"
 ahash = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 eure = { workspace = true }
+eure-editor-support = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }
 eure-json = { workspace = true }
 eure-parol = { workspace = true }
 eure-tree = { workspace = true }
 eure-value = { workspace = true }
 eure-yaml = { workspace = true }
+nu-ansi-term = "0.50"
 petgraph = "0.8.1"
 serde_json = { workspace = true }
