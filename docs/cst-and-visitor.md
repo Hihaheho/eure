@@ -2,20 +2,20 @@
 
 ## Overview
 
-The `eure-tree` crate provides a Concrete Syntax Tree (CST) representation for Eure documents, along with a powerful Visitor pattern API for traversing and analyzing the tree. This structure is generated automatically from the Eure grammar definition (`eure.parol`) using the `eure-parol-gen` tool, ensuring that the API always stays synchronized with the language grammar.
+The `eure-tree` crate provides a Concrete Syntax Tree (CST) representation for Eure documents, along with a powerful Visitor pattern API for traversing and analyzing the tree. This structure is generated automatically from the Eure grammar definition (`eure.parol`) using the `eure-gen` tool, ensuring that the API always stays synchronized with the language grammar.
 
 This document focuses on the design of the visitor API, the generated code structure, and what you can achieve using these tools.
 
 ## Generated Code (`eure-tree`)
 
-The `eure-parol-gen` crate generates two key files within `eure-tree/src`:
+The `eure-gen` crate generates two key files within `eure-tree/src`:
 
 1. `nodes.rs`: Defines the structural representation of the CST nodes.
 2. `visitor.rs`: Defines the `CstVisitor` trait and related components.
 
 ### Node Handles and Views (`nodes.rs`)
 
-For each element defined in the Eure grammar (`eure.parol`), `eure-parol-gen` generates corresponding types in `nodes.rs`:
+For each element defined in the Eure grammar (`eure.parol`), `eure-gen` generates corresponding types in `nodes.rs`:
 
 * **Terminal Nodes:** For each terminal symbol (like `Ident`, `Integer`, `LBrace`), a simple struct wrapping a `CstNodeId` is generated (e.g., `struct Ident(CstNodeId)`). These structs implement the `TerminalHandle` trait, providing access to the node's ID and `TerminalKind`. The actual text content associated with the terminal can be retrieved using the `CstFacade` (like the `Cst` itself) and the node ID.
 * **Non-Terminal Nodes:** For each non-terminal rule (like `Array`, `Binding`, `Value`), two types are generated:
@@ -30,7 +30,7 @@ This generation ensures that the Rust types accurately represent the Eure gramma
 
 ### Visitor Traits (`visitor.rs`)
 
-The `eure-parol-gen` tool also generates the core visitor traits:
+The `eure-gen` tool also generates the core visitor traits:
 
 * **`CstVisitor<F: CstFacade>`:** This is the main trait users implement to traverse the CST. It contains methods for visiting each node type:
   * `visit_<RuleName>(&mut self, handle: <RuleName>Handle, view: <RuleName>View, tree: &F)`: Called when entering a non-terminal node. Receives the node's `Handle` and its `View` (providing access to children).

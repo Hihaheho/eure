@@ -29,7 +29,7 @@ cargo run -p test-suite
 
 **Individual Crate Development:**
 ```bash
-cargo run -p eure-parol-gen # Regenerate eure-parol and eure-tree based on @crates/eure-parol/eure.par
+cargo run -p eure-gen # Regenerate eure-parol and eure-tree based on @crates/eure-parol/eure.par
 cargo run --bin eure -- <commands> # Run eure CLI for validating file or conversion reasons.
 ```
 

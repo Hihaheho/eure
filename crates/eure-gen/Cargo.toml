@@ -1,5 +1,6 @@
 [package]
-name = "eure-parol-gen"
+name = "eure-gen"
+description = "Code generator for Eure workspace (parol, schema)"
 version = "0.1.0"
 edition = "2024"
 publish = false
