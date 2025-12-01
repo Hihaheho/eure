@@ -4,9 +4,11 @@ extern crate alloc;
 
 pub mod object_key;
 pub mod record;
+pub mod union;
 
 pub use object_key::ParseObjectKey;
 pub use record::{ExtParser, RecordParser};
+pub use union::UnionParser;
 
 use alloc::format;
 use num_bigint::BigInt;
@@ -108,6 +110,21 @@ pub enum ParseErrorKind {
     /// Unknown field in record.
     #[error("unknown field: {0}")]
     UnknownField(String),
+
+    /// No variant matched in union type.
+    #[error("no matching variant")]
+    NoMatchingVariant,
+
+    /// Multiple variants matched with no priority to resolve.
+    #[error("ambiguous union: {0:?}")]
+    AmbiguousUnion(Vec<String>),
+
+    /// Literal value mismatch.
+    #[error("literal value mismatch: expected {expected:?}, got {actual:?}]")]
+    LiteralMismatch {
+        expected: Box<Value>,
+        actual: Box<Value>,
+    },
 }
 
 impl ParseErrorKind {
@@ -400,6 +417,75 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
                     "tag (required when content is present)".to_string(),
                 ),
             }),
+        }
+    }
+}
+
+pub trait DocumentParser<'doc> {
+    type Output: 'doc;
+    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError>;
+}
+
+impl<'doc, T: 'doc, F> DocumentParser<'doc> for F
+where
+    F: FnOnce(&'doc EureDocument, NodeId) -> Result<T, ParseError>,
+{
+    type Output = T;
+    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
+        self(doc, node_id)
+    }
+}
+
+pub struct LiteralParser<T>(T);
+
+impl<'doc, T> DocumentParser<'doc> for LiteralParser<T>
+where
+    T: 'doc + ParseDocument<'doc> + PartialEq + Into<Value>,
+{
+    type Output = T;
+    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
+        let value: T = doc.parse(node_id)?;
+        if value == self.0 {
+            Ok(value)
+        } else {
+            Err(ParseError {
+                node_id,
+                kind: ParseErrorKind::LiteralMismatch {
+                    expected: Box::new(self.0.into()),
+                    actual: Box::new(value.into()),
+                },
+            })
+        }
+    }
+}
+
+pub struct MappedParser<T, F> {
+    parser: T,
+    mapper: F,
+}
+
+impl<'doc, T, O, F> DocumentParser<'doc> for MappedParser<T, F>
+where
+    T: DocumentParser<'doc>,
+    F: Fn(T::Output) -> Result<O, ParseError>,
+    O: 'doc,
+{
+    type Output = O;
+    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
+        let value = self.parser.parse(doc, node_id)?;
+        (self.mapper)(value)
+    }
+}
+
+pub trait DocumentParserExt<'doc>: DocumentParser<'doc> + Sized {
+    fn map<O, F>(self, mapper: F) -> MappedParser<Self, F>
+    where
+        F: Fn(Self::Output) -> Result<O, ParseError>,
+        O: 'doc,
+    {
+        MappedParser {
+            parser: self,
+            mapper,
         }
     }
 }

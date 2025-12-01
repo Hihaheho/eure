@@ -161,6 +161,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn test_parse_bool_key() {
         let key = ObjectKey::Bool(true);
         let b: bool = ParseObjectKey::from_object_key(&key).unwrap();

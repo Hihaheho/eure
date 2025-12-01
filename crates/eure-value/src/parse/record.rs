@@ -55,13 +55,13 @@ impl<'doc> RecordParser<'doc> {
     /// Returns `ParseErrorKind::MissingField` if the field is not present.
     pub fn field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         self.accessed.insert(name.to_string());
-        let field_node_id =
-            self.map
-                .get(&ObjectKey::String(name.to_string()))
-                .ok_or_else(|| ParseError {
-                    node_id: self.node_id,
-                    kind: ParseErrorKind::MissingField(name.to_string()),
-                })?;
+        let field_node_id = self
+            .map
+            .get(&ObjectKey::String(name.to_string()))
+            .ok_or_else(|| ParseError {
+                node_id: self.node_id,
+                kind: ParseErrorKind::MissingField(name.to_string()),
+            })?;
         T::parse(self.doc, field_node_id)
     }
 
@@ -309,10 +309,9 @@ mod tests {
             .add_map_child(ObjectKey::String("name".to_string()), root_id)
             .unwrap()
             .node_id;
-        doc.node_mut(name_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(crate::text::Text::plaintext(
-                "Alice".to_string(),
-            )));
+        doc.node_mut(name_id).content = NodeValue::Primitive(PrimitiveValue::Text(
+            crate::text::Text::plaintext("Alice".to_string()),
+        ));
 
         let age_id = doc
             .add_map_child(ObjectKey::String("age".to_string()), root_id)
