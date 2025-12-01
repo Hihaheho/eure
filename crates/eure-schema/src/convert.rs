@@ -104,10 +104,16 @@ pub enum ConversionError {
     UndefinedTypeReference(String),
 }
 
+/// Mapping from schema node IDs to their source document node IDs.
+/// Used for propagating origin information for error formatting.
+pub type SchemaSourceMap = HashMap<SchemaNodeId, NodeId>;
+
 /// Internal converter state
 struct Converter<'a> {
     doc: &'a EureDocument,
     schema: SchemaDocument,
+    /// Track source document NodeId for each schema node
+    source_map: SchemaSourceMap,
 }
 
 impl<'a> Converter<'a> {
@@ -115,11 +121,12 @@ impl<'a> Converter<'a> {
         Self {
             doc,
             schema: SchemaDocument::new(),
+            source_map: HashMap::new(),
         }
     }
 
-    /// Convert the root node and produce the final schema
-    fn convert(mut self) -> Result<SchemaDocument, ConversionError> {
+    /// Convert the root node and produce the final schema with source mapping
+    fn convert(mut self) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
         let root_id = self.doc.get_root_id();
         let root_node = self.doc.node(root_id);
 
@@ -132,7 +139,7 @@ impl<'a> Converter<'a> {
         // Validate all type references exist
         self.validate_type_references()?;
 
-        Ok(self.schema)
+        Ok((self.schema, self.source_map))
     }
 
     /// Convert all type definitions from $types extension
@@ -184,33 +191,31 @@ impl<'a> Converter<'a> {
         // Check for $variant extension to determine explicit type
         let variant = self.get_variant_extension(node)?;
 
-        match &node.content {
+        let schema_id = match &node.content {
             NodeValue::Uninitialized => {
                 // Uninitialized node means incomplete document - always an error
-                Err(ConversionError::UnsupportedConstruct(
+                return Err(ConversionError::UnsupportedConstruct(
                     "Incomplete document: uninitialized node".to_string(),
-                ))
+                ));
             }
-            NodeValue::Primitive(prim) => self.convert_primitive(prim),
+            NodeValue::Primitive(prim) => self.convert_primitive(prim)?,
             NodeValue::Array(arr) => {
                 // Array shorthand: [.type]
                 if arr.0.len() == 1 {
                     let item_id = self.convert_node(arr.0[0])?;
-                    let schema_id =
-                        self.schema
-                            .create_node(SchemaNodeContent::Array(ArraySchema {
-                                item: item_id,
-                                min_length: None,
-                                max_length: None,
-                                unique: false,
-                                contains: None,
-                                binding_style: None,
-                            }));
-                    Ok(schema_id)
+                    self.schema
+                        .create_node(SchemaNodeContent::Array(ArraySchema {
+                            item: item_id,
+                            min_length: None,
+                            max_length: None,
+                            unique: false,
+                            contains: None,
+                            binding_style: None,
+                        }))
                 } else {
-                    Err(ConversionError::UnsupportedConstruct(
+                    return Err(ConversionError::UnsupportedConstruct(
                         "Array with multiple elements".to_string(),
-                    ))
+                    ));
                 }
             }
             NodeValue::Tuple(tup) => {
@@ -220,19 +225,21 @@ impl<'a> Converter<'a> {
                     .iter()
                     .map(|&id| self.convert_node(id))
                     .collect::<Result<_, _>>()?;
-                let schema_id = self
-                    .schema
+                self.schema
                     .create_node(SchemaNodeContent::Tuple(TupleSchema {
                         elements,
                         binding_style: None,
-                    }));
-                Ok(schema_id)
+                    }))
             }
             NodeValue::Map(map) => {
                 // Could be: record, map, union, array, etc. based on $variant
-                self.convert_map_node(node_id, map, variant, node)
+                self.convert_map_node(node_id, map, variant, node)?
             }
-        }
+        };
+
+        // Record source mapping for span resolution
+        self.source_map.insert(schema_id, node_id);
+        Ok(schema_id)
     }
 
     /// Get $variant extension value if present
@@ -1300,7 +1307,9 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 ///
 /// # Returns
 ///
-/// A SchemaDocument on success, or a ConversionError on failure
+/// A tuple of (SchemaDocument, SchemaSourceMap) on success, or a ConversionError on failure.
+/// The SchemaSourceMap maps each schema node ID to its source document node ID, which can be
+/// used for propagating origin information for error formatting.
 ///
 /// # Examples
 ///
@@ -1309,14 +1318,16 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 /// use eure_schema::convert::document_to_schema;
 ///
 /// let input = r#"
-/// name = .text
-/// age = .integer
+/// name = `text`
+/// age = `integer`
 /// "#;
 ///
 /// let doc = parse_to_document(input).unwrap();
-/// let schema = document_to_schema(&doc).unwrap();
+/// let (schema, source_map) = document_to_schema(&doc).unwrap();
 /// ```
-pub fn document_to_schema(doc: &EureDocument) -> Result<SchemaDocument, ConversionError> {
+pub fn document_to_schema(
+    doc: &EureDocument,
+) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
     Converter::new(doc).convert()
 }
 

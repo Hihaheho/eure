@@ -1853,6 +1853,7 @@ dependencies = [
  "annotate-snippets",
  "eros",
  "eure-parol",
+ "eure-schema",
  "eure-tree",
  "eure-value",
  "num-bigint",

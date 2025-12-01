@@ -27,7 +27,8 @@ use num_bigint::BigInt;
 // Helper function to parse Eure text and convert to schema
 fn parse_and_convert(input: &str) -> SchemaDocument {
     let doc = parse_to_document(input).expect("Failed to parse Eure document");
-    document_to_schema(&doc).expect("Failed to convert to schema")
+    let (schema, _source_map) = document_to_schema(&doc).expect("Failed to convert to schema");
+    schema
 }
 
 // Helper to create an identifier

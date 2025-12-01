@@ -112,6 +112,7 @@ impl ValidationResult {
 /// - Descriptive fields for the error message
 /// - `path`: The document path where the error occurred
 /// - `node_id`: Optional NodeId for source location lookup in editors
+/// - `schema_node_id`: Optional SchemaNodeId for looking up where the constraint is defined
 #[derive(Debug, Clone, Error, PartialEq)]
 pub enum ValidationError {
     #[error("Type mismatch: expected {expected}, got {actual} at path {path}")]
@@ -121,6 +122,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the type constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Missing required field '{field}' at path {path}")]
@@ -129,6 +132,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID (parent node) for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the required field is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Unknown field '{field}' at path {path}")]
@@ -137,6 +142,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the record is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Value {value} is out of range at path {path}")]
@@ -145,6 +152,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the range constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("String length {length} is out of bounds at path {path}")]
@@ -155,6 +164,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the length constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("String does not match pattern '{pattern}' at path {path}")]
@@ -163,6 +174,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the pattern constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Array length {length} is out of bounds at path {path}")]
@@ -173,6 +186,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the length constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Map size {size} is out of bounds at path {path}")]
@@ -183,6 +198,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the size constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Tuple length mismatch: expected {expected}, got {actual} at path {path}")]
@@ -192,6 +209,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the tuple is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Array elements must be unique at path {path}")]
@@ -199,6 +218,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the unique constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Array must contain required element at path {path}")]
@@ -206,6 +227,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the contains constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("No variant matched for union at path {path}")]
@@ -215,6 +238,8 @@ pub enum ValidationError {
         variant_errors: Vec<(String, ValidationError)>,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the union is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Multiple variants matched for union at path {path}: {variants:?}")]
@@ -223,6 +248,8 @@ pub enum ValidationError {
         variants: Vec<String>,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the union is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Invalid variant tag '{tag}' at path {path}")]
@@ -231,6 +258,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the union is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Missing $variant extension at path {path}")]
@@ -238,6 +267,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the union is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Literal value mismatch at path {path}")]
@@ -247,6 +278,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the literal is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Language mismatch: expected {expected}, got {actual} at path {path}")]
@@ -256,6 +289,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the language constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Invalid key type at path {path}")]
@@ -263,6 +298,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the map key type is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Integer not a multiple of {divisor} at path {path}")]
@@ -271,6 +308,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the multiple-of constraint is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Undefined type reference '{name}' at path {path}")]
@@ -279,6 +318,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the reference is used
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Invalid regex pattern '{pattern}': {error}")]
@@ -287,6 +328,8 @@ pub enum ValidationError {
         error: String,
         /// Source node ID for editor diagnostics (may be None for schema errors)
         node_id: Option<NodeId>,
+        /// Schema node ID where the pattern is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Invalid extension type for '{name}' at path {path}")]
@@ -295,6 +338,8 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the extension type is defined
+        schema_node_id: Option<SchemaNodeId>,
     },
 
     #[error("Missing required extension '{extension}' at path {path}")]
@@ -303,7 +348,132 @@ pub enum ValidationError {
         path: String,
         /// Source node ID for editor diagnostics
         node_id: Option<NodeId>,
+        /// Schema node ID where the extension is required
+        schema_node_id: Option<SchemaNodeId>,
     },
+}
+
+impl ValidationError {
+    /// Get both document and schema node IDs for error location
+    pub fn node_ids(&self) -> (Option<NodeId>, Option<SchemaNodeId>) {
+        match self {
+            Self::TypeMismatch {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::MissingRequiredField {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::UnknownField {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::OutOfRange {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::StringLengthOutOfBounds {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::PatternMismatch {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::ArrayLengthOutOfBounds {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::MapSizeOutOfBounds {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::TupleLengthMismatch {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::ArrayNotUnique {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::ArrayMissingContains {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::NoVariantMatched {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::AmbiguousUnion {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::InvalidVariantTag {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::MissingVariantExtension {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::LiteralMismatch {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::LanguageMismatch {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::InvalidKeyType {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::NotMultipleOf {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::UndefinedTypeReference {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::InvalidRegexPattern {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::InvalidExtensionType {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+            Self::MissingRequiredExtension {
+                node_id,
+                schema_node_id,
+                ..
+            } => (*node_id, *schema_node_id),
+        }
+    }
 }
 
 /// Validation warnings
@@ -324,6 +494,8 @@ struct Validator<'a> {
     /// Current node being validated - used for error location reporting
     /// None when validating temporary nodes (e.g., variant content converted from Value)
     current_node_id: Option<NodeId>,
+    /// Current schema node being validated against - used for error location reporting
+    current_schema_node_id: Option<SchemaNodeId>,
 }
 
 impl<'a> Validator<'a> {
@@ -334,6 +506,7 @@ impl<'a> Validator<'a> {
             path: EurePath::root(),
             has_holes: false,
             current_node_id: None,
+            current_schema_node_id: None,
         }
     }
 
@@ -348,6 +521,11 @@ impl<'a> Validator<'a> {
     /// Get current node ID for error reporting
     fn node_id(&self) -> Option<NodeId> {
         self.current_node_id
+    }
+
+    /// Get current schema node ID for error reporting
+    fn schema_node_id(&self) -> Option<SchemaNodeId> {
+        self.current_schema_node_id
     }
 
     /// Push an identifier path segment (for record field names that are valid identifiers)
@@ -418,15 +596,21 @@ impl<'a> Validator<'a> {
         content: &SchemaNodeContent,
         schema_id: SchemaNodeId,
     ) -> ValidationResult {
+        // Track current schema node for error reporting
+        let prev_schema_node_id = self.current_schema_node_id;
+        self.current_schema_node_id = Some(schema_id);
+
         // Handle hole values first - they match any schema but mark document incomplete
         if let NodeValue::Primitive(PrimitiveValue::Hole) = &node.content {
             self.has_holes = true;
+            self.current_schema_node_id = prev_schema_node_id;
             return ValidationResult::success(true);
         }
 
         // Handle uninitialized nodes as holes too
         if let NodeValue::Uninitialized = &node.content {
             self.has_holes = true;
+            self.current_schema_node_id = prev_schema_node_id;
             return ValidationResult::success(true);
         }
 
@@ -460,6 +644,7 @@ impl<'a> Validator<'a> {
                         extension: ext_ident.to_string(),
                         path: self.current_path(),
                         node_id: self.current_node_id,
+                        schema_node_id: self.schema_node_id(),
                     },
                 ));
             }
@@ -491,6 +676,8 @@ impl<'a> Validator<'a> {
             }
         }
 
+        // Restore previous schema node id
+        self.current_schema_node_id = prev_schema_node_id;
         result
     }
 
@@ -507,6 +694,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -522,6 +710,7 @@ impl<'a> Validator<'a> {
                             actual: "plaintext".to_string(),
                             path: self.current_path(),
                             node_id: self.node_id(),
+                            schema_node_id: self.schema_node_id(),
                         });
                     }
                 }
@@ -535,6 +724,7 @@ impl<'a> Validator<'a> {
                             actual: lang.clone(),
                             path: self.current_path(),
                             node_id: self.node_id(),
+                            schema_node_id: self.schema_node_id(),
                         });
                     }
                 }
@@ -552,6 +742,7 @@ impl<'a> Validator<'a> {
                 max: schema.max_length,
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
         if let Some(max) = schema.max_length
@@ -563,6 +754,7 @@ impl<'a> Validator<'a> {
                 max: Some(max),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -575,6 +767,7 @@ impl<'a> Validator<'a> {
                         pattern: pattern.clone(),
                         error: e.to_string(),
                         node_id: self.node_id(),
+                        schema_node_id: self.schema_node_id(),
                     });
                 }
             };
@@ -583,6 +776,7 @@ impl<'a> Validator<'a> {
                     pattern: pattern.clone(),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         }
@@ -599,6 +793,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -609,6 +804,7 @@ impl<'a> Validator<'a> {
                 value: int_val.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
         if !check_integer_bound(int_val, &schema.max, false) {
@@ -616,6 +812,7 @@ impl<'a> Validator<'a> {
                 value: int_val.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -627,6 +824,7 @@ impl<'a> Validator<'a> {
                 divisor: divisor.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -647,6 +845,7 @@ impl<'a> Validator<'a> {
                         actual: "integer (too large)".to_string(),
                         path: self.current_path(),
                         node_id: self.node_id(),
+                        schema_node_id: self.schema_node_id(),
                     });
                 }
             }
@@ -656,6 +855,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -666,6 +866,7 @@ impl<'a> Validator<'a> {
                 value: float_val.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
         if !check_float_bound(float_val, &schema.max, false) {
@@ -673,6 +874,7 @@ impl<'a> Validator<'a> {
                 value: float_val.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -684,6 +886,7 @@ impl<'a> Validator<'a> {
                 divisor: divisor.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -700,6 +903,7 @@ impl<'a> Validator<'a> {
                 actual: node_type_name(&node.content),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             }),
         }
     }
@@ -712,6 +916,7 @@ impl<'a> Validator<'a> {
                 actual: node_type_name(&node.content),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             }),
         }
     }
@@ -726,6 +931,7 @@ impl<'a> Validator<'a> {
                 actual: format!("{:?}", actual),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             })
         }
     }
@@ -743,6 +949,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -759,6 +966,7 @@ impl<'a> Validator<'a> {
                 max: schema.max_length,
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
         if let Some(max) = schema.max_length
@@ -770,6 +978,7 @@ impl<'a> Validator<'a> {
                 max: Some(max),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -784,6 +993,7 @@ impl<'a> Validator<'a> {
                 return ValidationResult::failure(ValidationError::ArrayNotUnique {
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         }
@@ -812,6 +1022,7 @@ impl<'a> Validator<'a> {
                     ValidationError::ArrayMissingContains {
                         path: self.current_path(),
                         node_id: self.node_id(),
+                        schema_node_id: self.schema_node_id(),
                     },
                 ));
             }
@@ -829,6 +1040,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -845,6 +1057,7 @@ impl<'a> Validator<'a> {
                 max: schema.max_size,
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
         if let Some(max) = schema.max_size
@@ -856,6 +1069,7 @@ impl<'a> Validator<'a> {
                 max: Some(max),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -876,6 +1090,7 @@ impl<'a> Validator<'a> {
                 result.merge(ValidationResult::failure(ValidationError::InvalidKeyType {
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 }));
             }
 
@@ -903,6 +1118,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -919,6 +1135,7 @@ impl<'a> Validator<'a> {
                             field: field_name.clone(),
                             path: self.current_path(),
                             node_id: self.node_id(),
+                            schema_node_id: self.schema_node_id(),
                         },
                     ));
                 }
@@ -933,6 +1150,7 @@ impl<'a> Validator<'a> {
                     result.merge(ValidationResult::failure(ValidationError::InvalidKeyType {
                         path: self.current_path(),
                         node_id: self.node_id(),
+                        schema_node_id: self.schema_node_id(),
                     }));
                     continue;
                 }
@@ -965,6 +1183,7 @@ impl<'a> Validator<'a> {
                             field: field_name.clone(),
                             path: self.current_path(),
                             node_id: self.node_id(),
+                            schema_node_id: self.schema_node_id(),
                         }));
                     }
                     UnknownFieldsPolicy::Allow => {
@@ -993,6 +1212,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1004,6 +1224,7 @@ impl<'a> Validator<'a> {
                 actual: tuple.0.len(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -1061,6 +1282,7 @@ impl<'a> Validator<'a> {
                     tag,
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         }
@@ -1090,6 +1312,7 @@ impl<'a> Validator<'a> {
                     tag: v.tag.clone(),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         }
@@ -1114,6 +1337,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1127,6 +1351,7 @@ impl<'a> Validator<'a> {
                     field: tag_field.to_string(),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1140,6 +1365,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1156,6 +1382,7 @@ impl<'a> Validator<'a> {
                 tag,
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             })
         }
     }
@@ -1176,6 +1403,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1189,6 +1417,7 @@ impl<'a> Validator<'a> {
                     field: tag_field.to_string(),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1202,6 +1431,7 @@ impl<'a> Validator<'a> {
                     actual: node_type_name(&tag_node.content),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1215,6 +1445,7 @@ impl<'a> Validator<'a> {
                     field: content_field.to_string(),
                     path: self.current_path(),
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 });
             }
         };
@@ -1234,6 +1465,7 @@ impl<'a> Validator<'a> {
                 tag,
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             })
         }
     }
@@ -1263,6 +1495,7 @@ impl<'a> Validator<'a> {
                     path: self.current_path(),
                     variant_errors: failures,
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 })
             }
             1 => ValidationResult::success(self.has_holes),
@@ -1279,6 +1512,7 @@ impl<'a> Validator<'a> {
                     path: self.current_path(),
                     variants: matching,
                     node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
                 })
             }
         }
@@ -1295,6 +1529,7 @@ impl<'a> Validator<'a> {
                 name: format!("{}.{}", type_ref.namespace.as_ref().unwrap(), type_ref.name),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             });
         }
 
@@ -1306,6 +1541,7 @@ impl<'a> Validator<'a> {
                 name: type_ref.name.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
             })
         }
     }

@@ -117,6 +117,7 @@ pub enum PreprocessedEure {
         input: String,
         cst: Cst,
         doc: EureDocument,
+        origins: eure::document::NodeOriginMap,
     },
     ErrParol {
         input: String,
@@ -236,6 +237,19 @@ impl PreprocessedEure {
             )),
         }
     }
+
+    pub fn origins(&self) -> eros::Result<&eure::document::NodeOriginMap> {
+        match self {
+            PreprocessedEure::Ok { origins, .. } => Ok(origins),
+            PreprocessedEure::ErrParol { error, .. } => Err(eros::traced!("{}", error)),
+            PreprocessedEure::ErrDocument { error, .. } => Err(eros::traced!("{}", error.clone())),
+            PreprocessedEure::ErrFileRead { path, error } => Err(eros::traced!(
+                "Failed to read file '{}': {}",
+                path.display(),
+                error
+            )),
+        }
+    }
 }
 
 impl Case {
@@ -262,8 +276,13 @@ impl Case {
         };
 
         match eure::parol::parse(&input) {
-            Ok(cst) => match eure::document::cst_to_document(&input, &cst) {
-                Ok(doc) => PreprocessedEure::Ok { input, cst, doc },
+            Ok(cst) => match eure::document::cst_to_document_and_origins(&input, &cst) {
+                Ok((doc, origins)) => PreprocessedEure::Ok {
+                    input,
+                    cst,
+                    doc,
+                    origins,
+                },
                 Err(e) => PreprocessedEure::ErrDocument {
                     input,
                     cst,
@@ -337,20 +356,40 @@ pub struct SchemaValidationScenario<'a> {
 impl SchemaValidationScenario<'_> {
     pub fn run(&self) -> eros::Result<()> {
         let input_doc = self.input.doc()?;
+        let input_cst = self.input.cst()?;
+        let input_origins = self.input.origins()?;
         let schema_doc = self.schema.doc()?;
+        let schema_cst = self.schema.cst()?;
+        let schema_origins = self.schema.origins()?;
 
         // Convert schema document to SchemaDocument
-        let schema = eure_schema::convert::document_to_schema(schema_doc)
+        let (schema, schema_source_map) = eure_schema::convert::document_to_schema(schema_doc)
             .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
 
         // Validate document directly
         let result = eure_schema::validate::validate(input_doc, &schema);
 
         if !result.is_valid {
-            let error_msgs: Vec<String> = result.errors.iter().map(|e| e.to_string()).collect();
+            // Format errors with source spans
+            let context = eure::error::SchemaErrorContext {
+                doc_source: self.input.input(),
+                doc_path: "<input>",
+                doc_cst: input_cst,
+                doc_origins: input_origins,
+                schema_source: self.schema.input(),
+                schema_path: "<schema>",
+                schema_cst,
+                schema_origins,
+                schema_source_map: &schema_source_map,
+            };
+            let formatted_errors: Vec<String> = result
+                .errors
+                .iter()
+                .map(|e| eure::error::format_schema_error(e, &context))
+                .collect();
             return Err(eros::traced!(
-                "Schema validation failed: {}",
-                error_msgs.join("; ")
+                "Schema validation failed:\n{}",
+                formatted_errors.join("\n")
             ));
         }
 
@@ -370,7 +409,7 @@ impl SchemaErrorValidationScenario<'_> {
         let schema_doc = self.schema.doc()?;
 
         // Convert schema document to SchemaDocument
-        let schema = eure_schema::convert::document_to_schema(schema_doc)
+        let (schema, _source_map) = eure_schema::convert::document_to_schema(schema_doc)
             .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
 
         // Validate document directly
@@ -645,8 +684,13 @@ mod tests {
     fn preprocess(code: &str) -> PreprocessedEure {
         let input = code.to_string();
         match eure::parol::parse(code) {
-            Ok(cst) => match eure::document::cst_to_document(code, &cst) {
-                Ok(doc) => PreprocessedEure::Ok { input, cst, doc },
+            Ok(cst) => match eure::document::cst_to_document_and_origins(code, &cst) {
+                Ok((doc, origins)) => PreprocessedEure::Ok {
+                    input,
+                    cst,
+                    doc,
+                    origins,
+                },
                 Err(e) => PreprocessedEure::ErrDocument {
                     input,
                     cst,
