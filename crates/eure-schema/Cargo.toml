@@ -15,7 +15,7 @@ ahash = { workspace = true }
 chrono = { version = "0.4", optional = true }
 convert_case = "0.9"
 # Optional derive macro support
-eure-derive = { workspace = true, optional = true }
+eure-macros = { workspace = true, optional = true }
 eure-parol = { workspace = true }
 eure-tree = { workspace = true }
 eure-value = { workspace = true }
@@ -34,7 +34,7 @@ eure = { workspace = true }
 [features]
 default = []
 chrono = ["dep:chrono"]
-derive = ["dep:eure-derive"]
+derive = ["dep:eure-macros"]
 semver = ["dep:semver"]
 url = ["dep:url"]
 uuid = ["dep:uuid"]

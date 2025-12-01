@@ -697,15 +697,6 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "convert_case"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "convert_case"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baaaa0ecca5b51987b9423ccdc971514dd8b0bb7b4060b983d3664dad3f1f89f"
@@ -718,6 +709,15 @@ name = "convert_case"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db05ffb6856bf0ecdf6367558a76a0e8a77b1713044eb92845c692100ed50190"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "convert_case"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "633458d4ef8c78b72454de2d54fd6ab2e60f9e02be22f3c6104cdc8a4e0fceb9"
 dependencies = [
  "unicode-segmentation",
 ]
@@ -1878,23 +1878,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eure-derive"
-version = "0.1.0"
-dependencies = [
- "convert_case 0.6.0",
- "eure-parol",
- "eure-schema",
- "eure-tree",
- "eure-value",
- "indexmap",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn 2.0.108",
-]
-
-[[package]]
 name = "eure-dev"
 version = "0.1.0"
 dependencies = [
@@ -1975,6 +1958,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "eure-macros"
+version = "0.1.0"
+dependencies = [
+ "convert_case 0.10.0",
+ "eure-parol",
+ "eure-schema",
+ "eure-tree",
+ "eure-value",
+ "indexmap",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn 2.0.108",
+]
+
+[[package]]
 name = "eure-parol"
 version = "0.1.0"
 dependencies = [
@@ -2006,7 +2006,7 @@ dependencies = [
  "chrono",
  "convert_case 0.9.0",
  "eure",
- "eure-derive",
+ "eure-macros",
  "eure-parol",
  "eure-tree",
  "eure-value",

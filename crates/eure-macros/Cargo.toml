@@ -1,5 +1,5 @@
 [package]
-name = "eure-derive"
+name = "eure-macros"
 version = "0.1.0"
 edition = "2024"
 description = "Derive macros for Eure schema generation"
@@ -13,7 +13,7 @@ keywords = ["derive", "eure", "macro", "schema", "serde"]
 proc-macro = true
 
 [dependencies]
-convert_case = "0.6"
+convert_case = "0.10"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["extra-traits", "full"] }

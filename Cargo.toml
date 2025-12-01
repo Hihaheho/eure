@@ -7,12 +7,12 @@ ahash = { version = "0.8.11", default-features = false }
 anyhow = "1"
 eros = "0.5"
 eure = { path = "crates/eure", version = "0.1.0" }
-eure-derive = { path = "crates/eure-derive", version = "0.1.0" }
 eure-editor-support = { path = "crates/eure-editor-support", version = "0.1.0" }
 eure-fmt = { path = "crates/eure-fmt", version = "0.1.0" }
 eure-json = { path = "crates/eure-json", version = "0.1.0" }
 eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.0" }
 eure-lint = { path = "crates/eure-lint", version = "0.1.0" }
+eure-macros = { path = "crates/eure-macros", version = "0.1.0" }
 eure-parol = { path = "crates/eure-parol", version = "0.1.0" }
 eure-schema = { path = "crates/eure-schema", version = "0.1.0" }
 eure-template = { path = "crates/eure-template", version = "0.1.0" }
