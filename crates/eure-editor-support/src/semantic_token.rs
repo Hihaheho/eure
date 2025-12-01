@@ -70,6 +70,8 @@ pub enum SemanticTokenModifier {
     Declaration = 0,
     /// Section header definitions
     Definition = 1,
+    /// Token is within a section header (after `@` and before section body)
+    SectionHeader = 2,
 }
 
 impl SemanticTokenModifier {
@@ -78,6 +80,7 @@ impl SemanticTokenModifier {
         &[
             SemanticTokenModifier::Declaration,
             SemanticTokenModifier::Definition,
+            SemanticTokenModifier::SectionHeader,
         ]
     }
 
@@ -190,8 +193,11 @@ impl<'a> SemanticTokenCollector<'a> {
             | NonTerminalKind::KeyTuple
             | NonTerminalKind::KeyValue => ctx.with_key_context(true),
 
-            // Section header - add definition modifier
+            // Section header - add section header modifier
             NonTerminalKind::Section => ctx.with_section_header(true),
+
+            // Section body - reset section header (only @ and Keys are in the header)
+            NonTerminalKind::SectionBody => ctx.with_section_header(false),
 
             // Extension namespace - identifiers here are extension idents
             NonTerminalKind::ExtensionNameSpace => ctx.with_extension_namespace(true),
@@ -428,9 +434,14 @@ impl<'a> SemanticTokenCollector<'a> {
             modifiers |= SemanticTokenModifier::Declaration.bitmask();
         }
 
-        // Add Definition modifier for section headers
+        // Add Definition modifier for section header identifiers
         if ctx.in_section_header && kind == TerminalKind::Ident {
             modifiers |= SemanticTokenModifier::Definition.bitmask();
+        }
+
+        // Add SectionHeader modifier for all tokens in section header
+        if ctx.in_section_header {
+            modifiers |= SemanticTokenModifier::SectionHeader.bitmask();
         }
 
         modifiers
@@ -551,6 +562,80 @@ mod tests {
         assert_eq!(
             at_token.unwrap().token_type,
             SemanticTokenType::SectionMarker
+        );
+    }
+
+    #[test]
+    fn test_section_header_modifier() {
+        let input = "@section.name\nkey = 1";
+        let tokens = parse_and_get_tokens(input);
+
+        // All tokens in section header should have SectionHeader modifier
+        let section_header_mask = SemanticTokenModifier::SectionHeader.bitmask();
+
+        // @ should have SectionHeader modifier
+        let at_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "@"
+            })
+            .unwrap();
+        assert!(
+            at_token.modifiers & section_header_mask != 0,
+            "@ should have SectionHeader modifier"
+        );
+
+        // "section" should have SectionHeader modifier
+        let section_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "section"
+            })
+            .unwrap();
+        assert!(
+            section_token.modifiers & section_header_mask != 0,
+            "section should have SectionHeader modifier"
+        );
+
+        // "." should have SectionHeader modifier
+        let dot_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "."
+            })
+            .unwrap();
+        assert!(
+            dot_token.modifiers & section_header_mask != 0,
+            ". should have SectionHeader modifier"
+        );
+
+        // "name" should have SectionHeader modifier
+        let name_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "name"
+            })
+            .unwrap();
+        assert!(
+            name_token.modifiers & section_header_mask != 0,
+            "name should have SectionHeader modifier"
+        );
+
+        // "key" in section body should NOT have SectionHeader modifier
+        let key_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "key"
+            })
+            .unwrap();
+        assert!(
+            key_token.modifiers & section_header_mask == 0,
+            "key should NOT have SectionHeader modifier"
         );
     }
 
