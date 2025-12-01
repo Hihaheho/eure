@@ -3,37 +3,42 @@ use alloc::vec::Vec;
 use thisisplural::Plural;
 
 /// A data structure for representing a Eure document without any span information.
-pub struct EureDocument {
-    pub sections: Vec<EureSection>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct EureTree {
+    pub sections: Vec<TreeSection>,
     pub bindings: Vec<EureBinding>,
 }
 
-pub struct EureSection {
+#[derive(Debug, Clone, PartialEq)]
+pub struct TreeSection {
     pub keys: EureKeys,
     pub body: SectionBody,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum SectionBody {
-    Nested(EureDocument),
+    Nested(EureTree),
     Bindings(Vec<EureBinding>),
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct EureBinding {
-    pub keys: Vec<EureKey>,
+    pub keys: Vec<TreeKey>,
     pub rhs: BindingRhs,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum BindingRhs {
-    Value(EureValue),
+    Value(TreeValue),
     Text(String),
-    Eure(EureDocument),
+    Eure(EureTree),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Plural)]
-pub struct EureKeys(Vec<EureKey>);
+pub struct EureKeys(Vec<TreeKey>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub enum EureKey {
+pub enum TreeKey {
     Ident(String),
     String(String),
     Extension(String),
@@ -42,13 +47,14 @@ pub enum EureKey {
     TupleIndex(u8),
 }
 
-pub enum EureValue {
+#[derive(Debug, Clone, PartialEq)]
+pub enum TreeValue {
     String(String),
     Number(f64),
     Integer(i64),
     Boolean(bool),
-    Array(Vec<EureValue>),
-    Tuple(Vec<EureValue>),
-    Map(Vec<(EureValue, EureValue)>),
-    Eure(EureDocument),
+    Array(Vec<TreeValue>),
+    Tuple(Vec<TreeValue>),
+    Map(Vec<(TreeValue, TreeValue)>),
+    Eure(EureTree),
 }
