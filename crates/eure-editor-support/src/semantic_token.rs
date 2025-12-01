@@ -36,6 +36,8 @@ pub enum SemanticTokenType {
     ExtensionMarker = 10,
     /// Extension identifiers (after `$`)
     ExtensionIdent = 11,
+    /// Section header keys (keys after `@`, like TOML section names)
+    SectionKey = 12,
 }
 
 impl SemanticTokenType {
@@ -54,6 +56,7 @@ impl SemanticTokenType {
             SemanticTokenType::SectionMarker,
             SemanticTokenType::ExtensionMarker,
             SemanticTokenType::ExtensionIdent,
+            SemanticTokenType::SectionKey,
         ]
     }
 
@@ -357,13 +360,27 @@ impl<'a> SemanticTokenCollector<'a> {
             // Section marker - distinct from other operators
             TerminalKind::At => Some(SemanticTokenType::SectionMarker),
 
-            // Extension marker - distinct from other operators
-            TerminalKind::Dollar => Some(SemanticTokenType::ExtensionMarker),
+            // Extension marker - use SectionKey in section header context
+            TerminalKind::Dollar => {
+                if ctx.in_section_header {
+                    Some(SemanticTokenType::SectionKey)
+                } else {
+                    Some(SemanticTokenType::ExtensionMarker)
+                }
+            }
+
+            // Dot - use SectionKey in section header context
+            TerminalKind::Dot => {
+                if ctx.in_section_header {
+                    Some(SemanticTokenType::SectionKey)
+                } else {
+                    Some(SemanticTokenType::Operator)
+                }
+            }
 
             // Operators
             TerminalKind::Bind
             | TerminalKind::MapBind
-            | TerminalKind::Dot
             | TerminalKind::Comma
             | TerminalKind::Esc => Some(SemanticTokenType::Operator),
 
@@ -379,7 +396,10 @@ impl<'a> SemanticTokenCollector<'a> {
 
             // Identifiers - context dependent
             TerminalKind::Ident => {
-                if ctx.in_extension_namespace {
+                if ctx.in_section_header {
+                    // In section header, all identifiers (including extension idents) use SectionKey
+                    Some(SemanticTokenType::SectionKey)
+                } else if ctx.in_extension_namespace {
                     Some(SemanticTokenType::ExtensionIdent)
                 } else if ctx.in_key_context {
                     Some(SemanticTokenType::Property)
@@ -442,8 +462,10 @@ impl<'a> SemanticTokenCollector<'a> {
 struct VisitContext {
     /// Whether we're currently in a key/property context
     in_key_context: bool,
-    /// Whether we're in a section header
+    /// Whether we're in a section header keys (after `@`, before body)
     in_section_header: bool,
+    /// Whether we're in section body braces (the `{` `}` of a section)
+    in_section_braces: bool,
     /// Whether we're in an extension namespace (after `$`)
     in_extension_namespace: bool,
 }
@@ -459,6 +481,13 @@ impl VisitContext {
     fn with_section_header(self, in_section_header: bool) -> Self {
         Self {
             in_section_header,
+            ..self
+        }
+    }
+
+    fn with_section_braces(self, in_section_braces: bool) -> Self {
+        Self {
+            in_section_braces,
             ..self
         }
     }
