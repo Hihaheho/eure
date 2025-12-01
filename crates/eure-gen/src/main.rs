@@ -50,10 +50,7 @@ fn main() {
     constructor_generator.generate(&node_info);
     generate_node_kind("crates/eure-tree/src/node_kind.rs");
 
-    Command::new("cargo")
-        .args(["fmt", "-p", "crates/eure-tree"])
-        .output()
-        .unwrap();
+    Command::new("cargo").args(["fmt"]).output().unwrap();
 }
 
 fn format_node_info(node_info: &NodeTypesInfo) {
