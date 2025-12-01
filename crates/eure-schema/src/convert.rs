@@ -198,7 +198,16 @@ impl<'a> Converter<'a> {
                     "Incomplete document: uninitialized node".to_string(),
                 ));
             }
-            NodeValue::Primitive(prim) => self.convert_primitive(prim)?,
+            NodeValue::Primitive(prim) => {
+                // If $variant => "literal", treat the primitive as a literal value
+                // rather than interpreting it as a type reference
+                if variant.as_deref() == Some("literal") {
+                    let value = Value::Primitive(prim.clone());
+                    self.schema.create_node(SchemaNodeContent::Literal(value))
+                } else {
+                    self.convert_primitive(prim)?
+                }
+            }
             NodeValue::Array(arr) => {
                 // Array shorthand: [.type]
                 if arr.0.len() == 1 {
@@ -289,11 +298,11 @@ impl<'a> Converter<'a> {
                     }
                 }
             }
-            PrimitiveValue::BigInt(i) => {
+            PrimitiveValue::Integer(i) => {
                 let schema_id =
                     self.schema
                         .create_node(SchemaNodeContent::Literal(Value::Primitive(
-                            PrimitiveValue::BigInt(i.clone()),
+                            PrimitiveValue::Integer(i.clone()),
                         )));
                 Ok(schema_id)
             }
@@ -1024,7 +1033,7 @@ impl<'a> Converter<'a> {
     fn get_integer_value(&self, node_id: NodeId) -> Result<Option<u32>, ConversionError> {
         let node = self.doc.node(node_id);
         match &node.content {
-            NodeValue::Primitive(PrimitiveValue::BigInt(i)) => {
+            NodeValue::Primitive(PrimitiveValue::Integer(i)) => {
                 let value: u32 =
                     i.try_into()
                         .map_err(|_| ConversionError::InvalidConstraintValue {
@@ -1041,7 +1050,7 @@ impl<'a> Converter<'a> {
     fn get_bigint_value(&self, node_id: NodeId) -> Result<Option<BigInt>, ConversionError> {
         let node = self.doc.node(node_id);
         match &node.content {
-            NodeValue::Primitive(PrimitiveValue::BigInt(i)) => Ok(Some(i.clone())),
+            NodeValue::Primitive(PrimitiveValue::Integer(i)) => Ok(Some(i.clone())),
             _ => Ok(None),
         }
     }
@@ -1052,7 +1061,7 @@ impl<'a> Converter<'a> {
         match &node.content {
             NodeValue::Primitive(PrimitiveValue::F64(f)) => Ok(Some(*f)),
             NodeValue::Primitive(PrimitiveValue::F32(f)) => Ok(Some(*f as f64)),
-            NodeValue::Primitive(PrimitiveValue::BigInt(i)) => {
+            NodeValue::Primitive(PrimitiveValue::Integer(i)) => {
                 let value: i64 =
                     i.try_into()
                         .map_err(|_| ConversionError::InvalidConstraintValue {
@@ -1366,7 +1375,7 @@ mod tests {
     #[test]
     fn extract_ext_types_not_map() {
         // name.$ext-type = 1 should error, not silently ignore
-        let doc = create_schema_with_field_ext_type(NodeValue::Primitive(PrimitiveValue::BigInt(
+        let doc = create_schema_with_field_ext_type(NodeValue::Primitive(PrimitiveValue::Integer(
             1.into(),
         )));
 
@@ -1435,7 +1444,7 @@ mod tests {
             Text::inline_implicit("text"),
         )));
         let optional_node_id =
-            doc.create_node(NodeValue::Primitive(PrimitiveValue::BigInt(1.into())));
+            doc.create_node(NodeValue::Primitive(PrimitiveValue::Integer(1.into())));
         doc.node_mut(ext_type_value_id)
             .extensions
             .insert(OPTIONAL.clone(), optional_node_id);
@@ -1466,5 +1475,197 @@ mod tests {
                 path: "$optional must be a boolean".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn literal_variant_with_inline_code() {
+        // Test: { = `any`, $variant => "literal" } should create Literal(Text("any"))
+        // NOT Any (which would happen if $variant is not detected)
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Create the inline code value: `any`
+        let inline_code_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("any"),
+        )));
+
+        // Create the $variant extension value: "literal"
+        let variant_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("literal"),
+        )));
+
+        // Create the root map with root binding (empty key)
+        let mut root_map = NodeMap::default();
+        root_map
+            .0
+            .insert(ObjectKey::String(String::new()), inline_code_id);
+
+        // Set root content to map and add $variant extension
+        doc.node_mut(root_id).content = NodeValue::Map(root_map);
+        doc.node_mut(root_id)
+            .extensions
+            .insert("variant".parse().unwrap(), variant_value_id);
+
+        let (schema, _source_map) =
+            document_to_schema(&doc).expect("Schema conversion should succeed");
+
+        // The root should be a Literal, not Any
+        let root_content = &schema.node(schema.root).content;
+        match root_content {
+            SchemaNodeContent::Literal(value) => {
+                // The value should be Text("any")
+                match value {
+                    Value::Primitive(PrimitiveValue::Text(t)) => {
+                        assert_eq!(t.as_str(), "any", "Literal should contain 'any'");
+                    }
+                    _ => panic!("Expected Literal with Text primitive, got {:?}", value),
+                }
+            }
+            SchemaNodeContent::Any => {
+                panic!("BUG: Got Any instead of Literal - $variant extension not detected!");
+            }
+            other => panic!("Expected Literal, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn literal_variant_parsed_from_eure() {
+        // Test parsing: { = `any`, $variant => "literal" }
+        // This should create a Literal with value "any", NOT SchemaNodeContent::Any
+        // (which would happen if $variant extension is not respected on primitives)
+        let eure_src = r#"= { = `any`, $variant => "literal" }"#;
+        let doc = eure::document::parse_to_document(eure_src).expect("Failed to parse Eure");
+
+        let (schema, _source_map) =
+            document_to_schema(&doc).expect("Schema conversion should succeed");
+
+        let root_content = &schema.node(schema.root).content;
+        match root_content {
+            SchemaNodeContent::Literal(value) => match value {
+                Value::Primitive(PrimitiveValue::Text(t)) => {
+                    assert_eq!(t.as_str(), "any", "Literal should contain 'any'");
+                }
+                _ => panic!("Expected Literal with Text primitive, got {:?}", value),
+            },
+            SchemaNodeContent::Any => {
+                panic!(
+                    "BUG: Got Any instead of Literal - $variant extension not respected for primitive"
+                );
+            }
+            other => panic!("Expected Literal, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn union_with_literal_any_variant() {
+        // Test a union like $types.type which has variants including:
+        // @variants.any = { = `any`, $variant => "literal" }
+        // @variants.literal = `any`
+        // The 'any' variant should match only literal "any", not any value.
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Create the 'any' variant value: { = `any`, $variant => "literal" }
+        let any_inline_code = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("any"),
+        )));
+        let mut any_variant_map = NodeMap::default();
+        any_variant_map
+            .0
+            .insert(ObjectKey::String(String::new()), any_inline_code);
+        let any_variant_node = doc.create_node(NodeValue::Map(any_variant_map));
+        // Add $variant => "literal" extension
+        let literal_ext = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("literal"),
+        )));
+        doc.node_mut(any_variant_node)
+            .extensions
+            .insert("variant".parse().unwrap(), literal_ext);
+
+        // Create the 'literal' variant value: `any` (type Any)
+        let literal_variant_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::inline_implicit("any"),
+        )));
+
+        // Create the variants map
+        let mut variants_map = NodeMap::default();
+        variants_map
+            .0
+            .insert(ObjectKey::String("any".to_string()), any_variant_node);
+        variants_map.0.insert(
+            ObjectKey::String("literal".to_string()),
+            literal_variant_node,
+        );
+        let variants_node = doc.create_node(NodeValue::Map(variants_map));
+
+        // Create root as union
+        let union_ext = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("union"),
+        )));
+        let untagged_ext = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("untagged"),
+        )));
+
+        // Create root map with variants
+        let mut root_map = NodeMap::default();
+        root_map
+            .0
+            .insert(ObjectKey::String("variants".to_string()), variants_node);
+
+        doc.node_mut(root_id).content = NodeValue::Map(root_map);
+        doc.node_mut(root_id)
+            .extensions
+            .insert("variant".parse().unwrap(), union_ext);
+        doc.node_mut(root_id)
+            .extensions
+            .insert("variant-repr".parse().unwrap(), untagged_ext);
+
+        let (schema, _source_map) =
+            document_to_schema(&doc).expect("Schema conversion should succeed");
+
+        // Check the union schema
+        let root_content = &schema.node(schema.root).content;
+        match root_content {
+            SchemaNodeContent::Union(union_schema) => {
+                // Check 'any' variant is Literal("any"), not Any
+                let any_variant_id = union_schema
+                    .variants
+                    .get("any")
+                    .expect("'any' variant missing");
+                let any_content = &schema.node(*any_variant_id).content;
+                match any_content {
+                    SchemaNodeContent::Literal(value) => match value {
+                        Value::Primitive(PrimitiveValue::Text(t)) => {
+                            assert_eq!(
+                                t.as_str(),
+                                "any",
+                                "'any' variant should be Literal(\"any\")"
+                            );
+                        }
+                        _ => panic!("'any' variant: expected Text, got {:?}", value),
+                    },
+                    SchemaNodeContent::Any => {
+                        panic!(
+                            "BUG: 'any' variant is Any instead of Literal(\"any\") - $variant extension not detected!"
+                        );
+                    }
+                    other => panic!("'any' variant: expected Literal, got {:?}", other),
+                }
+
+                // Check 'literal' variant is Any
+                let literal_variant_id = union_schema
+                    .variants
+                    .get("literal")
+                    .expect("'literal' variant missing");
+                let literal_content = &schema.node(*literal_variant_id).content;
+                match literal_content {
+                    SchemaNodeContent::Any => {
+                        // Correct: 'literal' variant should be Any
+                    }
+                    other => panic!("'literal' variant: expected Any, got {:?}", other),
+                }
+            }
+            other => panic!("Expected Union, got {:?}", other),
+        }
     }
 }

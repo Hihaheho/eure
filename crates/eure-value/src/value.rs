@@ -3,10 +3,43 @@ use num_bigint::BigInt;
 use crate::{prelude_internal::*, text::Text};
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ValueKind {
+    Hole,
+    Null,
+    Bool,
+    Integer,
+    F32,
+    F64,
+    Text,
+    Variant,
+    Array,
+    Tuple,
+    Map,
+}
+
+impl core::fmt::Display for ValueKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Hole => write!(f, "hole"),
+            Self::Null => write!(f, "null"),
+            Self::Bool => write!(f, "bool"),
+            Self::Integer => write!(f, "integer"),
+            Self::F32 => write!(f, "f32"),
+            Self::F64 => write!(f, "f64"),
+            Self::Text => write!(f, "text"),
+            Self::Variant => write!(f, "variant"),
+            Self::Array => write!(f, "array"),
+            Self::Tuple => write!(f, "tuple"),
+            Self::Map => write!(f, "map"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum PrimitiveValue {
     Null,
     Bool(bool),
-    BigInt(BigInt),
+    Integer(BigInt),
     F32(f32),
     F64(f64),
     /// Unified text type for strings and code.
@@ -32,6 +65,19 @@ impl PrimitiveValue {
     /// Returns the text content as a string slice if this is a `Text` variant.
     pub fn as_str(&self) -> Option<&str> {
         self.as_text().map(|t| t.as_str())
+    }
+
+    pub(crate) fn kind(&self) -> ValueKind {
+        match self {
+            Self::Null => ValueKind::Null,
+            Self::Bool(_) => ValueKind::Bool,
+            Self::Integer(_) => ValueKind::Integer,
+            Self::F32(_) => ValueKind::F32,
+            Self::F64(_) => ValueKind::F64,
+            Self::Text(_) => ValueKind::Text,
+            Self::Hole => ValueKind::Hole,
+            Self::Variant(_) => ValueKind::Variant,
+        }
     }
 }
 

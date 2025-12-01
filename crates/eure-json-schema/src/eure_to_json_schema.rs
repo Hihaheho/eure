@@ -409,7 +409,7 @@ fn primitive_to_json(val: &PrimitiveValue) -> Result<serde_json::Value, Conversi
     match val {
         PrimitiveValue::Null => Ok(serde_json::Value::Null),
         PrimitiveValue::Bool(b) => Ok(serde_json::Value::Bool(*b)),
-        PrimitiveValue::BigInt(i) => {
+        PrimitiveValue::Integer(i) => {
             let n = bigint_to_i64(i)?;
             Ok(serde_json::Value::Number(n.into()))
         }

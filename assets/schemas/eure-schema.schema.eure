@@ -170,6 +170,7 @@ $codegen-defaults {
   derive = ["Debug", "Clone", "PartialEq"]
   ext-types-field-prefix = "ext_" // ext_types, ext_optional, etc.
   ext-types-type-prefix = "Ext" // ExtType, ExtOptional, etc.
+  document-node-id-field = "doc_node" // add doc_node: NodeId to the generated types. For enums, each variant
 }
 
 $schema = "eure-schema.schema.eure"
@@ -182,9 +183,7 @@ $ext-type.types {
   key = `$types.ident`
   value = `$types.type`
 
-  @ $codegen
-  type = "TypeDefinitions"
-  derive = ["Debug", "Clone", "PartialEq"]
+  $codegen.type = "TypeDefinitions"
 }
 
 /// Allows schemas to import types from other schemas.
@@ -208,6 +207,14 @@ $ext-type.import {
 $ext-type.export = `$types.export-policy`
 $ext-type.export.$optional = true  // Default: export all ("*")
 $ext-type.export.$codegen.type = "ExportDefinitions"
+
+/// Root-level codegen settings for the schema.
+$ext-type.codegen = `$types.root-codegen`
+$ext-type.codegen.$optional = true
+
+/// Default codegen settings applied to all types in the schema.
+$ext-type.codegen-defaults = `$types.codegen-defaults`
+$ext-type.codegen-defaults.$optional = true
 
 /// Identifier type for type names, variant names, etc.
 /// Matches Eure identifier syntax using Unicode properties.
@@ -280,7 +287,6 @@ $ext-type.export.$codegen.type = "ExportDefinitions"
 /// Which way to represent a document path in a document.
 @ $types.binding-style
 $variant: union
-priority = ["text", "integer", "float", "boolean", "null", "any", "ref", "record", "array", "tuple"]
 variants {
   /// Automatically determine the best way to represent the document path in the document.
   auto = { = "auto", $variant => "literal" }
@@ -314,8 +320,75 @@ variants {
   section-root-binding = { = "section-root-binding", $variant => "literal" }
 }
 
+/// ============================================================================
+/// Code Generation Types
+/// ============================================================================
+
+/// Base codegen settings shared by all type-level codegen configurations.
+@ $types.base-codegen {
+  /// Override the generated type name (default: auto-converted from key).
+  type = `text`
+  type.$optional = true
+  /// Override the list of derive macros (default: from $codegen-defaults).
+  derive = [`text`]
+  derive.$optional = true
+}
+
+/// Codegen settings for union types.
+@ $types.union-codegen {
+  flatten = [`$types.base-codegen`]
+  /// Generate separate types for each variant instead of struct-like variants.
+  variant-types = `boolean`
+  variant-types.$optional = true
+  /// Suffix for variant type names (e.g., "Type" -> TextType, IntegerType).
+  variant-types-suffix = `text`
+  variant-types-suffix.$optional = true
+}
+
+/// Codegen settings for record types.
+@ $types.record-codegen {
+  flatten = [`$types.base-codegen`]
+  /// Override individual field names.
+  field = `text`
+  field.$optional = true
+}
+
+/// Codegen settings for cascade-ext-types.
+@ $types.cascade-ext-type-codegen {
+  flatten = [`$types.base-codegen`]
+  /// Group multiple fields into a composite struct.
+  /// Key is struct name (kebab-case), value specifies fields to include.
+  structs {
+    $variant: map
+    key = `$types.ident`
+    value.fields = [`$types.ident`]
+  }
+  structs.$optional = true
+}
+
+/// Root-level codegen settings.
+@ $types.root-codegen {
+  /// The root type name for the generated code.
+  type = `text`
+  type.$optional = true
+}
+
+/// Default codegen settings applied to all types.
+@ $types.codegen-defaults {
+  /// Default derive macros for all generated types.
+  derive = [`text`]
+  derive.$optional = true
+  /// Prefix for extension type field names (e.g., "ext_" -> ext_types).
+  ext-types-field-prefix = `text`
+  ext-types-field-prefix.$optional = true
+  /// Prefix for extension type names (e.g., "Ext" -> ExtTypes).
+  ext-types-type-prefix = `text`
+  ext-types-type-prefix.$optional = true
+}
+
 @ $types.type {
   $variant: union
+  priority = ["text", "integer", "float", "boolean", "null", "any", "ref", "record", "array", "tuple"]
 
   $codegen {
     variant-types = true // Generate type for each variant instead of struct-like variant
@@ -428,6 +501,13 @@ variants {
   value.$ext-type.binding-style.$optional = true
   $ext-type.unknown-fields = `$types.unknown-fields-policy`
   $ext-type.unknown-fields.$optional = true  // Default: deny
+  /// Types to flatten into this record.
+  /// All fields from the flattened types are merged into this record.
+  /// Key conflicts result in validation errors.
+  flatten = [`$types.type`]
+  flatten.$optional = true
+  $ext-type.codegen = `$types.record-codegen`
+  $ext-type.codegen.$optional = true
 
   /// Union type with named variants.
   /// Requires exactly one variant to match (oneOf semantics).
@@ -441,6 +521,8 @@ variants {
   priority.$optional = true
   $ext-type.variant-repr = `$types.variant-repr`
   $ext-type.variant-repr.$optional = true  // Default: externally tagged
+  $ext-type.codegen = `$types.union-codegen`
+  $ext-type.codegen.$optional = true
 
   /// Array type with optional constraints.
   @variants.array

@@ -1,4 +1,4 @@
-use crate::prelude_internal::*;
+use crate::{prelude_internal::*, value::ValueKind};
 
 #[derive(Debug)]
 /// A node in the Eure document.
@@ -188,6 +188,16 @@ impl NodeValue {
 
     pub fn empty_tuple() -> Self {
         Self::Tuple(NodeTuple::new())
+    }
+
+    pub fn value_kind(&self) -> Option<ValueKind> {
+        match self {
+            Self::Uninitialized => None,
+            Self::Primitive(primitive) => Some(primitive.kind()),
+            Self::Array(_) => Some(ValueKind::Array),
+            Self::Map(_) => Some(ValueKind::Map),
+            Self::Tuple(_) => Some(ValueKind::Tuple),
+        }
     }
 }
 

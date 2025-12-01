@@ -59,7 +59,7 @@ fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue
     match prim {
         PrimitiveValue::Null => Ok(JsonValue::Null),
         PrimitiveValue::Bool(b) => Ok(JsonValue::Bool(*b)),
-        PrimitiveValue::BigInt(bi) => {
+        PrimitiveValue::Integer(bi) => {
             // Try to convert to i64 for JSON
             let i64_value = bi.to_string().parse::<i64>();
             if let Ok(i) = i64_value {
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn test_bigint_small_conversion() {
         use num_bigint::BigInt;
-        let doc = EureDocument::new_primitive(PrimitiveValue::BigInt(BigInt::from(42)));
+        let doc = EureDocument::new_primitive(PrimitiveValue::Integer(BigInt::from(42)));
         let config = Config::default();
         let result = document_to_value(&doc, &config).unwrap();
         assert_eq!(result, json!(42));
@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn test_bigint_negative_conversion() {
         use num_bigint::BigInt;
-        let doc = EureDocument::new_primitive(PrimitiveValue::BigInt(BigInt::from(-42)));
+        let doc = EureDocument::new_primitive(PrimitiveValue::Integer(BigInt::from(-42)));
         let config = Config::default();
         let result = document_to_value(&doc, &config).unwrap();
         assert_eq!(result, json!(-42));
@@ -390,7 +390,7 @@ mod tests {
         let mut map = EureMap::new();
         map.0.insert(
             ObjectKey::String("field".to_string()),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(42))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
         );
 
         let variant = Variant {

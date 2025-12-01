@@ -786,7 +786,7 @@ impl<'a> Validator<'a> {
 
     fn validate_integer(&mut self, node: &Node, schema: &IntegerSchema) -> ValidationResult {
         let int_val = match &node.content {
-            NodeValue::Primitive(PrimitiveValue::BigInt(i)) => i,
+            NodeValue::Primitive(PrimitiveValue::Integer(i)) => i,
             _ => {
                 return ValidationResult::failure(ValidationError::TypeMismatch {
                     expected: "integer".to_string(),
@@ -835,7 +835,7 @@ impl<'a> Validator<'a> {
         let float_val = match &node.content {
             NodeValue::Primitive(PrimitiveValue::F64(f)) => *f,
             NodeValue::Primitive(PrimitiveValue::F32(f)) => *f as f64,
-            NodeValue::Primitive(PrimitiveValue::BigInt(i)) => {
+            NodeValue::Primitive(PrimitiveValue::Integer(i)) => {
                 // Allow integer to be coerced to float
                 if let Ok(i64_val) = i64::try_from(i) {
                     i64_val as f64
@@ -1558,7 +1558,7 @@ fn node_type_name(content: &NodeValue) -> String {
         NodeValue::Primitive(p) => match p {
             PrimitiveValue::Null => "null".to_string(),
             PrimitiveValue::Bool(_) => "boolean".to_string(),
-            PrimitiveValue::BigInt(_) => "integer".to_string(),
+            PrimitiveValue::Integer(_) => "integer".to_string(),
             PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => "float".to_string(),
             PrimitiveValue::Text(_) => "text".to_string(),
             PrimitiveValue::Hole => "hole".to_string(),
@@ -1701,7 +1701,7 @@ fn primitives_equal(a: &PrimitiveValue, b: &PrimitiveValue) -> bool {
     match (a, b) {
         (PrimitiveValue::Null, PrimitiveValue::Null) => true,
         (PrimitiveValue::Bool(a), PrimitiveValue::Bool(b)) => a == b,
-        (PrimitiveValue::BigInt(a), PrimitiveValue::BigInt(b)) => a == b,
+        (PrimitiveValue::Integer(a), PrimitiveValue::Integer(b)) => a == b,
         (PrimitiveValue::F32(a), PrimitiveValue::F32(b)) => (a - b).abs() < f32::EPSILON,
         (PrimitiveValue::F64(a), PrimitiveValue::F64(b)) => (a - b).abs() < f64::EPSILON,
         (PrimitiveValue::Text(a), PrimitiveValue::Text(b)) => a.as_str() == b.as_str(),
@@ -1729,7 +1729,7 @@ fn are_values_unique(values: &[Value]) -> bool {
 fn object_key_to_value(key: &ObjectKey) -> Value {
     match key {
         ObjectKey::Bool(b) => Value::Primitive(PrimitiveValue::Bool(*b)),
-        ObjectKey::Number(n) => Value::Primitive(PrimitiveValue::BigInt(n.clone())),
+        ObjectKey::Number(n) => Value::Primitive(PrimitiveValue::Integer(n.clone())),
         ObjectKey::String(s) => Value::Primitive(PrimitiveValue::Text(
             eure_value::text::Text::plaintext(s.clone()),
         )),
@@ -1900,7 +1900,7 @@ mod tests {
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(42)));
+        let doc = create_doc_with_primitive(PrimitiveValue::Integer(BigInt::from(42)));
         let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
@@ -1960,15 +1960,15 @@ mod tests {
             multiple_of: None,
         }));
 
-        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(50)));
+        let doc = create_doc_with_primitive(PrimitiveValue::Integer(BigInt::from(50)));
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(-1)));
+        let doc = create_doc_with_primitive(PrimitiveValue::Integer(BigInt::from(-1)));
         let result = validate(&doc, &schema);
         assert!(!result.is_valid);
 
-        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(101)));
+        let doc = create_doc_with_primitive(PrimitiveValue::Integer(BigInt::from(101)));
         let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
@@ -1981,11 +1981,11 @@ mod tests {
             multiple_of: Some(BigInt::from(5)),
         }));
 
-        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(15)));
+        let doc = create_doc_with_primitive(PrimitiveValue::Integer(BigInt::from(15)));
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
-        let doc = create_doc_with_primitive(PrimitiveValue::BigInt(BigInt::from(13)));
+        let doc = create_doc_with_primitive(PrimitiveValue::Integer(BigInt::from(13)));
         let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
@@ -2072,8 +2072,8 @@ mod tests {
 
         // Valid array
         let value = Value::Array(eure_value::value::Array(vec![
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(2))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
         ]));
         let result = validate_value(&value, &schema);
         assert!(result.is_valid);
@@ -2085,10 +2085,10 @@ mod tests {
 
         // Too long
         let value = Value::Array(eure_value::value::Array(vec![
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(2))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(3))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(4))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(3))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(4))),
         ]));
         let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
@@ -2110,18 +2110,18 @@ mod tests {
 
         // Unique values
         let value = Value::Array(eure_value::value::Array(vec![
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(2))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(3))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(3))),
         ]));
         let result = validate_value(&value, &schema);
         assert!(result.is_valid);
 
         // Duplicate values
         let value = Value::Array(eure_value::value::Array(vec![
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(2))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(1))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
         ]));
         let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
@@ -2141,7 +2141,7 @@ mod tests {
         // Valid tuple
         let value = Value::Tuple(Tuple(vec![
             Value::Primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string()))),
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(42))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
         ]));
         let result = validate_value(&value, &schema);
         assert!(result.is_valid);
@@ -2155,7 +2155,7 @@ mod tests {
 
         // Wrong types
         let value = Value::Tuple(Tuple(vec![
-            Value::Primitive(PrimitiveValue::BigInt(BigInt::from(42))),
+            Value::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
             Value::Primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string()))),
         ]));
         let result = validate_value(&value, &schema);

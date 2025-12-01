@@ -1,0 +1,13 @@
+[package]
+name = "eure-codegen"
+version = "0.1.0"
+edition = "2024"
+description = "Code generation from Eure schemas"
+readme = "README.md"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+license = "MIT OR Apache-2.0"
+keywords = ["eure", "codegen", "schema"]
+
+[dependencies]
+bon = "3"

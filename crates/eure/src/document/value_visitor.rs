@@ -712,7 +712,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
 
         let node_id = self.document.current_node_id();
         self.document
-            .bind_primitive(PrimitiveValue::BigInt(big_int))
+            .bind_primitive(PrimitiveValue::Integer(big_int))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),

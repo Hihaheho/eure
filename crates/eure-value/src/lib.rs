@@ -25,6 +25,9 @@ pub mod path;
 /// Data structure for representing a data-model of Eure.
 pub mod data_model;
 
+/// Trait for parsing Rust types from Eure documents.
+pub mod parse;
+
 #[cfg(feature = "std")]
 pub use ahash::AHashMap as Map;
 #[cfg(not(feature = "std"))]
