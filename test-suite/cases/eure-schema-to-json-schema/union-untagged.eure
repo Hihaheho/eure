@@ -1,0 +1,18 @@
+// Test untagged union (oneOf)
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "untagged"
+variants.text = `text`
+variants.number = `integer`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {"type": "integer"},
+        {"type": "string"}
+    ]
+}
+```

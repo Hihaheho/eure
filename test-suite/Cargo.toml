@@ -19,6 +19,7 @@ clap = { workspace = true, features = ["derive"] }
 eros.workspace = true
 eure = { workspace = true }
 eure-json.workspace = true
+eure-json-schema.workspace = true
 eure-schema.workspace = true
 rayon = "1.10"
 serde_json.workspace = true

@@ -1,0 +1,28 @@
+// Test externally-tagged union
+// Note: variant order in oneOf is determined by HashMap iteration order
+
+schema = ```eure
+$variant = "union"
+$variant-repr = "external"
+variants.success = `text`
+variants.error = `text`
+```
+
+output_json_schema = ```json
+{
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {"error": {"type": "string"}},
+            "required": ["error"],
+            "additionalProperties": false
+        },
+        {
+            "type": "object",
+            "properties": {"success": {"type": "string"}},
+            "required": ["success"],
+            "additionalProperties": false
+        }
+    ]
+}
+```

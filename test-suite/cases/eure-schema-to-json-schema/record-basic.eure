@@ -1,0 +1,19 @@
+// Test basic record type (all fields required)
+// Note: required array order depends on HashMap iteration
+
+schema = ```eure
+name = `text`
+age = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "age": {"type": "integer"}
+    },
+    "required": ["age", "name"],
+    "additionalProperties": false
+}
+```

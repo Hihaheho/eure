@@ -62,6 +62,18 @@ pub fn parse_case(input: &str, path: PathBuf) -> Result<ParseResult, ParseError>
                 cst: cst.clone(),
             }
         })?,
+        output_json_schema: get_text(&doc, "output_json_schema").map_err(|e| {
+            ParseError::IdentifierError {
+                error: e,
+                cst: cst.clone(),
+            }
+        })?,
+        json_schema_errors: get_text_array(&doc, "json_schema_errors").map_err(|e| {
+            ParseError::IdentifierError {
+                error: e,
+                cst: cst.clone(),
+            }
+        })?,
     };
 
     Ok(ParseResult {

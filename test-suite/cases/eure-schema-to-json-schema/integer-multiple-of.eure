@@ -1,0 +1,10 @@
+// Test integer with multipleOf constraint
+
+schema = ```eure
+$variant = "integer"
+multiple-of = 5
+```
+
+output_json_schema = ```json
+{"type": "integer", "multipleOf": 5}
+```

@@ -17,6 +17,10 @@ pub struct Case {
     pub schema: Option<Text>,
     /// Expected validation errors (for error test cases)
     pub schema_errors: Vec<Text>,
+    /// Expected JSON Schema output (for eure-schema to json-schema conversion)
+    pub output_json_schema: Option<Text>,
+    /// Expected conversion errors (for eure-schema to json-schema error test cases)
+    pub json_schema_errors: Vec<Text>,
 }
 
 /// Configuration for running test cases
@@ -82,6 +86,8 @@ pub enum Scenario<'a> {
     EureToJson(EureToJsonScenario<'a>),
     SchemaValidation(SchemaValidationScenario<'a>),
     SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
+    EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario<'a>),
+    EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario<'a>),
 }
 
 impl Scenario<'_> {
@@ -91,6 +97,10 @@ impl Scenario<'_> {
             Scenario::EureToJson(s) => format!("eure_to_json({})", s.source),
             Scenario::SchemaValidation(_) => "schema_validation".to_string(),
             Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
+            Scenario::EureSchemaToJsonSchema(_) => "eure_schema_to_json_schema".to_string(),
+            Scenario::EureSchemaToJsonSchemaError(_) => {
+                "eure_schema_to_json_schema_error".to_string()
+            }
         }
     }
 
@@ -100,6 +110,8 @@ impl Scenario<'_> {
             Scenario::EureToJson(s) => s.run(),
             Scenario::SchemaValidation(s) => s.run(),
             Scenario::SchemaErrorValidation(s) => s.run(),
+            Scenario::EureSchemaToJsonSchema(s) => s.run(),
+            Scenario::EureSchemaToJsonSchemaError(s) => s.run(),
         }
     }
 }
@@ -110,6 +122,8 @@ pub struct PreprocessedCase {
     pub output_json: Option<serde_json::Value>,
     pub schema: Option<PreprocessedEure>,
     pub schema_errors: Vec<String>,
+    pub output_json_schema: Option<serde_json::Value>,
+    pub json_schema_errors: Vec<String>,
 }
 
 pub enum PreprocessedEure {
@@ -305,6 +319,15 @@ impl Case {
             .iter()
             .map(|e| e.as_str().to_string())
             .collect();
+        let output_json_schema = self
+            .output_json_schema
+            .as_ref()
+            .map(|code| serde_json::from_str(code.as_str()).unwrap());
+        let json_schema_errors = self
+            .json_schema_errors
+            .iter()
+            .map(|e| e.as_str().to_string())
+            .collect();
 
         PreprocessedCase {
             input_eure,
@@ -312,6 +335,8 @@ impl Case {
             output_json,
             schema,
             schema_errors,
+            output_json_schema,
+            json_schema_errors,
         }
     }
 }
@@ -441,6 +466,121 @@ impl SchemaErrorValidationScenario<'_> {
     }
 }
 
+pub struct EureSchemaToJsonSchemaScenario<'a> {
+    schema: &'a PreprocessedEure,
+    output_json_schema: &'a serde_json::Value,
+}
+
+impl EureSchemaToJsonSchemaScenario<'_> {
+    pub fn run(&self) -> eros::Result<()> {
+        let schema_doc = self.schema.doc()?;
+
+        // Convert Eure document to SchemaDocument
+        let (schema, _source_map) = eure_schema::convert::document_to_schema(schema_doc)
+            .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
+
+        // Convert SchemaDocument to JSON Schema
+        let json_schema = eure_json_schema::eure_to_json_schema(&schema)
+            .map_err(|e| eros::traced!("JSON Schema conversion error: {:?}", e))?;
+
+        // Serialize to serde_json::Value for comparison
+        let actual_json: serde_json::Value = serde_json::to_value(&json_schema)
+            .map_err(|e| eros::traced!("JSON serialization error: {}", e))?;
+
+        // Normalize both JSON values by sorting order-independent arrays
+        let actual_normalized = normalize_json_schema(&actual_json);
+        let expected_normalized = normalize_json_schema(self.output_json_schema);
+
+        // Compare normalized outputs
+        assert_eq!(
+            actual_normalized,
+            expected_normalized,
+            "JSON Schema output mismatch.\nExpected: {}\nActual: {}",
+            serde_json::to_string_pretty(&expected_normalized).unwrap(),
+            serde_json::to_string_pretty(&actual_normalized).unwrap()
+        );
+
+        Ok(())
+    }
+}
+
+/// Normalize a JSON Schema value by sorting arrays where order doesn't matter semantically.
+/// This includes `required`, `oneOf`, `anyOf`, `allOf` arrays.
+fn normalize_json_schema(value: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+
+    match value {
+        Value::Object(obj) => {
+            let mut new_obj = serde_json::Map::new();
+            for (key, val) in obj {
+                let normalized_val = normalize_json_schema(val);
+                // Sort arrays for these keys where order doesn't matter
+                let final_val = if matches!(key.as_str(), "required" | "oneOf" | "anyOf") {
+                    if let Value::Array(arr) = normalized_val {
+                        let mut sorted: Vec<_> = arr.into_iter().collect();
+                        sorted.sort_by(|a, b| {
+                            let a_str = serde_json::to_string(a).unwrap_or_default();
+                            let b_str = serde_json::to_string(b).unwrap_or_default();
+                            a_str.cmp(&b_str)
+                        });
+                        Value::Array(sorted)
+                    } else {
+                        normalized_val
+                    }
+                } else {
+                    normalized_val
+                };
+                new_obj.insert(key.clone(), final_val);
+            }
+            Value::Object(new_obj)
+        }
+        Value::Array(arr) => Value::Array(arr.iter().map(normalize_json_schema).collect()),
+        _ => value.clone(),
+    }
+}
+
+pub struct EureSchemaToJsonSchemaErrorScenario<'a> {
+    schema: &'a PreprocessedEure,
+    expected_errors: &'a [String],
+}
+
+impl EureSchemaToJsonSchemaErrorScenario<'_> {
+    pub fn run(&self) -> eros::Result<()> {
+        let schema_doc = self.schema.doc()?;
+
+        // Convert Eure document to SchemaDocument
+        let (schema, _source_map) = eure_schema::convert::document_to_schema(schema_doc)
+            .map_err(|e| eros::traced!("Schema conversion error: {:?}", e))?;
+
+        // Attempt to convert SchemaDocument to JSON Schema
+        let result = eure_json_schema::eure_to_json_schema(&schema);
+
+        // Should fail
+        let error = match result {
+            Ok(_) => {
+                return Err(eros::traced!(
+                    "Expected JSON Schema conversion to fail with errors {:?}, but conversion succeeded",
+                    self.expected_errors
+                ));
+            }
+            Err(e) => e.to_string(),
+        };
+
+        // Check that expected errors are present
+        for expected in self.expected_errors {
+            if !error.contains(expected) {
+                return Err(eros::traced!(
+                    "Expected error containing '{}' not found. Actual error: {}",
+                    expected,
+                    error
+                ));
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl PreprocessedCase {
     /// Returns all scenarios that this case will run.
     /// This is the single source of truth for scenario collection.
@@ -486,6 +626,27 @@ impl PreprocessedCase {
                         input,
                         schema,
                         expected_errors: &self.schema_errors,
+                    },
+                ));
+            }
+        }
+
+        // Eure Schema to JSON Schema conversion scenarios
+        if let Some(schema) = &self.schema {
+            if let Some(output_json_schema) = &self.output_json_schema {
+                // Success case - conversion should produce expected JSON Schema
+                scenarios.push(Scenario::EureSchemaToJsonSchema(
+                    EureSchemaToJsonSchemaScenario {
+                        schema,
+                        output_json_schema,
+                    },
+                ));
+            } else if !self.json_schema_errors.is_empty() {
+                // Error case - conversion should fail with expected errors
+                scenarios.push(Scenario::EureSchemaToJsonSchemaError(
+                    EureSchemaToJsonSchemaErrorScenario {
+                        schema,
+                        expected_errors: &self.json_schema_errors,
                     },
                 ));
             }
@@ -709,6 +870,8 @@ mod tests {
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -728,6 +891,8 @@ mod tests {
             output_json: None,
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -743,6 +908,8 @@ mod tests {
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -758,6 +925,8 @@ mod tests {
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -773,6 +942,8 @@ mod tests {
             output_json: None,
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -787,6 +958,8 @@ mod tests {
             output_json: None,
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -801,6 +974,8 @@ mod tests {
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -815,6 +990,8 @@ mod tests {
             output_json: None,
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         let scenarios = case.scenarios();
@@ -829,6 +1006,8 @@ mod tests {
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
             schema_errors: vec![],
+            output_json_schema: None,
+            json_schema_errors: vec![],
         };
 
         assert_eq!(case.scenario_count(), case.scenarios().len());

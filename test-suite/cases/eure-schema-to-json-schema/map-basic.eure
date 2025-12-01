@@ -1,0 +1,14 @@
+// Test map type (string keys with value schema)
+
+schema = ```eure
+$variant = "map"
+key = `text`
+value = `integer`
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "additionalProperties": {"type": "integer"}
+}
+```

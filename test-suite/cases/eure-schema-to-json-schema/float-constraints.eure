@@ -1,0 +1,10 @@
+// Test float with bounds using range string
+
+schema = ```eure
+$variant = "float"
+range = "[0.0, 1.0]"
+```
+
+output_json_schema = ```json
+{"type": "number", "minimum": 0.0, "maximum": 1.0}
+```

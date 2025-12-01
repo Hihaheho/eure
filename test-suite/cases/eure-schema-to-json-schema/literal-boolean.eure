@@ -1,0 +1,10 @@
+// Test literal boolean value
+// Literal is just the value itself
+
+schema = ```eure
+= true
+```
+
+output_json_schema = ```json
+{"const": true}
+```

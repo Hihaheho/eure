@@ -1,0 +1,12 @@
+// Test array with length constraints
+
+schema = ```eure
+$variant = "array"
+item = `integer`
+min-length = 1
+max-length = 10
+```
+
+output_json_schema = ```json
+{"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 10}
+```

@@ -1,0 +1,11 @@
+// Test array with unique items constraint
+
+schema = ```eure
+$variant = "array"
+item = `text`
+unique = true
+```
+
+output_json_schema = ```json
+{"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+```

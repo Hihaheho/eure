@@ -1,0 +1,9 @@
+// Test text with email format
+
+schema = ```eure
+= `text.email`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "email"}
+```

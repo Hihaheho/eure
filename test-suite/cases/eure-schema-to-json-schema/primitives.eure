@@ -1,0 +1,9 @@
+// Test primitive type conversions to JSON Schema
+
+schema = ```eure
+= `text`
+```
+
+output_json_schema = ```json
+{"type": "string"}
+```

@@ -1,0 +1,32 @@
+// Test type references ($defs)
+// Note: The converter wraps $ref and $defs in allOf
+
+schema = ```eure
+= `$types.Person`
+
+@ $types.Person {
+    name = `text`
+    age = `integer`
+}
+```
+
+output_json_schema = ```json
+{
+    "allOf": [
+        {"$ref": "#/$defs/Person"},
+        {
+            "$defs": {
+                "Person": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "age": {"type": "integer"}
+                    },
+                    "required": ["name", "age"],
+                    "additionalProperties": false
+                }
+            }
+        }
+    ]
+}
+```

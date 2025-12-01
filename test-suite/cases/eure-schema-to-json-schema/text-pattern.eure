@@ -1,0 +1,18 @@
+// Test text with regex pattern
+// Text constraints are defined within a record field context
+
+schema = ```eure
+field.$variant = "text"
+field.pattern = "^[a-z]+$"
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "pattern": "^[a-z]+$"}
+    },
+    "required": ["field"],
+    "additionalProperties": false
+}
+```

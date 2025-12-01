@@ -1,0 +1,10 @@
+// Test error: Map with non-string keys cannot be converted to JSON Schema
+// JSON Schema only supports string keys in additionalProperties
+
+schema = ```eure
+$variant = "map"
+key = `integer`
+value = `text`
+```
+
+json_schema_errors[] = "non-string keys"

@@ -1,0 +1,10 @@
+// Test integer with bounds using range string
+
+schema = ```eure
+$variant = "integer"
+range = "[0, 100]"
+```
+
+output_json_schema = ```json
+{"type": "integer", "minimum": 0, "maximum": 100}
+```

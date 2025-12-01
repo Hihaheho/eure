@@ -1,0 +1,9 @@
+// Test text with UUID format
+
+schema = ```eure
+= `text.uuid`
+```
+
+output_json_schema = ```json
+{"type": "string", "format": "uuid"}
+```

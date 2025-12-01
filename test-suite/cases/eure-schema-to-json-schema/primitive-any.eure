@@ -1,0 +1,9 @@
+// Test any type conversion to JSON Schema (empty schema)
+
+schema = ```eure
+= `any`
+```
+
+output_json_schema = ```json
+{}
+```

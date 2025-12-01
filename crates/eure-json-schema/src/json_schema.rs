@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SchemaMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -161,16 +163,19 @@ pub enum TypedSchema {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StringSchema {
-    #[serde(rename = "minLength")]
+    #[serde(rename = "minLength", skip_serializing_if = "Option::is_none")]
     pub min_length: Option<u32>,
 
-    #[serde(rename = "maxLength")]
+    #[serde(rename = "maxLength", skip_serializing_if = "Option::is_none")]
     pub max_length: Option<u32>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pattern: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<String>,
 
     #[serde(flatten)]
@@ -181,19 +186,22 @@ pub struct StringSchema {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NumberSchema {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub minimum: Option<f64>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub maximum: Option<f64>,
 
-    #[serde(rename = "exclusiveMinimum")]
+    #[serde(rename = "exclusiveMinimum", skip_serializing_if = "Option::is_none")]
     pub exclusive_minimum: Option<f64>,
 
-    #[serde(rename = "exclusiveMaximum")]
+    #[serde(rename = "exclusiveMaximum", skip_serializing_if = "Option::is_none")]
     pub exclusive_maximum: Option<f64>,
 
-    #[serde(rename = "multipleOf")]
+    #[serde(rename = "multipleOf", skip_serializing_if = "Option::is_none")]
     pub multiple_of: Option<f64>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<f64>,
 
     #[serde(flatten)]
@@ -204,19 +212,22 @@ pub struct NumberSchema {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IntegerSchema {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub minimum: Option<i64>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub maximum: Option<i64>,
 
-    #[serde(rename = "exclusiveMinimum")]
+    #[serde(rename = "exclusiveMinimum", skip_serializing_if = "Option::is_none")]
     pub exclusive_minimum: Option<i64>,
 
-    #[serde(rename = "exclusiveMaximum")]
+    #[serde(rename = "exclusiveMaximum", skip_serializing_if = "Option::is_none")]
     pub exclusive_maximum: Option<i64>,
 
-    #[serde(rename = "multipleOf")]
+    #[serde(rename = "multipleOf", skip_serializing_if = "Option::is_none")]
     pub multiple_of: Option<i64>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<i64>,
 
     #[serde(flatten)]
@@ -227,6 +238,7 @@ pub struct IntegerSchema {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BooleanSchema {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<bool>,
 
     #[serde(flatten)]
@@ -245,17 +257,19 @@ pub struct NullSchema {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArraySchema {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub items: Option<Box<JsonSchema>>,
 
-    #[serde(rename = "minItems")]
+    #[serde(rename = "minItems", skip_serializing_if = "Option::is_none")]
     pub min_items: Option<u32>,
 
-    #[serde(rename = "maxItems")]
+    #[serde(rename = "maxItems", skip_serializing_if = "Option::is_none")]
     pub max_items: Option<u32>,
 
-    #[serde(rename = "uniqueItems")]
+    #[serde(rename = "uniqueItems", skip_serializing_if = "Option::is_none")]
     pub unique_items: Option<bool>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub contains: Option<Box<JsonSchema>>,
 
     #[serde(flatten)]
@@ -266,11 +280,16 @@ pub struct ArraySchema {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectSchema {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<IndexMap<String, JsonSchema>>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub required: Option<Vec<String>>,
 
-    #[serde(rename = "additionalProperties")]
+    #[serde(
+        rename = "additionalProperties",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_properties: Option<AdditionalProperties>,
 
     // Note: patternProperties is not yet supported in this ADT
@@ -297,24 +316,31 @@ pub enum AdditionalProperties {
 #[serde(deny_unknown_fields)]
 pub struct GenericSchema {
     // Object-like fields (without explicit type)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<IndexMap<String, JsonSchema>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub required: Option<Vec<String>>,
 
-    #[serde(rename = "additionalProperties")]
+    #[serde(
+        rename = "additionalProperties",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_properties: Option<AdditionalProperties>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<serde_json::Value>,
 
     // Schema metadata
-    #[serde(rename = "$schema")]
+    #[serde(rename = "$schema", skip_serializing_if = "Option::is_none")]
     pub schema: Option<String>,
 
-    #[serde(rename = "$id")]
+    #[serde(rename = "$id", skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
 
-    #[serde(rename = "$defs")]
+    #[serde(rename = "$defs", skip_serializing_if = "Option::is_none")]
     pub defs: Option<IndexMap<String, JsonSchema>>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub definitions: Option<IndexMap<String, JsonSchema>>,
 
     #[serde(flatten)]

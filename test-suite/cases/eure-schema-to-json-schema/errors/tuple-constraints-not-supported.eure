@@ -1,0 +1,9 @@
+// Test error: Tuple constraints cannot be fully represented in JSON Schema
+
+schema = ```eure
+$variant = "tuple"
+items[0] = `text`
+items[1] = `integer`
+```
+
+json_schema_errors[] = "Tuple constraints"

@@ -1,0 +1,19 @@
+// Test text with length constraints
+// Text constraints are defined within a record field context
+
+schema = ```eure
+field.$variant = "text"
+field.min-length = 3
+field.max-length = 50
+```
+
+output_json_schema = ```json
+{
+    "type": "object",
+    "properties": {
+        "field": {"type": "string", "minLength": 3, "maxLength": 50}
+    },
+    "required": ["field"],
+    "additionalProperties": false
+}
+```

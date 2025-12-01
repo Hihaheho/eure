@@ -1,0 +1,10 @@
+// Test literal value (const)
+// Literal is just the value itself with $variant = "literal"
+
+schema = ```eure
+= "fixed-string"
+```
+
+output_json_schema = ```json
+{"const": "fixed-string"}
+```
