@@ -474,7 +474,7 @@ pub enum Description {
 
 /// Cascading metadata (available at any nesting level)
 ///
-/// Spec: $cascade-ext-type (lines 302-330)
+/// Spec: $cascade-ext-types (lines 302-330)
 /// ```eure
 /// description => union { string, .text.markdown } (optional)
 /// deprecated => .boolean (optional)

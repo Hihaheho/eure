@@ -10,7 +10,7 @@ Eure Schema is embedded within Eure documents using extension namespaces (prefix
 
 - `$foo` - Regular extensions used in documents
 - `$ext-type.foo` - Extension type definitions in meta-schemas (defines the type of `$foo`)
-- `$cascade-ext-type` - Extensions that cascade down the document tree
+- `$cascade-ext-types` - Extensions that cascade down the document tree
 
 ---
 
@@ -63,12 +63,12 @@ pattern = "^[a-z0-9_]+$"
 name = .$types.username
 ```
 
-### $cascade-ext-type
+### $cascade-ext-types
 
 Extensions that cascade down the document tree. Unlike `$ext-type`, these are available at any nesting level.
 
 Built-in cascading extensions:
-- `cascade-ext-type` - Allows users to define custom cascading extensions
+- `cascade-ext-types` - Allows users to define custom cascading extensions
 - `description` - Field documentation (plain text or markdown)
 - `deprecated` - Marks a field as deprecated
 - `default` - Default value for optional fields

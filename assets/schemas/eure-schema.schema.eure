@@ -35,13 +35,13 @@
 ///    - $types.unknown-fields-policy: Policy for unknown fields in records
 ///    - $types.binding-style: How document paths are represented
 ///
-/// 4. $cascade-ext-type = { foo = <type>, ... }
+/// 4. $cascade-ext-types = { foo = <type>, ... }
 ///    Extensions that cascade down the document tree.
 ///    Unlike $ext-type, these are available at any nesting level.
 ///    Defined inside $types.type in this schema.
 ///
 ///    Cascading extensions:
-///    - cascade-ext-type: Allows users to define custom cascading extensions
+///    - cascade-ext-types: Allows users to define custom cascading extensions
 ///    - description: Field documentation (plain text or markdown)
 ///    - deprecated: Marks a field as deprecated
 ///    - default: Default value for optional fields
@@ -323,10 +323,10 @@ variants {
   }
 
   // $optional is not here because it's a record variant's extension.
-  $cascade-ext-type {
+  $cascade-ext-types {
     // Allows users to define or override cascading extensions at any level.
-    // Example: section.$cascade-ext-type = { custom-field => .text }
-    cascade-ext-type {
+    // Example: section.$cascade-ext-types = { custom-field => .text }
+    cascade-ext-types {
       $variant: "map"
       key = `$types.ident`
       value = `$types.type`
