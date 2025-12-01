@@ -26,6 +26,8 @@ enum Commands {
     FromJson(commands::from_json::Args),
     /// Syntax highlight Eure file with colors
     Highlight(commands::highlight::Args),
+    /// Export Eure file as HTML with syntax highlighting
+    Html(commands::html::Args),
 }
 
 fn main() {
@@ -38,5 +40,6 @@ fn main() {
         Commands::ToJson(args) => commands::to_json::run(args),
         Commands::FromJson(args) => commands::from_json::run(args),
         Commands::Highlight(args) => commands::highlight::run(args),
+        Commands::Html(args) => commands::html::run(args),
     }
 }

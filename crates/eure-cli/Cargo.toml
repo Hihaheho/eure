@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 ahash = { workspace = true }
 automod = { workspace = true }
+catppuccin = { version = "2.6.0", features = ["css-colors"] }
 clap = { workspace = true, features = ["derive"] }
 eure = { workspace = true }
 eure-editor-support = { workspace = true }
@@ -25,6 +26,7 @@ eure-parol = { workspace = true }
 eure-tree = { workspace = true }
 eure-value = { workspace = true }
 eure-yaml = { workspace = true }
+maud = "0.27.0"
 nu-ansi-term = "0.50"
 petgraph = "0.8.1"
 serde_json = { workspace = true }
