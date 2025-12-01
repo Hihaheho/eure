@@ -1,11 +1,14 @@
 //! ParseDocument trait for parsing Rust types from Eure documents.
 
+extern crate alloc;
+
 pub mod object_key;
 pub mod record;
 
 pub use object_key::ParseObjectKey;
 pub use record::{ExtParser, RecordParser};
 
+use alloc::format;
 use num_bigint::BigInt;
 
 use crate::{
@@ -177,6 +180,69 @@ impl ParseDocument<'_> for f32 {
     }
 }
 
+impl ParseDocument<'_> for f64 {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        match &doc.node(node_id).content {
+            // Accept both F32 (with conversion) and F64 if we add it later
+            NodeValue::Primitive(PrimitiveValue::F32(f)) => Ok(*f as f64),
+            value => Err(ParseError {
+                node_id,
+                kind: handle_unexpected_node_value(value),
+            }),
+        }
+    }
+}
+
+impl ParseDocument<'_> for u32 {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        let value: BigInt = doc.parse(node_id)?;
+        u32::try_from(&value).map_err(|_| ParseError {
+            node_id,
+            kind: ParseErrorKind::OutOfRange(format!("value {} out of u32 range", value)),
+        })
+    }
+}
+
+impl ParseDocument<'_> for i32 {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        let value: BigInt = doc.parse(node_id)?;
+        i32::try_from(&value).map_err(|_| ParseError {
+            node_id,
+            kind: ParseErrorKind::OutOfRange(format!("value {} out of i32 range", value)),
+        })
+    }
+}
+
+impl ParseDocument<'_> for i64 {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        let value: BigInt = doc.parse(node_id)?;
+        i64::try_from(&value).map_err(|_| ParseError {
+            node_id,
+            kind: ParseErrorKind::OutOfRange(format!("value {} out of i64 range", value)),
+        })
+    }
+}
+
+impl ParseDocument<'_> for u64 {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        let value: BigInt = doc.parse(node_id)?;
+        u64::try_from(&value).map_err(|_| ParseError {
+            node_id,
+            kind: ParseErrorKind::OutOfRange(format!("value {} out of u64 range", value)),
+        })
+    }
+}
+
+impl ParseDocument<'_> for usize {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        let value: BigInt = doc.parse(node_id)?;
+        usize::try_from(&value).map_err(|_| ParseError {
+            node_id,
+            kind: ParseErrorKind::OutOfRange(format!("value {} out of usize range", value)),
+        })
+    }
+}
+
 impl<'doc> ParseDocument<'doc> for &'doc PrimitiveValue {
     fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         match &doc.node(node_id).content {
@@ -297,5 +363,43 @@ where
                 ))
             })
             .collect::<Result<Map<_, _>, _>>()
+    }
+}
+
+impl ParseDocument<'_> for crate::data_model::VariantRepr {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        use crate::data_model::VariantRepr;
+
+        // Check if it's a simple string value
+        if let Ok(value) = doc.parse::<&str>(node_id) {
+            return match value {
+                "external" => Ok(VariantRepr::External),
+                "untagged" => Ok(VariantRepr::Untagged),
+                _ => Err(ParseError {
+                    node_id,
+                    kind: ParseErrorKind::UnknownVariant(value.to_string()),
+                }),
+            };
+        }
+
+        // Otherwise, it should be a record with tag/content fields
+        let mut rec = doc.parse_record(node_id)?;
+
+        let tag = rec.field_optional::<String>("tag")?;
+        let content = rec.field_optional::<String>("content")?;
+
+        rec.allow_unknown_fields();
+
+        match (tag, content) {
+            (Some(tag), Some(content)) => Ok(VariantRepr::Adjacent { tag, content }),
+            (Some(tag), None) => Ok(VariantRepr::Internal { tag }),
+            (None, None) => Ok(VariantRepr::External),
+            (None, Some(_)) => Err(ParseError {
+                node_id,
+                kind: ParseErrorKind::MissingField(
+                    "tag (required when content is present)".to_string(),
+                ),
+            }),
+        }
     }
 }
