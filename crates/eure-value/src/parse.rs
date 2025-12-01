@@ -1,7 +1,10 @@
 //! ParseDocument trait for parsing Rust types from Eure documents.
 
 pub mod object_key;
+pub mod record;
+
 pub use object_key::ParseObjectKey;
+pub use record::{ExtParser, RecordParser};
 
 use num_bigint::BigInt;
 
@@ -98,6 +101,10 @@ pub enum ParseErrorKind {
     /// Unexpected tuple length.
     #[error("unexpected tuple length: expected {expected}, got {actual}")]
     UnexpectedTupleLength { expected: usize, actual: usize },
+
+    /// Unknown field in record.
+    #[error("unknown field: {0}")]
+    UnknownField(String),
 }
 
 impl ParseErrorKind {
