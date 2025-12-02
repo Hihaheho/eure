@@ -7,6 +7,7 @@ ahash = { version = "0.8.11", default-features = false }
 annotate-snippets = "0.12"
 anyhow = "1"
 automod = "1"
+catppuccin = { version = "2.6.0", features = ["css-colors"] }
 clap = "4.5"
 eros = "0.5"
 eure = { path = "crates/eure", version = "0.1.0" }

@@ -1,11 +1,7 @@
 !Dioxus.toml
-!input.css
-!tailwind.config.js
+!tailwind.css
 !assets/*.ico
 !assets/*.svg
 !assets/*.css
-!package.json
-!package-lock.json
 
 assets/tailwind.css
-node_modules
