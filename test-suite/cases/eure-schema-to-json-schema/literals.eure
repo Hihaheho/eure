@@ -1,0 +1,46 @@
+// Test all literal/const value conversions to JSON Schema
+//
+// This test consolidates all literal value tests:
+// - string literals
+// - boolean literals (true/false)
+// - number literals
+// - null literals
+// - array literals (unimplemented)
+// - object literals (unimplemented)
+//
+// Note: Array and object literals are marked as unimplemented because
+// the conversion is not yet fully supported.
+
+unimplemented = true
+
+schema = ```eure
+string_const = "fixed-string"
+boolean_const = true
+number_const = 42
+null_const = null
+array_const = [1, 2, 3]
+object_const = { key => "value" }
+```
+
+output_json_schema = ```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "string_const": {"const": "fixed-string"},
+    "boolean_const": {"const": true},
+    "number_const": {"const": 42},
+    "null_const": {"const": null},
+    "array_const": {"const": [1, 2, 3]},
+    "object_const": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {"const": "value"}
+      },
+      "required": ["key"]
+    }
+  },
+  "required": ["string_const", "boolean_const", "number_const", "null_const", "array_const", "object_const"]
+}
+```

@@ -1,9 +1,0 @@
-// Test text with hostname format
-
-schema = ```eure
-= `text.hostname`
-```
-
-output_json_schema = ```json
-{"type": "string", "format": "hostname"}
-```

@@ -1,9 +1,0 @@
-// Test boolean type conversion to JSON Schema
-
-schema = ```eure
-= `boolean`
-```
-
-output_json_schema = ```json
-{"type": "boolean"}
-```
