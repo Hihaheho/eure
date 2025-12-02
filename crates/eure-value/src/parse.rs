@@ -62,7 +62,7 @@ pub struct ParseError {
 }
 
 /// Error type for parsing failures.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub enum ParseErrorKind {
     /// Unexpected uninitialized value.
     #[error("unexpected uninitialized value")]
