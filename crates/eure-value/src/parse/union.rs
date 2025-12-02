@@ -48,8 +48,6 @@ pub struct UnionParser<'doc, T> {
     variant_name: Option<String>,
     /// Result when `$variant` is specified and matches
     variant_result: Option<Result<T, ParseError>>,
-    /// All registered variant names (for UnknownVariant check)
-    all_variant_names: Vec<String>,
     /// First matching priority variant (short-circuit result)
     priority_result: Option<T>,
     /// Matching non-priority variants
@@ -68,7 +66,6 @@ impl<'doc, T> UnionParser<'doc, T> {
             node_id,
             variant_name,
             variant_result: None,
-            all_variant_names: Vec::new(),
             priority_result: None,
             other_results: Vec::new(),
             other_failures: Vec::new(),
@@ -90,8 +87,6 @@ impl<'doc, T> UnionParser<'doc, T> {
     where
         P: DocumentParser<'doc, Output = T> + 'doc,
     {
-        self.all_variant_names.push(name.to_string());
-
         if let Some(ref vn) = self.variant_name {
             // $variant specified: only parse if name matches and no result yet
             if vn == name && self.variant_result.is_none() {
@@ -114,8 +109,6 @@ impl<'doc, T> UnionParser<'doc, T> {
     where
         P: DocumentParser<'doc, Output = T> + 'doc,
     {
-        self.all_variant_names.push(name.to_string());
-
         if let Some(ref vn) = self.variant_name {
             // $variant specified: only parse if name matches and no result yet
             if vn == name && self.variant_result.is_none() {
@@ -145,15 +138,12 @@ impl<'doc, T> UnionParser<'doc, T> {
 
         // $variant specified
         if let Some(variant_name) = self.variant_name {
-            // Check if variant name is registered
-            if !self.all_variant_names.iter().any(|n| n == &variant_name) {
-                return Err(ParseError {
+            return self.variant_result.unwrap_or_else(|| {
+                Err(ParseError {
                     node_id,
                     kind: ParseErrorKind::UnknownVariant(variant_name),
-                });
-            }
-            // Return the parse result (success or failure)
-            return self.variant_result.unwrap();
+                })
+            });
         }
 
         // No $variant: use priority/other logic
@@ -368,34 +358,15 @@ mod tests {
 
     #[test]
     fn test_variant_extension_match_success() {
-        // $variant = "bar" specified, "bar" parser succeeds
-        let doc = create_doc_with_variant("bar", "bar");
+        // $variant = "baz" specified, matches other("baz")
+        // All parsers always succeed
+        let doc = create_doc_with_variant("anything", "baz");
         let root_id = doc.get_root_id();
 
         let result: TestEnum = doc
             .parse_union(root_id)
-            .variant("foo", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
-                if s == "foo" {
-                    Ok(TestEnum::Foo)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
-            })
-            .variant("bar", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
-                if s == "bar" {
-                    Ok(TestEnum::Bar)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
-            })
+            .variant("foo", |_, _| Ok(TestEnum::Foo))
+            .other("baz", |_, _| Ok(TestEnum::Bar))
             .parse()
             .unwrap();
 
@@ -405,33 +376,14 @@ mod tests {
     #[test]
     fn test_variant_extension_unknown() {
         // $variant = "unknown" specified, but "unknown" is not registered
-        let doc = create_doc_with_variant("hello", "unknown");
+        // All parsers always succeed
+        let doc = create_doc_with_variant("anything", "unknown");
         let root_id = doc.get_root_id();
 
         let err = doc
             .parse_union::<TestEnum>(root_id)
-            .variant("foo", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
-                if s == "foo" {
-                    Ok(TestEnum::Foo)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
-            })
-            .variant("bar", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
-                if s == "bar" {
-                    Ok(TestEnum::Bar)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
-            })
+            .variant("foo", |_, _| Ok(TestEnum::Foo))
+            .other("baz", |_, _| Ok(TestEnum::Bar))
             .parse()
             .unwrap_err();
 
@@ -444,42 +396,24 @@ mod tests {
 
     #[test]
     fn test_variant_extension_match_parse_failure() {
-        // $variant = "bar" specified, "bar" parser fails (content is "wrong")
-        let doc = create_doc_with_variant("wrong", "bar");
+        // $variant = "baz" specified, "baz" parser fails
+        let doc = create_doc_with_variant("anything", "baz");
         let root_id = doc.get_root_id();
 
         let err = doc
             .parse_union::<TestEnum>(root_id)
-            .variant("foo", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
-                if s == "foo" {
-                    Ok(TestEnum::Foo)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
-            })
-            .variant("bar", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
-                if s == "bar" {
-                    Ok(TestEnum::Bar)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
+            .variant("foo", |_, _| Ok(TestEnum::Foo))
+            .other("baz", |_, id| {
+                Err(ParseError {
+                    node_id: id,
+                    kind: ParseErrorKind::MissingField("test".to_string()),
+                })
             })
             .parse()
             .unwrap_err();
 
-        // Parser's error is returned directly (not UnknownVariant for "bar")
+        // Parser's error is returned directly
         assert_eq!(err.node_id, root_id);
-        assert_eq!(
-            err.kind,
-            ParseErrorKind::UnknownVariant("wrong".to_string())
-        );
+        assert_eq!(err.kind, ParseErrorKind::MissingField("test".to_string()));
     }
 }
