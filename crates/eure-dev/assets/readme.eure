@@ -1,0 +1,54 @@
+$license: MIT OR Apache-2.0
+
+name = "Eure"
+github = url`https://github.com/Hihaheho/eure`
+version = "0.1.0-alpha"
+
+tagline: Your data, your way
+subtitle: Eureka, Extensible Universal Representation
+
+description = ```
+A minimalist, schema-friendly data format
+designed for configuration and data exchange.
+```
+
+@ status
+phase: Preparing for Alpha Release
+
+@ features[]
+$variant: done
+title: Minimalist
+icon: ✨
+description: Clean syntax inspired by TOML, without the complexity
+
+@ features[]
+$variant: done
+title: Schema-friendly
+icon: 🧩
+description: First-class schema support with JSON Schema compatibility
+
+@ features[]
+$variant: done
+title: Algebraic Data Model
+icon: 🦀
+description: Records, unions, tuples, and more for precise data modeling
+
+@ features[]
+$variant: done
+title: Human Friendly
+icon: 👋
+description: Readable syntax that feels natural to write and review
+
+@ features[]
+$variant: in-progress
+title: Rich Editor Experience
+icon: 🎨
+description: LSP support, syntax highlighting, and diagnostics built-in
+milestone: Semantic tokens complete, diagnostics WIP
+
+@ features[]
+$variant: planned
+title: Templating Ready
+icon: 📝
+description: Dedicated templating language for dynamic configuration
+target: v0.2.0

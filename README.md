@@ -2,8 +2,8 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Hihaheho/eure)
 
-> [!WARNING]
-> Under Construction!
+> [!NOTE]
+> Preparing for Alpha Release!
 
 ## Name
 

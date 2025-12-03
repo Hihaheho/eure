@@ -14,11 +14,52 @@ struct ParsedData {
     errors: Vec<ErrorSpan>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+enum EureExample {
+    #[default]
+    Readme,
+    HelloWorld,
+}
+
+impl EureExample {
+    const ALL: &'static [EureExample] = &[EureExample::Readme, EureExample::HelloWorld];
+
+    fn name(&self) -> &'static str {
+        match self {
+            EureExample::Readme => "Readme",
+            EureExample::HelloWorld => "Hello World",
+        }
+    }
+
+    fn value(&self) -> &'static str {
+        match self {
+            EureExample::Readme => "readme",
+            EureExample::HelloWorld => "hello-world",
+        }
+    }
+
+    fn from_value(value: &str) -> Option<Self> {
+        match value {
+            "readme" => Some(EureExample::Readme),
+            "hello-world" => Some(EureExample::HelloWorld),
+            _ => None,
+        }
+    }
+
+    fn content(&self) -> &'static str {
+        match self {
+            EureExample::Readme => include_str!("../../assets/readme.eure"),
+            EureExample::HelloWorld => include_str!("../../assets/examples/hello-world.eure"),
+        }
+    }
+}
+
 /// Home page with the Eure editor
 #[component]
 pub fn Home() -> Element {
     let mut theme = use_signal(|| Theme::Dark);
-    let mut content = use_signal(String::new);
+    let mut example = use_signal(EureExample::default);
+    let mut content = use_signal(|| EureExample::default().content().to_string());
     let parsed = use_memo(move || {
         let input = content();
         let result = parse_tolerant(&input);
@@ -57,51 +98,72 @@ pub fn Home() -> Element {
     let border_color = theme_val.border_color();
 
     rsx! {
-		div {
-			class: "min-h-screen p-4 flex flex-col items-center",
-			style: "background-color: {bg_color}; color: {text_color}",
+        div {
+            class: "min-h-screen p-4 flex flex-col items-center",
+            style: "background-color: {bg_color}; color: {text_color}",
 
-			// Header
-			div { class: "w-full max-w-4xl mb-4 flex justify-between items-center",
+            // Header
+            div { class: "w-full max-w-4xl mb-4 flex justify-between items-center",
 
-				h1 { class: "text-2xl font-bold", "Eure Editor" }
+                h1 { class: "text-2xl font-bold", "Eure Editor" }
 
-				// Theme toggle button
-				button {
-					class: "px-4 py-2 rounded border",
-					style: "border-color: {border_color}",
-					onclick: move |_| theme.set(theme().toggle()),
-					if theme() == Theme::Dark {
-						"Light Mode"
-					} else {
-						"Dark Mode"
-					}
-				}
-			}
+                div { class: "flex gap-2 items-center",
+                    // Example selector
+                    select {
+                        class: "px-4 py-2 rounded border",
+                        style: "border-color: {border_color}; background-color: {bg_color}; color: {text_color}",
+                        value: "{example().value()}",
+                        onchange: move |evt| {
+                            if let Some(ex) = EureExample::from_value(&evt.value()) {
+                                example.set(ex);
+                                content.set(ex.content().to_string());
+                            }
+                        },
+                        for ex in EureExample::ALL {
+                            option {
+                                value: "{ex.value()}",
+                                "{ex.name()}"
+                            }
+                        }
+                    }
 
-			// Editor container
-			div {
-				class: "w-full max-w-4xl h-96 rounded border",
-				style: "border-color: {border_color}",
-				Editor {
-					content,
-					tokens,
-					errors,
-					theme,
-					on_change: move |s| content.set(s),
-				}
-			}
+                    // Theme toggle button
+                    button {
+                        class: "px-4 py-2 rounded border",
+                        style: "border-color: {border_color}",
+                        onclick: move |_| theme.set(theme().toggle()),
+                        if theme() == Theme::Dark {
+                            "Light Mode"
+                        } else {
+                            "Dark Mode"
+                        }
+                    }
+                }
+            }
 
-			// Status bar
-			div { class: "w-full max-w-4xl mt-2 text-sm opacity-70 max-h-64 overflow-y-auto",
-				if !parsed().errors.is_empty() {
-					for error in parsed().errors {
-						pre { class: "text-red-500", "{error.message}" }
-					}
-				} else {
-					"No errors"
-				}
-			}
-		}
-	}
+            // Editor container
+            div {
+                class: "w-full max-w-4xl h-full rounded border text-xl",
+                style: "border-color: {border_color}",
+                Editor {
+                    content,
+                    tokens,
+                    errors,
+                    theme,
+                    on_change: move |s| content.set(s),
+                }
+            }
+
+            // Status bar
+            div { class: "w-full max-w-4xl mt-2 text-sm opacity-70 max-h-64 overflow-y-auto",
+                if !parsed().errors.is_empty() {
+                    for error in parsed().errors {
+                        pre { class: "text-red-500", "{error.message}" }
+                    }
+                } else {
+                    "No errors"
+                }
+            }
+        }
+    }
 }

@@ -3,5 +3,6 @@
 !assets/*.ico
 !assets/*.svg
 !assets/*.css
+!assets/**/*.eure
 
 assets/tailwind.css

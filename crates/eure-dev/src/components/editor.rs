@@ -6,7 +6,9 @@ use crate::theme::Theme;
 use catppuccin::Hex;
 use dioxus::events::MountedData;
 use dioxus::prelude::*;
-use eure_editor_support::semantic_token::{SemanticToken, SemanticTokenType};
+use eure_editor_support::semantic_token::{
+    SemanticToken, SemanticTokenModifier, SemanticTokenType,
+};
 
 /// Error span information for displaying error underlines.
 #[derive(Debug, Clone, PartialEq)]
@@ -41,7 +43,7 @@ pub fn Editor(
 
     rsx! {
         div {
-            class: "w-full h-full overflow-y-scroll font-mono text-sm",
+            class: "w-full h-full overflow-y-scroll font-mono",
             style: "{bg_style}",
             onmousemove: move |e: Event<MouseData>| {
                 let coords = e.client_coordinates();
@@ -107,8 +109,8 @@ fn Segments(
     let input_len = input.len() as u32;
     let mut current_pos: u32 = 0;
 
-    // Build render list: (start, end, token_type, has_error, error_message)
-    let mut items: Vec<(&str, Option<SemanticTokenType>, Option<String>)> = Vec::new();
+    // Build render list: (text, token_type, modifiers, error_message)
+    let mut items: Vec<(&str, Option<SemanticTokenType>, u32, Option<String>)> = Vec::new();
 
     for token in &tokens {
         let start = token.start.min(input_len);
@@ -128,6 +130,7 @@ fn Segments(
             items.push((
                 &input[gap_start as usize..gap_end as usize],
                 None,
+                0,
                 error_msg,
             ));
         }
@@ -141,6 +144,7 @@ fn Segments(
         items.push((
             &input[start as usize..end as usize],
             Some(token.token_type),
+            token.modifiers,
             error_msg,
         ));
         current_pos = end;
@@ -157,6 +161,7 @@ fn Segments(
         items.push((
             &input[gap_start as usize..gap_end as usize],
             None,
+            0,
             error_msg,
         ));
     }
@@ -168,11 +173,12 @@ fn Segments(
         .map(|e| e.message.clone());
 
     rsx! {
-        for (text , token_type , error_msg) in items {
+        for (text , token_type , modifiers , error_msg) in items {
             if let Some(msg) = error_msg {
                 ErrorSegment {
                     text: text.to_string(),
                     color: token_type.map(|t| theme.token_color(t)).unwrap_or(theme.text_color()),
+                    modifiers,
                     error_color: theme.error_color(),
                     message: msg,
                     mouse_pos,
@@ -183,6 +189,7 @@ fn Segments(
                 Segment {
                     text: text.to_string(),
                     color: token_type.map(|t| theme.token_color(t)).unwrap_or(theme.text_color()),
+                    modifiers,
                 }
             }
         }
@@ -203,9 +210,15 @@ fn Segments(
 
 /// A simple text segment.
 #[component]
-fn Segment(text: String, color: Hex) -> Element {
+fn Segment(text: String, color: Hex, modifiers: u32) -> Element {
+    let is_section_header = modifiers & SemanticTokenModifier::SectionHeader.bitmask() != 0;
+    let style = if is_section_header {
+        format!("color: {}; font-weight: bold", color)
+    } else {
+        format!("color: {}", color)
+    };
     rsx! {
-        span { style: "color: {color}", "{text}" }
+        span { style: "{style}", "{text}" }
     }
 }
 
@@ -214,6 +227,7 @@ fn Segment(text: String, color: Hex) -> Element {
 fn ErrorSegment(
     text: String,
     color: Hex,
+    modifiers: u32,
     error_color: Hex,
     message: String,
     mouse_pos: Signal<Option<(f64, f64)>>,
@@ -250,13 +264,22 @@ fn ErrorSegment(
         mx >= left && mx <= right && my >= top && my <= bottom
     });
 
+    let is_section_header = modifiers & SemanticTokenModifier::SectionHeader.bitmask() != 0;
+    let font_weight = if is_section_header {
+        "; font-weight: bold"
+    } else {
+        ""
+    };
     let style = if is_hovered() {
         format!(
-            "anchor-name: --tooltip-anchor; color: {}; text-decoration-color: {}",
-            color, error_color
+            "anchor-name: --tooltip-anchor; color: {}; text-decoration-color: {}{}",
+            color, error_color, font_weight
         )
     } else {
-        format!("color: {}; text-decoration-color: {}", color, error_color)
+        format!(
+            "color: {}; text-decoration-color: {}{}",
+            color, error_color, font_weight
+        )
     };
 
     rsx! {
