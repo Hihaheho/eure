@@ -119,7 +119,17 @@ fn Segments(
 
         // Gap before this token
         if start > current_pos {
-            items.push((&input[current_pos as usize..start as usize], None, None));
+            let gap_start = current_pos;
+            let gap_end = start;
+            let error_msg = errors
+                .iter()
+                .find(|e| gap_start < e.end && gap_end > e.start)
+                .map(|e| e.message.clone());
+            items.push((
+                &input[gap_start as usize..gap_end as usize],
+                None,
+                error_msg,
+            ));
         }
 
         // Check error overlap
@@ -138,8 +148,24 @@ fn Segments(
 
     // Trailing gap
     if current_pos < input_len {
-        items.push((&input[current_pos as usize..input_len as usize], None, None));
+        let gap_start = current_pos;
+        let gap_end = input_len;
+        let error_msg = errors
+            .iter()
+            .find(|e| gap_start < e.end && gap_end > e.start)
+            .map(|e| e.message.clone());
+        items.push((
+            &input[gap_start as usize..gap_end as usize],
+            None,
+            error_msg,
+        ));
     }
+
+    // Check for trailing errors at end of input (e.g., EndOfInput errors)
+    let trailing_error = errors
+        .iter()
+        .find(|e| e.start >= input_len)
+        .map(|e| e.message.clone());
 
     rsx! {
         for (text , token_type , error_msg) in items {
@@ -162,6 +188,15 @@ fn Segments(
         }
         if input.ends_with('\n') {
             span { "\u{200B}" }
+        }
+        if let Some(msg) = trailing_error {
+            TrailingErrorMarker {
+                error_color: theme.error_color(),
+                message: msg,
+                mouse_pos,
+                scroll_trigger,
+                theme,
+            }
         }
     }
 }
@@ -232,6 +267,71 @@ fn ErrorSegment(
                 mounted_el.set(Some(e.data()));
             },
             "{text}"
+            if is_hovered() {
+                Tooltip { message: message.clone(), theme }
+            }
+        }
+    }
+}
+
+/// Trailing error marker for errors at end of input.
+#[component]
+fn TrailingErrorMarker(
+    error_color: Hex,
+    message: String,
+    mouse_pos: Signal<Option<(f64, f64)>>,
+    scroll_trigger: Signal<()>,
+    theme: Theme,
+) -> Element {
+    let mut rect: Signal<Option<(f64, f64, f64, f64)>> = use_signal(|| None);
+    let mut mounted_el: Signal<Option<Rc<MountedData>>> = use_signal(|| None);
+
+    use_effect(move || {
+        scroll_trigger();
+        if let Some(el) = mounted_el.read().clone() {
+            spawn(async move {
+                if let Ok(r) = el.get_client_rect().await {
+                    rect.set(Some((
+                        r.origin.x,
+                        r.origin.y,
+                        r.origin.x + r.size.width,
+                        r.origin.y + r.size.height,
+                    )));
+                }
+            });
+        }
+    });
+
+    let is_hovered = use_memo(move || {
+        let Some((mx, my)) = mouse_pos() else {
+            return false;
+        };
+        let Some((left, top, right, bottom)) = rect() else {
+            return false;
+        };
+        mx >= left && mx <= right && my >= top && my <= bottom
+    });
+
+    let style = if is_hovered() {
+        format!(
+            "anchor-name: --tooltip-anchor; display: inline-block; width: 1em; text-decoration-color: {}",
+            error_color
+        )
+    } else {
+        format!(
+            "display: inline-block; width: 1em; text-decoration-color: {}",
+            error_color
+        )
+    };
+
+    rsx! {
+        span {
+            class: "underline decoration-wavy pointer-events-none",
+            style: "{style}",
+            onmounted: move |e| {
+                mounted_el.set(Some(e.data()));
+            },
+            "\u{00A0}"
             if is_hovered() {
                 Tooltip { message: message.clone(), theme }
             }
