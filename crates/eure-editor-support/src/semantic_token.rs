@@ -134,108 +134,45 @@ impl SemanticToken {
 ///
 /// Returns a vector of semantic tokens sorted by their start position.
 pub fn semantic_tokens(input: &str, cst: &Cst) -> Vec<SemanticToken> {
-    let mut collector = SemanticTokenCollector::new(input);
-    collector.collect(cst);
-    collector.into_tokens()
+    let mut visitor = SemanticTokenVisitor::new(input);
+    let _ = cst.visit_from_root(&mut visitor);
+    visitor.into_tokens()
 }
 
-struct SemanticTokenCollector<'a> {
+/// Visitor that collects semantic tokens from the CST.
+struct SemanticTokenVisitor<'a> {
     input: &'a str,
     tokens: Vec<SemanticToken>,
+    /// Whether we're currently in a key/property context
+    in_key_context: bool,
+    /// Whether we're in a section header
+    in_section_header: bool,
+    /// Whether we're in an extension namespace (after `$`)
+    in_extension_namespace: bool,
 }
 
-impl<'a> SemanticTokenCollector<'a> {
+impl<'a> SemanticTokenVisitor<'a> {
     fn new(input: &'a str) -> Self {
         Self {
             input,
             tokens: Vec::new(),
+            in_key_context: false,
+            in_section_header: false,
+            in_extension_namespace: false,
         }
     }
 
-    fn collect(&mut self, cst: &Cst) {
-        self.visit_node(cst, cst.root(), VisitContext::default());
-    }
-
     fn into_tokens(mut self) -> Vec<SemanticToken> {
-        // Sort by start position
         self.tokens.sort_by_key(|t| t.start);
         self.tokens
     }
 
-    fn visit_node(&mut self, cst: &Cst, node_id: CstNodeId, ctx: VisitContext) {
-        let Some(node_data) = cst.node_data(node_id) else {
-            return;
-        };
-
-        match node_data {
-            CstNode::Terminal { kind, data } => {
-                self.handle_terminal(kind, data, ctx);
-            }
-            CstNode::NonTerminal { kind, .. } => {
-                // Update context based on non-terminal kind
-                let new_ctx = self.update_context(kind, ctx);
-
-                // Visit children
-                for child_id in cst.children(node_id) {
-                    self.visit_node(cst, child_id, new_ctx);
-                }
-            }
-        }
-    }
-
-    fn update_context(&self, kind: NonTerminalKind, ctx: VisitContext) -> VisitContext {
-        match kind {
-            // Key context - identifiers here are properties
-            NonTerminalKind::Keys
-            | NonTerminalKind::Key
-            | NonTerminalKind::KeyBase
-            | NonTerminalKind::KeyIdent
-            | NonTerminalKind::KeyTuple
-            | NonTerminalKind::KeyValue => ctx.with_key_context(true),
-
-            // Section header - add section header modifier
-            NonTerminalKind::Section => ctx.with_section_header(true),
-
-            // Section body - reset section header (only @ and Keys are in the header)
-            NonTerminalKind::SectionBody => ctx.with_section_header(false),
-
-            // Extension namespace - identifiers here are extension idents
-            NonTerminalKind::ExtensionNameSpace => ctx.with_extension_namespace(true),
-
-            // Value context - reset key context
-            NonTerminalKind::Value
-            | NonTerminalKind::ValueBinding
-            | NonTerminalKind::Array
-            | NonTerminalKind::Object
-            | NonTerminalKind::Tuple => ctx.with_key_context(false),
-
-            _ => ctx,
-        }
-    }
-
-    fn handle_terminal(&mut self, kind: TerminalKind, data: TerminalData, ctx: VisitContext) {
-        let TerminalData::Input(span) = data else {
-            return;
-        };
-
-        // Handle code block starts specially (they contain language tags)
-        if self.handle_code_block_start(kind, span) {
-            return;
-        }
-
-        // Handle inline code specially
-        if self.handle_inline_code(kind, span) {
-            return;
-        }
-
-        // Map terminal kind to token type
-        let Some(token_type) = self.terminal_to_token_type(kind, &ctx) else {
-            return;
-        };
-
-        // Compute modifiers
-        let modifiers = self.compute_modifiers(kind, ctx);
-
+    fn emit_token_with_modifiers(
+        &mut self,
+        span: InputSpan,
+        token_type: SemanticTokenType,
+        modifiers: u32,
+    ) {
         self.tokens.push(SemanticToken::with_modifiers(
             span.start,
             span.end - span.start,
@@ -244,15 +181,8 @@ impl<'a> SemanticTokenCollector<'a> {
         ));
     }
 
-    fn handle_code_block_start(&mut self, kind: TerminalKind, span: InputSpan) -> bool {
-        let backtick_count = match kind {
-            TerminalKind::CodeBlockStart3 => 3,
-            TerminalKind::CodeBlockStart4 => 4,
-            TerminalKind::CodeBlockStart5 => 5,
-            TerminalKind::CodeBlockStart6 => 6,
-            _ => return false,
-        };
-
+    /// Emit code block start token, splitting into backticks and language tag.
+    fn emit_code_block_start(&mut self, span: InputSpan, backtick_count: u32) {
         let text = span.as_str(self.input);
 
         // Emit backticks as Macro token
@@ -276,77 +206,94 @@ impl<'a> SemanticTokenCollector<'a> {
                 SemanticTokenType::Decorator,
             ));
         }
-
-        true
     }
 
-    fn handle_inline_code(&mut self, kind: TerminalKind, span: InputSpan) -> bool {
-        match kind {
-            TerminalKind::InlineCode1 => {
-                // Format: lang`code` - single backticks
-                let text = span.as_str(self.input);
+    /// Emit inline code token with language tag prefix.
+    fn emit_inline_code_1(&mut self, span: InputSpan) {
+        let text = span.as_str(self.input);
 
-                // Find the backtick position
-                if let Some(backtick_pos) = text.find('`') {
-                    let tag_len = backtick_pos;
+        // Format: lang`code` - find the backtick position
+        if let Some(backtick_pos) = text.find('`') {
+            let tag_len = backtick_pos;
 
-                    // Emit language tag as Decorator (if present)
-                    if tag_len > 0 {
-                        self.tokens.push(SemanticToken::new(
-                            span.start,
-                            tag_len as u32,
-                            SemanticTokenType::Decorator,
-                        ));
-                    }
-
-                    // Emit the rest as Macro (backtick + content + backtick)
-                    self.tokens.push(SemanticToken::new(
-                        span.start + tag_len as u32,
-                        (span.end - span.start) - tag_len as u32,
-                        SemanticTokenType::Macro,
-                    ));
-                }
-                true
+            // Emit language tag as Decorator (if present)
+            if tag_len > 0 {
+                self.tokens.push(SemanticToken::new(
+                    span.start,
+                    tag_len as u32,
+                    SemanticTokenType::Decorator,
+                ));
             }
-            TerminalKind::InlineCodeStart2 => {
-                // Format: lang`` - double backtick start
-                let text = span.as_str(self.input);
 
-                // Find the double backtick position
-                if let Some(backtick_pos) = text.find("``") {
-                    let tag_len = backtick_pos;
-
-                    // Emit language tag as Decorator (if present)
-                    if tag_len > 0 {
-                        self.tokens.push(SemanticToken::new(
-                            span.start,
-                            tag_len as u32,
-                            SemanticTokenType::Decorator,
-                        ));
-                    }
-
-                    // Emit backticks as Macro
-                    self.tokens.push(SemanticToken::new(
-                        span.start + tag_len as u32,
-                        2,
-                        SemanticTokenType::Macro,
-                    ));
-                }
-                true
-            }
-            _ => false,
+            // Emit the rest as Macro (backtick + content + backtick)
+            self.tokens.push(SemanticToken::new(
+                span.start + tag_len as u32,
+                (span.end - span.start) - tag_len as u32,
+                SemanticTokenType::Macro,
+            ));
         }
     }
 
-    fn terminal_to_token_type(
-        &self,
-        kind: TerminalKind,
-        ctx: &VisitContext,
-    ) -> Option<SemanticTokenType> {
+    /// Emit inline code start token (double backtick) with language tag prefix.
+    fn emit_inline_code_start_2(&mut self, span: InputSpan) {
+        let text = span.as_str(self.input);
+
+        // Format: lang`` - find the double backtick position
+        if let Some(backtick_pos) = text.find("``") {
+            let tag_len = backtick_pos;
+
+            // Emit language tag as Decorator (if present)
+            if tag_len > 0 {
+                self.tokens.push(SemanticToken::new(
+                    span.start,
+                    tag_len as u32,
+                    SemanticTokenType::Decorator,
+                ));
+            }
+
+            // Emit backticks as Macro
+            self.tokens.push(SemanticToken::new(
+                span.start + tag_len as u32,
+                2,
+                SemanticTokenType::Macro,
+            ));
+        }
+    }
+
+    /// Compute modifiers for the current context.
+    fn current_modifiers(&self, is_ident: bool) -> u32 {
+        let mut modifiers = 0;
+
+        // Add Declaration modifier for keys/properties
+        if self.in_key_context && is_ident {
+            modifiers |= SemanticTokenModifier::Declaration.bitmask();
+        }
+
+        // Add Definition modifier for section header identifiers
+        if self.in_section_header && is_ident {
+            modifiers |= SemanticTokenModifier::Definition.bitmask();
+        }
+
+        // Add SectionHeader modifier for all tokens in section header
+        if self.in_section_header {
+            modifiers |= SemanticTokenModifier::SectionHeader.bitmask();
+        }
+
+        modifiers
+    }
+
+    /// Map terminal kind to semantic token type, considering context.
+    fn terminal_to_token_type(&self, kind: TerminalKind) -> Option<SemanticTokenType> {
         match kind {
-            // Keywords
-            TerminalKind::True | TerminalKind::False | TerminalKind::Null | TerminalKind::Hole => {
-                Some(SemanticTokenType::Keyword)
+            // Keywords (but not in key context - see visit_key_ident)
+            TerminalKind::Hole => Some(SemanticTokenType::Keyword),
+            TerminalKind::True | TerminalKind::False | TerminalKind::Null => {
+                // In key context, these are properties; otherwise keywords
+                if self.in_key_context {
+                    Some(SemanticTokenType::Property)
+                } else {
+                    Some(SemanticTokenType::Keyword)
+                }
             }
 
             // Numbers
@@ -360,10 +307,10 @@ impl<'a> SemanticTokenCollector<'a> {
                 Some(SemanticTokenType::Comment)
             }
 
-            // Section marker - distinct from other operators
+            // Section marker
             TerminalKind::At => Some(SemanticTokenType::SectionMarker),
 
-            // Extension marker - distinct from other operators
+            // Extension marker
             TerminalKind::Dollar => Some(SemanticTokenType::ExtensionMarker),
 
             // Operators
@@ -385,13 +332,11 @@ impl<'a> SemanticTokenCollector<'a> {
 
             // Identifiers - context dependent
             TerminalKind::Ident => {
-                if ctx.in_extension_namespace {
+                if self.in_extension_namespace {
                     Some(SemanticTokenType::ExtensionIdent)
-                } else if ctx.in_key_context {
+                } else if self.in_key_context {
                     Some(SemanticTokenType::Property)
                 } else {
-                    // Identifiers outside key context (e.g., in boolean context like true/false parsed as ident)
-                    // This shouldn't happen often since true/false/null have their own tokens
                     None
                 }
             }
@@ -416,7 +361,7 @@ impl<'a> SemanticTokenCollector<'a> {
             | TerminalKind::GrammarNewline
             | TerminalKind::Ws => None,
 
-            // Skip code block starts (handled specially)
+            // Skip code block starts (handled specially via visit methods)
             TerminalKind::InlineCode1
             | TerminalKind::InlineCodeStart2
             | TerminalKind::CodeBlockStart3
@@ -425,60 +370,220 @@ impl<'a> SemanticTokenCollector<'a> {
             | TerminalKind::CodeBlockStart6 => None,
         }
     }
-
-    fn compute_modifiers(&self, kind: TerminalKind, ctx: VisitContext) -> u32 {
-        let mut modifiers = 0;
-
-        // Add Declaration modifier for keys/properties
-        if ctx.in_key_context && kind == TerminalKind::Ident {
-            modifiers |= SemanticTokenModifier::Declaration.bitmask();
-        }
-
-        // Add Definition modifier for section header identifiers
-        if ctx.in_section_header && kind == TerminalKind::Ident {
-            modifiers |= SemanticTokenModifier::Definition.bitmask();
-        }
-
-        // Add SectionHeader modifier for all tokens in section header
-        if ctx.in_section_header {
-            modifiers |= SemanticTokenModifier::SectionHeader.bitmask();
-        }
-
-        modifiers
-    }
 }
 
-/// Context for visiting nodes, tracking semantic information.
-#[derive(Debug, Clone, Copy, Default)]
-struct VisitContext {
-    /// Whether we're currently in a key/property context
-    in_key_context: bool,
-    /// Whether we're in a section header
-    in_section_header: bool,
-    /// Whether we're in an extension namespace (after `$`)
-    in_extension_namespace: bool,
-}
+impl<F: CstFacade> CstVisitor<F> for SemanticTokenVisitor<'_> {
+    type Error = std::convert::Infallible;
 
-impl VisitContext {
-    fn with_key_context(self, in_key_context: bool) -> Self {
-        Self {
-            in_key_context,
-            ..self
-        }
+    fn then_construct_error(
+        &mut self,
+        node_data: Option<CstNode>,
+        parent: CstNodeId,
+        kind: NodeKind,
+        _error: CstConstructError,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.recover_error(node_data, parent, kind, tree)
     }
 
-    fn with_section_header(self, in_section_header: bool) -> Self {
-        Self {
-            in_section_header,
-            ..self
-        }
+    fn visit_terminal(
+        &mut self,
+        _id: CstNodeId,
+        kind: TerminalKind,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let TerminalData::Input(span) = data else {
+            return Ok(());
+        };
+
+        let Some(token_type) = self.terminal_to_token_type(kind) else {
+            return Ok(());
+        };
+
+        let is_ident = matches!(
+            kind,
+            TerminalKind::Ident | TerminalKind::True | TerminalKind::False | TerminalKind::Null
+        );
+        let modifiers = self.current_modifiers(is_ident);
+
+        self.emit_token_with_modifiers(span, token_type, modifiers);
+        Ok(())
     }
 
-    fn with_extension_namespace(self, in_extension_namespace: bool) -> Self {
-        Self {
-            in_extension_namespace,
-            ..self
+    // Context: Section header (@ keys body)
+    fn visit_section(
+        &mut self,
+        _handle: SectionHandle,
+        view: SectionView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Set section header context for @ and keys
+        self.in_section_header = true;
+
+        // Visit @ marker
+        self.visit_at_handle(view.at, tree)?;
+
+        // Visit keys (already sets key context via visit_keys)
+        self.visit_keys_handle(view.keys, tree)?;
+
+        // Reset section header before visiting body
+        self.in_section_header = false;
+
+        // Visit section body
+        self.visit_section_body_handle(view.section_body, tree)?;
+
+        Ok(())
+    }
+
+    // Context: Keys (key context)
+    fn visit_keys(
+        &mut self,
+        handle: KeysHandle,
+        view: KeysView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let prev = self.in_key_context;
+        self.in_key_context = true;
+        self.visit_keys_super(handle, view, tree)?;
+        self.in_key_context = prev;
+        Ok(())
+    }
+
+    // Context: Extension namespace ($ident)
+    fn visit_extension_name_space(
+        &mut self,
+        handle: ExtensionNameSpaceHandle,
+        view: ExtensionNameSpaceView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let prev = self.in_extension_namespace;
+        self.in_extension_namespace = true;
+        self.visit_extension_name_space_super(handle, view, tree)?;
+        self.in_extension_namespace = prev;
+        Ok(())
+    }
+
+    // Context: Value resets key context
+    fn visit_value(
+        &mut self,
+        handle: ValueHandle,
+        view: ValueView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let prev = self.in_key_context;
+        self.in_key_context = false;
+        self.visit_value_super(handle, view, tree)?;
+        self.in_key_context = prev;
+        Ok(())
+    }
+
+    // Handle inline code 1 specially (lang`code`)
+    fn visit_inline_code_1(
+        &mut self,
+        _handle: InlineCode1Handle,
+        view: InlineCode1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Ok(TerminalData::Input(span)) = view.inline_code_1.get_data(tree) {
+            self.emit_inline_code_1(span);
         }
+        Ok(())
+    }
+
+    // Handle inline code 2 specially (lang``code``)
+    fn visit_inline_code_2(
+        &mut self,
+        handle: InlineCode2Handle,
+        view: InlineCode2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Handle the start token specially - get the view first, then the terminal data
+        if let Ok(start_view) = view.inline_code_start_2.get_view(tree)
+            && let Ok(TerminalData::Input(span)) = start_view.inline_code_start_2.get_data(tree)
+        {
+            self.emit_inline_code_start_2(span);
+        }
+
+        // Visit content and end normally via super
+        self.visit_inline_code_2_list_handle(view.inline_code_2_list, tree)?;
+        self.visit_inline_code_end_2_handle(view.inline_code_end_2, tree)?;
+
+        // Suppress auto-traversal
+        let _ = handle;
+        Ok(())
+    }
+
+    // Handle code block 3 specially (```lang)
+    fn visit_code_block_3(
+        &mut self,
+        handle: CodeBlock3Handle,
+        view: CodeBlock3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Ok(start_view) = view.code_block_start_3.get_view(tree)
+            && let Ok(TerminalData::Input(span)) = start_view.code_block_start_3.get_data(tree)
+        {
+            self.emit_code_block_start(span, 3);
+        }
+        self.visit_code_block_3_list_handle(view.code_block_3_list, tree)?;
+        self.visit_code_block_end_3_handle(view.code_block_end_3, tree)?;
+        let _ = handle;
+        Ok(())
+    }
+
+    // Handle code block 4 specially (````lang)
+    fn visit_code_block_4(
+        &mut self,
+        handle: CodeBlock4Handle,
+        view: CodeBlock4View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Ok(start_view) = view.code_block_start_4.get_view(tree)
+            && let Ok(TerminalData::Input(span)) = start_view.code_block_start_4.get_data(tree)
+        {
+            self.emit_code_block_start(span, 4);
+        }
+        self.visit_code_block_4_list_handle(view.code_block_4_list, tree)?;
+        self.visit_code_block_end_4_handle(view.code_block_end_4, tree)?;
+        let _ = handle;
+        Ok(())
+    }
+
+    // Handle code block 5 specially (`````lang)
+    fn visit_code_block_5(
+        &mut self,
+        handle: CodeBlock5Handle,
+        view: CodeBlock5View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Ok(start_view) = view.code_block_start_5.get_view(tree)
+            && let Ok(TerminalData::Input(span)) = start_view.code_block_start_5.get_data(tree)
+        {
+            self.emit_code_block_start(span, 5);
+        }
+        self.visit_code_block_5_list_handle(view.code_block_5_list, tree)?;
+        self.visit_code_block_end_5_handle(view.code_block_end_5, tree)?;
+        let _ = handle;
+        Ok(())
+    }
+
+    // Handle code block 6 specially (``````lang)
+    fn visit_code_block_6(
+        &mut self,
+        handle: CodeBlock6Handle,
+        view: CodeBlock6View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Ok(start_view) = view.code_block_start_6.get_view(tree)
+            && let Ok(TerminalData::Input(span)) = start_view.code_block_start_6.get_data(tree)
+        {
+            self.emit_code_block_start(span, 6);
+        }
+        self.visit_code_block_6_list_handle(view.code_block_6_list, tree)?;
+        self.visit_code_block_end_6_handle(view.code_block_end_6, tree)?;
+        let _ = handle;
+        Ok(())
     }
 }
 
@@ -750,5 +855,70 @@ mod tests {
             .unwrap();
 
         assert!(key_token.modifiers & SemanticTokenModifier::Declaration.bitmask() != 0);
+    }
+
+    #[test]
+    fn test_section_header_keyident_true_false_null() {
+        // In section headers, true/false/null are KeyIdent (identifiers), not keyword literals.
+        // According to grammar: KeyIdent: Ident | True | False | Null ;
+        let input = "@true.false.null\nkey = 1";
+        let tokens = parse_and_get_tokens(input);
+
+        // true in section header should be Property, not Keyword
+        let true_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "true"
+            })
+            .unwrap();
+        assert_eq!(
+            true_token.token_type,
+            SemanticTokenType::Property,
+            "true in section header should be Property, not Keyword"
+        );
+
+        // false in section header should be Property, not Keyword
+        let false_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "false"
+            })
+            .unwrap();
+        assert_eq!(
+            false_token.token_type,
+            SemanticTokenType::Property,
+            "false in section header should be Property, not Keyword"
+        );
+
+        // null in section header should be Property, not Keyword
+        let null_token = tokens
+            .iter()
+            .find(|t| {
+                let text = &input[t.start as usize..(t.start + t.length) as usize];
+                text == "null"
+            })
+            .unwrap();
+        assert_eq!(
+            null_token.token_type,
+            SemanticTokenType::Property,
+            "null in section header should be Property, not Keyword"
+        );
+
+        // All three should also have the SectionHeader modifier
+        let section_header_mask = SemanticTokenModifier::SectionHeader.bitmask();
+        assert!(
+            true_token.modifiers & section_header_mask != 0,
+            "true should have SectionHeader modifier"
+        );
+        assert!(
+            false_token.modifiers & section_header_mask != 0,
+            "false should have SectionHeader modifier"
+        );
+        assert!(
+            null_token.modifiers & section_header_mask != 0,
+            "null should have SectionHeader modifier"
+        );
     }
 }
