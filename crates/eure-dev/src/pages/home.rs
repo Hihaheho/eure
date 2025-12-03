@@ -27,7 +27,8 @@ struct ParsedData {
 struct ParsedSchemaData {
     tokens: Vec<SemanticToken>,
     parser_errors: Vec<ErrorSpan>,
-    schema_errors: Vec<String>, // Schema conversion/validation errors
+    schema_errors: Vec<String>, // Schema conversion errors (no span info)
+    schema_validation_errors: Vec<ErrorSpan>, // Meta-schema validation errors (with spans)
     schema_valid: bool,         // Whether schema is valid (for document validation)
 }
 
@@ -36,7 +37,8 @@ struct ParsedSchemaData {
 struct AllErrors {
     doc_parser_errors: Vec<ErrorSpan>,
     schema_parser_errors: Vec<ErrorSpan>,
-    schema_errors: Vec<String>,
+    schema_errors: Vec<String>, // Schema conversion errors (no span info)
+    schema_validation_errors: Vec<ErrorSpan>, // Meta-schema validation errors
     validation_errors: Vec<ErrorSpan>,
 }
 
@@ -45,6 +47,7 @@ impl AllErrors {
         self.doc_parser_errors.len()
             + self.schema_parser_errors.len()
             + self.schema_errors.len()
+            + self.schema_validation_errors.len()
             + self.validation_errors.len()
     }
 
@@ -77,7 +80,7 @@ fn validation_error_to_span(
         },
         None => ErrorSpan {
             start: 0,
-            end: 0,
+            end: 1,
             message,
         },
     }
@@ -171,29 +174,43 @@ fn parse_schema(input: &str) -> ParsedSchemaData {
             tokens,
             parser_errors,
             schema_errors: Vec::new(),
+            schema_validation_errors: Vec::new(),
             schema_valid: false,
         };
     }
 
     let mut schema_errors = Vec::new();
-    let schema_valid = match cst_to_document(input, &cst) {
-        Ok(doc) => match document_to_schema(&doc) {
-            Ok((_schema, _source_map)) => {
-                if let Some(meta_schema) = load_meta_schema() {
-                    let validation_result = validate(&doc, &meta_schema);
-                    if !validation_result.is_valid {
-                        for error in validation_result.errors {
-                            schema_errors.push(format!("Schema validation: {}", error));
-                        }
+    let mut schema_validation_errors = Vec::new();
+
+    let schema_valid = match cst_to_document_and_origins(input, &cst) {
+        Ok((doc, origins)) => {
+            // Always validate against meta-schema if parse succeeded
+            if let Some(meta_schema) = load_meta_schema() {
+                let validation_result = validate(&doc, &meta_schema);
+                if !validation_result.is_valid {
+                    for error in &validation_result.errors {
+                        schema_validation_errors
+                            .push(validation_error_to_span(error, &cst, &origins));
                     }
                 }
-                schema_errors.is_empty()
             }
-            Err(e) => {
-                schema_errors.push(format!("Schema conversion: {}", e));
+
+            // Check if schema can be used for document validation
+            // (document_to_schema must succeed)
+            if schema_validation_errors.is_empty() {
+                match document_to_schema(&doc) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        // This shouldn't happen if meta-schema validation passed,
+                        // but record it just in case
+                        schema_errors.push(format!("Schema conversion: {}", e));
+                        false
+                    }
+                }
+            } else {
                 false
             }
-        },
+        }
         Err(e) => {
             schema_errors.push(format!("Document construction: {}", e));
             false
@@ -204,6 +221,7 @@ fn parse_schema(input: &str) -> ParsedSchemaData {
         tokens,
         parser_errors,
         schema_errors,
+        schema_validation_errors,
         schema_valid,
     }
 }
@@ -369,7 +387,16 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
     let json_output = use_memo(move || parsed().json_output);
     let schema_parsed = use_memo(move || parse_schema(&schema_content()));
     let schema_tokens = use_memo(move || schema_parsed().tokens);
-    let schema_parser_errors = use_memo(move || schema_parsed().parser_errors.clone());
+
+    // Combined schema errors for the schema editor (parser + meta-schema validation)
+    // Note: schema_errors (conversion errors) are excluded because they lack span info.
+    // They are still visible in the Errors tab.
+    let combined_schema_errors = use_memo(move || {
+        let data = schema_parsed();
+        let mut combined = data.parser_errors.clone();
+        combined.extend(data.schema_validation_errors.clone());
+        combined
+    });
 
     // Combined validation: validate document against schema
     let all_errors = use_memo(move || {
@@ -386,6 +413,7 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
             doc_parser_errors: doc_errors.clone(),
             schema_parser_errors: schema_data.parser_errors.clone(),
             schema_errors: schema_data.schema_errors.clone(),
+            schema_validation_errors: schema_data.schema_validation_errors.clone(),
             validation_errors,
         }
     });
@@ -407,6 +435,7 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
     let border_color = theme_val.border_color();
     let surface1_color = theme_val.surface1_color();
     let accent_color = theme_val.accent_color();
+    let error_color = theme_val.error_color();
 
     rsx! {
         div { class: "h-full px-4 pb-4 flex gap-4",
@@ -427,9 +456,10 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
                         value: "{current_example().value()}",
                         onchange: move |evt| {
                             let value = evt.value();
-                            navigator.push(Route::Home {
-                                example: Some(value),
-                            });
+                            navigator
+                                .push(Route::Home {
+                                    example: Some(value),
+                                });
                         },
                         for ex in EureExample::ALL {
                             option { value: "{ex.value()}", "{ex.name()}" }
@@ -472,10 +502,17 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
                         "Schema"
                     }
                     button {
-                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2",
                         style: if active_tab() == RightTab::Errors { "border-color: currentColor" } else { "border-color: transparent" },
                         onclick: move |_| active_tab.set(RightTab::Errors),
-                        "Errors ({error_count()})"
+                        "Errors"
+                        if error_count() > 0 {
+                            span {
+                                class: "inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold rounded-full",
+                                style: "background-color: {error_color}; color: white",
+                                "{error_count()}"
+                            }
+                        }
                     }
                 }
 
@@ -483,109 +520,121 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
                 div { class: "flex-1 overflow-hidden min-h-0",
                     match active_tab() {
                         RightTab::JsonOutput => rsx! {
-                        // Document Parser Errors
+                            // Document Parser Errors
 
-                        // Schema Parser Errors
+                            // Schema Parser Errors
 
-                        // Schema Errors (conversion + meta-validation)
+                            // Schema Errors (conversion + meta-validation)
 
-                        // Validation Errors (document vs schema)
+                            // Validation Errors (document vs schema)
 
+        
+        
 
-
-
-
-
-
-
-                        div { class: "h-full overflow-auto p-3 font-mono text-sm",
-                            pre {
-                                if json_output().is_empty() {
-                                    span { class: "opacity-50", "// Parse the Eure document to see JSON output" }
-                                } else {
-                                    "{json_output()}"
+        
+        
+                            div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                                pre {
+        
+        
+        
+                                    if json_output().is_empty() {
+                                        span { class: "opacity-50", "// Parse the Eure document to see JSON output" }
+                                    } else {
+                                        "{json_output()}"
+                                    }
                                 }
                             }
-                        }
-                    },
+                        },
                         RightTab::Schema => rsx! {
-                        div { class: "h-full text-xl overflow-hidden",
-                            Editor {
-                                content: schema_content,
-                                tokens: schema_tokens,
-                                errors: schema_parser_errors,
-                                theme,
-                                on_change: move |s| schema_content.set(s),
+                            div { class: "h-full text-xl overflow-hidden",
+                                Editor {
+                                    content: schema_content,
+                                    tokens: schema_tokens,
+                                    errors: combined_schema_errors,
+                                    theme,
+                                    on_change: move |s| schema_content.set(s),
+                                }
                             }
-                        }
-                    },
+                        },
                         RightTab::Errors => rsx! {
-                        div { class: "h-full overflow-auto p-3 font-mono text-sm",
-                            if all_errors().is_empty() {
-                                span { class: "opacity-50", "No errors" }
-                            } else {
-                                if !all_errors().doc_parser_errors.is_empty() {
-                                    div { class: "mb-4",
-                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                            "Document Parser Errors ({all_errors().doc_parser_errors.len()})"
-                                        }
-                                        for error in all_errors().doc_parser_errors.iter() {
-                                            div {
-                                                class: "mb-2 p-2 rounded border",
-                                                style: "border-color: {border_color}",
-                                                pre { class: "whitespace-pre-wrap", "{error.message}" }
+                            div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                                if all_errors().is_empty() {
+                                    span { class: "opacity-50", "No errors" }
+                                } else {
+                                    if !all_errors().doc_parser_errors.is_empty() {
+                                        div { class: "mb-4",
+                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                                "Document Parser Errors ({all_errors().doc_parser_errors.len()})"
+                                            }
+                                            for error in all_errors().doc_parser_errors.iter() {
+                                                div {
+                                                    class: "mb-2 p-2 rounded border",
+                                                    style: "border-color: {border_color}",
+                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                                }
                                             }
                                         }
                                     }
-                                }
-
-                                if !all_errors().schema_parser_errors.is_empty() {
-                                    div { class: "mb-4",
-                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                            "Schema Parser Errors ({all_errors().schema_parser_errors.len()})"
-                                        }
-                                        for error in all_errors().schema_parser_errors.iter() {
-                                            div {
-                                                class: "mb-2 p-2 rounded border",
-                                                style: "border-color: {border_color}",
-                                                pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                    if !all_errors().schema_parser_errors.is_empty() {
+                                        div { class: "mb-4",
+                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                                "Schema Parser Errors ({all_errors().schema_parser_errors.len()})"
+                                            }
+                                            for error in all_errors().schema_parser_errors.iter() {
+                                                div {
+                                                    class: "mb-2 p-2 rounded border",
+                                                    style: "border-color: {border_color}",
+                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                                }
                                             }
                                         }
                                     }
-                                }
-
-                                if !all_errors().schema_errors.is_empty() {
-                                    div { class: "mb-4",
-                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                            "Schema Errors ({all_errors().schema_errors.len()})"
-                                        }
-                                        for error in all_errors().schema_errors.iter() {
-                                            div {
-                                                class: "mb-2 p-2 rounded border",
-                                                style: "border-color: {border_color}",
-                                                pre { class: "whitespace-pre-wrap", "{error}" }
+                                    if !all_errors().schema_errors.is_empty() {
+                                        div { class: "mb-4",
+                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                                "Schema Conversion Errors ({all_errors().schema_errors.len()})"
+                                            }
+                                            for error in all_errors().schema_errors.iter() {
+                                                div {
+                                                    class: "mb-2 p-2 rounded border",
+                                                    style: "border-color: {border_color}",
+                                                    pre { class: "whitespace-pre-wrap", "{error}" }
+                                                }
                                             }
                                         }
                                     }
-                                }
-
-                                if !all_errors().validation_errors.is_empty() {
-                                    div { class: "mb-4",
-                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                            "Validation Errors ({all_errors().validation_errors.len()})"
+                                    if !all_errors().schema_validation_errors.is_empty() {
+                                        div { class: "mb-4",
+                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                                "Schema Validation Errors ({all_errors().schema_validation_errors.len()})"
+                                            }
+                                            for error in all_errors().schema_validation_errors.iter() {
+                                                div {
+                                                    class: "mb-2 p-2 rounded border",
+                                                    style: "border-color: {border_color}",
+                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                                }
+                                            }
                                         }
-                                        for error in all_errors().validation_errors.iter() {
-                                            div {
-                                                class: "mb-2 p-2 rounded border",
-                                                style: "border-color: {border_color}",
-                                                pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                    }
+                                    if !all_errors().validation_errors.is_empty() {
+                                        div { class: "mb-4",
+                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                                "Validation Errors ({all_errors().validation_errors.len()})"
+                                            }
+                                            for error in all_errors().validation_errors.iter() {
+                                                div {
+                                                    class: "mb-2 p-2 rounded border",
+                                                    style: "border-color: {border_color}",
+                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-                    },
+                        },
                     }
                 }
             }
