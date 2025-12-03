@@ -259,6 +259,25 @@ enum RightTab {
     Errors,
 }
 
+impl RightTab {
+    fn value(&self) -> &'static str {
+        match self {
+            RightTab::JsonOutput => "json",
+            RightTab::Schema => "schema",
+            RightTab::Errors => "errors",
+        }
+    }
+
+    fn from_value(value: &str) -> Option<Self> {
+        match value {
+            "json" => Some(RightTab::JsonOutput),
+            "schema" => Some(RightTab::Schema),
+            "errors" => Some(RightTab::Errors),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 enum EureExample {
     #[default]
@@ -358,7 +377,7 @@ impl EureExample {
 
 /// Home page with the Eure editor
 #[component]
-pub fn Home(example: ReadSignal<Option<String>>) -> Element {
+pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>) -> Element {
     let theme: Signal<Theme> = use_context();
     let navigator = use_navigator();
 
@@ -367,6 +386,14 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
         example()
             .as_deref()
             .and_then(EureExample::from_value)
+            .unwrap_or_default()
+    });
+
+    // Derive the current tab from the route parameter
+    let active_tab = use_memo(move || {
+        tab()
+            .as_deref()
+            .and_then(RightTab::from_value)
             .unwrap_or_default()
     });
 
@@ -426,8 +453,6 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
         combined
     });
 
-    // Tab state for right column
-    let mut active_tab = use_signal(RightTab::default);
     let error_count = use_memo(move || all_errors().total_count());
 
     let theme_val = theme();
@@ -447,7 +472,7 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
 
                 // Section header
                 div {
-                    class: "px-3 py-2 border-b text-sm font-semibold shrink-0 flex justify-between items-center",
+                    class: "h-14 px-3 border-b text-base font-semibold shrink-0 flex justify-between items-center",
                     style: "border-color: {border_color}; background-color: {surface1_color}",
                     span { "Eure" }
                     select {
@@ -459,6 +484,7 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
                             navigator
                                 .push(Route::Home {
                                     example: Some(value),
+                                    tab: tab(),
                                 });
                         },
                         for ex in EureExample::ALL {
@@ -486,25 +512,40 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
 
                 // Tab header
                 div {
-                    class: "flex border-b shrink-0",
+                    class: "h-14 px-3 flex border-b shrink-0 items-center",
                     style: "border-color: {border_color}; background-color: {surface1_color}",
 
                     button {
-                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+                        class: "px-4 py-2 text-base font-semibold border-b-2 transition-colors",
                         style: if active_tab() == RightTab::JsonOutput { "border-color: currentColor" } else { "border-color: transparent" },
-                        onclick: move |_| active_tab.set(RightTab::JsonOutput),
+                        onclick: move |_| {
+                            navigator.push(Route::Home {
+                                example: example(),
+                                tab: Some(RightTab::JsonOutput.value().to_string()),
+                            });
+                        },
                         "JSON Output"
                     }
                     button {
-                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+                        class: "px-4 py-2 text-base font-semibold border-b-2 transition-colors",
                         style: if active_tab() == RightTab::Schema { "border-color: currentColor" } else { "border-color: transparent" },
-                        onclick: move |_| active_tab.set(RightTab::Schema),
+                        onclick: move |_| {
+                            navigator.push(Route::Home {
+                                example: example(),
+                                tab: Some(RightTab::Schema.value().to_string()),
+                            });
+                        },
                         "Schema"
                     }
                     button {
-                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2",
+                        class: "px-4 py-2 text-base font-semibold border-b-2 transition-colors flex items-center gap-2",
                         style: if active_tab() == RightTab::Errors { "border-color: currentColor" } else { "border-color: transparent" },
-                        onclick: move |_| active_tab.set(RightTab::Errors),
+                        onclick: move |_| {
+                            navigator.push(Route::Home {
+                                example: example(),
+                                tab: Some(RightTab::Errors.value().to_string()),
+                            });
+                        },
                         "Errors"
                         if error_count() > 0 {
                             span {
@@ -528,16 +569,16 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
 
                             // Validation Errors (document vs schema)
 
-        
-        
 
-        
-        
+
+
+
+
                             div { class: "h-full overflow-auto p-3 font-mono text-sm",
                                 pre {
-        
-        
-        
+
+
+
                                     if json_output().is_empty() {
                                         span { class: "opacity-50", "// Parse the Eure document to see JSON output" }
                                     } else {

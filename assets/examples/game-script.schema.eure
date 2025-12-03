@@ -1,5 +1,3 @@
-/// Schema for Actions example - represents a sequence of game/interactive actions
-
 actions = [`$types.action`]
 
 /// Action types that can be performed
