@@ -7,6 +7,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+automod = { workspace = true }
 catppuccin = { workspace = true, features = ["css-colors"] }
 dioxus = { version = "0.7.0", features = ["logger", "router", "web"] }
 eure = { workspace = true }
