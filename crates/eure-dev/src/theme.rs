@@ -51,9 +51,14 @@ impl Theme {
         self.palette().red.hex
     }
 
-    /// Get the background color.
+    /// Get the background color (for editors).
     pub fn bg_color(self) -> Hex {
         self.palette().base.hex
+    }
+
+    /// Get the page background color (slightly darker than editor bg).
+    pub fn page_bg_color(self) -> Hex {
+        self.palette().mantle.hex
     }
 
     /// Get the caret (cursor) color.
@@ -74,5 +79,10 @@ impl Theme {
     /// Get the surface color (for tooltips, etc.).
     pub fn surface_color(self) -> Hex {
         self.palette().surface0.hex
+    }
+
+    /// Get the surface1 color (for buttons, toggles).
+    pub fn surface1_color(self) -> Hex {
+        self.palette().surface1.hex
     }
 }
