@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{theme::Theme, Route};
+use crate::{Route, theme::Theme};
 
 #[component]
 pub fn Layout() -> Element {
@@ -11,51 +11,44 @@ pub fn Layout() -> Element {
     let surface_color = theme_val.surface1_color();
 
     rsx! {
-        div {
-            class: "min-h-screen flex flex-col",
-            style: "background-color: {page_bg_color}; color: {text_color}",
+		div {
+			class: "min-h-screen flex flex-col",
+			style: "background-color: {page_bg_color}; color: {text_color}",
 
-            // Header
-            header {
-                class: "p-4 shrink-0",
-                div {
-                    class: "max-w-6xl mx-auto w-full flex justify-between items-center",
-                    h1 { class: "text-2xl font-bold", "Eure Editor" }
+			// Header
+			header { class: "p-4 shrink-0",
+				div { class: "max-w-6xl mx-auto w-full flex justify-between items-center",
+					Link { to: "/",
+						h1 { class: "text-2xl font-bold", "Eure" }
+					}
 
-                    // Toggle switch
-                    button {
-                        class: "w-14 h-8 rounded-full relative transition-colors",
-                        style: "background-color: {surface_color}",
-                        onclick: move |_| theme.set(theme().toggle()),
+					// Toggle switch
+					button {
+						class: "w-14 h-8 rounded-full relative transition-colors",
+						style: "background-color: {surface_color}",
+						onclick: move |_| theme.set(theme().toggle()),
 
-                        // Toggle knob with emoji
-                        span {
-                            class: if theme() == Theme::Dark {
-                                "absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center transition-all"
-                            } else {
-                                "absolute top-1 left-7 w-6 h-6 rounded-full flex items-center justify-center transition-all"
-                            },
-                            style: "background-color: {page_bg_color}",
-                            if theme() == Theme::Dark { "🌙" } else { "☀️" }
-                        }
-                    }
-                }
-            }
+						// Toggle knob with emoji
+						span {
+							class: if theme() == Theme::Dark { "absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center transition-all" } else { "absolute top-1 left-7 w-6 h-6 rounded-full flex items-center justify-center transition-all" },
+							style: "background-color: {page_bg_color}",
+							if theme() == Theme::Dark {
+								"🌙"
+							} else {
+								"☀️"
+							}
+						}
+					}
+				}
+			}
 
-            // Main content with max-width
-            main {
-                class: "flex-1 min-h-0",
-                div {
-                    class: "max-w-screen-2xl mx-auto w-full h-full",
-                    Outlet::<Route> {}
-                }
-            }
+			// Main content with max-width
+			main { class: "flex-1 min-h-0",
+				div { class: "max-w-screen-2xl mx-auto w-full h-full", Outlet::<Route> {} }
+			}
 
-            // Footer
-            footer {
-                class: "p-2 text-center text-sm opacity-50 shrink-0",
-                "Eure"
-            }
-        }
-    }
+			// Footer
+			footer { class: "p-2 text-center text-sm opacity-50 shrink-0", "Eure" }
+		}
+	}
 }

@@ -1,0 +1,9 @@
+name = "eure-dev"
+compatibility_date = "2025-12-03"
+
+[build]
+command = "dx build --release"
+
+[assets]
+directory = "../../target/dx/eure-dev/release/web/public"
+not_found_handling = "single-page-application"
