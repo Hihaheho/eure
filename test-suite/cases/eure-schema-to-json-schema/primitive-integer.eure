@@ -1,9 +1,0 @@
-// Test integer type conversion to JSON Schema
-
-schema = ```eure
-= `integer`
-```
-
-output_json_schema = ```json
-{"type": "integer"}
-```

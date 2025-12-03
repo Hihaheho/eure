@@ -1,9 +1,34 @@
-// Test primitive type conversions to JSON Schema
+// Test all primitive type conversions to JSON Schema
+//
+// This test consolidates all primitive type tests:
+// - any (empty schema {})
+// - text (string)
+// - integer
+// - float (number)
+// - boolean
+// - null
 
 schema = ```eure
-= `text`
+any_value = `any`
+text_value = `text`
+integer_value = `integer`
+float_value = `float`
+boolean_value = `boolean`
+null_value = `null`
 ```
 
 output_json_schema = ```json
-{"type": "string"}
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "any_value": {},
+    "text_value": {"type": "string"},
+    "integer_value": {"type": "integer"},
+    "float_value": {"type": "number"},
+    "boolean_value": {"type": "boolean"},
+    "null_value": {"type": "null"}
+  },
+  "required": ["any_value", "text_value", "integer_value", "float_value", "boolean_value", "null_value"]
+}
 ```

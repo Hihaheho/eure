@@ -1,9 +1,0 @@
-// Test null type conversion to JSON Schema
-
-schema = ```eure
-= `null`
-```
-
-output_json_schema = ```json
-{"type": "null"}
-```

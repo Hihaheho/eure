@@ -1,9 +1,0 @@
-// Test text with IPv6 format
-
-schema = ```eure
-= `text.ipv6`
-```
-
-output_json_schema = ```json
-{"type": "string", "format": "ipv6"}
-```

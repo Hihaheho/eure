@@ -1,9 +1,0 @@
-// Test float type conversion to JSON Schema
-
-schema = ```eure
-= `float`
-```
-
-output_json_schema = ```json
-{"type": "number"}
-```

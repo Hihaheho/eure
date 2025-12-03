@@ -1,0 +1,51 @@
+// Test all text format validators for JSON Schema conversion
+//
+// This test consolidates all text format validator tests including:
+// - date, time, date-time
+// - email, idn-email
+// - uri, uri-template
+// - uuid
+// - hostname, ipv4, ipv6
+// - json-pointer, regex
+// - duration
+
+schema = ```eure
+date_field = `text.date`
+time_field = `text.time`
+datetime_field = `text.date-time`
+email_field = `text.email`
+idn_email_field = `text.idn-email`
+uri_field = `text.uri`
+uri_template_field = `text.uri-template`
+uuid_field = `text.uuid`
+hostname_field = `text.hostname`
+ipv4_field = `text.ipv4`
+ipv6_field = `text.ipv6`
+json_pointer_field = `text.json-pointer`
+regex_field = `text.regex`
+duration_field = `text.duration`
+```
+
+output_json_schema = ```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "date_field": {"type": "string", "format": "date"},
+    "time_field": {"type": "string", "format": "time"},
+    "datetime_field": {"type": "string", "format": "date-time"},
+    "email_field": {"type": "string", "format": "email"},
+    "idn_email_field": {"type": "string", "format": "idn-email"},
+    "uri_field": {"type": "string", "format": "uri"},
+    "uri_template_field": {"type": "string", "format": "uri-template"},
+    "uuid_field": {"type": "string", "format": "uuid"},
+    "hostname_field": {"type": "string", "format": "hostname"},
+    "ipv4_field": {"type": "string", "format": "ipv4"},
+    "ipv6_field": {"type": "string", "format": "ipv6"},
+    "json_pointer_field": {"type": "string", "format": "json-pointer"},
+    "regex_field": {"type": "string", "format": "regex"},
+    "duration_field": {"type": "string", "format": "duration"}
+  },
+  "required": ["date_field", "time_field", "datetime_field", "email_field", "idn_email_field", "uri_field", "uri_template_field", "uuid_field", "hostname_field", "ipv4_field", "ipv6_field", "json_pointer_field", "regex_field", "duration_field"]
+}
+```

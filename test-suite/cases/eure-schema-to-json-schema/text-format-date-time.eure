@@ -1,9 +1,0 @@
-// Test text with date-time format
-
-schema = ```eure
-= `text.date-time`
-```
-
-output_json_schema = ```json
-{"type": "string", "format": "date-time"}
-```

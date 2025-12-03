@@ -4,6 +4,7 @@
 /target
 
 !.gitignore
+!LICENSE-*
 !README.md
 !CLAUDE.md
 !AGENTS.md
@@ -12,6 +13,7 @@
 !crates/**/*.rs
 !Cargo.toml
 !Cargo.lock
+!.cargo/config.toml
 
 !test-suite/**/*.eure
 !test-suite/**/*.rs
