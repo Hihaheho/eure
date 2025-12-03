@@ -93,7 +93,7 @@ pub fn Home() -> Element {
 			}
 
 			// Status bar
-			div { class: "w-full max-w-4xl mt-2 text-sm opacity-70",
+			div { class: "w-full max-w-4xl mt-2 text-sm opacity-70 max-h-64 overflow-y-auto",
 				if !parsed().errors.is_empty() {
 					for error in parsed().errors {
 						pre { class: "text-red-500", "{error.message}" }

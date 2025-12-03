@@ -348,8 +348,8 @@ fn Tooltip(message: String, theme: Theme) -> Element {
 
     rsx! {
         div {
-            class: "z-50 px-2 py-1 rounded text-xs max-w-xs pointer-events-none",
-            style: "position: fixed; position-anchor: --tooltip-anchor; bottom: anchor(top); left: anchor(left); margin-bottom: 4px; background-color: {bg}; border: 1px solid {border}; color: {text}",
+            class: "z-50 px-2 py-1 rounded text-xs max-w-md pointer-events-none",
+            style: "position: fixed; position-anchor: --tooltip-anchor; position-area: top span-left; margin-bottom: 4px; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; background-color: {bg}; border: 1px solid {border}; color: {text}",
             "{message}"
         }
     }
