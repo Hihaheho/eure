@@ -15,8 +15,8 @@ use crate::components::layout::Layout;
 #[rustfmt::skip]
 pub enum Route {
     #[layout(Layout)]
-    #[route("/")]
-    Home {},
+    #[route("/?:example")]
+    Home { example: Option<String> },
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");

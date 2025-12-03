@@ -1,6 +1,7 @@
 use crate::{
     components::editor::{Editor, ErrorSpan},
     theme::Theme,
+    Route,
 };
 use dioxus::prelude::*;
 use eure::document::{NodeOriginMap, cst_to_document, cst_to_document_and_origins};
@@ -321,18 +322,33 @@ impl EureExample {
 
 /// Home page with the Eure editor
 #[component]
-pub fn Home() -> Element {
+pub fn Home(example: ReadSignal<Option<String>>) -> Element {
     let theme: Signal<Theme> = use_context();
-    let mut example = use_signal(EureExample::default);
+    let navigator = use_navigator();
+
+    // Derive the current example from the route parameter
+    let current_example = use_memo(move || {
+        example()
+            .as_deref()
+            .and_then(EureExample::from_value)
+            .unwrap_or_default()
+    });
+
     let mut content = use_signal(|| EureExample::default().content().to_string());
+    let mut schema_content = use_signal(|| EureExample::default().schema().to_string());
+
+    // Update content when example changes via route
+    use_effect(move || {
+        let ex = current_example();
+        content.set(ex.content().to_string());
+        schema_content.set(ex.schema().to_string());
+    });
+
     let parsed = use_memo(move || parse_document(&content()));
     // Create read signals for the editor
     let tokens = use_memo(move || parsed().tokens);
     let doc_parser_errors = use_memo(move || parsed().errors);
     let json_output = use_memo(move || parsed().json_output);
-
-    // Schema editor state
-    let mut schema_content = use_signal(|| EureExample::default().schema().to_string());
     let schema_parsed = use_memo(move || parse_schema(&schema_content()));
     let schema_tokens = use_memo(move || schema_parsed().tokens);
     let schema_parser_errors = use_memo(move || schema_parsed().parser_errors.clone());
@@ -389,13 +405,12 @@ pub fn Home() -> Element {
                     select {
                         class: "px-3 py-1 rounded border text-sm font-normal",
                         style: "border-color: {border_color}; background-color: {bg_color}",
-                        value: "{example().value()}",
+                        value: "{current_example().value()}",
                         onchange: move |evt| {
-                            if let Some(ex) = EureExample::from_value(&evt.value()) {
-                                example.set(ex);
-                                content.set(ex.content().to_string());
-                                schema_content.set(ex.schema().to_string());
-                            }
+                            let value = evt.value();
+                            navigator.push(Route::Home {
+                                example: Some(value),
+                            });
                         },
                         for ex in EureExample::ALL {
                             option { value: "{ex.value()}", "{ex.name()}" }
