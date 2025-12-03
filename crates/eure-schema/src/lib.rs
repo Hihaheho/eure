@@ -212,6 +212,8 @@ pub struct TextSchema {
     pub max_length: Option<u32>,
     /// Regex pattern constraint (applied to the text content)
     pub pattern: Option<String>,
+    /// Unknown fields (for future extensions like "flatten")
+    pub unknown_fields: std::collections::HashMap<String, eure_value::document::NodeId>,
 }
 
 /// Integer type constraints
