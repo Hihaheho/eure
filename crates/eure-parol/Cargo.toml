@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["eure", "grammar", "parser", "serialization"]
 
 [dependencies]
+anyhow = { workspace = true }
 eure-tree = { workspace = true }
 parol_runtime.workspace = true
 scnr2.workspace = true

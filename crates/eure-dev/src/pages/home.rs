@@ -3,6 +3,7 @@ use crate::{
     theme::Theme,
 };
 use dioxus::prelude::*;
+use eure::error::format_parse_error_plain;
 use eure_editor_support::semantic_token::{SemanticToken, semantic_tokens};
 use eure_parol::{ParseResult, parse_tolerant};
 
@@ -29,15 +30,20 @@ pub fn Home() -> Element {
 
         let tokens = semantic_tokens(&input, &cst);
         let errors = error
-            .and_then(|e| {
-                e.span.map(|s| ErrorSpan {
-                    start: s.start,
-                    end: s.end,
-                    message: e.message.clone(),
-                })
+            .map(|e| {
+                let message = format_parse_error_plain(&e, &input, "test.eure");
+                e.entries
+                    .into_iter()
+                    .filter_map(|entry| {
+                        entry.span.map(|s| ErrorSpan {
+                            start: s.start,
+                            end: s.end,
+                            message: message.clone(),
+                        })
+                    })
+                    .collect::<Vec<_>>()
             })
-            .into_iter()
-            .collect();
+            .unwrap_or_default();
 
         ParsedData { tokens, errors }
     });
@@ -90,7 +96,7 @@ pub fn Home() -> Element {
 			div { class: "w-full max-w-4xl mt-2 text-sm opacity-70",
 				if !parsed().errors.is_empty() {
 					for error in parsed().errors {
-						span { class: "text-red-500", "{error.start}..{error.end}: {error.message}" }
+						pre { class: "text-red-500", "{error.message}" }
 					}
 				} else {
 					"No errors"

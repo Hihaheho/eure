@@ -1,4 +1,4 @@
-use eure::error::format_parse_error;
+use eure::error::format_parse_error_color;
 use eure::tree::write_cst;
 use eure_fmt::unformat::{unformat, unformat_with_seed};
 
@@ -27,7 +27,7 @@ pub fn run(args: Args) {
         Err(e) => {
             eprintln!(
                 "{}",
-                format_parse_error(&e, &contents, display_path(args.file.as_deref()))
+                format_parse_error_color(&e, &contents, display_path(args.file.as_deref()))
             );
             std::process::exit(1);
         }

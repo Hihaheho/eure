@@ -1,4 +1,4 @@
-use eure::error::format_parse_error;
+use eure::error::format_parse_error_color;
 use eure::tree::inspect_cst;
 
 use crate::util::{display_path, read_input};
@@ -24,7 +24,7 @@ pub fn run(args: Args) {
     if let Some(error) = parse_result.error() {
         eprintln!(
             "{}",
-            format_parse_error(error, &contents, display_path(args.file.as_deref()))
+            format_parse_error_color(error, &contents, display_path(args.file.as_deref()))
         );
         eprintln!("Note: Showing partial syntax tree below");
         eprintln!();

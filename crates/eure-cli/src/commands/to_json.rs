@@ -1,6 +1,6 @@
 use eure::data_model::VariantRepr;
 use eure::document::cst_to_document;
-use eure::error::format_parse_error;
+use eure::error::format_parse_error_color;
 use eure_json::{document_to_value, Config as JsonConfig};
 
 use crate::util::{display_path, read_input, VariantFormat};
@@ -44,7 +44,7 @@ pub fn run(args: Args) {
         Err(e) => {
             eprintln!(
                 "{}",
-                format_parse_error(&e, &contents, display_path(file_opt))
+                format_parse_error_color(&e, &contents, display_path(file_opt))
             );
             std::process::exit(1);
         }

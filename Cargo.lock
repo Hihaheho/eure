@@ -1593,6 +1593,7 @@ dependencies = [
 name = "eure-parol"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "eure-tree",
  "parol_runtime",
  "pretty_assertions",

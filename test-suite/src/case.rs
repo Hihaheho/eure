@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use eure::{
     document::{DocumentConstructionError, EureDocument},
-    error::format_parse_error,
+    error::format_parse_error_color,
     parol::EureParseError,
     tree::Cst,
     value::{Language, Text},
@@ -168,7 +168,7 @@ impl PreprocessedEure {
         match self {
             PreprocessedEure::Ok { .. } => None,
             PreprocessedEure::ErrParol { input, error } => {
-                Some(format_parse_error(error, input, "<test>"))
+                Some(format_parse_error_color(error, input, "<test>"))
             }
             PreprocessedEure::ErrFileRead { path, error } => {
                 Some(format!("Failed to read '{}': {}", path.display(), error))

@@ -1,5 +1,5 @@
-use eure::error::format_parse_error;
-use eure_editor_support::semantic_token::{semantic_tokens, SemanticTokenType};
+use eure::error::format_parse_error_color;
+use eure_editor_support::semantic_token::{SemanticTokenType, semantic_tokens};
 use nu_ansi_term::Color;
 use std::io::{self, Write};
 
@@ -27,7 +27,7 @@ pub fn run(args: Args) {
     if let Some(error) = parse_result.error() {
         eprintln!(
             "{}",
-            format_parse_error(error, &contents, display_path(args.file.as_deref()))
+            format_parse_error_color(error, &contents, display_path(args.file.as_deref()))
         );
         eprintln!();
     }

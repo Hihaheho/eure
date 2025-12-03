@@ -1,12 +1,12 @@
 //! Error formatting utilities for Eure.
 
-use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
+use annotate_snippets::{AnnotationKind, Group, Level, Renderer, Snippet};
 use eure_parol::EureParseError;
+use eure_parol::error::ParseErrorEntry;
 use eure_schema::SchemaNodeId;
 use eure_schema::convert::SchemaSourceMap;
 use eure_schema::validate::ValidationError;
 use eure_tree::prelude::Cst;
-use eure_tree::tree::LineNumbers;
 
 use crate::document::NodeOriginMap;
 
@@ -19,30 +19,56 @@ use crate::document::NodeOriginMap;
 ///
 /// # Returns
 /// A formatted error string suitable for terminal output
-pub fn format_parse_error(error: &EureParseError, input: &str, path: &str) -> String {
-    if let Some(span) = &error.span {
-        let line_numbers = LineNumbers::new(input);
-        let start_info = line_numbers.get_char_info(span.start);
+pub fn format_parse_error_color(error: &EureParseError, input: &str, path: &str) -> String {
+    let mut reports = Vec::new();
 
-        // Build the annotated snippet
-        let report = Level::ERROR.primary_title(&error.message).element(
-            Snippet::source(input).line_start(1).path(path).annotation(
-                AnnotationKind::Primary
-                    .span(span.start as usize..span.end as usize)
-                    .label(&error.message),
-            ),
-        );
+    for entry in &error.entries {
+        format_entry_recursive(entry, input, path, &mut reports);
+    }
 
-        // Add line/column info to the output
-        let rendered = Renderer::styled().render(&[report]).to_string();
-        format!(
-            "at line {}, column {}\n{}",
-            start_info.line_number + 1,
-            start_info.column_number + 1,
-            rendered
-        )
-    } else {
-        format!("error: {}\n  --> {}\n", error.message, path)
+    if reports.is_empty() {
+        return String::new();
+    }
+
+    Renderer::styled().render(&reports).to_string()
+}
+
+pub fn format_parse_error_plain(error: &EureParseError, input: &str, path: &str) -> String {
+    let mut reports = Vec::new();
+
+    for entry in &error.entries {
+        format_entry_recursive(entry, input, path, &mut reports);
+    }
+
+    Renderer::plain().render(&reports).to_string()
+}
+
+/// Format a single parse error entry and its nested source errors recursively.
+fn format_entry_recursive<'a>(
+    entry: &'a ParseErrorEntry,
+    input: &'a str,
+    path: &'a str,
+    reports: &mut Vec<Group<'a>>,
+) {
+    // Use the entire input as span if none is provided
+    let span_range = entry
+        .span
+        .map(|s| s.start as usize..s.end as usize)
+        .unwrap_or(0..input.len());
+
+    let report = Level::ERROR.primary_title(&entry.message).element(
+        Snippet::source(input).line_start(1).path(path).annotation(
+            AnnotationKind::Primary
+                .span(span_range)
+                .label(&entry.message),
+        ),
+    );
+
+    reports.push(report);
+
+    // Recursively process nested source errors
+    for source_entry in &entry.source {
+        format_entry_recursive(source_entry, input, path, reports);
     }
 }
 
