@@ -1,7 +1,7 @@
 use crate::{
+    Route,
     components::editor::{Editor, ErrorSpan},
     theme::Theme,
-    Route,
 };
 use dioxus::prelude::*;
 use eure::document::{NodeOriginMap, cst_to_document, cst_to_document_and_origins};
@@ -249,6 +249,7 @@ enum EureExample {
     EureSchema,
     Cargo,
     GitHubAction,
+    GameScript,
     Minimal,
 }
 
@@ -259,6 +260,7 @@ impl EureExample {
         EureExample::EureSchema,
         EureExample::Cargo,
         EureExample::GitHubAction,
+        EureExample::GameScript,
         EureExample::Minimal,
     ];
 
@@ -269,6 +271,7 @@ impl EureExample {
             EureExample::EureSchema => "Eure Schema",
             EureExample::Cargo => "Cargo",
             EureExample::GitHubAction => "GitHub Action",
+            EureExample::GameScript => "Game Script",
             EureExample::Minimal => "Minimal",
         }
     }
@@ -280,6 +283,7 @@ impl EureExample {
             EureExample::EureSchema => "eure-schema",
             EureExample::Cargo => "cargo",
             EureExample::GitHubAction => "github-action",
+            EureExample::GameScript => "game-script",
             EureExample::Minimal => "minimal",
         }
     }
@@ -291,6 +295,7 @@ impl EureExample {
             "eure-schema" => Some(EureExample::EureSchema),
             "cargo" => Some(EureExample::Cargo),
             "github-action" => Some(EureExample::GitHubAction),
+            "game-script" => Some(EureExample::GameScript),
             "minimal" => Some(EureExample::Minimal),
             _ => None,
         }
@@ -305,6 +310,9 @@ impl EureExample {
             }
             EureExample::Cargo => include_str!("../../assets/examples/cargo.eure"),
             EureExample::GitHubAction => include_str!("../../assets/examples/github-action.eure"),
+            EureExample::GameScript => {
+                include_str!("../../../../assets/examples/game-script.eure")
+            }
             EureExample::Minimal => "= 1\n",
         }
     }
@@ -321,6 +329,9 @@ impl EureExample {
             EureExample::Cargo => include_str!("../../assets/examples/cargo.schema.eure"),
             EureExample::GitHubAction => {
                 include_str!("../../assets/examples/github-action.schema.eure")
+            }
+            EureExample::GameScript => {
+                include_str!("../../../../assets/examples/game-script.schema.eure")
             }
             EureExample::Minimal => "= `any`\n",
         }

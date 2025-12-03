@@ -1,0 +1,25 @@
+/// Schema for Actions example - represents a sequence of game/interactive actions
+
+actions = [`$types.action`]
+
+/// Action types that can be performed
+$types.action {
+  $variant: union
+
+  variants.set-text.text = `text`
+
+  variants.set-selections {
+    title = `text`
+    selections = [`$types.selection`]
+  }
+
+  variants.spawn-script.script = `text`
+
+  variants.use-script.script = `text`
+
+  variants.wait-seconds.seconds = `float`
+}
+
+$types.selection {
+  text = `text`
+}

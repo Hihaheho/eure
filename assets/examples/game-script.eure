@@ -1,0 +1,24 @@
+@ actions[]
+$variant: set-text
+text: Welcome to the Eure Actions example!
+
+@ actions[] {
+  $variant: set-selections
+  title: Choose one of the following:
+  @ selections[]
+  text: Option 1
+  @ selections[]
+  text: Option 2
+}
+
+@ actions[]
+$variant: spawn-script
+script: script0
+
+@ actions[]
+$variant: wait-seconds
+seconds = 1.0
+
+@ actions[]
+$variant: use-script
+script: script1
