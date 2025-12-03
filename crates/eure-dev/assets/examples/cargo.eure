@@ -1,0 +1,25 @@
+// This is demo only dummy Cargo package.
+
+@ package
+name: eure
+version: 0.0.0
+description: A minimalist, schema-friendly data format designed for configuration and data exchange.
+keywords = ["configuration", "data-format", "eure", "serialization"]
+homepage: https://eure.dev
+license: MIT OR Apache-2.0
+repository: https://github.com/Hihaheho/eure
+
+@ dependencies
+serde: "1"
+eure = { path => "crates/eure", version => "0.1.0" }
+
+@ target."cfg(not(target = \"wasm32\"))".dev-dependencies
+getrandom = { version => "0.3", features => ["wasm_js"] }
+
+@ example[]
+name: hello_world
+path: examples/hello_world.rs
+
+@ example[]
+name: hello_world2
+path: examples/hello_world2.rs

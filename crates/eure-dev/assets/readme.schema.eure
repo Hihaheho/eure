@@ -12,8 +12,6 @@ github = `text.url`
 github.$optional = true
 version = `text`
 
-tagline = `text`
-
 description = `text`
 
 @ status

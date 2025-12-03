@@ -1,0 +1,2 @@
+input_eure = path`crates/eure-dev/assets/examples/github-action.eure`
+schema = path`crates/eure-dev/assets/examples/github-action.schema.eure`

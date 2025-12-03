@@ -1,0 +1,125 @@
+/// Simplified schema for Cargo.toml-like configuration in Eure format.
+/// This does not cover all Cargo features, just the basics.
+
+@ package
+name = `text`
+version = `text`
+description = `text`
+description.$optional = true
+keywords = [`text`]
+keywords.$optional = true
+homepage = `text`
+homepage.$optional = true
+license = `text`
+license.$optional = true
+repository = `text`
+repository.$optional = true
+edition = `text`
+edition.$optional = true
+authors = [`text`]
+authors.$optional = true
+
+/// Dependency specification - either a version string or a detailed spec
+@ $types.dependency {
+  $variant: union
+  $variant-repr = "untagged"
+  priority = ["detailed", "version"]
+
+  /// Simple version string like "1" or "1.0.0"
+  variants.version = `text`
+
+  /// Detailed dependency specification
+  @variants.detailed
+  version = `text`
+  version.$optional = true
+  path = `text`
+  path.$optional = true
+  git = `text.url`
+  git.$optional = true
+  branch = `text`
+  branch.$optional = true
+  tag = `text`
+  tag.$optional = true
+  rev = `text`
+  rev.$optional = true
+  features = [`text`]
+  features.$optional = true
+  optional = `boolean`
+  optional.$optional = true
+  default-features = `boolean`
+  default-features.$optional = true
+}
+
+@ dependencies
+$variant: map
+$optional = true
+key = `text`
+value = `$types.dependency`
+
+@ dev-dependencies
+$variant: map
+$optional = true
+key = `text`
+value = `$types.dependency`
+
+@ build-dependencies
+$variant: map
+$optional = true
+key = `text`
+value = `$types.dependency`
+
+/// Example binary/library entry
+@ $types.example {
+  name = `text`
+  path = `text`
+  path.$optional = true
+}
+
+@ example
+$variant: array
+$optional = true
+item = `$types.example`
+
+/// Binary entry
+@ bin
+$variant: array
+$optional = true
+item = `$types.example`
+
+/// Library configuration
+@ lib
+$optional = true
+name = `text`
+name.$optional = true
+path = `text`
+path.$optional = true
+crate-type = [`text`]
+crate-type.$optional = true
+
+/// Target-specific dependencies
+/// e.g., target."cfg(not(target = \"wasm32\"))".dev-dependencies
+@ target
+$variant: map
+$optional = true
+key = `text`
+value = `$types.target-deps`
+
+@ $types.target-deps {
+  @ dependencies
+  $variant: map
+  $optional = true
+  key = `text`
+  value = `$types.dependency`
+
+  @ dev-dependencies
+  $variant: map
+  $optional = true
+  key = `text`
+  value = `$types.dependency`
+
+  @ build-dependencies
+  $variant: map
+  $optional = true
+  key = `text`
+  value = `$types.dependency`
+}

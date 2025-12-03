@@ -1,0 +1,192 @@
+/// Simplified schema for GitHub Actions workflow in Eure format.
+/// This does not cover all GitHub Actions features, just the basics.
+
+name = `text`
+name.$optional = true
+
+@ permissions
+$variant: map
+$optional = true
+key = `text`
+value = `text`
+
+@ on {
+  $optional = true
+
+  /// Trigger on push events
+  @ push
+  $optional = true
+  branches = [`text`]
+  branches.$optional = true
+  tags = [`text`]
+  tags.$optional = true
+  paths = [`text`]
+  paths.$optional = true
+  paths-ignore = [`text`]
+  paths-ignore.$optional = true
+
+  /// Trigger on pull request events
+  @ pull_request {
+    $variant: union
+    $optional = true
+    $variant-repr = "untagged"
+    priority = ["config", "null"]
+
+    variants.null = `null`
+
+    @variants.config
+    branches = [`text`]
+    branches.$optional = true
+    paths = [`text`]
+    paths.$optional = true
+    paths-ignore = [`text`]
+    paths-ignore.$optional = true
+    types = [`text`]
+    types.$optional = true
+  }
+
+  /// Trigger on workflow dispatch (manual trigger)
+  @ workflow_dispatch
+  $optional = true
+  inputs {
+    $variant: map
+    $optional = true
+    key = `text`
+    value = `$types.workflow-input`
+  }
+
+  /// Trigger on schedule
+  schedule = [`$types.cron`]
+  schedule.$optional = true
+}
+
+@ env
+$variant: map
+$optional = true
+key = `text`
+value = `text`
+
+/// Expression or boolean type for GitHub Actions expressions
+@ $types.expression-or-boolean {
+  $variant: union
+  $variant-repr = "untagged"
+  priority = ["expression", "boolean"]
+
+  /// GitHub Actions expression like ${{ ... }}
+  variants.expression = `text`
+
+  /// Plain boolean value
+  variants.boolean = `boolean`
+}
+
+@ concurrency
+$optional = true
+group = `text`
+cancel-in-progress = `$types.expression-or-boolean`
+cancel-in-progress.$optional = true
+
+@ jobs
+$variant: map
+key = `text`
+value = `$types.job`
+
+/// Workflow input for workflow_dispatch
+@ $types.workflow-input {
+  description = `text`
+  description.$optional = true
+  required = `boolean`
+  required.$optional = true
+  default = `text`
+  default.$optional = true
+  type = `text`
+  type.$optional = true
+  options = [`text`]
+  options.$optional = true
+}
+
+/// Cron schedule entry
+@ $types.cron {
+  cron = `text`
+}
+
+/// Job definition
+@ $types.job {
+  runs-on = `text`
+  needs = [`text`]
+  needs.$optional = true
+  if = `text`
+  if.$optional = true
+
+  @ env
+  $variant: map
+  $optional = true
+  key = `text`
+  value = `text`
+
+  @ strategy
+  $optional = true
+  matrix {
+    $variant: map
+    $optional = true
+    key = `text`
+    value = `any`
+  }
+  fail-fast = `boolean`
+  fail-fast.$optional = true
+  max-parallel = `integer`
+  max-parallel.$optional = true
+
+  @ container
+  $optional = true
+  image = `text`
+  credentials {
+    $optional = true
+    username = `text`
+    password = `text`
+  }
+  env {
+    $variant: map
+    $optional = true
+    key = `text`
+    value = `text`
+  }
+
+  @ steps
+  $variant: array
+  item = `$types.step`
+}
+
+/// Step definition - either a uses step or a run step
+@ $types.step {
+  name = `text`
+  name.$optional = true
+  id = `text`
+  id.$optional = true
+  if = `text`
+  if.$optional = true
+  uses = `text`
+  uses.$optional = true
+  run = `text`
+  run.$optional = true
+  shell = `text`
+  shell.$optional = true
+  working-directory = `text`
+  working-directory.$optional = true
+
+  @ with
+  $variant: map
+  $optional = true
+  key = `text`
+  value = `any`
+
+  @ env
+  $variant: map
+  $optional = true
+  key = `text`
+  value = `text`
+
+  continue-on-error = `boolean`
+  continue-on-error.$optional = true
+  timeout-minutes = `integer`
+  timeout-minutes.$optional = true
+}

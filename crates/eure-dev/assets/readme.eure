@@ -9,8 +9,6 @@ origin: Think: Eureka, Extensible Universal Representation, "your" data
 github = url`https://github.com/Hihaheho/eure`
 version = "0.1.0-alpha"
 
-tagline: Your data, your way
-
 description = ```
 A minimalist, schema-friendly data format
 designed for configuration and data exchange.

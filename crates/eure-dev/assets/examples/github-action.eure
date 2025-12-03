@@ -1,0 +1,66 @@
+// This is demo only dummy GitHub Actions workflow file if it would support Eure.
+
+name: CI
+
+permissions.contents: read
+
+@ on
+pull_request = null
+push.branches = ["main"]
+
+@ env
+CARGO_TERM_COLOR: always
+CARGO_INCREMENTAL: 0
+
+@ concurrency
+group: ${{github.workflow}}-${{github.ref}}
+cancel-in-progress: ${{github.event_name == 'pull_request'}}
+
+@ jobs.hello_world {
+  runs-on: ubuntu-latest
+  @ steps[]
+  run: echo "Hello, World!"
+}
+
+@ jobs.build {
+  runs-on: ubuntu-latest
+
+  @ steps[]
+  uses: actions/checkout@v6
+  with {
+    key: ${{ runner.os }}-stable-${{ hashFiles('**/Cargo.toml') }}
+    path = ```
+      ~/.cargo/bin/
+      ~/.cargo/registry/index/
+      ~/.cargo/registry/cache/
+      ~/.cargo/git/db/
+      target/
+    ```
+  }
+
+  @ steps[]
+  uses: dtolnay/rust-toolchain@stable
+  with {
+    components: rustfmt, clippy
+  }
+
+  @ steps[]
+  name: Format Check
+  run: cargo fmt --check
+
+  @ steps[]
+  name: Dioxus deps
+  run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libasound2-dev libudev-dev libayatana-appindicator3-dev libxdo-dev libglib2.0-dev
+
+  @ steps[]
+  name: Clippy Check
+  run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+  @ steps[]
+  name: Test
+  run: cargo test --locked --all-targets --all-features
+
+  @ steps[]
+  name: Eure test suite
+  run: cargo run -p test-suite --locked
+}

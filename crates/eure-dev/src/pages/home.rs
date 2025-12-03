@@ -246,6 +246,8 @@ enum EureExample {
     Readme,
     HelloWorld,
     EureSchema,
+    Cargo,
+    GitHubAction,
 }
 
 impl EureExample {
@@ -253,6 +255,8 @@ impl EureExample {
         EureExample::Readme,
         EureExample::HelloWorld,
         EureExample::EureSchema,
+        EureExample::Cargo,
+        EureExample::GitHubAction,
     ];
 
     fn name(&self) -> &'static str {
@@ -260,6 +264,8 @@ impl EureExample {
             EureExample::Readme => "Readme",
             EureExample::HelloWorld => "Hello World",
             EureExample::EureSchema => "Eure Schema",
+            EureExample::Cargo => "Cargo",
+            EureExample::GitHubAction => "GitHub Action",
         }
     }
 
@@ -268,6 +274,8 @@ impl EureExample {
             EureExample::Readme => "readme",
             EureExample::HelloWorld => "hello-world",
             EureExample::EureSchema => "eure-schema",
+            EureExample::Cargo => "cargo",
+            EureExample::GitHubAction => "github-action",
         }
     }
 
@@ -276,6 +284,8 @@ impl EureExample {
             "readme" => Some(EureExample::Readme),
             "hello-world" => Some(EureExample::HelloWorld),
             "eure-schema" => Some(EureExample::EureSchema),
+            "cargo" => Some(EureExample::Cargo),
+            "github-action" => Some(EureExample::GitHubAction),
             _ => None,
         }
     }
@@ -287,6 +297,8 @@ impl EureExample {
             EureExample::EureSchema => {
                 include_str!("../../../../assets/schemas/eure-schema.schema.eure")
             }
+            EureExample::Cargo => include_str!("../../assets/examples/cargo.eure"),
+            EureExample::GitHubAction => include_str!("../../assets/examples/github-action.eure"),
         }
     }
 
@@ -298,6 +310,10 @@ impl EureExample {
             }
             EureExample::EureSchema => {
                 include_str!("../../../../assets/schemas/eure-schema.schema.eure")
+            }
+            EureExample::Cargo => include_str!("../../assets/examples/cargo.schema.eure"),
+            EureExample::GitHubAction => {
+                include_str!("../../assets/examples/github-action.schema.eure")
             }
         }
     }
@@ -358,187 +374,187 @@ pub fn Home() -> Element {
     let surface1_color = theme_val.surface1_color();
 
     rsx! {
-		div { class: "h-full px-4 pb-4 flex gap-4",
+        div { class: "h-full px-4 pb-4 flex gap-4",
 
-			// Left column: Eure Editor
-			div {
-				class: "w-1/2 flex flex-col rounded border min-h-0",
-				style: "border-color: {border_color}; background-color: {bg_color}",
+            // Left column: Eure Editor
+            div {
+                class: "w-1/2 flex flex-col rounded border min-h-0",
+                style: "border-color: {border_color}; background-color: {bg_color}",
 
-				// Section header
-				div {
-					class: "px-3 py-2 border-b text-sm font-semibold shrink-0 flex justify-between items-center",
-					style: "border-color: {border_color}; background-color: {surface1_color}",
-					span { "Eure" }
-					select {
-						class: "px-3 py-1 rounded border text-sm font-normal",
-						style: "border-color: {border_color}; background-color: {bg_color}",
-						value: "{example().value()}",
-						onchange: move |evt| {
-						    if let Some(ex) = EureExample::from_value(&evt.value()) {
-						        example.set(ex);
-						        content.set(ex.content().to_string());
-						        schema_content.set(ex.schema().to_string());
-						    }
-						},
-						for ex in EureExample::ALL {
-							option { value: "{ex.value()}", "{ex.name()}" }
-						}
-					}
-				}
+                // Section header
+                div {
+                    class: "px-3 py-2 border-b text-sm font-semibold shrink-0 flex justify-between items-center",
+                    style: "border-color: {border_color}; background-color: {surface1_color}",
+                    span { "Eure" }
+                    select {
+                        class: "px-3 py-1 rounded border text-sm font-normal",
+                        style: "border-color: {border_color}; background-color: {bg_color}",
+                        value: "{example().value()}",
+                        onchange: move |evt| {
+                            if let Some(ex) = EureExample::from_value(&evt.value()) {
+                                example.set(ex);
+                                content.set(ex.content().to_string());
+                                schema_content.set(ex.schema().to_string());
+                            }
+                        },
+                        for ex in EureExample::ALL {
+                            option { value: "{ex.value()}", "{ex.name()}" }
+                        }
+                    }
+                }
 
-				// Editor
-				div { class: "flex-1 text-xl overflow-hidden min-h-0",
-					Editor {
-						content,
-						tokens,
-						errors: combined_doc_errors,
-						theme,
-						on_change: move |s| content.set(s),
-					}
-				}
-			}
+                // Editor
+                div { class: "flex-1 text-xl overflow-hidden min-h-0",
+                    Editor {
+                        content,
+                        tokens,
+                        errors: combined_doc_errors,
+                        theme,
+                        on_change: move |s| content.set(s),
+                    }
+                }
+            }
 
-			// Right column: Tabbed view
-			div {
-				class: "w-1/2 flex flex-col rounded border min-h-0",
-				style: "border-color: {border_color}; background-color: {bg_color}",
+            // Right column: Tabbed view
+            div {
+                class: "w-1/2 flex flex-col rounded border min-h-0",
+                style: "border-color: {border_color}; background-color: {bg_color}",
 
-				// Tab header
-				div {
-					class: "flex border-b shrink-0",
-					style: "border-color: {border_color}; background-color: {surface1_color}",
+                // Tab header
+                div {
+                    class: "flex border-b shrink-0",
+                    style: "border-color: {border_color}; background-color: {surface1_color}",
 
-					button {
-						class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
-						style: if active_tab() == RightTab::JsonOutput { "border-color: currentColor" } else { "border-color: transparent" },
-						onclick: move |_| active_tab.set(RightTab::JsonOutput),
-						"JSON Output"
-					}
-					button {
-						class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
-						style: if active_tab() == RightTab::Schema { "border-color: currentColor" } else { "border-color: transparent" },
-						onclick: move |_| active_tab.set(RightTab::Schema),
-						"Schema"
-					}
-					button {
-						class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
-						style: if active_tab() == RightTab::Errors { "border-color: currentColor" } else { "border-color: transparent" },
-						onclick: move |_| active_tab.set(RightTab::Errors),
-						"Errors ({error_count()})"
-					}
-				}
+                    button {
+                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+                        style: if active_tab() == RightTab::JsonOutput { "border-color: currentColor" } else { "border-color: transparent" },
+                        onclick: move |_| active_tab.set(RightTab::JsonOutput),
+                        "JSON Output"
+                    }
+                    button {
+                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+                        style: if active_tab() == RightTab::Schema { "border-color: currentColor" } else { "border-color: transparent" },
+                        onclick: move |_| active_tab.set(RightTab::Schema),
+                        "Schema"
+                    }
+                    button {
+                        class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+                        style: if active_tab() == RightTab::Errors { "border-color: currentColor" } else { "border-color: transparent" },
+                        onclick: move |_| active_tab.set(RightTab::Errors),
+                        "Errors ({error_count()})"
+                    }
+                }
 
-				// Tab content
-				div { class: "flex-1 overflow-hidden min-h-0",
-					match active_tab() {
-					    RightTab::JsonOutput => rsx! {
-						// Document Parser Errors
+                // Tab content
+                div { class: "flex-1 overflow-hidden min-h-0",
+                    match active_tab() {
+                        RightTab::JsonOutput => rsx! {
+                        // Document Parser Errors
 
-						// Schema Parser Errors
+                        // Schema Parser Errors
 
-						// Schema Errors (conversion + meta-validation)
+                        // Schema Errors (conversion + meta-validation)
 
-						// Validation Errors (document vs schema)
+                        // Validation Errors (document vs schema)
 
-	
-	
-	
-	
-	
-	
-	
-						div { class: "h-full overflow-auto p-3 font-mono text-sm",
-							pre {
-								if json_output().is_empty() {
-									span { class: "opacity-50", "// Parse the Eure document to see JSON output" }
-								} else {
-									"{json_output()}"
-								}
-							}
-						}
-					},
-					    RightTab::Schema => rsx! {
-						div { class: "h-full text-xl overflow-hidden",
-							Editor {
-								content: schema_content,
-								tokens: schema_tokens,
-								errors: schema_parser_errors,
-								theme,
-								on_change: move |s| schema_content.set(s),
-							}
-						}
-					},
-					    RightTab::Errors => rsx! {
-						div { class: "h-full overflow-auto p-3 font-mono text-sm",
-							if all_errors().is_empty() {
-								span { class: "opacity-50", "No errors" }
-							} else {
-								if !all_errors().doc_parser_errors.is_empty() {
-									div { class: "mb-4",
-										div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-											"Document Parser Errors ({all_errors().doc_parser_errors.len()})"
-										}
-										for error in all_errors().doc_parser_errors.iter() {
-											div {
-												class: "mb-2 p-2 rounded border",
-												style: "border-color: {border_color}",
-												pre { class: "whitespace-pre-wrap", "{error.message}" }
-											}
-										}
-									}
-								}
-	
-								if !all_errors().schema_parser_errors.is_empty() {
-									div { class: "mb-4",
-										div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-											"Schema Parser Errors ({all_errors().schema_parser_errors.len()})"
-										}
-										for error in all_errors().schema_parser_errors.iter() {
-											div {
-												class: "mb-2 p-2 rounded border",
-												style: "border-color: {border_color}",
-												pre { class: "whitespace-pre-wrap", "{error.message}" }
-											}
-										}
-									}
-								}
-	
-								if !all_errors().schema_errors.is_empty() {
-									div { class: "mb-4",
-										div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-											"Schema Errors ({all_errors().schema_errors.len()})"
-										}
-										for error in all_errors().schema_errors.iter() {
-											div {
-												class: "mb-2 p-2 rounded border",
-												style: "border-color: {border_color}",
-												pre { class: "whitespace-pre-wrap", "{error}" }
-											}
-										}
-									}
-								}
-	
-								if !all_errors().validation_errors.is_empty() {
-									div { class: "mb-4",
-										div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-											"Validation Errors ({all_errors().validation_errors.len()})"
-										}
-										for error in all_errors().validation_errors.iter() {
-											div {
-												class: "mb-2 p-2 rounded border",
-												style: "border-color: {border_color}",
-												pre { class: "whitespace-pre-wrap", "{error.message}" }
-											}
-										}
-									}
-								}
-							}
-						}
-					},
-					}
-				}
-			}
-		}
-	}
+
+
+
+
+
+
+
+                        div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                            pre {
+                                if json_output().is_empty() {
+                                    span { class: "opacity-50", "// Parse the Eure document to see JSON output" }
+                                } else {
+                                    "{json_output()}"
+                                }
+                            }
+                        }
+                    },
+                        RightTab::Schema => rsx! {
+                        div { class: "h-full text-xl overflow-hidden",
+                            Editor {
+                                content: schema_content,
+                                tokens: schema_tokens,
+                                errors: schema_parser_errors,
+                                theme,
+                                on_change: move |s| schema_content.set(s),
+                            }
+                        }
+                    },
+                        RightTab::Errors => rsx! {
+                        div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                            if all_errors().is_empty() {
+                                span { class: "opacity-50", "No errors" }
+                            } else {
+                                if !all_errors().doc_parser_errors.is_empty() {
+                                    div { class: "mb-4",
+                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                            "Document Parser Errors ({all_errors().doc_parser_errors.len()})"
+                                        }
+                                        for error in all_errors().doc_parser_errors.iter() {
+                                            div {
+                                                class: "mb-2 p-2 rounded border",
+                                                style: "border-color: {border_color}",
+                                                pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if !all_errors().schema_parser_errors.is_empty() {
+                                    div { class: "mb-4",
+                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                            "Schema Parser Errors ({all_errors().schema_parser_errors.len()})"
+                                        }
+                                        for error in all_errors().schema_parser_errors.iter() {
+                                            div {
+                                                class: "mb-2 p-2 rounded border",
+                                                style: "border-color: {border_color}",
+                                                pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if !all_errors().schema_errors.is_empty() {
+                                    div { class: "mb-4",
+                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                            "Schema Errors ({all_errors().schema_errors.len()})"
+                                        }
+                                        for error in all_errors().schema_errors.iter() {
+                                            div {
+                                                class: "mb-2 p-2 rounded border",
+                                                style: "border-color: {border_color}",
+                                                pre { class: "whitespace-pre-wrap", "{error}" }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if !all_errors().validation_errors.is_empty() {
+                                    div { class: "mb-4",
+                                        div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                            "Validation Errors ({all_errors().validation_errors.len()})"
+                                        }
+                                        for error in all_errors().validation_errors.iter() {
+                                            div {
+                                                class: "mb-2 p-2 rounded border",
+                                                style: "border-color: {border_color}",
+                                                pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    }
+                }
+            }
+        }
+    }
 }
