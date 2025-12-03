@@ -1481,9 +1481,11 @@ dependencies = [
  "dioxus",
  "eure",
  "eure-editor-support",
+ "eure-json",
  "eure-parol",
  "eure-schema",
  "getrandom 0.3.4",
+ "serde_json",
  "tracing",
 ]
 

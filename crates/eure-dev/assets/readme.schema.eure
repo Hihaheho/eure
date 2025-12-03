@@ -1,0 +1,52 @@
+/// Schema for the Eure landing page data (readme.eure)
+///
+/// This schema defines the structure for the landing page content,
+/// demonstrating Eure's algebraic data model with union types.
+
+$schema = "eure-schema.schema.eure"
+
+name = `text`
+github = `text.url`
+github.$optional = true
+version = `text`
+
+tagline = `text`
+subtitle = `text`
+subtitle.$optional = true
+
+description = `text`
+
+@ status
+$optional = true
+phase = `text`
+
+@ features {
+  $variant: array
+  item = `$types.feature`
+}
+
+/// Feature with status variants demonstrating algebraic data types.
+/// Each variant has different fields based on completion status.
+@ $types.feature {
+  $variant: union
+
+  /// Completed feature - basic info only
+  @variants.done
+  title = `text`
+  icon = `text`
+  description = `text`
+
+  /// Work in progress - includes current milestone
+  @variants.in-progress
+  title = `text`
+  icon = `text`
+  description = `text`
+  milestone = `text`
+
+  /// Planned feature - includes target version
+  @variants.planned
+  title = `text`
+  icon = `text`
+  description = `text`
+  target = `text`
+}

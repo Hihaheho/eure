@@ -1,0 +1,2 @@
+input_eure = path`crates/eure-dev/assets/readme.eure`
+schema = path`crates/eure-dev/assets/readme.schema.eure`

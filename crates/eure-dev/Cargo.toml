@@ -12,7 +12,9 @@ catppuccin = { workspace = true, features = ["css-colors"] }
 dioxus = { version = "0.7.0", features = ["logger", "router", "web"] }
 eure = { workspace = true }
 eure-editor-support = { workspace = true }
+eure-json = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }
+serde_json = { workspace = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 tracing = { workspace = true }
