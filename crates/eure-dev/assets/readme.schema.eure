@@ -1,10 +1,4 @@
 /// Schema for the Eure landing page data (readme.eure)
-///
-/// This schema defines the structure for the landing page content,
-/// demonstrating Eure's algebraic data model with union types.
-
-$schema = "eure-schema.schema.eure"
-
 name = `text`
 github = `text.url`
 github.$optional = true

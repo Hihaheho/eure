@@ -180,6 +180,7 @@ $schema = "eure-schema.schema.eure"
 /// and reference them as: field.$type = `$types.my-type`
 $ext-type.types {
   $variant: map
+  $optional = true
   key = `$types.ident`
   value = `$types.type`
 
