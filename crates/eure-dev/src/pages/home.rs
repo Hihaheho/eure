@@ -388,6 +388,7 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
     let bg_color = theme_val.bg_color();
     let border_color = theme_val.border_color();
     let surface1_color = theme_val.surface1_color();
+    let accent_color = theme_val.accent_color();
 
     rsx! {
         div { class: "h-full px-4 pb-4 flex gap-4",
@@ -403,8 +404,8 @@ pub fn Home(example: ReadSignal<Option<String>>) -> Element {
                     style: "border-color: {border_color}; background-color: {surface1_color}",
                     span { "Eure" }
                     select {
-                        class: "px-3 py-1 rounded border text-sm font-normal",
-                        style: "border-color: {border_color}; background-color: {bg_color}",
+                        class: "px-4 py-2 rounded-lg border-2 text-base font-semibold cursor-pointer shadow-sm",
+                        style: "border-color: {accent_color}; background-color: {bg_color}; color: {accent_color}",
                         value: "{current_example().value()}",
                         onchange: move |evt| {
                             let value = evt.value();

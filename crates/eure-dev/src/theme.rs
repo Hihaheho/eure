@@ -85,4 +85,9 @@ impl Theme {
     pub fn surface1_color(self) -> Hex {
         self.palette().surface1.hex
     }
+
+    /// Get the accent color (pink for emphasis).
+    pub fn accent_color(self) -> Hex {
+        self.palette().pink.hex
+    }
 }
