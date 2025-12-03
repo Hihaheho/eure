@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use dioxus_free_icons::{Icon, icons::bs_icons::BsGithub};
 
 use crate::{Route, theme::Theme};
 
@@ -22,21 +23,31 @@ pub fn Layout() -> Element {
 						h1 { class: "text-2xl font-bold", "Eure" }
 					}
 
-					// Toggle switch
-					button {
-						class: "w-14 h-8 rounded-full relative transition-colors",
-						style: "background-color: {surface_color}",
-						onclick: move |_| theme.set(theme().toggle()),
+					div { class: "flex items-center gap-4",
+						// Toggle switch
+						button {
+							class: "w-14 h-8 rounded-full relative transition-colors",
+							style: "background-color: {surface_color}",
+							onclick: move |_| theme.set(theme().toggle()),
 
-						// Toggle knob with emoji
-						span {
-							class: if theme() == Theme::Dark { "absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center transition-all" } else { "absolute top-1 left-7 w-6 h-6 rounded-full flex items-center justify-center transition-all" },
-							style: "background-color: {page_bg_color}",
-							if theme() == Theme::Dark {
-								"🌙"
-							} else {
-								"☀️"
+							// Toggle knob with emoji
+							span {
+								class: if theme() == Theme::Dark { "absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center transition-all" } else { "absolute top-1 left-7 w-6 h-6 rounded-full flex items-center justify-center transition-all" },
+								style: "background-color: {page_bg_color}",
+								if theme() == Theme::Dark {
+									"🌙"
+								} else {
+									"☀️"
+								}
 							}
+						}
+
+						// GitHub link
+						a {
+							href: "https://github.com/Hihaheho/eure",
+							target: "_blank",
+							class: "hover:opacity-80 transition-opacity",
+							Icon { icon: BsGithub, width: 24, height: 24 }
 						}
 					}
 				}
