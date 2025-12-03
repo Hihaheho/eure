@@ -249,6 +249,7 @@ enum EureExample {
     EureSchema,
     Cargo,
     GitHubAction,
+    Minimal,
 }
 
 impl EureExample {
@@ -258,6 +259,7 @@ impl EureExample {
         EureExample::EureSchema,
         EureExample::Cargo,
         EureExample::GitHubAction,
+        EureExample::Minimal,
     ];
 
     fn name(&self) -> &'static str {
@@ -267,6 +269,7 @@ impl EureExample {
             EureExample::EureSchema => "Eure Schema",
             EureExample::Cargo => "Cargo",
             EureExample::GitHubAction => "GitHub Action",
+            EureExample::Minimal => "Minimal",
         }
     }
 
@@ -277,6 +280,7 @@ impl EureExample {
             EureExample::EureSchema => "eure-schema",
             EureExample::Cargo => "cargo",
             EureExample::GitHubAction => "github-action",
+            EureExample::Minimal => "minimal",
         }
     }
 
@@ -287,6 +291,7 @@ impl EureExample {
             "eure-schema" => Some(EureExample::EureSchema),
             "cargo" => Some(EureExample::Cargo),
             "github-action" => Some(EureExample::GitHubAction),
+            "minimal" => Some(EureExample::Minimal),
             _ => None,
         }
     }
@@ -300,6 +305,7 @@ impl EureExample {
             }
             EureExample::Cargo => include_str!("../../assets/examples/cargo.eure"),
             EureExample::GitHubAction => include_str!("../../assets/examples/github-action.eure"),
+            EureExample::Minimal => "= 1\n",
         }
     }
 
@@ -316,6 +322,7 @@ impl EureExample {
             EureExample::GitHubAction => {
                 include_str!("../../assets/examples/github-action.schema.eure")
             }
+            EureExample::Minimal => "= `any`\n",
         }
     }
 }
