@@ -1,11 +1,15 @@
 $license: MIT OR Apache-2.0
 
-name = "Eure"
+@ name
+value: Eure
+pronunciation: your
+note: Not "EURE" - not an acronym
+origin: Think: Eureka, Extensible Universal Representation, "your" data
+
 github = url`https://github.com/Hihaheho/eure`
 version = "0.1.0-alpha"
 
 tagline: Your data, your way
-subtitle: Eureka, Extensible Universal Representation
 
 description = ```
 A minimalist, schema-friendly data format
@@ -52,3 +56,38 @@ title: Templating Ready
 icon: 📝
 description: Dedicated templating language for dynamic configuration
 target: v0.2.0
+
+@ credits[]
+name: Parol
+url = url`https://github.com/jsinger67/parol`
+description: Parser generator
+
+@ credits[]
+name: TOML
+url = url`https://toml.io`
+description: Flattened document structure and its minimalism
+
+@ credits[]
+name: jq
+url = url`https://jqlang.org`
+description: Key syntax
+
+@ credits[]
+name: Serde
+url = url`https://serde.rs/`
+description: Data model and attributes (especially about enum representation)
+
+@ credits[]
+name: JSON Schema
+url = url`https://json-schema.org`
+description: Idea of describing schema in the same language as the data
+
+@ credits[]
+name: Helm
+url = url`https://helm.sh`
+description: Idea of templating
+
+@ credits[]
+name: YAML
+url = url`https://yaml.org`
+description: Easy nesting and the `:` syntax

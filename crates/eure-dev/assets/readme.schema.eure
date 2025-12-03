@@ -1,12 +1,18 @@
 /// Schema for the Eure landing page data (readme.eure)
-name = `text`
+@ name
+value = `text`
+pronunciation = `text`
+pronunciation.$optional = true
+note = `text`
+note.$optional = true
+origin = `text`
+origin.$optional = true
+
 github = `text.url`
 github.$optional = true
 version = `text`
 
 tagline = `text`
-subtitle = `text`
-subtitle.$optional = true
 
 description = `text`
 
@@ -14,10 +20,20 @@ description = `text`
 $optional = true
 phase = `text`
 
-@ features {
-  $variant: array
-  item = `$types.feature`
-}
+@ features
+$variant: array
+item = `$types.feature`
+
+@ credits
+$variant: array
+$optional = true
+item = `$types.credit`
+
+/// Credit entry for acknowledging libraries, tools, and inspirations.
+@ $types.credit
+name = `text`
+url = `text.url`
+description = `text`
 
 /// Feature with status variants demonstrating algebraic data types.
 /// Each variant has different fields based on completion status.

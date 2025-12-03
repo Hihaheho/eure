@@ -7,7 +7,7 @@
 
 ## Name
 
-Eure (not "EURE"), pronounced "your." Not an acronym, but think: Eureka, Extensible Universal Representation, "your" data.
+Eure (not "EURE"), pronounced "your." Not an acronym, but think: Eureka, Extensible Universal Representation, "your" data, "your" way.
 
 ## Focus
 
@@ -78,8 +78,8 @@ scene: scenes/room_a.scn.ron
 ## Credits
 
 - [Parol](https://github.com/jsinger67/parol) for the parser generator
-- [TOML](https://toml.io) for the document structure and its minimalisity
-- [jq](https://jqlang.github.io/jq/) for the key syntax
+- [TOML](https://toml.io) for the flattened document structure and its minimalism
+- [jq](https://jqlang.org) for the key syntax
 - [Serde](https://serde.rs/) for the data model and attributes (especially about enum representation)
 - [JSON Schema](https://json-schema.org) for the idea of describing schema in the same language as the data
 - [Helm](https://helm.sh) for the idea of templating
