@@ -1,7 +1,7 @@
 input_eure = ```eure
 a = { x => 1 }
 b.x = 2
-f = { = "hello" }
+f = { = "hello", $ext => "ext" }
 g = {}
 @ c = { x => 3 }
 @ d {
@@ -19,6 +19,7 @@ normalized = ```eure
   d => { x => 4 },
   e => { x => "6" },
   f => "hello",
+  f.$ext => "ext",
   g => {},
 }
 ```
