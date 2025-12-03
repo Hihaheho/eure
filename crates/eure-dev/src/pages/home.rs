@@ -18,6 +18,14 @@ struct ParsedData {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+enum RightTab {
+    #[default]
+    JsonOutput,
+    Schema,
+    Errors,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 enum EureExample {
     #[default]
     Readme,
@@ -171,6 +179,10 @@ pub fn Home() -> Element {
     let schema_tokens = use_memo(move || schema_parsed().tokens);
     let schema_errors = use_memo(move || schema_parsed().errors);
 
+    // Tab state for right column
+    let mut active_tab = use_signal(RightTab::default);
+    let error_count = use_memo(move || errors().len());
+
     let theme_val = theme();
     let bg_color = theme_val.bg_color();
     let border_color = theme_val.border_color();
@@ -218,56 +230,89 @@ pub fn Home() -> Element {
 				}
 			}
 
-			// Right column: JSON Output + Schema Editor
-			div { class: "w-1/2 flex flex-col gap-4 min-h-0",
+			// Right column: Tabbed view
+			div {
+				class: "w-1/2 flex flex-col rounded border min-h-0",
+				style: "border-color: {border_color}; background-color: {bg_color}",
 
-				// Top: JSON Output
+				// Tab header
 				div {
-					class: "flex-1 flex flex-col rounded border min-h-0",
-					style: "border-color: {border_color}; background-color: {bg_color}",
+					class: "flex border-b shrink-0",
+					style: "border-color: {border_color}; background-color: {surface1_color}",
 
-					// Section header
-					div {
-						class: "px-3 py-2 border-b text-sm font-semibold shrink-0",
-						style: "border-color: {border_color}; background-color: {surface1_color}",
+					button {
+						class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+						style: if active_tab() == RightTab::JsonOutput {
+							"border-color: currentColor"
+						} else {
+							"border-color: transparent; opacity: 0.6"
+						},
+						onclick: move |_| active_tab.set(RightTab::JsonOutput),
 						"JSON Output"
 					}
-
-					// JSON output
-					div { class: "flex-1 overflow-auto p-3 font-mono text-sm min-h-0",
-						pre {
-							if json_output().is_empty() {
-								span { class: "opacity-50",
-									"// Parse the Eure document to see JSON output"
-								}
-							} else {
-								"{json_output()}"
-							}
-						}
+					button {
+						class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+						style: if active_tab() == RightTab::Schema {
+							"border-color: currentColor"
+						} else {
+							"border-color: transparent; opacity: 0.6"
+						},
+						onclick: move |_| active_tab.set(RightTab::Schema),
+						"Schema"
+					}
+					button {
+						class: "px-4 py-2 text-sm font-semibold border-b-2 transition-colors",
+						style: if active_tab() == RightTab::Errors {
+							"border-color: currentColor"
+						} else {
+							"border-color: transparent; opacity: 0.6"
+						},
+						onclick: move |_| active_tab.set(RightTab::Errors),
+						"Errors ({error_count()})"
 					}
 				}
 
-				// Bottom: Schema Editor
-				div {
-					class: "flex-1 flex flex-col rounded border min-h-0",
-					style: "border-color: {border_color}; background-color: {bg_color}",
-
-					// Section header
-					div {
-						class: "px-3 py-2 border-b text-sm font-semibold shrink-0",
-						style: "border-color: {border_color}; background-color: {surface1_color}",
-						"Schema"
-					}
-
-					// Schema editor
-					div { class: "flex-1 text-xl overflow-hidden min-h-0",
-						Editor {
-							content: schema_content,
-							tokens: schema_tokens,
-							errors: schema_errors,
-							theme,
-							on_change: move |s| schema_content.set(s),
-						}
+				// Tab content
+				div { class: "flex-1 overflow-hidden min-h-0",
+					match active_tab() {
+						RightTab::JsonOutput => rsx! {
+							div { class: "h-full overflow-auto p-3 font-mono text-sm",
+								pre {
+									if json_output().is_empty() {
+										span { class: "opacity-50",
+											"// Parse the Eure document to see JSON output"
+										}
+									} else {
+										"{json_output()}"
+									}
+								}
+							}
+						},
+						RightTab::Schema => rsx! {
+							div { class: "h-full text-xl overflow-hidden",
+								Editor {
+									content: schema_content,
+									tokens: schema_tokens,
+									errors: schema_errors,
+									theme,
+									on_change: move |s| schema_content.set(s),
+								}
+							}
+						},
+						RightTab::Errors => rsx! {
+							div { class: "h-full overflow-auto p-3 font-mono text-sm",
+								if errors().is_empty() {
+									span { class: "opacity-50", "No errors" }
+								} else {
+									for error in errors().iter() {
+										div { class: "mb-2 p-2 rounded border",
+											style: "border-color: {border_color}",
+											pre { class: "whitespace-pre-wrap", "{error.message}" }
+										}
+									}
+								}
+							}
+						},
 					}
 				}
 			}
