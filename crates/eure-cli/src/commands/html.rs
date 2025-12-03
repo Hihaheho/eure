@@ -1,6 +1,8 @@
 use catppuccin::{FlavorColors, PALETTE};
 use eure::error::format_parse_error_color;
-use eure_editor_support::semantic_token::{SemanticToken, SemanticTokenType, semantic_tokens};
+use eure_editor_support::semantic_token::{
+    SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens,
+};
 use maud::{Markup, html};
 
 use crate::util::{display_path, read_input};
@@ -62,7 +64,12 @@ pub fn run(args: Args) {
     println!("{}", markup.into_string());
 }
 
-fn generate_html(contents: &str, tokens: &[SemanticToken], palette: FlavorColors, theme: Theme) -> Markup {
+fn generate_html(
+    contents: &str,
+    tokens: &[SemanticToken],
+    palette: FlavorColors,
+    theme: Theme,
+) -> Markup {
     let bg = palette.base.hex;
     let fg = palette.text.hex;
     let theme_name = match theme {
@@ -93,7 +100,7 @@ fn generate_html(contents: &str, tokens: &[SemanticToken], palette: FlavorColors
                     @let end = start + token.length as usize;
                     @let text = &contents[start..end];
                     @let color = token_type_to_color(token.token_type, palette);
-                    span style=(format!("color: {}", color)) { (text) }
+                    span style=(token_style(token, color)) { (text) }
                 }
 
                 // Print remaining content after last token (ESCAPED to prevent XSS)
@@ -108,17 +115,26 @@ fn generate_html(contents: &str, tokens: &[SemanticToken], palette: FlavorColors
     }
 }
 
+fn token_style(token: &SemanticToken, color: catppuccin::Hex) -> String {
+    let is_section_header = token.modifiers & SemanticTokenModifier::SectionHeader.bitmask() != 0;
+    if is_section_header {
+        format!("color: {}; font-weight: bold", color)
+    } else {
+        format!("color: {}", color)
+    }
+}
+
 fn token_type_to_color(token_type: SemanticTokenType, palette: FlavorColors) -> catppuccin::Hex {
     match token_type {
-        SemanticTokenType::Keyword => palette.mauve.hex,     // Purple for keywords
-        SemanticTokenType::Number => palette.peach.hex,      // Peach for numbers
-        SemanticTokenType::String => palette.green.hex,      // Green for strings
-        SemanticTokenType::Comment => palette.overlay0.hex,  // Muted for comments
+        SemanticTokenType::Keyword => palette.mauve.hex, // Purple for keywords
+        SemanticTokenType::Number => palette.peach.hex,  // Peach for numbers
+        SemanticTokenType::String => palette.green.hex,  // Green for strings
+        SemanticTokenType::Comment => palette.overlay0.hex, // Muted for comments
         SemanticTokenType::Operator => palette.lavender.hex, // Subtle purple for operators
-        SemanticTokenType::Property => palette.text.hex,     // Base text color for properties
+        SemanticTokenType::Property => palette.text.hex, // Base text color for properties
         SemanticTokenType::Punctuation => palette.overlay2.hex, // Light gray for punctuation
-        SemanticTokenType::Macro => palette.teal.hex,        // Teal for code blocks
-        SemanticTokenType::Decorator => palette.pink.hex,    // Pink for decorators
+        SemanticTokenType::Macro => palette.teal.hex,    // Teal for code blocks
+        SemanticTokenType::Decorator => palette.pink.hex, // Pink for decorators
         SemanticTokenType::SectionMarker => palette.red.hex, // Red for @
         SemanticTokenType::ExtensionMarker => palette.pink.hex, // Strong pink for $
         SemanticTokenType::ExtensionIdent => palette.rosewater.hex, // Light pink for extension ident
