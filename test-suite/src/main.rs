@@ -226,21 +226,20 @@ fn run(args: &Args) -> i32 {
                     total_scenarios += total;
 
                     // Determine base status (PASS/FAIL/TODO)
-                    let (status_text, color, unimpl_annotation) = if let Some(reason) =
-                        unimplemented
-                    {
-                        // Unimplemented cases show TODO in yellow
-                        let annotation = if reason.is_empty() {
-                            String::new()
+                    let (status_text, color, unimpl_annotation) =
+                        if let Some(reason) = unimplemented {
+                            // Unimplemented cases show TODO in yellow
+                            let annotation = if reason.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" (\"{}\")", reason)
+                            };
+                            ("TODO", colors::YELLOW, annotation)
+                        } else if result.all_passed() {
+                            ("PASS", colors::GREEN, String::new())
                         } else {
-                            format!(" (\"{}\")", reason)
+                            ("FAIL", colors::RED, String::new())
                         };
-                        ("TODO", colors::YELLOW, annotation)
-                    } else if result.all_passed() {
-                        ("PASS", colors::GREEN, String::new())
-                    } else {
-                        ("FAIL", colors::RED, String::new())
-                    };
 
                     println!(
                         "  {}{}{}{} {} {}{}/{}{}{}",

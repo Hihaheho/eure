@@ -40,47 +40,47 @@ pub fn Editor(
     let caret_style = format!("caret-color: {}", theme_val.caret_color());
 
     rsx! {
-		div {
-			class: "w-full h-full overflow-y-scroll font-mono text-sm",
-			style: "{bg_style}",
-			onmousemove: move |e: Event<MouseData>| {
-			    let coords = e.client_coordinates();
-			    mouse_pos.set(Some((coords.x, coords.y)));
-			},
-			onmouseleave: move |_| {
-			    mouse_pos.set(None);
-			},
-			onscroll: move |_| {
-			    scroll_trigger.set(());
-			},
+        div {
+            class: "w-full h-full overflow-y-scroll font-mono text-sm",
+            style: "{bg_style}",
+            onmousemove: move |e: Event<MouseData>| {
+                let coords = e.client_coordinates();
+                mouse_pos.set(Some((coords.x, coords.y)));
+            },
+            onmouseleave: move |_| {
+                mouse_pos.set(None);
+            },
+            onscroll: move |_| {
+                scroll_trigger.set(());
+            },
 
-			div { class: "relative min-h-full",
-				pre {
-					class: "m-0 p-2 border-0 pointer-events-none whitespace-pre-wrap break-words",
-					style: "font: inherit; line-height: 1.625",
-					Segments {
-						content,
-						tokens,
-						errors,
-						theme,
-						mouse_pos,
-						scroll_trigger,
-					}
-				}
+            div { class: "relative min-h-full",
+                pre {
+                    class: "m-0 p-2 border-0 pointer-events-none whitespace-pre-wrap break-words",
+                    style: "font: inherit; line-height: 1.625",
+                    Segments {
+                        content,
+                        tokens,
+                        errors,
+                        theme,
+                        mouse_pos,
+                        scroll_trigger,
+                    }
+                }
 
-				textarea {
-					class: "absolute inset-0 w-full h-full m-0 p-2 bg-transparent text-transparent resize-none overflow-hidden whitespace-pre-wrap break-words outline-none border-0",
-					style: "{caret_style}; font: inherit; line-height: 1.625",
-					value: "{content}",
-					oninput: handle_input,
-					spellcheck: false,
-					autocomplete: "off",
-					autocorrect: "off",
-					autocapitalize: "off",
-				}
-			}
-		}
-	}
+                textarea {
+                    class: "absolute inset-0 w-full h-full m-0 p-2 bg-transparent text-transparent resize-none overflow-hidden whitespace-pre-wrap break-words outline-none border-0",
+                    style: "{caret_style}; font: inherit; line-height: 1.625",
+                    value: "{content}",
+                    oninput: handle_input,
+                    spellcheck: false,
+                    autocomplete: "off",
+                    autocorrect: "off",
+                    autocapitalize: "off",
+                }
+            }
+        }
+    }
 }
 
 /// Renders all segments with syntax highlighting.
@@ -100,8 +100,8 @@ fn Segments(
 
     if input.is_empty() {
         return rsx! {
-			span { "\u{200B}" }
-		};
+            span { "\u{200B}" }
+        };
     }
 
     let input_len = input.len() as u32;
@@ -142,36 +142,36 @@ fn Segments(
     }
 
     rsx! {
-		for (text , token_type , error_msg) in items {
-			if let Some(msg) = error_msg {
-				ErrorSegment {
-					text: text.to_string(),
-					color: token_type.map(|t| theme.token_color(t)).unwrap_or(theme.text_color()),
-					error_color: theme.error_color(),
-					message: msg,
-					mouse_pos,
-					scroll_trigger,
-					theme,
-				}
-			} else {
-				Segment {
-					text: text.to_string(),
-					color: token_type.map(|t| theme.token_color(t)).unwrap_or(theme.text_color()),
-				}
-			}
-		}
-		if input.ends_with('\n') {
-			span { "\u{200B}" }
-		}
-	}
+        for (text , token_type , error_msg) in items {
+            if let Some(msg) = error_msg {
+                ErrorSegment {
+                    text: text.to_string(),
+                    color: token_type.map(|t| theme.token_color(t)).unwrap_or(theme.text_color()),
+                    error_color: theme.error_color(),
+                    message: msg,
+                    mouse_pos,
+                    scroll_trigger,
+                    theme,
+                }
+            } else {
+                Segment {
+                    text: text.to_string(),
+                    color: token_type.map(|t| theme.token_color(t)).unwrap_or(theme.text_color()),
+                }
+            }
+        }
+        if input.ends_with('\n') {
+            span { "\u{200B}" }
+        }
+    }
 }
 
 /// A simple text segment.
 #[component]
 fn Segment(text: String, color: Hex) -> Element {
     rsx! {
-		span { style: "color: {color}", "{text}" }
-	}
+        span { style: "color: {color}", "{text}" }
+    }
 }
 
 /// Error segment with hover tooltip.
@@ -224,18 +224,18 @@ fn ErrorSegment(
     };
 
     rsx! {
-		span {
-			class: "underline decoration-wavy pointer-events-none",
-			style: "{style}",
-			onmounted: move |e| {
-			    mounted_el.set(Some(e.data()));
-			},
-			"{text}"
-			if is_hovered() {
-				Tooltip { message: message.clone(), theme }
-			}
-		}
-	}
+        span {
+            class: "underline decoration-wavy pointer-events-none",
+            style: "{style}",
+            onmounted: move |e| {
+                mounted_el.set(Some(e.data()));
+            },
+            "{text}"
+            if is_hovered() {
+                Tooltip { message: message.clone(), theme }
+            }
+        }
+    }
 }
 
 /// Tooltip for error messages.
@@ -246,10 +246,10 @@ fn Tooltip(message: String, theme: Theme) -> Element {
     let text = theme.text_color();
 
     rsx! {
-		div {
-			class: "z-50 px-2 py-1 rounded text-xs max-w-xs pointer-events-none",
-			style: "position: fixed; position-anchor: --tooltip-anchor; bottom: anchor(top); left: anchor(left); margin-bottom: 4px; background-color: {bg}; border: 1px solid {border}; color: {text}",
-			"{message}"
-		}
-	}
+        div {
+            class: "z-50 px-2 py-1 rounded text-xs max-w-xs pointer-events-none",
+            style: "position: fixed; position-anchor: --tooltip-anchor; bottom: anchor(top); left: anchor(left); margin-bottom: 4px; background-color: {bg}; border: 1px solid {border}; color: {text}",
+            "{message}"
+        }
+    }
 }
