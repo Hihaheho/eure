@@ -4,6 +4,7 @@ extern crate alloc;
 
 use alloc::format;
 use std::collections::HashSet;
+use std::sync::OnceLock;
 
 use crate::document::node::NodeMap;
 use crate::prelude_internal::*;
@@ -101,23 +102,47 @@ impl<'doc> RecordParser<'doc> {
     }
 
     /// Finish parsing with Deny policy (error if unknown fields exist).
+    ///
+    /// This also errors if the map contains non-string keys, as records
+    /// should only have string-keyed fields.
     pub fn deny_unknown_fields(self) -> Result<(), ParseError> {
         for (key, _) in self.map.iter() {
-            if let ObjectKey::String(name) = key
-                && !self.accessed.contains(name.as_str())
-            {
-                return Err(ParseError {
-                    node_id: self.node_id,
-                    kind: ParseErrorKind::UnknownField(name.clone()),
-                });
+            match key {
+                ObjectKey::String(name) => {
+                    if !self.accessed.contains(name.as_str()) {
+                        return Err(ParseError {
+                            node_id: self.node_id,
+                            kind: ParseErrorKind::UnknownField(name.clone()),
+                        });
+                    }
+                }
+                // Non-string keys are invalid in records
+                other => {
+                    return Err(ParseError {
+                        node_id: self.node_id,
+                        kind: ParseErrorKind::InvalidKeyType(other.clone()),
+                    });
+                }
             }
         }
         Ok(())
     }
 
-    /// Finish parsing with Allow policy (ignore unknown fields).
-    pub fn allow_unknown_fields(self) {
-        // Nothing to do - just consume self
+    /// Finish parsing with Allow policy (allow unknown string fields).
+    ///
+    /// This still errors if the map contains non-string keys, as records
+    /// should only have string-keyed fields.
+    pub fn allow_unknown_fields(self) -> Result<(), ParseError> {
+        // Check for non-string keys (invalid in records)
+        for (key, _) in self.map.iter() {
+            if !matches!(key, ObjectKey::String(_)) {
+                return Err(ParseError {
+                    node_id: self.node_id,
+                    kind: ParseErrorKind::InvalidKeyType(key.clone()),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Get an iterator over unknown fields (for Schema policy or custom handling).
@@ -145,7 +170,7 @@ impl<'doc> RecordParser<'doc> {
 /// let mut ext = doc.parse_extension(node_id);
 /// let optional = ext.field_optional::<bool>("optional")?;
 /// let binding_style = ext.field_optional::<BindingStyle>("binding-style")?;
-/// ext.allow_unknown_fields();
+/// ext.allow_unknown_fields()?;
 /// ```
 pub struct ExtParser<'doc> {
     doc: &'doc EureDocument,
@@ -176,7 +201,7 @@ impl<'doc> ExtParser<'doc> {
 
     /// Get a required extension field.
     ///
-    /// Returns `ParseErrorKind::MissingField` if the extension is not present.
+    /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
     pub fn field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
@@ -185,7 +210,7 @@ impl<'doc> ExtParser<'doc> {
         self.accessed.insert(ident.clone());
         let ext_node_id = self.extensions.get(&ident).ok_or_else(|| ParseError {
             node_id: self.node_id,
-            kind: ParseErrorKind::MissingField(format!("$ext-type.{}", name)),
+            kind: ParseErrorKind::MissingExtension(name.to_string()),
         })?;
         T::parse(self.doc, *ext_node_id)
     }
@@ -210,7 +235,7 @@ impl<'doc> ExtParser<'doc> {
 
     /// Get the NodeId for an extension field (for manual handling).
     ///
-    /// Returns `ParseErrorKind::MissingField` if the extension is not present.
+    /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
     pub fn field_node(&mut self, name: &str) -> Result<NodeId, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
@@ -222,7 +247,7 @@ impl<'doc> ExtParser<'doc> {
             .copied()
             .ok_or_else(|| ParseError {
                 node_id: self.node_id,
-                kind: ParseErrorKind::MissingField(format!("$ext-type.{}", name)),
+                kind: ParseErrorKind::MissingExtension(name.to_string()),
             })
     }
 
@@ -271,10 +296,19 @@ impl EureDocument {
     /// Get a RecordParser for parsing a record (map with string keys).
     ///
     /// Returns `ParseError` if the node is not a map.
+    /// Treats `Uninitialized` nodes as empty maps (useful for nodes with only extensions).
     pub fn parse_record(&self, node_id: NodeId) -> Result<RecordParser<'_>, ParseError> {
+        // Static empty map for Uninitialized nodes
+        static EMPTY_MAP: OnceLock<NodeMap> = OnceLock::new();
+
         let node = self.node(node_id);
         match &node.content {
             NodeValue::Map(map) => Ok(RecordParser::new(self, node_id, map)),
+            // Treat Uninitialized as empty map (for nodes with only extensions)
+            NodeValue::Uninitialized => {
+                let empty = EMPTY_MAP.get_or_init(NodeMap::default);
+                Ok(RecordParser::new(self, node_id, empty))
+            }
             value => Err(ParseError {
                 node_id,
                 kind: value
@@ -387,7 +421,7 @@ mod tests {
 
         let _name: String = rec.field("name").unwrap();
         // Didn't access "age", but allow should succeed
-        rec.allow_unknown_fields();
+        rec.allow_unknown_fields().unwrap();
     }
 
     #[test]
@@ -400,6 +434,64 @@ mod tests {
         let unknown: Vec<_> = rec.unknown_fields().collect();
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].0, "age");
+    }
+
+    #[test]
+    fn test_record_with_non_string_keys_deny_should_error() {
+        // BUG: deny_unknown_fields() silently skips non-string keys
+        // Expected: Should error when a map has numeric keys
+        // Actual: Silently ignores them
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Add a field with numeric key: { 0 => "value" }
+        use num_bigint::BigInt;
+        let value_id = doc
+            .add_map_child(ObjectKey::Number(BigInt::from(0)), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(value_id).content = NodeValue::Primitive(PrimitiveValue::Text(
+            crate::text::Text::plaintext("value".to_string()),
+        ));
+
+        let rec = doc.parse_record(doc.get_root_id()).unwrap();
+
+        // BUG: This should error because there's an unaccessed non-string key
+        // but currently it succeeds
+        let result = rec.deny_unknown_fields();
+        assert!(
+            result.is_err(),
+            "BUG: deny_unknown_fields() should error on non-string keys, but it succeeds"
+        );
+    }
+
+    #[test]
+    fn test_record_with_non_string_keys_unknown_fields_iterator() {
+        // unknown_fields() intentionally only returns string keys (signature: (&str, NodeId))
+        // Non-string keys are caught by deny_unknown_fields() instead
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Add a field with numeric key: { 0 => "value" }
+        use num_bigint::BigInt;
+        let value_id = doc
+            .add_map_child(ObjectKey::Number(BigInt::from(0)), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(value_id).content = NodeValue::Primitive(PrimitiveValue::Text(
+            crate::text::Text::plaintext("value".to_string()),
+        ));
+
+        let rec = doc.parse_record(doc.get_root_id()).unwrap();
+
+        // unknown_fields() returns empty because it only returns string keys
+        // (the numeric key is not included in the iterator by design)
+        let unknown: Vec<_> = rec.unknown_fields().collect();
+        assert_eq!(
+            unknown.len(),
+            0,
+            "unknown_fields() should only return string keys, numeric keys are excluded"
+        );
     }
 
     #[test]

@@ -54,7 +54,7 @@ fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq)]
 #[error("parse error: {kind}")]
 pub struct ParseError {
     pub node_id: NodeId,
@@ -62,7 +62,7 @@ pub struct ParseError {
 }
 
 /// Error type for parsing failures.
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq)]
 pub enum ParseErrorKind {
     /// Unexpected uninitialized value.
     #[error("unexpected uninitialized value")]
@@ -78,6 +78,10 @@ pub enum ParseErrorKind {
     /// Required field is missing.
     #[error("missing field: {0}")]
     MissingField(String),
+
+    /// Required extension is missing.
+    #[error("missing extension: ${0}")]
+    MissingExtension(String),
 
     /// Unknown variant in a union type.
     #[error("unknown variant: {0}")]
@@ -110,6 +114,10 @@ pub enum ParseErrorKind {
     /// Unknown field in record.
     #[error("unknown field: {0}")]
     UnknownField(String),
+
+    /// Invalid key type in record (expected string).
+    #[error("invalid key type in record: expected string key, got {0:?}")]
+    InvalidKeyType(crate::value::ObjectKey),
 
     /// No variant matched in union type.
     #[error("no matching variant")]
@@ -405,7 +413,7 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
         let tag = rec.field_optional::<String>("tag")?;
         let content = rec.field_optional::<String>("content")?;
 
-        rec.allow_unknown_fields();
+        rec.allow_unknown_fields()?;
 
         match (tag, content) {
             (Some(tag), Some(content)) => Ok(VariantRepr::Adjacent { tag, content }),

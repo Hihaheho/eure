@@ -2,8 +2,7 @@
 
 schema = ```eure
 $variant = "tuple"
-items[0] = `text`
-items[1] = `integer`
+elements = [`text`, `integer`]
 ```
 
 json_schema_errors[] = "Tuple constraints"

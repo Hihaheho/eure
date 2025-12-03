@@ -179,7 +179,7 @@ $schema = "eure-schema.schema.eure"
 /// Users can define types like: $types.my-type = { field => `text` }
 /// and reference them as: field.$type = `$types.my-type`
 $ext-type.types {
-  $variant: "map"
+  $variant: map
   key = `$types.ident`
   value = `$types.type`
 
@@ -281,7 +281,7 @@ $ext-type.codegen-defaults.$optional = true
 /// - Interval notation: "[0, 100]", "[0, 100)", "(0, 100]", "(0, 100)", "[0, )", "(, 100]"
 @ $types.range-string {
   $variant: text
-  pattern = "^((-?\\d+(\\.\\d+)?)?\\.\\.=?(-?\\d+(\\.\\d+)?)?|[\\[\\(](-?\\d+(\\.\\d+)?)?, *(-?\\d+(\\.\\d+)?)?[\\]\\)])$"
+  pattern = `^((-?\\d+(\\.\\d+)?)?\\.\\.=?(-?\\d+(\\.\\d+)?)?|[\\[\\(](-?\\d+(\\.\\d+)?)?, *(-?\\d+(\\.\\d+)?)?[\\]\\)])$`
 }
 
 /// Which way to represent a document path in a document.
@@ -336,7 +336,7 @@ variants {
 
 /// Codegen settings for union types.
 @ $types.union-codegen {
-  flatten = [`$types.base-codegen`]
+  $flatten = [`$types.base-codegen`]
   /// Generate separate types for each variant instead of struct-like variants.
   variant-types = `boolean`
   variant-types.$optional = true
@@ -347,7 +347,7 @@ variants {
 
 /// Codegen settings for record types.
 @ $types.record-codegen {
-  flatten = [`$types.base-codegen`]
+  $flatten = [`$types.base-codegen`]
   /// Override individual field names.
   field = `text`
   field.$optional = true
@@ -355,7 +355,7 @@ variants {
 
 /// Codegen settings for cascade-ext-types.
 @ $types.cascade-ext-type-codegen {
-  flatten = [`$types.base-codegen`]
+  $flatten = [`$types.base-codegen`]
   /// Group multiple fields into a composite struct.
   /// Key is struct name (kebab-case), value specifies fields to include.
   structs {
@@ -384,11 +384,14 @@ variants {
   /// Prefix for extension type names (e.g., "Ext" -> ExtTypes).
   ext-types-type-prefix = `text`
   ext-types-type-prefix.$optional = true
+  /// Field name for storing document node ID in generated types.
+  document-node-id-field = `text`
+  document-node-id-field.$optional = true
 }
 
 @ $types.type {
   $variant: union
-  priority = ["text", "integer", "float", "boolean", "null", "any", "ref", "record", "array", "tuple"]
+  priority = ["text", "integer", "float", "boolean", "null", "any", "ref", "record", "array", "tuple", "array-shorthand", "tuple-shorthand", "map", "union", "text-shorthand", "integer-shorthand", "float-shorthand", "boolean-shorthand", "null-shorthand", "any-shorthand"]
 
   $codegen {
     variant-types = true // Generate type for each variant instead of struct-like variant
@@ -400,14 +403,14 @@ variants {
     // Allows users to define or override cascading extensions at any level.
     // Example: section.$cascade-ext-types = { custom-field => .text }
     cascade-ext-types {
-      $variant: "map"
+      $variant: map
       key = `$types.ident`
       value = `$types.type`
     }
 
     // Field description (supports both plain text via text binding and rich markdown).
     description {
-      $variant: "union"
+      $variant: union
       variants.string = `text`
       variants.markdown = `text.markdown`
     }
@@ -447,7 +450,7 @@ variants {
   /// For constraints, use the full form with $variant: text
   @variants.text-shorthand
   $variant: text
-  pattern = "^text(\\.[a-zA-Z0-9-]+)?$"
+  pattern = `^text(\\.[a-zA-Z0-9-]+)?$`
 
   /// Integer type with optional range and multiple-of constraints.
   @variants.integer
@@ -504,8 +507,8 @@ variants {
   /// Types to flatten into this record.
   /// All fields from the flattened types are merged into this record.
   /// Key conflicts result in validation errors.
-  flatten = [`$types.type`]
-  flatten.$optional = true
+  $ext-type.flatten = [`$types.type`]
+  $ext-type.flatten.$optional = true
   $ext-type.codegen = `$types.record-codegen`
   $ext-type.codegen.$optional = true
 
@@ -575,22 +578,22 @@ variants {
   /// For tuples with more than 16 elements, use the full tuple variant.
   @variants.tuple-shorthand
   $variant: union
-  variants.1 = (`$types.type`)
-  variants.2 = (`$types.type`, `$types.type`)
-  variants.3 = (`$types.type`, `$types.type`, `$types.type`)
-  variants.4 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.5 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.6 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.7 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.8 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.9 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.10 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.11 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.12 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.13 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.14 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.15 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
-  variants.16 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple1 = (`$types.type`)
+  variants.tuple2 = (`$types.type`, `$types.type`)
+  variants.tuple3 = (`$types.type`, `$types.type`, `$types.type`)
+  variants.tuple4 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple5 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple6 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple7 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple8 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple9 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple10 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple11 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple12 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple13 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple14 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple15 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
+  variants.tuple16 = (`$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`, `$types.type`)
 
   /// Type reference using inline code syntax.
   /// Supports both local and cross-schema type references:
@@ -598,5 +601,5 @@ variants {
   /// - `$types.common.username` - external type reference (from imported schema)
   @variants.ref
   $variant: text
-  pattern = "^\\$types\\.[a-zA-Z_][a-zA-Z0-9_-]*(\\.[a-zA-Z_][a-zA-Z0-9_-]*)?$"
+  pattern = `^\\$types\\.[a-zA-Z_][a-zA-Z0-9_-]*(\\.[a-zA-Z_][a-zA-Z0-9_-]*)?$`
 }
