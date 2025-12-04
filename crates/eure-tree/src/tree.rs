@@ -828,3 +828,64 @@ pub trait RecursiveView<F: CstFacade> {
         visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
     ) -> Result<Vec<Self::Item>, CstConstructError<E>>;
 }
+
+/// Returns a span that excludes leading and trailing trivia (whitespace, newlines, comments).
+///
+/// For terminal nodes:
+/// - Returns None if the terminal is trivia (whitespace, newline, line comment, block comment)
+/// - Returns the terminal's span otherwise
+///
+/// For non-terminal nodes:
+/// - Recursively finds the first and last non-trivia descendant spans
+/// - Returns the merged span of those two endpoints
+/// - Returns None if all descendants are trivia
+///
+/// This is useful when you want to get the "meaningful" span of a syntax node,
+/// excluding any surrounding whitespace or comments.
+pub fn get_shrunk_span<F: CstFacade>(cst: &F, node_id: CstNodeId) -> Option<InputSpan> {
+    let node_data = cst.node_data(node_id)?;
+
+    match node_data {
+        CstNodeData::Terminal { kind, data } => {
+            // If it's trivia, return None
+            if kind.is_builtin_terminal() {
+                return None;
+            }
+            // Otherwise return the span if it's from input
+            match data {
+                TerminalData::Input(span) => Some(span),
+                TerminalData::Dynamic(_) => None,
+            }
+        }
+        CstNodeData::NonTerminal { data, .. } => {
+            // Collect children and find first/last non-trivia spans
+            let children: Vec<_> = cst.children(node_id).collect();
+
+            // Find first non-trivia span (from the beginning)
+            let first_span = children
+                .iter()
+                .filter_map(|&child| get_shrunk_span(cst, child))
+                .next();
+
+            // Find last non-trivia span (from the end)
+            let last_span = children
+                .iter()
+                .rev()
+                .filter_map(|&child| get_shrunk_span(cst, child))
+                .next();
+
+            match (first_span, last_span) {
+                (Some(first), Some(last)) => Some(first.merge(last)),
+                (Some(span), None) | (None, Some(span)) => Some(span),
+                (None, None) => {
+                    // All children are trivia or no children
+                    // Fall back to the original span if available
+                    match data {
+                        NonTerminalData::Input(span) if span != InputSpan::EMPTY => Some(span),
+                        _ => None,
+                    }
+                }
+            }
+        }
+    }
+}

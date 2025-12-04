@@ -239,3 +239,143 @@ pub fn cst_to_document_and_origins(
     visitor.visit_root_handle(cst.root_handle(), cst)?;
     Ok(visitor.into_document_and_origins())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eure_tree::tree::get_shrunk_span;
+
+    /// Helper function to recursively find a node with a specific non-terminal kind
+    fn find_node_by_kind(cst: &Cst, start: CstNodeId, kind: NonTerminalKind) -> Option<CstNodeId> {
+        if let Some(CstNode::NonTerminal {
+            kind: node_kind, ..
+        }) = cst.node_data(start)
+        {
+            if node_kind == kind {
+                return Some(start);
+            }
+        }
+
+        for child in cst.children(start) {
+            if let Some(found) = find_node_by_kind(cst, child, kind) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    /// This test demonstrates that non-terminal spans include leading/trailing whitespace,
+    /// and that get_shrunk_span correctly excludes them.
+    #[test]
+    fn test_shrunk_span_excludes_leading_trailing_trivia() {
+        // Input with leading whitespace and newline before binding
+        let input = "\n  foo = 1";
+        let cst = eure_parol::parse(input).unwrap();
+
+        let root = cst.root();
+
+        // Find the Binding non-terminal recursively
+        let binding_node =
+            find_node_by_kind(&cst, root, NonTerminalKind::Binding).expect("Should find Binding");
+
+        // Get the original span (includes trivia)
+        let original_span = get_node_span(&cst, binding_node).unwrap();
+        // Get the shrunk span (excludes trivia)
+        let shrunk_span = get_shrunk_span(&cst, binding_node).unwrap();
+
+        // The original span should start at 0 (includes leading newline and whitespace)
+        // Or at least include the whitespace before "foo"
+        let original_text = original_span.as_str(input);
+        let shrunk_text = shrunk_span.as_str(input);
+
+        println!("Original span: {:?} -> '{}'", original_span, original_text);
+        println!("Shrunk span: {:?} -> '{}'", shrunk_span, shrunk_text);
+
+        // The shrunk span should start at "foo" (position 3)
+        assert!(
+            shrunk_span.start >= original_span.start,
+            "Shrunk span start ({}) should be >= original start ({})",
+            shrunk_span.start,
+            original_span.start
+        );
+
+        // The shrunk text should be "foo = 1" (without leading whitespace)
+        assert_eq!(
+            shrunk_text, "foo = 1",
+            "Shrunk span should be 'foo = 1', got '{}'",
+            shrunk_text
+        );
+    }
+
+    /// Test shrunk span with trailing comment
+    #[test]
+    fn test_shrunk_span_with_trailing_comment() {
+        let input = "foo = 1 // comment\nbar = 2";
+        let cst = eure_parol::parse(input).unwrap();
+
+        let root = cst.root();
+
+        // Get the original span of the root Eure node
+        let original_span = get_node_span(&cst, root).unwrap();
+        let shrunk_span = get_shrunk_span(&cst, root).unwrap();
+
+        let original_text = original_span.as_str(input);
+        let shrunk_text = shrunk_span.as_str(input);
+
+        println!(
+            "Original root span: {:?} -> '{}'",
+            original_span, original_text
+        );
+        println!("Shrunk root span: {:?} -> '{}'", shrunk_span, shrunk_text);
+
+        // The shrunk span should not include trailing whitespace/comments
+        // but should include all meaningful content
+        assert!(
+            shrunk_text.contains("foo"),
+            "Shrunk span should contain 'foo'"
+        );
+        assert!(
+            shrunk_text.contains("bar"),
+            "Shrunk span should contain 'bar'"
+        );
+    }
+
+    /// Test that shrunk span works correctly for the Eure root node
+    #[test]
+    fn test_shrunk_span_for_eure_root() {
+        // Input with leading and trailing whitespace
+        let input = "  \n  foo = 1  \n  ";
+        let cst = eure_parol::parse(input).unwrap();
+
+        let root = cst.root();
+
+        // Find the Eure non-terminal
+        let eure_node =
+            find_node_by_kind(&cst, root, NonTerminalKind::Eure).expect("Should find Eure");
+
+        let original_span = get_node_span(&cst, eure_node).unwrap();
+        let shrunk_span = get_shrunk_span(&cst, eure_node).unwrap();
+
+        let original_text = original_span.as_str(input);
+        let shrunk_text = shrunk_span.as_str(input);
+
+        println!(
+            "Eure original span: {:?} -> '{}'",
+            original_span,
+            original_text.escape_debug()
+        );
+        println!(
+            "Eure shrunk span: {:?} -> '{}'",
+            shrunk_span,
+            shrunk_text.escape_debug()
+        );
+
+        // Original span likely includes all whitespace
+        // Shrunk span should just be "foo = 1"
+        assert_eq!(
+            shrunk_text.trim(),
+            "foo = 1",
+            "Shrunk span should be 'foo = 1'"
+        );
+    }
+}
