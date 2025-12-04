@@ -191,7 +191,7 @@ where
             .is_none_or(|children| children.is_empty())
     }
 
-    pub fn children(&self, node: CstNodeId) -> impl Iterator<Item = CstNodeId> + '_ {
+    pub fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId> + '_ {
         self.children
             .get(&node)
             .into_iter()
@@ -491,7 +491,7 @@ pub trait CstFacade: Sized {
 
     fn has_no_children(&self, node: CstNodeId) -> bool;
 
-    fn children(&self, node: CstNodeId) -> impl Iterator<Item = CstNodeId>;
+    fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId>;
 
     fn get_terminal(
         &self,
@@ -533,6 +533,94 @@ pub trait CstFacade: Sized {
             TerminalData::Dynamic(id) => Ok(self.dynamic_token(id).ok_or(id)),
         }
     }
+
+    /// Returns a span that excludes leading and trailing trivia (whitespace, newlines, comments).
+    ///
+    /// For terminal nodes:
+    /// - Always returns the input span (even for trivia terminals like whitespace/comments)
+    /// - Returns None only for dynamic terminals
+    ///
+    /// For non-terminal nodes:
+    /// - Recursively finds the first and last non-trivia descendant spans
+    /// - Returns the merged span of those two endpoints
+    /// - Falls back to the original span if all descendants are trivia
+    ///
+    /// This is useful when you want to get the "meaningful" span of a syntax node,
+    /// excluding any surrounding whitespace or comments.
+    fn get_shrunk_span(&self, node_id: CstNodeId) -> Option<InputSpan> {
+        match self.node_data(node_id)? {
+            CstNodeData::Terminal { data, .. } => {
+                // Always return the span for terminals (including trivia)
+                match data {
+                    TerminalData::Input(span) => Some(span),
+                    TerminalData::Dynamic(_) => None,
+                }
+            }
+            CstNodeData::NonTerminal { data, .. } => {
+                // Find first non-trivia span
+                let first_span = self
+                    .children(node_id)
+                    .find_map(|child| self.find_first_non_trivia_span(child));
+
+                // Find last non-trivia span
+                let last_span = self
+                    .children(node_id)
+                    .rev()
+                    .find_map(|child| self.find_last_non_trivia_span(child));
+
+                match (first_span, last_span) {
+                    (Some(first), Some(last)) => Some(first.merge(last)),
+                    (Some(span), None) | (None, Some(span)) => Some(span),
+                    (None, None) => {
+                        // All children are trivia or no children - fall back to original span
+                        match data {
+                            NonTerminalData::Input(span) if span != InputSpan::EMPTY => Some(span),
+                            _ => None,
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Helper: finds the first non-trivia span by depth-first search from the start.
+    fn find_first_non_trivia_span(&self, node_id: CstNodeId) -> Option<InputSpan> {
+        match self.node_data(node_id)? {
+            CstNodeData::Terminal { kind, data } => {
+                if kind.is_builtin_terminal() {
+                    None
+                } else {
+                    match data {
+                        TerminalData::Input(span) => Some(span),
+                        TerminalData::Dynamic(_) => None,
+                    }
+                }
+            }
+            CstNodeData::NonTerminal { .. } => self
+                .children(node_id)
+                .find_map(|child| self.find_first_non_trivia_span(child)),
+        }
+    }
+
+    /// Helper: finds the last non-trivia span by depth-first search from the end.
+    fn find_last_non_trivia_span(&self, node_id: CstNodeId) -> Option<InputSpan> {
+        match self.node_data(node_id)? {
+            CstNodeData::Terminal { kind, data } => {
+                if kind.is_builtin_terminal() {
+                    None
+                } else {
+                    match data {
+                        TerminalData::Input(span) => Some(span),
+                        TerminalData::Dynamic(_) => None,
+                    }
+                }
+            }
+            CstNodeData::NonTerminal { .. } => self
+                .children(node_id)
+                .rev()
+                .find_map(|child| self.find_last_non_trivia_span(child)),
+        }
+    }
 }
 
 impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
@@ -552,7 +640,7 @@ impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
         ConcreteSyntaxTree::has_no_children(self, node)
     }
 
-    fn children(&self, node: CstNodeId) -> impl Iterator<Item = CstNodeId> {
+    fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId> {
         ConcreteSyntaxTree::children(self, node)
     }
 
