@@ -243,7 +243,7 @@ pub fn cst_to_document_and_origins(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_tree::tree::get_shrunk_span;
+    use eure_tree::tree::CstFacade;
 
     /// Helper function to recursively find a node with a specific non-terminal kind
     fn find_node_by_kind(cst: &Cst, start: CstNodeId, kind: NonTerminalKind) -> Option<CstNodeId> {
@@ -280,8 +280,8 @@ mod tests {
 
         // Get the original span (includes trivia)
         let original_span = get_node_span(&cst, binding_node).unwrap();
-        // Get the shrunk span (excludes trivia)
-        let shrunk_span = get_shrunk_span(&cst, binding_node).unwrap();
+        // Get the shrunk span (excludes trivia) - now using method syntax
+        let shrunk_span = cst.get_shrunk_span(binding_node).unwrap();
 
         // The original span should start at 0 (includes leading newline and whitespace)
         // Or at least include the whitespace before "foo"
@@ -317,7 +317,7 @@ mod tests {
 
         // Get the original span of the root Eure node
         let original_span = get_node_span(&cst, root).unwrap();
-        let shrunk_span = get_shrunk_span(&cst, root).unwrap();
+        let shrunk_span = cst.get_shrunk_span(root).unwrap();
 
         let original_text = original_span.as_str(input);
         let shrunk_text = shrunk_span.as_str(input);
@@ -354,7 +354,7 @@ mod tests {
             find_node_by_kind(&cst, root, NonTerminalKind::Eure).expect("Should find Eure");
 
         let original_span = get_node_span(&cst, eure_node).unwrap();
-        let shrunk_span = get_shrunk_span(&cst, eure_node).unwrap();
+        let shrunk_span = cst.get_shrunk_span(eure_node).unwrap();
 
         let original_text = original_span.as_str(input);
         let shrunk_text = shrunk_span.as_str(input);
@@ -376,6 +376,39 @@ mod tests {
             shrunk_text.trim(),
             "foo = 1",
             "Shrunk span should be 'foo = 1'"
+        );
+    }
+
+    /// Test that terminal spans are always returned (even for trivia)
+    #[test]
+    fn test_terminal_span_always_returned() {
+        let input = "  foo = 1";
+        let cst = eure_parol::parse(input).unwrap();
+
+        // Find a whitespace terminal
+        fn find_whitespace(cst: &Cst, node_id: CstNodeId) -> Option<CstNodeId> {
+            if let Some(CstNode::Terminal {
+                kind: TerminalKind::Whitespace,
+                ..
+            }) = cst.node_data(node_id)
+            {
+                return Some(node_id);
+            }
+            for child in cst.children(node_id) {
+                if let Some(found) = find_whitespace(cst, child) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+
+        let ws_node = find_whitespace(&cst, cst.root()).expect("Should find whitespace");
+        let ws_span = cst.get_shrunk_span(ws_node);
+
+        // Whitespace terminal should still return its span
+        assert!(
+            ws_span.is_some(),
+            "Terminal span should be returned even for trivia"
         );
     }
 }
