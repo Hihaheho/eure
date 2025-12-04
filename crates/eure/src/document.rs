@@ -250,10 +250,9 @@ mod tests {
         if let Some(CstNode::NonTerminal {
             kind: node_kind, ..
         }) = cst.node_data(start)
+            && node_kind == kind
         {
-            if node_kind == kind {
-                return Some(start);
-            }
+            return Some(start);
         }
 
         for child in cst.children(start) {
