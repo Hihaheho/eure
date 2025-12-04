@@ -20,17 +20,33 @@ pub enum FinishError {
 struct DeferredSegment<O> {
     path: PathSegment,
     origin: Option<O>,
+    /// If Some, this segment refers to an existing node (with Null content)
+    /// that should be navigated to rather than created.
+    existing_id: Option<NodeId>,
 }
 
 impl<O> DeferredSegment<O> {
+    fn new(path: PathSegment, origin: Option<O>) -> Self {
+        Self {
+            path,
+            origin,
+            existing_id: None,
+        }
+    }
+
+    fn for_existing(path: PathSegment, origin: Option<O>, existing_id: NodeId) -> Self {
+        Self {
+            path,
+            origin,
+            existing_id: Some(existing_id),
+        }
+    }
+
     fn from_segment(seg: &Segment<O>) -> Self
     where
         O: Clone,
     {
-        Self {
-            path: seg.path.clone(),
-            origin: seg.origin.clone(),
-        }
+        Self::new(seg.path.clone(), seg.origin.clone())
     }
 }
 
@@ -136,8 +152,11 @@ impl<O> DocumentConstructor<O> {
 /// Infer the container type that should hold a child with the given segment type.
 fn infer_container_from(segment: &PathSegment) -> NodeValue {
     match segment {
-        PathSegment::Ident(_) | PathSegment::Extension(_) | PathSegment::Value(_) => {
-            NodeValue::Map(Default::default())
+        PathSegment::Ident(_) | PathSegment::Value(_) => NodeValue::Map(Default::default()),
+        PathSegment::Extension(_) => {
+            // Extensions are added to parent's extensions map, not as map entries.
+            // The parent's content should remain Null until explicitly bound.
+            NodeValue::Primitive(PrimitiveValue::Null)
         }
         PathSegment::ArrayIndex(_) => NodeValue::Array(Default::default()),
         PathSegment::TupleIndex(_) => NodeValue::Tuple(Default::default()),
@@ -237,7 +256,10 @@ impl<O: Clone> DocumentConstructor<O> {
         let result = match segment {
             PathSegment::Ident(identifier) => {
                 let map = parent.require_map().map_err(map_err)?;
-                map.add(ObjectKey::String(identifier.clone().into_string()), child_id)
+                map.add(
+                    ObjectKey::String(identifier.clone().into_string()),
+                    child_id,
+                )
             }
             PathSegment::Value(object_key) => {
                 let map = parent.require_map().map_err(map_err)?;
@@ -337,7 +359,9 @@ impl<O: Clone> DocumentConstructor<O> {
     /// Push a binding path for assignment operations (e.g., `key = value`).
     ///
     /// - Intermediate segments are handled like `push_path`.
-    /// - The last segment is always deferred and must not already exist.
+    /// - The last segment is always deferred; bind_value will consume it.
+    /// - If the segment already exists with Null content, it will be navigated to
+    ///   and its content set by bind_value.
     pub fn push_binding_path(&mut self, segments: &[Segment<O>]) -> Result<(), InsertError> {
         if segments.is_empty() {
             return Ok(());
@@ -353,15 +377,26 @@ impl<O: Clone> DocumentConstructor<O> {
         self.consume_deferred_with_next(&last.path)?;
 
         // Check if the last segment already exists
-        if self.try_get_child(&last.path).is_some() {
-            return Err(InsertError {
-                kind: InsertErrorKind::BindingTargetHasValue,
-                path: EurePath::from_iter(self.current_path().iter().cloned()),
-            });
+        if let Some(existing_id) = self.try_get_child(&last.path) {
+            // Check if existing node has a real value (not default Null)
+            let existing = self.document.node(existing_id);
+            if !matches!(existing.content, NodeValue::Primitive(PrimitiveValue::Null)) {
+                return Err(InsertError {
+                    kind: InsertErrorKind::BindingTargetHasValue,
+                    path: EurePath::from_iter(self.current_path().iter().cloned()),
+                });
+            }
+            // Node exists with default Null (e.g., created for extensions)
+            // Defer with reference to existing node - bind_value will navigate to it
+            self.deferred = Some(DeferredSegment::for_existing(
+                last.path.clone(),
+                last.origin.clone(),
+                existing_id,
+            ));
+        } else {
+            // Defer the last segment for creation
+            self.deferred = Some(DeferredSegment::from_segment(last));
         }
-
-        // Defer the last segment
-        self.deferred = Some(DeferredSegment::from_segment(last));
         Ok(())
     }
 
@@ -423,13 +458,26 @@ impl<O: Clone> DocumentConstructor<O> {
 
     /// Internal: bind a value, consuming deferred if present.
     fn bind_value(&mut self, value: NodeValue, origin: Option<O>) -> Result<NodeId, InsertError> {
-        if self.deferred.is_some() {
-            // Consume deferred and create the node with the value
-            let deferred = self.deferred.take().unwrap();
-            // Combine deferred origin with bind origin
-            let origins: Vec<O> = [deferred.origin, origin].into_iter().flatten().collect();
-            let node_id = self.create_and_push_child_with_origins(deferred.path, value, origins)?;
-            Ok(node_id)
+        if let Some(deferred) = self.deferred.take() {
+            if let Some(existing_id) = deferred.existing_id {
+                // Navigate to existing node and set its content
+                self.move_to_existing(existing_id, deferred.path, deferred.origin);
+                let node = self.document.node_mut(existing_id);
+                node.content = value;
+
+                // Record bind origin if provided
+                if let Some(origin) = origin {
+                    self.origins.record_node_origin(existing_id, origin);
+                }
+
+                Ok(existing_id)
+            } else {
+                // Create new node with the value
+                let origins: Vec<O> = [deferred.origin, origin].into_iter().flatten().collect();
+                let node_id =
+                    self.create_and_push_child_with_origins(deferred.path, value, origins)?;
+                Ok(node_id)
+            }
         } else {
             // No deferred - set the current node's value
             // This is for binding to the root or after push_path to an existing node
@@ -546,12 +594,12 @@ mod tests {
     }
 
     #[test]
-    fn test_push_binding_path_already_exists() {
+    fn test_push_binding_path_already_exists_with_value() {
         let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
 
         let identifier = create_identifier("field");
 
-        // First binding
+        // First binding with a real value
         constructor
             .push_binding_path(&[seg(PathSegment::Ident(identifier.clone()))])
             .expect("Failed to push binding");
@@ -560,10 +608,71 @@ mod tests {
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
-        // Second binding to same location should fail
+        // Second binding to same location should fail (node has non-Null value)
         let result = constructor.push_binding_path(&[seg(PathSegment::Ident(identifier))]);
 
-        assert_eq!(result.unwrap_err().kind, InsertErrorKind::BindingTargetHasValue);
+        assert_eq!(
+            result.unwrap_err().kind,
+            InsertErrorKind::BindingTargetHasValue
+        );
+    }
+
+    #[test]
+    fn test_push_binding_path_to_extension_only_node() {
+        let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
+
+        let field = create_identifier("field");
+        let ext = create_identifier("optional");
+
+        // First: field.$optional = true (creates field with Null, adds extension)
+        constructor
+            .push_binding_path(&[
+                seg(PathSegment::Ident(field.clone())),
+                seg(PathSegment::Extension(ext)),
+            ])
+            .expect("Failed to push binding");
+        constructor
+            .bind_primitive(PrimitiveValue::Bool(true), None)
+            .expect("Failed to bind");
+        constructor.pop().expect("Failed to pop");
+        constructor.pop().expect("Failed to pop");
+
+        // Second: field = "hello" should succeed (node has Null value)
+        constructor
+            .push_binding_path(&[seg(PathSegment::Ident(field))])
+            .expect("Should allow binding to extension-only node");
+        constructor
+            .bind_primitive(
+                PrimitiveValue::Text(crate::text::Text::plaintext("hello".to_string())),
+                None,
+            )
+            .expect("Failed to bind");
+        constructor.pop().expect("Failed to pop");
+
+        let (doc, _) = constructor.finish().expect("Failed to finish");
+
+        // Verify the field has the text value
+        let root = doc.root();
+        let field_id = root
+            .as_map()
+            .unwrap()
+            .get(&ObjectKey::String("field".to_string()))
+            .unwrap();
+        let field_node = doc.node(field_id);
+        assert!(matches!(
+            &field_node.content,
+            NodeValue::Primitive(PrimitiveValue::Text(t)) if t.content == "hello"
+        ));
+
+        // Verify the extension is still there
+        let ext_id = field_node
+            .get_extension(&create_identifier("optional"))
+            .unwrap();
+        let ext_node = doc.node(ext_id);
+        assert!(matches!(
+            ext_node.content,
+            NodeValue::Primitive(PrimitiveValue::Bool(true))
+        ));
     }
 
     #[test]
@@ -673,7 +782,9 @@ mod tests {
         let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
 
         // Create array with two elements
-        constructor.bind_empty_array(None).expect("Failed to bind array");
+        constructor
+            .bind_empty_array(None)
+            .expect("Failed to bind array");
 
         constructor
             .push_binding_path(&[seg(PathSegment::ArrayIndex(Some(0)))])
@@ -702,7 +813,9 @@ mod tests {
     fn test_tuple_elements() {
         let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
 
-        constructor.bind_empty_tuple(None).expect("Failed to bind tuple");
+        constructor
+            .bind_empty_tuple(None)
+            .expect("Failed to bind tuple");
 
         constructor
             .push_binding_path(&[seg(PathSegment::TupleIndex(0))])

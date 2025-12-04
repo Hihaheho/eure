@@ -307,10 +307,6 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: ObjectView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Record the object container origin
-        let container_id = self.document.current_node_id();
-        self.record_origin(container_id, NodeOrigin::ObjectContainer(handle));
-
         // Check if there's a value binding (new syntax: { = value, ... })
         let has_value_binding = if let Some(object_opt_view) = view.object_opt.get_view(tree)? {
             // Visit the value binding - this binds the main value
@@ -324,6 +320,21 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // Each entry has: keys => value
         // The keys can be nested (e.g., a.b => 1 becomes { a => { b => 1 } })
         if let Some(object_list_view) = view.object_list.get_view(tree)? {
+            // Eagerly create the object container if there's no value binding
+            // This ensures subsequent entries can be added to the same object
+            if !has_value_binding {
+                self.document
+                    .bind_empty_map(Some(handle.node_id()))
+                    .map_err(|e| DocumentConstructionError::DocumentInsert {
+                        error: e,
+                        node_id: handle.node_id(),
+                    })?;
+            }
+
+            // Record the object container origin (now the container exists)
+            let container_id = self.document.current_node_id();
+            self.record_origin(container_id, NodeOrigin::ObjectContainer(handle));
+
             for item in object_list_view.get_all(tree)? {
                 let depth_before = self.document.stack_depth();
 
@@ -355,12 +366,15 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
         } else if !has_value_binding {
             // Empty object (no value binding, no entries)
-            self.document.bind_empty_map(Some(handle.node_id())).map_err(|e| {
-                DocumentConstructionError::DocumentInsert {
+            self.document
+                .bind_empty_map(Some(handle.node_id()))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
-                }
-            })?;
+                })?;
+            // Record origin for empty object
+            let container_id = self.document.current_node_id();
+            self.record_origin(container_id, NodeOrigin::ObjectContainer(handle));
         }
 
         Ok(())
@@ -432,12 +446,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 index += 1;
             }
         } else {
-            self.document.bind_empty_array(Some(handle.node_id())).map_err(|e| {
-                DocumentConstructionError::DocumentInsert {
+            self.document
+                .bind_empty_array(Some(handle.node_id()))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
-                }
-            })?;
+                })?;
             // Record origin for empty array
             let container_id = self.document.current_node_id();
             self.record_origin(container_id, NodeOrigin::ArrayContainer(handle));
@@ -455,12 +469,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // Process tuple elements (similar to array but with TupleIndex path segment)
         if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
             // Eagerly create the tuple container if deferred
-            self.document.bind_empty_tuple(Some(handle.node_id())).map_err(|e| {
-                DocumentConstructionError::DocumentInsert {
+            self.document
+                .bind_empty_tuple(Some(handle.node_id()))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
-                }
-            })?;
+                })?;
 
             // Record the tuple container origin (now the container exists)
             let container_id = self.document.current_node_id();
@@ -512,12 +526,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 index = index.saturating_add(1);
             }
         } else {
-            self.document.bind_empty_tuple(Some(handle.node_id())).map_err(|e| {
-                DocumentConstructionError::DocumentInsert {
+            self.document
+                .bind_empty_tuple(Some(handle.node_id()))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
-                }
-            })?;
+                })?;
             // Record origin for empty tuple
             let container_id = self.document.current_node_id();
             self.record_origin(container_id, NodeOrigin::TupleContainer(handle));

@@ -2132,21 +2132,26 @@ fn test_nested_union_types() {
 }
 
 #[test]
-fn test_error_empty_section() {
-    // Empty section (uninitialized node) should be an error - incomplete document
+fn test_empty_section_creates_empty_record() {
+    // Empty section creates an empty record schema
     let input = r#"
 @ config
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
-    let result = document_to_schema(&doc);
+    let schema = parse_and_convert(input);
 
-    assert!(matches!(
-        result.unwrap_err(),
-        ConversionError::ParseError(ParseError {
-            kind: ParseErrorKind::UnexpectedUninitialized,
-            ..
-        })
-    ));
+    // Root should be a record with one field "config" which is an empty record
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, id| {
+            let node = s.nodes.get(id.0).unwrap();
+            assert!(
+                matches!(&node.content, SchemaNodeContent::Record(r) if r.properties.is_empty()),
+                "Expected empty record, got {:?}",
+                node.content
+            );
+        }),
+    );
 }
 
 #[test]
@@ -2198,10 +2203,11 @@ fn test_error_unknown_variant_type() {
     let doc = parse_to_document(input).expect("Failed to parse Eure document");
     let result = document_to_schema(&doc);
 
+    // Unknown variant type should produce an UnknownVariant error
     assert!(matches!(
         result.unwrap_err(),
         ConversionError::ParseError(ParseError {
-            kind: ParseErrorKind::UnexpectedUninitialized,
+            kind: ParseErrorKind::UnknownVariant(_),
             ..
         })
     ));
