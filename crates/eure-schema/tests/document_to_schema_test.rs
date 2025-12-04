@@ -20,10 +20,9 @@ use eure_schema::{
     SchemaNodeContent, SchemaNodeId, TextSchema, UnknownFieldsPolicy,
 };
 use eure_value::data_model::VariantRepr;
-use eure_value::document::NodeId;
 use eure_value::identifier::Identifier;
 use eure_value::parse::{ParseError, ParseErrorKind};
-use eure_value::value::{ObjectKey, ValueKind};
+use eure_value::value::ObjectKey;
 use num_bigint::BigInt;
 
 // Helper function to parse Eure text and convert to schema
