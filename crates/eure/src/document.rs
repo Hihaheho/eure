@@ -5,7 +5,10 @@ use eure_parol::EureParseError;
 pub use eure_value::document::*;
 use eure_value::identifier::IdentifierError;
 use eure_value::text::TextParseError;
-use eure_value::{document::constructor::PopError, path::PathSegment};
+use eure_value::{
+    document::constructor::{FinishError, PopError},
+    path::PathSegment,
+};
 
 use crate::document::value_visitor::ValueVisitor;
 use eure_tree::prelude::*;
@@ -166,6 +169,8 @@ pub enum DocumentConstructionError {
     PopPath(#[from] PopError),
     #[error("Failed to parse tuple index: {value}")]
     InvalidTupleIndex { node_id: CstNodeId, value: String },
+    #[error("Failed to finish document: {0}")]
+    FinishError(FinishError),
 }
 
 impl DocumentConstructionError {
@@ -227,7 +232,7 @@ pub fn parse_to_document(
 pub fn cst_to_document(input: &str, cst: &Cst) -> Result<EureDocument, DocumentConstructionError> {
     let mut visitor = ValueVisitor::new(input);
     visitor.visit_root_handle(cst.root_handle(), cst)?;
-    Ok(visitor.into_document())
+    visitor.into_document()
 }
 
 /// Parse CST to document and collect origin information for span resolution.
@@ -237,7 +242,7 @@ pub fn cst_to_document_and_origins(
 ) -> Result<(EureDocument, NodeOriginMap), DocumentConstructionError> {
     let mut visitor = ValueVisitor::new(input);
     visitor.visit_root_handle(cst.root_handle(), cst)?;
-    Ok(visitor.into_document_and_origins())
+    visitor.into_document_and_origins()
 }
 
 #[cfg(test)]

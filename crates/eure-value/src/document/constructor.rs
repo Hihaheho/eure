@@ -98,6 +98,11 @@ impl<O> DocumentConstructor<O> {
             .unwrap_or(&[])
     }
 
+    /// Get the current stack depth.
+    pub fn stack_depth(&self) -> usize {
+        self.stack.len()
+    }
+
     pub fn document(&self) -> &EureDocument {
         &self.document
     }
@@ -168,8 +173,28 @@ impl<O: Clone> DocumentConstructor<O> {
         content: NodeValue,
         origin: Option<O>,
     ) -> Result<NodeId, InsertError> {
+        let origins: Vec<O> = origin.into_iter().collect();
+        self.create_and_push_child_with_origins(segment, content, origins)
+    }
+
+    /// Create a child node and push it onto the stack, with multiple origins.
+    fn create_and_push_child_with_origins(
+        &mut self,
+        segment: PathSegment,
+        content: NodeValue,
+        origins: Vec<O>,
+    ) -> Result<NodeId, InsertError> {
         let parent_id = self.current_node_id();
         let base_path = EurePath::from_iter(self.current_path().iter().cloned());
+
+        // If parent is Null (default value), convert it to the appropriate container type
+        {
+            let parent = self.document.node(parent_id);
+            if matches!(parent.content, NodeValue::Primitive(PrimitiveValue::Null)) {
+                let container = infer_container_from(&segment);
+                self.document.node_mut(parent_id).content = container;
+            }
+        }
 
         // Create the node with the given content
         let node_id = self.document.create_node(content);
@@ -177,8 +202,8 @@ impl<O: Clone> DocumentConstructor<O> {
         // Add the child to the parent based on segment type
         self.add_child_to_parent(parent_id, &segment, node_id, &base_path)?;
 
-        // Record origin if present
-        if let Some(origin) = origin {
+        // Record all origins
+        for origin in origins {
             self.origins.record_node_origin(node_id, origin);
         }
 
@@ -349,36 +374,61 @@ impl<O: Clone> DocumentConstructor<O> {
         Ok(())
     }
 
+    /// Pop all entries until we reach the specified depth.
+    pub fn pop_to_depth(&mut self, target_depth: usize) -> Result<(), PopError> {
+        while self.stack.len() > target_depth {
+            self.pop()?;
+        }
+        Ok(())
+    }
+
+    /// Consume any pending deferred segment, creating a Map node as default.
+    ///
+    /// This is useful for sections that need to create their target node immediately
+    /// (e.g., when the section body has multiple bindings that should all be inside
+    /// the same node).
+    pub fn consume_deferred_as_map(&mut self) -> Result<(), InsertError> {
+        if self.deferred.is_some() {
+            self.consume_deferred_with_value(NodeValue::Map(Default::default()))?;
+        }
+        Ok(())
+    }
+
     /// Bind a primitive value to the current position.
     ///
     /// If there's a deferred segment, it's consumed and a new node is created.
     /// Otherwise, the current node's value is set (if it's still the default Null).
-    pub fn bind_primitive(&mut self, value: PrimitiveValue) -> Result<NodeId, InsertError> {
-        self.bind_value(NodeValue::Primitive(value))
+    pub fn bind_primitive(
+        &mut self,
+        value: PrimitiveValue,
+        origin: Option<O>,
+    ) -> Result<NodeId, InsertError> {
+        self.bind_value(NodeValue::Primitive(value), origin)
     }
 
     /// Bind an empty map to the current position.
-    pub fn bind_empty_map(&mut self) -> Result<NodeId, InsertError> {
-        self.bind_value(NodeValue::Map(Default::default()))
+    pub fn bind_empty_map(&mut self, origin: Option<O>) -> Result<NodeId, InsertError> {
+        self.bind_value(NodeValue::Map(Default::default()), origin)
     }
 
     /// Bind an empty array to the current position.
-    pub fn bind_empty_array(&mut self) -> Result<NodeId, InsertError> {
-        self.bind_value(NodeValue::Array(Default::default()))
+    pub fn bind_empty_array(&mut self, origin: Option<O>) -> Result<NodeId, InsertError> {
+        self.bind_value(NodeValue::Array(Default::default()), origin)
     }
 
     /// Bind an empty tuple to the current position.
-    pub fn bind_empty_tuple(&mut self) -> Result<NodeId, InsertError> {
-        self.bind_value(NodeValue::Tuple(Default::default()))
+    pub fn bind_empty_tuple(&mut self, origin: Option<O>) -> Result<NodeId, InsertError> {
+        self.bind_value(NodeValue::Tuple(Default::default()), origin)
     }
 
     /// Internal: bind a value, consuming deferred if present.
-    fn bind_value(&mut self, value: NodeValue) -> Result<NodeId, InsertError> {
+    fn bind_value(&mut self, value: NodeValue, origin: Option<O>) -> Result<NodeId, InsertError> {
         if self.deferred.is_some() {
             // Consume deferred and create the node with the value
             let deferred = self.deferred.take().unwrap();
-            let node_id =
-                self.create_and_push_child(deferred.path, value, deferred.origin)?;
+            // Combine deferred origin with bind origin
+            let origins: Vec<O> = [deferred.origin, origin].into_iter().flatten().collect();
+            let node_id = self.create_and_push_child_with_origins(deferred.path, value, origins)?;
             Ok(node_id)
         } else {
             // No deferred - set the current node's value
@@ -400,6 +450,12 @@ impl<O: Clone> DocumentConstructor<O> {
             }
 
             node.content = value;
+
+            // Record origin if provided
+            if let Some(origin) = origin {
+                self.origins.record_node_origin(node_id, origin);
+            }
+
             Ok(node_id)
         }
     }
@@ -453,7 +509,7 @@ mod tests {
 
         // Bind a value
         let node_id = constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
 
         assert_eq!(constructor.current_node_id(), node_id);
@@ -476,7 +532,7 @@ mod tests {
             .push_binding_path(&[seg(PathSegment::Ident(identifier.clone()))])
             .expect("Failed to push binding");
         let node_id1 = constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
@@ -500,7 +556,7 @@ mod tests {
             .push_binding_path(&[seg(PathSegment::Ident(identifier.clone()))])
             .expect("Failed to push binding");
         constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
@@ -520,7 +576,7 @@ mod tests {
             .push_binding_path(&[seg(PathSegment::Ident(identifier))])
             .expect("Failed to push");
         constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
 
         let result = constructor.pop();
@@ -542,7 +598,7 @@ mod tests {
         let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
 
         constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
 
         let result = constructor.finish();
@@ -585,7 +641,7 @@ mod tests {
             ])
             .expect("Failed to push");
         constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
         constructor.pop().expect("Failed to pop");
@@ -617,13 +673,13 @@ mod tests {
         let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
 
         // Create array with two elements
-        constructor.bind_empty_array().expect("Failed to bind array");
+        constructor.bind_empty_array(None).expect("Failed to bind array");
 
         constructor
             .push_binding_path(&[seg(PathSegment::ArrayIndex(Some(0)))])
             .expect("Failed to push");
         constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
@@ -631,7 +687,7 @@ mod tests {
             .push_binding_path(&[seg(PathSegment::ArrayIndex(Some(1)))])
             .expect("Failed to push");
         constructor
-            .bind_primitive(PrimitiveValue::Bool(false))
+            .bind_primitive(PrimitiveValue::Bool(false), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
@@ -646,13 +702,13 @@ mod tests {
     fn test_tuple_elements() {
         let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
 
-        constructor.bind_empty_tuple().expect("Failed to bind tuple");
+        constructor.bind_empty_tuple(None).expect("Failed to bind tuple");
 
         constructor
             .push_binding_path(&[seg(PathSegment::TupleIndex(0))])
             .expect("Failed to push");
         constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
@@ -660,7 +716,7 @@ mod tests {
             .push_binding_path(&[seg(PathSegment::TupleIndex(1))])
             .expect("Failed to push");
         constructor
-            .bind_primitive(PrimitiveValue::Bool(false))
+            .bind_primitive(PrimitiveValue::Bool(false), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
@@ -686,7 +742,7 @@ mod tests {
             )])
             .expect("Failed to push");
         let node_id = constructor
-            .bind_primitive(PrimitiveValue::Bool(true))
+            .bind_primitive(PrimitiveValue::Bool(true), None)
             .expect("Failed to bind");
         constructor.pop().expect("Failed to pop");
 
@@ -695,5 +751,56 @@ mod tests {
         let node_origins = origins.get_node_origins(node_id).unwrap();
         assert_eq!(node_origins.len(), 1);
         assert_eq!(node_origins[0], TestOrigin(42));
+    }
+
+    #[test]
+    fn test_origin_from_bind() {
+        #[derive(Debug, Clone, PartialEq)]
+        struct TestOrigin(u32);
+
+        let mut constructor: DocumentConstructor<TestOrigin> = DocumentConstructor::new();
+
+        let identifier = create_identifier("field");
+        constructor
+            .push_binding_path(&[Segment::new(PathSegment::Ident(identifier))])
+            .expect("Failed to push");
+        let node_id = constructor
+            .bind_primitive(PrimitiveValue::Bool(true), Some(TestOrigin(99)))
+            .expect("Failed to bind");
+        constructor.pop().expect("Failed to pop");
+
+        let (_, origins) = constructor.finish().expect("Failed to finish");
+
+        let node_origins = origins.get_node_origins(node_id).unwrap();
+        assert_eq!(node_origins.len(), 1);
+        assert_eq!(node_origins[0], TestOrigin(99));
+    }
+
+    #[test]
+    fn test_origin_from_both_segment_and_bind() {
+        #[derive(Debug, Clone, PartialEq)]
+        struct TestOrigin(u32);
+
+        let mut constructor: DocumentConstructor<TestOrigin> = DocumentConstructor::new();
+
+        let identifier = create_identifier("field");
+        constructor
+            .push_binding_path(&[Segment::with_origin(
+                PathSegment::Ident(identifier),
+                TestOrigin(42),
+            )])
+            .expect("Failed to push");
+        let node_id = constructor
+            .bind_primitive(PrimitiveValue::Bool(true), Some(TestOrigin(99)))
+            .expect("Failed to bind");
+        constructor.pop().expect("Failed to pop");
+
+        let (_, origins) = constructor.finish().expect("Failed to finish");
+
+        // Should have both origins
+        let node_origins = origins.get_node_origins(node_id).unwrap();
+        assert_eq!(node_origins.len(), 2);
+        assert_eq!(node_origins[0], TestOrigin(42));
+        assert_eq!(node_origins[1], TestOrigin(99));
     }
 }

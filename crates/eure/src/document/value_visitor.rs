@@ -2,7 +2,7 @@ use eure_tree::tree::{InputSpan, RecursiveView};
 use eure_tree::{prelude::*, tree::TerminalHandle};
 use eure_value::value::Tuple;
 use eure_value::{
-    document::{EureDocument, constructor::DocumentConstructor},
+    document::{EureDocument, constructor::DocumentConstructor, segment::Segment},
     identifier::Identifier,
     path::PathSegment,
     text::{Language, SyntaxHint, Text, TextParseError},
@@ -122,7 +122,7 @@ impl CodeStart {
 pub struct ValueVisitor<'a> {
     input: &'a str,
     // Main document being built
-    document: DocumentConstructor,
+    document: DocumentConstructor<CstNodeId>,
     segments: Vec<PathSegment>,
     code_start: Option<CodeStart>,
     // Stack for collecting ObjectKeys when processing KeyTuple
@@ -199,12 +199,20 @@ impl<'a> ValueVisitor<'a> {
         Ok(language)
     }
 
-    pub fn into_document(self) -> EureDocument {
-        self.document.finish()
+    pub fn into_document(self) -> Result<EureDocument, DocumentConstructionError> {
+        self.document
+            .finish_document()
+            .map_err(DocumentConstructionError::FinishError)
     }
 
-    pub fn into_document_and_origins(self) -> (EureDocument, NodeOriginMap) {
-        (self.document.finish(), self.node_origins)
+    pub fn into_document_and_origins(
+        self,
+    ) -> Result<(EureDocument, NodeOriginMap), DocumentConstructionError> {
+        let doc = self
+            .document
+            .finish_document()
+            .map_err(DocumentConstructionError::FinishError)?;
+        Ok((doc, self.node_origins))
     }
 
     /// Record an origin for the current node
@@ -317,30 +325,37 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // The keys can be nested (e.g., a.b => 1 becomes { a => { b => 1 } })
         if let Some(object_list_view) = view.object_list.get_view(tree)? {
             for item in object_list_view.get_all(tree)? {
+                let depth_before = self.document.stack_depth();
+
                 // Collect path segments from the keys
                 let segments =
                     self.collect_path_segments(|v| v.visit_keys_handle(item.keys, tree))?;
+                let segments: Vec<Segment<CstNodeId>> = segments
+                    .into_iter()
+                    .map(|p| Segment::with_origin(p, item.keys.node_id()))
+                    .collect();
 
                 // Push the binding path - this will create the nested structure
-                let node_id = self.document.push_binding_path(&segments).map_err(|e| {
+                self.document.push_binding_path(&segments).map_err(|e| {
                     DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
                     }
                 })?;
 
-                // Record origin for this object entry
-                self.record_origin(node_id, NodeOrigin::ObjectEntry(item.keys));
-
                 // Visit the value
                 self.visit_value_handle(item.value, tree)?;
 
+                // Record origin for this object entry
+                let node_id = self.document.current_node_id();
+                self.record_origin(node_id, NodeOrigin::ObjectEntry(item.keys));
+
                 // Pop back to the Object level
-                self.document.pop(node_id)?;
+                self.document.pop_to_depth(depth_before)?;
             }
         } else if !has_value_binding {
             // Empty object (no value binding, no entries)
-            self.document.bind_empty_map().map_err(|e| {
+            self.document.bind_empty_map(Some(handle.node_id())).map_err(|e| {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -357,29 +372,44 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: ArrayView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Record the array container origin
-        let container_id = self.document.current_node_id();
-        self.record_origin(container_id, NodeOrigin::ArrayContainer(handle));
-
         // Process array elements
         if let Some(elements_handle) = view.array_opt.get_view(tree)? {
+            // Eagerly create the array container if deferred
+            self.document
+                .bind_empty_array(Some(handle.node_id()))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
+
+            // Record the array container origin (now the container exists)
+            let container_id = self.document.current_node_id();
+            self.record_origin(container_id, NodeOrigin::ArrayContainer(handle));
+
             // Iterate through array elements
             let mut current = Some(elements_handle);
             let mut index = 0usize;
 
             while let Some(elem_handle) = current {
+                let depth_before = self.document.stack_depth();
                 let elem_view = elem_handle.get_view(tree)?;
 
                 // Push array index path
-                let node_id = self
-                    .document
-                    .push_path(&[PathSegment::ArrayIndex(Some(index))])
+                self.document
+                    .push_binding_path(&[Segment::with_origin(
+                        PathSegment::ArrayIndex(Some(index)),
+                        elem_handle.node_id(),
+                    )])
                     .map_err(|e| DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
                     })?;
 
+                // Visit the value at this index
+                self.visit_value_handle(elem_view.value, tree)?;
+
                 // Record origin for this array element
+                let node_id = self.document.current_node_id();
                 self.record_origin(
                     node_id,
                     NodeOrigin::ArrayElement {
@@ -388,11 +418,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     },
                 );
 
-                // Visit the value at this index
-                self.visit_value_handle(elem_view.value, tree)?;
-
                 // Pop back to array level
-                self.document.pop(node_id)?;
+                self.document.pop_to_depth(depth_before)?;
 
                 // Move to next element if any
                 current = if let Some(tail_handle) = elem_view.array_elements_opt.get_view(tree)? {
@@ -405,12 +432,15 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 index += 1;
             }
         } else {
-            self.document.bind_empty_array().map_err(|e| {
+            self.document.bind_empty_array(Some(handle.node_id())).map_err(|e| {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
                 }
             })?;
+            // Record origin for empty array
+            let container_id = self.document.current_node_id();
+            self.record_origin(container_id, NodeOrigin::ArrayContainer(handle));
         }
 
         Ok(())
@@ -422,29 +452,44 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: TupleView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Record the tuple container origin
-        let container_id = self.document.current_node_id();
-        self.record_origin(container_id, NodeOrigin::TupleContainer(handle));
-
         // Process tuple elements (similar to array but with TupleIndex path segment)
         if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
+            // Eagerly create the tuple container if deferred
+            self.document.bind_empty_tuple(Some(handle.node_id())).map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+
+            // Record the tuple container origin (now the container exists)
+            let container_id = self.document.current_node_id();
+            self.record_origin(container_id, NodeOrigin::TupleContainer(handle));
+
             // Iterate through tuple elements
             let mut current = Some(elements_handle);
             let mut index = 0u8;
 
             while let Some(elem_handle) = current {
+                let depth_before = self.document.stack_depth();
                 let elem_view = elem_handle.get_view(tree)?;
 
                 // Push tuple index path
-                let node_id = self
-                    .document
-                    .push_path(&[PathSegment::TupleIndex(index)])
+                self.document
+                    .push_binding_path(&[Segment::with_origin(
+                        PathSegment::TupleIndex(index),
+                        elem_handle.node_id(),
+                    )])
                     .map_err(|e| DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
                     })?;
 
+                // Visit the value at this index
+                self.visit_value_handle(elem_view.value, tree)?;
+
                 // Record origin for this tuple element
+                let node_id = self.document.current_node_id();
                 self.record_origin(
                     node_id,
                     NodeOrigin::TupleElement {
@@ -453,11 +498,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     },
                 );
 
-                // Visit the value at this index
-                self.visit_value_handle(elem_view.value, tree)?;
-
                 // Pop back to tuple level
-                self.document.pop(node_id)?;
+                self.document.pop_to_depth(depth_before)?;
 
                 // Move to next element if any
                 current = if let Some(tail_handle) = elem_view.tuple_elements_opt.get_view(tree)? {
@@ -470,12 +512,15 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 index = index.saturating_add(1);
             }
         } else {
-            self.document.bind_empty_tuple().map_err(|e| {
+            self.document.bind_empty_tuple(Some(handle.node_id())).map_err(|e| {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
                 }
             })?;
+            // Record origin for empty tuple
+            let container_id = self.document.current_node_id();
+            self.record_origin(container_id, NodeOrigin::TupleContainer(handle));
         }
 
         Ok(())
@@ -614,14 +659,20 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: BindingView,
         tree: &F,
     ) -> Result<(), Self::Error> {
+        let depth_before = self.document.stack_depth();
         let segments = self.collect_path_segments(|v| v.visit_keys_handle(view.keys, tree))?;
-        let node_id = self.document.push_binding_path(&segments).map_err(|e| {
+        let segments: Vec<Segment<CstNodeId>> = segments
+            .into_iter()
+            .map(|p| Segment::with_origin(p, handle.node_id()))
+            .collect();
+        self.document.push_binding_path(&segments).map_err(|e| {
             let node_id = handle.node_id();
             DocumentConstructionError::DocumentInsert { error: e, node_id }
         })?;
-        self.record_origin(node_id, NodeOrigin::BindingKey(handle));
         self.visit_binding_rhs_handle(view.binding_rhs, tree)?;
-        self.document.pop(node_id)?;
+        let node_id = self.document.current_node_id();
+        self.record_origin(node_id, NodeOrigin::BindingKey(handle));
+        self.document.pop_to_depth(depth_before)?;
         Ok(())
     }
 
@@ -636,14 +687,45 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             keys,
             section_body,
         } = view;
+        let depth_before = self.document.stack_depth();
         let segments = self.collect_path_segments(|v| v.visit_keys_handle(keys, tree))?;
-        let node_id = self.document.push_path(&segments).map_err(|e| {
+        let segments: Vec<Segment<CstNodeId>> = segments
+            .into_iter()
+            .map(|p| Segment::with_origin(p, handle.node_id()))
+            .collect();
+        self.document.push_path(&segments).map_err(|e| {
             let node_id = handle.node_id();
             DocumentConstructionError::DocumentInsert { error: e, node_id }
         })?;
-        self.record_origin(node_id, NodeOrigin::SectionKey(handle));
+        // Eagerly create the section node if deferred (creates a Map by default)
+        self.document.consume_deferred_as_map().map_err(|e| {
+            DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            }
+        })?;
         self.visit_section_body_handle(section_body, tree)?;
-        self.document.pop(node_id)?;
+        let node_id = self.document.current_node_id();
+        self.record_origin(node_id, NodeOrigin::SectionKey(handle));
+        self.document.pop_to_depth(depth_before)?;
+        Ok(())
+    }
+
+    fn visit_section_binding(
+        &mut self,
+        handle: SectionBindingHandle,
+        view: SectionBindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Eagerly create the binding target node as a Map before visiting inner content
+        self.document.consume_deferred_as_map().map_err(|e| {
+            DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            }
+        })?;
+        // Visit the inner Eure content
+        self.visit_eure_handle(view.eure, tree)?;
         Ok(())
     }
 
@@ -653,9 +735,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         _view: NullView,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Null)
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Null, Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -670,9 +752,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         _view: TrueView,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Bool(true))
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Bool(true), Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -687,9 +769,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         _view: FalseView,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Bool(false))
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Bool(false), Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -710,9 +792,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             .parse()
             .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
 
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Integer(big_int))
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Integer(big_int), Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -733,9 +815,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             .parse()
             .map_err(|_| DocumentConstructionError::InvalidFloat(str.to_string()))?;
 
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::F64(float))
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::F64(float), Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -750,9 +832,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         _view: HoleView,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Hole)
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Hole, Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -775,9 +857,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
         })?;
         let text = Text::with_syntax_hint(content, language, SyntaxHint::Inline1);
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Text(text))
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -835,9 +917,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
-            let node_id = self.document.current_node_id();
-            self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+            let node_id = self
+                .document
+                .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -895,9 +977,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
-            let node_id = self.document.current_node_id();
-            self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+            let node_id = self
+                .document
+                .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -941,9 +1023,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
-            let node_id = self.document.current_node_id();
-            self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+            let node_id = self
+                .document
+                .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -987,9 +1069,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
-            let node_id = self.document.current_node_id();
-            self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+            let node_id = self
+                .document
+                .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1033,9 +1115,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
             let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
-            let node_id = self.document.current_node_id();
-            self.document
-                .bind_primitive(PrimitiveValue::Text(text))
+            let node_id = self
+                .document
+                .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
@@ -1062,9 +1144,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error,
             }
         })?;
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Text(text))
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -1096,9 +1178,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         };
 
         let text = Text::plaintext(result);
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Text(text))
+        let node_id = self
+            .document
+            .bind_primitive(PrimitiveValue::Text(text), Some(handle.node_id()))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
