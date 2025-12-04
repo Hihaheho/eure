@@ -711,17 +711,60 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             let node_id = handle.node_id();
             DocumentConstructionError::DocumentInsert { error: e, node_id }
         })?;
-        // Eagerly create the section node if deferred (creates a Map by default)
-        self.document.consume_deferred_as_map().map_err(|e| {
-            DocumentConstructionError::DocumentInsert {
-                error: e,
-                node_id: handle.node_id(),
-            }
-        })?;
+        // Note: Don't consume deferred here. The section body will handle it:
+        // - If there's a ValueBinding, the value will be bound directly
+        // - If there are only Bindings, consume_deferred_as_map is called
+        // - If it's { Eure } (Alt1), the block is handled as Eure content
         self.visit_section_body_handle(section_body, tree)?;
         let node_id = self.document.current_node_id();
         self.record_origin(node_id, NodeOrigin::SectionKey(handle));
         self.document.pop_to_depth(depth_before)?;
+        Ok(())
+    }
+
+    fn visit_section_body(
+        &mut self,
+        handle: SectionBodyHandle,
+        view: SectionBodyView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        match view {
+            SectionBodyView::Alt0(alt0) => {
+                // [ ValueBinding ] { Binding }
+                let has_value_binding =
+                    if let Some(value_binding) = alt0.section_body_opt.get_view(tree)? {
+                        // ValueBinding present - visit it (it will bind the value)
+                        self.visit_value_binding_handle(value_binding, tree)?;
+                        true
+                    } else {
+                        false
+                    };
+
+                // If no value binding, create the section node as Map
+                if !has_value_binding {
+                    self.document.consume_deferred_as_map().map_err(|e| {
+                        DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                        }
+                    })?;
+                }
+
+                // Visit the bindings
+                self.visit_section_body_list_handle(alt0.section_body_list, tree)?;
+            }
+            SectionBodyView::Alt1(alt1) => {
+                // Begin Eure End - curly braces with content
+                // Create the section node as Map
+                self.document.consume_deferred_as_map().map_err(|e| {
+                    DocumentConstructionError::DocumentInsert {
+                        error: e,
+                        node_id: handle.node_id(),
+                    }
+                })?;
+                self.visit_eure_handle(alt1.eure, tree)?;
+            }
+        }
         Ok(())
     }
 

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::prelude_internal::*;
 
 use super::origins::NodeOrigins;
@@ -7,6 +9,8 @@ use super::segment::Segment;
 pub enum PopError {
     #[error("Cannot pop from root (stack is empty)")]
     CannotPopRoot,
+    #[error("Stack depth mismatch: expected {expected}, but got {actual}")]
+    DepthMismatch { expected: usize, actual: usize },
 }
 
 #[derive(Debug, PartialEq, thiserror::Error, Clone)]
@@ -15,31 +19,29 @@ pub enum FinishError {
     UnconsumedDeferredPath,
 }
 
+/// Token returned by push operations to validate symmetric pop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PushToken {
+    /// The stack depth before the push operation.
+    depth_before: usize,
+}
+
+impl PushToken {
+    fn new(depth_before: usize) -> Self {
+        Self { depth_before }
+    }
+}
+
 /// Deferred segment waiting to be consumed by a bind operation or the next push.
 #[derive(Debug, Clone)]
 struct DeferredSegment<O> {
     path: PathSegment,
     origin: Option<O>,
-    /// If Some, this segment refers to an existing node (with Null content)
-    /// that should be navigated to rather than created.
-    existing_id: Option<NodeId>,
 }
 
 impl<O> DeferredSegment<O> {
     fn new(path: PathSegment, origin: Option<O>) -> Self {
-        Self {
-            path,
-            origin,
-            existing_id: None,
-        }
-    }
-
-    fn for_existing(path: PathSegment, origin: Option<O>, existing_id: NodeId) -> Self {
-        Self {
-            path,
-            origin,
-            existing_id: Some(existing_id),
-        }
+        Self { path, origin }
     }
 
     fn from_segment(seg: &Segment<O>) -> Self
@@ -60,6 +62,8 @@ pub struct DocumentConstructor<O = ()> {
     deferred: Option<DeferredSegment<O>>,
     /// Origin tracking for nodes and keys.
     origins: NodeOrigins<O>,
+    /// Nodes created only as intermediates for extensions (can be rebound).
+    extension_only_nodes: HashSet<NodeId>,
 }
 
 struct StackItem {
@@ -89,6 +93,7 @@ impl<O> DocumentConstructor<O> {
             }],
             deferred: None,
             origins: NodeOrigins::<O>::new(),
+            extension_only_nodes: HashSet::new(),
         }
     }
 
@@ -172,7 +177,12 @@ impl<O: Clone> DocumentConstructor<O> {
     ) -> Result<(), InsertError> {
         if let Some(deferred) = self.deferred.take() {
             let container = infer_container_from(next_segment);
-            self.create_and_push_child(deferred.path, container, deferred.origin)?;
+            let node_id = self.create_and_push_child(deferred.path, container, deferred.origin)?;
+
+            // Mark as extension-only if created for extensions
+            if matches!(next_segment, PathSegment::Extension(_)) {
+                self.extension_only_nodes.insert(node_id);
+            }
         }
         Ok(())
     }
@@ -360,11 +370,12 @@ impl<O: Clone> DocumentConstructor<O> {
     ///
     /// - Intermediate segments are handled like `push_path`.
     /// - The last segment is always deferred; bind_value will consume it.
-    /// - If the segment already exists with Null content, it will be navigated to
-    ///   and its content set by bind_value.
-    pub fn push_binding_path(&mut self, segments: &[Segment<O>]) -> Result<(), InsertError> {
+    /// - Returns a PushToken for validating symmetric pop.
+    pub fn push_binding_path(&mut self, segments: &[Segment<O>]) -> Result<PushToken, InsertError> {
+        let depth_before = self.stack.len();
+
         if segments.is_empty() {
-            return Ok(());
+            return Ok(PushToken::new(depth_before));
         }
 
         // Handle all but the last segment like push_path
@@ -378,26 +389,20 @@ impl<O: Clone> DocumentConstructor<O> {
 
         // Check if the last segment already exists
         if let Some(existing_id) = self.try_get_child(&last.path) {
-            // Check if existing node has a real value (not default Null)
-            let existing = self.document.node(existing_id);
-            if !matches!(existing.content, NodeValue::Primitive(PrimitiveValue::Null)) {
+            // Only allow rebinding if node is extension-only
+            if !self.extension_only_nodes.contains(&existing_id) {
                 return Err(InsertError {
                     kind: InsertErrorKind::BindingTargetHasValue,
                     path: EurePath::from_iter(self.current_path().iter().cloned()),
                 });
             }
-            // Node exists with default Null (e.g., created for extensions)
-            // Defer with reference to existing node - bind_value will navigate to it
-            self.deferred = Some(DeferredSegment::for_existing(
-                last.path.clone(),
-                last.origin.clone(),
-                existing_id,
-            ));
+            // Extension-only node - move to it for rebinding
+            self.move_to_existing(existing_id, last.path.clone(), last.origin.clone());
         } else {
             // Defer the last segment for creation
             self.deferred = Some(DeferredSegment::from_segment(last));
         }
-        Ok(())
+        Ok(PushToken::new(depth_before))
     }
 
     /// Pop the current position from the stack.
@@ -415,6 +420,18 @@ impl<O: Clone> DocumentConstructor<O> {
             self.pop()?;
         }
         Ok(())
+    }
+
+    /// Pop using a PushToken to validate symmetric push/pop.
+    pub fn pop_to_token(&mut self, token: PushToken) -> Result<(), PopError> {
+        let current_depth = self.stack.len();
+        if current_depth < token.depth_before {
+            return Err(PopError::DepthMismatch {
+                expected: token.depth_before,
+                actual: current_depth,
+            });
+        }
+        self.pop_to_depth(token.depth_before)
     }
 
     /// Consume any pending deferred segment, creating a Map node as default.
@@ -459,45 +476,33 @@ impl<O: Clone> DocumentConstructor<O> {
     /// Internal: bind a value, consuming deferred if present.
     fn bind_value(&mut self, value: NodeValue, origin: Option<O>) -> Result<NodeId, InsertError> {
         if let Some(deferred) = self.deferred.take() {
-            if let Some(existing_id) = deferred.existing_id {
-                // Navigate to existing node and set its content
-                self.move_to_existing(existing_id, deferred.path, deferred.origin);
-                let node = self.document.node_mut(existing_id);
-                node.content = value;
-
-                // Record bind origin if provided
-                if let Some(origin) = origin {
-                    self.origins.record_node_origin(existing_id, origin);
-                }
-
-                Ok(existing_id)
-            } else {
-                // Create new node with the value
-                let origins: Vec<O> = [deferred.origin, origin].into_iter().flatten().collect();
-                let node_id =
-                    self.create_and_push_child_with_origins(deferred.path, value, origins)?;
-                Ok(node_id)
-            }
+            // Create new node with the value
+            let origins: Vec<O> = [deferred.origin, origin].into_iter().flatten().collect();
+            let node_id = self.create_and_push_child_with_origins(deferred.path, value, origins)?;
+            Ok(node_id)
         } else {
             // No deferred - set the current node's value
-            // This is for binding to the root or after push_path to an existing node
+            // This is for binding to the root or after moving to an existing node
             let node_id = self.current_node_id();
             let root_id = self.document.get_root_id();
-            let node = self.document.node_mut(node_id);
 
-            // Check if we can bind (only if current value is the default Null for root)
-            // For non-root nodes that were navigated to, they might have content already
-            if !matches!(node.content, NodeValue::Primitive(PrimitiveValue::Null))
-                && node_id == root_id
-            {
-                // Root was already bound to something else
+            // Check if this is an extension-only node being rebound
+            let is_extension_only = self.extension_only_nodes.remove(&node_id);
+
+            // Check if we can bind
+            let node = self.document.node(node_id);
+            let can_bind = is_extension_only
+                || node_id == root_id
+                    && matches!(node.content, NodeValue::Primitive(PrimitiveValue::Null));
+
+            if !can_bind {
                 return Err(InsertError {
                     kind: InsertErrorKind::BindingTargetHasValue,
                     path: EurePath::from_iter(self.current_path().iter().cloned()),
                 });
             }
 
-            node.content = value;
+            self.document.node_mut(node_id).content = value;
 
             // Record origin if provided
             if let Some(origin) = origin {
@@ -915,5 +920,101 @@ mod tests {
         assert_eq!(node_origins.len(), 2);
         assert_eq!(node_origins[0], TestOrigin(42));
         assert_eq!(node_origins[1], TestOrigin(99));
+    }
+
+    #[test]
+    fn test_null_rebinding_should_error() {
+        // a = null; a = 1 should fail
+        let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
+
+        let identifier = create_identifier("a");
+
+        // First: a = null
+        constructor
+            .push_binding_path(&[seg(PathSegment::Ident(identifier.clone()))])
+            .expect("Failed to push");
+        constructor
+            .bind_primitive(PrimitiveValue::Null, None)
+            .expect("Failed to bind");
+        constructor.pop().expect("Failed to pop");
+
+        // Second: a = 1 should fail (null was explicitly bound, not extension-only)
+        let result = constructor.push_binding_path(&[seg(PathSegment::Ident(identifier))]);
+
+        assert_eq!(
+            result.unwrap_err().kind,
+            InsertErrorKind::BindingTargetHasValue
+        );
+    }
+
+    #[test]
+    fn test_pop_to_token() {
+        let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
+
+        let id1 = create_identifier("a");
+        let id2 = create_identifier("b");
+
+        // Push a.b with token
+        let token = constructor
+            .push_binding_path(&[seg(PathSegment::Ident(id1)), seg(PathSegment::Ident(id2))])
+            .expect("Failed to push");
+
+        constructor
+            .bind_primitive(PrimitiveValue::Bool(true), None)
+            .expect("Failed to bind");
+
+        // Pop back to token depth
+        constructor
+            .pop_to_token(token)
+            .expect("Failed to pop to token");
+
+        // Should be back at root
+        let root_id = constructor.document().get_root_id();
+        assert_eq!(constructor.current_node_id(), root_id);
+    }
+
+    #[test]
+    fn test_push_token_validates_depth() {
+        let mut constructor: DocumentConstructor<()> = DocumentConstructor::new();
+
+        let id1 = create_identifier("a");
+        let id2 = create_identifier("b");
+
+        // First push
+        let token1 = constructor
+            .push_binding_path(&[seg(PathSegment::Ident(id1))])
+            .expect("Failed to push");
+        constructor
+            .bind_primitive(PrimitiveValue::Bool(true), None)
+            .expect("Failed to bind");
+
+        // Pop back to root before second push
+        constructor
+            .pop_to_token(token1)
+            .expect("Failed to pop to token1");
+
+        // Second push (from root)
+        let token2 = constructor
+            .push_binding_path(&[seg(PathSegment::Ident(id2))])
+            .expect("Failed to push");
+        constructor
+            .bind_primitive(PrimitiveValue::Bool(false), None)
+            .expect("Failed to bind");
+
+        // Pop to token2 (back to root)
+        constructor
+            .pop_to_token(token2)
+            .expect("Failed to pop to token2");
+
+        // Should be at root
+        let root_id = constructor.document().get_root_id();
+        assert_eq!(constructor.current_node_id(), root_id);
+
+        // Verify both keys were created
+        let (doc, _) = constructor.finish().expect("Failed to finish");
+        let root = doc.root();
+        let map = root.as_map().expect("Root should be a map");
+        assert!(map.get(&ObjectKey::String("a".to_string())).is_some());
+        assert!(map.get(&ObjectKey::String("b".to_string())).is_some());
     }
 }
