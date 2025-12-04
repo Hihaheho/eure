@@ -1,5 +1,7 @@
 pub mod constructor;
 pub mod node;
+pub mod origins;
+pub mod segment;
 
 use crate::document::node::{NodeArray, NodeMap, NodeTuple};
 use crate::prelude_internal::*;
