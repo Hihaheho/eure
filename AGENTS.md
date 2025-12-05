@@ -60,3 +60,11 @@ Implements LSP for IDE integration with semantic tokens, diagnostics, and format
 **Development Notes:**
 - Refer @crates/eure-parol/eure.par to understand the latest grammar.
 - Refer EureDocument struct in crates/eure-value for understanding the data model.
+
+**ParseDocument API:**
+- Use `ParseDocument` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.
+- Primitives: `doc.parse::<&str>(node_id)`, `doc.parse::<i32>(node_id)`, `doc.parse::<bool>(node_id)`
+- Records: `let rec = doc.parse_record(node_id)?; rec.field::<T>("name")?; rec.field_optional::<T>("opt")?`
+- Extensions: `let ext = doc.parse_extension(node_id); ext.field_optional::<T>("ext-name")?`
+- Collections: `doc.parse::<Vec<T>>(node_id)`, `doc.parse::<Map<K, V>>(node_id)`
+- Implement `ParseDocument` for custom types; see `crates/eure-schema/src/parse.rs` for examples.
