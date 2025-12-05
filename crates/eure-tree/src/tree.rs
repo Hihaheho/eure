@@ -547,7 +547,7 @@ pub trait CstFacade: Sized {
     ///
     /// This is useful when you want to get the "meaningful" span of a syntax node,
     /// excluding any surrounding whitespace or comments.
-    fn get_shrunk_span(&self, node_id: CstNodeId) -> Option<InputSpan> {
+    fn span(&self, node_id: CstNodeId) -> Option<InputSpan> {
         match self.node_data(node_id)? {
             CstNodeData::Terminal { data, .. } => {
                 // Always return the span for terminals (including trivia)
@@ -580,6 +580,21 @@ pub trait CstFacade: Sized {
                     }
                 }
             }
+        }
+    }
+
+    /// Returns the span of a node, including the trivia.
+    fn concrete_span(&self, node_id: CstNodeId) -> Option<InputSpan> {
+        match self.node_data(node_id)? {
+            CstNodeData::NonTerminal {
+                data: NonTerminalData::Input(span),
+                ..
+            } => Some(span),
+            CstNodeData::Terminal { data, .. } => match data {
+                TerminalData::Input(span) => Some(span),
+                TerminalData::Dynamic(_) => None,
+            },
+            _ => None,
         }
     }
 

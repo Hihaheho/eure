@@ -102,7 +102,7 @@ impl NodeOrigin {
 
     /// Get the input span for this origin from the CST
     pub fn get_span(&self, cst: &Cst) -> Option<InputSpan> {
-        get_node_span(cst, self.node_id())
+        cst.span(self.node_id())
     }
 }
 
@@ -181,39 +181,16 @@ impl DocumentConstructionError {
                     CstConstructError::NodeIdNotFound { node } => Some(*node),
                     CstConstructError::Error(_) => None,
                 };
-                node_id.and_then(|id| get_node_span(cst, id))
+                node_id.and_then(|id| cst.span(id))
             }
-            DocumentConstructionError::DocumentInsert { node_id, .. } => {
-                get_node_span(cst, *node_id)
-            }
-            DocumentConstructionError::InvalidInlineCode { node_id, .. } => {
-                get_node_span(cst, *node_id)
-            }
-            DocumentConstructionError::InvalidCodeBlock { node_id, .. } => {
-                get_node_span(cst, *node_id)
-            }
-            DocumentConstructionError::InvalidStringKey { node_id, .. } => {
-                get_node_span(cst, *node_id)
-            }
-            DocumentConstructionError::InvalidKeyType { node_id } => get_node_span(cst, *node_id),
+            DocumentConstructionError::DocumentInsert { node_id, .. } => cst.span(*node_id),
+            DocumentConstructionError::InvalidInlineCode { node_id, .. } => cst.span(*node_id),
+            DocumentConstructionError::InvalidCodeBlock { node_id, .. } => cst.span(*node_id),
+            DocumentConstructionError::InvalidStringKey { node_id, .. } => cst.span(*node_id),
+            DocumentConstructionError::InvalidKeyType { node_id } => cst.span(*node_id),
             _ => None,
         }
     }
-}
-
-/// Extract the InputSpan from a CST node if it has one
-pub fn get_node_span(cst: &Cst, node_id: CstNodeId) -> Option<InputSpan> {
-    cst.node_data(node_id).and_then(|node| match node {
-        CstNode::Terminal {
-            data: TerminalData::Input(span),
-            ..
-        } => Some(span),
-        CstNode::NonTerminal {
-            data: NonTerminalData::Input(span),
-            ..
-        } => Some(span),
-        _ => None,
-    })
 }
 
 pub fn parse_to_document(
@@ -278,25 +255,16 @@ mod tests {
             find_node_by_kind(&cst, root, NonTerminalKind::Binding).expect("Should find Binding");
 
         // Get the original span (includes trivia)
-        let original_span = get_node_span(&cst, binding_node).unwrap();
+        let original_span = cst.concrete_span(binding_node).unwrap();
         // Get the shrunk span (excludes trivia) - now using method syntax
-        let shrunk_span = cst.get_shrunk_span(binding_node).unwrap();
+        let shrunk_span = cst.span(binding_node).unwrap();
 
         // The original span should start at 0 (includes leading newline and whitespace)
         // Or at least include the whitespace before "foo"
         let original_text = original_span.as_str(input);
         let shrunk_text = shrunk_span.as_str(input);
 
-        println!("Original span: {:?} -> '{}'", original_span, original_text);
-        println!("Shrunk span: {:?} -> '{}'", shrunk_span, shrunk_text);
-
-        // The shrunk span should start at "foo" (position 3)
-        assert!(
-            shrunk_span.start >= original_span.start,
-            "Shrunk span start ({}) should be >= original start ({})",
-            shrunk_span.start,
-            original_span.start
-        );
+        assert_eq!(original_text, "\n  foo = 1");
 
         // The shrunk text should be "foo = 1" (without leading whitespace)
         assert_eq!(
@@ -309,34 +277,24 @@ mod tests {
     /// Test shrunk span with trailing comment
     #[test]
     fn test_shrunk_span_with_trailing_comment() {
-        let input = "foo = 1 // comment\nbar = 2";
+        let input = "foo = 1 // comment\n";
         let cst = eure_parol::parse(input).unwrap();
 
         let root = cst.root();
+        let binding_node =
+            find_node_by_kind(&cst, root, NonTerminalKind::Binding).expect("Should find Binding");
 
         // Get the original span of the root Eure node
-        let original_span = get_node_span(&cst, root).unwrap();
-        let shrunk_span = cst.get_shrunk_span(root).unwrap();
+        let original_span = cst.concrete_span(binding_node).unwrap();
+        let shrunk_span = cst.span(binding_node).unwrap();
 
         let original_text = original_span.as_str(input);
         let shrunk_text = shrunk_span.as_str(input);
 
-        println!(
-            "Original root span: {:?} -> '{}'",
-            original_span, original_text
-        );
-        println!("Shrunk root span: {:?} -> '{}'", shrunk_span, shrunk_text);
-
         // The shrunk span should not include trailing whitespace/comments
         // but should include all meaningful content
-        assert!(
-            shrunk_text.contains("foo"),
-            "Shrunk span should contain 'foo'"
-        );
-        assert!(
-            shrunk_text.contains("bar"),
-            "Shrunk span should contain 'bar'"
-        );
+        assert_eq!(original_text, "foo = 1");
+        assert_eq!(shrunk_text, "foo = 1");
     }
 
     /// Test that shrunk span works correctly for the Eure root node
@@ -352,25 +310,13 @@ mod tests {
         let eure_node =
             find_node_by_kind(&cst, root, NonTerminalKind::Eure).expect("Should find Eure");
 
-        let original_span = get_node_span(&cst, eure_node).unwrap();
-        let shrunk_span = cst.get_shrunk_span(eure_node).unwrap();
+        let original_span = cst.concrete_span(eure_node).unwrap();
+        let shrunk_span = cst.span(eure_node).unwrap();
 
         let original_text = original_span.as_str(input);
         let shrunk_text = shrunk_span.as_str(input);
 
-        println!(
-            "Eure original span: {:?} -> '{}'",
-            original_span,
-            original_text.escape_debug()
-        );
-        println!(
-            "Eure shrunk span: {:?} -> '{}'",
-            shrunk_span,
-            shrunk_text.escape_debug()
-        );
-
-        // Original span likely includes all whitespace
-        // Shrunk span should just be "foo = 1"
+        assert_eq!(original_text, "  \n  foo = 1");
         assert_eq!(
             shrunk_text.trim(),
             "foo = 1",
@@ -402,11 +348,12 @@ mod tests {
         }
 
         let ws_node = find_whitespace(&cst, cst.root()).expect("Should find whitespace");
-        let ws_span = cst.get_shrunk_span(ws_node);
+        let ws_span = cst.span(ws_node).unwrap();
 
         // Whitespace terminal should still return its span
-        assert!(
-            ws_span.is_some(),
+        assert_eq!(
+            ws_span.as_str(input),
+            "  ",
             "Terminal span should be returned even for trivia"
         );
     }
