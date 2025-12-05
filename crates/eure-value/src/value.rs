@@ -48,7 +48,6 @@ pub enum PrimitiveValue {
     /// - `` `...` `` syntax produces `Text` with `Language::Implicit`
     /// - `` lang`...` `` syntax produces `Text` with `Language::Other(lang)`
     Text(Text),
-    Hole,
     Variant(Variant),
 }
 
@@ -75,7 +74,6 @@ impl PrimitiveValue {
             Self::F32(_) => ValueKind::F32,
             Self::F64(_) => ValueKind::F64,
             Self::Text(_) => ValueKind::Text,
-            Self::Hole => ValueKind::Hole,
             Self::Variant(_) => ValueKind::Variant,
         }
     }

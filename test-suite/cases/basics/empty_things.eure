@@ -1,0 +1,26 @@
+input_eure = ```eure
+@ empty-section
+
+@ empty-block {}
+
+@ empty-values
+map = {}
+array = []
+tuple = ()
+```
+
+normalized = ```eure
+= {
+	empty-section => {}
+	empty-block => {}
+  empty-values => { map => {}, array => [], tuple => () }
+}
+```
+
+output_json = ```json
+{
+	"empty-section": {},
+	"empty-block": {},
+	"empty-values": { "map": {}, "array": [], "tuple": [] }
+}
+```

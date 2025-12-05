@@ -293,6 +293,34 @@ impl<'a> ValueVisitor<'a> {
 impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     type Error = DocumentConstructionError;
 
+    fn visit_eure(
+        &mut self,
+        handle: EureHandle,
+        view: EureView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Check if Eure is truly empty (no ValueBinding, no Bindings, no Sections)
+        let has_value_binding = view.eure_opt.get_view(tree)?.is_some();
+        let has_bindings = view.eure_bindings.get_view(tree)?.is_some();
+        let has_sections = view.eure_sections.get_view(tree)?.is_some();
+        let is_empty = !has_value_binding && !has_bindings && !has_sections;
+
+        // Only convert Hole to empty map if Eure was truly empty
+        // (not when Hole was explicitly set via `= !`)
+        if is_empty {
+            self.document.bind_empty_map().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        } else {
+            // Visit children using the default super implementation
+            self.visit_eure_super(handle, view, tree)?;
+        }
+        Ok(())
+    }
+
     fn visit_object(
         &mut self,
         handle: ObjectHandle,
@@ -647,6 +675,42 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
+    fn visit_section_body(
+        &mut self,
+        handle: SectionBodyHandle,
+        view: SectionBodyView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        match view {
+            SectionBodyView::Alt0(alt0) => {
+                // TOML-like section: `@ foo` followed by optional bindings
+                // Check if section body is truly empty (no ValueBinding, no Bindings)
+                let has_value_binding = alt0.section_body_opt.get_view(tree)?.is_some();
+                let has_bindings = alt0.section_body_list.get_view(tree)?.is_some();
+                let is_empty = !has_value_binding && !has_bindings;
+
+                // Only convert Hole to empty map if section body was truly empty
+                if is_empty {
+                    self.document.bind_empty_map().map_err(|e| {
+                        DocumentConstructionError::DocumentInsert {
+                            error: e,
+                            node_id: handle.node_id(),
+                        }
+                    })?;
+                } else {
+                    // Visit children using the default super implementation
+                    self.visit_section_body_super(handle, view, tree)?;
+                }
+            }
+            SectionBodyView::Alt1(_) => {
+                // Block-style section: `@ foo { ... }`
+                // visit_eure handles the empty case
+                self.visit_section_body_super(handle, view, tree)?;
+            }
+        }
+        Ok(())
+    }
+
     fn visit_null(
         &mut self,
         handle: NullHandle,
@@ -752,7 +816,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         let node_id = self.document.current_node_id();
         self.document
-            .bind_primitive(PrimitiveValue::Hole)
+            .bind_hole()
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),

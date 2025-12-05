@@ -86,7 +86,7 @@ impl EureDocument {
         value2: &NodeValue,
     ) -> bool {
         match (value1, value2) {
-            (NodeValue::Uninitialized, NodeValue::Uninitialized) => true,
+            (NodeValue::Hole, NodeValue::Hole) => true,
             (NodeValue::Primitive(p1), NodeValue::Primitive(p2)) => p1 == p2,
             (NodeValue::Array(arr1), NodeValue::Array(arr2)) => {
                 self.node_arrays_equal(arr1, other, arr2)
@@ -150,7 +150,7 @@ impl EureDocument {
         Self {
             root: NodeId(0),
             nodes: vec![Node {
-                content: NodeValue::Uninitialized,
+                content: NodeValue::Hole,
                 extensions: Map::new(),
             }],
         }
@@ -199,7 +199,7 @@ impl EureDocument {
     }
 
     pub fn create_node_uninitialized(&mut self) -> NodeId {
-        self.create_node(NodeValue::Uninitialized)
+        self.create_node(NodeValue::Hole)
     }
 
     pub fn add_child_by_segment(

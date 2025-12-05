@@ -27,7 +27,7 @@ fn convert_node(
     let node = doc.node(node_id);
 
     match &node.content {
-        NodeValue::Uninitialized => Err(EureToJsonError::UninitializedNode),
+        NodeValue::Hole => Err(EureToJsonError::HoleNotSupported),
         NodeValue::Primitive(prim) => convert_primitive(prim, config),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
@@ -91,7 +91,6 @@ fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue
             }
         }
         PrimitiveValue::Text(text) => Ok(JsonValue::String(text.content.clone())),
-        PrimitiveValue::Hole => Err(EureToJsonError::HoleNotSupported),
         PrimitiveValue::Variant(variant) => convert_variant(variant, config),
     }
 }
@@ -337,7 +336,8 @@ mod tests {
 
     #[test]
     fn test_hole_error() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::Hole);
+        let mut doc = EureDocument::new();
+        doc.node_mut(doc.get_root_id()).content = NodeValue::Hole;
         let config = Config::default();
         let result = document_to_value(&doc, &config);
         assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
@@ -348,7 +348,7 @@ mod tests {
         let doc = EureDocument::new();
         let config = Config::default();
         let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::UninitializedNode));
+        assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
     }
 
     // Test variant conversions

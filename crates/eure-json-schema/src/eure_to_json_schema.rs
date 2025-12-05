@@ -416,7 +416,6 @@ fn primitive_to_json(val: &PrimitiveValue) -> Result<serde_json::Value, Conversi
         PrimitiveValue::F32(f) => float_to_json(*f as f64),
         PrimitiveValue::F64(f) => float_to_json(*f),
         PrimitiveValue::Text(t) => Ok(serde_json::Value::String(t.as_str().to_string())),
-        PrimitiveValue::Hole => Err(ConversionError::HoleNotSupported),
         PrimitiveValue::Variant(_) => Err(ConversionError::VariantValueNotSupported),
     }
 }

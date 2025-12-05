@@ -125,7 +125,7 @@ impl Node {
     }
 
     pub(crate) fn require_map(&mut self) -> Result<&mut NodeMap, InsertErrorKind> {
-        if self.content == NodeValue::Uninitialized {
+        if self.content == NodeValue::Hole {
             self.content = NodeValue::Map(Default::default());
             let NodeValue::Map(map) = &mut self.content else {
                 unreachable!();
@@ -139,7 +139,7 @@ impl Node {
     }
 
     pub(crate) fn require_tuple(&mut self) -> Result<&mut NodeTuple, InsertErrorKind> {
-        if self.content == NodeValue::Uninitialized {
+        if self.content == NodeValue::Hole {
             self.content = NodeValue::Tuple(Default::default());
             let NodeValue::Tuple(tuple) = &mut self.content else {
                 unreachable!();
@@ -153,7 +153,7 @@ impl Node {
     }
 
     pub(crate) fn require_array(&mut self) -> Result<&mut NodeArray, InsertErrorKind> {
-        if self.content == NodeValue::Uninitialized {
+        if self.content == NodeValue::Hole {
             self.content = NodeValue::Array(Default::default());
             let NodeValue::Array(array) = &mut self.content else {
                 unreachable!();
@@ -170,7 +170,7 @@ impl Node {
 #[derive(Debug, PartialEq, Clone)]
 pub enum NodeValue {
     /// A node that has not any value.
-    Uninitialized,
+    Hole,
     Primitive(PrimitiveValue),
     Array(NodeArray),
     Map(NodeMap),
@@ -192,7 +192,7 @@ impl NodeValue {
 
     pub fn value_kind(&self) -> Option<ValueKind> {
         match self {
-            Self::Uninitialized => None,
+            Self::Hole => None,
             Self::Primitive(primitive) => Some(primitive.kind()),
             Self::Array(_) => Some(ValueKind::Array),
             Self::Map(_) => Some(ValueKind::Map),
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn test_require_map_on_uninitialized() {
         let mut node = Node {
-            content: NodeValue::Uninitialized,
+            content: NodeValue::Hole,
             extensions: Map::new(),
         };
 
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn test_require_tuple_on_uninitialized() {
         let mut node = Node {
-            content: NodeValue::Uninitialized,
+            content: NodeValue::Hole,
             extensions: Map::new(),
         };
 
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn test_require_array_on_uninitialized() {
         let mut node = Node {
-            content: NodeValue::Uninitialized,
+            content: NodeValue::Hole,
             extensions: Map::new(),
         };
 
@@ -476,7 +476,7 @@ mod tests {
         assert!(debug_output.contains("NodeMut"));
         assert!(debug_output.contains("NodeId"));
         assert!(debug_output.contains("Node"));
-        assert!(debug_output.contains("Uninitialized"));
+        assert!(debug_output.contains("Hole"));
     }
 
     #[test]

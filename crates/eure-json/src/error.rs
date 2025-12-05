@@ -5,9 +5,6 @@ pub enum EureToJsonError {
     #[error("Hole (uninitialized value) is not supported in JSON")]
     HoleNotSupported,
 
-    #[error("Uninitialized node cannot be converted to JSON")]
-    UninitializedNode,
-
     #[error("BigInt value is out of range for JSON number")]
     BigIntOutOfRange,
 

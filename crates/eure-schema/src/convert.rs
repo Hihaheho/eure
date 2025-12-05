@@ -443,8 +443,8 @@ impl<'a> Converter<'a> {
                 }
                 Ok(Value::Map(result))
             }
-            NodeValue::Uninitialized => Err(ConversionError::UnsupportedConstruct(
-                "Uninitialized node".to_string(),
+            NodeValue::Hole => Err(ConversionError::UnsupportedConstruct(
+                "Hole node".to_string(),
             )),
         }
     }

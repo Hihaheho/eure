@@ -1,5 +1,5 @@
 input_eure = eure``
 
-normalized = eure`=null`
+normalized = eure`= {}`
 
-output_json = json`null`
+output_json = json`{}`

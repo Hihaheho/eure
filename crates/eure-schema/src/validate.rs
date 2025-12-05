@@ -600,15 +600,7 @@ impl<'a> Validator<'a> {
         let prev_schema_node_id = self.current_schema_node_id;
         self.current_schema_node_id = Some(schema_id);
 
-        // Handle hole values first - they match any schema but mark document incomplete
-        if let NodeValue::Primitive(PrimitiveValue::Hole) = &node.content {
-            self.has_holes = true;
-            self.current_schema_node_id = prev_schema_node_id;
-            return ValidationResult::success(true);
-        }
-
-        // Handle uninitialized nodes as holes too
-        if let NodeValue::Uninitialized = &node.content {
+        if let NodeValue::Hole = &node.content {
             self.has_holes = true;
             self.current_schema_node_id = prev_schema_node_id;
             return ValidationResult::success(true);
@@ -1554,14 +1546,13 @@ impl<'a> Validator<'a> {
 /// Get a descriptive name for a node's content type
 fn node_type_name(content: &NodeValue) -> String {
     match content {
-        NodeValue::Uninitialized => "uninitialized".to_string(),
+        NodeValue::Hole => "hole".to_string(),
         NodeValue::Primitive(p) => match p {
             PrimitiveValue::Null => "null".to_string(),
             PrimitiveValue::Bool(_) => "boolean".to_string(),
             PrimitiveValue::Integer(_) => "integer".to_string(),
             PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => "float".to_string(),
             PrimitiveValue::Text(_) => "text".to_string(),
-            PrimitiveValue::Hole => "hole".to_string(),
             PrimitiveValue::Variant(_) => "variant".to_string(),
         },
         NodeValue::Array(_) => "array".to_string(),
@@ -1573,7 +1564,7 @@ fn node_type_name(content: &NodeValue) -> String {
 /// Convert a node to a Value for comparison purposes
 fn node_to_value(document: &EureDocument, node: &Node) -> Value {
     match &node.content {
-        NodeValue::Uninitialized => Value::Primitive(PrimitiveValue::Null),
+        NodeValue::Hole => Value::Primitive(PrimitiveValue::Null),
         NodeValue::Primitive(p) => Value::Primitive(p.clone()),
         NodeValue::Array(arr) => {
             let values: Vec<Value> = arr
@@ -1705,7 +1696,6 @@ fn primitives_equal(a: &PrimitiveValue, b: &PrimitiveValue) -> bool {
         (PrimitiveValue::F32(a), PrimitiveValue::F32(b)) => (a - b).abs() < f32::EPSILON,
         (PrimitiveValue::F64(a), PrimitiveValue::F64(b)) => (a - b).abs() < f64::EPSILON,
         (PrimitiveValue::Text(a), PrimitiveValue::Text(b)) => a.as_str() == b.as_str(),
-        (PrimitiveValue::Hole, PrimitiveValue::Hole) => true,
         (PrimitiveValue::Variant(a), PrimitiveValue::Variant(b)) => {
             a.tag == b.tag && values_equal(&a.content, &b.content)
         }
@@ -1884,7 +1874,8 @@ mod tests {
     #[test]
     fn test_validate_hole() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Any);
-        let doc = create_doc_with_primitive(PrimitiveValue::Hole);
+        let mut doc = EureDocument::new();
+        doc.node_mut(doc.get_root_id()).content = NodeValue::Hole;
 
         let result = validate(&doc, &schema);
         assert!(result.is_valid);

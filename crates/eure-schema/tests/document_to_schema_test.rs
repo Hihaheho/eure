@@ -41,6 +41,20 @@ fn ident(s: &str) -> Identifier {
 // ASSERTION HELPERS
 // ============================================================================
 
+/// Helper function to assert a node is an empty record
+fn assert_empty_record(schema: &SchemaDocument, node_id: SchemaNodeId) {
+    let node = schema.node(node_id);
+    if let SchemaNodeContent::Record(record) = &node.content {
+        assert!(
+            record.properties.is_empty(),
+            "Expected empty record, got {:?}",
+            record.properties
+        );
+    } else {
+        panic!("Expected Record type, got {:?}", node.content);
+    }
+}
+
 /// Helper function to assert a node is a Record with 1 field
 fn assert_record1<F1>(schema: &SchemaDocument, node_id: SchemaNodeId, field1: (&str, F1))
 where
@@ -2137,16 +2151,13 @@ fn test_error_empty_section() {
     let input = r#"
 @ config
 "#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
-    let result = document_to_schema(&doc);
+    let schema = parse_and_convert(input);
 
-    assert!(matches!(
-        result.unwrap_err(),
-        ConversionError::ParseError(ParseError {
-            kind: ParseErrorKind::UnexpectedUninitialized,
-            ..
-        })
-    ));
+    assert_record1(
+        &schema,
+        schema.root,
+        ("config", |s, id| assert_empty_record(s, id)),
+    );
 }
 
 #[test]

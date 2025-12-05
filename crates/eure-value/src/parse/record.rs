@@ -305,7 +305,7 @@ impl EureDocument {
         match &node.content {
             NodeValue::Map(map) => Ok(RecordParser::new(self, node_id, map)),
             // Treat Uninitialized as empty map (for nodes with only extensions)
-            NodeValue::Uninitialized => {
+            NodeValue::Hole => {
                 let empty = EMPTY_MAP.get_or_init(NodeMap::default);
                 Ok(RecordParser::new(self, node_id, empty))
             }
