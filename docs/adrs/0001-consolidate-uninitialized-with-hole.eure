@@ -1,0 +1,43 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0001-consolidate-uninitialized-with-hole"
+title = "Consolidate Uninitialized with Hole Value"
+tags = ["breaking-change", "simplification", "data-model"]
+status = "accepted"
+decision-date = `2025-12-05`
+
+context = ```markdown
+Previously, Eure had two separate concepts for representing "no value":
+
+1. `NodeValue::Uninitialized` - Used internally to represent nodes that had not yet
+   been assigned a value during document construction.
+2. `PrimitiveValue::Hole` - A user-facing syntax (`!`) representing an incomplete
+   or placeholder value that could be overridden.
+
+This dual representation caused complexity in the codebase:
+- Different error handling paths for essentially the same semantic concept
+- Redundant checks in validation, JSON conversion, and schema parsing
+- Confusion about when to use which representation
+- `PrimitiveValue::Hole` was inconsistent with other primitives since it doesn't
+  represent an actual data value
+```
+
+decision = ```markdown
+Remove `PrimitiveValue::Hole` and rename `NodeValue::Uninitialized` to `NodeValue::Hole`.
+
+The hole concept now exists solely at the `NodeValue` level, making it clear that
+a hole is a structural placeholder for a node, not a primitive data type. This
+aligns with the semantic meaning: a hole represents "a value that should exist here
+but hasn't been provided yet."
+```
+
+consequences = ```markdown
+- Simplified codebase with single representation for placeholder values
+- Clearer separation between structural concepts (`NodeValue`) and data values
+  (`PrimitiveValue`)
+- All code paths that handled both `Uninitialized` and `Hole` now only need to
+  handle `NodeValue::Hole`
+- Breaking change for any code directly matching on `PrimitiveValue::Hole`
+- Error messages now consistently refer to "hole" instead of mixing "uninitialized"
+  and "hole" terminology
+```

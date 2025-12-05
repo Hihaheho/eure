@@ -1,0 +1,48 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0002-hole-as-overridable-value"
+title = "Hole as Overridable Value"
+status = "accepted"
+decision-date = `2025-12-05`
+tags = ["syntax", "document-construction"]
+
+context = ```markdown
+In Eure, the hole syntax (`!`) serves as a placeholder for values that will be
+provided later. A key use case is defining record structures where some fields
+are intentionally left incomplete:
+
+    a {
+      x = 1
+      y = !
+      z = 3
+    }
+    a.y = 2  // Override the hole with actual value
+
+This pattern is useful for:
+- Template documents where values are filled in later
+- Configuration files with placeholders
+- Schema validation where incomplete documents are acceptable
+```
+
+decision = ```markdown
+Maintain the hole (`!`) as an overridable value that can be replaced by subsequent
+bindings. When a node contains a hole:
+
+1. It can be overwritten by a later binding to the same path
+2. Schema validation treats it as valid but marks the document as incomplete
+3. Conversion to other formats (JSON, TOML) fails with an explicit error
+
+The `bind_hole()` method in `DocumentConstructor` explicitly handles this case,
+ensuring holes don't conflict with the "already has value" check that prevents
+duplicate bindings.
+```
+
+consequences = ```markdown
+- Users can define partial structures with explicit placeholders
+- Holes can be overridden at any point during document construction
+- Schema validation succeeds with holes but reports `has_holes: true`
+- Export to JSON/TOML requires all holes to be filled
+- Provides clear semantics for "this value is intentionally missing"
+```
+
+related-adrs = ["0001-consolidate-uninitialized-with-hole"]

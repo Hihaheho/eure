@@ -1,0 +1,53 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0003-empty-document-as-empty-map"
+title = "Empty Document Produces Empty Map"
+status = "accepted"
+decision-date = `2025-12-05`
+tags = ["breaking-change", "consistency", "semantics"]
+
+context = ```markdown
+Previously, an empty Eure document (no content at all) produced `null` as its
+value:
+
+    // empty file
+    // -> null
+
+This was inconsistent with:
+
+1. How empty sections and empty section blocks behave in Eure:
+
+       @ section     // Empty section -> {}
+       @ block {}    // Empty section block -> {}
+
+2. TOML's behavior where an empty file produces an empty table (equivalent to `{}`).
+
+Having empty documents produce `null` while empty sections produce `{}` was
+confusing and made it harder to reason about Eure's semantics. Since Eure aims
+for TOML-like minimalism for configuration files, matching TOML's empty file
+behavior is desirable.
+```
+
+decision = ```markdown
+Change empty Eure documents to produce an empty map (`{}`) instead of `null`.
+
+This applies to:
+1. Completely empty files
+2. Empty root-level Eure blocks
+3. Empty section bodies (already produced `{}`, now consistent)
+
+The implementation checks if an `Eure` node has no value binding, no bindings,
+and no sections. If truly empty, it binds an empty map instead of leaving the
+node as a hole that gets converted to `null`.
+```
+
+consequences = ```markdown
+- Consistent behavior: empty document, empty section, empty block all produce `{}`
+- Consistent with TOML's empty file semantics
+- Breaking change for code expecting empty documents to be `null`
+- More intuitive for users: an empty config file is an empty config object
+- JSON output for empty documents changes from `null` to `{}`
+- Simplifies reasoning about document structure
+```
+
+related-adrs = ["0001-consolidate-uninitialized-with-hole"]

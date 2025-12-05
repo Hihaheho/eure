@@ -24,14 +24,14 @@ consequences = `text.markdown`
 
 // ---- Optional fields ----
 
-related-adrs: [`$types.adr-id`]
+related-adrs = [`$types.adr-id`]
 related-adrs.$optional = true
 
-related-links: [`text.url`]
+related-links = [`text.url`]
 related-links.$optional = true
 
-alternatives-considered: [`text.markdown`]
+alternatives-considered = [`text.markdown`]
 alternatives-considered.$optional = true
 
-tags: [`text`]
+tags = [`text`]
 tags.$optional = true

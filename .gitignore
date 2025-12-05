@@ -9,6 +9,7 @@
 !CLAUDE.md
 !AGENTS.md
 !docs/**/*.md
+!docs/**/*.eure
 
 !crates/**/*.rs
 !Cargo.toml
