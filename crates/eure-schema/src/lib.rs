@@ -553,3 +553,28 @@ impl Default for SchemaDocument {
         Self::new()
     }
 }
+
+// ============================================================================
+// Schema Reference
+// ============================================================================
+
+/// Reference to a schema file from `$schema` extension.
+///
+/// This type is used to extract the schema path from a document's root node.
+/// The `$schema` extension specifies the path to the schema file that should
+/// be used to validate the document.
+///
+/// # Example
+///
+/// ```eure
+/// $schema = "./person.schema.eure"
+/// name = "John"
+/// age = 30
+/// ```
+#[derive(Debug, Clone)]
+pub struct SchemaRef {
+    /// Path to the schema file
+    pub path: String,
+    /// NodeId where the $schema was defined (for error reporting)
+    pub node_id: eure_value::document::NodeId,
+}

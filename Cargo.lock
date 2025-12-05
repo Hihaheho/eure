@@ -1465,6 +1465,7 @@ dependencies = [
  "eure-fmt",
  "eure-json",
  "eure-parol",
+ "eure-schema",
  "eure-tree",
  "eure-value",
  "eure-yaml",

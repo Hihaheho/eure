@@ -28,6 +28,8 @@ enum Commands {
     Highlight(commands::highlight::Args),
     /// Export Eure file as HTML with syntax highlighting
     Html(commands::html::Args),
+    /// Validate Eure file against a schema
+    Check(commands::check::Args),
 }
 
 fn main() {
@@ -41,5 +43,6 @@ fn main() {
         Commands::FromJson(args) => commands::from_json::run(args),
         Commands::Highlight(args) => commands::highlight::run(args),
         Commands::Html(args) => commands::html::run(args),
+        Commands::Check(args) => commands::check::run(args),
     }
 }

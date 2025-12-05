@@ -156,6 +156,20 @@ impl ParseDocument<'_> for TextSchema {
     }
 }
 
+impl ParseDocument<'_> for crate::SchemaRef {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        let mut ext = doc.parse_extension(node_id);
+        let schema_node_id = ext.field_node("schema")?;
+        ext.allow_unknown_fields();
+
+        let path: String = doc.parse(schema_node_id)?;
+        Ok(crate::SchemaRef {
+            path,
+            node_id: schema_node_id,
+        })
+    }
+}
+
 // ============================================================================
 // Parsed types (contain NodeId instead of SchemaNodeId)
 // ============================================================================

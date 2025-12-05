@@ -8,7 +8,7 @@ use eure_schema::convert::SchemaSourceMap;
 use eure_schema::validate::ValidationError;
 use eure_tree::prelude::Cst;
 
-use crate::document::NodeOriginMap;
+use crate::document::{DocumentConstructionError, NodeOriginMap};
 
 /// Format a parse error with source context using annotate-snippets.
 ///
@@ -41,6 +41,40 @@ pub fn format_parse_error_plain(error: &EureParseError, input: &str, path: &str)
     }
 
     Renderer::plain().render(&reports).to_string()
+}
+
+/// Format a document construction error with source context using annotate-snippets.
+///
+/// # Arguments
+/// * `error` - The document construction error to format
+/// * `input` - The source input that was being parsed
+/// * `path` - The file path (for display purposes)
+/// * `cst` - The CST for span resolution
+///
+/// # Returns
+/// A formatted error string suitable for terminal output
+pub fn format_document_error(
+    error: &DocumentConstructionError,
+    input: &str,
+    path: &str,
+    cst: &Cst,
+) -> String {
+    let error_message = error.to_string();
+    let span = error.span(cst);
+
+    match span {
+        Some(span) => {
+            let report = Level::ERROR.primary_title(&error_message).element(
+                Snippet::source(input).line_start(1).path(path).annotation(
+                    AnnotationKind::Primary
+                        .span(span.start as usize..span.end as usize)
+                        .label(&error_message),
+                ),
+            );
+            Renderer::styled().render(&[report]).to_string()
+        }
+        None => format!("error: {}\n", error_message),
+    }
 }
 
 /// Format a single parse error entry and its nested source errors recursively.

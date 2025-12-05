@@ -23,6 +23,7 @@ eure-editor-support = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }
 eure-json = { workspace = true }
 eure-parol = { workspace = true }
+eure-schema = { workspace = true }
 eure-tree = { workspace = true }
 eure-value = { workspace = true }
 eure-yaml = { workspace = true }
