@@ -650,6 +650,7 @@ mod tests {
     use super::*;
     use crate::identifiers::{EXT_TYPE, OPTIONAL};
     use eure_document::document::node::NodeMap;
+    use eure_document::eure;
     use eure_document::text::Text;
     use eure_document::value::PrimitiveValue;
 
@@ -848,11 +849,10 @@ mod tests {
 
     #[test]
     fn literal_variant_parsed_from_eure() {
-        // Test parsing: { = `any`, $variant => "literal" }
-        // This should create a Literal with value "any", NOT SchemaNodeContent::Any
-        // (which would happen if $variant extension is not respected on primitives)
-        let eure_src = r#"= { = `any`, $variant => "literal" }"#;
-        let doc = eure::document::parse_to_document(eure_src).expect("Failed to parse Eure");
+        let doc = eure!({
+            = Text::inline_implicit("any"),
+            %variant = "literal",
+        });
 
         let (schema, _source_map) =
             document_to_schema(&doc).expect("Schema conversion should succeed");

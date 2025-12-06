@@ -78,7 +78,7 @@ impl DocumentConstructor {
         let root_id = self.document.get_root_id();
         let root_node = self.document.node_mut(root_id);
         if matches!(root_node.content, NodeValue::Hole) {
-            root_node.content = NodeValue::Primitive(PrimitiveValue::Null);
+            root_node.content = NodeValue::Map(Default::default());
         }
         self.document
     }
@@ -167,6 +167,14 @@ impl DocumentConstructor {
         }
         node.content = NodeValue::Primitive(value);
         Ok(())
+    }
+
+    /// Bind a value to the current node using `Into<PrimitiveValue>`.
+    ///
+    /// This is a convenience method for use with the `eure!` macro.
+    /// It accepts any type that implements `Into<PrimitiveValue>`.
+    pub fn bind_from(&mut self, value: impl Into<PrimitiveValue>) -> Result<(), InsertError> {
+        self.bind_primitive(value.into())
     }
 
     /// Bind an empty map to the current node. Error if already bound.
@@ -531,10 +539,7 @@ mod tests {
         // After finish, root should be Null
         let document = constructor.finish();
         let root_node = document.node(document.get_root_id());
-        assert!(matches!(
-            root_node.content,
-            NodeValue::Primitive(PrimitiveValue::Null)
-        ));
+        assert_eq!(root_node.content, NodeValue::Map(Default::default()));
     }
 
     #[test]

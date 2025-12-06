@@ -124,6 +124,42 @@ impl core::fmt::Display for ObjectKey {
     }
 }
 
+impl From<&str> for ObjectKey {
+    fn from(s: &str) -> Self {
+        ObjectKey::String(s.to_string())
+    }
+}
+
+impl From<String> for ObjectKey {
+    fn from(s: String) -> Self {
+        ObjectKey::String(s)
+    }
+}
+
+impl From<bool> for ObjectKey {
+    fn from(b: bool) -> Self {
+        ObjectKey::Bool(b)
+    }
+}
+
+impl From<i32> for ObjectKey {
+    fn from(n: i32) -> Self {
+        ObjectKey::Number(BigInt::from(n))
+    }
+}
+
+impl From<i64> for ObjectKey {
+    fn from(n: i64) -> Self {
+        ObjectKey::Number(BigInt::from(n))
+    }
+}
+
+impl From<BigInt> for ObjectKey {
+    fn from(n: BigInt) -> Self {
+        ObjectKey::Number(n)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Plural, Default)]
 pub struct Array(pub Vec<Value>);
 
@@ -151,4 +187,56 @@ pub struct Map(pub crate::Map<ObjectKey, Value>);
 pub struct Variant {
     pub tag: String,
     pub content: Box<Value>,
+}
+
+// ============================================================================
+// From implementations for PrimitiveValue
+// ============================================================================
+
+impl From<bool> for PrimitiveValue {
+    fn from(b: bool) -> Self {
+        PrimitiveValue::Bool(b)
+    }
+}
+
+impl From<i32> for PrimitiveValue {
+    fn from(n: i32) -> Self {
+        PrimitiveValue::Integer(BigInt::from(n))
+    }
+}
+
+impl From<i64> for PrimitiveValue {
+    fn from(n: i64) -> Self {
+        PrimitiveValue::Integer(BigInt::from(n))
+    }
+}
+
+impl From<f32> for PrimitiveValue {
+    fn from(n: f32) -> Self {
+        PrimitiveValue::F32(n)
+    }
+}
+
+impl From<f64> for PrimitiveValue {
+    fn from(n: f64) -> Self {
+        PrimitiveValue::F64(n)
+    }
+}
+
+impl From<&str> for PrimitiveValue {
+    fn from(s: &str) -> Self {
+        PrimitiveValue::Text(Text::plaintext(s))
+    }
+}
+
+impl From<String> for PrimitiveValue {
+    fn from(s: String) -> Self {
+        PrimitiveValue::Text(Text::plaintext(s))
+    }
+}
+
+impl From<Text> for PrimitiveValue {
+    fn from(t: Text) -> Self {
+        PrimitiveValue::Text(t)
+    }
 }

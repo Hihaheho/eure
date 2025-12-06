@@ -201,6 +201,16 @@ impl NodeValue {
     }
 }
 
+// ============================================================================
+// From implementations for NodeValue
+// ============================================================================
+
+impl From<PrimitiveValue> for NodeValue {
+    fn from(p: PrimitiveValue) -> Self {
+        NodeValue::Primitive(p)
+    }
+}
+
 // TODO: Remove `pub`
 #[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
 pub struct NodeArray(pub Vec<NodeId>);
