@@ -169,6 +169,14 @@ impl DocumentConstructor {
         Ok(())
     }
 
+    /// Bind a value to the current node using `Into<PrimitiveValue>`.
+    ///
+    /// This is a convenience method for use with the `eure!` macro.
+    /// It accepts any type that implements `Into<PrimitiveValue>`.
+    pub fn bind_from(&mut self, value: impl Into<PrimitiveValue>) -> Result<(), InsertError> {
+        self.bind_primitive(value.into())
+    }
+
     /// Bind an empty map to the current node. Error if already bound.
     pub fn bind_empty_map(&mut self) -> Result<(), InsertError> {
         let node = self.current_node_mut();
