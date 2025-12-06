@@ -13,10 +13,12 @@
 //! - Type constraints (length, range, pattern, etc.)
 //! - Metadata (description, deprecated, default, examples)
 
-use eure::document::parse_to_document;
 use eure_document::data_model::VariantRepr;
+use eure_document::document::EureDocument;
+use eure_document::eure;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseError, ParseErrorKind};
+use eure_document::text::Text;
 use eure_document::value::ObjectKey;
 use eure_schema::convert::{ConversionError, document_to_schema};
 use eure_schema::{
@@ -25,35 +27,20 @@ use eure_schema::{
 };
 use num_bigint::BigInt;
 
-// Helper function to parse Eure text and convert to schema
-fn parse_and_convert(input: &str) -> SchemaDocument {
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
-    let (schema, _source_map) = document_to_schema(&doc).expect("Failed to convert to schema");
-    schema
-}
-
 // Helper to create an identifier
 fn ident(s: &str) -> Identifier {
     s.parse().expect("Invalid identifier")
 }
 
+// Helper to convert document to schema
+fn convert(doc: &EureDocument) -> SchemaDocument {
+    let (schema, _source_map) = document_to_schema(doc).expect("Failed to convert to schema");
+    schema
+}
+
 // ============================================================================
 // ASSERTION HELPERS
 // ============================================================================
-
-/// Helper function to assert a node is an empty record
-fn assert_empty_record(schema: &SchemaDocument, node_id: SchemaNodeId) {
-    let node = schema.node(node_id);
-    if let SchemaNodeContent::Record(record) = &node.content {
-        assert!(
-            record.properties.is_empty(),
-            "Expected empty record, got {:?}",
-            record.properties
-        );
-    } else {
-        panic!("Expected Record type, got {:?}", node.content);
-    }
-}
 
 /// Helper function to assert a node is a Record with 1 field
 fn assert_record1<F1>(schema: &SchemaDocument, node_id: SchemaNodeId, field1: (&str, F1))
@@ -644,40 +631,40 @@ where
 
 #[test]
 fn test_string_type() {
-    let input = r#"
-name = `text`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        name = Text::inline_implicit("text"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(&schema, schema.root, ("name", |s, id| assert_text(s, id)));
 }
 
 #[test]
 fn test_float_type() {
-    let input = r#"
-count = `float`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        count = Text::inline_implicit("float"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(&schema, schema.root, ("count", |s, id| assert_float(s, id)));
 }
 
 #[test]
 fn test_integer_type() {
-    let input = r#"
-age = `integer`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        age = Text::inline_implicit("integer"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(&schema, schema.root, ("age", |s, id| assert_integer(s, id)));
 }
 
 #[test]
 fn test_boolean_type() {
-    let input = r#"
-active = `boolean`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        active = Text::inline_implicit("boolean"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -688,10 +675,10 @@ active = `boolean`
 
 #[test]
 fn test_null_type() {
-    let input = r#"
-deleted = `null`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        deleted = Text::inline_implicit("null"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -702,10 +689,10 @@ deleted = `null`
 
 #[test]
 fn test_any_type() {
-    let input = r#"
-data = `any`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        data = Text::inline_implicit("any"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(&schema, schema.root, ("data", |s, id| assert_any(s, id)));
 }
@@ -717,10 +704,10 @@ data = `any`
 #[test]
 fn test_text_type() {
     // .text accepts any language (no constraint)
-    let input = r#"
-content = `text`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        content = Text::inline_implicit("text"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -732,10 +719,10 @@ content = `text`
 #[test]
 fn test_text_with_language() {
     // .text.rust requires rust language
-    let input = r#"
-code = `text.rust`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        code = Text::inline_implicit("text.rust"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -747,16 +734,16 @@ code = `text.rust`
 #[test]
 fn test_text_with_constraints() {
     // Text with length and pattern constraints
-    let input = r#"
-@ username {
-    $variant: text
-    language = "plaintext"
-    min-length = 3
-    max-length = 20
-    pattern = "^[a-z]+$"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        username {
+            %variant = Text::inline_implicit("text"),
+            language = "plaintext",
+            "min-length" = 3,
+            "max-length" = 20,
+            pattern = "^[a-z]+$",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -778,10 +765,10 @@ fn test_text_with_constraints() {
 
 #[test]
 fn test_array_shorthand() {
-    let input = r#"
-tags = [`text`]
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        tags = [Text::inline_implicit("text")],
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -792,16 +779,16 @@ tags = [`text`]
 
 #[test]
 fn test_array_with_constraints() {
-    let input = r#"
-@ tags {
-  $variant: array
-  item = `text`
-  min-length = 1
-  max-length = 10
-  unique = true
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        tags {
+            %variant = Text::inline_implicit("array"),
+            item = Text::inline_implicit("text"),
+            "min-length" = 1,
+            "max-length" = 10,
+            unique = true,
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -822,10 +809,10 @@ fn test_array_with_constraints() {
 
 #[test]
 fn test_tuple_shorthand() {
-    let input = r#"
-point = (`float`, `float`)
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        point = (Text::inline_implicit("float"), Text::inline_implicit("float")),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -838,10 +825,10 @@ point = (`float`, `float`)
 
 #[test]
 fn test_tuple_mixed_types() {
-    let input = r#"
-entry = (`text`, `integer`, `boolean`)
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        entry = (Text::inline_implicit("text"), Text::inline_implicit("integer"), Text::inline_implicit("boolean")),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -858,13 +845,13 @@ entry = (`text`, `integer`, `boolean`)
 
 #[test]
 fn test_record_basic() {
-    let input = r#"
-@ user {
-  name = `text`
-  age = `integer`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        user {
+            name = Text::inline_implicit("text"),
+            age = Text::inline_implicit("integer"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -881,14 +868,14 @@ fn test_record_basic() {
 
 #[test]
 fn test_union_type() {
-    let input = r#"
-@ value {
-  $variant: union
-  variants.string = `text`
-  variants.float = `float`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        value {
+            %variant = Text::inline_implicit("union"),
+            variants.string = Text::inline_implicit("text"),
+            variants.float = Text::inline_implicit("float"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -901,16 +888,16 @@ fn test_union_type() {
 
 #[test]
 fn test_union_with_multiple_types() {
-    let input = r#"
-@ data {
-  $variant: union
-  variants.string = `text`
-  variants.float = `float`
-  variants.boolean = `boolean`
-  variants.null = `null`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        data {
+            %variant = Text::inline_implicit("union"),
+            variants.string = Text::inline_implicit("text"),
+            variants.float = Text::inline_implicit("float"),
+            variants.boolean = Text::inline_implicit("boolean"),
+            variants.null = Text::inline_implicit("null"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -930,14 +917,14 @@ fn test_union_with_multiple_types() {
 
 #[test]
 fn test_union_with_record_variants() {
-    let input = r#"
-@ $types.action {
-  $variant: union
-  variants.click = { x => `float`, y => `float` }
-  variants.hover = { element => `text` }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.action {
+            %variant = Text::inline_implicit("union"),
+            variants.click = { "x" => Text::inline_implicit("float"), "y" => Text::inline_implicit("float") },
+            variants.hover = { "element" => Text::inline_implicit("text") },
+        },
+    });
+    let schema = convert(&doc);
 
     assert!(schema.types.contains_key(&ident("action")));
     let action_id = schema.types[&ident("action")];
@@ -956,15 +943,15 @@ fn test_union_with_record_variants() {
 
 #[test]
 fn test_union_with_untagged_repr() {
-    let input = r#"
-@ $types.response {
-  $variant: union
-  $variant-repr = "untagged"
-  variants.success = { data => `any` }
-  variants.error = { message => `text` }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.response {
+            %variant = Text::inline_implicit("union"),
+            %"variant-repr" = "untagged",
+            variants.success = { "data" => Text::inline_implicit("any") },
+            variants.error = { "message" => Text::inline_implicit("text") },
+        },
+    });
+    let schema = convert(&doc);
 
     let response_id = schema.types[&ident("response")];
 
@@ -986,15 +973,15 @@ fn test_union_with_untagged_repr() {
 
 #[test]
 fn test_union_with_internal_tag() {
-    let input = r#"
-@ $types.message {
-  $variant: union
-  $variant-repr = { tag => "type" }
-  variants.text = { content => `text` }
-  variants.image = { url => `text` }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.message {
+            %variant = Text::inline_implicit("union"),
+            %"variant-repr" = { "tag" => "type" },
+            variants.text = { "content" => Text::inline_implicit("text") },
+            variants.image = { "url" => Text::inline_implicit("text") },
+        },
+    });
+    let schema = convert(&doc);
 
     let message_id = schema.types[&ident("message")];
 
@@ -1009,15 +996,15 @@ fn test_union_with_internal_tag() {
 
 #[test]
 fn test_union_with_adjacent_tag() {
-    let input = r#"
-@ $types.event {
-  $variant: union
-  $variant-repr = { tag => "kind", content => "data" }
-  variants.login = { username => `text` }
-  variants.logout = { reason => `text` }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.event {
+            %variant = Text::inline_implicit("union"),
+            %"variant-repr" = { "tag" => "kind", "content" => "data" },
+            variants.login = { "username" => Text::inline_implicit("text") },
+            variants.logout = { "reason" => Text::inline_implicit("text") },
+        },
+    });
+    let schema = convert(&doc);
 
     let event_id = schema.types[&ident("event")];
 
@@ -1033,14 +1020,14 @@ fn test_union_with_adjacent_tag() {
 
 #[test]
 fn test_union_default_external() {
-    let input = r#"
-@ $types.status {
-  $variant: union
-  variants.pending = { message => `text` }
-  variants.active = { started_at => `integer` }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.status {
+            %variant = Text::inline_implicit("union"),
+            variants.pending = { "message" => Text::inline_implicit("text") },
+            variants.active = { "started_at" => Text::inline_implicit("integer") },
+        },
+    });
+    let schema = convert(&doc);
 
     let status_id = schema.types[&ident("status")];
 
@@ -1056,15 +1043,15 @@ fn test_union_default_external() {
 
 #[test]
 fn test_union_with_three_variants() {
-    let input = r#"
-@ $types.traffic-light {
-  $variant: union
-  variants.red = { duration => `integer` }
-  variants.yellow = { duration => `integer` }
-  variants.green = { duration => `integer` }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types."traffic-light" {
+            %variant = Text::inline_implicit("union"),
+            variants.red = { "duration" => Text::inline_implicit("integer") },
+            variants.yellow = { "duration" => Text::inline_implicit("integer") },
+            variants.green = { "duration" => Text::inline_implicit("integer") },
+        },
+    });
+    let schema = convert(&doc);
 
     let light_id = schema.types[&ident("traffic-light")];
 
@@ -1090,16 +1077,15 @@ fn test_union_with_three_variants() {
 #[test]
 fn test_custom_type_definition() {
     // Note: bindings must come before sections in Eure
-    let input = r#"
-user = `$types.username`
-
-@ $types.username {
-  $variant: text
-  min-length = 3
-  max-length = 20
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        user = Text::inline_implicit("$types.username"),
+        %types.username {
+            %variant = Text::inline_implicit("text"),
+            "min-length" = 3,
+            "max-length" = 20,
+        },
+    });
+    let schema = convert(&doc);
 
     assert!(schema.types.contains_key(&ident("username")));
 
@@ -1116,14 +1102,14 @@ user = `$types.username`
 
 #[test]
 fn test_string_with_length() {
-    let input = r#"
-@ username {
-  $variant: text
-  min-length = 3
-  max-length = 20
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        username {
+            %variant = Text::inline_implicit("text"),
+            "min-length" = 3,
+            "max-length" = 20,
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1139,13 +1125,13 @@ fn test_string_with_length() {
 
 #[test]
 fn test_string_with_pattern() {
-    let input = r#"
-@ email {
-  $variant: text
-  pattern = "^[a-z]+@[a-z]+\\.[a-z]+$"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        email {
+            %variant = Text::inline_implicit("text"),
+            pattern = "^[a-z]+@[a-z]+\\.[a-z]+$",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1164,13 +1150,13 @@ fn test_string_with_pattern() {
 
 #[test]
 fn test_integer_with_range() {
-    let input = r#"
-@ age {
-  $variant: integer
-  range = "[0, 150]"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        age {
+            %variant = Text::inline_implicit("integer"),
+            range = "[0, 150]",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1186,13 +1172,13 @@ fn test_integer_with_range() {
 
 #[test]
 fn test_integer_with_multiple_of() {
-    let input = r#"
-@ even {
-  $variant: integer
-  multiple-of = 2
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        even {
+            %variant = Text::inline_implicit("integer"),
+            "multiple-of" = 2,
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1211,13 +1197,13 @@ fn test_integer_with_multiple_of() {
 
 #[test]
 fn test_float_with_range() {
-    let input = r#"
-@ probability {
-  $variant: float
-  range = "[0.0, 1.0]"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        probability {
+            %variant = Text::inline_implicit("float"),
+            range = "[0.0, 1.0]",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1237,14 +1223,14 @@ fn test_float_with_range() {
 
 #[test]
 fn test_map_type() {
-    let input = r#"
-@ headers {
-  $variant: map
-  key = `text`
-  value = `text`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        headers {
+            %variant = Text::inline_implicit("map"),
+            key = Text::inline_implicit("text"),
+            value = Text::inline_implicit("text"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1257,16 +1243,16 @@ fn test_map_type() {
 
 #[test]
 fn test_map_with_constraints() {
-    let input = r#"
-@ settings {
-  $variant: map
-  key = `text`
-  value = `any`
-  min-size = 1
-  max-size = 100
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        settings {
+            %variant = Text::inline_implicit("map"),
+            key = Text::inline_implicit("text"),
+            value = Text::inline_implicit("any"),
+            "min-size" = 1,
+            "max-size" = 100,
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1286,14 +1272,14 @@ fn test_map_with_constraints() {
 
 #[test]
 fn test_array_with_contains() {
-    let input = r#"
-@ tags {
-  $variant: array
-  item = `text`
-  contains = "required"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        tags {
+            %variant = Text::inline_implicit("array"),
+            item = Text::inline_implicit("text"),
+            contains = "required",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1315,12 +1301,13 @@ fn test_array_with_contains() {
 
 #[test]
 fn test_nested_record() {
-    let input = r#"
-@ user.profile
-name = `text`
-bio = `text`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        user.profile {
+            name = Text::inline_implicit("text"),
+            bio = Text::inline_implicit("text"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1349,13 +1336,13 @@ bio = `text`
 #[test]
 fn test_integer_range_rust_style_inclusive() {
     // Rust-style: ..= means inclusive end
-    let input = r#"
-@ age {
-  $variant: integer
-  range = "0..=150"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        age {
+            %variant = Text::inline_implicit("integer"),
+            range = "0..=150",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1372,13 +1359,13 @@ fn test_integer_range_rust_style_inclusive() {
 #[test]
 fn test_integer_range_rust_style_exclusive() {
     // Rust-style: .. means exclusive end
-    let input = r#"
-@ index {
-  $variant: integer
-  range = "0..100"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        index {
+            %variant = Text::inline_implicit("integer"),
+            range = "0..100",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1395,13 +1382,13 @@ fn test_integer_range_rust_style_exclusive() {
 #[test]
 fn test_integer_range_min_only() {
     // Rust-style: min only
-    let input = r#"
-@ positive {
-  $variant: integer
-  range = "1.."
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        positive {
+            %variant = Text::inline_implicit("integer"),
+            range = "1..",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1418,13 +1405,13 @@ fn test_integer_range_min_only() {
 #[test]
 fn test_integer_range_max_only() {
     // Rust-style: max only (exclusive)
-    let input = r#"
-@ small {
-  $variant: integer
-  range = "..100"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        small {
+            %variant = Text::inline_implicit("integer"),
+            range = "..100",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1441,13 +1428,13 @@ fn test_integer_range_max_only() {
 #[test]
 fn test_integer_range_max_only_inclusive() {
     // Rust-style: max only (inclusive with ..=)
-    let input = r#"
-@ small {
-  $variant: integer
-  range = "..=100"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        small {
+            %variant = Text::inline_implicit("integer"),
+            range = "..=100",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1464,13 +1451,13 @@ fn test_integer_range_max_only_inclusive() {
 #[test]
 fn test_integer_range_interval_exclusive() {
     // Interval notation: both exclusive
-    let input = r#"
-@ value {
-  $variant: integer
-  range = "(0, 100)"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        value {
+            %variant = Text::inline_implicit("integer"),
+            range = "(0, 100)",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1487,13 +1474,13 @@ fn test_integer_range_interval_exclusive() {
 #[test]
 fn test_integer_range_interval_mixed() {
     // Interval notation: left exclusive, right inclusive
-    let input = r#"
-@ value {
-  $variant: integer
-  range = "(0, 100]"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        value {
+            %variant = Text::inline_implicit("integer"),
+            range = "(0, 100]",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1514,13 +1501,13 @@ fn test_integer_range_interval_mixed() {
 #[test]
 fn test_float_range_interval_half_open() {
     // Interval notation: left inclusive, right exclusive
-    let input = r#"
-@ probability {
-  $variant: float
-  range = "[0.0, 1.0)"
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        probability {
+            %variant = Text::inline_implicit("float"),
+            range = "[0.0, 1.0)",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1537,13 +1524,13 @@ fn test_float_range_interval_half_open() {
 #[test]
 fn test_float_range_rust_style() {
     // Rust-style: min only
-    let input = r#"
-@ positive {
-  $variant: float
-  range = "0.0.."
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        positive {
+            %variant = Text::inline_implicit("float"),
+            range = "0.0..",
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1563,12 +1550,12 @@ fn test_float_range_rust_style() {
 
 #[test]
 fn test_optional_field() {
-    let input = r#"
-name = `text`
-bio = `text`
-bio.$optional = true
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        name = Text::inline_implicit("text"),
+        bio = Text::inline_implicit("text"),
+        bio.%optional = true,
+    });
+    let schema = convert(&doc);
 
     // Check bio is optional
     assert_field_optional(&schema, schema.root, "bio");
@@ -1576,11 +1563,11 @@ bio.$optional = true
 
 #[test]
 fn test_metadata_description() {
-    let input = r#"
-user = `any`
-user.$description: User information
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        user = Text::inline_implicit("any"),
+        user.%description = Text::inline_implicit("User information"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1596,11 +1583,11 @@ user.$description: User information
 
 #[test]
 fn test_metadata_deprecated() {
-    let input = r#"
-old_field = `text`
-old_field.$deprecated = true
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        old_field = Text::inline_implicit("text"),
+        old_field.%deprecated = true,
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1616,11 +1603,11 @@ old_field.$deprecated = true
 
 #[test]
 fn test_metadata_default_value() {
-    let input = r#"
-timeout = `integer`
-timeout.$default = 30
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        timeout = Text::inline_implicit("integer"),
+        timeout.%default = 30,
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1640,13 +1627,13 @@ timeout.$default = 30
 
 #[test]
 fn test_unknown_fields_policy_allow() {
-    let input = r#"
-@ config {
-  $unknown-fields = "allow"
-  host = `text`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        config {
+            %"unknown-fields" = "allow",
+            host = Text::inline_implicit("text"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1662,13 +1649,13 @@ fn test_unknown_fields_policy_allow() {
 
 #[test]
 fn test_unknown_fields_policy_deny() {
-    let input = r#"
-@ config {
-  $unknown-fields = "deny"
-  host = `text`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        config {
+            %"unknown-fields" = "deny",
+            host = Text::inline_implicit("text"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1684,13 +1671,13 @@ fn test_unknown_fields_policy_deny() {
 
 #[test]
 fn test_unknown_fields_policy_schema() {
-    let input = r#"
-@ config {
-  $unknown-fields = `text`
-  host = `text`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        config {
+            %"unknown-fields" = Text::inline_implicit("text"),
+            host = Text::inline_implicit("text"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1714,12 +1701,12 @@ fn test_unknown_fields_policy_schema() {
 
 #[test]
 fn test_text_language_variants() {
-    let input = r#"
-rust = `text.rust`
-python = `text.python`
-sql = `text.sql`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        rust = Text::inline_implicit("text.rust"),
+        python = Text::inline_implicit("text.python"),
+        sql = Text::inline_implicit("text.sql"),
+    });
+    let schema = convert(&doc);
 
     assert_record3(
         &schema,
@@ -1736,12 +1723,11 @@ sql = `text.sql`
 
 #[test]
 fn test_type_reference() {
-    let input = r#"
-$types.email = `text.email`
-
-contact = `$types.email`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.email = Text::inline_implicit("text.email"),
+        contact = Text::inline_implicit("$types.email"),
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1753,13 +1739,13 @@ contact = `$types.email`
 #[test]
 fn test_external_type_reference() {
     // External type reference: `$types.namespace.typename`
-    let input = r#"
-user = `$types.common.User`
-
-@ $types.common.User
-name = `text`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        user = Text::inline_implicit("$types.common.User"),
+        %types.common.User {
+            name = Text::inline_implicit("text"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -1772,13 +1758,12 @@ name = `text`
 
 #[test]
 fn test_circular_type_reference_is_valid() {
-    let input = r#"
-$types.a = `$types.b`
-$types.b = `$types.a`
-
-data = `$types.a`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.a = Text::inline_implicit("$types.b"),
+        %types.b = Text::inline_implicit("$types.a"),
+        data = Text::inline_implicit("$types.a"),
+    });
+    let schema = convert(&doc);
 
     // Circular references are allowed
     assert!(schema.types.contains_key(&ident("a")));
@@ -1802,22 +1787,20 @@ data = `$types.a`
 fn test_type_reference_chain() {
     // Note: bindings must come before sections in Eure
     // Also: type definitions must use @ $types.name section syntax
-    let input = r#"
-data = `$types.user`
-
-@ $types.base-string {
-  $variant: text
-  min-length = 1
-  max-length = 100
-}
-
-@ $types.username = `$types.base-string`
-
-@ $types.user
-username = `$types.username`
-email = `text.email`
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        data = Text::inline_implicit("$types.user"),
+        %types."base-string" {
+            %variant = Text::inline_implicit("text"),
+            "min-length" = 1,
+            "max-length" = 100,
+        },
+        %types.username = Text::inline_implicit("$types.base-string"),
+        %types.user {
+            username = Text::inline_implicit("$types.username"),
+            email = Text::inline_implicit("text.email"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert!(schema.types.contains_key(&ident("base-string")));
     assert!(schema.types.contains_key(&ident("username")));
@@ -1849,31 +1832,29 @@ email = `text.email`
 #[test]
 fn test_complex_user_schema() {
     // For literal union variants, just use the literal value directly
-    let input = r#"
-@ $types.username {
-  $variant: text
-  min-length = 3
-  max-length = 20
-  pattern = "^[a-z0-9_]+$"
-}
-
-@ $types.role {
-  $variant: union
-  variants.admin = "admin"
-  variants.user = "user"
-  variants.guest = "guest"
-}
-
-@ $types.user {
-  username = `$types.username`
-  email = `text.email`
-  age = `integer`
-  age.$optional = true
-  tags = [`text`]
-  role = `$types.role`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.username {
+            %variant = Text::inline_implicit("text"),
+            "min-length" = 3,
+            "max-length" = 20,
+            pattern = "^[a-z0-9_]+$",
+        },
+        %types.role {
+            %variant = Text::inline_implicit("union"),
+            variants.admin = "admin",
+            variants.user = "user",
+            variants.guest = "guest",
+        },
+        %types.user {
+            username = Text::inline_implicit("$types.username"),
+            email = Text::inline_implicit("text.email"),
+            age = Text::inline_implicit("integer"),
+            age.%optional = true,
+            tags = [Text::inline_implicit("text")],
+            role = Text::inline_implicit("$types.role"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert!(schema.types.contains_key(&ident("username")));
     assert!(schema.types.contains_key(&ident("user")));
@@ -1895,33 +1876,31 @@ fn test_complex_user_schema() {
 #[test]
 fn test_complex_api_schema() {
     // For literal union variants, just use the literal value directly
-    let input = r#"
-@ $types.http-method {
-  $variant: union
-  variants.GET = "GET"
-  variants.POST = "POST"
-  variants.PUT = "PUT"
-  variants.DELETE = "DELETE"
-  variants.PATCH = "PATCH"
-}
-
-@ $types.api-request {
-  method = `$types.http-method`
-  path = `text`
-  headers = `any`
-  headers.$optional = true
-  body = `any`
-  body.$optional = true
-}
-
-@ $types.api-response {
-  $variant: union
-  $variant-repr = "untagged"
-  variants.success = { status => `integer`, data => `any` }
-  variants.error = { status => `integer`, message => `text` }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types."http-method" {
+            %variant = Text::inline_implicit("union"),
+            variants.GET = "GET",
+            variants.POST = "POST",
+            variants.PUT = "PUT",
+            variants.DELETE = "DELETE",
+            variants.PATCH = "PATCH",
+        },
+        %types."api-request" {
+            method = Text::inline_implicit("$types.http-method"),
+            path = Text::inline_implicit("text"),
+            headers = Text::inline_implicit("any"),
+            headers.%optional = true,
+            body = Text::inline_implicit("any"),
+            body.%optional = true,
+        },
+        %types."api-response" {
+            %variant = Text::inline_implicit("union"),
+            %"variant-repr" = "untagged",
+            variants.success = { "status" => Text::inline_implicit("integer"), "data" => Text::inline_implicit("any") },
+            variants.error = { "status" => Text::inline_implicit("integer"), "message" => Text::inline_implicit("text") },
+        },
+    });
+    let schema = convert(&doc);
 
     assert!(schema.types.contains_key(&ident("http-method")));
     assert!(schema.types.contains_key(&ident("api-request")));
@@ -1959,23 +1938,22 @@ fn test_complex_api_schema() {
 
 #[test]
 fn test_nested_types_and_arrays() {
-    let input = r#"
-@ $types.address {
-  street = `text`
-  city = `text`
-  zip = `text`
-}
-
-@ $types.person {
-  name = `text`
-  @ addresses {
-    $variant: array
-    item = `$types.address`
-    min-length = 1
-  }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.address {
+            street = Text::inline_implicit("text"),
+            city = Text::inline_implicit("text"),
+            zip = Text::inline_implicit("text"),
+        },
+        %types.person {
+            name = Text::inline_implicit("text"),
+            addresses {
+                %variant = Text::inline_implicit("array"),
+                item = Text::inline_implicit("$types.address"),
+                "min-length" = 1,
+            },
+        },
+    });
+    let schema = convert(&doc);
 
     let person_id = schema.types[&ident("person")];
 
@@ -1999,23 +1977,21 @@ fn test_nested_types_and_arrays() {
 #[test]
 fn test_array_of_custom_types_complex() {
     // Note: bindings must come before sections in Eure
-    let input = r#"
-data = `$types.collection`
-
-@ $types.item {
-  $variant: text
-  min-length = 1
-  max-length = 100
-}
-
-@ $types.collection {
-  $variant: array
-  item = `$types.item`
-  min-length = 1
-  unique = true
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        data = Text::inline_implicit("$types.collection"),
+        %types.item {
+            %variant = Text::inline_implicit("text"),
+            "min-length" = 1,
+            "max-length" = 100,
+        },
+        %types.collection {
+            %variant = Text::inline_implicit("array"),
+            item = Text::inline_implicit("$types.item"),
+            "min-length" = 1,
+            unique = true,
+        },
+    });
+    let schema = convert(&doc);
 
     assert!(schema.types.contains_key(&ident("item")));
     assert!(schema.types.contains_key(&ident("collection")));
@@ -2045,20 +2021,19 @@ data = `$types.collection`
 
 #[test]
 fn test_map_with_complex_types() {
-    let input = r#"
-@ $types.address {
-  $variant: text
-  min-length = 1
-  max-length = 100
-}
-
-@ locations {
-  $variant: map
-  key = `text`
-  value = `$types.address`
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        %types.address {
+            %variant = Text::inline_implicit("text"),
+            "min-length" = 1,
+            "max-length" = 100,
+        },
+        locations {
+            %variant = Text::inline_implicit("map"),
+            key = Text::inline_implicit("text"),
+            value = Text::inline_implicit("$types.address"),
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -2073,18 +2048,18 @@ fn test_map_with_complex_types() {
 
 #[test]
 fn test_nested_maps() {
-    let input = r#"
-@ nested {
-  $variant: map
-  key = `text`
-  value = {
-    $variant => "map",
-    key => `text`,
-    value => `integer`
-  }
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        nested {
+            %variant = Text::inline_implicit("map"),
+            key = Text::inline_implicit("text"),
+            value {
+                %variant = Text::inline_implicit("map"),
+                key = Text::inline_implicit("text"),
+                value = Text::inline_implicit("integer"),
+            },
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -2103,21 +2078,19 @@ fn test_nested_maps() {
 
 #[test]
 fn test_nested_union_types() {
-    let input = r#"
-@ value {
-  $variant: union
-  variants.string = `text`
-  variants.integer = `integer`
-  variants.array = [{
-    $variant => "union",
-    variants => {
-      boolean => `boolean`,
-      null => `null`
-    }
-  }]
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        value {
+            %variant = Text::inline_implicit("union"),
+            variants.string = Text::inline_implicit("text"),
+            variants.integer = Text::inline_implicit("integer"),
+            variants.array[] {
+                %variant = Text::inline_implicit("union"),
+                variants.boolean = Text::inline_implicit("boolean"),
+                variants.null = Text::inline_implicit("null"),
+            },
+        },
+    });
+    let schema = convert(&doc);
 
     // This tests that unions can contain nested structures
     assert_record1(
@@ -2146,27 +2119,39 @@ fn test_nested_union_types() {
 }
 
 #[test]
-fn test_error_empty_section() {
-    // Empty section (uninitialized node) should be an error - incomplete document
-    let input = r#"
-@ config
-"#;
-    let schema = parse_and_convert(input);
+fn test_empty_section_creates_empty_record() {
+    // Empty section should create an empty record (empty map in document model)
+    let doc = eure!({
+        config {},
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
         schema.root,
-        ("config", |s, id| assert_empty_record(s, id)),
+        ("config", |s, id| {
+            // Should be an empty record
+            let node = s.node(id);
+            if let SchemaNodeContent::Record(record) = &node.content {
+                assert!(
+                    record.properties.is_empty(),
+                    "Expected empty record, got {:?}",
+                    record.properties
+                );
+            } else {
+                panic!("Expected Record type, got {:?}", node.content);
+            }
+        }),
     );
 }
 
 #[test]
 fn test_empty_array_schema() {
     // Array must have an item type
-    let input = r#"
-items = [`any`]
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        items = [Text::inline_implicit("any")],
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -2183,10 +2168,9 @@ items = [`any`]
 
 #[test]
 fn test_invalid_type_reference() {
-    let input = r#"
-user = `$types.nonexistent`
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        user = Text::inline_implicit("$types.nonexistent"),
+    });
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2201,12 +2185,11 @@ user = `$types.nonexistent`
 
 #[test]
 fn test_error_unknown_variant_type() {
-    let input = r#"
-@ field {
-  $variant: unknown_type
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("unknown_type"),
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2220,13 +2203,12 @@ fn test_error_unknown_variant_type() {
 
 #[test]
 fn test_error_invalid_integer_range_format() {
-    let input = r#"
-@ field {
-  $variant: integer
-  range = "not a range"
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("integer"),
+            range = "not a range",
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2237,13 +2219,12 @@ fn test_error_invalid_integer_range_format() {
 
 #[test]
 fn test_error_invalid_float_range_format() {
-    let input = r#"
-@ field {
-  $variant: float
-  range = "invalid"
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("float"),
+            range = "invalid",
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2254,10 +2235,9 @@ fn test_error_invalid_float_range_format() {
 
 #[test]
 fn test_error_invalid_type_path() {
-    let input = r#"
-field = `unknown_primitive`
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field = Text::inline_implicit("unknown_primitive"),
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2271,10 +2251,9 @@ field = `unknown_primitive`
 
 #[test]
 fn test_error_invalid_extension_path() {
-    let input = r#"
-field = `$unknown.type`
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field = Text::inline_implicit("$unknown.type"),
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2288,13 +2267,12 @@ field = `$unknown.type`
 
 #[test]
 fn test_error_map_missing_key() {
-    let input = r#"
-@ field {
-  $variant: map
-  value = `text`
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("map"),
+            value = Text::inline_implicit("text"),
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2308,13 +2286,12 @@ fn test_error_map_missing_key() {
 
 #[test]
 fn test_error_map_missing_value() {
-    let input = r#"
-@ field {
-  $variant: map
-  key = `text`
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("map"),
+            key = Text::inline_implicit("text"),
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2328,13 +2305,12 @@ fn test_error_map_missing_value() {
 
 #[test]
 fn test_error_array_missing_item() {
-    let input = r#"
-@ field {
-  $variant: array
-  min-length = 1
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("array"),
+            "min-length" = 1,
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2348,14 +2324,13 @@ fn test_error_array_missing_item() {
 
 #[test]
 fn test_error_invalid_variant_repr() {
-    let input = r#"
-@ field {
-  $variant: union
-  $variant-repr = "invalid_repr"
-  variants.a = `text`
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("union"),
+            %"variant-repr" = "invalid_repr",
+            variants.a = Text::inline_implicit("text"),
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2369,16 +2344,15 @@ fn test_error_invalid_variant_repr() {
 
 #[test]
 fn test_error_adjacent_repr_missing_tag() {
-    let input = r#"
-@ field {
-  $variant: union
-  variants.a = `text`
-  @ $variant-repr {
-    content = "data"
-  }
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("union"),
+            variants.a = Text::inline_implicit("text"),
+            %"variant-repr" {
+                content = "data",
+            },
+        },
+    });
     let result = document_to_schema(&doc);
 
     // $variant-repr with record value (adjacent repr) missing required "tag" field
@@ -2393,13 +2367,12 @@ fn test_error_adjacent_repr_missing_tag() {
 
 #[test]
 fn test_error_invalid_unknown_fields_policy() {
-    let input = r#"
-@ record {
-  $unknown-fields = "invalid_policy"
-  name = `text`
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        record {
+            %"unknown-fields" = "invalid_policy",
+            name = Text::inline_implicit("text"),
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2413,10 +2386,9 @@ fn test_error_invalid_unknown_fields_policy() {
 
 #[test]
 fn test_error_array_with_multiple_items() {
-    let input = r#"
-field = [`text`, `integer`]
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field = [Text::inline_implicit("text"), Text::inline_implicit("integer")],
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2430,13 +2402,12 @@ field = [`text`, `integer`]
 
 #[test]
 fn test_error_invalid_range_interval_format() {
-    let input = r#"
-@ field {
-  $variant: integer
-  range = "[1, 2, 3]"
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("integer"),
+            range = "[1, 2, 3]",
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2447,13 +2418,12 @@ fn test_error_invalid_range_interval_format() {
 
 #[test]
 fn test_error_literal_missing_value() {
-    let input = r#"
-@ field {
-  $variant: literal
-  other = "something"
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = Text::inline_implicit("literal"),
+            other = "something",
+        },
+    });
     let result = document_to_schema(&doc);
 
     // $variant: literal on a map with fields (not just a value) creates a literal of the whole map
@@ -2464,10 +2434,9 @@ fn test_error_literal_missing_value() {
 
 #[test]
 fn test_error_types_not_map() {
-    let input = r#"
-$types = "not a map"
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        %types = "not a map",
+    });
     let result = document_to_schema(&doc);
 
     assert_eq!(
@@ -2482,10 +2451,9 @@ $types = "not a map"
 #[test]
 fn test_error_invalid_type_path_extra_segment() {
     // `integer.foo` is invalid - only `text` supports .X language suffix
-    let input = r#"
-@ field = `integer.foo`
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field = Text::inline_implicit("integer.foo"),
+    });
     let result = document_to_schema(&doc);
 
     // "integer.foo" is not a valid primitive, so it produces InvalidPattern
@@ -2502,13 +2470,12 @@ fn test_error_invalid_type_path_extra_segment() {
 fn test_error_nested_variant_path() {
     // Nested variant paths like $variant = "ok.ok.err" are invalid in schema context
     // The type type union doesn't have nested unions
-    let input = r#"
-@ response {
-    $variant = "ok.ok.err"
-    error_code = `integer`
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        response {
+            %variant = "ok.ok.err",
+            error_code = Text::inline_implicit("integer"),
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2523,13 +2490,13 @@ fn test_error_nested_variant_path() {
 #[test]
 fn test_variant_string_single_segment_valid() {
     // $variant = "text" specifies text type
-    let input = r#"
-@ field {
-    $variant = "text"
-    min-length = 1
-}
-"#;
-    let schema = parse_and_convert(input);
+    let doc = eure!({
+        field {
+            %variant = "text",
+            "min-length" = 1,
+        },
+    });
+    let schema = convert(&doc);
 
     assert_record1(
         &schema,
@@ -2545,13 +2512,12 @@ fn test_variant_string_single_segment_valid() {
 #[test]
 fn test_error_variant_string_unknown() {
     // Unknown variant type is invalid
-    let input = r#"
-@ field {
-    $variant = "unknown_type"
-    value = 123
-}
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        field {
+            %variant = "unknown_type",
+            value = 123,
+        },
+    });
     let result = document_to_schema(&doc);
 
     assert!(matches!(
@@ -2566,10 +2532,9 @@ fn test_error_variant_string_unknown() {
 #[test]
 fn test_error_types_non_string_key() {
     // Type names in $types must be strings (identifiers), not tuples
-    let input = r#"
-$types.("a", "b") = `text`
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        %types.("a", "b") = Text::inline_implicit("text"),
+    });
     let result = document_to_schema(&doc);
 
     // Just check that it's an InvalidTypeName error - the tuple structure is internal
@@ -2580,18 +2545,16 @@ $types.("a", "b") = `text`
 }
 
 #[test]
-#[ignore = "Eure grammar cannot parse $types.0 due to lexer precedence (.0 is tokenized as Float)"]
 fn test_error_types_integer_key() {
     // Type names in $types must be strings (identifiers), not integers
     // Note: This syntax currently fails to parse because .0 is lexed as a Float token
-    let input = r#"
-$types.0 = `text`
-"#;
-    let doc = parse_to_document(input).expect("Failed to parse Eure document");
+    let doc = eure!({
+        %types.0 = Text::inline_implicit("text"),
+    });
     let result = document_to_schema(&doc);
 
     assert_eq!(
         result.unwrap_err(),
-        ConversionError::InvalidTypeName(ObjectKey::Number(BigInt::from(0)))
+        ConversionError::InvalidTypeName(ObjectKey::Number(0.into()))
     );
 }
