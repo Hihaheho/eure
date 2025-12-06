@@ -1,26 +1,33 @@
 use crate::prelude_internal::*;
 
+/// Represents a scope in the document constructor.
+/// Must be passed to `end_scope` to restore the constructor to the state when the scope was created.
+/// Scopes must be ended in LIFO order (most recent first).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Scope {
+    id: usize,
+    stack_depth: usize,
+    path_depth: usize,
+}
+
 #[derive(Debug, PartialEq, thiserror::Error, Clone)]
-pub enum PopError {
-    #[error("Cannot pop from root (stack is empty)")]
-    CannotPopRoot,
-    #[error("Node ID mismatch: expected {expected:?}, but got {actual:?}")]
-    NodeIdMismatch { expected: NodeId, actual: NodeId },
+pub enum ScopeError {
+    #[error("Cannot end scope at root")]
+    CannotEndAtRoot,
+    #[error("Scope must be ended in LIFO order (most recent first)")]
+    NotMostRecentScope,
 }
 
 pub struct DocumentConstructor {
     document: EureDocument,
     /// The path from the root to the current node.
-    /// It will contain unused parts after pop operation and those spaces will be used for future push operations.
     path: Vec<PathSegment>,
-    /// The second element of the tuple indicates the current path range from the root.
-    /// 0 means the root node.
-    stack: Vec<StackItem>,
-}
-
-pub struct StackItem {
-    node_id: NodeId,
-    path_range: usize,
+    /// Stack of NodeIds from root to current position.
+    stack: Vec<NodeId>,
+    /// Counter for generating unique scope IDs.
+    scope_counter: usize,
+    /// Stack of outstanding scope IDs for LIFO enforcement.
+    outstanding_scopes: Vec<usize>,
 }
 
 impl Default for DocumentConstructor {
@@ -30,10 +37,9 @@ impl Default for DocumentConstructor {
         Self {
             document,
             path: vec![],
-            stack: vec![StackItem {
-                node_id: root,
-                path_range: 0,
-            }],
+            stack: vec![root],
+            scope_counter: 0,
+            outstanding_scopes: vec![],
         }
     }
 }
@@ -44,10 +50,7 @@ impl DocumentConstructor {
     }
 
     pub fn current_node_id(&self) -> NodeId {
-        self.stack
-            .last()
-            .expect("Stack should never be empty")
-            .node_id
+        *self.stack.last().expect("Stack should never be empty")
     }
 
     pub fn current_node(&self) -> &Node {
@@ -59,10 +62,7 @@ impl DocumentConstructor {
     }
 
     pub fn current_path(&self) -> &[PathSegment] {
-        self.stack
-            .last()
-            .map(|item| &self.path[..item.path_range])
-            .unwrap_or(&[])
+        &self.path
     }
 
     pub fn document(&self) -> &EureDocument {
@@ -85,66 +85,62 @@ impl DocumentConstructor {
 }
 
 impl DocumentConstructor {
-    pub fn push_path(&mut self, path: &[PathSegment]) -> Result<NodeId, InsertError> {
-        let target = self.current_node_id();
-        let base_path = EurePath::from_iter(self.current_path().iter().cloned());
-        let node_id = self
+    /// Begin a new scope. Returns a scope handle that must be passed to `end_scope`.
+    /// Scopes must be ended in LIFO order (most recent first).
+    pub fn begin_scope(&mut self) -> Scope {
+        let id = self.scope_counter;
+        self.scope_counter += 1;
+        self.outstanding_scopes.push(id);
+        Scope {
+            id,
+            stack_depth: self.stack.len(),
+            path_depth: self.path.len(),
+        }
+    }
+
+    /// End a scope, restoring the constructor to the state when the scope was created.
+    /// Returns an error if the scope is not the most recent outstanding scope.
+    pub fn end_scope(&mut self, scope: Scope) -> Result<(), ScopeError> {
+        // LIFO enforcement: scope must be the most recent outstanding scope
+        if self.outstanding_scopes.last() != Some(&scope.id) {
+            return Err(ScopeError::NotMostRecentScope);
+        }
+        if scope.stack_depth < 1 {
+            return Err(ScopeError::CannotEndAtRoot);
+        }
+        self.outstanding_scopes.pop();
+        self.stack.truncate(scope.stack_depth);
+        self.path.truncate(scope.path_depth);
+        Ok(())
+    }
+
+    /// Navigate to a child node by path segment.
+    /// Creates the node if it doesn't exist.
+    pub fn navigate(&mut self, segment: PathSegment) -> Result<NodeId, InsertError> {
+        let current = self.current_node_id();
+        let node_mut = self
             .document
-            .prepare_node_from(target, base_path, path)?
-            .node_id;
-        // Truncate path to current range before extending to avoid keeping stale segments
-        let current_range = self.stack.last().map(|item| item.path_range).unwrap_or(0);
-        self.path.truncate(current_range);
-        self.path.extend(path.iter().cloned());
-        self.stack.push(StackItem {
-            node_id,
-            path_range: self.path.len(),
-        });
+            .resolve_child_by_segment(segment.clone(), current)
+            .map_err(|e| InsertError {
+                kind: e,
+                path: EurePath::from_iter(self.path.iter().cloned()),
+            })?;
+        let node_id = node_mut.node_id;
+        self.stack.push(node_id);
+        self.path.push(segment);
         Ok(node_id)
     }
 
-    /// Push a binding path for assignment operations (e.g., `a.b.c = value`).
-    ///
-    /// Creates the path if it doesn't exist. Returns an error if the target node
-    /// already has a value assigned to it.
-    ///
-    /// # Example
-    ///
-    /// For `a.b.c = { x = 1 }`:
-    /// - Call `push_binding_path(&[a, b, c])` to set up the binding target
-    /// - Then call `push_path(&[x])` to build the value structure
-    pub fn push_binding_path(&mut self, path: &[PathSegment]) -> Result<NodeId, InsertError> {
-        let node_id = self.push_path(path)?;
-
-        // Check if the target node already has a value
-        let node = self.document.node(node_id);
+    /// Validate that the current node is a Hole (unbound).
+    /// Use this before binding a value to ensure the node hasn't already been assigned.
+    pub fn require_hole(&self) -> Result<(), InsertError> {
+        let node = self.current_node();
         if !matches!(node.content, NodeValue::Hole) {
-            self.stack.pop(); // Cancel the push_path
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
-                path: EurePath::from_iter(self.current_path().iter().cloned()),
+                path: EurePath::from_iter(self.path.iter().cloned()),
             });
         }
-        Ok(node_id)
-    }
-
-    /// Pop the current segment. the node_id is used to assert the item is intended to be popped.
-    pub fn pop(&mut self, node_id: NodeId) -> Result<(), PopError> {
-        // Check if we can pop (must have more than just root)
-        if self.stack.len() <= 1 {
-            return Err(PopError::CannotPopRoot);
-        }
-
-        // Check node_id before popping to avoid mutating state on error
-        let current_node_id = self.current_node_id();
-        if current_node_id != node_id {
-            return Err(PopError::NodeIdMismatch {
-                expected: current_node_id,
-                actual: node_id,
-            });
-        }
-
-        self.stack.pop();
         Ok(())
     }
 
@@ -241,32 +237,34 @@ mod tests {
     }
 
     #[test]
-    fn test_push_segments_single_ident() {
+    fn test_navigate_single_ident() {
         let mut constructor = DocumentConstructor::new();
 
         let identifier = create_identifier("field");
-        let segments = &[PathSegment::Ident(identifier.clone())];
+        let segment = PathSegment::Ident(identifier.clone());
 
-        let node_id = constructor.push_path(segments).expect("Failed to push");
+        let node_id = constructor
+            .navigate(segment.clone())
+            .expect("Failed to navigate");
 
         assert_eq!(constructor.current_node_id(), node_id);
-        assert_eq!(constructor.current_path(), segments);
+        assert_eq!(constructor.current_path(), &[segment]);
     }
 
     #[test]
-    fn test_push_segments_multiple_times() {
+    fn test_navigate_multiple_times() {
         let mut constructor = DocumentConstructor::new();
 
         let id1 = create_identifier("field1");
         let id2 = create_identifier("field2");
 
         constructor
-            .push_path(&[PathSegment::Ident(id1.clone())])
-            .expect("Failed to push first");
+            .navigate(PathSegment::Ident(id1.clone()))
+            .expect("Failed to navigate first");
 
         let node_id2 = constructor
-            .push_path(&[PathSegment::Extension(id2.clone())])
-            .expect("Failed to push second");
+            .navigate(PathSegment::Extension(id2.clone()))
+            .expect("Failed to navigate second");
 
         assert_eq!(constructor.current_node_id(), node_id2);
         assert_eq!(
@@ -276,20 +274,20 @@ mod tests {
     }
 
     #[test]
-    fn test_push_segments_error_propagates() {
+    fn test_navigate_error_propagates() {
         // Try to add tuple index to primitive node (should fail)
         let mut constructor = DocumentConstructor::new();
-        // First push to the field node
+        // First navigate to the field node
         let identifier = create_identifier("field");
         constructor
-            .push_path(&[PathSegment::Ident(identifier)])
-            .expect("Failed to push");
+            .navigate(PathSegment::Ident(identifier))
+            .expect("Failed to navigate");
         // Set it to Primitive
         let node_id = constructor.current_node_id();
         constructor.document_mut().node_mut(node_id).content =
             NodeValue::Primitive(PrimitiveValue::Null);
 
-        let result = constructor.push_path(&[PathSegment::TupleIndex(0)]);
+        let result = constructor.navigate(PathSegment::TupleIndex(0));
 
         assert_eq!(
             result.map_err(|e| e.kind),
@@ -298,65 +296,57 @@ mod tests {
     }
 
     #[test]
-    fn test_pop_success() {
+    fn test_scope_success() {
         let mut constructor = DocumentConstructor::new();
         let root_id = constructor.document().get_root_id();
 
         let identifier = create_identifier("field");
-        let node_id = constructor
-            .push_path(&[PathSegment::Ident(identifier.clone())])
-            .expect("Failed to push");
+        let token = constructor.begin_scope();
+        let _node_id = constructor
+            .navigate(PathSegment::Ident(identifier.clone()))
+            .expect("Failed to navigate");
 
-        // Pop with correct node_id
-        let result = constructor.pop(node_id);
+        // End scope
+        let result = constructor.end_scope(token);
         assert_eq!(result, Ok(()));
 
-        // After pop, should be back at root
+        // After end_scope, should be back at root
         assert_eq!(constructor.current_node_id(), root_id);
         assert_eq!(constructor.current_path(), &[]);
     }
 
     #[test]
-    fn test_pop_wrong_node_id_fails() {
+    fn test_scope_lifo_enforcement() {
         let mut constructor = DocumentConstructor::new();
 
-        let identifier = create_identifier("field");
-        let node_id = constructor
-            .push_path(&[PathSegment::Ident(identifier)])
-            .expect("Failed to push");
+        let id1 = create_identifier("field1");
+        let id2 = create_identifier("field2");
 
-        // Try to pop with wrong node_id
-        let wrong_id = NodeId(999);
-        let result = constructor.pop(wrong_id);
+        let token1 = constructor.begin_scope();
+        constructor
+            .navigate(PathSegment::Ident(id1))
+            .expect("Failed to navigate");
 
-        assert_eq!(
-            result,
-            Err(PopError::NodeIdMismatch {
-                expected: node_id,
-                actual: wrong_id
-            })
-        );
+        let token2 = constructor.begin_scope();
+        constructor
+            .navigate(PathSegment::Extension(id2))
+            .expect("Failed to navigate");
 
-        // State should remain unchanged
-        assert_eq!(constructor.current_node_id(), node_id);
+        // Try to end token1 before token2 (should fail)
+        let result = constructor.end_scope(token1);
+        assert_eq!(result, Err(ScopeError::NotMostRecentScope));
+
+        // End in correct order
+        constructor
+            .end_scope(token2)
+            .expect("Failed to end scope 2");
+        constructor
+            .end_scope(token1)
+            .expect("Failed to end scope 1");
     }
 
     #[test]
-    fn test_pop_root_fails() {
-        let mut constructor = DocumentConstructor::new();
-        let root_id = constructor.document().get_root_id();
-
-        // Try to pop root (should fail)
-        let result = constructor.pop(root_id);
-
-        assert_eq!(result, Err(PopError::CannotPopRoot));
-
-        // State should remain unchanged
-        assert_eq!(constructor.current_node_id(), root_id);
-    }
-
-    #[test]
-    fn test_push_pop_multiple_levels() {
+    fn test_scope_with_multiple_navigations() {
         let mut constructor = DocumentConstructor::new();
         let root_id = constructor.document().get_root_id();
 
@@ -364,18 +354,20 @@ mod tests {
         let id2 = create_identifier("level2");
         let id3 = create_identifier("level3");
 
-        // Push three levels
+        let token = constructor.begin_scope();
+
+        // Navigate three levels
         let node_id1 = constructor
-            .push_path(&[PathSegment::Ident(id1.clone())])
-            .expect("Failed to push level1");
+            .navigate(PathSegment::Ident(id1.clone()))
+            .expect("Failed to navigate level1");
 
         let node_id2 = constructor
-            .push_path(&[PathSegment::Extension(id2.clone())])
-            .expect("Failed to push level2");
+            .navigate(PathSegment::Extension(id2.clone()))
+            .expect("Failed to navigate level2");
 
         let node_id3 = constructor
-            .push_path(&[PathSegment::Extension(id3.clone())])
-            .expect("Failed to push level3");
+            .navigate(PathSegment::Extension(id3.clone()))
+            .expect("Failed to navigate level3");
 
         // Verify at deepest level
         assert_eq!(constructor.current_node_id(), node_id3);
@@ -388,106 +380,89 @@ mod tests {
             ]
         );
 
-        // Pop level 3
-        constructor.pop(node_id3).expect("Failed to pop level3");
-        assert_eq!(constructor.current_node_id(), node_id2);
-        assert_eq!(
-            constructor.current_path(),
-            &[PathSegment::Ident(id1.clone()), PathSegment::Extension(id2)]
-        );
+        // End scope - should restore to root
+        constructor.end_scope(token).expect("Failed to end scope");
+        assert_eq!(constructor.current_node_id(), root_id);
+        assert_eq!(constructor.current_path(), &[]);
 
-        // Pop level 2
-        constructor.pop(node_id2).expect("Failed to pop level2");
-        assert_eq!(constructor.current_node_id(), node_id1);
+        // Verify nodes still exist in document (node() panics if not found)
+        let _ = constructor.document().node(node_id1);
+        let _ = constructor.document().node(node_id2);
+        let _ = constructor.document().node(node_id3);
+    }
+
+    #[test]
+    fn test_nested_scopes() {
+        let mut constructor = DocumentConstructor::new();
+        let root_id = constructor.document().get_root_id();
+
+        let id1 = create_identifier("a");
+        let id2 = create_identifier("b");
+        let id3 = create_identifier("c");
+
+        // Outer scope: navigate to a
+        let token_outer = constructor.begin_scope();
+        let node_a = constructor
+            .navigate(PathSegment::Ident(id1.clone()))
+            .expect("Failed to navigate a");
+
+        // Inner scope: navigate to b.c
+        let token_inner = constructor.begin_scope();
+        let _node_b = constructor
+            .navigate(PathSegment::Extension(id2.clone()))
+            .expect("Failed to navigate b");
+        let _node_c = constructor
+            .navigate(PathSegment::Extension(id3.clone()))
+            .expect("Failed to navigate c");
+
+        // End inner scope - should be back at a
+        constructor
+            .end_scope(token_inner)
+            .expect("Failed to end inner scope");
+        assert_eq!(constructor.current_node_id(), node_a);
         assert_eq!(constructor.current_path(), &[PathSegment::Ident(id1)]);
 
-        // Pop level 1
-        constructor.pop(node_id1).expect("Failed to pop level1");
+        // End outer scope - should be back at root
+        constructor
+            .end_scope(token_outer)
+            .expect("Failed to end outer scope");
         assert_eq!(constructor.current_node_id(), root_id);
         assert_eq!(constructor.current_path(), &[]);
     }
 
     #[test]
-    fn test_push_multiple_segments_at_once() {
+    fn test_require_hole_success() {
         let mut constructor = DocumentConstructor::new();
 
-        let id1 = create_identifier("ext1");
-        let id2 = create_identifier("ext2");
+        let identifier = create_identifier("field");
+        constructor
+            .navigate(PathSegment::Ident(identifier))
+            .expect("Failed to navigate");
 
-        // Push multiple segments at once
-        let segments = &[
-            PathSegment::Extension(id1.clone()),
-            PathSegment::Extension(id2.clone()),
-        ];
-
-        let node_id = constructor.push_path(segments).expect("Failed to push");
-
-        assert_eq!(constructor.current_node_id(), node_id);
-        assert_eq!(constructor.current_path(), segments.as_slice());
+        // New node should be a Hole
+        let result = constructor.require_hole();
+        assert_eq!(result, Ok(()));
     }
 
     #[test]
-    fn test_push_binding_path_success() {
+    fn test_require_hole_fails_when_bound() {
         let mut constructor = DocumentConstructor::new();
 
-        let id1 = create_identifier("field1");
-        let id2 = create_identifier("field2");
-        let path = &[
-            PathSegment::Ident(id1.clone()),
-            PathSegment::Extension(id2.clone()),
-        ];
-
-        // Push a new binding path should succeed
+        let identifier = create_identifier("field");
         let node_id = constructor
-            .push_binding_path(path)
-            .expect("Failed to push binding path");
+            .navigate(PathSegment::Ident(identifier))
+            .expect("Failed to navigate");
 
-        assert_eq!(constructor.current_node_id(), node_id);
-        assert_eq!(constructor.current_path(), path.as_slice());
-
-        // The node should be uninitialized
-        let node = constructor.document().node(node_id);
-        assert!(matches!(node.content, NodeValue::Hole));
-    }
-
-    #[test]
-    fn test_push_binding_path_already_bound() {
-        let mut constructor = DocumentConstructor::new();
-        let id1 = create_identifier("parent");
-        let id2 = create_identifier("child");
-
-        // Create parent.$child and assign a value to it
-        let parent_id = constructor
-            .document_mut()
-            .prepare_node(&[PathSegment::Ident(id1.clone())])
-            .expect("Failed to prepare parent")
-            .node_id;
-        let child_id = constructor
-            .document_mut()
-            .prepare_node(&[
-                PathSegment::Ident(id1.clone()),
-                PathSegment::Extension(id2.clone()),
-            ])
-            .expect("Failed to prepare child")
-            .node_id;
-        constructor.document_mut().node_mut(child_id).content =
+        // Set the node to have a value
+        constructor.document_mut().node_mut(node_id).content =
             NodeValue::Primitive(PrimitiveValue::Bool(true));
 
-        // Try to bind to the same location from parent (should fail)
-        constructor
-            .push_path(&[PathSegment::Ident(id1.clone())])
-            .unwrap();
-
-        let result = constructor.push_binding_path(&[PathSegment::Extension(id2.clone())]);
-
+        // require_hole should fail
+        let result = constructor.require_hole();
         assert_eq!(
             result.unwrap_err().kind,
             InsertErrorKind::BindingTargetHasValue
         );
-
-        // After the error, constructor should still be at parent (stack was popped)
-        assert_eq!(constructor.current_node_id(), parent_id);
-        assert_eq!(constructor.current_path(), &[PathSegment::Ident(id1)]);
     }
 
     #[test]
@@ -495,10 +470,10 @@ mod tests {
         let mut constructor = DocumentConstructor::new();
         let identifier = create_identifier("field");
 
-        // Push to a field node
+        // Navigate to a field node
         let node_id = constructor
-            .push_path(&[PathSegment::Ident(identifier)])
-            .expect("Failed to push");
+            .navigate(PathSegment::Ident(identifier))
+            .expect("Failed to navigate");
 
         // Bind a primitive value to the node
         let result = constructor.bind_primitive(PrimitiveValue::Bool(true));
@@ -517,10 +492,10 @@ mod tests {
         let mut constructor = DocumentConstructor::new();
         let identifier = create_identifier("field");
 
-        // Push to a field node
+        // Navigate to a field node
         let node_id = constructor
-            .push_path(&[PathSegment::Ident(identifier.clone())])
-            .expect("Failed to push");
+            .navigate(PathSegment::Ident(identifier.clone()))
+            .expect("Failed to navigate");
 
         // Set the node to already have a value
         constructor.document_mut().node_mut(node_id).content =
@@ -576,6 +551,39 @@ mod tests {
         let root_node = document.node(document.get_root_id());
         assert!(matches!(
             root_node.content,
+            NodeValue::Primitive(PrimitiveValue::Bool(true))
+        ));
+    }
+
+    #[test]
+    fn test_typical_binding_pattern() {
+        // Test the typical pattern: a.b.c = true
+        let mut constructor = DocumentConstructor::new();
+
+        let id_a = create_identifier("a");
+        let id_b = create_identifier("b");
+        let id_c = create_identifier("c");
+
+        let token = constructor.begin_scope();
+        constructor
+            .navigate(PathSegment::Ident(id_a.clone()))
+            .unwrap();
+        constructor
+            .navigate(PathSegment::Extension(id_b.clone()))
+            .unwrap();
+        let node_c = constructor
+            .navigate(PathSegment::Extension(id_c.clone()))
+            .unwrap();
+        constructor.require_hole().unwrap();
+        constructor
+            .bind_primitive(PrimitiveValue::Bool(true))
+            .unwrap();
+        constructor.end_scope(token).unwrap();
+
+        // Verify the value was bound
+        let node = constructor.document().node(node_c);
+        assert!(matches!(
+            node.content,
             NodeValue::Primitive(PrimitiveValue::Bool(true))
         ));
     }
