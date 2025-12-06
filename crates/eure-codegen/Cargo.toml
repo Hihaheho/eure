@@ -11,4 +11,4 @@ keywords = ["codegen", "eure", "schema"]
 
 [dependencies]
 bon = "3"
-eure-value = { path = "../eure-value" }
+eure-document = { path = "../eure-document" }

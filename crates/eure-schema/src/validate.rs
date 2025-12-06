@@ -33,13 +33,13 @@ use crate::{
     SchemaNodeContent, SchemaNodeId, TextSchema, TupleSchema, TypeReference, UnionSchema,
     UnknownFieldsPolicy, identifiers,
 };
-use eure_value::data_model::VariantRepr;
-use eure_value::document::node::{Node, NodeValue};
-use eure_value::document::{EureDocument, NodeId};
-use eure_value::identifier::Identifier;
-use eure_value::path::{EurePath, PathSegment};
-use eure_value::text::Language;
-use eure_value::value::{ObjectKey, PrimitiveValue, Tuple, Value};
+use eure_document::data_model::VariantRepr;
+use eure_document::document::node::{Node, NodeValue};
+use eure_document::document::{EureDocument, NodeId};
+use eure_document::identifier::Identifier;
+use eure_document::path::{EurePath, PathSegment};
+use eure_document::text::Language;
+use eure_document::value::{ObjectKey, PrimitiveValue, Tuple, Value};
 use num_bigint::BigInt;
 use regex::Regex;
 use thiserror::Error;
@@ -1572,7 +1572,7 @@ fn node_to_value(document: &EureDocument, node: &Node) -> Value {
                 .iter()
                 .map(|&id| node_to_value(document, document.node(id)))
                 .collect();
-            Value::Array(eure_value::value::Array(values))
+            Value::Array(eure_document::value::Array(values))
         }
         NodeValue::Tuple(tup) => {
             let values: Vec<Value> = tup
@@ -1588,7 +1588,7 @@ fn node_to_value(document: &EureDocument, node: &Node) -> Value {
                 .iter()
                 .map(|(k, &id)| (k.clone(), node_to_value(document, document.node(id))))
                 .collect();
-            Value::Map(eure_value::value::Map(entries.into_iter().collect()))
+            Value::Map(eure_document::value::Map(entries.into_iter().collect()))
         }
     }
 }
@@ -1721,7 +1721,7 @@ fn object_key_to_value(key: &ObjectKey) -> Value {
         ObjectKey::Bool(b) => Value::Primitive(PrimitiveValue::Bool(*b)),
         ObjectKey::Number(n) => Value::Primitive(PrimitiveValue::Integer(n.clone())),
         ObjectKey::String(s) => Value::Primitive(PrimitiveValue::Text(
-            eure_value::text::Text::plaintext(s.clone()),
+            eure_document::text::Text::plaintext(s.clone()),
         )),
         ObjectKey::Tuple(t) => {
             let values: Vec<Value> = t.0.iter().map(object_key_to_value).collect();
@@ -1753,7 +1753,7 @@ fn object_key_to_value(key: &ObjectKey) -> Value {
 ///
 /// ```ignore
 /// use eure_schema::validate::validate;
-/// use eure_value::document::EureDocument;
+/// use eure_document::document::EureDocument;
 ///
 /// let schema = // ... load or convert schema
 /// let document = // ... parse document
@@ -1847,7 +1847,7 @@ fn set_node_value(doc: &mut EureDocument, node_id: NodeId, value: &Value) {
 mod tests {
     use super::*;
     use crate::{SchemaDocument, SchemaNodeContent};
-    use eure_value::text::Text;
+    use eure_document::text::Text;
 
     fn create_simple_schema(content: SchemaNodeContent) -> (SchemaDocument, SchemaNodeId) {
         let mut schema = SchemaDocument::new();
@@ -2062,7 +2062,7 @@ mod tests {
         schema.root = array_schema;
 
         // Valid array
-        let value = Value::Array(eure_value::value::Array(vec![
+        let value = Value::Array(eure_document::value::Array(vec![
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
         ]));
@@ -2070,12 +2070,12 @@ mod tests {
         assert!(result.is_valid);
 
         // Too short
-        let value = Value::Array(eure_value::value::Array(vec![]));
+        let value = Value::Array(eure_document::value::Array(vec![]));
         let result = validate_value(&value, &schema);
         assert!(!result.is_valid);
 
         // Too long
-        let value = Value::Array(eure_value::value::Array(vec![
+        let value = Value::Array(eure_document::value::Array(vec![
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(3))),
@@ -2100,7 +2100,7 @@ mod tests {
         schema.root = array_schema;
 
         // Unique values
-        let value = Value::Array(eure_value::value::Array(vec![
+        let value = Value::Array(eure_document::value::Array(vec![
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(3))),
@@ -2109,7 +2109,7 @@ mod tests {
         assert!(result.is_valid);
 
         // Duplicate values
-        let value = Value::Array(eure_value::value::Array(vec![
+        let value = Value::Array(eure_document::value::Array(vec![
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
             Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),

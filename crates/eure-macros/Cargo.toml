@@ -19,10 +19,10 @@ quote = "1.0"
 syn = { version = "2.0", features = ["extra-traits", "full"] }
 
 [dev-dependencies]
+eure-document = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }
 eure-tree = { workspace = true }
-eure-value = { workspace = true }
 indexmap = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

@@ -5,14 +5,14 @@
 //! cannot be represented in JSON Schema and will result in conversion errors.
 
 use crate::json_schema::*;
+use eure_document::data_model::VariantRepr;
+use eure_document::value::{ObjectKey, PrimitiveValue, Value};
 use eure_schema::{
     ArraySchema as EureArraySchema, Bound, Description, FloatSchema,
     IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
     SchemaMetadata as EureMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId, TextSchema,
     TupleSchema, UnionSchema, UnknownFieldsPolicy,
 };
-use eure_value::data_model::VariantRepr;
-use eure_value::value::{ObjectKey, PrimitiveValue, Value};
 use indexmap::IndexMap;
 use num_traits::ToPrimitive;
 
@@ -678,11 +678,11 @@ fn convert_untagged_variant(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eure_document::data_model::VariantRepr;
     use eure_schema::{
         Bound, IntegerSchema as EureIntegerSchema, RecordFieldSchema, RecordSchema, SchemaDocument,
         SchemaNodeContent, UnknownFieldsPolicy,
     };
-    use eure_value::data_model::VariantRepr;
     use std::collections::HashMap;
 
     #[test]

@@ -11,7 +11,7 @@
 //!
 //! ## Schema-Defined Codegen Settings
 //!
-//! These types implement [`ParseDocument`](eure_value::parse::ParseDocument) for
+//! These types implement [`ParseDocument`](eure_document::parse::ParseDocument) for
 //! parsing codegen configuration from Eure schema files:
 //!
 //! - [`RootCodegen`] - Root-level `$codegen` extension

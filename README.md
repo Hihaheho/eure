@@ -73,7 +73,7 @@ scene: scenes/room_a.scn.ron
 - [ ] eure-toml: TOML conversion support
 - [ ] eure-json: JSON conversion support
 - [ ] eure-yaml: YAML conversion support
-- [ ] eure-value: Type-safe data-type of Eure data-model
+- [ ] eure-document: Type-safe data-type of Eure data-model
 
 ## Credits
 

@@ -1,11 +1,11 @@
 mod value_visitor;
 
 use eros::Union as _;
+pub use eure_document::document::*;
+use eure_document::identifier::IdentifierError;
+use eure_document::text::TextParseError;
+use eure_document::{document::constructor::PopError, path::PathSegment};
 use eure_parol::EureParseError;
-pub use eure_value::document::*;
-use eure_value::identifier::IdentifierError;
-use eure_value::text::TextParseError;
-use eure_value::{document::constructor::PopError, path::PathSegment};
 
 use crate::document::value_visitor::ValueVisitor;
 use eure_tree::prelude::*;

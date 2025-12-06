@@ -1,4 +1,4 @@
-pub use eure_value::identifier::*;
-pub use eure_value::path::*;
-pub use eure_value::text::*;
-pub use eure_value::value::*;
+pub use eure_document::identifier::*;
+pub use eure_document::path::*;
+pub use eure_document::text::*;
+pub use eure_document::value::*;

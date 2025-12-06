@@ -37,7 +37,7 @@ cargo run --bin eure -- <commands> # Run eure CLI for validating file or convers
 
 **Workspace Structure:**
 - 18 crates organized by functionality in a Rust workspace
-- Core libraries: `eure-value` (data types), `eure-tree` (AST/CST), `eure-parol` (parser)
+- Core libraries: `eure-document` (data types), `eure-tree` (AST/CST), `eure-parol` (parser)
 - Format support: `eure-json`, `eure-toml`, `eure-yaml`, `serde-eure`
 - Tooling: `eure-cli`, `eure-ls` (LSP), `eure-fmt` (formatter), `eure-lint`
 - Schema system: `eure-schema`, `eure-json-schema`, `eure-template`
@@ -59,7 +59,7 @@ Implements LSP for IDE integration with semantic tokens, diagnostics, and format
 
 **Development Notes:**
 - Refer @crates/eure-parol/eure.par to understand the latest grammar.
-- Refer EureDocument struct in crates/eure-value for understanding the data model.
+- Refer EureDocument struct in crates/eure-document for understanding the data model.
 
 **ParseDocument API:**
 - Use `ParseDocument` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.

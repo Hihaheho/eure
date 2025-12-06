@@ -14,9 +14,9 @@
 
 use std::collections::HashMap;
 
-use eure_value::document::{EureDocument, NodeId};
-use eure_value::identifier::Identifier;
-use eure_value::parse::{ParseDocument, ParseError};
+use eure_document::document::{EureDocument, NodeId};
+use eure_document::identifier::Identifier;
+use eure_document::parse::{ParseDocument, ParseError};
 
 // ============================================================================
 // Root-Level Codegen Types
@@ -305,7 +305,7 @@ pub struct CascadeExtTypeCodegen {
 
 impl ParseDocument<'_> for CascadeExtTypeCodegen {
     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        use eure_value::parse::ParseErrorKind;
+        use eure_document::parse::ParseErrorKind;
 
         let mut rec = doc.parse_record(node_id)?;
 
@@ -349,7 +349,7 @@ impl ParseDocument<'_> for CascadeExtTypeCodegen {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_value::document::node::NodeValue;
+    use eure_document::document::node::NodeValue;
 
     fn create_empty_map_node(doc: &mut EureDocument) -> NodeId {
         let root_id = doc.get_root_id();

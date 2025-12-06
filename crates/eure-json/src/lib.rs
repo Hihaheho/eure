@@ -100,7 +100,7 @@ fn convert_variant(
     config: &Config,
 ) -> Result<JsonValue, EureToJsonError> {
     // First convert the variant content
-    let content_json = convert_eure_value(&variant.content, config)?;
+    let content_json = convert_eure_document(&variant.content, config)?;
 
     match &config.variant_repr {
         VariantRepr::External => {
@@ -147,7 +147,7 @@ fn convert_variant(
     }
 }
 
-fn convert_eure_value(
+fn convert_eure_document(
     value: &eure::value::Value,
     config: &Config,
 ) -> Result<JsonValue, EureToJsonError> {
@@ -156,14 +156,14 @@ fn convert_eure_value(
         eure::value::Value::Array(arr) => {
             let mut result = Vec::new();
             for item in &arr.0 {
-                result.push(convert_eure_value(item, config)?);
+                result.push(convert_eure_document(item, config)?);
             }
             Ok(JsonValue::Array(result))
         }
         eure::value::Value::Tuple(tuple) => {
             let mut result = Vec::new();
             for item in &tuple.0 {
-                result.push(convert_eure_value(item, config)?);
+                result.push(convert_eure_document(item, config)?);
             }
             Ok(JsonValue::Array(result))
         }
@@ -171,7 +171,7 @@ fn convert_eure_value(
             let mut result = serde_json::Map::new();
             for (key, value) in &map.0 {
                 let key_string = convert_object_key(key)?;
-                let json_value = convert_eure_value(value, config)?;
+                let json_value = convert_eure_document(value, config)?;
                 result.insert(key_string, json_value);
             }
             Ok(JsonValue::Object(result))
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_text_plaintext_conversion() {
-        use eure_value::text::Text;
+        use eure_document::text::Text;
         let text = Text::plaintext("hello world".to_string());
         let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
         let config = Config::default();
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_text_with_language_conversion() {
-        use eure_value::text::{Language, Text};
+        use eure_document::text::{Language, Text};
         let text = Text::new(
             "fn main() {}".to_string(),
             Language::Other("rust".to_string()),
@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_text_implicit_conversion() {
-        use eure_value::text::{Language, Text};
+        use eure_document::text::{Language, Text};
         let text = Text::new("print('hello')".to_string(), Language::Implicit);
         let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
         let config = Config::default();
@@ -625,7 +625,7 @@ mod tests {
     // Test extensions are ignored
     #[test]
     fn test_extensions_ignored() {
-        use eure_value::identifier::Identifier;
+        use eure_document::identifier::Identifier;
         let mut doc = EureDocument::new_primitive(PrimitiveValue::Bool(true));
         let root = doc.get_root_id();
 

@@ -19,13 +19,13 @@ automod = { workspace = true }
 catppuccin = { workspace = true, features = ["css-colors"] }
 clap = { workspace = true, features = ["derive"] }
 eure = { workspace = true }
+eure-document = { workspace = true }
 eure-editor-support = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }
 eure-json = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }
 eure-tree = { workspace = true }
-eure-value = { workspace = true }
 eure-yaml = { workspace = true }
 maud = "0.27.0"
 nu-ansi-term = "0.50"

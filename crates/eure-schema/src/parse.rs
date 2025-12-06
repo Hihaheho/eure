@@ -20,10 +20,10 @@
 
 use std::collections::HashMap;
 
-use eure_value::data_model::VariantRepr;
-use eure_value::document::{EureDocument, NodeId};
-use eure_value::identifier::Identifier;
-use eure_value::parse::{ParseDocument, ParseError, ParseErrorKind};
+use eure_document::data_model::VariantRepr;
+use eure_document::document::{EureDocument, NodeId};
+use eure_document::identifier::Identifier;
+use eure_document::parse::{ParseDocument, ParseError, ParseErrorKind};
 use num_bigint::BigInt;
 
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
@@ -451,7 +451,7 @@ impl ParseDocument<'_> for ParsedTupleSchema {
         // elements is an array of NodeIds
         let elements_node = rec.field_node("elements")?;
         let elements: Vec<NodeId> = {
-            let array = doc.parse::<&eure_value::document::node::NodeArray>(elements_node)?;
+            let array = doc.parse::<&eure_document::document::node::NodeArray>(elements_node)?;
             array.iter().copied().collect()
         };
 
@@ -621,9 +621,9 @@ pub struct ParsedSchemaNode {
 // Helper functions for parsing schema node content
 // ============================================================================
 
-use eure_value::document::node::NodeValue;
-use eure_value::text::Language;
-use eure_value::value::{PrimitiveValue, ValueKind};
+use eure_document::document::node::NodeValue;
+use eure_document::text::Language;
+use eure_document::value::{PrimitiveValue, ValueKind};
 
 /// Get the $variant extension value as a string if present.
 fn get_variant_string(doc: &EureDocument, node_id: NodeId) -> Result<Option<String>, ParseError> {
@@ -880,9 +880,9 @@ fn parse_ext_types(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_value::document::node::NodeValue;
-    use eure_value::text::Text;
-    use eure_value::value::PrimitiveValue;
+    use eure_document::document::node::NodeValue;
+    use eure_document::text::Text;
+    use eure_document::value::PrimitiveValue;
 
     fn create_text_node(doc: &mut EureDocument, text: &str) -> NodeId {
         let root_id = doc.get_root_id();

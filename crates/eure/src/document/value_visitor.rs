@@ -1,7 +1,5 @@
-use eure_tree::tree::{InputSpan, RecursiveView};
-use eure_tree::{prelude::*, tree::TerminalHandle};
-use eure_value::value::Tuple;
-use eure_value::{
+use eure_document::value::Tuple;
+use eure_document::{
     document::{EureDocument, constructor::DocumentConstructor},
     identifier::Identifier,
     path::PathSegment,
@@ -9,6 +7,8 @@ use eure_value::{
     value::ObjectKey,
     value::PrimitiveValue,
 };
+use eure_tree::tree::{InputSpan, RecursiveView};
+use eure_tree::{prelude::*, tree::TerminalHandle};
 use num_bigint::BigInt;
 use regex::Regex;
 use std::sync::LazyLock;
@@ -208,7 +208,7 @@ impl<'a> ValueVisitor<'a> {
     }
 
     /// Record an origin for the current node
-    fn record_origin(&mut self, node_id: eure_value::document::NodeId, origin: NodeOrigin) {
+    fn record_origin(&mut self, node_id: eure_document::document::NodeId, origin: NodeOrigin) {
         self.node_origins.entry(node_id).or_default().push(origin);
     }
 

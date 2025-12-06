@@ -1443,10 +1443,10 @@ version = "0.1.0"
 dependencies = [
  "annotate-snippets",
  "eros",
+ "eure-document",
  "eure-parol",
  "eure-schema",
  "eure-tree",
- "eure-value",
  "num-bigint",
  "regex",
  "thiserror 2.0.17",
@@ -1461,13 +1461,13 @@ dependencies = [
  "catppuccin",
  "clap",
  "eure",
+ "eure-document",
  "eure-editor-support",
  "eure-fmt",
  "eure-json",
  "eure-parol",
  "eure-schema",
  "eure-tree",
- "eure-value",
  "eure-yaml",
  "maud",
  "nu-ansi-term",
@@ -1480,7 +1480,7 @@ name = "eure-codegen"
 version = "0.0.0"
 dependencies = [
  "bon",
- "eure-value",
+ "eure-document",
 ]
 
 [[package]]
@@ -1502,14 +1502,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "eure-document"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "num-bigint",
+ "regex",
+ "thiserror 2.0.17",
+ "thisisplural",
+]
+
+[[package]]
 name = "eure-editor-support"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "eure-document",
  "eure-parol",
  "eure-schema",
  "eure-tree",
- "eure-value",
  "indexmap",
  "lsp-types",
  "tracing",
@@ -1543,8 +1554,8 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "eure",
+ "eure-document",
  "eure-fmt",
- "eure-value",
  "indexmap",
  "num-bigint",
  "serde",
@@ -1556,8 +1567,8 @@ dependencies = [
 name = "eure-json-schema"
 version = "0.1.0"
 dependencies = [
+ "eure-document",
  "eure-schema",
- "eure-value",
  "indexmap",
  "num-bigint",
  "num-traits",
@@ -1591,10 +1602,10 @@ name = "eure-macros"
 version = "0.1.0"
 dependencies = [
  "convert_case 0.10.0",
+ "eure-document",
  "eure-parol",
  "eure-schema",
  "eure-tree",
- "eure-value",
  "indexmap",
  "proc-macro2",
  "quote",
@@ -1624,10 +1635,10 @@ dependencies = [
  "chrono",
  "convert_case 0.9.0",
  "eure",
+ "eure-document",
  "eure-macros",
  "eure-parol",
  "eure-tree",
- "eure-value",
  "indexmap",
  "num-bigint",
  "regex",
@@ -1652,17 +1663,6 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "bon",
- "thiserror 2.0.17",
- "thisisplural",
-]
-
-[[package]]
-name = "eure-value"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "num-bigint",
- "regex",
  "thiserror 2.0.17",
  "thisisplural",
 ]

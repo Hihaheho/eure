@@ -1,4 +1,4 @@
-# eure-value
+# eure-document
 
 Type-safe data-type for Eure data model.
 
