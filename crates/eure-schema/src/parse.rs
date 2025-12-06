@@ -20,10 +20,10 @@
 
 use std::collections::HashMap;
 
-use eure_value::data_model::VariantRepr;
-use eure_value::document::{EureDocument, NodeId};
-use eure_value::identifier::Identifier;
-use eure_value::parse::{ParseDocument, ParseError, ParseErrorKind};
+use eure_document::data_model::VariantRepr;
+use eure_document::document::{EureDocument, NodeId};
+use eure_document::identifier::Identifier;
+use eure_document::parse::{ParseDocument, ParseError, ParseErrorKind};
 use num_bigint::BigInt;
 
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
@@ -159,8 +159,8 @@ impl ParseDocument<'_> for TextSchema {
 impl ParseDocument<'_> for crate::SchemaRef {
     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         let mut ext = doc.parse_extension(node_id);
-        let schema_node_id = ext.field_node("schema")?;
-        ext.allow_unknown_fields();
+        let schema_node_id = ext.ext_node("schema")?;
+        ext.allow_unknown_extensions();
 
         let path: String = doc.parse(schema_node_id)?;
         Ok(crate::SchemaRef {
@@ -278,8 +278,8 @@ impl ParseDocument<'_> for ParsedArraySchema {
 
         // Parse $ext-type.binding-style
         let mut ext = doc.parse_extension(node_id);
-        let binding_style = ext.field_optional::<BindingStyle>("binding-style")?;
-        ext.allow_unknown_fields();
+        let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
+        ext.allow_unknown_extensions();
 
         Ok(ParsedArraySchema {
             item,
@@ -349,11 +349,11 @@ impl ParseDocument<'_> for ParsedRecordFieldSchema {
     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         let mut ext = doc.parse_extension(node_id);
 
-        let optional = ext.field_optional::<bool>("optional")?.unwrap_or(false);
-        let binding_style = ext.field_optional::<BindingStyle>("binding-style")?;
+        let optional = ext.ext_optional::<bool>("optional")?.unwrap_or(false);
+        let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
 
         // Allow other extensions (description, deprecated, etc.)
-        ext.allow_unknown_fields();
+        ext.allow_unknown_extensions();
 
         Ok(ParsedRecordFieldSchema {
             schema: node_id, // The node itself is the schema
@@ -413,9 +413,9 @@ impl ParseDocument<'_> for ParsedRecordSchema {
         // Parse $unknown-fields extension
         let mut ext = doc.parse_extension(node_id);
         let unknown_fields = ext
-            .field_optional::<ParsedUnknownFieldsPolicy>("unknown-fields")?
+            .ext_optional::<ParsedUnknownFieldsPolicy>("unknown-fields")?
             .unwrap_or_default();
-        ext.allow_unknown_fields();
+        ext.allow_unknown_extensions();
 
         // Parse all fields in the map as record properties
         let rec = doc.parse_record(node_id)?;
@@ -451,7 +451,7 @@ impl ParseDocument<'_> for ParsedTupleSchema {
         // elements is an array of NodeIds
         let elements_node = rec.field_node("elements")?;
         let elements: Vec<NodeId> = {
-            let array = doc.parse::<&eure_value::document::node::NodeArray>(elements_node)?;
+            let array = doc.parse::<&eure_document::document::node::NodeArray>(elements_node)?;
             array.iter().copied().collect()
         };
 
@@ -464,8 +464,8 @@ impl ParseDocument<'_> for ParsedTupleSchema {
 
         // Parse $ext-type.binding-style
         let mut ext = doc.parse_extension(node_id);
-        let binding_style = ext.field_optional::<BindingStyle>("binding-style")?;
-        ext.allow_unknown_fields();
+        let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
+        ext.allow_unknown_extensions();
 
         Ok(ParsedTupleSchema {
             elements,
@@ -506,9 +506,9 @@ impl ParseDocument<'_> for ParsedUnionSchema {
         // Parse $variant-repr extension
         let mut ext = doc.parse_extension(node_id);
         let repr = ext
-            .field_optional::<VariantRepr>("variant-repr")?
+            .ext_optional::<VariantRepr>("variant-repr")?
             .unwrap_or_default();
-        ext.allow_unknown_fields();
+        ext.allow_unknown_extensions();
 
         Ok(ParsedUnionSchema {
             variants,
@@ -530,8 +530,8 @@ pub struct ParsedExtTypeSchema {
 impl ParseDocument<'_> for ParsedExtTypeSchema {
     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         let mut ext = doc.parse_extension(node_id);
-        let optional = ext.field_optional::<bool>("optional")?.unwrap_or(false);
-        ext.allow_unknown_fields();
+        let optional = ext.ext_optional::<bool>("optional")?.unwrap_or(false);
+        ext.allow_unknown_extensions();
 
         Ok(ParsedExtTypeSchema {
             schema: node_id,
@@ -558,13 +558,13 @@ impl ParsedSchemaMetadata {
     pub fn parse_from_extensions(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         let mut ext = doc.parse_extension(node_id);
 
-        let description = ext.field_optional::<Description>("description")?;
-        let deprecated = ext.field_optional::<bool>("deprecated")?.unwrap_or(false);
-        let default = ext.field_node_optional("default");
-        let examples = ext.field_optional::<Vec<String>>("examples")?;
+        let description = ext.ext_optional::<Description>("description")?;
+        let deprecated = ext.ext_optional::<bool>("deprecated")?.unwrap_or(false);
+        let default = ext.ext_node_optional("default");
+        let examples = ext.ext_optional::<Vec<String>>("examples")?;
 
         // Allow other extensions (codegen, etc.)
-        ext.allow_unknown_fields();
+        ext.allow_unknown_extensions();
 
         Ok(ParsedSchemaMetadata {
             description,
@@ -621,15 +621,15 @@ pub struct ParsedSchemaNode {
 // Helper functions for parsing schema node content
 // ============================================================================
 
-use eure_value::document::node::NodeValue;
-use eure_value::text::Language;
-use eure_value::value::{PrimitiveValue, ValueKind};
+use eure_document::document::node::NodeValue;
+use eure_document::text::Language;
+use eure_document::value::{PrimitiveValue, ValueKind};
 
 /// Get the $variant extension value as a string if present.
 fn get_variant_string(doc: &EureDocument, node_id: NodeId) -> Result<Option<String>, ParseError> {
     let mut ext = doc.parse_extension(node_id);
-    let variant = ext.field_node_optional("variant");
-    ext.allow_unknown_fields();
+    let variant = ext.ext_node_optional("variant");
+    ext.allow_unknown_extensions();
 
     match variant {
         Some(var_node_id) => {
@@ -850,8 +850,8 @@ fn parse_ext_types(
     node_id: NodeId,
 ) -> Result<HashMap<Identifier, ParsedExtTypeSchema>, ParseError> {
     let mut ext = doc.parse_extension(node_id);
-    let ext_type_node = ext.field_node_optional("ext-type");
-    ext.allow_unknown_fields();
+    let ext_type_node = ext.ext_node_optional("ext-type");
+    ext.allow_unknown_extensions();
 
     let mut result = HashMap::new();
 
@@ -880,9 +880,9 @@ fn parse_ext_types(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_value::document::node::NodeValue;
-    use eure_value::text::Text;
-    use eure_value::value::PrimitiveValue;
+    use eure_document::document::node::NodeValue;
+    use eure_document::text::Text;
+    use eure_document::value::PrimitiveValue;
 
     fn create_text_node(doc: &mut EureDocument, text: &str) -> NodeId {
         let root_id = doc.get_root_id();

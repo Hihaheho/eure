@@ -1,11 +1,11 @@
 mod value_visitor;
 
 use eros::Union as _;
+use eure_document::document::constructor::ScopeError;
+pub use eure_document::document::*;
+use eure_document::identifier::IdentifierError;
+use eure_document::text::TextParseError;
 use eure_parol::EureParseError;
-pub use eure_value::document::*;
-use eure_value::identifier::IdentifierError;
-use eure_value::text::TextParseError;
-use eure_value::{document::constructor::PopError, path::PathSegment};
 
 use crate::document::value_visitor::ValueVisitor;
 use eure_tree::prelude::*;
@@ -139,8 +139,6 @@ pub enum DocumentConstructionError {
         error: InsertError,
         node_id: CstNodeId,
     },
-    #[error("Unprocessed segments: {segments:?}")]
-    UnprocessedSegments { segments: Vec<PathSegment> },
     #[error("Dynamic token not found: {0:?}")]
     DynamicTokenNotFound(DynamicTokenId),
     #[error("Failed to parse big integer: {0}")]
@@ -162,8 +160,8 @@ pub enum DocumentConstructionError {
     },
     #[error("Invalid key type at node {node_id:?}")]
     InvalidKeyType { node_id: CstNodeId },
-    #[error("Failed to pop path: {0}")]
-    PopPath(#[from] PopError),
+    #[error("Failed to end scope: {0}")]
+    EndScope(#[from] ScopeError),
     #[error("Failed to parse tuple index: {value}")]
     InvalidTupleIndex { node_id: CstNodeId, value: String },
 }

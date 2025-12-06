@@ -33,9 +33,9 @@ pub mod identifiers;
 pub mod parse;
 pub mod validate;
 
-use eure_value::data_model::VariantRepr;
-use eure_value::identifier::Identifier;
-use eure_value::value::Value;
+use eure_document::data_model::VariantRepr;
+use eure_document::identifier::Identifier;
+use eure_document::value::Value;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 
@@ -213,7 +213,7 @@ pub struct TextSchema {
     /// Regex pattern constraint (applied to the text content)
     pub pattern: Option<String>,
     /// Unknown fields (for future extensions like "flatten")
-    pub unknown_fields: std::collections::HashMap<String, eure_value::document::NodeId>,
+    pub unknown_fields: std::collections::HashMap<String, eure_document::document::NodeId>,
 }
 
 /// Integer type constraints
@@ -576,5 +576,5 @@ pub struct SchemaRef {
     /// Path to the schema file
     pub path: String,
     /// NodeId where the $schema was defined (for error reporting)
-    pub node_id: eure_value::document::NodeId,
+    pub node_id: eure_document::document::NodeId,
 }

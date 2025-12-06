@@ -1,4 +1,4 @@
-use eure_value::identifier::Identifier;
+use eure_document::identifier::Identifier;
 
 pub const SCHEMA: Identifier = Identifier::new_unchecked("schema");
 pub const CASCADE_TYPE: Identifier = Identifier::new_unchecked("cascade-type");

@@ -142,7 +142,7 @@ pub fn run(args: Args) {
 /// Determine the schema path from --schema flag or $schema extension
 fn determine_schema_path(
     args: &Args,
-    document: &eure_value::document::EureDocument,
+    document: &eure_document::document::EureDocument,
     doc_file: &str,
 ) -> Result<String, String> {
     // Use --schema flag if provided

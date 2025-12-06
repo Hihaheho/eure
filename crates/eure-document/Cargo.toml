@@ -1,5 +1,5 @@
 [package]
-name = "eure-value"
+name = "eure-document"
 version = "0.1.0"
 edition = "2024"
 description = "Value type for Eure"

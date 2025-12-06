@@ -14,11 +14,11 @@ ahash = { workspace = true }
 # Optional dependencies for external crate support
 chrono = { version = "0.4", optional = true }
 convert_case = "0.9"
+eure-document = { workspace = true }
 # Optional derive macro support
 eure-macros = { workspace = true, optional = true }
 eure-parol = { workspace = true }
 eure-tree = { workspace = true }
-eure-value = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 num-bigint = { workspace = true }
 regex = { workspace = true }

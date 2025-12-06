@@ -1,7 +1,5 @@
-use eure_tree::tree::{InputSpan, RecursiveView};
-use eure_tree::{prelude::*, tree::TerminalHandle};
-use eure_value::value::Tuple;
-use eure_value::{
+use eure_document::value::Tuple;
+use eure_document::{
     document::{EureDocument, constructor::DocumentConstructor},
     identifier::Identifier,
     path::PathSegment,
@@ -9,6 +7,8 @@ use eure_value::{
     value::ObjectKey,
     value::PrimitiveValue,
 };
+use eure_tree::tree::{InputSpan, RecursiveView};
+use eure_tree::{prelude::*, tree::TerminalHandle};
 use num_bigint::BigInt;
 use regex::Regex;
 use std::sync::LazyLock;
@@ -123,7 +123,6 @@ pub struct ValueVisitor<'a> {
     input: &'a str,
     // Main document being built
     document: DocumentConstructor,
-    segments: Vec<PathSegment>,
     code_start: Option<CodeStart>,
     // Stack for collecting ObjectKeys when processing KeyTuple
     collecting_object_keys: Vec<Vec<ObjectKey>>,
@@ -138,7 +137,6 @@ impl<'a> ValueVisitor<'a> {
         Self {
             input,
             document: DocumentConstructor::new(),
-            segments: vec![],
             code_start: None,
             collecting_object_keys: vec![],
             node_origins: std::collections::HashMap::new(),
@@ -208,22 +206,8 @@ impl<'a> ValueVisitor<'a> {
     }
 
     /// Record an origin for the current node
-    fn record_origin(&mut self, node_id: eure_value::document::NodeId, origin: NodeOrigin) {
+    fn record_origin(&mut self, node_id: eure_document::document::NodeId, origin: NodeOrigin) {
         self.node_origins.entry(node_id).or_default().push(origin);
-    }
-
-    fn collect_path_segments(
-        &mut self,
-        visit: impl FnOnce(&mut Self) -> Result<(), DocumentConstructionError>,
-    ) -> Result<Vec<PathSegment>, DocumentConstructionError> {
-        if !self.segments.is_empty() {
-            return Err(DocumentConstructionError::UnprocessedSegments {
-                segments: self.segments.clone(),
-            });
-        }
-        visit(self)?;
-        let segments = std::mem::take(&mut self.segments);
-        Ok(segments)
     }
 
     fn get_terminal_str<T: TerminalHandle>(
@@ -345,12 +329,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // The keys can be nested (e.g., a.b => 1 becomes { a => { b => 1 } })
         if let Some(object_list_view) = view.object_list.get_view(tree)? {
             for item in object_list_view.get_all(tree)? {
-                // Collect path segments from the keys
-                let segments =
-                    self.collect_path_segments(|v| v.visit_keys_handle(item.keys, tree))?;
+                let scope = self.document.begin_scope();
 
-                // Push the binding path - this will create the nested structure
-                let node_id = self.document.push_binding_path(&segments).map_err(|e| {
+                // Navigate through the keys
+                self.visit_keys_handle(item.keys, tree)?;
+
+                // Validate binding target is a Hole
+                let node_id = self.document.current_node_id();
+                self.document.require_hole().map_err(|e| {
                     DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
@@ -363,8 +349,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 // Visit the value
                 self.visit_value_handle(item.value, tree)?;
 
-                // Pop back to the Object level
-                self.document.pop(node_id)?;
+                // Restore to the Object level
+                self.document.end_scope(scope)?;
             }
         } else if !has_value_binding {
             // Empty object (no value binding, no entries)
@@ -398,10 +384,11 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             while let Some(elem_handle) = current {
                 let elem_view = elem_handle.get_view(tree)?;
 
-                // Push array index path
+                // Begin scope and navigate to array index
+                let scope = self.document.begin_scope();
                 let node_id = self
                     .document
-                    .push_path(&[PathSegment::ArrayIndex(Some(index))])
+                    .navigate(PathSegment::ArrayIndex(Some(index)))
                     .map_err(|e| DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
@@ -419,8 +406,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 // Visit the value at this index
                 self.visit_value_handle(elem_view.value, tree)?;
 
-                // Pop back to array level
-                self.document.pop(node_id)?;
+                // End scope to return to array level
+                self.document.end_scope(scope)?;
 
                 // Move to next element if any
                 current = if let Some(tail_handle) = elem_view.array_elements_opt.get_view(tree)? {
@@ -463,10 +450,11 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             while let Some(elem_handle) = current {
                 let elem_view = elem_handle.get_view(tree)?;
 
-                // Push tuple index path
+                // Begin scope and navigate to tuple index
+                let scope = self.document.begin_scope();
                 let node_id = self
                     .document
-                    .push_path(&[PathSegment::TupleIndex(index)])
+                    .navigate(PathSegment::TupleIndex(index))
                     .map_err(|e| DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
@@ -484,8 +472,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 // Visit the value at this index
                 self.visit_value_handle(elem_view.value, tree)?;
 
-                // Pop back to tuple level
-                self.document.pop(node_id)?;
+                // End scope to return to tuple level
+                self.document.end_scope(scope)?;
 
                 // Move to next element if any
                 current = if let Some(tail_handle) = elem_view.tuple_elements_opt.get_view(tree)? {
@@ -509,12 +497,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         Ok(())
     }
 
-    fn visit_key(
-        &mut self,
-        _handle: KeyHandle,
-        view: KeyView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
+    fn visit_key(&mut self, handle: KeyHandle, view: KeyView, tree: &F) -> Result<(), Self::Error> {
         // 1. KeyBase から PathSegment を構築
         let key_base_view = view.key_base.get_view(tree)?;
 
@@ -565,8 +548,13 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             }
         };
 
-        // 2. segments に push
-        self.segments.push(segment);
+        // 2. Navigate to this segment
+        self.document
+            .navigate(segment)
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
 
         // 3. ArrayMarker の処理
         let key_opt_view = view.key_opt.get_view(tree)?;
@@ -583,7 +571,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 } else {
                     None
                 };
-            self.segments.push(PathSegment::ArrayIndex(index));
+            self.document
+                .navigate(PathSegment::ArrayIndex(index))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
         }
 
         Ok(())
@@ -642,14 +635,23 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: BindingView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        let segments = self.collect_path_segments(|v| v.visit_keys_handle(view.keys, tree))?;
-        let node_id = self.document.push_binding_path(&segments).map_err(|e| {
-            let node_id = handle.node_id();
-            DocumentConstructionError::DocumentInsert { error: e, node_id }
-        })?;
+        let scope = self.document.begin_scope();
+
+        // Navigate through the keys
+        self.visit_keys_handle(view.keys, tree)?;
+
+        // Validate binding target is a Hole
+        let node_id = self.document.current_node_id();
+        self.document
+            .require_hole()
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+
         self.record_origin(node_id, NodeOrigin::BindingKey(handle));
         self.visit_binding_rhs_handle(view.binding_rhs, tree)?;
-        self.document.pop(node_id)?;
+        self.document.end_scope(scope)?;
         Ok(())
     }
 
@@ -664,14 +666,15 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             keys,
             section_body,
         } = view;
-        let segments = self.collect_path_segments(|v| v.visit_keys_handle(keys, tree))?;
-        let node_id = self.document.push_path(&segments).map_err(|e| {
-            let node_id = handle.node_id();
-            DocumentConstructionError::DocumentInsert { error: e, node_id }
-        })?;
+        let scope = self.document.begin_scope();
+
+        // Navigate through the keys (no require_hole for sections)
+        self.visit_keys_handle(keys, tree)?;
+
+        let node_id = self.document.current_node_id();
         self.record_origin(node_id, NodeOrigin::SectionKey(handle));
         self.visit_section_body_handle(section_body, tree)?;
-        self.document.pop(node_id)?;
+        self.document.end_scope(scope)?;
         Ok(())
     }
 

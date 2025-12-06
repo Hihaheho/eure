@@ -347,11 +347,23 @@ variants {
 }
 
 /// Codegen settings for record types.
+/// NOTE: base-codegen fields are inlined here (not using $flatten) to avoid
+/// empty record body issues during schema self-validation.
 @ $types.record-codegen {
-  $flatten = [`$types.base-codegen`]
-  /// Override individual field names.
-  field = `text`
-  field.$optional = true
+  /// Override the generated type name (from base-codegen).
+  type = `text`
+  type.$optional = true
+  /// Override the list of derive macros (from base-codegen).
+  derive = [`text`]
+  derive.$optional = true
+}
+
+/// Codegen settings for individual record fields.
+/// Used via value.$ext-type.codegen on record field values.
+@ $types.field-codegen {
+  /// Override the field name in generated Rust code.
+  name = `text`
+  name.$optional = true
 }
 
 /// Codegen settings for cascade-ext-types.
@@ -503,6 +515,8 @@ variants {
   value.$ext-type.optional.$optional = true
   value.$ext-type.binding-style = `$types.binding-style`
   value.$ext-type.binding-style.$optional = true
+  value.$ext-type.codegen = `$types.field-codegen`
+  value.$ext-type.codegen.$optional = true
   $ext-type.unknown-fields = `$types.unknown-fields-policy`
   $ext-type.unknown-fields.$optional = true  // Default: deny
   /// Types to flatten into this record.

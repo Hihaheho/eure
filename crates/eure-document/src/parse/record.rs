@@ -202,7 +202,7 @@ impl<'doc> ExtParser<'doc> {
     /// Get a required extension field.
     ///
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
-    pub fn field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
+    pub fn ext<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -218,7 +218,7 @@ impl<'doc> ExtParser<'doc> {
     /// Get an optional extension field.
     ///
     /// Returns `Ok(None)` if the extension is not present.
-    pub fn field_optional<T: ParseDocument<'doc>>(
+    pub fn ext_optional<T: ParseDocument<'doc>>(
         &mut self,
         name: &str,
     ) -> Result<Option<T>, ParseError> {
@@ -236,7 +236,7 @@ impl<'doc> ExtParser<'doc> {
     /// Get the NodeId for an extension field (for manual handling).
     ///
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
-    pub fn field_node(&mut self, name: &str) -> Result<NodeId, ParseError> {
+    pub fn ext_node(&mut self, name: &str) -> Result<NodeId, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -254,14 +254,14 @@ impl<'doc> ExtParser<'doc> {
     /// Get the NodeId for an optional extension field.
     ///
     /// Returns `None` if the extension is not present.
-    pub fn field_node_optional(&mut self, name: &str) -> Option<NodeId> {
+    pub fn ext_node_optional(&mut self, name: &str) -> Option<NodeId> {
         let ident: Identifier = name.parse().ok()?;
         self.accessed.insert(ident.clone());
         self.extensions.get(&ident).copied()
     }
 
     /// Finish parsing with Deny policy (error if unknown extensions exist).
-    pub fn deny_unknown_fields(self) -> Result<(), ParseError> {
+    pub fn deny_unknown_extensions(self) -> Result<(), ParseError> {
         for (ident, _) in self.extensions.iter() {
             if !self.accessed.contains(ident) {
                 return Err(ParseError {
@@ -274,14 +274,14 @@ impl<'doc> ExtParser<'doc> {
     }
 
     /// Finish parsing with Allow policy (ignore unknown extensions).
-    pub fn allow_unknown_fields(self) {
+    pub fn allow_unknown_extensions(self) {
         // Nothing to do - just consume self
     }
 
     /// Get an iterator over unknown extensions (for custom handling).
     ///
     /// Returns (identifier, node_id) pairs for extensions that haven't been accessed.
-    pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc Identifier, NodeId)> + '_ {
+    pub fn unknown_extensions(&self) -> impl Iterator<Item = (&'doc Identifier, NodeId)> + '_ {
         self.extensions.iter().filter_map(|(ident, node_id)| {
             if !self.accessed.contains(ident) {
                 Some((ident, *node_id))
@@ -507,7 +507,7 @@ mod tests {
         doc.node_mut(ext_id).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
 
         let mut ext = doc.parse_extension(root_id);
-        let optional: bool = ext.field("optional").unwrap();
+        let optional: bool = ext.ext("optional").unwrap();
         assert!(optional);
     }
 
@@ -517,7 +517,7 @@ mod tests {
         let root_id = doc.get_root_id();
 
         let mut ext = doc.parse_extension(root_id);
-        let optional: Option<bool> = ext.field_optional("optional").unwrap();
+        let optional: Option<bool> = ext.ext_optional("optional").unwrap();
         assert_eq!(optional, None);
     }
 }

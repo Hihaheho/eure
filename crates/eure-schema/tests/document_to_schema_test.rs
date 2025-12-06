@@ -14,15 +14,15 @@
 //! - Metadata (description, deprecated, default, examples)
 
 use eure::document::parse_to_document;
+use eure_document::data_model::VariantRepr;
+use eure_document::identifier::Identifier;
+use eure_document::parse::{ParseError, ParseErrorKind};
+use eure_document::value::ObjectKey;
 use eure_schema::convert::{ConversionError, document_to_schema};
 use eure_schema::{
     ArraySchema, Bound, FloatSchema, IntegerSchema, MapSchema, SchemaDocument, SchemaMetadata,
     SchemaNodeContent, SchemaNodeId, TextSchema, UnknownFieldsPolicy,
 };
-use eure_value::data_model::VariantRepr;
-use eure_value::identifier::Identifier;
-use eure_value::parse::{ParseError, ParseErrorKind};
-use eure_value::value::ObjectKey;
 use num_bigint::BigInt;
 
 // Helper function to parse Eure text and convert to schema

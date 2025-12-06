@@ -11,10 +11,10 @@ keywords = ["editor", "eure", "ide", "language-support"]
 
 [dependencies]
 anyhow = { workspace = true }
+eure-document = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }
 eure-tree = { workspace = true }
-eure-value = { workspace = true }
 indexmap = { version = "2.0" }
 lsp-types = { workspace = true }
 tracing = "0.1"

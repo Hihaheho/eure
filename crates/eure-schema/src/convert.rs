@@ -52,11 +52,11 @@ use crate::{
     RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId, TupleSchema,
     UnionSchema, UnknownFieldsPolicy,
 };
-use eure_value::document::node::{Node, NodeValue};
-use eure_value::document::{EureDocument, NodeId};
-use eure_value::identifier::Identifier;
-use eure_value::parse::{ParseDocument, ParseError};
-use eure_value::value::{ObjectKey, Value};
+use eure_document::document::node::{Node, NodeValue};
+use eure_document::document::{EureDocument, NodeId};
+use eure_document::identifier::Identifier;
+use eure_document::parse::{ParseDocument, ParseError};
+use eure_document::value::{ObjectKey, Value};
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use thiserror::Error;
@@ -425,7 +425,7 @@ impl<'a> Converter<'a> {
                     .iter()
                     .map(|&id| self.node_to_value(id))
                     .collect::<Result<_, _>>()?;
-                Ok(Value::Array(eure_value::value::Array(values)))
+                Ok(Value::Array(eure_document::value::Array(values)))
             }
             NodeValue::Tuple(tup) => {
                 let values: Vec<Value> = tup
@@ -433,10 +433,10 @@ impl<'a> Converter<'a> {
                     .iter()
                     .map(|&id| self.node_to_value(id))
                     .collect::<Result<_, _>>()?;
-                Ok(Value::Tuple(eure_value::value::Tuple(values)))
+                Ok(Value::Tuple(eure_document::value::Tuple(values)))
             }
             NodeValue::Map(map) => {
-                let mut result = eure_value::value::Map::default();
+                let mut result = eure_document::value::Map::default();
                 for (key, &value_id) in map.0.iter() {
                     let value = self.node_to_value(value_id)?;
                     result.0.insert(key.clone(), value);
@@ -649,9 +649,9 @@ pub fn document_to_schema(
 mod tests {
     use super::*;
     use crate::identifiers::{EXT_TYPE, OPTIONAL};
-    use eure_value::document::node::NodeMap;
-    use eure_value::text::Text;
-    use eure_value::value::PrimitiveValue;
+    use eure_document::document::node::NodeMap;
+    use eure_document::text::Text;
+    use eure_document::value::PrimitiveValue;
 
     /// Create a document with a record containing a single field with $ext-type extension
     fn create_schema_with_field_ext_type(ext_type_content: NodeValue) -> EureDocument {
@@ -688,8 +688,8 @@ mod tests {
         )));
 
         let err = document_to_schema(&doc).unwrap_err();
-        use eure_value::parse::ParseErrorKind;
-        use eure_value::value::ValueKind;
+        use eure_document::parse::ParseErrorKind;
+        use eure_document::value::ValueKind;
         assert_eq!(
             err,
             ConversionError::ParseError(ParseError {
@@ -736,7 +736,7 @@ mod tests {
         doc.node_mut(root_id).content = NodeValue::Map(root_map);
 
         let err = document_to_schema(&doc).unwrap_err();
-        use eure_value::parse::ParseErrorKind;
+        use eure_document::parse::ParseErrorKind;
         assert_eq!(
             err,
             ConversionError::ParseError(ParseError {
@@ -787,8 +787,8 @@ mod tests {
         doc.node_mut(root_id).content = NodeValue::Map(root_map);
 
         let err = document_to_schema(&doc).unwrap_err();
-        use eure_value::parse::ParseErrorKind;
-        use eure_value::value::ValueKind;
+        use eure_document::parse::ParseErrorKind;
+        use eure_document::value::ValueKind;
         assert_eq!(
             err,
             ConversionError::ParseError(ParseError {
