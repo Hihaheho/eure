@@ -156,6 +156,16 @@ impl EureDocument {
         }
     }
 
+    pub fn new_empty() -> Self {
+        Self {
+            root: NodeId(0),
+            nodes: vec![Node {
+                content: NodeValue::Map(Default::default()),
+                extensions: Map::new(),
+            }],
+        }
+    }
+
     pub fn new_primitive(value: PrimitiveValue) -> Self {
         Self {
             root: NodeId(0),
