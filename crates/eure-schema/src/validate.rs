@@ -1661,6 +1661,7 @@ fn are_nodes_unique(document: &EureDocument, node_ids: &[NodeId]) -> bool {
         .iter()
         .map(|&id| node_subtree_to_document(document, id))
         .collect();
+    // FIXME: Inefficient and not idiomatic.
     for i in 0..docs.len() {
         for j in (i + 1)..docs.len() {
             if docs[i] == docs[j] {
