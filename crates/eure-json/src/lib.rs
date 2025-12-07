@@ -352,8 +352,8 @@ mod tests {
 
     #[test]
     fn test_float() {
-        let eure = eure!({ = 3.14f64 });
-        let json = json!(3.14);
+        let eure = eure!({ = 1.5f64 });
+        let json = json!(1.5);
         assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
@@ -535,8 +535,8 @@ mod tests {
 
     #[test]
     fn test_json_to_eure_float() {
-        let json = json!(3.14);
-        let expected = eure!({ = 3.14f64 });
+        let json = json!(1.5);
+        let expected = eure!({ = 1.5f64 });
         assert_eq!(
             value_to_document(&json, &Config::default()).unwrap(),
             expected
@@ -618,7 +618,7 @@ mod tests {
             json!(null),
             json!(true),
             json!(42),
-            json!(3.14),
+            json!(1.5),
             json!("hello"),
         ] {
             let doc = value_to_document(&json, &Config::default()).unwrap();
