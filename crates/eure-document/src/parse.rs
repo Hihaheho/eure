@@ -8,7 +8,7 @@ pub mod union;
 
 pub use object_key::ParseObjectKey;
 pub use record::{ExtParser, RecordParser};
-pub use union::UnionParser;
+pub use union::{UnionParser, VariantPath, VariantPathParseError};
 
 use alloc::format;
 use num_bigint::BigInt;
