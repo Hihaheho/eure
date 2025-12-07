@@ -66,6 +66,15 @@ pub(crate) mod prelude_internal {
 /// - Tuple keys: `a.(1, "key")` (composite map keys)
 /// - Mixed paths: `a.%ext[].b`, `a[].%ext.#0`, `a.(1, 2).name`
 ///
+/// # Special Values
+///
+/// - `null`: Creates a null value
+/// - `!`: Creates an unbound hole (explicit placeholder)
+/// - `@code("content")`: Creates inline code with implicit language
+/// - `@code("lang", "content")`: Creates inline code with explicit language
+/// - `@block("content")`: Creates block code with implicit language
+/// - `@block("lang", "content")`: Creates block code with explicit language
+///
 /// # Examples
 ///
 /// ```
@@ -75,6 +84,20 @@ pub(crate) mod prelude_internal {
 /// let doc = eure!({
 ///     name = "Alice",
 ///     age = 30,
+/// });
+///
+/// // Null and hole values
+/// let doc = eure!({
+///     optional = null,
+///     placeholder = !,
+/// });
+///
+/// // Code values
+/// let doc = eure!({
+///     snippet = @code("let x = 1"),
+///     sql = @code("sql", "SELECT * FROM users"),
+///     script = @block("fn main() {}"),
+///     rust_code = @block("rust", "fn main() {\n    println!(\"Hello\");\n}"),
 /// });
 ///
 /// // Nested paths
@@ -128,44 +151,101 @@ pub(crate) mod prelude_internal {
 macro_rules! eure {
     // ========================================================================
     // Entry points
+    //
+    // The macro entry points handle the top-level document structure.
     // ========================================================================
 
-    // Empty document
+    // Empty document: `eure!({})` creates an empty map document
     ({}) => {{
         $crate::document::EureDocument::new_empty()
     }};
 
-    // Document with body
+    // Document with body: `eure!({ ... })` creates a document and processes the body
     ({ $($body:tt)* }) => {{
+        #[allow(unused_mut)]
         let mut c = $crate::document::constructor::DocumentConstructor::new();
         $crate::eure!(@body c; $($body)*);
         c.finish()
     }};
 
     // ========================================================================
-    // Body handlers
+    // Body handlers (@body)
+    //
+    // Process statements within a document or block. Each statement is either:
+    // - A root value binding: `= value`
+    // - A root special value: `= null`, `= !`, `= @code(...)`
+    // - A path-based statement: `path = value` or `path { block }`
+    //
+    // The body handler delegates path parsing to @parse_seg.
     // ========================================================================
 
-    // Empty body
+    // Empty body - nothing to process
     (@body $c:ident;) => {};
 
-    // Value binding at root: = value, ...
+    // Root binding: null literal
+    (@body $c:ident; = null $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::value::PrimitiveValue::Null).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Root binding: hole (!) - explicit unbound placeholder
+    (@body $c:ident; = ! $(, $($tail:tt)*)?) => {{
+        // Hole is the default state, so we don't need to bind anything
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Root binding: inline code with implicit language - @code("content")
+    (@body $c:ident; = @code($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Root binding: inline code with explicit language - @code("lang", "content")
+    (@body $c:ident; = @code($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Root binding: block code with implicit language - @block("content")
+    (@body $c:ident; = @block($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::block_implicit($content)).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Root binding: block code with explicit language - @block("lang", "content")
+    (@body $c:ident; = @block($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::block($content, $lang)).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Root binding: general expression - = value
     (@body $c:ident; = $val:expr $(, $($tail:tt)*)?) => {{
         $c.bind_from($val).unwrap();
         $($crate::eure!(@body $c; $($tail)*);)?
     }};
 
-    // Start parsing a statement - delegate to segment parser
+    // Start parsing a path-based statement - delegate to segment parser
+    // Creates a scope that will be closed when the statement ends
     (@body $c:ident; $($tokens:tt)+) => {{
         let scope = $c.begin_scope();
         $crate::eure!(@parse_seg $c scope; $($tokens)+);
     }};
 
     // ========================================================================
-    // Segment parsing - parse one path segment at a time
+    // Segment parsing (@parse_seg)
+    //
+    // Parse one path segment at a time using TT muncher pattern.
+    // Each segment type navigates to a child node and then delegates to @after_seg.
+    //
+    // Supported segment types:
+    // - `ident`: Regular identifier (a, user, field_name)
+    // - `%ext`: Extension namespace ($variant becomes %variant in macro)
+    // - `#N`: Tuple index (#0, #1, #2)
+    // - `(a, b)`: Tuple key for composite map keys
+    // - `"key"`: String literal for non-identifier keys (e.g., "min-length")
     // ========================================================================
 
-    // Segment: ident
+    // Segment: identifier (e.g., `field`, `user`, `name`)
     (@parse_seg $c:ident $scope:ident; $seg:ident $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Ident(
             $crate::identifier::Identifier::new_unchecked(stringify!($seg))
@@ -173,7 +253,8 @@ macro_rules! eure {
         $crate::eure!(@after_seg $c $scope; $($rest)*);
     }};
 
-    // Segment: extension (%) with identifier
+    // Segment: extension with identifier (e.g., `%variant`, `%schema`)
+    // Note: Uses % instead of $ because $ is reserved in macros
     (@parse_seg $c:ident $scope:ident; % $ext:ident $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Extension(
             $crate::identifier::Identifier::new_unchecked(stringify!($ext))
@@ -181,7 +262,8 @@ macro_rules! eure {
         $crate::eure!(@after_seg $c $scope; $($rest)*);
     }};
 
-    // Segment: extension (%) with string literal (for hyphenated names like "variant-repr")
+    // Segment: extension with string literal (e.g., `%"variant-repr"`)
+    // Used for hyphenated extension names that aren't valid Rust identifiers
     (@parse_seg $c:ident $scope:ident; % $ext:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Extension(
             $ext.parse().unwrap()
@@ -189,35 +271,40 @@ macro_rules! eure {
         $crate::eure!(@after_seg $c $scope; $($rest)*);
     }};
 
-    // Segment: tuple index (#N)
+    // Segment: tuple index (e.g., `#0`, `#1`, `#255`)
     (@parse_seg $c:ident $scope:ident; # $idx:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::TupleIndex($idx)).unwrap();
         $crate::eure!(@after_seg $c $scope; $($rest)*);
     }};
 
-    // Segment: tuple key ((a, b, ...))
+    // Segment: tuple key (e.g., `(1, "key")`, `(true, 2)`)
+    // Used as composite map keys
     (@parse_seg $c:ident $scope:ident; ($($tuple:tt)*) $($rest:tt)*) => {{
         let key = $crate::eure!(@build_tuple_key; $($tuple)*);
         $c.navigate($crate::path::PathSegment::Value(key)).unwrap();
         $crate::eure!(@after_seg $c $scope; $($rest)*);
     }};
 
-    // Segment: string literal key ("key" for hyphenated identifiers)
+    // Segment: string literal key (e.g., `"min-length"`, `"Content-Type"`)
+    // Used for keys that aren't valid identifiers
     (@parse_seg $c:ident $scope:ident; $key:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
         $crate::eure!(@after_seg $c $scope; $($rest)*);
     }};
 
     // ========================================================================
-    // Build tuple key from contents
+    // Build tuple key (@build_tuple_key)
+    //
+    // Constructs an ObjectKey::Tuple from comma-separated values.
+    // Used for composite map keys like (1, "key").
     // ========================================================================
 
-    // Empty tuple
+    // Empty tuple key: ()
     (@build_tuple_key;) => {{
         $crate::value::ObjectKey::Tuple($crate::value::Tuple(Default::default()))
     }};
 
-    // Non-empty tuple - items converted via Into<ObjectKey>
+    // Non-empty tuple key: (a, b, c) - each item converted via Into<ObjectKey>
     (@build_tuple_key; $($item:expr),+ $(,)?) => {{
         $crate::value::ObjectKey::Tuple($crate::value::Tuple::from_iter(
             [$(<_ as Into<$crate::value::ObjectKey>>::into($item)),+]
@@ -225,42 +312,106 @@ macro_rules! eure {
     }};
 
     // ========================================================================
-    // After segment - check for optional array marker
+    // After segment (@after_seg)
+    //
+    // After parsing a segment, check if there's an optional array marker [].
+    // If found, handle it; otherwise proceed to terminal handling.
     // ========================================================================
 
-    // Has array marker (captured as token tree)
+    // Has array marker - delegate to @handle_arr
     (@after_seg $c:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
         $crate::eure!(@handle_arr $c $scope [$($arr)*]; $($rest)*);
     }};
 
-    // No array marker - go to after_arr
+    // No array marker - proceed to terminal handling
     (@after_seg $c:ident $scope:ident; $($rest:tt)*) => {{
         $crate::eure!(@after_arr $c $scope; $($rest)*);
     }};
 
     // ========================================================================
-    // Handle array marker content
+    // Handle array marker (@handle_arr)
+    //
+    // Process the content of array markers:
+    // - `[]`: Push to array (creates new element)
+    // - `[N]`: Access array at index N
     // ========================================================================
 
-    // Empty array marker (push)
+    // Empty array marker: push operation (creates new element at end)
     (@handle_arr $c:ident $scope:ident []; $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
         $crate::eure!(@after_arr $c $scope; $($rest)*);
     }};
 
-    // Array marker with index
+    // Array marker with index: access at specific position
     (@handle_arr $c:ident $scope:ident [$idx:literal]; $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
         $crate::eure!(@after_arr $c $scope; $($rest)*);
     }};
 
     // ========================================================================
-    // After array marker - check for continuation, assignment, or block
+    // After array marker / Terminal handling (@after_arr)
+    //
+    // Handle what comes after the path:
+    // - `.more.path`: Continue parsing more segments
+    // - `= value`: Bind a value
+    // - `= null`: Bind null
+    // - `= !`: Leave as hole (explicit placeholder)
+    // - `= @code(...)`: Bind inline code
+    // - `= @block(...)`: Bind block code
+    // - `= [...]`: Bind array literal
+    // - `= (...)`: Bind tuple literal
+    // - `= { k => v }`: Bind map literal
+    // - `{ ... }`: Block syntax (grouped bindings)
+    // - `{}`: Empty block (creates empty map)
+    //
+    // IMPORTANT: More specific rules must come before general `= $val:expr`
     // ========================================================================
 
-    // Continuation: more path segments
+    // Continuation: more path segments after dot
     (@after_arr $c:ident $scope:ident; . $($rest:tt)+) => {{
         $crate::eure!(@parse_seg $c $scope; $($rest)+);
+    }};
+
+    // Terminal: null literal assignment
+    (@after_arr $c:ident $scope:ident; = null $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::value::PrimitiveValue::Null).unwrap();
+        $c.end_scope($scope).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Terminal: hole (!) - explicit unbound placeholder
+    (@after_arr $c:ident $scope:ident; = ! $(, $($tail:tt)*)?) => {{
+        // Hole is the default state, so we just close the scope
+        $c.end_scope($scope).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Terminal: inline code with implicit language - @code("content")
+    (@after_arr $c:ident $scope:ident; = @code($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
+        $c.end_scope($scope).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Terminal: inline code with explicit language - @code("lang", "content")
+    (@after_arr $c:ident $scope:ident; = @code($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
+        $c.end_scope($scope).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Terminal: block code with implicit language - @block("content")
+    (@after_arr $c:ident $scope:ident; = @block($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::block_implicit($content)).unwrap();
+        $c.end_scope($scope).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
+    }};
+
+    // Terminal: block code with explicit language - @block("lang", "content")
+    (@after_arr $c:ident $scope:ident; = @block($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::text::Text::block($content, $lang)).unwrap();
+        $c.end_scope($scope).unwrap();
+        $($crate::eure!(@body $c; $($tail)*);)?
     }};
 
     // Terminal: array literal assignment
@@ -810,5 +961,393 @@ mod tests {
             .as_map()
             .expect("Empty block should create an empty map");
         assert!(map.is_empty());
+    }
+
+    // ========================================================================
+    // Tests for new features: null, !, @code, @block
+    // ========================================================================
+
+    #[test]
+    fn test_eure_null_literal() {
+        // Test null literal at field level
+        let doc = eure!({
+            optional = null,
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let opt_id = root.as_map().unwrap().get(&"optional".into()).unwrap();
+        let opt = doc.node(opt_id);
+        assert!(matches!(
+            opt.as_primitive(),
+            Some(crate::value::PrimitiveValue::Null)
+        ));
+    }
+
+    #[test]
+    fn test_eure_null_root() {
+        // Test null literal at root level
+        let doc = eure!({
+            = null,
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        assert!(matches!(
+            root.as_primitive(),
+            Some(crate::value::PrimitiveValue::Null)
+        ));
+    }
+
+    #[test]
+    fn test_eure_hole_literal() {
+        use crate::document::node::NodeValue;
+
+        // Test hole (!) literal at field level
+        let doc = eure!({
+            placeholder = !,
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let placeholder_id = root.as_map().unwrap().get(&"placeholder".into()).unwrap();
+        let placeholder = doc.node(placeholder_id);
+        assert!(matches!(placeholder.content, NodeValue::Hole));
+    }
+
+    #[test]
+    fn test_eure_hole_root() {
+        use crate::document::node::NodeValue;
+
+        // Test hole at root level - root should remain unbound (Hole), but
+        // finish() converts unbound root to empty map
+        let doc = eure!({
+            = !,
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        // finish() converts Hole root to Map
+        assert!(matches!(root.content, NodeValue::Map(_)));
+    }
+
+    #[test]
+    fn test_eure_code_inline_implicit() {
+        // Test @code("content") - inline code with implicit language
+        let doc = eure!({
+            snippet = @code("let x = 1"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let snippet_id = root.as_map().unwrap().get(&"snippet".into()).unwrap();
+        let snippet = doc.node(snippet_id);
+        let text = snippet.as_primitive().unwrap().as_text().unwrap();
+        assert_eq!(text.as_str(), "let x = 1");
+        assert!(text.language.is_implicit());
+    }
+
+    #[test]
+    fn test_eure_code_inline_with_language() {
+        // Test @code("lang", "content") - inline code with explicit language
+        let doc = eure!({
+            query = @code("sql", "SELECT * FROM users"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let query_id = root.as_map().unwrap().get(&"query".into()).unwrap();
+        let query = doc.node(query_id);
+        let text = query.as_primitive().unwrap().as_text().unwrap();
+        assert_eq!(text.as_str(), "SELECT * FROM users");
+        assert_eq!(text.language.as_str(), Some("sql"));
+    }
+
+    #[test]
+    fn test_eure_block_implicit() {
+        // Test @block("content") - block code with implicit language
+        let doc = eure!({
+            script = @block("fn main() {}"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let script_id = root.as_map().unwrap().get(&"script".into()).unwrap();
+        let script = doc.node(script_id);
+        let text = script.as_primitive().unwrap().as_text().unwrap();
+        // block adds trailing newline
+        assert_eq!(text.as_str(), "fn main() {}\n");
+        assert!(text.language.is_implicit());
+    }
+
+    #[test]
+    fn test_eure_block_with_language() {
+        // Test @block("lang", "content") - block code with explicit language
+        let doc = eure!({
+            code = @block("rust", "fn main() {\n    println!(\"Hello\");\n}"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let code_id = root.as_map().unwrap().get(&"code".into()).unwrap();
+        let code = doc.node(code_id);
+        let text = code.as_primitive().unwrap().as_text().unwrap();
+        assert_eq!(text.language.as_str(), Some("rust"));
+        assert!(text.as_str().contains("println!"));
+    }
+
+    #[test]
+    fn test_eure_code_at_root() {
+        // Test @code at root level
+        let doc = eure!({
+            = @code("hello"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let text = root.as_primitive().unwrap().as_text().unwrap();
+        assert_eq!(text.as_str(), "hello");
+    }
+
+    // ========================================================================
+    // Tests for edge cases and missing coverage
+    // ========================================================================
+
+    #[test]
+    fn test_eure_array_specific_index() {
+        // Test array with specific index: items[0] = value, items[1] = value
+        let doc = eure!({
+            items[0] = "first",
+            items[1] = "second",
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items = doc.node(items_id);
+        let array = items.as_array().unwrap();
+        assert_eq!(array.len(), 2);
+
+        // Check values
+        let first_id = array.get(0).unwrap();
+        let first = doc.node(first_id);
+        assert_eq!(first.as_primitive().unwrap().as_str(), Some("first"));
+
+        let second_id = array.get(1).unwrap();
+        let second = doc.node(second_id);
+        assert_eq!(second.as_primitive().unwrap().as_str(), Some("second"));
+    }
+
+    #[test]
+    fn test_eure_array_index_with_child() {
+        // Test array index with child path: items[0].name = value
+        let doc = eure!({
+            items[0].name = "first",
+            items[0].value = 1,
+            items[1].name = "second",
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items = doc.node(items_id);
+        let array = items.as_array().unwrap();
+        assert_eq!(array.len(), 2);
+
+        // Check first element
+        let first_id = array.get(0).unwrap();
+        let first = doc.node(first_id);
+        let name_id = first.as_map().unwrap().get(&"name".into()).unwrap();
+        let name = doc.node(name_id);
+        assert_eq!(name.as_primitive().unwrap().as_str(), Some("first"));
+    }
+
+    #[test]
+    fn test_eure_nested_empty_blocks() {
+        // Test nested empty blocks: a { b { c {} } }
+        let doc = eure!({
+            a {
+                b {
+                    c {},
+                },
+            },
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+
+        let a_id = root.as_map().unwrap().get(&"a".into()).unwrap();
+        let a = doc.node(a_id);
+
+        let b_id = a.as_map().unwrap().get(&"b".into()).unwrap();
+        let b = doc.node(b_id);
+
+        let c_id = b.as_map().unwrap().get(&"c".into()).unwrap();
+        let c = doc.node(c_id);
+
+        // c should be an empty map
+        let map = c.as_map().expect("c should be an empty map");
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_eure_multiple_extensions() {
+        // Test multiple extensions on same node
+        let doc = eure!({
+            field.%variant = Text::inline_implicit("text"),
+            field.%"variant-repr" = "internal",
+            field.%schema = "custom",
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let field_id = root.as_map().unwrap().get(&"field".into()).unwrap();
+        let field = doc.node(field_id);
+
+        // Check all extensions exist
+        assert!(field.get_extension(&"variant".parse().unwrap()).is_some());
+        assert!(
+            field
+                .get_extension(&"variant-repr".parse().unwrap())
+                .is_some()
+        );
+        assert!(field.get_extension(&"schema".parse().unwrap()).is_some());
+    }
+
+    #[test]
+    fn test_eure_extension_on_array_element() {
+        // Test extension on array element using indexed access
+        // Note: items[] creates a new element each time, so we use items[0], items[1] etc.
+        let doc = eure!({
+            items[0].%variant = Text::inline_implicit("text"),
+            items[0].value = "first",
+            items[1].%variant = Text::inline_implicit("number"),
+            items[1].value = 42,
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items = doc.node(items_id);
+        let array = items.as_array().unwrap();
+        assert_eq!(array.len(), 2);
+
+        // Check first element has extension and value
+        let first_id = array.get(0).unwrap();
+        let first = doc.node(first_id);
+        let variant_id = first.get_extension(&"variant".parse().unwrap()).unwrap();
+        let variant = doc.node(variant_id);
+        assert_eq!(
+            variant.as_primitive().unwrap().as_text().unwrap().as_str(),
+            "text"
+        );
+        let value_id = first.as_map().unwrap().get(&"value".into()).unwrap();
+        let value = doc.node(value_id);
+        assert_eq!(value.as_primitive().unwrap().as_str(), Some("first"));
+
+        // Check second element
+        let second_id = array.get(1).unwrap();
+        let second = doc.node(second_id);
+        let variant_id = second.get_extension(&"variant".parse().unwrap()).unwrap();
+        let variant = doc.node(variant_id);
+        assert_eq!(
+            variant.as_primitive().unwrap().as_text().unwrap().as_str(),
+            "number"
+        );
+    }
+
+    #[test]
+    fn test_eure_deep_nesting() {
+        // Test deeply nested paths (5+ levels)
+        let doc = eure!({
+            a.b.c.d.e.f = "deep",
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+
+        let a_id = root.as_map().unwrap().get(&"a".into()).unwrap();
+        let a = doc.node(a_id);
+        let b_id = a.as_map().unwrap().get(&"b".into()).unwrap();
+        let b = doc.node(b_id);
+        let c_id = b.as_map().unwrap().get(&"c".into()).unwrap();
+        let c = doc.node(c_id);
+        let d_id = c.as_map().unwrap().get(&"d".into()).unwrap();
+        let d = doc.node(d_id);
+        let e_id = d.as_map().unwrap().get(&"e".into()).unwrap();
+        let e = doc.node(e_id);
+        let f_id = e.as_map().unwrap().get(&"f".into()).unwrap();
+        let f = doc.node(f_id);
+
+        assert_eq!(f.as_primitive().unwrap().as_str(), Some("deep"));
+    }
+
+    #[test]
+    fn test_eure_empty_array_literal() {
+        // Test empty array literal: items = []
+        let doc = eure!({
+            items = [],
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items = doc.node(items_id);
+        let array = items.as_array().unwrap();
+        assert!(array.is_empty());
+    }
+
+    #[test]
+    fn test_eure_empty_tuple_literal() {
+        // Test empty tuple literal: point = ()
+        let doc = eure!({
+            point = (),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let point_id = root.as_map().unwrap().get(&"point".into()).unwrap();
+        let point = doc.node(point_id);
+        let tuple = point.as_tuple().unwrap();
+        assert!(tuple.is_empty());
+    }
+
+    #[test]
+    fn test_eure_empty_map_literal() {
+        // Test empty map literal: data = {}
+        // Note: This uses block syntax which creates empty map
+        let doc = eure!({
+            data {},
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let data_id = root.as_map().unwrap().get(&"data".into()).unwrap();
+        let data = doc.node(data_id);
+        let map = data.as_map().unwrap();
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_eure_mixed_null_and_values() {
+        // Test mixing null with other values
+        let doc = eure!({
+            name = "Alice",
+            age = null,
+            active = true,
+            score = null,
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let map = root.as_map().unwrap();
+        assert_eq!(map.len(), 4);
+
+        let age_id = map.get(&"age".into()).unwrap();
+        let age = doc.node(age_id);
+        assert!(matches!(
+            age.as_primitive(),
+            Some(crate::value::PrimitiveValue::Null)
+        ));
     }
 }
