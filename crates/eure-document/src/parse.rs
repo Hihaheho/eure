@@ -4,10 +4,12 @@ extern crate alloc;
 
 pub mod object_key;
 pub mod record;
+pub mod tuple;
 pub mod union;
 
 pub use object_key::ParseObjectKey;
 pub use record::{ExtParser, RecordParser};
+pub use tuple::TupleParser;
 pub use union::UnionParser;
 
 use alloc::format;

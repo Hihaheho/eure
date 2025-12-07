@@ -3,8 +3,10 @@
 extern crate alloc;
 
 pub mod record;
+pub mod tuple;
 
 pub use record::RecordWriter;
+pub use tuple::TupleWriter;
 
 use alloc::string::String;
 use num_bigint::BigInt;
@@ -235,6 +237,10 @@ impl_into_document_tuple!(9, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: 
 impl_into_document_tuple!(10, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J);
 impl_into_document_tuple!(11, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K);
 impl_into_document_tuple!(12, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L);
+impl_into_document_tuple!(13, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M);
+impl_into_document_tuple!(14, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M, 13: N);
+impl_into_document_tuple!(15, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M, 13: N, 14: O);
+impl_into_document_tuple!(16, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M, 13: N, 14: O, 15: P);
 
 // ============================================================================
 // DocumentConstructor extensions
@@ -258,6 +264,27 @@ impl DocumentConstructor {
     {
         self.bind_empty_map()?;
         let mut writer = RecordWriter::new(self);
+        f(&mut writer)
+    }
+
+    /// Write a tuple using a closure.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// c.tuple(|t| {
+    ///     t.next("first")?;
+    ///     t.next(42)?;
+    ///     t.next(true)?;
+    ///     Ok(())
+    /// })?;
+    /// ```
+    pub fn tuple<F, T>(&mut self, f: F) -> Result<T, WriteError>
+    where
+        F: FnOnce(&mut TupleWriter<'_>) -> Result<T, WriteError>,
+    {
+        self.bind_empty_tuple()?;
+        let mut writer = TupleWriter::new(self);
         f(&mut writer)
     }
 
