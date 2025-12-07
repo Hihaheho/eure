@@ -46,6 +46,7 @@ const IGNORED_FIELDS: &[&str] = &[
 #[derive(Debug, Clone, Default)]
 pub struct CaseData {
     pub input_eure: Option<Text>,
+    pub input_json: Option<Text>,
     pub normalized: Option<Text>,
     pub output_json: Option<Text>,
     pub schema: Option<Text>,
@@ -59,6 +60,7 @@ impl CaseData {
     /// Check if this case has any meaningful content
     pub fn is_empty(&self) -> bool {
         self.input_eure.is_none()
+            && self.input_json.is_none()
             && self.normalized.is_none()
             && self.output_json.is_none()
             && self.schema.is_none()
@@ -73,6 +75,7 @@ impl ParseDocument<'_> for CaseData {
         let mut rec = doc.parse_record(node_id)?;
 
         let input_eure = rec.field_optional::<Text>("input_eure")?;
+        let input_json = rec.field_optional::<Text>("input_json")?;
         let normalized = rec.field_optional::<Text>("normalized")?;
         let output_json = rec.field_optional::<Text>("output_json")?;
         let schema = rec.field_optional::<Text>("schema")?;
@@ -94,6 +97,7 @@ impl ParseDocument<'_> for CaseData {
 
         Ok(CaseData {
             input_eure,
+            input_json,
             normalized,
             output_json,
             schema,
@@ -172,6 +176,7 @@ impl ParseDocument<'_> for CaseFile {
 
         // Parse root-level fields as default case
         let input_eure = rec.field_optional::<Text>("input_eure")?;
+        let input_json = rec.field_optional::<Text>("input_json")?;
         let normalized = rec.field_optional::<Text>("normalized")?;
         let output_json = rec.field_optional::<Text>("output_json")?;
         let schema = rec.field_optional::<Text>("schema")?;
@@ -209,6 +214,7 @@ impl ParseDocument<'_> for CaseFile {
             path: PathBuf::new(), // Set by caller
             default_case: CaseData {
                 input_eure,
+                input_json,
                 normalized,
                 output_json,
                 schema,

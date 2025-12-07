@@ -4,11 +4,14 @@ mod config;
 mod error;
 
 pub use config::Config;
-pub use error::EureToJsonError;
+pub use error::{EureToJsonError, JsonToEureError};
 use eure::data_model::VariantRepr;
 use eure::document::node::NodeValue;
 use eure::document::{EureDocument, NodeId};
 use eure::value::{ObjectKey, PrimitiveValue};
+use eure_document::identifier::Identifier;
+use eure_document::text::Text;
+use num_bigint::BigInt;
 use serde_json::Value as JsonValue;
 
 pub fn document_to_value(
@@ -219,6 +222,186 @@ fn convert_object_key(key: &ObjectKey) -> Result<String, EureToJsonError> {
                 parts.push(convert_object_key(item)?);
             }
             Ok(format!("({})", parts.join(", ")))
+        }
+    }
+}
+
+// ============================================================================
+// JSON to EureDocument conversion
+// ============================================================================
+
+/// Convert a JSON value to an EureDocument.
+///
+/// # Variant Reconstruction
+///
+/// When `config.variant_repr` is set, the converter attempts to detect and reconstruct
+/// variants with `$variant` extensions based on the JSON structure:
+///
+/// - **External** (`{"Tag": content}`): Single-key objects are interpreted as variants
+///   where the key is the variant tag and the value is the content.
+///
+/// - **Internal** (`{"type": "Tag", ...fields}`): Objects containing the tag field
+///   are interpreted as variants. The tag field is extracted and the remaining fields
+///   become the variant content.
+///
+/// - **Adjacent** (`{"tag": "Tag", "content": ...}`): Objects with exactly the tag and
+///   content fields are interpreted as variants.
+///
+/// - **Untagged**: Variant information is lost in this representation, so no variant
+///   reconstruction is possible. Values are converted as plain data.
+///
+/// # Example
+///
+/// ```
+/// use eure_json::{value_to_document, Config};
+/// use serde_json::json;
+///
+/// let json = json!({"name": "Alice", "age": 30});
+/// let doc = value_to_document(&json, &Config::default()).unwrap();
+/// ```
+pub fn value_to_document(
+    value: &JsonValue,
+    config: &Config,
+) -> Result<EureDocument, JsonToEureError> {
+    let mut doc = EureDocument::new();
+    let root_id = doc.get_root_id();
+    convert_json_to_node(&mut doc, root_id, value, config, true);
+    Ok(doc)
+}
+
+/// Convert a JSON value and set it as the content of the given node.
+///
+/// `detect_variants` controls whether to attempt variant detection on objects.
+/// This is set to `false` when converting variant content to prevent nested variant detection.
+fn convert_json_to_node(
+    doc: &mut EureDocument,
+    node_id: NodeId,
+    value: &JsonValue,
+    config: &Config,
+    detect_variants: bool,
+) {
+    match value {
+        JsonValue::Null => {
+            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+        }
+        JsonValue::Bool(b) => {
+            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Bool(*b));
+        }
+        JsonValue::Number(n) => {
+            // Try to convert to integer first, then fall back to float
+            if let Some(i) = n.as_i64() {
+                doc.node_mut(node_id).content =
+                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(i)));
+            } else if let Some(u) = n.as_u64() {
+                doc.node_mut(node_id).content =
+                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(u)));
+            } else if let Some(f) = n.as_f64() {
+                doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::F64(f));
+            }
+        }
+        JsonValue::String(s) => {
+            doc.node_mut(node_id).content =
+                NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(s.clone())));
+        }
+        JsonValue::Array(arr) => {
+            doc.node_mut(node_id).content = NodeValue::empty_array();
+            for item in arr {
+                let child_id = doc.create_node(NodeValue::hole());
+                convert_json_to_node(doc, child_id, item, config, detect_variants);
+                if let NodeValue::Array(ref mut array) = doc.node_mut(node_id).content {
+                    array.0.push(child_id);
+                }
+            }
+        }
+        JsonValue::Object(obj) => {
+            // Try to detect variant based on config (only if detection is enabled)
+            let detected = if detect_variants {
+                detect_variant(obj, config)
+            } else {
+                None
+            };
+
+            if let Some((tag, content)) = detected {
+                // This is a variant - set content and add $variant extension
+                // Disable variant detection for the content to prevent nested detection
+                convert_json_to_node(doc, node_id, &content, config, false);
+
+                // Add $variant extension
+                let variant_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+                    Text::plaintext(tag),
+                )));
+                let variant_ident: Identifier = "variant".parse().unwrap();
+                doc.node_mut(node_id)
+                    .extensions
+                    .insert(variant_ident, variant_id);
+            } else {
+                // Regular object - convert as map
+                doc.node_mut(node_id).content = NodeValue::empty_map();
+                for (key, val) in obj {
+                    let child_id = doc.create_node(NodeValue::hole());
+                    convert_json_to_node(doc, child_id, val, config, detect_variants);
+                    if let NodeValue::Map(ref mut map) = doc.node_mut(node_id).content {
+                        map.0.insert(ObjectKey::String(key.clone()), child_id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Detected variant information: (tag_name, content_value)
+type DetectedVariant = (String, JsonValue);
+
+/// Try to detect a variant in a JSON object based on the configured representation.
+///
+/// Returns `Some((tag, content))` if a variant is detected, `None` otherwise.
+fn detect_variant(
+    obj: &serde_json::Map<String, JsonValue>,
+    config: &Config,
+) -> Option<DetectedVariant> {
+    match &config.variant_repr {
+        VariantRepr::External => {
+            // External: {"Tag": content} - single-key object
+            if obj.len() == 1 {
+                let (key, value) = obj.iter().next()?;
+                // Heuristic: variant tags typically start with uppercase
+                // But we accept any single-key object as a variant for round-trip fidelity
+                Some((key.clone(), value.clone()))
+            } else {
+                None
+            }
+        }
+        VariantRepr::Internal { tag } => {
+            // Internal: {"type": "Tag", ...fields}
+            let tag_value = obj.get(tag)?;
+            let tag_str = tag_value.as_str()?;
+
+            // Create content object without the tag field
+            let mut content_obj = serde_json::Map::new();
+            for (k, v) in obj {
+                if k != tag {
+                    content_obj.insert(k.clone(), v.clone());
+                }
+            }
+
+            Some((tag_str.to_string(), JsonValue::Object(content_obj)))
+        }
+        VariantRepr::Adjacent { tag, content } => {
+            // Adjacent: {"tag": "Tag", "content": {...}}
+            // Must have exactly these two fields
+            if obj.len() != 2 {
+                return None;
+            }
+
+            let tag_value = obj.get(tag)?;
+            let tag_str = tag_value.as_str()?;
+            let content_value = obj.get(content)?;
+
+            Some((tag_str.to_string(), content_value.clone()))
+        }
+        VariantRepr::Untagged => {
+            // Untagged: variant information is lost, cannot reconstruct
+            None
         }
     }
 }
@@ -680,5 +863,429 @@ mod tests {
         let result = document_to_value(&doc, &config).unwrap();
         // Extensions should be ignored, only the content should be converted
         assert_eq!(result, json!(true));
+    }
+
+    // ========================================================================
+    // JSON to Eure conversion tests
+    // ========================================================================
+
+    #[test]
+    fn test_json_to_eure_null() {
+        let json = json!(null);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+        let expected = EureDocument::new_primitive(PrimitiveValue::Null);
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_bool_true() {
+        let json = json!(true);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+        let expected = EureDocument::new_primitive(PrimitiveValue::Bool(true));
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_bool_false() {
+        let json = json!(false);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+        let expected = EureDocument::new_primitive(PrimitiveValue::Bool(false));
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_integer() {
+        use num_bigint::BigInt;
+        let json = json!(42);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+        let expected = EureDocument::new_primitive(PrimitiveValue::Integer(BigInt::from(42)));
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_negative_integer() {
+        use num_bigint::BigInt;
+        let json = json!(-42);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+        let expected = EureDocument::new_primitive(PrimitiveValue::Integer(BigInt::from(-42)));
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_float() {
+        let json = json!(3.14);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+        let expected = EureDocument::new_primitive(PrimitiveValue::F64(3.14));
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_string() {
+        let json = json!("hello world");
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+        let expected =
+            EureDocument::new_primitive(PrimitiveValue::Text(Text::plaintext("hello world")));
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_empty_array() {
+        let json = json!([]);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+
+        let mut expected = EureDocument::new();
+        expected.node_mut(expected.get_root_id()).content = NodeValue::empty_array();
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_array_with_values() {
+        let json = json!([1, true, "hello"]);
+        let config = Config::default();
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify root is an array with 3 elements
+        let root = doc.node(doc.get_root_id());
+        let array = root.as_array().expect("Expected array");
+        assert_eq!(array.0.len(), 3);
+
+        // Verify element contents
+        assert_eq!(
+            doc.node(array.0[0]).content,
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(1)))
+        );
+        assert_eq!(
+            doc.node(array.0[1]).content,
+            NodeValue::Primitive(PrimitiveValue::Bool(true))
+        );
+        assert_eq!(
+            doc.node(array.0[2]).content,
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("hello")))
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_empty_object() {
+        let json = json!({});
+        let config = Config {
+            variant_repr: VariantRepr::Untagged, // Disable variant detection
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        let mut expected = EureDocument::new();
+        expected.node_mut(expected.get_root_id()).content = NodeValue::empty_map();
+        assert_eq!(doc, expected);
+    }
+
+    #[test]
+    fn test_json_to_eure_object_with_fields() {
+        let json = json!({"name": "Alice", "age": 30});
+        let config = Config {
+            variant_repr: VariantRepr::Untagged, // Disable variant detection
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify root is a map with 2 fields
+        let root = doc.node(doc.get_root_id());
+        let map = root.as_map().expect("Expected map");
+        assert_eq!(map.0.len(), 2);
+
+        // Verify field contents
+        let name_id = map.get(&ObjectKey::String("name".to_string())).unwrap();
+        assert_eq!(
+            doc.node(name_id).content,
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Alice")))
+        );
+
+        let age_id = map.get(&ObjectKey::String("age".to_string())).unwrap();
+        assert_eq!(
+            doc.node(age_id).content,
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(30)))
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_nested_structure() {
+        let json = json!({
+            "users": [
+                {"name": "Alice"},
+                {"name": "Bob"}
+            ]
+        });
+        let config = Config {
+            variant_repr: VariantRepr::Untagged, // Disable variant detection
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify structure: root -> users (array) -> [obj, obj]
+        let root = doc.node(doc.get_root_id());
+        let map = root.as_map().expect("Expected map");
+        let users_id = map.get(&ObjectKey::String("users".to_string())).unwrap();
+        let users = doc.node(users_id).as_array().expect("Expected array");
+        assert_eq!(users.0.len(), 2);
+    }
+
+    // Variant detection tests
+
+    #[test]
+    fn test_json_to_eure_variant_external() {
+        let json = json!({"Success": true});
+        let config = Config {
+            variant_repr: VariantRepr::External,
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify the document has $variant extension
+        let root = doc.node(doc.get_root_id());
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        let variant_id = root
+            .extensions
+            .get(&variant_ident)
+            .expect("Expected $variant");
+        assert_eq!(
+            doc.node(*variant_id).content,
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Success")))
+        );
+
+        // Verify content is bool true
+        assert_eq!(
+            root.content,
+            NodeValue::Primitive(PrimitiveValue::Bool(true))
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_variant_internal() {
+        let json = json!({"type": "Success", "value": 42});
+        let config = Config {
+            variant_repr: VariantRepr::Internal {
+                tag: "type".to_string(),
+            },
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify the document has $variant extension
+        let root = doc.node(doc.get_root_id());
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        let variant_id = root
+            .extensions
+            .get(&variant_ident)
+            .expect("Expected $variant");
+        assert_eq!(
+            doc.node(*variant_id).content,
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Success")))
+        );
+
+        // Verify content is a map with only "value" field (type field removed)
+        let map = root.as_map().expect("Expected map");
+        assert_eq!(map.0.len(), 1);
+        assert!(map.get(&ObjectKey::String("value".to_string())).is_some());
+        assert!(map.get(&ObjectKey::String("type".to_string())).is_none());
+    }
+
+    #[test]
+    fn test_json_to_eure_variant_adjacent() {
+        let json = json!({"tag": "Success", "content": {"value": 42}});
+        let config = Config {
+            variant_repr: VariantRepr::Adjacent {
+                tag: "tag".to_string(),
+                content: "content".to_string(),
+            },
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify the document has $variant extension
+        let root = doc.node(doc.get_root_id());
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        let variant_id = root
+            .extensions
+            .get(&variant_ident)
+            .expect("Expected $variant");
+        assert_eq!(
+            doc.node(*variant_id).content,
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Success")))
+        );
+
+        // Verify content is a map with "value" field
+        let map = root.as_map().expect("Expected map");
+        assert_eq!(map.0.len(), 1);
+        assert!(map.get(&ObjectKey::String("value".to_string())).is_some());
+    }
+
+    #[test]
+    fn test_json_to_eure_variant_untagged_no_detection() {
+        let json = json!({"Success": true});
+        let config = Config {
+            variant_repr: VariantRepr::Untagged,
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify no $variant extension (untagged doesn't detect variants)
+        let root = doc.node(doc.get_root_id());
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        assert!(root.extensions.get(&variant_ident).is_none());
+
+        // Verify it's just a regular map
+        let map = root.as_map().expect("Expected map");
+        assert_eq!(map.0.len(), 1);
+    }
+
+    #[test]
+    fn test_json_to_eure_roundtrip_primitives() {
+        let config = Config::default();
+
+        // Test roundtrip for various primitives
+        let test_values = vec![
+            json!(null),
+            json!(true),
+            json!(false),
+            json!(42),
+            json!(-123),
+            json!(3.14),
+            json!("hello"),
+        ];
+
+        for json_val in test_values {
+            let doc = value_to_document(&json_val, &config).unwrap();
+            let roundtrip = document_to_value(&doc, &config).unwrap();
+            assert_eq!(json_val, roundtrip, "Roundtrip failed for {:?}", json_val);
+        }
+    }
+
+    #[test]
+    fn test_json_to_eure_roundtrip_array() {
+        let config = Config {
+            variant_repr: VariantRepr::Untagged, // Disable variant detection for clean roundtrip
+        };
+        let json_val = json!([1, 2, 3, "hello", true, null]);
+
+        let doc = value_to_document(&json_val, &config).unwrap();
+        let roundtrip = document_to_value(&doc, &config).unwrap();
+        assert_eq!(json_val, roundtrip);
+    }
+
+    #[test]
+    fn test_json_to_eure_roundtrip_nested_object() {
+        let config = Config {
+            variant_repr: VariantRepr::Untagged, // Disable variant detection for clean roundtrip
+        };
+        let json_val = json!({
+            "name": "test",
+            "nested": {
+                "a": 1,
+                "b": [true, false]
+            }
+        });
+
+        let doc = value_to_document(&json_val, &config).unwrap();
+        let roundtrip = document_to_value(&doc, &config).unwrap();
+        assert_eq!(json_val, roundtrip);
+    }
+
+    #[test]
+    fn test_json_to_eure_roundtrip_variant_external() {
+        let config = Config {
+            variant_repr: VariantRepr::External,
+        };
+        let json_val = json!({"Success": {"value": 42}});
+
+        let doc = value_to_document(&json_val, &config).unwrap();
+        let roundtrip = document_to_value(&doc, &config).unwrap();
+        assert_eq!(json_val, roundtrip);
+    }
+
+    #[test]
+    fn test_json_to_eure_roundtrip_variant_internal() {
+        let config = Config {
+            variant_repr: VariantRepr::Internal {
+                tag: "type".to_string(),
+            },
+        };
+        let json_val = json!({"type": "Success", "value": 42});
+
+        let doc = value_to_document(&json_val, &config).unwrap();
+        let roundtrip = document_to_value(&doc, &config).unwrap();
+        assert_eq!(json_val, roundtrip);
+    }
+
+    #[test]
+    fn test_json_to_eure_roundtrip_variant_adjacent() {
+        let config = Config {
+            variant_repr: VariantRepr::Adjacent {
+                tag: "tag".to_string(),
+                content: "content".to_string(),
+            },
+        };
+        let json_val = json!({"tag": "Success", "content": true});
+
+        let doc = value_to_document(&json_val, &config).unwrap();
+        let roundtrip = document_to_value(&doc, &config).unwrap();
+        assert_eq!(json_val, roundtrip);
+    }
+
+    #[test]
+    fn test_json_to_eure_multi_key_object_not_variant() {
+        // Multi-key objects should not be detected as External variants
+        let json = json!({"a": 1, "b": 2});
+        let config = Config {
+            variant_repr: VariantRepr::External,
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify no $variant extension
+        let root = doc.node(doc.get_root_id());
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        assert!(root.extensions.get(&variant_ident).is_none());
+
+        // Verify it's a regular map with 2 fields
+        let map = root.as_map().expect("Expected map");
+        assert_eq!(map.0.len(), 2);
+    }
+
+    #[test]
+    fn test_json_to_eure_internal_non_string_tag_not_variant() {
+        // If the tag field is not a string, don't detect as variant
+        let json = json!({"type": 123, "value": "test"});
+        let config = Config {
+            variant_repr: VariantRepr::Internal {
+                tag: "type".to_string(),
+            },
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify no $variant extension (type is not a string)
+        let root = doc.node(doc.get_root_id());
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        assert!(root.extensions.get(&variant_ident).is_none());
+    }
+
+    #[test]
+    fn test_json_to_eure_adjacent_extra_fields_not_variant() {
+        // Adjacent requires exactly 2 fields
+        let json = json!({"tag": "Success", "content": true, "extra": 1});
+        let config = Config {
+            variant_repr: VariantRepr::Adjacent {
+                tag: "tag".to_string(),
+                content: "content".to_string(),
+            },
+        };
+        let doc = value_to_document(&json, &config).unwrap();
+
+        // Verify no $variant extension (has extra field)
+        let root = doc.node(doc.get_root_id());
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        assert!(root.extensions.get(&variant_ident).is_none());
+
+        // Verify it's a regular map with 3 fields
+        let map = root.as_map().expect("Expected map");
+        assert_eq!(map.0.len(), 3);
     }
 }
