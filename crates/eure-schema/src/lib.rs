@@ -34,8 +34,8 @@ pub mod parse;
 pub mod validate;
 
 use eure_document::data_model::VariantRepr;
+use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
-use eure_document::value::Value;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 
@@ -123,7 +123,7 @@ pub enum SchemaNodeContent {
     // --- Literal ---
     /// Literal type - accepts only the exact specified value
     /// Spec: line 396
-    Literal(Value),
+    Literal(EureDocument),
 
     // --- Compounds ---
     /// Array type with item schema and optional constraints
@@ -493,7 +493,7 @@ pub struct SchemaMetadata {
     /// Marks as deprecated
     pub deprecated: bool,
     /// Default value for optional fields
-    pub default: Option<Value>,
+    pub default: Option<EureDocument>,
     /// Example values in Eure code format
     pub examples: Option<Vec<String>>,
 }

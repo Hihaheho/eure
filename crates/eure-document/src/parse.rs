@@ -128,11 +128,8 @@ pub enum ParseErrorKind {
     AmbiguousUnion(Vec<String>),
 
     /// Literal value mismatch.
-    #[error("literal value mismatch: expected {expected:?}, got {actual:?}]")]
-    LiteralMismatch {
-        expected: Box<Value>,
-        actual: Box<Value>,
-    },
+    #[error("literal value mismatch: expected {expected}, got {actual}")]
+    LiteralMismatch { expected: String, actual: String },
 }
 
 impl ParseErrorKind {
@@ -448,7 +445,7 @@ pub struct LiteralParser<T>(T);
 
 impl<'doc, T> DocumentParser<'doc> for LiteralParser<T>
 where
-    T: 'doc + ParseDocument<'doc> + PartialEq + Into<Value>,
+    T: 'doc + ParseDocument<'doc> + PartialEq + core::fmt::Debug,
 {
     type Output = T;
     fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
@@ -459,8 +456,8 @@ where
             Err(ParseError {
                 node_id,
                 kind: ParseErrorKind::LiteralMismatch {
-                    expected: Box::new(self.0.into()),
-                    actual: Box::new(value.into()),
+                    expected: format!("{:?}", self.0),
+                    actual: format!("{:?}", value),
                 },
             })
         }

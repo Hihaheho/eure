@@ -7,7 +7,7 @@ use crate::prelude_internal::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EureDocument {
     pub(crate) root: NodeId,
     nodes: Vec<Node>,
@@ -210,6 +210,11 @@ impl EureDocument {
 
     pub fn create_node_uninitialized(&mut self) -> NodeId {
         self.create_node(NodeValue::Hole)
+    }
+
+    /// Set the content of a node directly
+    pub fn set_content(&mut self, node_id: NodeId, content: NodeValue) {
+        self.nodes[node_id.0].content = content;
     }
 
     pub fn add_child_by_segment(

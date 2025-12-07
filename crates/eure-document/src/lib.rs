@@ -47,8 +47,7 @@ pub(crate) mod prelude_internal {
     pub use crate::identifier::Identifier;
     pub use crate::path::{EurePath, PathSegment};
     pub use crate::text::{Language, SyntaxHint, Text, TextParseError};
-    pub use crate::value::PrimitiveValue;
-    pub use crate::value::{ObjectKey, Value};
+    pub use crate::value::{ObjectKey, PrimitiveValue};
     pub use alloc::boxed::Box;
     pub use alloc::{string::String, string::ToString, vec, vec::Vec};
     pub use thisisplural::Plural;

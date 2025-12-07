@@ -1,5 +1,5 @@
+use crate::document::node::NodeValue;
 use crate::prelude_internal::*;
-use crate::value::Map;
 
 /// Data model of a document or a value in a document. Corresponds to the `$data-model` extension.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -83,24 +83,31 @@ pub enum VariantRepr {
 }
 
 impl VariantRepr {
-    /// Create a VariantRepr from $variant-repr annotation value
-    pub fn from_annotation(value: &Value) -> Option<Self> {
-        match value {
-            Value::Primitive(PrimitiveValue::Text(t)) if t.as_str() == "untagged" => {
+    /// Create a VariantRepr from $variant-repr annotation node
+    pub fn from_annotation(doc: &EureDocument, node_id: NodeId) -> Option<Self> {
+        let node = doc.node(node_id);
+        match &node.content {
+            NodeValue::Primitive(PrimitiveValue::Text(t)) if t.as_str() == "untagged" => {
                 Some(VariantRepr::Untagged)
             }
-            Value::Map(Map(map)) => {
-                let tag = map
-                    .get(&ObjectKey::String("tag".to_string()))
-                    .and_then(|v| match v {
-                        Value::Primitive(PrimitiveValue::Text(t)) => Some(t.as_str().to_string()),
-                        _ => None,
-                    });
+            NodeValue::Map(map) => {
+                let tag =
+                    map.0
+                        .get(&ObjectKey::String("tag".to_string()))
+                        .and_then(|&id| match &doc.node(id).content {
+                            NodeValue::Primitive(PrimitiveValue::Text(t)) => {
+                                Some(t.as_str().to_string())
+                            }
+                            _ => None,
+                        });
 
                 let content = map
+                    .0
                     .get(&ObjectKey::String("content".to_string()))
-                    .and_then(|v| match v {
-                        Value::Primitive(PrimitiveValue::Text(t)) => Some(t.as_str().to_string()),
+                    .and_then(|&id| match &doc.node(id).content {
+                        NodeValue::Primitive(PrimitiveValue::Text(t)) => {
+                            Some(t.as_str().to_string())
+                        }
                         _ => None,
                     });
 

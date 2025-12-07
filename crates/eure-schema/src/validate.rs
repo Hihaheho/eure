@@ -39,7 +39,7 @@ use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::path::{EurePath, PathSegment};
 use eure_document::text::Language;
-use eure_document::value::{ObjectKey, PrimitiveValue, Tuple, Value};
+use eure_document::value::{ObjectKey, PrimitiveValue};
 use num_bigint::BigInt;
 use regex::Regex;
 use thiserror::Error;
@@ -913,9 +913,13 @@ impl<'a> Validator<'a> {
         }
     }
 
-    fn validate_literal(&mut self, node: &Node, expected: &Value) -> ValidationResult {
-        let actual = node_to_value(self.document, node);
-        if values_equal(&actual, expected) {
+    fn validate_literal(&mut self, _node: &Node, expected: &EureDocument) -> ValidationResult {
+        // Create a document from the current node for comparison
+        let node_id = self
+            .node_id()
+            .expect("node_id should be set during validation");
+        let actual = node_subtree_to_document(self.document, node_id);
+        if actual == *expected {
             ValidationResult::success(self.has_holes)
         } else {
             ValidationResult::failure(ValidationError::LiteralMismatch {
@@ -975,19 +979,12 @@ impl<'a> Validator<'a> {
         }
 
         // Validate uniqueness
-        if schema.unique {
-            let values: Vec<Value> = arr
-                .0
-                .iter()
-                .map(|&id| node_to_value(self.document, self.document.node(id)))
-                .collect();
-            if !are_values_unique(&values) {
-                return ValidationResult::failure(ValidationError::ArrayNotUnique {
-                    path: self.current_path(),
-                    node_id: self.node_id(),
-                    schema_node_id: self.schema_node_id(),
-                });
-            }
+        if schema.unique && !are_nodes_unique(self.document, &arr.0) {
+            return ValidationResult::failure(ValidationError::ArrayNotUnique {
+                path: self.current_path(),
+                node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
+            });
         }
 
         // Validate each item
@@ -1070,11 +1067,11 @@ impl<'a> Validator<'a> {
         for (key, &val_id) in map.0.iter() {
             self.push_path_key(key.clone());
 
-            // Validate key (using temp node since key is not from document)
-            let key_value = object_key_to_value(key);
-            let key_node = value_to_temp_node(&key_value);
+            // Validate key (using temp document since key is not from document)
+            let key_doc = object_key_to_document(key);
+            let key_node = key_doc.root();
             let key_result = self.validate_temp_node(
-                &key_node,
+                key_node,
                 &self.schema.node(schema.key).content,
                 schema.key,
             );
@@ -1272,36 +1269,6 @@ impl<'a> Validator<'a> {
             } else {
                 return ValidationResult::failure(ValidationError::InvalidVariantTag {
                     tag,
-                    path: self.current_path(),
-                    node_id: self.node_id(),
-                    schema_node_id: self.schema_node_id(),
-                });
-            }
-        }
-
-        // Also support PrimitiveValue::Variant for backward compatibility
-        if let NodeValue::Primitive(PrimitiveValue::Variant(v)) = &node.content {
-            if let Some(&variant_schema) = schema.variants.get(&v.tag) {
-                // Push tag as identifier if valid, otherwise as string key
-                if let Ok(ident) = v.tag.parse::<Identifier>() {
-                    self.push_path_ident(ident);
-                } else {
-                    self.push_path_key(ObjectKey::String(v.tag.clone()));
-                }
-                // Convert content to a document for proper validation of complex values
-                // Use validate_temp_node since content comes from Value, not the original document
-                let content_doc = value_to_document(&v.content);
-                let content_node = content_doc.node(content_doc.get_root_id());
-                let result = self.validate_temp_node(
-                    content_node,
-                    &self.schema.node(variant_schema).content,
-                    variant_schema,
-                );
-                self.pop_path();
-                return result;
-            } else {
-                return ValidationResult::failure(ValidationError::InvalidVariantTag {
-                    tag: v.tag.clone(),
                     path: self.current_path(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
@@ -1553,7 +1520,6 @@ fn node_type_name(content: &NodeValue) -> String {
             PrimitiveValue::Integer(_) => "integer".to_string(),
             PrimitiveValue::F32(_) | PrimitiveValue::F64(_) => "float".to_string(),
             PrimitiveValue::Text(_) => "text".to_string(),
-            PrimitiveValue::Variant(_) => "variant".to_string(),
         },
         NodeValue::Array(_) => "array".to_string(),
         NodeValue::Tuple(_) => "tuple".to_string(),
@@ -1561,56 +1527,88 @@ fn node_type_name(content: &NodeValue) -> String {
     }
 }
 
-/// Convert a node to a Value for comparison purposes
-fn node_to_value(document: &EureDocument, node: &Node) -> Value {
-    match &node.content {
-        NodeValue::Hole => Value::Primitive(PrimitiveValue::Null),
-        NodeValue::Primitive(p) => Value::Primitive(p.clone()),
-        NodeValue::Array(arr) => {
-            let values: Vec<Value> = arr
-                .0
-                .iter()
-                .map(|&id| node_to_value(document, document.node(id)))
-                .collect();
-            Value::Array(eure_document::value::Array(values))
-        }
-        NodeValue::Tuple(tup) => {
-            let values: Vec<Value> = tup
-                .0
-                .iter()
-                .map(|&id| node_to_value(document, document.node(id)))
-                .collect();
-            Value::Tuple(Tuple(values))
-        }
-        NodeValue::Map(map) => {
-            let entries: std::collections::HashMap<ObjectKey, Value> = map
-                .0
-                .iter()
-                .map(|(k, &id)| (k.clone(), node_to_value(document, document.node(id))))
-                .collect();
-            Value::Map(eure_document::value::Map(entries.into_iter().collect()))
-        }
-    }
+/// Extract a subtree as a new EureDocument for comparison purposes
+fn node_subtree_to_document(document: &EureDocument, node_id: NodeId) -> EureDocument {
+    let mut new_doc = EureDocument::new();
+    let root_id = new_doc.get_root_id();
+    copy_node_to(document, &mut new_doc, root_id, node_id);
+    new_doc
 }
 
-/// Create a temporary node from a value for validation
-///
-/// Note: For primitive values, this creates a simple node.
-/// For complex values (arrays, tuples, maps), this only works correctly
-/// when the value will be compared directly (e.g., for literal matching).
-/// For schema validation of complex nested values, use `value_to_document` instead.
-fn value_to_temp_node(value: &Value) -> Node {
-    let content = match value {
-        Value::Primitive(p) => NodeValue::Primitive(p.clone()),
-        // For complex types, create empty nodes that preserve the type
-        // Nested content validation requires using value_to_document
-        Value::Array(_) => NodeValue::Array(Default::default()),
-        Value::Tuple(_) => NodeValue::Tuple(Default::default()),
-        Value::Map(_) => NodeValue::Map(Default::default()),
+/// Recursively copy a node from source document to destination
+fn copy_node_to(
+    src: &EureDocument,
+    dest: &mut EureDocument,
+    dest_node_id: NodeId,
+    src_node_id: NodeId,
+) {
+    let src_node = src.node(src_node_id);
+
+    // Collect child info before mutating dest
+    let (children, is_map) = match &src_node.content {
+        NodeValue::Hole => {
+            dest.set_content(dest_node_id, NodeValue::Hole);
+            return;
+        }
+        NodeValue::Primitive(prim) => {
+            dest.set_content(dest_node_id, NodeValue::Primitive(prim.clone()));
+            return;
+        }
+        NodeValue::Array(arr) => {
+            dest.set_content(dest_node_id, NodeValue::empty_array());
+            (arr.0.to_vec(), false)
+        }
+        NodeValue::Tuple(tup) => {
+            dest.set_content(dest_node_id, NodeValue::empty_tuple());
+            (tup.0.to_vec(), false)
+        }
+        NodeValue::Map(map) => {
+            dest.set_content(dest_node_id, NodeValue::empty_map());
+            (map.0.values().copied().collect::<Vec<_>>(), true)
+        }
     };
-    Node {
-        content,
-        extensions: Default::default(),
+
+    // Collect extension info
+    let extensions_to_copy: Vec<_> = src_node
+        .extensions
+        .iter()
+        .map(|(k, &v)| (k.clone(), v))
+        .collect();
+
+    // Copy children based on type
+    let src_node = src.node(src_node_id);
+    match &src_node.content {
+        NodeValue::Array(_) => {
+            for child_id in children {
+                let new_child_id = dest.add_array_element(None, dest_node_id).unwrap().node_id;
+                copy_node_to(src, dest, new_child_id, child_id);
+            }
+        }
+        NodeValue::Tuple(_) => {
+            for (index, child_id) in children.into_iter().enumerate() {
+                let new_child_id = dest
+                    .add_tuple_element(index as u8, dest_node_id)
+                    .unwrap()
+                    .node_id;
+                copy_node_to(src, dest, new_child_id, child_id);
+            }
+        }
+        NodeValue::Map(map) if is_map => {
+            for (key, &child_id) in map.0.iter() {
+                let new_child_id = dest
+                    .add_map_child(key.clone(), dest_node_id)
+                    .unwrap()
+                    .node_id;
+                copy_node_to(src, dest, new_child_id, child_id);
+            }
+        }
+        _ => {}
+    }
+
+    // Copy extensions
+    for (ext_name, ext_node_id) in extensions_to_copy {
+        let new_ext_id = dest.add_extension(ext_name, dest_node_id).unwrap().node_id;
+        copy_node_to(src, dest, new_ext_id, ext_node_id);
     }
 }
 
@@ -1656,58 +1654,16 @@ fn check_float_bound(value: f64, bound: &Bound<f64>, is_min: bool) -> bool {
     }
 }
 
-/// Check if two values are equal for literal comparison
-fn values_equal(a: &Value, b: &Value) -> bool {
-    match (a, b) {
-        (Value::Primitive(pa), Value::Primitive(pb)) => primitives_equal(pa, pb),
-        (Value::Array(aa), Value::Array(ab)) => {
-            aa.0.len() == ab.0.len()
-                && aa
-                    .0
-                    .iter()
-                    .zip(ab.0.iter())
-                    .all(|(a, b)| values_equal(a, b))
-        }
-        (Value::Tuple(ta), Value::Tuple(tb)) => {
-            ta.0.len() == tb.0.len()
-                && ta
-                    .0
-                    .iter()
-                    .zip(tb.0.iter())
-                    .all(|(a, b)| values_equal(a, b))
-        }
-        (Value::Map(ma), Value::Map(mb)) => {
-            ma.0.len() == mb.0.len()
-                && ma
-                    .0
-                    .iter()
-                    .all(|(k, v)| mb.0.get(k).is_some_and(|other_v| values_equal(v, other_v)))
-        }
-        _ => false,
-    }
-}
-
-/// Check if two primitive values are equal
-fn primitives_equal(a: &PrimitiveValue, b: &PrimitiveValue) -> bool {
-    match (a, b) {
-        (PrimitiveValue::Null, PrimitiveValue::Null) => true,
-        (PrimitiveValue::Bool(a), PrimitiveValue::Bool(b)) => a == b,
-        (PrimitiveValue::Integer(a), PrimitiveValue::Integer(b)) => a == b,
-        (PrimitiveValue::F32(a), PrimitiveValue::F32(b)) => (a - b).abs() < f32::EPSILON,
-        (PrimitiveValue::F64(a), PrimitiveValue::F64(b)) => (a - b).abs() < f64::EPSILON,
-        (PrimitiveValue::Text(a), PrimitiveValue::Text(b)) => a.as_str() == b.as_str(),
-        (PrimitiveValue::Variant(a), PrimitiveValue::Variant(b)) => {
-            a.tag == b.tag && values_equal(&a.content, &b.content)
-        }
-        _ => false,
-    }
-}
-
-/// Check if all values in an array are unique
-fn are_values_unique(values: &[Value]) -> bool {
-    for i in 0..values.len() {
-        for j in (i + 1)..values.len() {
-            if values_equal(&values[i], &values[j]) {
+/// Check if all nodes in an array are unique
+fn are_nodes_unique(document: &EureDocument, node_ids: &[NodeId]) -> bool {
+    // Compare by creating temporary documents for each node
+    let docs: Vec<_> = node_ids
+        .iter()
+        .map(|&id| node_subtree_to_document(document, id))
+        .collect();
+    for i in 0..docs.len() {
+        for j in (i + 1)..docs.len() {
+            if docs[i] == docs[j] {
                 return false;
             }
         }
@@ -1715,17 +1671,24 @@ fn are_values_unique(values: &[Value]) -> bool {
     true
 }
 
-/// Convert an ObjectKey to a Value for validation
-fn object_key_to_value(key: &ObjectKey) -> Value {
+/// Convert an ObjectKey to a document for validation
+fn object_key_to_document(key: &ObjectKey) -> EureDocument {
     match key {
-        ObjectKey::Bool(b) => Value::Primitive(PrimitiveValue::Bool(*b)),
-        ObjectKey::Number(n) => Value::Primitive(PrimitiveValue::Integer(n.clone())),
-        ObjectKey::String(s) => Value::Primitive(PrimitiveValue::Text(
+        ObjectKey::Bool(b) => EureDocument::new_primitive(PrimitiveValue::Bool(*b)),
+        ObjectKey::Number(n) => EureDocument::new_primitive(PrimitiveValue::Integer(n.clone())),
+        ObjectKey::String(s) => EureDocument::new_primitive(PrimitiveValue::Text(
             eure_document::text::Text::plaintext(s.clone()),
         )),
         ObjectKey::Tuple(t) => {
-            let values: Vec<Value> = t.0.iter().map(object_key_to_value).collect();
-            Value::Tuple(Tuple(values))
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+            doc.set_content(root_id, NodeValue::empty_tuple());
+            for (i, item) in t.0.iter().enumerate() {
+                let child_id = doc.add_tuple_element(i as u8, root_id).unwrap().node_id;
+                let child_doc = object_key_to_document(item);
+                copy_node_to(&child_doc, &mut doc, child_id, child_doc.get_root_id());
+            }
+            doc
         }
     }
 }
@@ -1796,58 +1759,15 @@ pub fn validate_node(
     validator.validate(node_id, schema_id)
 }
 
-/// Validate a value against a schema (convenience wrapper)
-///
-/// This converts the value to a temporary document for validation.
-/// Use `validate()` directly for better performance with existing documents.
-pub fn validate_value(value: &Value, schema: &SchemaDocument) -> ValidationResult {
-    let document = value_to_document(value);
-    validate(&document, schema)
-}
-
-/// Convert a Value to an EureDocument
-fn value_to_document(value: &Value) -> EureDocument {
-    let mut doc = EureDocument::new();
-    let root_id = doc.get_root_id();
-    set_node_value(&mut doc, root_id, value);
-    doc
-}
-
-/// Recursively set a node's value from a Value
-fn set_node_value(doc: &mut EureDocument, node_id: NodeId, value: &Value) {
-    match value {
-        Value::Primitive(p) => {
-            doc.node_mut(node_id).content = NodeValue::Primitive(p.clone());
-        }
-        Value::Array(arr) => {
-            doc.node_mut(node_id).content = NodeValue::Array(Default::default());
-            for (i, item) in arr.0.iter().enumerate() {
-                let child_id = doc.add_array_element(Some(i), node_id).unwrap().node_id;
-                set_node_value(doc, child_id, item);
-            }
-        }
-        Value::Tuple(tup) => {
-            doc.node_mut(node_id).content = NodeValue::Tuple(Default::default());
-            for (i, item) in tup.0.iter().enumerate() {
-                let child_id = doc.add_tuple_element(i as u8, node_id).unwrap().node_id;
-                set_node_value(doc, child_id, item);
-            }
-        }
-        Value::Map(map) => {
-            doc.node_mut(node_id).content = NodeValue::Map(Default::default());
-            for (key, val) in map.0.iter() {
-                let child_id = doc.add_map_child(key.clone(), node_id).unwrap().node_id;
-                set_node_value(doc, child_id, val);
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SchemaDocument, SchemaNodeContent};
+    use crate::{
+        ArraySchema, IntegerSchema, SchemaDocument, SchemaNodeContent, TextSchema, TupleSchema,
+    };
+    use eure_document::document::node::NodeValue;
     use eure_document::text::Text;
+    use num_bigint::BigInt;
 
     fn create_simple_schema(content: SchemaNodeContent) -> (SchemaDocument, SchemaNodeId) {
         let mut schema = SchemaDocument::new();
@@ -2031,9 +1951,10 @@ mod tests {
 
     #[test]
     fn test_validate_literal() {
-        let expected =
-            Value::Primitive(PrimitiveValue::Text(Text::plaintext("active".to_string())));
-        let (schema, _) = create_simple_schema(SchemaNodeContent::Literal(expected.clone()));
+        let expected = EureDocument::new_primitive(PrimitiveValue::Text(Text::plaintext(
+            "active".to_string(),
+        )));
+        let (schema, _) = create_simple_schema(SchemaNodeContent::Literal(expected));
 
         let doc =
             create_doc_with_primitive(PrimitiveValue::Text(Text::plaintext("active".to_string())));
@@ -2045,6 +1966,18 @@ mod tests {
         )));
         let result = validate(&doc, &schema);
         assert!(!result.is_valid);
+    }
+
+    /// Helper to create an array document
+    fn create_array_doc(values: Vec<PrimitiveValue>) -> EureDocument {
+        let mut doc = EureDocument::new();
+        let root = doc.get_root_id();
+        doc.set_content(root, NodeValue::empty_array());
+        for val in values {
+            let child = doc.add_array_element(None, root).unwrap().node_id;
+            doc.set_content(child, NodeValue::Primitive(val));
+        }
+        doc
     }
 
     #[test]
@@ -2062,26 +1995,26 @@ mod tests {
         schema.root = array_schema;
 
         // Valid array
-        let value = Value::Array(eure_document::value::Array(vec![
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
-        ]));
-        let result = validate_value(&value, &schema);
+        let doc = create_array_doc(vec![
+            PrimitiveValue::Integer(BigInt::from(1)),
+            PrimitiveValue::Integer(BigInt::from(2)),
+        ]);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
         // Too short
-        let value = Value::Array(eure_document::value::Array(vec![]));
-        let result = validate_value(&value, &schema);
+        let doc = create_array_doc(vec![]);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
 
         // Too long
-        let value = Value::Array(eure_document::value::Array(vec![
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(3))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(4))),
-        ]));
-        let result = validate_value(&value, &schema);
+        let doc = create_array_doc(vec![
+            PrimitiveValue::Integer(BigInt::from(1)),
+            PrimitiveValue::Integer(BigInt::from(2)),
+            PrimitiveValue::Integer(BigInt::from(3)),
+            PrimitiveValue::Integer(BigInt::from(4)),
+        ]);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 
@@ -2100,22 +2033,34 @@ mod tests {
         schema.root = array_schema;
 
         // Unique values
-        let value = Value::Array(eure_document::value::Array(vec![
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(3))),
-        ]));
-        let result = validate_value(&value, &schema);
+        let doc = create_array_doc(vec![
+            PrimitiveValue::Integer(BigInt::from(1)),
+            PrimitiveValue::Integer(BigInt::from(2)),
+            PrimitiveValue::Integer(BigInt::from(3)),
+        ]);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
         // Duplicate values
-        let value = Value::Array(eure_document::value::Array(vec![
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(2))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(1))),
-        ]));
-        let result = validate_value(&value, &schema);
+        let doc = create_array_doc(vec![
+            PrimitiveValue::Integer(BigInt::from(1)),
+            PrimitiveValue::Integer(BigInt::from(2)),
+            PrimitiveValue::Integer(BigInt::from(1)),
+        ]);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
+    }
+
+    /// Helper to create a tuple document
+    fn create_tuple_doc(values: Vec<PrimitiveValue>) -> EureDocument {
+        let mut doc = EureDocument::new();
+        let root = doc.get_root_id();
+        doc.set_content(root, NodeValue::empty_tuple());
+        for (i, val) in values.into_iter().enumerate() {
+            let child = doc.add_tuple_element(i as u8, root).unwrap().node_id;
+            doc.set_content(child, NodeValue::Primitive(val));
+        }
+        doc
     }
 
     #[test]
@@ -2130,26 +2075,26 @@ mod tests {
         schema.root = tuple_schema;
 
         // Valid tuple
-        let value = Value::Tuple(Tuple(vec![
-            Value::Primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string()))),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
-        ]));
-        let result = validate_value(&value, &schema);
+        let doc = create_tuple_doc(vec![
+            PrimitiveValue::Text(Text::plaintext("hello".to_string())),
+            PrimitiveValue::Integer(BigInt::from(42)),
+        ]);
+        let result = validate(&doc, &schema);
         assert!(result.is_valid);
 
         // Wrong length
-        let value = Value::Tuple(Tuple(vec![Value::Primitive(PrimitiveValue::Text(
-            Text::plaintext("hello".to_string()),
-        ))]));
-        let result = validate_value(&value, &schema);
+        let doc = create_tuple_doc(vec![PrimitiveValue::Text(Text::plaintext(
+            "hello".to_string(),
+        ))]);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
 
         // Wrong types
-        let value = Value::Tuple(Tuple(vec![
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
-            Value::Primitive(PrimitiveValue::Text(Text::plaintext("hello".to_string()))),
-        ]));
-        let result = validate_value(&value, &schema);
+        let doc = create_tuple_doc(vec![
+            PrimitiveValue::Integer(BigInt::from(42)),
+            PrimitiveValue::Text(Text::plaintext("hello".to_string())),
+        ]);
+        let result = validate(&doc, &schema);
         assert!(!result.is_valid);
     }
 }

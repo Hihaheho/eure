@@ -11,7 +11,6 @@ pub enum ValueKind {
     F32,
     F64,
     Text,
-    Variant,
     Array,
     Tuple,
     Map,
@@ -27,7 +26,6 @@ impl core::fmt::Display for ValueKind {
             Self::F32 => write!(f, "f32"),
             Self::F64 => write!(f, "f64"),
             Self::Text => write!(f, "text"),
-            Self::Variant => write!(f, "variant"),
             Self::Array => write!(f, "array"),
             Self::Tuple => write!(f, "tuple"),
             Self::Map => write!(f, "map"),
@@ -48,7 +46,6 @@ pub enum PrimitiveValue {
     /// - `` `...` `` syntax produces `Text` with `Language::Implicit`
     /// - `` lang`...` `` syntax produces `Text` with `Language::Other(lang)`
     Text(Text),
-    Variant(Variant),
 }
 
 impl PrimitiveValue {
@@ -74,17 +71,8 @@ impl PrimitiveValue {
             Self::F32(_) => ValueKind::F32,
             Self::F64(_) => ValueKind::F64,
             Self::Text(_) => ValueKind::Text,
-            Self::Variant(_) => ValueKind::Variant,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Primitive(PrimitiveValue),
-    Array(Array),
-    Tuple(Tuple<Value>),
-    Map(Map),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -160,9 +148,6 @@ impl From<BigInt> for ObjectKey {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Plural, Default)]
-pub struct Array(pub Vec<Value>);
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Plural, Default)]
 pub struct Tuple<T>(pub Vec<T>);
 
@@ -177,16 +162,6 @@ impl core::fmt::Display for Tuple<ObjectKey> {
         }
         write!(f, ")")
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Plural, Default)]
-#[plural(len, is_empty, iter, into_iter, into_iter_ref, from_iter, new)]
-pub struct Map(pub crate::Map<ObjectKey, Value>);
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Variant {
-    pub tag: String,
-    pub content: Box<Value>,
 }
 
 // ============================================================================
