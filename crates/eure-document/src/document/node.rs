@@ -1,6 +1,6 @@
 use crate::{prelude_internal::*, value::ValueKind};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// A node in the Eure document.
 ///
 /// This does not implement PartialEq since content may refer to other nodes, and so equality is not well-defined.
@@ -125,7 +125,7 @@ impl Node {
     }
 
     pub(crate) fn require_map(&mut self) -> Result<&mut NodeMap, InsertErrorKind> {
-        if self.content == NodeValue::Hole {
+        if self.content.is_hole() {
             self.content = NodeValue::Map(Default::default());
             let NodeValue::Map(map) = &mut self.content else {
                 unreachable!();
@@ -139,7 +139,7 @@ impl Node {
     }
 
     pub(crate) fn require_tuple(&mut self) -> Result<&mut NodeTuple, InsertErrorKind> {
-        if self.content == NodeValue::Hole {
+        if self.content.is_hole() {
             self.content = NodeValue::Tuple(Default::default());
             let NodeValue::Tuple(tuple) = &mut self.content else {
                 unreachable!();
@@ -153,7 +153,7 @@ impl Node {
     }
 
     pub(crate) fn require_array(&mut self) -> Result<&mut NodeArray, InsertErrorKind> {
-        if self.content == NodeValue::Hole {
+        if self.content.is_hole() {
             self.content = NodeValue::Array(Default::default());
             let NodeValue::Array(array) = &mut self.content else {
                 unreachable!();
@@ -169,8 +169,9 @@ impl Node {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum NodeValue {
-    /// A node that has not any value.
-    Hole,
+    /// A hole represents an uninitialized or placeholder value.
+    /// Optionally includes a label for identification (e.g., `!todo`, `!wip`).
+    Hole(Option<Identifier>),
     Primitive(PrimitiveValue),
     Array(NodeArray),
     Map(NodeMap),
@@ -178,6 +179,21 @@ pub enum NodeValue {
 }
 
 impl NodeValue {
+    /// Creates an anonymous hole (no label).
+    pub fn hole() -> Self {
+        Self::Hole(None)
+    }
+
+    /// Creates a labeled hole.
+    pub fn labeled_hole(label: Identifier) -> Self {
+        Self::Hole(Some(label))
+    }
+
+    /// Returns true if this is a hole (labeled or anonymous).
+    pub fn is_hole(&self) -> bool {
+        matches!(self, Self::Hole(_))
+    }
+
     pub fn empty_map() -> Self {
         Self::Map(NodeMap::new())
     }
@@ -192,7 +208,7 @@ impl NodeValue {
 
     pub fn value_kind(&self) -> Option<ValueKind> {
         match self {
-            Self::Hole => None,
+            Self::Hole(_) => None,
             Self::Primitive(primitive) => Some(primitive.kind()),
             Self::Array(_) => Some(ValueKind::Array),
             Self::Map(_) => Some(ValueKind::Map),
@@ -301,7 +317,7 @@ mod tests {
     #[test]
     fn test_require_map_on_uninitialized() {
         let mut node = Node {
-            content: NodeValue::Hole,
+            content: NodeValue::hole(),
             extensions: Map::new(),
         };
 
@@ -337,7 +353,7 @@ mod tests {
     #[test]
     fn test_require_tuple_on_uninitialized() {
         let mut node = Node {
-            content: NodeValue::Hole,
+            content: NodeValue::hole(),
             extensions: Map::new(),
         };
 
@@ -373,7 +389,7 @@ mod tests {
     #[test]
     fn test_require_array_on_uninitialized() {
         let mut node = Node {
-            content: NodeValue::Hole,
+            content: NodeValue::hole(),
             extensions: Map::new(),
         };
 

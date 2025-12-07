@@ -2,8 +2,10 @@ mod value_visitor;
 
 use eros::Union as _;
 use eure_document::document::constructor::ScopeError;
+pub use eure_document::document::node::NodeValue;
 pub use eure_document::document::*;
 use eure_document::identifier::IdentifierError;
+pub use eure_document::parse;
 use eure_document::text::TextParseError;
 use eure_parol::EureParseError;
 

@@ -7,7 +7,7 @@ use crate::prelude_internal::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EureDocument {
     pub(crate) root: NodeId,
     nodes: Vec<Node>,
@@ -86,7 +86,7 @@ impl EureDocument {
         value2: &NodeValue,
     ) -> bool {
         match (value1, value2) {
-            (NodeValue::Hole, NodeValue::Hole) => true,
+            (NodeValue::Hole(l1), NodeValue::Hole(l2)) => l1 == l2,
             (NodeValue::Primitive(p1), NodeValue::Primitive(p2)) => p1 == p2,
             (NodeValue::Array(arr1), NodeValue::Array(arr2)) => {
                 self.node_arrays_equal(arr1, other, arr2)
@@ -150,7 +150,7 @@ impl EureDocument {
         Self {
             root: NodeId(0),
             nodes: vec![Node {
-                content: NodeValue::Hole,
+                content: NodeValue::hole(),
                 extensions: Map::new(),
             }],
         }
@@ -209,7 +209,12 @@ impl EureDocument {
     }
 
     pub fn create_node_uninitialized(&mut self) -> NodeId {
-        self.create_node(NodeValue::Hole)
+        self.create_node(NodeValue::hole())
+    }
+
+    /// Set the content of a node directly
+    pub fn set_content(&mut self, node_id: NodeId, content: NodeValue) {
+        self.nodes[node_id.0].content = content;
     }
 
     pub fn add_child_by_segment(

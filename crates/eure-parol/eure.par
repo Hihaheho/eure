@@ -65,7 +65,7 @@ Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hol
   True: 'true' ;
   False: 'false';
   Null: 'null' ;
-  Hole: '!' ;
+  Hole: /![\p{XID_Start}_]?[\p{XID_Continue}-]*/ ;
 
 Strings: Str { Continue Str } ;
 Str: /"([^"]|\\")*"/ ;

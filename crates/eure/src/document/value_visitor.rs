@@ -283,24 +283,17 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: EureView,
         tree: &F,
     ) -> Result<(), Self::Error> {
+        // Visit children using the default super implementation
+        self.visit_eure_super(handle, view, tree)?;
         // Check if Eure is truly empty (no ValueBinding, no Bindings, no Sections)
         let has_value_binding = view.eure_opt.get_view(tree)?.is_some();
-        let has_bindings = view.eure_bindings.get_view(tree)?.is_some();
-        let has_sections = view.eure_sections.get_view(tree)?.is_some();
-        let is_empty = !has_value_binding && !has_bindings && !has_sections;
-
-        // Only convert Hole to empty map if Eure was truly empty
-        // (not when Hole was explicitly set via `= !`)
-        if is_empty {
+        if self.document.current_node().content.is_hole() && !has_value_binding {
             self.document.bind_empty_map().map_err(|e| {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
                 }
             })?;
-        } else {
-            // Visit children using the default super implementation
-            self.visit_eure_super(handle, view, tree)?;
         }
         Ok(())
     }
@@ -352,7 +345,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 // Restore to the Object level
                 self.document.end_scope(scope)?;
             }
-        } else if !has_value_binding {
+        }
+
+        if self.document.current_node().content.is_hole() && !has_value_binding {
             // Empty object (no value binding, no entries)
             self.document.bind_empty_map().map_err(|e| {
                 DocumentConstructionError::DocumentInsert {
@@ -814,12 +809,22 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_hole(
         &mut self,
         handle: HoleHandle,
-        _view: HoleView,
-        _tree: &F,
+        view: HoleView,
+        tree: &F,
     ) -> Result<(), Self::Error> {
+        // Extract label from the hole token
+        let token_str = self.get_terminal_str(tree, view.hole)?;
+        let label = if token_str.len() > 1 {
+            // Named hole: `!label` - skip '!' prefix and parse as Identifier
+            Some(token_str[1..].parse::<Identifier>()?)
+        } else {
+            // Anonymous hole: just `!`
+            None
+        };
+
         let node_id = self.document.current_node_id();
         self.document
-            .bind_hole()
+            .bind_hole(label)
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),

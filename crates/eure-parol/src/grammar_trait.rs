@@ -2202,7 +2202,7 @@ impl ToSpan for GrammarNewline<'_> {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Hole<'t> {
-    pub hole: Token<'t>, /* ! */
+    pub hole: Token<'t>, /* ![\p{XID_Start}_]?[\p{XID_Continue}-]* */
 }
 
 impl ToSpan for Hole<'_> {
@@ -5473,7 +5473,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 105:
     ///
-    /// `Hole: '!';`
+    /// `Hole: /![\p{XID_Start}_]?[\p{XID_Continue}-]*/;`
     ///
     #[parol_runtime::function_name::named]
     fn hole(&mut self, hole: &ParseTreeType<'t>) -> Result<()> {

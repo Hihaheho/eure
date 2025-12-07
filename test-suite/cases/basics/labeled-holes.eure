@@ -1,0 +1,44 @@
+// Test labeled holes: !label syntax
+
+// Anonymous hole
+input_eure = eure`= !`
+normalized = eure`= { = ! }`
+
+// Labeled holes
+@ cases.labeled
+input_eure = eure`= !todo`
+normalized = eure`= { = !todo }`
+
+// Different labels should parse correctly
+@ cases.various_labels
+input_eure = ```eure
+a = !todo
+b = !wip
+c = !placeholder
+d = !_private
+```
+normalized = ```eure
+= {
+  a => !todo,
+  b => !wip,
+  c => !placeholder,
+  d => !_private
+}
+```
+
+// Labeled holes in nested structures
+@ cases.nested
+input_eure = ```eure
+config {
+  database = !todo
+  cache = !wip
+}
+```
+normalized = ```eure
+= {
+  config => {
+    database => !todo,
+    cache => !wip
+  }
+}
+```

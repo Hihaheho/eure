@@ -4,10 +4,12 @@ extern crate alloc;
 
 pub mod object_key;
 pub mod record;
+pub mod tuple;
 pub mod union;
 
 pub use object_key::ParseObjectKey;
 pub use record::{ExtParser, RecordParser};
+pub use tuple::TupleParser;
 pub use union::{UnionParser, VariantPath, VariantPathParseError};
 
 use alloc::format;
@@ -43,14 +45,14 @@ pub trait ParseDocument<'doc>: Sized {
 
 fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
     match node_value {
-        NodeValue::Hole => ParseErrorKind::UnexpectedUninitialized,
+        NodeValue::Hole(_) => ParseErrorKind::UnexpectedHole,
         value => value
             .value_kind()
             .map(|actual| ParseErrorKind::TypeMismatch {
                 expected: ValueKind::Text,
                 actual,
             })
-            .unwrap_or_else(|| ParseErrorKind::UnexpectedUninitialized),
+            .unwrap_or_else(|| ParseErrorKind::UnexpectedHole),
     }
 }
 
@@ -66,7 +68,7 @@ pub struct ParseError {
 pub enum ParseErrorKind {
     /// Unexpected uninitialized value.
     #[error("unexpected uninitialized value")]
-    UnexpectedUninitialized,
+    UnexpectedHole,
 
     /// Type mismatch between expected and actual value.
     #[error("type mismatch: expected {expected}, got {actual}")]
@@ -128,11 +130,9 @@ pub enum ParseErrorKind {
     AmbiguousUnion(Vec<String>),
 
     /// Literal value mismatch.
-    #[error("literal value mismatch: expected {expected:?}, got {actual:?}]")]
-    LiteralMismatch {
-        expected: Box<Value>,
-        actual: Box<Value>,
-    },
+    #[error("literal value mismatch: expected {expected}, got {actual}")]
+    // FIXME: Use EureDocument instead of String?
+    LiteralMismatch { expected: String, actual: String },
 }
 
 impl ParseErrorKind {
@@ -166,6 +166,18 @@ impl<'doc> ParseDocument<'doc> for &'doc str {
 impl ParseDocument<'_> for String {
     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         doc.parse::<&str>(node_id).map(String::from)
+    }
+}
+
+impl ParseDocument<'_> for Text {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        match &doc.node(node_id).content {
+            NodeValue::Primitive(PrimitiveValue::Text(text)) => Ok(text.clone()),
+            value => Err(ParseError {
+                node_id,
+                kind: handle_unexpected_node_value(value),
+            }),
+        }
     }
 }
 
@@ -448,7 +460,7 @@ pub struct LiteralParser<T>(T);
 
 impl<'doc, T> DocumentParser<'doc> for LiteralParser<T>
 where
-    T: 'doc + ParseDocument<'doc> + PartialEq + Into<Value>,
+    T: 'doc + ParseDocument<'doc> + PartialEq + core::fmt::Debug,
 {
     type Output = T;
     fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
@@ -459,8 +471,8 @@ where
             Err(ParseError {
                 node_id,
                 kind: ParseErrorKind::LiteralMismatch {
-                    expected: Box::new(self.0.into()),
-                    actual: Box::new(value.into()),
+                    expected: format!("{:?}", self.0),
+                    actual: format!("{:?}", value),
                 },
             })
         }

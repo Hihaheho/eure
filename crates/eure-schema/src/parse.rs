@@ -636,7 +636,6 @@ fn get_variant_string(doc: &EureDocument, node_id: NodeId) -> Result<Option<Stri
             let node = doc.node(var_node_id);
             match &node.content {
                 NodeValue::Primitive(PrimitiveValue::Text(t)) => Ok(Some(t.as_str().to_string())),
-                NodeValue::Primitive(PrimitiveValue::Variant(v)) => Ok(Some(v.tag.clone())),
                 _ => Err(ParseError {
                     node_id: var_node_id,
                     kind: ParseErrorKind::TypeMismatch {
@@ -780,9 +779,9 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
         let variant = get_variant_string(doc, node_id)?;
 
         match &node.content {
-            NodeValue::Hole => Err(ParseError {
+            NodeValue::Hole(_) => Err(ParseError {
                 node_id,
-                kind: ParseErrorKind::UnexpectedUninitialized,
+                kind: ParseErrorKind::UnexpectedHole,
             }),
 
             NodeValue::Primitive(prim) => {

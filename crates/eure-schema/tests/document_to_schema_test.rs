@@ -2195,7 +2195,7 @@ fn test_error_unknown_variant_type() {
     assert!(matches!(
         result.unwrap_err(),
         ConversionError::ParseError(ParseError {
-            kind: ParseErrorKind::UnexpectedUninitialized,
+            kind: ParseErrorKind::UnexpectedHole,
             ..
         })
     ));

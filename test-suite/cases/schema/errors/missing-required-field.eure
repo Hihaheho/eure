@@ -10,5 +10,5 @@ email = `text`
 ```
 
 schema_errors = [
-  "Missing required field 'email'"
+  "error: Missing required field 'email' at path $\n"
 ]

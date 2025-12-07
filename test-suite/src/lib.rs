@@ -12,7 +12,7 @@ pub use crate::case::{
     PreprocessedCase, RunConfig, Scenario, ScenarioResult, SchemaErrorValidationScenario,
     SchemaValidationScenario,
 };
-pub use crate::parser::{ParseError, ParseResult, parse_case};
+pub use crate::parser::{CaseData, CaseFile, ParseError, ParseResult, parse_case_file};
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -61,8 +61,12 @@ pub fn format_parse_error(error: &ParseError, input: &str, path: &Path) -> Strin
                 format!("error: {}\n  --> {}\n", error, path.display())
             }
         }
-        ParseError::IdentifierError { error, .. } => {
-            format!("Identifier error: {}\n  --> {}\n", error, path.display())
+        ParseError::DocumentParseError { error, .. } => {
+            format!(
+                "Document parse error: {}\n  --> {}\n",
+                error,
+                path.display()
+            )
         }
     }
 }
@@ -101,7 +105,7 @@ fn collect_cases_recursive(
                     continue;
                 }
             };
-            let case_result = parse_case(&content, path.clone());
+            let case_result = parse_case_file(&content, path.clone());
             cases.push(case_result.map_err(|e| CollectCasesError::ParseError {
                 path: path.clone(),
                 error: e,

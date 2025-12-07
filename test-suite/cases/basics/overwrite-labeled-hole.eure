@@ -1,0 +1,18 @@
+// Test overwriting labeled holes with actual values
+
+input_eure = ```eure
+a {
+  x = 1
+  y = !todo
+  z = 3
+}
+a.y = 2
+```
+
+normalized = ```eure
+= {
+  a => { x => 1, y => 2, z => 3 }
+}
+```
+
+output_json = json`{ "a": { "x": 1, "y": 2, "z": 3 } }`

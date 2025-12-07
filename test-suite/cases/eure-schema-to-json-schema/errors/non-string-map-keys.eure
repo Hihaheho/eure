@@ -7,4 +7,4 @@ key = `integer`
 value = `text`
 ```
 
-json_schema_errors[] = "non-string keys"
+json_schema_errors[] = "Eure Map with non-string keys cannot be represented in JSON Schema"
