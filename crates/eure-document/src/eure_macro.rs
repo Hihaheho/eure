@@ -108,78 +108,104 @@ macro_rules! eure {
     ({ $($body:tt)* }) => {{
         #[allow(unused_mut)]
         let mut c = $crate::document::constructor::DocumentConstructor::new();
-        $crate::eure!(@body c; $($body)*);
+        $crate::eure!(@stmt c; $($body)*);
         c.finish()
     }};
 
     // ========================================================================
-    // Body handlers (@body)
+    // Value conversion helper (@value)
+    //
+    // Converts value tokens to expressions. This centralizes the value
+    // conversion logic used by both @stmt (root bindings) and @terminal
+    // (path bindings).
+    // ========================================================================
+
+    // null literal
+    (@value; null) => { $crate::value::PrimitiveValue::Null };
+
+    // Inline code with implicit language: @code("content")
+    (@value; @code($content:expr)) => { $crate::text::Text::inline_implicit($content) };
+
+    // Inline code with explicit language: @code("lang", "content")
+    (@value; @code($lang:expr, $content:expr)) => { $crate::text::Text::inline($content, $lang) };
+
+    // Block code with implicit language: @block("content")
+    (@value; @block($content:expr)) => { $crate::text::Text::block_implicit($content) };
+
+    // Block code with explicit language: @block("lang", "content")
+    (@value; @block($lang:expr, $content:expr)) => { $crate::text::Text::block($content, $lang) };
+
+    // General expression fallback
+    (@value; $val:expr) => { $val };
+
+    // ========================================================================
+    // Statement handlers (@stmt)
     //
     // Process statements within a document or block. Each statement is either:
     // - A root value binding: `= value`
     // - A root special value: `= null`, `= !`, `= @code(...)`
     // - A path-based statement: `path = value` or `path { block }`
     //
-    // The body handler delegates path parsing to @parse_seg.
+    // The statement handler delegates path parsing to @path.
     // ========================================================================
 
     // Empty body - nothing to process
-    (@body $c:ident;) => {};
+    (@stmt $c:ident;) => {};
 
     // Root binding: null literal
-    (@body $c:ident; = null $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::value::PrimitiveValue::Null).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+    (@stmt $c:ident; = null $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; null)).unwrap();
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Root binding: hole (!) - explicit unbound placeholder
-    (@body $c:ident; = ! $(, $($tail:tt)*)?) => {{
+    (@stmt $c:ident; = ! $(, $($tail:tt)*)?) => {{
         // Hole is the default state, so we don't need to bind anything
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Root binding: inline code with implicit language - @code("content")
-    (@body $c:ident; = @code($content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+    (@stmt $c:ident; = @code($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @code($content))).unwrap();
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Root binding: inline code with explicit language - @code("lang", "content")
-    (@body $c:ident; = @code($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+    (@stmt $c:ident; = @code($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @code($lang, $content))).unwrap();
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Root binding: block code with implicit language - @block("content")
-    (@body $c:ident; = @block($content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::block_implicit($content)).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+    (@stmt $c:ident; = @block($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @block($content))).unwrap();
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Root binding: block code with explicit language - @block("lang", "content")
-    (@body $c:ident; = @block($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::block($content, $lang)).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+    (@stmt $c:ident; = @block($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @block($lang, $content))).unwrap();
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Root binding: general expression - = value
-    (@body $c:ident; = $val:expr $(, $($tail:tt)*)?) => {{
-        $c.bind_from($val).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+    (@stmt $c:ident; = $val:expr $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; $val)).unwrap();
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
-    // Start parsing a path-based statement - delegate to segment parser
+    // Start parsing a path-based statement - delegate to path parser
     // Creates a scope that will be closed when the statement ends
-    (@body $c:ident; $($tokens:tt)+) => {{
+    (@stmt $c:ident; $($tokens:tt)+) => {{
         let scope = $c.begin_scope();
-        $crate::eure!(@parse_seg $c scope; $($tokens)+);
+        $crate::eure!(@path $c scope; $($tokens)+);
     }};
 
     // ========================================================================
-    // Segment parsing (@parse_seg)
+    // Path segment parsing (@path)
     //
     // Parse one path segment at a time using TT muncher pattern.
-    // Each segment type navigates to a child node and then delegates to @after_seg.
+    // Each segment type navigates to a child node and then delegates to @after_path.
     //
     // Supported segment types:
     // - `ident`: Regular identifier (a, user, field_name)
@@ -190,50 +216,50 @@ macro_rules! eure {
     // ========================================================================
 
     // Segment: identifier (e.g., `field`, `user`, `name`)
-    (@parse_seg $c:ident $scope:ident; $seg:ident $($rest:tt)*) => {{
+    (@path $c:ident $scope:ident; $seg:ident $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Ident(
             $crate::identifier::Identifier::new_unchecked(stringify!($seg))
         )).unwrap();
-        $crate::eure!(@after_seg $c $scope; $($rest)*);
+        $crate::eure!(@after_path $c $scope; $($rest)*);
     }};
 
     // Segment: extension with identifier (e.g., `%variant`, `%schema`)
     // Note: Uses % instead of $ because $ is reserved in macros
-    (@parse_seg $c:ident $scope:ident; % $ext:ident $($rest:tt)*) => {{
+    (@path $c:ident $scope:ident; % $ext:ident $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Extension(
             $crate::identifier::Identifier::new_unchecked(stringify!($ext))
         )).unwrap();
-        $crate::eure!(@after_seg $c $scope; $($rest)*);
+        $crate::eure!(@after_path $c $scope; $($rest)*);
     }};
 
     // Segment: extension with string literal (e.g., `%"variant-repr"`)
     // Used for hyphenated extension names that aren't valid Rust identifiers
-    (@parse_seg $c:ident $scope:ident; % $ext:literal $($rest:tt)*) => {{
+    (@path $c:ident $scope:ident; % $ext:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Extension(
             $ext.parse().unwrap()
         )).unwrap();
-        $crate::eure!(@after_seg $c $scope; $($rest)*);
+        $crate::eure!(@after_path $c $scope; $($rest)*);
     }};
 
     // Segment: tuple index (e.g., `#0`, `#1`, `#255`)
-    (@parse_seg $c:ident $scope:ident; # $idx:literal $($rest:tt)*) => {{
+    (@path $c:ident $scope:ident; # $idx:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::TupleIndex($idx)).unwrap();
-        $crate::eure!(@after_seg $c $scope; $($rest)*);
+        $crate::eure!(@after_path $c $scope; $($rest)*);
     }};
 
     // Segment: tuple key (e.g., `(1, "key")`, `(true, 2)`)
     // Used as composite map keys
-    (@parse_seg $c:ident $scope:ident; ($($tuple:tt)*) $($rest:tt)*) => {{
+    (@path $c:ident $scope:ident; ($($tuple:tt)*) $($rest:tt)*) => {{
         let key = $crate::eure!(@build_tuple_key; $($tuple)*);
         $c.navigate($crate::path::PathSegment::Value(key)).unwrap();
-        $crate::eure!(@after_seg $c $scope; $($rest)*);
+        $crate::eure!(@after_path $c $scope; $($rest)*);
     }};
 
     // Segment: string literal key (e.g., `"min-length"`, `"Content-Type"`)
     // Used for keys that aren't valid identifiers
-    (@parse_seg $c:ident $scope:ident; $key:literal $($rest:tt)*) => {{
+    (@path $c:ident $scope:ident; $key:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
-        $crate::eure!(@after_seg $c $scope; $($rest)*);
+        $crate::eure!(@after_path $c $scope; $($rest)*);
     }};
 
     // ========================================================================
@@ -256,24 +282,24 @@ macro_rules! eure {
     }};
 
     // ========================================================================
-    // After segment (@after_seg)
+    // After path segment (@after_path)
     //
     // After parsing a segment, check if there's an optional array marker [].
     // If found, handle it; otherwise proceed to terminal handling.
     // ========================================================================
 
-    // Has array marker - delegate to @handle_arr
-    (@after_seg $c:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
-        $crate::eure!(@handle_arr $c $scope [$($arr)*]; $($rest)*);
+    // Has array marker - delegate to @array_marker
+    (@after_path $c:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
+        $crate::eure!(@array_marker $c $scope [$($arr)*]; $($rest)*);
     }};
 
     // No array marker - proceed to terminal handling
-    (@after_seg $c:ident $scope:ident; $($rest:tt)*) => {{
-        $crate::eure!(@after_arr $c $scope; $($rest)*);
+    (@after_path $c:ident $scope:ident; $($rest:tt)*) => {{
+        $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 
     // ========================================================================
-    // Handle array marker (@handle_arr)
+    // Array marker handling (@array_marker)
     //
     // Process the content of array markers:
     // - `[]`: Push to array (creates new element)
@@ -281,19 +307,19 @@ macro_rules! eure {
     // ========================================================================
 
     // Empty array marker: push operation (creates new element at end)
-    (@handle_arr $c:ident $scope:ident []; $($rest:tt)*) => {{
+    (@array_marker $c:ident $scope:ident []; $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
-        $crate::eure!(@after_arr $c $scope; $($rest)*);
+        $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 
     // Array marker with index: access at specific position
-    (@handle_arr $c:ident $scope:ident [$idx:literal]; $($rest:tt)*) => {{
+    (@array_marker $c:ident $scope:ident [$idx:literal]; $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
-        $crate::eure!(@after_arr $c $scope; $($rest)*);
+        $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 
     // ========================================================================
-    // After array marker / Terminal handling (@after_arr)
+    // Terminal handling (@terminal)
     //
     // Handle what comes after the path:
     // - `.more.path`: Continue parsing more segments
@@ -312,54 +338,54 @@ macro_rules! eure {
     // ========================================================================
 
     // Continuation: more path segments after dot
-    (@after_arr $c:ident $scope:ident; . $($rest:tt)+) => {{
-        $crate::eure!(@parse_seg $c $scope; $($rest)+);
+    (@terminal $c:ident $scope:ident; . $($rest:tt)+) => {{
+        $crate::eure!(@path $c $scope; $($rest)+);
     }};
 
     // Terminal: null literal assignment
-    (@after_arr $c:ident $scope:ident; = null $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::value::PrimitiveValue::Null).unwrap();
+    (@terminal $c:ident $scope:ident; = null $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; null)).unwrap();
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: hole (!) - explicit unbound placeholder
-    (@after_arr $c:ident $scope:ident; = ! $(, $($tail:tt)*)?) => {{
+    (@terminal $c:ident $scope:ident; = ! $(, $($tail:tt)*)?) => {{
         // Hole is the default state, so we just close the scope
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: inline code with implicit language - @code("content")
-    (@after_arr $c:ident $scope:ident; = @code($content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
+    (@terminal $c:ident $scope:ident; = @code($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @code($content))).unwrap();
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: inline code with explicit language - @code("lang", "content")
-    (@after_arr $c:ident $scope:ident; = @code($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
+    (@terminal $c:ident $scope:ident; = @code($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @code($lang, $content))).unwrap();
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: block code with implicit language - @block("content")
-    (@after_arr $c:ident $scope:ident; = @block($content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::block_implicit($content)).unwrap();
+    (@terminal $c:ident $scope:ident; = @block($content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @block($content))).unwrap();
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: block code with explicit language - @block("lang", "content")
-    (@after_arr $c:ident $scope:ident; = @block($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
-        $c.bind_from($crate::text::Text::block($content, $lang)).unwrap();
+    (@terminal $c:ident $scope:ident; = @block($lang:expr, $content:expr) $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; @block($lang, $content))).unwrap();
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: array literal assignment
-    (@after_arr $c:ident $scope:ident; = [$($items:expr),* $(,)?] $(, $($tail:tt)*)?) => {{
+    (@terminal $c:ident $scope:ident; = [$($items:expr),* $(,)?] $(, $($tail:tt)*)?) => {{
         $c.bind_empty_array().unwrap();
         $(
             let item_scope = $c.begin_scope();
@@ -368,11 +394,11 @@ macro_rules! eure {
             $c.end_scope(item_scope).unwrap();
         )*
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: tuple literal assignment
-    (@after_arr $c:ident $scope:ident; = ($($items:expr),* $(,)?) $(, $($tail:tt)*)?) => {{
+    (@terminal $c:ident $scope:ident; = ($($items:expr),* $(,)?) $(, $($tail:tt)*)?) => {{
         $c.bind_empty_tuple().unwrap();
         #[allow(unused_mut)]
         let mut _idx: u8 = 0;
@@ -384,11 +410,11 @@ macro_rules! eure {
             _idx += 1;
         )*
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: object literal assignment (map with => syntax)
-    (@after_arr $c:ident $scope:ident; = { $($key:expr => $val:expr),* $(,)? } $(, $($tail:tt)*)?) => {{
+    (@terminal $c:ident $scope:ident; = { $($key:expr => $val:expr),* $(,)? } $(, $($tail:tt)*)?) => {{
         $c.bind_empty_map().unwrap();
         $(
             let item_scope = $c.begin_scope();
@@ -397,28 +423,28 @@ macro_rules! eure {
             $c.end_scope(item_scope).unwrap();
         )*
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: simple assignment
-    (@after_arr $c:ident $scope:ident; = $val:expr $(, $($tail:tt)*)?) => {{
-        $c.bind_from($val).unwrap();
+    (@terminal $c:ident $scope:ident; = $val:expr $(, $($tail:tt)*)?) => {{
+        $c.bind_from($crate::eure!(@value; $val)).unwrap();
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: empty block -> empty map
-    (@after_arr $c:ident $scope:ident; {} $(, $($tail:tt)*)?) => {{
+    (@terminal $c:ident $scope:ident; {} $(, $($tail:tt)*)?) => {{
         $c.bind_empty_map().unwrap();
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 
     // Terminal: non-empty block
-    (@after_arr $c:ident $scope:ident; { $($inner:tt)+ } $(, $($tail:tt)*)?) => {{
-        $crate::eure!(@body $c; $($inner)+);
+    (@terminal $c:ident $scope:ident; { $($inner:tt)+ } $(, $($tail:tt)*)?) => {{
+        $crate::eure!(@stmt $c; $($inner)+);
         $c.end_scope($scope).unwrap();
-        $($crate::eure!(@body $c; $($tail)*);)?
+        $($crate::eure!(@stmt $c; $($tail)*);)?
     }};
 }
 
