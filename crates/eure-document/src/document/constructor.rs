@@ -74,7 +74,7 @@ impl DocumentConstructor {
     }
 
     pub fn finish(mut self) -> EureDocument {
-        // If the root node is Uninitialized, empty map
+        // If the root node is Hole, empty map
         let root_id = self.document.get_root_id();
         let root_node = self.document.node_mut(root_id);
         if root_node.content.is_hole() {
@@ -530,7 +530,7 @@ mod tests {
     fn test_finish_replaces_uninitialized_root_with_null() {
         let constructor = DocumentConstructor::new();
 
-        // Root should be Uninitialized before finish
+        // Root should be Hole before finish
         let root_id = constructor.document().get_root_id();
         assert!(constructor.document().node(root_id).content.is_hole());
 

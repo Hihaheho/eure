@@ -43,14 +43,14 @@ pub trait ParseDocument<'doc>: Sized {
 
 fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
     match node_value {
-        NodeValue::Hole(_) => ParseErrorKind::UnexpectedUninitialized,
+        NodeValue::Hole(_) => ParseErrorKind::UnexpectedHole,
         value => value
             .value_kind()
             .map(|actual| ParseErrorKind::TypeMismatch {
                 expected: ValueKind::Text,
                 actual,
             })
-            .unwrap_or_else(|| ParseErrorKind::UnexpectedUninitialized),
+            .unwrap_or_else(|| ParseErrorKind::UnexpectedHole),
     }
 }
 
@@ -66,7 +66,7 @@ pub struct ParseError {
 pub enum ParseErrorKind {
     /// Unexpected uninitialized value.
     #[error("unexpected uninitialized value")]
-    UnexpectedUninitialized,
+    UnexpectedHole,
 
     /// Type mismatch between expected and actual value.
     #[error("type mismatch: expected {expected}, got {actual}")]

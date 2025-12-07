@@ -300,14 +300,13 @@ impl EureDocument {
     /// Get a RecordParser for parsing a record (map with string keys).
     ///
     /// Returns `ParseError` if the node is not a map.
-    /// Treats `Uninitialized` nodes as empty maps (useful for nodes with only extensions).
     pub fn parse_record(&self, node_id: NodeId) -> Result<RecordParser<'_>, ParseError> {
         let node = self.node(node_id);
         match &node.content {
             NodeValue::Map(map) => Ok(RecordParser::new(self, node_id, map)),
             NodeValue::Hole(_) => Err(ParseError {
                 node_id,
-                kind: ParseErrorKind::UnexpectedUninitialized,
+                kind: ParseErrorKind::UnexpectedHole,
             }),
             value => Err(ParseError {
                 node_id,
@@ -317,7 +316,7 @@ impl EureDocument {
                         expected: crate::value::ValueKind::Map,
                         actual,
                     })
-                    .unwrap_or(ParseErrorKind::UnexpectedUninitialized),
+                    .unwrap_or(ParseErrorKind::UnexpectedHole),
             }),
         }
     }

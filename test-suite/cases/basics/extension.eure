@@ -1,4 +1,4 @@
-unimplemented = "Uninitialized node error"
+unimplemented = "Hole node error"
 
 input_eure = ```eure
 $ext = "ext"

@@ -781,7 +781,7 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
         match &node.content {
             NodeValue::Hole(_) => Err(ParseError {
                 node_id,
-                kind: ParseErrorKind::UnexpectedUninitialized,
+                kind: ParseErrorKind::UnexpectedHole,
             }),
 
             NodeValue::Primitive(prim) => {
