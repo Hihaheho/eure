@@ -84,6 +84,7 @@ pub enum VariantRepr {
 
 impl VariantRepr {
     /// Create a VariantRepr from $variant-repr annotation node
+    // FIXME: Use ParseDocument
     pub fn from_annotation(doc: &EureDocument, node_id: NodeId) -> Option<Self> {
         let node = doc.node(node_id);
         match &node.content {
