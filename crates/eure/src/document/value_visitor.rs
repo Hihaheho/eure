@@ -283,24 +283,17 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         view: EureView,
         tree: &F,
     ) -> Result<(), Self::Error> {
+        // Visit children using the default super implementation
+        self.visit_eure_super(handle, view, tree)?;
         // Check if Eure is truly empty (no ValueBinding, no Bindings, no Sections)
         let has_value_binding = view.eure_opt.get_view(tree)?.is_some();
-        let has_bindings = view.eure_bindings.get_view(tree)?.is_some();
-        let has_sections = view.eure_sections.get_view(tree)?.is_some();
-        let is_empty = !has_value_binding && !has_bindings && !has_sections;
-
-        // Only convert Hole to empty map if Eure was truly empty
-        // (not when Hole was explicitly set via `= !`)
-        if is_empty {
+        if self.document.current_node().content.is_hole() && !has_value_binding {
             self.document.bind_empty_map().map_err(|e| {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
                 }
             })?;
-        } else {
-            // Visit children using the default super implementation
-            self.visit_eure_super(handle, view, tree)?;
         }
         Ok(())
     }
@@ -352,7 +345,9 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 // Restore to the Object level
                 self.document.end_scope(scope)?;
             }
-        } else if !has_value_binding {
+        }
+
+        if self.document.current_node().content.is_hole() && !has_value_binding {
             // Empty object (no value binding, no entries)
             self.document.bind_empty_map().map_err(|e| {
                 DocumentConstructionError::DocumentInsert {

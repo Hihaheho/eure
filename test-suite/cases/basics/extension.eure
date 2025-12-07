@@ -1,11 +1,13 @@
-unimplemented = "Hole node error"
-
 input_eure = ```eure
 $ext = "ext"
 key = 1
 key.$ext-key = 2
 object = { $ext-object => 3 }
+section {
+  $ext-section = "section"
+}
 text {
+  = "hello"
   $ext-text: hello
 }
 ```
@@ -15,8 +17,9 @@ normalized = ```eure
   $ext => "ext",
   key => { = 1, $ext-key => 2 },
   object => { = {}, $ext-object => 3 },
+  section => { = {}, $ext-section => "section" },
   text => { = "hello", $ext-text => "hello" },
 }
 ```
 
-output_json = json`{ "key": 1, "object": {}, "text": "hello" }`
+output_json = json`{ "key": 1, "object": {}, "section": {}, "text": "hello" }`
