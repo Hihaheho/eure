@@ -131,21 +131,14 @@ impl std::fmt::Display for ScenarioError {
 
 impl std::error::Error for ScenarioError {}
 
+use crate::parser::CaseData;
+
+/// A single test case with its data and path
 pub struct Case {
     pub path: PathBuf,
-    pub input_eure: Option<Text>,
-    pub normalized: Option<Text>,
-    pub output_json: Option<Text>,
-    /// Schema to validate input_eure against
-    pub schema: Option<Text>,
-    /// Expected validation errors (for error test cases)
-    pub schema_errors: Vec<Text>,
-    /// Expected JSON Schema output (for eure-schema to json-schema conversion)
-    pub output_json_schema: Option<Text>,
-    /// Expected conversion errors (for eure-schema to json-schema error test cases)
-    pub json_schema_errors: Vec<Text>,
-    /// Marks test case as unimplemented. None = not unimplemented, Some("") = unimplemented without reason, Some(reason) = unimplemented with reason
-    pub unimplemented: Option<String>,
+    /// Case name: "" for default (root-level), or the name from @ cases.<name>
+    pub name: String,
+    pub data: CaseData,
 }
 
 /// Configuration for running test cases
@@ -392,6 +385,21 @@ impl PreprocessedEure {
 }
 
 impl Case {
+    /// Create a Case from a CaseData with path and name
+    pub fn new(path: PathBuf, name: String, data: CaseData) -> Self {
+        Self { path, name, data }
+    }
+
+    /// Check if this case is marked as unimplemented
+    pub fn is_unimplemented(&self) -> bool {
+        self.data.unimplemented.is_some()
+    }
+
+    /// Get the unimplemented reason if any
+    pub fn unimplemented_reason(&self) -> Option<&str> {
+        self.data.unimplemented.as_deref()
+    }
+
     fn preprocess_eure(code: &Text) -> PreprocessedEure {
         // Check if language is "path" - load file from workspace root
         let input = if let Language::Other(lang) = &code.language {
@@ -432,23 +440,27 @@ impl Case {
         }
     }
     pub fn preprocess(&self) -> PreprocessedCase {
-        let input_eure = self.input_eure.as_ref().map(Self::preprocess_eure);
-        let normalized = self.normalized.as_ref().map(Self::preprocess_eure);
+        let input_eure = self.data.input_eure.as_ref().map(Self::preprocess_eure);
+        let normalized = self.data.normalized.as_ref().map(Self::preprocess_eure);
         let output_json = self
+            .data
             .output_json
             .as_ref()
             .map(|code| serde_json::from_str(code.as_str()).unwrap());
-        let schema = self.schema.as_ref().map(Self::preprocess_eure);
+        let schema = self.data.schema.as_ref().map(Self::preprocess_eure);
         let schema_errors = self
+            .data
             .schema_errors
             .iter()
             .map(|e| e.as_str().to_string())
             .collect();
         let output_json_schema = self
+            .data
             .output_json_schema
             .as_ref()
             .map(|code| serde_json::from_str(code.as_str()).unwrap());
         let json_schema_errors = self
+            .data
             .json_schema_errors
             .iter()
             .map(|e| e.as_str().to_string())

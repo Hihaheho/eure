@@ -10,7 +10,7 @@ use std::sync::mpsc;
 use clap::Parser;
 use rayon::prelude::*;
 use test_suite::{
-    CaseResult, CollectCasesError, RunConfig, ScenarioResult, cases_dir, collect_cases,
+    Case, CaseResult, CollectCasesError, RunConfig, ScenarioResult, cases_dir, collect_cases,
     format_parse_error,
 };
 
@@ -50,22 +50,26 @@ struct FailureDetail {
 }
 
 /// Result of a single test case execution
-enum TestCaseOutcome {
-    /// Case ran successfully with scenario results
-    Ran {
-        case_name: String,
-        result: CaseResult,
-        /// Status info for detailed error reporting
-        status_info: Option<String>,
-        /// Unimplemented flag and optional reason
-        unimplemented: Option<String>,
-    },
-    /// Failed to parse the test case file
-    ParseError { case_name: String, error: String },
+struct CaseOutcome {
+    case_name: String,
+    result: CaseResult,
+    status_info: Option<String>,
+    unimplemented: Option<String>,
 }
 
-/// Extract a friendly case name from the full path
-fn case_name_from_path(path: &Path, cases_dir: &Path) -> String {
+/// Result of a test file execution (may contain multiple cases)
+enum TestFileOutcome {
+    /// File ran successfully with case results
+    Ran {
+        file_name: String,
+        cases: Vec<CaseOutcome>,
+    },
+    /// Failed to parse the test file
+    ParseError { file_name: String, error: String },
+}
+
+/// Extract a friendly file name from the full path
+fn file_name_from_path(path: &Path, cases_dir: &Path) -> String {
     path.strip_prefix(cases_dir)
         .unwrap_or(path)
         .with_extension("")
@@ -112,12 +116,12 @@ fn run(args: &Args) -> i32 {
             .into_iter()
             .filter(|case_result| {
                 let path = match case_result {
-                    Ok(parse_result) => &parse_result.case.path,
+                    Ok(parse_result) => &parse_result.case_file.path,
                     Err(CollectCasesError::IoError { path, .. }) => path,
                     Err(CollectCasesError::ParseError { path, .. }) => path,
                 };
-                let case_name = case_name_from_path(path, &cases_base_dir);
-                case_name.contains(filter.as_str())
+                let file_name = file_name_from_path(path, &cases_base_dir);
+                file_name.contains(filter.as_str())
             })
             .collect()
     } else {
@@ -147,24 +151,43 @@ fn run(args: &Args) -> i32 {
             cases.par_iter().for_each_with(tx, |tx, case_result| {
                 let outcome = match case_result {
                     Ok(parse_result) => {
-                        let case_name =
-                            case_name_from_path(&parse_result.case.path, &cases_base_dir);
-                        let unimplemented = parse_result.case.unimplemented.clone();
-                        let preprocessed = parse_result.case.preprocess();
-                        let status_info = {
-                            let summary = preprocessed.status_summary();
-                            if summary.is_empty() {
-                                None
-                            } else {
-                                Some(summary)
-                            }
-                        };
-                        let result = preprocessed.run_all(&config);
-                        TestCaseOutcome::Ran {
-                            case_name,
-                            result,
-                            status_info,
-                            unimplemented,
+                        let file_name =
+                            file_name_from_path(&parse_result.case_file.path, &cases_base_dir);
+                        let case_file = &parse_result.case_file;
+
+                        // Process all cases in the file
+                        let case_outcomes: Vec<CaseOutcome> = case_file
+                            .all_cases()
+                            .map(|(name, case_data)| {
+                                let case = Case::new(
+                                    case_file.path.clone(),
+                                    name.to_string(),
+                                    case_data.clone(),
+                                );
+                                let unimplemented = case.data.unimplemented.clone();
+                                let preprocessed = case.preprocess();
+                                let status_info = {
+                                    let summary = preprocessed.status_summary();
+                                    if summary.is_empty() {
+                                        None
+                                    } else {
+                                        Some(summary)
+                                    }
+                                };
+                                let result = preprocessed.run_all(&config);
+
+                                CaseOutcome {
+                                    case_name: name.to_string(),
+                                    result,
+                                    status_info,
+                                    unimplemented,
+                                }
+                            })
+                            .collect();
+
+                        TestFileOutcome::Ran {
+                            file_name,
+                            cases: case_outcomes,
                         }
                     }
                     Err(collect_error) => {
@@ -177,9 +200,9 @@ fn run(args: &Args) -> i32 {
                                 (path.clone(), msg)
                             }
                         };
-                        let case_name = case_name_from_path(&path, &cases_base_dir);
-                        TestCaseOutcome::ParseError {
-                            case_name,
+                        let file_name = file_name_from_path(&path, &cases_base_dir);
+                        TestFileOutcome::ParseError {
+                            file_name,
                             error: error_msg,
                         }
                     }
@@ -189,17 +212,17 @@ fn run(args: &Args) -> i32 {
         });
 
         // Collect results
-        let mut outcomes: Vec<TestCaseOutcome> = rx.iter().collect();
+        let mut outcomes: Vec<TestFileOutcome> = rx.iter().collect();
 
-        // Sort by case name for consistent output
+        // Sort by file name for consistent output
         outcomes.sort_by(|a, b| {
             let name_a = match a {
-                TestCaseOutcome::Ran { case_name, .. } => case_name,
-                TestCaseOutcome::ParseError { case_name, .. } => case_name,
+                TestFileOutcome::Ran { file_name, .. } => file_name,
+                TestFileOutcome::ParseError { file_name, .. } => file_name,
             };
             let name_b = match b {
-                TestCaseOutcome::Ran { case_name, .. } => case_name,
-                TestCaseOutcome::ParseError { case_name, .. } => case_name,
+                TestFileOutcome::Ran { file_name, .. } => file_name,
+                TestFileOutcome::ParseError { file_name, .. } => file_name,
             };
             name_a.cmp(name_b)
         });
@@ -209,93 +232,79 @@ fn run(args: &Args) -> i32 {
         let mut total_failed = 0;
         let mut total_scenarios_passed = 0;
         let mut total_scenarios = 0;
-        let mut unimplemented_cases: Vec<(String, bool)> = Vec::new(); // (name, all_passed)
+        let mut unimplemented_cases: Vec<(String, bool)> = Vec::new();
         let mut failures: Vec<(String, Vec<FailureDetail>)> = Vec::new();
 
         for outcome in &outcomes {
             match outcome {
-                TestCaseOutcome::Ran {
-                    case_name,
-                    result,
-                    status_info,
-                    unimplemented,
-                } => {
-                    let passed = result.passed_count();
-                    let total = result.total_count();
-                    total_scenarios_passed += passed;
-                    total_scenarios += total;
+                TestFileOutcome::Ran { file_name, cases } => {
+                    let is_multi_case = cases.len() > 1;
 
-                    // Determine base status (PASS/FAIL/TODO)
-                    let (status_text, color, unimpl_annotation) =
-                        if let Some(reason) = unimplemented {
-                            // Unimplemented cases show TODO in yellow
-                            let annotation = if reason.is_empty() {
-                                String::new()
-                            } else {
-                                format!(" (\"{}\")", reason)
-                            };
-                            ("TODO", colors::YELLOW, annotation)
-                        } else if result.all_passed() {
-                            ("PASS", colors::GREEN, String::new())
+                    if is_multi_case {
+                        // Calculate aggregate status for multi-case file header
+                        // Priority: FAIL > TODO > PASS
+                        let has_fail = cases
+                            .iter()
+                            .any(|c| c.unimplemented.is_none() && !c.result.all_passed());
+                        let has_todo = cases.iter().any(|c| c.unimplemented.is_some());
+
+                        let (header_status, header_color) = if has_fail {
+                            ("FAIL", colors::RED)
+                        } else if has_todo {
+                            ("TODO", colors::YELLOW)
                         } else {
-                            ("FAIL", colors::RED, String::new())
+                            ("PASS", colors::GREEN)
                         };
 
-                    println!(
-                        "  {}{}{}{} {} {}{}/{}{}{}",
-                        colors::BOLD,
-                        color,
-                        status_text,
-                        colors::RESET,
-                        case_name,
-                        colors::DIM,
-                        passed,
-                        total,
-                        colors::RESET,
-                        unimpl_annotation
-                    );
+                        // Nested display for multi-case files
+                        println!(
+                            "  {}{}{}{} {}",
+                            colors::BOLD,
+                            header_color,
+                            header_status,
+                            colors::RESET,
+                            file_name
+                        );
 
-                    // Track for summary and warnings
-                    if unimplemented.is_some() {
-                        unimplemented_cases.push((case_name.clone(), result.all_passed()));
-                        // Don't count as failed even if scenarios fail
-                    } else if result.all_passed() {
-                        total_passed += 1;
-                    } else {
-                        total_failed += 1;
-
-                        // Collect failure details
-                        let failed_details: Vec<FailureDetail> = result
-                            .failed_scenarios()
-                            .iter()
-                            .map(|s| {
-                                let error = match &s.result {
-                                    ScenarioResult::Failed { error } => error.clone(),
-                                    _ => "Unknown error".to_string(),
-                                };
-                                let short = format!("{}: {}", s.name, error);
-                                let detailed = if let Some(info) = status_info {
-                                    format!("{}\n\n{}", info, error)
-                                } else {
-                                    error
-                                };
-                                FailureDetail { short, detailed }
-                            })
-                            .collect();
-                        failures.push((case_name.clone(), failed_details));
+                        for case_outcome in cases {
+                            display_case_outcome(
+                                case_outcome,
+                                file_name,
+                                true, // nested
+                                &mut total_passed,
+                                &mut total_failed,
+                                &mut total_scenarios_passed,
+                                &mut total_scenarios,
+                                &mut unimplemented_cases,
+                                &mut failures,
+                            );
+                        }
+                    } else if let Some(case_outcome) = cases.first() {
+                        // Single case: display on one line
+                        display_case_outcome(
+                            case_outcome,
+                            file_name,
+                            false, // not nested
+                            &mut total_passed,
+                            &mut total_failed,
+                            &mut total_scenarios_passed,
+                            &mut total_scenarios,
+                            &mut unimplemented_cases,
+                            &mut failures,
+                        );
                     }
                 }
-                TestCaseOutcome::ParseError { case_name, error } => {
+                TestFileOutcome::ParseError { file_name, error } => {
                     println!(
                         "  {}{}PARSE ERROR{} {}",
                         colors::BOLD,
                         colors::RED,
                         colors::RESET,
-                        case_name
+                        file_name
                     );
                     total_failed += 1;
                     failures.push((
-                        case_name.clone(),
+                        file_name.clone(),
                         vec![FailureDetail {
                             short: "Parse error".to_string(),
                             detailed: error.clone(),
@@ -388,4 +397,106 @@ fn run(args: &Args) -> i32 {
             1
         }
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn display_case_outcome(
+    case_outcome: &CaseOutcome,
+    file_name: &str,
+    nested: bool,
+    total_passed: &mut usize,
+    total_failed: &mut usize,
+    total_scenarios_passed: &mut usize,
+    total_scenarios: &mut usize,
+    unimplemented_cases: &mut Vec<(String, bool)>,
+    failures: &mut Vec<(String, Vec<FailureDetail>)>,
+) {
+    let passed = case_outcome.result.passed_count();
+    let total = case_outcome.result.total_count();
+    *total_scenarios_passed += passed;
+    *total_scenarios += total;
+
+    // Build case identifier
+    let case_id = if nested {
+        if case_outcome.case_name.is_empty() {
+            format!("{}[root]", file_name)
+        } else {
+            format!("{}[{}]", file_name, case_outcome.case_name)
+        }
+    } else {
+        file_name.to_string()
+    };
+
+    // Build display name for output
+    let display_name = if nested {
+        if case_outcome.case_name.is_empty() {
+            "[root]".to_string()
+        } else {
+            format!("[{}]", case_outcome.case_name)
+        }
+    } else {
+        file_name.to_string()
+    };
+
+    // Determine status
+    let (status_text, color, unimpl_annotation) = if let Some(reason) = &case_outcome.unimplemented
+    {
+        let annotation = if reason.is_empty() {
+            String::new()
+        } else {
+            format!(" (\"{}\")", reason)
+        };
+        ("TODO", colors::YELLOW, annotation)
+    } else if case_outcome.result.all_passed() {
+        ("PASS", colors::GREEN, String::new())
+    } else {
+        ("FAIL", colors::RED, String::new())
+    };
+
+    // Print with appropriate indentation
+    let indent = if nested { "    " } else { "  " };
+    println!(
+        "{}{}{}{}{} {} {}{}/{}{}{}",
+        indent,
+        colors::BOLD,
+        color,
+        status_text,
+        colors::RESET,
+        display_name,
+        colors::DIM,
+        passed,
+        total,
+        colors::RESET,
+        unimpl_annotation
+    );
+
+    // Track for summary
+    if case_outcome.unimplemented.is_some() {
+        unimplemented_cases.push((case_id.clone(), case_outcome.result.all_passed()));
+    } else if case_outcome.result.all_passed() {
+        *total_passed += 1;
+    } else {
+        *total_failed += 1;
+
+        // Collect failure details
+        let failed_details: Vec<FailureDetail> = case_outcome
+            .result
+            .failed_scenarios()
+            .iter()
+            .map(|s| {
+                let error = match &s.result {
+                    ScenarioResult::Failed { error } => error.clone(),
+                    _ => "Unknown error".to_string(),
+                };
+                let short = format!("{}: {}", s.name, error);
+                let detailed = if let Some(ref info) = case_outcome.status_info {
+                    format!("{}\n\n{}", info, error)
+                } else {
+                    error
+                };
+                FailureDetail { short, detailed }
+            })
+            .collect();
+        failures.push((case_id, failed_details));
+    }
 }

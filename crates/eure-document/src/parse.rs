@@ -167,6 +167,18 @@ impl ParseDocument<'_> for String {
     }
 }
 
+impl ParseDocument<'_> for Text {
+    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        match &doc.node(node_id).content {
+            NodeValue::Primitive(PrimitiveValue::Text(text)) => Ok(text.clone()),
+            value => Err(ParseError {
+                node_id,
+                kind: handle_unexpected_node_value(value),
+            }),
+        }
+    }
+}
+
 impl ParseDocument<'_> for bool {
     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         match &doc.node(node_id).content {
