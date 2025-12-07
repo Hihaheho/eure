@@ -1,6 +1,6 @@
 use crate::{prelude_internal::*, value::ValueKind};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// A node in the Eure document.
 ///
 /// This does not implement PartialEq since content may refer to other nodes, and so equality is not well-defined.

@@ -26,9 +26,27 @@ fn convert_node(
 ) -> Result<JsonValue, EureToJsonError> {
     let node = doc.node(node_id);
 
+    // Check for $variant extension
+    let variant_ext: Option<&str> = node
+        .extensions
+        .iter()
+        .find(|(k, _)| k.as_ref() == "variant")
+        .and_then(|(_, &ext_id)| {
+            if let NodeValue::Primitive(PrimitiveValue::Text(t)) = &doc.node(ext_id).content {
+                Some(t.as_str())
+            } else {
+                None
+            }
+        });
+
+    // If this node has a $variant extension, handle it as a variant
+    if let Some(tag) = variant_ext {
+        return convert_variant_node(doc, node_id, tag, config);
+    }
+
     match &node.content {
         NodeValue::Hole => Err(EureToJsonError::HoleNotSupported),
-        NodeValue::Primitive(prim) => convert_primitive(prim, config),
+        NodeValue::Primitive(prim) => convert_primitive(prim),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
             for &child_id in &arr.0 {
@@ -55,7 +73,7 @@ fn convert_node(
     }
 }
 
-fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue, EureToJsonError> {
+fn convert_primitive(prim: &PrimitiveValue) -> Result<JsonValue, EureToJsonError> {
     match prim {
         PrimitiveValue::Null => Ok(JsonValue::Null),
         PrimitiveValue::Bool(b) => Ok(JsonValue::Bool(*b)),
@@ -91,52 +109,58 @@ fn convert_primitive(prim: &PrimitiveValue, config: &Config) -> Result<JsonValue
             }
         }
         PrimitiveValue::Text(text) => Ok(JsonValue::String(text.content.clone())),
-        PrimitiveValue::Variant(variant) => convert_variant(variant, config),
     }
 }
 
-fn convert_variant(
-    variant: &eure::value::Variant,
+/// Convert a node that has a $variant extension
+fn convert_variant_node(
+    doc: &EureDocument,
+    node_id: NodeId,
+    tag: &str,
     config: &Config,
 ) -> Result<JsonValue, EureToJsonError> {
-    // First convert the variant content
-    let content_json = convert_eure_document(&variant.content, config)?;
+    // Convert the content (the node itself minus the $variant extension)
+    let content_json = convert_node_content_only(doc, node_id, config)?;
 
     match &config.variant_repr {
         VariantRepr::External => {
             // {"variant-name": content}
             let mut map = serde_json::Map::new();
-            map.insert(variant.tag.clone(), content_json);
+            map.insert(tag.to_string(), content_json);
             Ok(JsonValue::Object(map))
         }
-        VariantRepr::Internal { tag } => {
+        VariantRepr::Internal { tag: tag_field } => {
             // {"type": "variant-name", ...fields...}
             // Content must be an object to merge fields
             if let JsonValue::Object(mut content_map) = content_json {
                 // Check if tag field already exists in content
-                if content_map.contains_key(tag) {
-                    return Err(EureToJsonError::VariantTagConflict { tag: tag.clone() });
+                if content_map.contains_key(tag_field) {
+                    return Err(EureToJsonError::VariantTagConflict {
+                        tag: tag_field.clone(),
+                    });
                 }
-                content_map.insert(tag.clone(), JsonValue::String(variant.tag.clone()));
+                content_map.insert(tag_field.clone(), JsonValue::String(tag.to_string()));
                 Ok(JsonValue::Object(content_map))
             } else {
                 // If content is not an object, use External representation as fallback
                 let mut map = serde_json::Map::new();
-                map.insert(variant.tag.clone(), content_json);
+                map.insert(tag.to_string(), content_json);
                 Ok(JsonValue::Object(map))
             }
         }
         VariantRepr::Adjacent {
-            tag,
+            tag: tag_field,
             content: content_key,
         } => {
             // {"type": "variant-name", "content": {...}}
             // Check if tag and content keys are the same
-            if tag == content_key {
-                return Err(EureToJsonError::VariantAdjacentConflict { field: tag.clone() });
+            if tag_field == content_key {
+                return Err(EureToJsonError::VariantAdjacentConflict {
+                    field: tag_field.clone(),
+                });
             }
             let mut map = serde_json::Map::new();
-            map.insert(tag.clone(), JsonValue::String(variant.tag.clone()));
+            map.insert(tag_field.clone(), JsonValue::String(tag.to_string()));
             map.insert(content_key.clone(), content_json);
             Ok(JsonValue::Object(map))
         }
@@ -147,32 +171,37 @@ fn convert_variant(
     }
 }
 
-fn convert_eure_document(
-    value: &eure::value::Value,
+/// Convert a node's content without checking for $variant extension (to avoid infinite recursion)
+fn convert_node_content_only(
+    doc: &EureDocument,
+    node_id: NodeId,
     config: &Config,
 ) -> Result<JsonValue, EureToJsonError> {
-    match value {
-        eure::value::Value::Primitive(prim) => convert_primitive(prim, config),
-        eure::value::Value::Array(arr) => {
+    let node = doc.node(node_id);
+
+    match &node.content {
+        NodeValue::Hole => Err(EureToJsonError::HoleNotSupported),
+        NodeValue::Primitive(prim) => convert_primitive(prim),
+        NodeValue::Array(arr) => {
             let mut result = Vec::new();
-            for item in &arr.0 {
-                result.push(convert_eure_document(item, config)?);
+            for &child_id in &arr.0 {
+                result.push(convert_node(doc, child_id, config)?);
             }
             Ok(JsonValue::Array(result))
         }
-        eure::value::Value::Tuple(tuple) => {
+        NodeValue::Tuple(tuple) => {
             let mut result = Vec::new();
-            for item in &tuple.0 {
-                result.push(convert_eure_document(item, config)?);
+            for &child_id in &tuple.0 {
+                result.push(convert_node(doc, child_id, config)?);
             }
             Ok(JsonValue::Array(result))
         }
-        eure::value::Value::Map(map) => {
+        NodeValue::Map(map) => {
             let mut result = serde_json::Map::new();
-            for (key, value) in &map.0 {
+            for (key, &child_id) in &map.0 {
                 let key_string = convert_object_key(key)?;
-                let json_value = convert_eure_document(value, config)?;
-                result.insert(key_string, json_value);
+                let value = convert_node(doc, child_id, config)?;
+                result.insert(key_string, value);
             }
             Ok(JsonValue::Object(result))
         }
@@ -199,8 +228,27 @@ mod tests {
     use super::*;
     use eure::data_model::VariantRepr;
     use eure::document::node::NodeValue;
-    use eure::value::{ObjectKey, PrimitiveValue, Variant};
+    use eure::value::{ObjectKey, PrimitiveValue};
+    use eure_document::identifier::Identifier;
+    use eure_document::text::Text;
     use serde_json::json;
+
+    /// Helper to create a document with $variant extension
+    fn create_variant_doc(tag: &str, content: NodeValue) -> EureDocument {
+        let mut doc = EureDocument::new();
+        let root = doc.get_root_id();
+        doc.node_mut(root).content = content;
+
+        // Add $variant extension
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        let ext_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext(tag.to_string()),
+        )));
+        doc.node_mut(root)
+            .extensions
+            .insert(variant_ident, ext_node);
+        doc
+    }
 
     // Test primitives
     #[test]
@@ -303,7 +351,6 @@ mod tests {
 
     #[test]
     fn test_text_plaintext_conversion() {
-        use eure_document::text::Text;
         let text = Text::plaintext("hello world".to_string());
         let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
         let config = Config::default();
@@ -351,15 +398,10 @@ mod tests {
         assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
     }
 
-    // Test variant conversions
+    // Test variant conversions (using $variant extension)
     #[test]
     fn test_variant_external() {
-        use eure::value::Value;
-        let variant = Variant {
-            tag: "Success".to_string(),
-            content: Box::new(Value::Primitive(PrimitiveValue::Bool(true))),
-        };
-        let doc = EureDocument::new_primitive(PrimitiveValue::Variant(variant));
+        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
         let config = Config {
             variant_repr: VariantRepr::External,
         };
@@ -369,12 +411,7 @@ mod tests {
 
     #[test]
     fn test_variant_untagged() {
-        use eure::value::Value;
-        let variant = Variant {
-            tag: "Success".to_string(),
-            content: Box::new(Value::Primitive(PrimitiveValue::Bool(true))),
-        };
-        let doc = EureDocument::new_primitive(PrimitiveValue::Variant(variant));
+        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
         let config = Config {
             variant_repr: VariantRepr::Untagged,
         };
@@ -384,20 +421,29 @@ mod tests {
 
     #[test]
     fn test_variant_internal_with_map_content() {
-        use eure::value::{Map as EureMap, Value};
         use num_bigint::BigInt;
 
-        let mut map = EureMap::new();
-        map.0.insert(
-            ObjectKey::String("field".to_string()),
-            Value::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
-        );
+        // Create a document with a map content and $variant extension
+        let mut doc = EureDocument::new();
+        let root = doc.get_root_id();
 
-        let variant = Variant {
-            tag: "Success".to_string(),
-            content: Box::new(Value::Map(map)),
-        };
-        let doc = EureDocument::new_primitive(PrimitiveValue::Variant(variant));
+        // Add field to the map
+        let field_node = doc
+            .add_map_child(ObjectKey::String("field".to_string()), root)
+            .unwrap()
+            .node_id;
+        doc.node_mut(field_node).content =
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42)));
+
+        // Add $variant extension
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        let ext_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("Success".to_string()),
+        )));
+        doc.node_mut(root)
+            .extensions
+            .insert(variant_ident, ext_node);
+
         let config = Config {
             variant_repr: VariantRepr::Internal {
                 tag: "type".to_string(),
@@ -409,20 +455,26 @@ mod tests {
 
     #[test]
     fn test_variant_internal_tag_conflict() {
-        use eure::value::{Map as EureMap, Value};
+        // Create a document with a map that has a "type" field already
+        let mut doc = EureDocument::new();
+        let root = doc.get_root_id();
 
-        // Create a map with a "type" field already present
-        let mut map = EureMap::new();
-        map.0.insert(
-            ObjectKey::String("type".to_string()),
-            Value::Primitive(PrimitiveValue::Bool(true)),
-        );
+        // Add "type" field to the map
+        let type_node = doc
+            .add_map_child(ObjectKey::String("type".to_string()), root)
+            .unwrap()
+            .node_id;
+        doc.node_mut(type_node).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
 
-        let variant = Variant {
-            tag: "Success".to_string(),
-            content: Box::new(Value::Map(map)),
-        };
-        let doc = EureDocument::new_primitive(PrimitiveValue::Variant(variant));
+        // Add $variant extension
+        let variant_ident: Identifier = "variant".parse().unwrap();
+        let ext_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
+            Text::plaintext("Success".to_string()),
+        )));
+        doc.node_mut(root)
+            .extensions
+            .insert(variant_ident, ext_node);
+
         let config = Config {
             variant_repr: VariantRepr::Internal {
                 tag: "type".to_string(),
@@ -439,12 +491,7 @@ mod tests {
 
     #[test]
     fn test_variant_adjacent() {
-        use eure::value::Value;
-        let variant = Variant {
-            tag: "Success".to_string(),
-            content: Box::new(Value::Primitive(PrimitiveValue::Bool(true))),
-        };
-        let doc = EureDocument::new_primitive(PrimitiveValue::Variant(variant));
+        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
         let config = Config {
             variant_repr: VariantRepr::Adjacent {
                 tag: "tag".to_string(),
@@ -457,12 +504,7 @@ mod tests {
 
     #[test]
     fn test_variant_adjacent_key_conflict() {
-        use eure::value::Value;
-        let variant = Variant {
-            tag: "Success".to_string(),
-            content: Box::new(Value::Primitive(PrimitiveValue::Bool(true))),
-        };
-        let doc = EureDocument::new_primitive(PrimitiveValue::Variant(variant));
+        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
         let config = Config {
             variant_repr: VariantRepr::Adjacent {
                 tag: "data".to_string(),

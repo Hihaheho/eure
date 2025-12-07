@@ -56,7 +56,7 @@ use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseDocument, ParseError};
-use eure_document::value::{ObjectKey, Value};
+use eure_document::value::ObjectKey;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use thiserror::Error;
@@ -204,7 +204,7 @@ impl<'a> Converter<'a> {
                 Ok(SchemaNodeContent::Float(self.convert_float_schema(parsed)?))
             }
             ParsedSchemaNodeContent::Literal(node_id) => {
-                Ok(SchemaNodeContent::Literal(self.node_to_value(node_id)?))
+                Ok(SchemaNodeContent::Literal(self.node_to_document(node_id)?))
             }
             ParsedSchemaNodeContent::Array(parsed) => {
                 Ok(SchemaNodeContent::Array(self.convert_array_schema(parsed)?))
@@ -382,7 +382,7 @@ impl<'a> Converter<'a> {
     ) -> Result<SchemaMetadata, ConversionError> {
         let default = parsed
             .default
-            .map(|id| self.node_to_value(id))
+            .map(|id| self.node_to_document(id))
             .transpose()?;
 
         Ok(SchemaMetadata {
@@ -414,39 +414,105 @@ impl<'a> Converter<'a> {
         Ok(result)
     }
 
-    /// Convert a document node to a Value for literal types
-    fn node_to_value(&self, node_id: NodeId) -> Result<Value, ConversionError> {
-        let node = self.doc.node(node_id);
-        match &node.content {
-            NodeValue::Primitive(prim) => Ok(Value::Primitive(prim.clone())),
+    /// Extract a subtree as a new EureDocument for literal types
+    fn node_to_document(&self, node_id: NodeId) -> Result<EureDocument, ConversionError> {
+        let mut new_doc = EureDocument::new();
+        let root_id = new_doc.get_root_id();
+        self.copy_node_to(&mut new_doc, root_id, node_id)?;
+        Ok(new_doc)
+    }
+
+    /// Recursively copy a node from source document to destination
+    fn copy_node_to(
+        &self,
+        dest: &mut EureDocument,
+        dest_node_id: NodeId,
+        src_node_id: NodeId,
+    ) -> Result<(), ConversionError> {
+        let src_node = self.doc.node(src_node_id);
+
+        // Collect child info before mutating dest
+        let children_to_copy: Vec<_> = match &src_node.content {
+            NodeValue::Primitive(prim) => {
+                dest.set_content(dest_node_id, NodeValue::Primitive(prim.clone()));
+                vec![]
+            }
             NodeValue::Array(arr) => {
-                let values: Vec<Value> = arr
-                    .0
-                    .iter()
-                    .map(|&id| self.node_to_value(id))
-                    .collect::<Result<_, _>>()?;
-                Ok(Value::Array(eure_document::value::Array(values)))
+                dest.set_content(dest_node_id, NodeValue::empty_array());
+                arr.0.to_vec()
             }
             NodeValue::Tuple(tup) => {
-                let values: Vec<Value> = tup
-                    .0
-                    .iter()
-                    .map(|&id| self.node_to_value(id))
-                    .collect::<Result<_, _>>()?;
-                Ok(Value::Tuple(eure_document::value::Tuple(values)))
+                dest.set_content(dest_node_id, NodeValue::empty_tuple());
+                tup.0.to_vec()
             }
             NodeValue::Map(map) => {
-                let mut result = eure_document::value::Map::default();
-                for (key, &value_id) in map.0.iter() {
-                    let value = self.node_to_value(value_id)?;
-                    result.0.insert(key.clone(), value);
-                }
-                Ok(Value::Map(result))
+                dest.set_content(dest_node_id, NodeValue::empty_map());
+                map.0
+                    .iter()
+                    .map(|(k, &v)| (k.clone(), v))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .map(|(_, v)| v)
+                    .collect()
             }
-            NodeValue::Hole => Err(ConversionError::UnsupportedConstruct(
-                "Hole node".to_string(),
-            )),
+            NodeValue::Hole => {
+                return Err(ConversionError::UnsupportedConstruct(
+                    "Hole node".to_string(),
+                ));
+            }
+        };
+
+        // Collect extension info, filtering out schema metadata extensions like $variant
+        let extensions_to_copy: Vec<_> = src_node
+            .extensions
+            .iter()
+            .filter(|(k, _)| k.as_ref() != "variant")
+            .map(|(k, &v)| (k.clone(), v))
+            .collect();
+
+        // Now copy children based on the type
+        let src_node = self.doc.node(src_node_id);
+        match &src_node.content {
+            NodeValue::Array(_) => {
+                for child_id in children_to_copy {
+                    let new_child_id = dest
+                        .add_array_element(None, dest_node_id)
+                        .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
+                        .node_id;
+                    self.copy_node_to(dest, new_child_id, child_id)?;
+                }
+            }
+            NodeValue::Tuple(_) => {
+                for (index, child_id) in children_to_copy.into_iter().enumerate() {
+                    let new_child_id = dest
+                        .add_tuple_element(index as u8, dest_node_id)
+                        .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
+                        .node_id;
+                    self.copy_node_to(dest, new_child_id, child_id)?;
+                }
+            }
+            NodeValue::Map(map) => {
+                for (key, &child_id) in map.0.iter() {
+                    let new_child_id = dest
+                        .add_map_child(key.clone(), dest_node_id)
+                        .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
+                        .node_id;
+                    self.copy_node_to(dest, new_child_id, child_id)?;
+                }
+            }
+            _ => {}
         }
+
+        // Copy extensions
+        for (ext_name, ext_node_id) in extensions_to_copy {
+            let new_ext_id = dest
+                .add_extension(ext_name, dest_node_id)
+                .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
+                .node_id;
+            self.copy_node_to(dest, new_ext_id, ext_node_id)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -831,13 +897,13 @@ mod tests {
         // The root should be a Literal, not Any
         let root_content = &schema.node(schema.root).content;
         match root_content {
-            SchemaNodeContent::Literal(value) => {
+            SchemaNodeContent::Literal(doc) => {
                 // The value should be Text("any")
-                match value {
-                    Value::Primitive(PrimitiveValue::Text(t)) => {
+                match &doc.root().content {
+                    NodeValue::Primitive(PrimitiveValue::Text(t)) => {
                         assert_eq!(t.as_str(), "any", "Literal should contain 'any'");
                     }
-                    _ => panic!("Expected Literal with Text primitive, got {:?}", value),
+                    _ => panic!("Expected Literal with Text primitive, got {:?}", doc),
                 }
             }
             SchemaNodeContent::Any => {
@@ -859,11 +925,11 @@ mod tests {
 
         let root_content = &schema.node(schema.root).content;
         match root_content {
-            SchemaNodeContent::Literal(value) => match value {
-                Value::Primitive(PrimitiveValue::Text(t)) => {
+            SchemaNodeContent::Literal(doc) => match &doc.root().content {
+                NodeValue::Primitive(PrimitiveValue::Text(t)) => {
                     assert_eq!(t.as_str(), "any", "Literal should contain 'any'");
                 }
-                _ => panic!("Expected Literal with Text primitive, got {:?}", value),
+                _ => panic!("Expected Literal with Text primitive, got {:?}", doc),
             },
             SchemaNodeContent::Any => {
                 panic!(
@@ -948,15 +1014,15 @@ mod tests {
                     .expect("'any' variant missing");
                 let any_content = &schema.node(*any_variant_id).content;
                 match any_content {
-                    SchemaNodeContent::Literal(value) => match value {
-                        Value::Primitive(PrimitiveValue::Text(t)) => {
+                    SchemaNodeContent::Literal(doc) => match &doc.root().content {
+                        NodeValue::Primitive(PrimitiveValue::Text(t)) => {
                             assert_eq!(
                                 t.as_str(),
                                 "any",
                                 "'any' variant should be Literal(\"any\")"
                             );
                         }
-                        _ => panic!("'any' variant: expected Text, got {:?}", value),
+                        _ => panic!("'any' variant: expected Text, got {:?}", doc),
                     },
                     SchemaNodeContent::Any => {
                         panic!(

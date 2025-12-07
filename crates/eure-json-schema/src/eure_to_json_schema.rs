@@ -6,7 +6,9 @@
 
 use crate::json_schema::*;
 use eure_document::data_model::VariantRepr;
-use eure_document::value::{ObjectKey, PrimitiveValue, Value};
+use eure_document::document::node::NodeValue;
+use eure_document::document::{EureDocument, NodeId};
+use eure_document::value::{ObjectKey, PrimitiveValue};
 use eure_schema::{
     ArraySchema as EureArraySchema, Bound, Description, FloatSchema,
     IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
@@ -23,9 +25,9 @@ pub enum ConversionError {
     #[error("Eure Hole type cannot be represented in JSON Schema")]
     HoleNotSupported,
 
-    /// Eure Variant value cannot be represented in JSON Schema
-    #[error("Eure Variant value cannot be represented in JSON Schema")]
-    VariantValueNotSupported,
+    /// Eure Hole in literal value cannot be represented in JSON Schema
+    #[error("Eure Hole in literal value cannot be represented in JSON Schema")]
+    HoleInLiteral,
 
     /// Eure Map type with non-string keys cannot be represented in JSON Schema
     #[error("Eure Map with non-string keys cannot be represented in JSON Schema")]
@@ -204,7 +206,7 @@ fn convert_schema_content(
         }
 
         SchemaNodeContent::Literal(val) => Ok(JsonSchema::Const(ConstSchema {
-            value: value_to_json(val)?,
+            value: document_to_json(val)?,
             metadata: json_metadata,
         })),
     }
@@ -381,23 +383,31 @@ fn convert_array_schema(
     })))
 }
 
-/// Convert Eure Value to JSON value
-fn value_to_json(val: &Value) -> Result<serde_json::Value, ConversionError> {
-    match val {
-        Value::Primitive(p) => primitive_to_json(p),
-        Value::Array(arr) => {
-            let items: Result<Vec<_>, _> = arr.0.iter().map(value_to_json).collect();
+/// Convert EureDocument to JSON value
+fn document_to_json(doc: &EureDocument) -> Result<serde_json::Value, ConversionError> {
+    node_to_json(doc, doc.get_root_id())
+}
+
+/// Convert a node in EureDocument to JSON value
+fn node_to_json(doc: &EureDocument, node_id: NodeId) -> Result<serde_json::Value, ConversionError> {
+    let node = doc.node(node_id);
+    match &node.content {
+        NodeValue::Hole => Err(ConversionError::HoleInLiteral),
+        NodeValue::Primitive(p) => primitive_to_json(p),
+        NodeValue::Array(arr) => {
+            let items: Result<Vec<_>, _> = arr.0.iter().map(|&id| node_to_json(doc, id)).collect();
             Ok(serde_json::Value::Array(items?))
         }
-        Value::Tuple(tuple) => {
-            let items: Result<Vec<_>, _> = tuple.0.iter().map(value_to_json).collect();
+        NodeValue::Tuple(tuple) => {
+            let items: Result<Vec<_>, _> =
+                tuple.0.iter().map(|&id| node_to_json(doc, id)).collect();
             Ok(serde_json::Value::Array(items?))
         }
-        Value::Map(map) => {
+        NodeValue::Map(map) => {
             let mut obj = serde_json::Map::new();
-            for (key, value) in &map.0 {
+            for (key, &value_id) in &map.0 {
                 let key_str = object_key_to_string(key)?;
-                obj.insert(key_str, value_to_json(value)?);
+                obj.insert(key_str, node_to_json(doc, value_id)?);
             }
             Ok(serde_json::Value::Object(obj))
         }
@@ -416,7 +426,6 @@ fn primitive_to_json(val: &PrimitiveValue) -> Result<serde_json::Value, Conversi
         PrimitiveValue::F32(f) => float_to_json(*f as f64),
         PrimitiveValue::F64(f) => float_to_json(*f),
         PrimitiveValue::Text(t) => Ok(serde_json::Value::String(t.as_str().to_string())),
-        PrimitiveValue::Variant(_) => Err(ConversionError::VariantValueNotSupported),
     }
 }
 
