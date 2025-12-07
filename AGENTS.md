@@ -52,7 +52,7 @@ cargo run --bin eure -- <commands> # Run eure CLI for validating file or convers
 - Extension namespaces with `$` prefix (e.g., `$variant`, `$eure.version`)
 - Multi-line text and code blocks with language tagging
 - Block syntax with `{}` for complex nested structures
-- Comments with `#`
+- Comments with `//` and `/* */`
 
 **Language Server (eure-ls):**
 Implements LSP for IDE integration with semantic tokens, diagnostics, and formatting support.
@@ -60,6 +60,21 @@ Implements LSP for IDE integration with semantic tokens, diagnostics, and format
 **Development Notes:**
 - Refer @crates/eure-parol/eure.par to understand the latest grammar.
 - Refer EureDocument struct in crates/eure-document for understanding the data model.
+
+**Testing Guidelines:**
+- Use `eure!` macro for both test input and expected documents
+- Compare entire documents with `assert_eq!`, not manual tree traversal
+- NEVER use manual document construction or `doc.node(...).as_map().unwrap().get(...)` patterns
+
+```rust
+// Good
+let expected = eure!({ name = "Alice", active = true });
+assert_eq!(actual_doc, expected);
+
+// Bad: manual traversal
+let name_id = doc.node(root_id).as_map().unwrap().get(&"name".into()).unwrap();
+assert_eq!(doc.node(name_id).as_primitive().unwrap().as_str(), Some("Alice"));
+```
 
 **ParseDocument API:**
 - Use `ParseDocument` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.
