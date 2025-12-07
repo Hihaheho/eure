@@ -1,5 +1,4 @@
 // Invalid: $description is defined as text but given integer
-// NOTE: Currently FAILS because extension type validation is not implemented
 
 input_eure = ```eure
 name = "Alice"
@@ -12,5 +11,17 @@ name.$ext-type.description = `text`
 ```
 
 schema_errors = [
-  "Type mismatch"
+  ```
+error: Type mismatch: expected text, got integer at path $.name.$description
+ --> <input>:1:1
+  |
+1 | name = "Alice"
+  | ^^^^^^^^^^^^^^ Type mismatch: expected text, got integer at path $.name.$description
+  |
+note: constraint defined here
+ --> <schema>:2:1
+  |
+2 | name.$ext-type.description = `text`
+  | ----------------------------------- constraint defined here
+```
 ]

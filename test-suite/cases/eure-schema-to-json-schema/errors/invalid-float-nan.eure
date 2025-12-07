@@ -5,4 +5,4 @@ $variant = "float"
 range = "[NaN, 1.0]"
 ```
 
-json_schema_errors[] = "NaN"
+json_schema_errors[] = "Invalid float value: NaN"

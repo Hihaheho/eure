@@ -699,19 +699,41 @@ impl SchemaErrorValidationScenario<'_> {
             .map_err(|e| ScenarioError::PreprocessingError {
                 message: format!("{:?}", e),
             })?;
+        let input_cst = self
+            .input
+            .cst()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{:?}", e),
+            })?;
+        let input_origins =
+            self.input
+                .origins()
+                .map_err(|e| ScenarioError::PreprocessingError {
+                    message: format!("{:?}", e),
+                })?;
         let schema_doc = self
             .schema
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
                 message: format!("{:?}", e),
             })?;
+        let schema_cst = self
+            .schema
+            .cst()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{:?}", e),
+            })?;
+        let schema_origins =
+            self.schema
+                .origins()
+                .map_err(|e| ScenarioError::PreprocessingError {
+                    message: format!("{:?}", e),
+                })?;
 
         // Convert schema document to SchemaDocument
-        let (schema, _source_map) =
-            eure_schema::convert::document_to_schema(schema_doc).map_err(|e| {
-                ScenarioError::SchemaConversionError {
-                    message: format!("{:?}", e),
-                }
+        let (schema, schema_source_map) = eure_schema::convert::document_to_schema(schema_doc)
+            .map_err(|e| ScenarioError::SchemaConversionError {
+                message: format!("{:?}", e),
             })?;
 
         // Validate document directly
@@ -724,11 +746,49 @@ impl SchemaErrorValidationScenario<'_> {
             });
         }
 
-        // Check that expected errors are present
-        let actual_errors: Vec<String> = result.errors.iter().map(|e| e.to_string()).collect();
+        // Format errors with source spans using plain text (no ANSI colors)
+        let context = eure::error::SchemaErrorContext {
+            doc_source: self.input.input(),
+            doc_path: "<input>",
+            doc_cst: input_cst,
+            doc_origins: input_origins,
+            schema_source: self.schema.input(),
+            schema_path: "<schema>",
+            schema_cst,
+            schema_origins,
+            schema_source_map: &schema_source_map,
+        };
+        let actual_errors: Vec<String> = result
+            .errors
+            .iter()
+            .map(|e| eure::error::format_schema_error_plain(e, &context))
+            .collect();
 
-        for expected in self.expected_errors {
-            let found = actual_errors.iter().any(|actual| actual.contains(expected));
+        // Normalize errors by trimming whitespace for comparison
+        let actual_errors_trimmed: Vec<String> =
+            actual_errors.iter().map(|e| e.trim().to_string()).collect();
+        let expected_errors_trimmed: Vec<String> = self
+            .expected_errors
+            .iter()
+            .map(|e| e.trim().to_string())
+            .collect();
+
+        // Check exact match between expected and actual errors
+        if expected_errors_trimmed.len() != actual_errors_trimmed.len() {
+            return Err(ScenarioError::ExpectedErrorNotFound {
+                expected: format!(
+                    "Expected {} errors, got {}",
+                    expected_errors_trimmed.len(),
+                    actual_errors_trimmed.len()
+                ),
+                actual_errors: actual_errors.clone(),
+            });
+        }
+
+        for expected in &expected_errors_trimmed {
+            let found = actual_errors_trimmed
+                .iter()
+                .any(|actual| actual == expected);
             if !found {
                 return Err(ScenarioError::ExpectedErrorNotFound {
                     expected: expected.clone(),
@@ -863,14 +923,24 @@ impl EureSchemaToJsonSchemaErrorScenario<'_> {
             Err(e) => e.to_string(),
         };
 
-        // Check that expected errors are present
-        for expected in self.expected_errors {
-            if !error.contains(expected) {
-                return Err(ScenarioError::ExpectedErrorNotFound {
-                    expected: expected.clone(),
-                    actual_errors: vec![error.clone()],
-                });
-            }
+        // Check exact match: expect exactly one error that matches (trimmed for whitespace)
+        if self.expected_errors.len() != 1 {
+            return Err(ScenarioError::ExpectedErrorNotFound {
+                expected: format!(
+                    "Expected exactly 1 error specification, got {}",
+                    self.expected_errors.len()
+                ),
+                actual_errors: vec![error.clone()],
+            });
+        }
+
+        let expected = self.expected_errors[0].trim();
+        let actual = error.trim();
+        if actual != expected {
+            return Err(ScenarioError::ExpectedErrorNotFound {
+                expected: expected.to_string(),
+                actual_errors: vec![error],
+            });
         }
 
         Ok(())

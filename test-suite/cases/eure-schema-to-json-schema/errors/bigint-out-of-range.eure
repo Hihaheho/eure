@@ -5,4 +5,4 @@ $variant = "integer"
 range = "[0, 99999999999999999999999999]"
 ```
 
-json_schema_errors[] = "BigInt"
+json_schema_errors[] = "BigInt value 99999999999999999999999999 is out of range for JSON Schema i64"

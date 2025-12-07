@@ -131,7 +131,7 @@ pub struct SchemaErrorContext<'a> {
     pub schema_source_map: &'a SchemaSourceMap,
 }
 
-/// Format a schema validation error with annotated source locations.
+/// Format a schema validation error with annotated source locations (with colors).
 ///
 /// Shows both:
 /// - The document location where the error occurred (primary)
@@ -142,8 +142,36 @@ pub struct SchemaErrorContext<'a> {
 /// * `context` - Context containing source files, CSTs, and origin mappings
 ///
 /// # Returns
-/// A formatted error string suitable for terminal output
+/// A formatted error string suitable for terminal output with ANSI colors
 pub fn format_schema_error(error: &ValidationError, context: &SchemaErrorContext<'_>) -> String {
+    format_schema_error_impl(error, context, true)
+}
+
+/// Format a schema validation error with annotated source locations (plain text).
+///
+/// Shows both:
+/// - The document location where the error occurred (primary)
+/// - The schema location where the constraint is defined (secondary)
+///
+/// # Arguments
+/// * `error` - The validation error to format
+/// * `context` - Context containing source files, CSTs, and origin mappings
+///
+/// # Returns
+/// A formatted error string suitable for plain text output (no ANSI colors)
+pub fn format_schema_error_plain(
+    error: &ValidationError,
+    context: &SchemaErrorContext<'_>,
+) -> String {
+    format_schema_error_impl(error, context, false)
+}
+
+/// Internal implementation of schema error formatting.
+fn format_schema_error_impl(
+    error: &ValidationError,
+    context: &SchemaErrorContext<'_>,
+    styled: bool,
+) -> String {
     let (doc_node_id, schema_node_id) = error.node_ids();
     let error_message = error.to_string();
 
@@ -157,6 +185,12 @@ pub fn format_schema_error(error: &ValidationError, context: &SchemaErrorContext
 
     // Try to get schema span
     let schema_span = schema_node_id.and_then(|id| resolve_schema_span(id, context));
+
+    let renderer = if styled {
+        Renderer::styled()
+    } else {
+        Renderer::plain()
+    };
 
     // Build report based on what spans are available
     match (doc_span, schema_span) {
@@ -184,7 +218,7 @@ pub fn format_schema_error(error: &ValidationError, context: &SchemaErrorContext
                                 .label("constraint defined here"),
                         ),
                 );
-            Renderer::styled().render(&[report, note]).to_string()
+            renderer.render(&[report, note]).to_string()
         }
         (Some(doc_span), None) => {
             // Only document span
@@ -198,7 +232,7 @@ pub fn format_schema_error(error: &ValidationError, context: &SchemaErrorContext
                             .label(&error_message),
                     ),
             );
-            Renderer::styled().render(&[report]).to_string()
+            renderer.render(&[report]).to_string()
         }
         (None, Some(schema_span)) => {
             // Only schema span
@@ -212,7 +246,7 @@ pub fn format_schema_error(error: &ValidationError, context: &SchemaErrorContext
                             .label(&error_message),
                     ),
             );
-            Renderer::styled().render(&[report]).to_string()
+            renderer.render(&[report]).to_string()
         }
         (None, None) => {
             // No spans available - just format the error
