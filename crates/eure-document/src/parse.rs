@@ -129,6 +129,7 @@ pub enum ParseErrorKind {
 
     /// Literal value mismatch.
     #[error("literal value mismatch: expected {expected}, got {actual}")]
+    // FIXME: Use EureDocument instead of String?
     LiteralMismatch { expected: String, actual: String },
 }
 
