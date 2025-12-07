@@ -286,6 +286,7 @@ impl<'a> SemanticTokenVisitor<'a> {
     fn terminal_to_token_type(&self, kind: TerminalKind) -> Option<SemanticTokenType> {
         match kind {
             // Keywords (but not in key context - see visit_key_ident)
+            // Hole: `!` or `!label`
             TerminalKind::Hole => Some(SemanticTokenType::Keyword),
             TerminalKind::True | TerminalKind::False | TerminalKind::Null => {
                 // In key context, these are properties; otherwise keywords

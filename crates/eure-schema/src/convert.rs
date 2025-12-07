@@ -455,7 +455,7 @@ impl<'a> Converter<'a> {
                     .map(|(_, v)| v)
                     .collect()
             }
-            NodeValue::Hole => {
+            NodeValue::Hole(_) => {
                 return Err(ConversionError::UnsupportedConstruct(
                     "Hole node".to_string(),
                 ));

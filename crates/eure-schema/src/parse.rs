@@ -779,7 +779,7 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
         let variant = get_variant_string(doc, node_id)?;
 
         match &node.content {
-            NodeValue::Hole => Err(ParseError {
+            NodeValue::Hole(_) => Err(ParseError {
                 node_id,
                 kind: ParseErrorKind::UnexpectedUninitialized,
             }),

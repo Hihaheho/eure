@@ -45,7 +45,7 @@ fn convert_node(
     }
 
     match &node.content {
-        NodeValue::Hole => Err(EureToJsonError::HoleNotSupported),
+        NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported),
         NodeValue::Primitive(prim) => convert_primitive(prim),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
@@ -180,7 +180,7 @@ fn convert_node_content_only(
     let node = doc.node(node_id);
 
     match &node.content {
-        NodeValue::Hole => Err(EureToJsonError::HoleNotSupported),
+        NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported),
         NodeValue::Primitive(prim) => convert_primitive(prim),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn test_hole_error() {
         let mut doc = EureDocument::new();
-        doc.node_mut(doc.get_root_id()).content = NodeValue::Hole;
+        doc.node_mut(doc.get_root_id()).content = NodeValue::hole();
         let config = Config::default();
         let result = document_to_value(&doc, &config);
         assert_eq!(result, Err(EureToJsonError::HoleNotSupported));

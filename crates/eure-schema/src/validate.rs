@@ -600,7 +600,7 @@ impl<'a> Validator<'a> {
         let prev_schema_node_id = self.current_schema_node_id;
         self.current_schema_node_id = Some(schema_id);
 
-        if let NodeValue::Hole = &node.content {
+        if let NodeValue::Hole(_) = &node.content {
             self.has_holes = true;
             self.current_schema_node_id = prev_schema_node_id;
             return ValidationResult::success(true);
@@ -1513,7 +1513,7 @@ impl<'a> Validator<'a> {
 /// Get a descriptive name for a node's content type
 fn node_type_name(content: &NodeValue) -> String {
     match content {
-        NodeValue::Hole => "hole".to_string(),
+        NodeValue::Hole(_) => "hole".to_string(),
         NodeValue::Primitive(p) => match p {
             PrimitiveValue::Null => "null".to_string(),
             PrimitiveValue::Bool(_) => "boolean".to_string(),
@@ -1546,12 +1546,8 @@ fn copy_node_to(
 
     // Collect child info before mutating dest
     let (children, is_map) = match &src_node.content {
-        NodeValue::Hole => {
-            dest.set_content(dest_node_id, NodeValue::Hole);
-            return;
-        }
-        NodeValue::Primitive(prim) => {
-            dest.set_content(dest_node_id, NodeValue::Primitive(prim.clone()));
+        NodeValue::Hole(_) | NodeValue::Primitive(_) => {
+            dest.set_content(dest_node_id, src_node.content.clone());
             return;
         }
         NodeValue::Array(arr) => {
@@ -1796,7 +1792,7 @@ mod tests {
     fn test_validate_hole() {
         let (schema, _) = create_simple_schema(SchemaNodeContent::Any);
         let mut doc = EureDocument::new();
-        doc.node_mut(doc.get_root_id()).content = NodeValue::Hole;
+        doc.node_mut(doc.get_root_id()).content = NodeValue::hole();
 
         let result = validate(&doc, &schema);
         assert!(result.is_valid);

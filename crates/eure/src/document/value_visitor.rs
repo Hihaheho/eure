@@ -814,12 +814,22 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     fn visit_hole(
         &mut self,
         handle: HoleHandle,
-        _view: HoleView,
-        _tree: &F,
+        view: HoleView,
+        tree: &F,
     ) -> Result<(), Self::Error> {
+        // Extract label from the hole token
+        let token_str = self.get_terminal_str(tree, view.hole)?;
+        let label = if token_str.len() > 1 {
+            // Named hole: `!label` - skip '!' prefix and parse as Identifier
+            Some(token_str[1..].parse::<Identifier>()?)
+        } else {
+            // Anonymous hole: just `!`
+            None
+        };
+
         let node_id = self.document.current_node_id();
         self.document
-            .bind_hole()
+            .bind_hole(label)
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),

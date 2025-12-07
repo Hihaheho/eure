@@ -74,10 +74,10 @@ impl DocumentConstructor {
     }
 
     pub fn finish(mut self) -> EureDocument {
-        // If the root node is Uninitialized, replace it with Null
+        // If the root node is Uninitialized, empty map
         let root_id = self.document.get_root_id();
         let root_node = self.document.node_mut(root_id);
-        if matches!(root_node.content, NodeValue::Hole) {
+        if root_node.content.is_hole() {
             root_node.content = NodeValue::Map(Default::default());
         }
         self.document
@@ -135,7 +135,7 @@ impl DocumentConstructor {
     /// Use this before binding a value to ensure the node hasn't already been assigned.
     pub fn require_hole(&self) -> Result<(), InsertError> {
         let node = self.current_node();
-        if !matches!(node.content, NodeValue::Hole) {
+        if !node.content.is_hole() {
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
                 path: EurePath::from_iter(self.path.iter().cloned()),
@@ -144,22 +144,23 @@ impl DocumentConstructor {
         Ok(())
     }
 
-    pub fn bind_hole(&mut self) -> Result<(), InsertError> {
+    /// Bind a hole (optionally labeled) to the current node.
+    pub fn bind_hole(&mut self, label: Option<Identifier>) -> Result<(), InsertError> {
         let node = self.current_node_mut();
-        if !matches!(node.content, NodeValue::Hole) {
+        if !node.content.is_hole() {
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
                 path: EurePath::from_iter(self.current_path().iter().cloned()),
             });
         }
-        // Already hole
+        node.content = NodeValue::Hole(label);
         Ok(())
     }
 
     /// Bind a primitive value to the current node. Error if already bound.
     pub fn bind_primitive(&mut self, value: PrimitiveValue) -> Result<(), InsertError> {
         let node = self.current_node_mut();
-        if !matches!(node.content, NodeValue::Hole) {
+        if !node.content.is_hole() {
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
                 path: EurePath::from_iter(self.current_path().iter().cloned()),
@@ -180,7 +181,7 @@ impl DocumentConstructor {
     /// Bind an empty map to the current node. Error if already bound.
     pub fn bind_empty_map(&mut self) -> Result<(), InsertError> {
         let node = self.current_node_mut();
-        if !matches!(node.content, NodeValue::Hole) {
+        if !node.content.is_hole() {
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
                 path: EurePath::from_iter(self.current_path().iter().cloned()),
@@ -193,7 +194,7 @@ impl DocumentConstructor {
     /// Bind an empty array to the current node. Error if already bound.
     pub fn bind_empty_array(&mut self) -> Result<(), InsertError> {
         let node = self.current_node_mut();
-        if !matches!(node.content, NodeValue::Hole) {
+        if !node.content.is_hole() {
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
                 path: EurePath::from_iter(self.current_path().iter().cloned()),
@@ -206,7 +207,7 @@ impl DocumentConstructor {
     /// Bind an empty tuple to the current node. Error if already bound.
     pub fn bind_empty_tuple(&mut self) -> Result<(), InsertError> {
         let node = self.current_node_mut();
-        if !matches!(node.content, NodeValue::Hole) {
+        if !node.content.is_hole() {
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
                 path: EurePath::from_iter(self.current_path().iter().cloned()),
@@ -241,7 +242,7 @@ mod tests {
         let constructor = DocumentConstructor::new();
 
         let node = constructor.current_node();
-        assert!(matches!(node.content, NodeValue::Hole));
+        assert!(node.content.is_hole());
     }
 
     #[test]
@@ -531,12 +532,9 @@ mod tests {
 
         // Root should be Uninitialized before finish
         let root_id = constructor.document().get_root_id();
-        assert!(matches!(
-            constructor.document().node(root_id).content,
-            NodeValue::Hole
-        ));
+        assert!(constructor.document().node(root_id).content.is_hole());
 
-        // After finish, root should be Null
+        // After finish, root should be empty map
         let document = constructor.finish();
         let root_node = document.node(document.get_root_id());
         assert_eq!(root_node.content, NodeValue::Map(Default::default()));

@@ -4,7 +4,6 @@ extern crate alloc;
 
 use alloc::format;
 use std::collections::HashSet;
-use std::sync::OnceLock;
 
 use crate::document::node::NodeMap;
 use crate::prelude_internal::*;
@@ -49,6 +48,11 @@ impl<'doc> RecordParser<'doc> {
     /// Get the node ID being parsed.
     pub fn node_id(&self) -> NodeId {
         self.node_id
+    }
+
+    /// Get a reference to the document being parsed.
+    pub fn doc(&self) -> &'doc EureDocument {
+        self.doc
     }
 
     /// Get a required field.
@@ -298,17 +302,13 @@ impl EureDocument {
     /// Returns `ParseError` if the node is not a map.
     /// Treats `Uninitialized` nodes as empty maps (useful for nodes with only extensions).
     pub fn parse_record(&self, node_id: NodeId) -> Result<RecordParser<'_>, ParseError> {
-        // Static empty map for Uninitialized nodes
-        static EMPTY_MAP: OnceLock<NodeMap> = OnceLock::new();
-
         let node = self.node(node_id);
         match &node.content {
             NodeValue::Map(map) => Ok(RecordParser::new(self, node_id, map)),
-            // Treat Uninitialized as empty map (for nodes with only extensions)
-            NodeValue::Hole => {
-                let empty = EMPTY_MAP.get_or_init(NodeMap::default);
-                Ok(RecordParser::new(self, node_id, empty))
-            }
+            NodeValue::Hole(_) => Err(ParseError {
+                node_id,
+                kind: ParseErrorKind::UnexpectedUninitialized,
+            }),
             value => Err(ParseError {
                 node_id,
                 kind: value

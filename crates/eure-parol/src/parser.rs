@@ -83,7 +83,7 @@ scanner! {
             token r"true" => 9; // "True"
             token r"false" => 10; // "False"
             token r"null" => 11; // "Null"
-            token r"!" => 12; // "Hole"
+            token r"![\p{XID_Start}_]?[\p{XID_Continue}-]*" => 12; // "Hole"
             token r#""([^"]|\\")*""# => 13; // "Str"
             token r"[a-zA-Z0-9-_]*`[^`\r\n]*`" => 15; // "InlineCode1"
             token r"[a-zA-Z0-9-_]*``" => 16; // "InlineCodeStart2"
@@ -1832,7 +1832,7 @@ pub const PRODUCTIONS: &[Production; 176] = &[
         lhs: 82,
         production: &[ParseType::T(11)],
     },
-    // 105 - Hole: '!';
+    // 105 - Hole: /![\p{XID_Start}_]?[\p{XID_Continue}-]*/;
     Production {
         lhs: 55,
         production: &[ParseType::T(12)],

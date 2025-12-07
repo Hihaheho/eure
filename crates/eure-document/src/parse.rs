@@ -43,7 +43,7 @@ pub trait ParseDocument<'doc>: Sized {
 
 fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
     match node_value {
-        NodeValue::Hole => ParseErrorKind::UnexpectedUninitialized,
+        NodeValue::Hole(_) => ParseErrorKind::UnexpectedUninitialized,
         value => value
             .value_kind()
             .map(|actual| ParseErrorKind::TypeMismatch {

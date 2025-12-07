@@ -392,7 +392,7 @@ fn document_to_json(doc: &EureDocument) -> Result<serde_json::Value, ConversionE
 fn node_to_json(doc: &EureDocument, node_id: NodeId) -> Result<serde_json::Value, ConversionError> {
     let node = doc.node(node_id);
     match &node.content {
-        NodeValue::Hole => Err(ConversionError::HoleInLiteral),
+        NodeValue::Hole(_) => Err(ConversionError::HoleInLiteral),
         NodeValue::Primitive(p) => primitive_to_json(p),
         NodeValue::Array(arr) => {
             let items: Result<Vec<_>, _> = arr.0.iter().map(|&id| node_to_json(doc, id)).collect();
