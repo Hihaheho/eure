@@ -22,6 +22,15 @@ pub enum ScenarioError {
         expected: serde_json::Value,
         actual: serde_json::Value,
     },
+    /// JSON to Eure conversion output mismatch
+    JsonToEureMismatch {
+        expected_debug: String,
+        actual_debug: String,
+    },
+    /// JSON to Eure conversion error
+    JsonToEureConversionError { message: String },
+    /// JSON parse error
+    JsonParseError { message: String },
     /// JSON Schema output mismatch
     JsonSchemaMismatch {
         expected: serde_json::Value,
@@ -72,6 +81,22 @@ impl std::fmt::Display for ScenarioError {
                     serde_json::to_string_pretty(actual)
                         .unwrap_or_else(|_| format!("{:?}", actual))
                 )
+            }
+            ScenarioError::JsonToEureMismatch {
+                expected_debug,
+                actual_debug,
+            } => {
+                write!(
+                    f,
+                    "JSON to Eure mismatch.\nExpected:\n{}\nActual:\n{}",
+                    expected_debug, actual_debug
+                )
+            }
+            ScenarioError::JsonToEureConversionError { message } => {
+                write!(f, "JSON to Eure conversion error: {}", message)
+            }
+            ScenarioError::JsonParseError { message } => {
+                write!(f, "JSON parse error: {}", message)
             }
             ScenarioError::JsonSchemaMismatch { expected, actual } => {
                 write!(
@@ -202,6 +227,7 @@ impl CaseResult {
 pub enum Scenario<'a> {
     Normalization(NormalizationScenario<'a>),
     EureToJson(EureToJsonScenario<'a>),
+    JsonToEure(JsonToEureScenario<'a>),
     SchemaValidation(SchemaValidationScenario<'a>),
     SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
     EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario<'a>),
@@ -213,6 +239,7 @@ impl Scenario<'_> {
         match self {
             Scenario::Normalization(_) => "normalization".to_string(),
             Scenario::EureToJson(s) => format!("eure_to_json({})", s.source),
+            Scenario::JsonToEure(s) => format!("json_to_eure({})", s.source),
             Scenario::SchemaValidation(_) => "schema_validation".to_string(),
             Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
             Scenario::EureSchemaToJsonSchema(_) => "eure_schema_to_json_schema".to_string(),
@@ -226,6 +253,7 @@ impl Scenario<'_> {
         match self {
             Scenario::Normalization(s) => s.run(),
             Scenario::EureToJson(s) => s.run(),
+            Scenario::JsonToEure(s) => s.run(),
             Scenario::SchemaValidation(s) => s.run(),
             Scenario::SchemaErrorValidation(s) => s.run(),
             Scenario::EureSchemaToJsonSchema(s) => s.run(),
@@ -236,6 +264,7 @@ impl Scenario<'_> {
 
 pub struct PreprocessedCase {
     pub input_eure: Option<PreprocessedEure>,
+    pub input_json: Option<serde_json::Value>,
     pub normalized: Option<PreprocessedEure>,
     pub output_json: Option<serde_json::Value>,
     pub schema: Option<PreprocessedEure>,
@@ -441,6 +470,11 @@ impl Case {
     }
     pub fn preprocess(&self) -> PreprocessedCase {
         let input_eure = self.data.input_eure.as_ref().map(Self::preprocess_eure);
+        let input_json = self
+            .data
+            .input_json
+            .as_ref()
+            .map(|code| serde_json::from_str(code.as_str()).unwrap());
         let normalized = self.data.normalized.as_ref().map(Self::preprocess_eure);
         let output_json = self
             .data
@@ -468,6 +502,7 @@ impl Case {
 
         PreprocessedCase {
             input_eure,
+            input_json,
             normalized,
             output_json,
             schema,
@@ -529,6 +564,41 @@ impl EureToJsonScenario<'_> {
             return Err(ScenarioError::EureToJsonMismatch {
                 expected: self.output_json.clone(),
                 actual,
+            });
+        }
+        Ok(())
+    }
+}
+
+pub struct JsonToEureScenario<'a> {
+    input_json: &'a serde_json::Value,
+    expected: &'a PreprocessedEure,
+    source: &'static str,
+}
+
+impl JsonToEureScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        // Get the expected document
+        let expected_doc = self
+            .expected
+            .doc()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{:?}", e),
+            })?;
+
+        // Convert JSON to EureDocument
+        let actual_doc =
+            eure_json::value_to_document(self.input_json, &eure_json::Config::default()).map_err(
+                |e| ScenarioError::JsonToEureConversionError {
+                    message: format!("{:?}", e),
+                },
+            )?;
+
+        // Compare documents
+        if &actual_doc != expected_doc {
+            return Err(ScenarioError::JsonToEureMismatch {
+                expected_debug: format!("{:#?}", expected_doc),
+                actual_debug: format!("{:#?}", actual_doc),
             });
         }
         Ok(())
@@ -837,6 +907,22 @@ impl PreprocessedCase {
             }));
         }
 
+        // JSON-to-Eure scenarios
+        if let (Some(input_json), Some(input_eure)) = (&self.input_json, &self.input_eure) {
+            scenarios.push(Scenario::JsonToEure(JsonToEureScenario {
+                input_json,
+                expected: input_eure,
+                source: "input_eure",
+            }));
+        }
+        if let (Some(input_json), Some(normalized)) = (&self.input_json, &self.normalized) {
+            scenarios.push(Scenario::JsonToEure(JsonToEureScenario {
+                input_json,
+                expected: normalized,
+                source: "normalized",
+            }));
+        }
+
         // Schema validation scenarios
         if let (Some(input), Some(schema)) = (&self.input_eure, &self.schema) {
             if self.schema_errors.is_empty() {
@@ -1078,6 +1164,7 @@ mod tests {
     fn scenarios_all_fields_present() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
+            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
@@ -1099,6 +1186,7 @@ mod tests {
     fn scenarios_input_and_normalized_only() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
+            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: None,
             schema: None,
@@ -1116,6 +1204,7 @@ mod tests {
     fn scenarios_input_and_json_only() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
+            input_json: None,
             normalized: None,
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
@@ -1133,6 +1222,7 @@ mod tests {
     fn scenarios_normalized_and_json_only() {
         let case = PreprocessedCase {
             input_eure: None,
+            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
@@ -1150,6 +1240,7 @@ mod tests {
     fn scenarios_input_only() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
+            input_json: None,
             normalized: None,
             output_json: None,
             schema: None,
@@ -1166,6 +1257,7 @@ mod tests {
     fn scenarios_normalized_only() {
         let case = PreprocessedCase {
             input_eure: None,
+            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: None,
             schema: None,
@@ -1182,6 +1274,7 @@ mod tests {
     fn scenarios_json_only() {
         let case = PreprocessedCase {
             input_eure: None,
+            input_json: None,
             normalized: None,
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,
@@ -1198,6 +1291,7 @@ mod tests {
     fn scenarios_empty() {
         let case = PreprocessedCase {
             input_eure: None,
+            input_json: None,
             normalized: None,
             output_json: None,
             schema: None,
@@ -1214,6 +1308,7 @@ mod tests {
     fn scenario_count_matches_scenarios_len() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
+            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
             schema: None,

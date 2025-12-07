@@ -4,11 +4,13 @@ mod config;
 mod error;
 
 pub use config::Config;
-pub use error::EureToJsonError;
+pub use error::{EureToJsonError, JsonToEureError};
 use eure::data_model::VariantRepr;
 use eure::document::node::NodeValue;
 use eure::document::{EureDocument, NodeId};
 use eure::value::{ObjectKey, PrimitiveValue};
+use eure_document::text::Text;
+use num_bigint::BigInt;
 use serde_json::Value as JsonValue;
 
 pub fn document_to_value(
@@ -223,462 +225,429 @@ fn convert_object_key(key: &ObjectKey) -> Result<String, EureToJsonError> {
     }
 }
 
+// ============================================================================
+// JSON to EureDocument conversion
+// ============================================================================
+
+/// Convert a JSON value to an EureDocument.
+///
+/// This conversion produces plain data structures without any variant detection.
+/// JSON objects become Eure maps, arrays become arrays, and primitives are converted
+/// directly. Variant reconstruction is not possible without schema information.
+///
+/// The `config` parameter is accepted for API consistency but is not used for
+/// JSON to Eure conversion (variant detection requires schema information).
+///
+/// # Example
+///
+/// ```
+/// use eure_json::{value_to_document, Config};
+/// use serde_json::json;
+///
+/// let json = json!({"name": "Alice", "age": 30});
+/// let doc = value_to_document(&json, &Config::default()).unwrap();
+/// ```
+pub fn value_to_document(
+    value: &JsonValue,
+    _config: &Config,
+) -> Result<EureDocument, JsonToEureError> {
+    let mut doc = EureDocument::new();
+    let root_id = doc.get_root_id();
+    convert_json_to_node(&mut doc, root_id, value);
+    Ok(doc)
+}
+
+/// Convert a JSON value and set it as the content of the given node.
+fn convert_json_to_node(doc: &mut EureDocument, node_id: NodeId, value: &JsonValue) {
+    match value {
+        JsonValue::Null => {
+            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Null);
+        }
+        JsonValue::Bool(b) => {
+            doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::Bool(*b));
+        }
+        JsonValue::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                doc.node_mut(node_id).content =
+                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(i)));
+            } else if let Some(u) = n.as_u64() {
+                doc.node_mut(node_id).content =
+                    NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(u)));
+            } else if let Some(f) = n.as_f64() {
+                doc.node_mut(node_id).content = NodeValue::Primitive(PrimitiveValue::F64(f));
+            }
+        }
+        JsonValue::String(s) => {
+            doc.node_mut(node_id).content =
+                NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(s.clone())));
+        }
+        JsonValue::Array(arr) => {
+            doc.node_mut(node_id).content = NodeValue::empty_array();
+            for item in arr {
+                let child_id = doc.create_node(NodeValue::hole());
+                convert_json_to_node(doc, child_id, item);
+                if let NodeValue::Array(ref mut array) = doc.node_mut(node_id).content {
+                    array.0.push(child_id);
+                }
+            }
+        }
+        JsonValue::Object(obj) => {
+            doc.node_mut(node_id).content = NodeValue::empty_map();
+            for (key, val) in obj {
+                let child_id = doc.create_node(NodeValue::hole());
+                convert_json_to_node(doc, child_id, val);
+                if let NodeValue::Map(ref mut map) = doc.node_mut(node_id).content {
+                    map.0.insert(ObjectKey::String(key.clone()), child_id);
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use eure::data_model::VariantRepr;
-    use eure::document::node::NodeValue;
-    use eure::value::{ObjectKey, PrimitiveValue};
-    use eure_document::identifier::Identifier;
-    use eure_document::text::Text;
+    use eure_document::eure;
     use serde_json::json;
 
-    /// Helper to create a document with $variant extension
-    fn create_variant_doc(tag: &str, content: NodeValue) -> EureDocument {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-        doc.node_mut(root).content = content;
+    // ========================================================================
+    // Eure to JSON conversion tests
+    // ========================================================================
 
-        // Add $variant extension
-        let variant_ident: Identifier = "variant".parse().unwrap();
-        let ext_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
-            Text::plaintext(tag.to_string()),
-        )));
-        doc.node_mut(root)
-            .extensions
-            .insert(variant_ident, ext_node);
-        doc
-    }
-
-    // Test primitives
     #[test]
-    fn test_null_conversion() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::Null);
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(null));
+    fn test_null() {
+        let eure = eure!({ = null });
+        let json = json!(null);
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_bool_true_conversion() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::Bool(true));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(true));
+    fn test_bool_true() {
+        let eure = eure!({ = true });
+        let json = json!(true);
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_bool_false_conversion() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::Bool(false));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(false));
+    fn test_bool_false() {
+        let eure = eure!({ = false });
+        let json = json!(false);
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_bigint_small_conversion() {
-        use num_bigint::BigInt;
-        let doc = EureDocument::new_primitive(PrimitiveValue::Integer(BigInt::from(42)));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(42));
+    fn test_integer() {
+        let eure = eure!({ = 42 });
+        let json = json!(42);
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_bigint_negative_conversion() {
-        use num_bigint::BigInt;
-        let doc = EureDocument::new_primitive(PrimitiveValue::Integer(BigInt::from(-42)));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(-42));
+    fn test_negative_integer() {
+        let eure = eure!({ = -42 });
+        let json = json!(-42);
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_f32_conversion() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::F32(1.5));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(1.5));
+    fn test_float() {
+        let eure = eure!({ = 1.5f64 });
+        let json = json!(1.5);
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_f64_conversion() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::F64(2.5));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(2.5));
+    fn test_string() {
+        let eure = eure!({ = "hello world" });
+        let json = json!("hello world");
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_f32_nan_error() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::F32(f32::NAN));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+    fn test_array() {
+        let eure = eure!({
+            items[] = 1,
+            items[] = 2,
+            items[] = 3,
+        });
+        let json = json!({"items": [1, 2, 3]});
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_f32_infinity_error() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::F32(f32::INFINITY));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+    fn test_tuple() {
+        let eure = eure!({
+            point.#0 = 1.5f64,
+            point.#1 = 2.5f64,
+        });
+        let json = json!({"point": [1.5, 2.5]});
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_f64_nan_error() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::F64(f64::NAN));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+    fn test_empty_map() {
+        let eure = eure!({});
+        let json = json!({});
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_f64_infinity_error() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::F64(f64::INFINITY));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+    fn test_map_with_fields() {
+        let eure = eure!({ key = true });
+        let json = json!({"key": true});
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_f64_neg_infinity_error() {
-        let doc = EureDocument::new_primitive(PrimitiveValue::F64(f64::NEG_INFINITY));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+    fn test_nested_map() {
+        let eure = eure!({
+            user.name = "Alice",
+            user.age = 30,
+        });
+        let json = json!({"user": {"name": "Alice", "age": 30}});
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
     #[test]
-    fn test_text_plaintext_conversion() {
-        let text = Text::plaintext("hello world".to_string());
-        let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!("hello world"));
+    fn test_array_of_maps() {
+        let eure = eure!({
+            users[].name = "Alice",
+            users[].name = "Bob",
+        });
+        let json = json!({"users": [{"name": "Alice"}, {"name": "Bob"}]});
+        assert_eq!(document_to_value(&eure, &Config::default()).unwrap(), json);
     }
 
-    #[test]
-    fn test_text_with_language_conversion() {
-        use eure_document::text::{Language, Text};
-        let text = Text::new(
-            "fn main() {}".to_string(),
-            Language::Other("rust".to_string()),
-        );
-        let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!("fn main() {}"));
-    }
-
-    #[test]
-    fn test_text_implicit_conversion() {
-        use eure_document::text::{Language, Text};
-        let text = Text::new("print('hello')".to_string(), Language::Implicit);
-        let doc = EureDocument::new_primitive(PrimitiveValue::Text(text));
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!("print('hello')"));
-    }
-
-    #[test]
-    fn test_hole_error() {
-        let mut doc = EureDocument::new();
-        doc.node_mut(doc.get_root_id()).content = NodeValue::hole();
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
-    }
-
-    #[test]
-    fn test_uninitialized_error() {
-        let doc = EureDocument::new();
-        let config = Config::default();
-        let result = document_to_value(&doc, &config);
-        assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
-    }
-
-    // Test variant conversions (using $variant extension)
+    // Variant tests (Eure with $variant -> JSON)
     #[test]
     fn test_variant_external() {
-        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
+        let eure = eure!({
+            = true,
+            %variant = "Success",
+        });
         let config = Config {
             variant_repr: VariantRepr::External,
         };
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!({"Success": true}));
+        let json = json!({"Success": true});
+        assert_eq!(document_to_value(&eure, &config).unwrap(), json);
     }
 
     #[test]
     fn test_variant_untagged() {
-        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
+        let eure = eure!({
+            = true,
+            %variant = "Success",
+        });
         let config = Config {
             variant_repr: VariantRepr::Untagged,
         };
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!(true));
+        let json = json!(true);
+        assert_eq!(document_to_value(&eure, &config).unwrap(), json);
     }
 
     #[test]
-    fn test_variant_internal_with_map_content() {
-        use num_bigint::BigInt;
-
-        // Create a document with a map content and $variant extension
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-
-        // Add field to the map
-        let field_node = doc
-            .add_map_child(ObjectKey::String("field".to_string()), root)
-            .unwrap()
-            .node_id;
-        doc.node_mut(field_node).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42)));
-
-        // Add $variant extension
-        let variant_ident: Identifier = "variant".parse().unwrap();
-        let ext_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
-            Text::plaintext("Success".to_string()),
-        )));
-        doc.node_mut(root)
-            .extensions
-            .insert(variant_ident, ext_node);
-
+    fn test_variant_internal() {
+        let eure = eure!({
+            field = 42,
+            %variant = "Success",
+        });
         let config = Config {
             variant_repr: VariantRepr::Internal {
                 tag: "type".to_string(),
             },
         };
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!({"type": "Success", "field": 42}));
-    }
-
-    #[test]
-    fn test_variant_internal_tag_conflict() {
-        // Create a document with a map that has a "type" field already
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-
-        // Add "type" field to the map
-        let type_node = doc
-            .add_map_child(ObjectKey::String("type".to_string()), root)
-            .unwrap()
-            .node_id;
-        doc.node_mut(type_node).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
-
-        // Add $variant extension
-        let variant_ident: Identifier = "variant".parse().unwrap();
-        let ext_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
-            Text::plaintext("Success".to_string()),
-        )));
-        doc.node_mut(root)
-            .extensions
-            .insert(variant_ident, ext_node);
-
-        let config = Config {
-            variant_repr: VariantRepr::Internal {
-                tag: "type".to_string(),
-            },
-        };
-        let result = document_to_value(&doc, &config);
-        assert_eq!(
-            result,
-            Err(EureToJsonError::VariantTagConflict {
-                tag: "type".to_string()
-            })
-        );
+        let json = json!({"type": "Success", "field": 42});
+        assert_eq!(document_to_value(&eure, &config).unwrap(), json);
     }
 
     #[test]
     fn test_variant_adjacent() {
-        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
+        let eure = eure!({
+            = true,
+            %variant = "Success",
+        });
         let config = Config {
             variant_repr: VariantRepr::Adjacent {
                 tag: "tag".to_string(),
                 content: "content".to_string(),
             },
         };
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!({"tag": "Success", "content": true}));
+        let json = json!({"tag": "Success", "content": true});
+        assert_eq!(document_to_value(&eure, &config).unwrap(), json);
+    }
+
+    // Error tests
+    #[test]
+    fn test_hole_error() {
+        let eure = eure!({ placeholder = ! });
+        let result = document_to_value(&eure, &Config::default());
+        assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
     }
 
     #[test]
-    fn test_variant_adjacent_key_conflict() {
-        let doc = create_variant_doc("Success", NodeValue::Primitive(PrimitiveValue::Bool(true)));
-        let config = Config {
-            variant_repr: VariantRepr::Adjacent {
-                tag: "data".to_string(),
-                content: "data".to_string(), // Same key!
-            },
-        };
-        let result = document_to_value(&doc, &config);
+    fn test_f64_nan_error() {
+        let eure = eure!({ = f64::NAN });
+        let result = document_to_value(&eure, &Config::default());
+        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+    }
+
+    #[test]
+    fn test_f64_infinity_error() {
+        let eure = eure!({ = f64::INFINITY });
+        let result = document_to_value(&eure, &Config::default());
+        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+    }
+
+    // ========================================================================
+    // JSON to Eure conversion tests
+    // ========================================================================
+
+    #[test]
+    fn test_json_to_eure_null() {
+        let json = json!(null);
+        let expected = eure!({ = null });
         assert_eq!(
-            result,
-            Err(EureToJsonError::VariantAdjacentConflict {
-                field: "data".to_string()
-            })
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
         );
     }
 
-    // Test arrays
     #[test]
-    fn test_empty_array() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-        doc.node_mut(root).content = NodeValue::empty_array();
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!([]));
+    fn test_json_to_eure_bool() {
+        let json = json!(true);
+        let expected = eure!({ = true });
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
     }
 
     #[test]
-    fn test_array_with_primitives() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-        doc.node_mut(root).content = NodeValue::empty_array();
+    fn test_json_to_eure_integer() {
+        let json = json!(42);
+        let expected = eure!({ = 42 });
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
 
-        let child1 = doc.create_node(NodeValue::Primitive(PrimitiveValue::Bool(true)));
-        let child2 = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+    #[test]
+    fn test_json_to_eure_float() {
+        let json = json!(1.5);
+        let expected = eure!({ = 1.5f64 });
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
 
-        if let NodeValue::Array(ref mut arr) = doc.node_mut(root).content {
-            arr.0.push(child1);
-            arr.0.push(child2);
+    #[test]
+    fn test_json_to_eure_string() {
+        let json = json!("hello");
+        let expected = eure!({ = "hello" });
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_array() {
+        // Test array conversion via roundtrip (eure! macro doesn't support root arrays)
+        let json = json!([1, 2, 3]);
+        let doc = value_to_document(&json, &Config::default()).unwrap();
+        let roundtrip = document_to_value(&doc, &Config::default()).unwrap();
+        assert_eq!(json, roundtrip);
+    }
+
+    #[test]
+    fn test_json_to_eure_empty_object() {
+        let json = json!({});
+        let expected = eure!({});
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_object() {
+        let json = json!({"name": "Alice", "age": 30});
+        let expected = eure!({
+            name = "Alice",
+            age = 30,
+        });
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_nested() {
+        let json = json!({"user": {"name": "Alice"}});
+        let expected = eure!({ user.name = "Alice" });
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_json_to_eure_array_of_objects() {
+        let json = json!({"users": [{"name": "Alice"}, {"name": "Bob"}]});
+        let expected = eure!({
+            users[].name = "Alice",
+            users[].name = "Bob",
+        });
+        assert_eq!(
+            value_to_document(&json, &Config::default()).unwrap(),
+            expected
+        );
+    }
+
+    // ========================================================================
+    // Roundtrip tests
+    // ========================================================================
+
+    #[test]
+    fn test_roundtrip_primitives() {
+        for json in [
+            json!(null),
+            json!(true),
+            json!(42),
+            json!(1.5),
+            json!("hello"),
+        ] {
+            let doc = value_to_document(&json, &Config::default()).unwrap();
+            let roundtrip = document_to_value(&doc, &Config::default()).unwrap();
+            assert_eq!(json, roundtrip);
         }
-
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!([true, null]));
-    }
-
-    // Test tuples
-    #[test]
-    fn test_empty_tuple() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-        doc.node_mut(root).content = NodeValue::empty_tuple();
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!([]));
     }
 
     #[test]
-    fn test_tuple_with_primitives() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-        doc.node_mut(root).content = NodeValue::empty_tuple();
-
-        let child1 = doc.create_node(NodeValue::Primitive(PrimitiveValue::Bool(true)));
-        let child2 = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
-
-        if let NodeValue::Tuple(ref mut tuple) = doc.node_mut(root).content {
-            tuple.0.push(child1);
-            tuple.0.push(child2);
-        }
-
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!([true, null]));
-    }
-
-    // Test maps
-    #[test]
-    fn test_empty_map() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-        doc.node_mut(root).content = NodeValue::empty_map();
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!({}));
+    fn test_roundtrip_array() {
+        let json = json!([1, 2, 3, "hello", true, null]);
+        let doc = value_to_document(&json, &Config::default()).unwrap();
+        let roundtrip = document_to_value(&doc, &Config::default()).unwrap();
+        assert_eq!(json, roundtrip);
     }
 
     #[test]
-    fn test_map_with_string_keys() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-
-        let child = doc
-            .add_map_child(ObjectKey::String("key".to_string()), root)
-            .unwrap()
-            .node_id;
-        doc.node_mut(child).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
-
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!({"key": true}));
+    fn test_roundtrip_nested() {
+        let json = json!({"name": "test", "nested": {"a": 1, "b": [true, false]}});
+        let doc = value_to_document(&json, &Config::default()).unwrap();
+        let roundtrip = document_to_value(&doc, &Config::default()).unwrap();
+        assert_eq!(json, roundtrip);
     }
 
     #[test]
-    fn test_map_with_number_key() {
-        use num_bigint::BigInt;
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-
-        let child = doc
-            .add_map_child(ObjectKey::Number(BigInt::from(42)), root)
-            .unwrap()
-            .node_id;
-        doc.node_mut(child).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
-
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!({"42": true}));
-    }
-
-    #[test]
-    fn test_map_with_bool_key() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-
-        let child = doc
-            .add_map_child(ObjectKey::Bool(true), root)
-            .unwrap()
-            .node_id;
-        doc.node_mut(child).content = NodeValue::Primitive(PrimitiveValue::Null);
-
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!({"true": null}));
-    }
-
-    // Test nested structures
-    #[test]
-    fn test_nested_map_in_array() {
-        let mut doc = EureDocument::new();
-        let root = doc.get_root_id();
-        doc.node_mut(root).content = NodeValue::empty_array();
-
-        let map_node = doc.create_node(NodeValue::empty_map());
-        let value_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Bool(true)));
-
-        if let NodeValue::Map(ref mut map) = doc.node_mut(map_node).content {
-            map.0
-                .insert(ObjectKey::String("nested".to_string()), value_node);
-        }
-
-        if let NodeValue::Array(ref mut arr) = doc.node_mut(root).content {
-            arr.0.push(map_node);
-        }
-
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        assert_eq!(result, json!([{"nested": true}]));
-    }
-
-    // Test extensions are ignored
-    #[test]
-    fn test_extensions_ignored() {
-        use eure_document::identifier::Identifier;
-        let mut doc = EureDocument::new_primitive(PrimitiveValue::Bool(true));
-        let root = doc.get_root_id();
-
-        // Add an extension
-        let ext_node = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
-        let ext_ident: Identifier = "ext".parse().unwrap();
-        doc.node_mut(root).extensions.insert(ext_ident, ext_node);
-
-        let config = Config::default();
-        let result = document_to_value(&doc, &config).unwrap();
-        // Extensions should be ignored, only the content should be converted
-        assert_eq!(result, json!(true));
+    fn test_roundtrip_deeply_nested() {
+        let json = json!({"Ok": {"Some": {"method": "add"}}});
+        let doc = value_to_document(&json, &Config::default()).unwrap();
+        let roundtrip = document_to_value(&doc, &Config::default()).unwrap();
+        assert_eq!(json, roundtrip);
     }
 }

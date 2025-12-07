@@ -17,3 +17,14 @@ pub enum EureToJsonError {
     #[error("Variant content already contains field '{field}' in Adjacent representation")]
     VariantAdjacentConflict { field: String },
 }
+
+/// Errors that can occur when converting JSON to Eure.
+/// Currently this is infallible, but the error type is provided for future extensibility
+/// and API consistency.
+#[derive(Debug, Error, PartialEq)]
+pub enum JsonToEureError {
+    // Currently no error cases - JSON to Eure conversion is infallible.
+    // This enum is provided for:
+    // 1. API consistency with EureToJsonError
+    // 2. Future extensibility (e.g., schema-guided conversion constraints)
+}
