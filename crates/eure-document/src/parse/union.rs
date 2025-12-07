@@ -788,29 +788,30 @@ mod tests {
         Err(String),
     }
 
+    impl crate::parse::ParseDocument<'_> for ResultOption {
+        fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+            doc.parse_union(node_id)
+                .nested("ok", |doc, id, rest| {
+                    doc.parse_union_with_path(id, rest)
+                        .variant("some", |doc: &EureDocument, id| {
+                            doc.parse::<i32>(id).map(Some)
+                        })
+                        .variant("none", |_, _| Ok(None))
+                        .parse()
+                        .map(ResultOption::Ok)
+                })
+                .nested("err", |doc, id, _| {
+                    doc.parse::<String>(id).map(ResultOption::Err)
+                })
+                .parse()
+        }
+    }
+
     #[test]
     fn test_nested_union_ok_some() {
         // $variant = "ok.some", value = 42
         let doc = create_int_doc_with_variant(42, "ok.some");
-        let root_id = doc.get_root_id();
-
-        let result: ResultOption = doc
-            .parse_union(root_id)
-            .nested("ok", |doc, id, rest| {
-                doc.parse_union_with_path(id, rest)
-                    .variant("some", |doc: &EureDocument, id| {
-                        doc.parse::<i32>(id).map(Some)
-                    })
-                    .variant("none", |_, _| Ok(None))
-                    .parse()
-                    .map(ResultOption::Ok)
-            })
-            .nested("err", |doc, id, _| {
-                doc.parse::<String>(id).map(ResultOption::Err)
-            })
-            .parse()
-            .unwrap();
-
+        let result: ResultOption = doc.parse(doc.get_root_id()).unwrap();
         assert_eq!(result, ResultOption::Ok(Some(42)));
     }
 
@@ -818,25 +819,7 @@ mod tests {
     fn test_nested_union_ok_none() {
         // $variant = "ok.none"
         let doc = create_doc_with_variant("ignored", "ok.none");
-        let root_id = doc.get_root_id();
-
-        let result: ResultOption = doc
-            .parse_union(root_id)
-            .nested("ok", |doc, id, rest| {
-                doc.parse_union_with_path(id, rest)
-                    .variant("some", |doc: &EureDocument, id| {
-                        doc.parse::<i32>(id).map(Some)
-                    })
-                    .variant("none", |_, _| Ok(None))
-                    .parse()
-                    .map(ResultOption::Ok)
-            })
-            .nested("err", |doc, id, _| {
-                doc.parse::<String>(id).map(ResultOption::Err)
-            })
-            .parse()
-            .unwrap();
-
+        let result: ResultOption = doc.parse(doc.get_root_id()).unwrap();
         assert_eq!(result, ResultOption::Ok(None));
     }
 
@@ -844,25 +827,7 @@ mod tests {
     fn test_nested_union_err() {
         // $variant = "err"
         let doc = create_doc_with_variant("error message", "err");
-        let root_id = doc.get_root_id();
-
-        let result: ResultOption = doc
-            .parse_union(root_id)
-            .nested("ok", |doc, id, rest| {
-                doc.parse_union_with_path(id, rest)
-                    .variant("some", |doc: &EureDocument, id| {
-                        doc.parse::<i32>(id).map(Some)
-                    })
-                    .variant("none", |_, _| Ok(None))
-                    .parse()
-                    .map(ResultOption::Ok)
-            })
-            .nested("err", |doc, id, _| {
-                doc.parse::<String>(id).map(ResultOption::Err)
-            })
-            .parse()
-            .unwrap();
-
+        let result: ResultOption = doc.parse(doc.get_root_id()).unwrap();
         assert_eq!(result, ResultOption::Err("error message".to_string()));
     }
 
@@ -870,25 +835,7 @@ mod tests {
     fn test_nested_union_unknown_inner_variant() {
         // $variant = "ok.invalid" - inner variant doesn't exist
         let doc = create_int_doc_with_variant(42, "ok.invalid");
-        let root_id = doc.get_root_id();
-
-        let err = doc
-            .parse_union::<ResultOption>(root_id)
-            .nested("ok", |doc, id, rest| {
-                doc.parse_union_with_path(id, rest)
-                    .variant("some", |doc: &EureDocument, id| {
-                        doc.parse::<i32>(id).map(Some)
-                    })
-                    .variant("none", |_, _| Ok(None))
-                    .parse()
-                    .map(ResultOption::Ok)
-            })
-            .nested("err", |doc, id, _| {
-                doc.parse::<String>(id).map(ResultOption::Err)
-            })
-            .parse()
-            .unwrap_err();
-
+        let err = doc.parse::<ResultOption>(doc.get_root_id()).unwrap_err();
         assert_eq!(
             err.kind,
             ParseErrorKind::UnknownVariant("invalid".to_string())
@@ -899,25 +846,7 @@ mod tests {
     fn test_nested_union_unknown_outer_variant() {
         // $variant = "unknown.some"
         let doc = create_int_doc_with_variant(42, "unknown.some");
-        let root_id = doc.get_root_id();
-
-        let err = doc
-            .parse_union::<ResultOption>(root_id)
-            .nested("ok", |doc, id, rest| {
-                doc.parse_union_with_path(id, rest)
-                    .variant("some", |doc: &EureDocument, id| {
-                        doc.parse::<i32>(id).map(Some)
-                    })
-                    .variant("none", |_, _| Ok(None))
-                    .parse()
-                    .map(ResultOption::Ok)
-            })
-            .nested("err", |doc, id, _| {
-                doc.parse::<String>(id).map(ResultOption::Err)
-            })
-            .parse()
-            .unwrap_err();
-
+        let err = doc.parse::<ResultOption>(doc.get_root_id()).unwrap_err();
         assert_eq!(
             err.kind,
             ParseErrorKind::UnknownVariant("unknown.some".to_string())
@@ -930,37 +859,42 @@ mod tests {
         Right(R),
     }
 
+    #[derive(Debug, PartialEq)]
+    struct TripleNested(Result<Option<Either<i32, String>>, String>);
+
+    impl crate::parse::ParseDocument<'_> for TripleNested {
+        fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+            doc.parse_union(node_id)
+                .nested("ok", |doc, id, rest| {
+                    doc.parse_union_with_path(id, rest)
+                        .nested("some", |doc, id, rest| {
+                            doc.parse_union_with_path(id, rest)
+                                .variant("left", |doc: &EureDocument, id| {
+                                    doc.parse::<i32>(id).map(Either::Left)
+                                })
+                                .variant("right", |doc: &EureDocument, id| {
+                                    doc.parse::<String>(id).map(Either::Right)
+                                })
+                                .parse()
+                                .map(Some)
+                        })
+                        .variant("none", |_, _| Ok(None))
+                        .parse()
+                        .map(Ok)
+                })
+                .nested("err", |doc, id, _| doc.parse::<String>(id).map(Err))
+                .parse()
+                .map(TripleNested)
+        }
+    }
+
     #[test]
     fn test_triple_nested_union() {
         // Result<Option<Either<i32, String>>>
         // $variant = "ok.some.left", value = 42
         let doc = create_int_doc_with_variant(42, "ok.some.left");
-        let root_id = doc.get_root_id();
-
-        let result: Result<Option<Either<i32, String>>, String> = doc
-            .parse_union(root_id)
-            .nested("ok", |doc, id, rest| {
-                doc.parse_union_with_path(id, rest)
-                    .nested("some", |doc, id, rest| {
-                        doc.parse_union_with_path(id, rest)
-                            .variant("left", |doc: &EureDocument, id| {
-                                doc.parse::<i32>(id).map(Either::Left)
-                            })
-                            .variant("right", |doc: &EureDocument, id| {
-                                doc.parse::<String>(id).map(Either::Right)
-                            })
-                            .parse()
-                            .map(Some)
-                    })
-                    .variant("none", |_, _| Ok(None))
-                    .parse()
-                    .map(Ok)
-            })
-            .nested("err", |doc, id, _| doc.parse::<String>(id).map(Err))
-            .parse()
-            .unwrap();
-
-        assert_eq!(result, Ok(Some(Either::Left(42))));
+        let result: TripleNested = doc.parse(doc.get_root_id()).unwrap();
+        assert_eq!(result, TripleNested(Ok(Some(Either::Left(42)))));
     }
 
     #[test]
@@ -968,31 +902,10 @@ mod tests {
         // Result<Option<Either<i32, String>>>
         // $variant = "ok.some.right"
         let doc = create_doc_with_variant("hello", "ok.some.right");
-        let root_id = doc.get_root_id();
-
-        let result: Result<Option<Either<i32, String>>, String> = doc
-            .parse_union(root_id)
-            .nested("ok", |doc, id, rest| {
-                doc.parse_union_with_path(id, rest)
-                    .nested("some", |doc, id, rest| {
-                        doc.parse_union_with_path(id, rest)
-                            .variant("left", |doc: &EureDocument, id| {
-                                doc.parse::<i32>(id).map(Either::Left)
-                            })
-                            .variant("right", |doc: &EureDocument, id| {
-                                doc.parse::<String>(id).map(Either::Right)
-                            })
-                            .parse()
-                            .map(Some)
-                    })
-                    .variant("none", |_, _| Ok(None))
-                    .parse()
-                    .map(Ok)
-            })
-            .nested("err", |doc, id, _| doc.parse::<String>(id).map(Err))
-            .parse()
-            .unwrap();
-
-        assert_eq!(result, Ok(Some(Either::Right("hello".to_string()))));
+        let result: TripleNested = doc.parse(doc.get_root_id()).unwrap();
+        assert_eq!(
+            result,
+            TripleNested(Ok(Some(Either::Right("hello".to_string()))))
+        );
     }
 }
