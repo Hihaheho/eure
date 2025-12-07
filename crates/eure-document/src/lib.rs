@@ -31,6 +31,9 @@ pub mod data_model;
 /// Trait for parsing Rust types from Eure documents.
 pub mod parse;
 
+/// Trait for writing Rust types to Eure documents.
+pub mod write;
+
 #[cfg(feature = "std")]
 pub use ahash::AHashMap as Map;
 #[cfg(not(feature = "std"))]
