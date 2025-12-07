@@ -56,10 +56,7 @@ impl VariantPath {
         match self.0.as_slice() {
             [] => None,
             [first] => Some((first.as_str(), None)),
-            [first, rest @ ..] => Some((
-                first.as_str(),
-                Some(VariantPath(rest.iter().cloned().collect())),
-            )),
+            [first, rest @ ..] => Some((first.as_str(), Some(VariantPath(rest.to_vec())))),
         }
     }
 
@@ -105,11 +102,11 @@ impl FromStr for VariantPath {
                 return Err(VariantPathParseError::EmptySegment);
             }
             // Basic validation: first char must be XID_Start or '_'
-            let mut chars = segment.chars();
-            if let Some(first) = chars.next() {
-                if !first.is_alphabetic() && first != '_' {
-                    return Err(VariantPathParseError::InvalidSegment(segment.clone()));
-                }
+            if let Some(first) = segment.chars().next()
+                && !first.is_alphabetic()
+                && first != '_'
+            {
+                return Err(VariantPathParseError::InvalidSegment(segment.clone()));
             }
         }
 
@@ -267,10 +264,12 @@ impl<'doc, T> UnionParser<'doc, T> {
     {
         if let Some(ref path) = self.variant_path {
             // $variant specified: only parse if first segment matches and no result yet
-            if let Some((first, rest)) = path.split_first() {
-                if first == name && rest.is_none() && self.variant_result.is_none() {
-                    self.variant_result = Some(parser.parse(self.doc, self.node_id));
-                }
+            if let Some((first, rest)) = path.split_first()
+                && first == name
+                && rest.is_none()
+                && self.variant_result.is_none()
+            {
+                self.variant_result = Some(parser.parse(self.doc, self.node_id));
             }
         } else if self.priority_result.is_none()
             && let Ok(value) = parser.parse(self.doc, self.node_id)
@@ -307,10 +306,11 @@ impl<'doc, T> UnionParser<'doc, T> {
     {
         if let Some(ref path) = self.variant_path {
             // $variant specified: only parse if first segment matches and no result yet
-            if let Some((first, rest)) = path.split_first() {
-                if first == name && self.variant_result.is_none() {
-                    self.variant_result = Some(parser(self.doc, self.node_id, rest));
-                }
+            if let Some((first, rest)) = path.split_first()
+                && first == name
+                && self.variant_result.is_none()
+            {
+                self.variant_result = Some(parser(self.doc, self.node_id, rest));
             }
         } else if self.priority_result.is_none()
             && let Ok(value) = parser(self.doc, self.node_id, None)
@@ -331,10 +331,12 @@ impl<'doc, T> UnionParser<'doc, T> {
     {
         if let Some(ref path) = self.variant_path {
             // $variant specified: only parse if first segment matches and no result yet
-            if let Some((first, rest)) = path.split_first() {
-                if first == name && rest.is_none() && self.variant_result.is_none() {
-                    self.variant_result = Some(parser.parse(self.doc, self.node_id));
-                }
+            if let Some((first, rest)) = path.split_first()
+                && first == name
+                && rest.is_none()
+                && self.variant_result.is_none()
+            {
+                self.variant_result = Some(parser.parse(self.doc, self.node_id));
             }
         } else {
             // No $variant: try all for ambiguity detection (only if no priority match)
@@ -357,10 +359,11 @@ impl<'doc, T> UnionParser<'doc, T> {
     {
         if let Some(ref path) = self.variant_path {
             // $variant specified: only parse if first segment matches and no result yet
-            if let Some((first, rest)) = path.split_first() {
-                if first == name && self.variant_result.is_none() {
-                    self.variant_result = Some(parser(self.doc, self.node_id, rest));
-                }
+            if let Some((first, rest)) = path.split_first()
+                && first == name
+                && self.variant_result.is_none()
+            {
+                self.variant_result = Some(parser(self.doc, self.node_id, rest));
             }
         } else {
             // No $variant: try all for ambiguity detection (only if no priority match)
