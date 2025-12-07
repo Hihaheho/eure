@@ -1,5 +1,4 @@
 // Invalid: $description is required but not provided
-// NOTE: Currently FAILS because extension validation is not implemented
 
 input_eure = ```eure
 name = "Alice"
@@ -11,5 +10,17 @@ name.$ext-type.description = `text`
 ```
 
 schema_errors = [
-  "Missing required extension"
+  ```
+error: Missing required extension 'description' at path $.name
+ --> <input>:1:1
+  |
+1 | name = "Alice"
+  | ^^^^^^^^^^^^^^ Missing required extension 'description' at path $.name
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | name = `text`
+  | ------------- constraint defined here
+```
 ]

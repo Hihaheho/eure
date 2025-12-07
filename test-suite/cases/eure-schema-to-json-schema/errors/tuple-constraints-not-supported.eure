@@ -5,4 +5,4 @@ $variant = "tuple"
 elements = [`text`, `integer`]
 ```
 
-json_schema_errors[] = "Tuple constraints"
+json_schema_errors[] = "Tuple constraints not fully supported in JSON Schema"
