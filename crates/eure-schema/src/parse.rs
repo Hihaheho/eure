@@ -25,6 +25,7 @@ use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseDocument, ParseError, ParseErrorKind};
 use num_bigint::BigInt;
+use regex::Regex;
 
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
 
@@ -137,7 +138,19 @@ impl ParseDocument<'_> for TextSchema {
         let language = rec.field_optional::<String>("language")?;
         let min_length = rec.field_optional::<u32>("min-length")?;
         let max_length = rec.field_optional::<u32>("max-length")?;
-        let pattern = rec.field_optional::<String>("pattern")?;
+        let pattern_str = rec.field_optional::<String>("pattern")?;
+
+        // Compile regex at parse time
+        let pattern = pattern_str
+            .map(|s| Regex::new(&s))
+            .transpose()
+            .map_err(|e| ParseError {
+                node_id,
+                kind: ParseErrorKind::InvalidPattern {
+                    pattern: "valid regex".to_string(),
+                    value: e.to_string(),
+                },
+            })?;
 
         // Collect unknown fields for future extensions
         let unknown_fields: HashMap<String, NodeId> = rec

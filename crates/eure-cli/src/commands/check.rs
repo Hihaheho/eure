@@ -4,7 +4,7 @@ use eure::document::cst_to_document_and_origins;
 use eure::error::{format_document_error, format_parse_error_color, format_schema_error, SchemaErrorContext};
 use eure_schema::SchemaRef;
 use eure_schema::convert::document_to_schema;
-use eure_schema::validate::{validate, ValidationResult, ValidationWarning};
+use eure_schema::validate::{validate, ValidationOutput, ValidationWarning};
 use nu_ansi_term::Color;
 
 use crate::util::{display_path, read_input};
@@ -169,7 +169,7 @@ fn determine_schema_path(
 }
 
 /// Print validation results with span-annotated errors
-fn print_validation_result(result: &ValidationResult, context: &SchemaErrorContext<'_>, file_path: &str) {
+fn print_validation_result(result: &ValidationOutput, context: &SchemaErrorContext<'_>, file_path: &str) {
     // Print errors with span annotations
     for error in &result.errors {
         eprintln!("{}", format_schema_error(error, context));

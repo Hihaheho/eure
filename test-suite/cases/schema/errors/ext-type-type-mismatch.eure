@@ -13,10 +13,10 @@ name.$ext-type.description = `text`
 schema_errors = [
   ```
 error: Type mismatch: expected text, got integer at path $.name.$description
- --> <input>:1:1
+ --> <input>:2:1
   |
-1 | name = "Alice"
-  | ^^^^^^^^^^^^^^ Type mismatch: expected text, got integer at path $.name.$description
+2 | name.$description = 42
+  | ^^^^^^^^^^^^^^^^^^^^^^ Type mismatch: expected text, got integer at path $.name.$description
   |
 note: constraint defined here
  --> <schema>:2:1

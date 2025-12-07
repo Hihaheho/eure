@@ -266,7 +266,7 @@ fn convert_text_schema(
     Ok(JsonSchema::Typed(TypedSchema::String(StringSchema {
         min_length: eure.min_length,
         max_length: eure.max_length,
-        pattern: eure.pattern.clone(),
+        pattern: eure.pattern.as_ref().map(|r| r.as_str().to_string()),
         format,
         default: None,
         metadata,

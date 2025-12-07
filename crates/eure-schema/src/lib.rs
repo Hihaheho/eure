@@ -37,6 +37,7 @@ use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use num_bigint::BigInt;
+use regex::Regex;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -210,8 +211,9 @@ pub struct TextSchema {
     pub min_length: Option<u32>,
     /// Maximum length constraint (in UTF-8 code points)
     pub max_length: Option<u32>,
-    /// Regex pattern constraint (applied to the text content)
-    pub pattern: Option<String>,
+    /// Regex pattern constraint (applied to the text content).
+    /// Pre-compiled at schema parse time for efficiency.
+    pub pattern: Option<Regex>,
     /// Unknown fields (for future extensions like "flatten")
     pub unknown_fields: std::collections::HashMap<String, eure_document::document::NodeId>,
 }
