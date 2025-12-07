@@ -1,6 +1,23 @@
 //! UnionParser for parsing union types from Eure documents.
 //!
-//! Implements oneOf semantics with priority-based ambiguity resolution.
+//! # Variant Discrimination
+//!
+//! In EureDocument, union variants are discriminated by the `$variant` extension.
+//! This is distinct from `VariantRepr` which controls serialization to external
+//! formats (JSON, etc.) that don't natively support sum types.
+//!
+//! ## When `$variant` extension is present (tagged mode)
+//!
+//! The parser directly matches by variant name - only the matching parser is executed.
+//! This is needed for **semantic disambiguation** when multiple variants have
+//! structurally identical schemas (e.g., `{ code = integer }` could be Success or Error).
+//!
+//! ## When `$variant` extension is absent (untagged mode)
+//!
+//! The parser tries variants in order with oneOf semantics:
+//! - Priority variants (`priority()`) short-circuit on first successful match
+//! - Fallback variants (`fallback()`) are all tried to detect ambiguity
+//! - If multiple fallback variants match, returns `AmbiguousUnion` error
 
 extern crate alloc;
 
@@ -17,11 +34,7 @@ pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
 
 /// Helper for parsing union types from Eure documents.
 ///
-/// Implements oneOf semantics:
-/// - Exactly one variant must match
-/// - Multiple matches resolved by registration order (priority)
-/// - Short-circuits on first priority variant match
-/// - When `$variant` extension is specified, matches by name directly
+/// See [module documentation](self) for variant discrimination semantics.
 ///
 /// # Example
 ///
@@ -29,11 +42,11 @@ pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
 /// impl ParseDocument<'_> for Description {
 ///     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
 ///         doc.parse_union(node_id)
-///             .variant("string", |doc, id| {
+///             .priority("string", |doc, id| {
 ///                 let text: String = doc.parse(id)?;
 ///                 Ok(Description::String(text))
 ///             })
-///             .variant("markdown", |doc, id| {
+///             .fallback("markdown", |doc, id| {
 ///                 let text: String = doc.parse(id)?;
 ///                 Ok(Description::Markdown(text))
 ///             })
@@ -81,9 +94,12 @@ impl<'doc, T> UnionParser<'doc, T> {
 
     /// Register a priority variant.
     ///
-    /// Priority variants are tried in registration order.
-    /// When a priority variant matches, parsing short-circuits and returns immediately.
-    pub fn variant<P>(mut self, name: &str, parser: P) -> Self
+    /// In untagged mode, priority variants short-circuit on first successful match.
+    /// In tagged mode (`$variant` present), only the matching variant's parser runs.
+    ///
+    /// Use `priority()` when this variant should take precedence over structurally
+    /// similar variants (e.g., a more specific type before a general one).
+    pub fn priority<P>(mut self, name: &str, parser: P) -> Self
     where
         P: DocumentParser<'doc, Output = T> + 'doc,
     {
@@ -101,11 +117,14 @@ impl<'doc, T> UnionParser<'doc, T> {
         self
     }
 
-    /// Register a non-priority variant.
+    /// Register a fallback variant.
     ///
-    /// Non-priority variants are only tried if no priority variant matches.
-    /// All non-priority variants are tried to detect ambiguity.
-    pub fn other<P>(mut self, name: &str, parser: P) -> Self
+    /// In untagged mode, fallback variants are only tried if no priority variant matches.
+    /// All fallback variants are tried to detect ambiguity - if multiple match,
+    /// returns `AmbiguousUnion` error.
+    ///
+    /// In tagged mode (`$variant` present), behaves the same as `priority()`.
+    pub fn fallback<P>(mut self, name: &str, parser: P) -> Self
     where
         P: DocumentParser<'doc, Output = T> + 'doc,
     {
@@ -168,9 +187,10 @@ impl<'doc, T> UnionParser<'doc, T> {
     }
 
     /// Create an error for when no variant matches.
+    ///
+    /// Returns the first failure error if any parsers were attempted,
+    /// otherwise returns a generic `NoMatchingVariant` error.
     fn no_match_error(node_id: NodeId, failures: Vec<(String, ParseError)>) -> ParseError {
-        // For now, return the first failure or a generic error
-        // TODO: Implement "closest error" selection based on error depth
         failures
             .into_iter()
             .next()
@@ -189,8 +209,8 @@ impl EureDocument {
     ///
     /// ```ignore
     /// doc.parse_union(node_id)
-    ///     .variant("foo", parser_for_foo)
-    ///     .variant("bar", parser_for_bar)
+    ///     .priority("foo", parser_for_foo)
+    ///     .fallback("bar", parser_for_bar)
     ///     .parse()
     /// ```
     pub fn parse_union<T>(&self, node_id: NodeId) -> UnionParser<'_, T> {
@@ -250,7 +270,7 @@ mod tests {
 
         let result: TestEnum = doc
             .parse_union(root_id)
-            .variant("foo", |doc: &EureDocument, id| {
+            .priority("foo", |doc: &EureDocument, id| {
                 let s: &str = doc.parse(id)?;
                 if s == "foo" {
                     Ok(TestEnum::Foo)
@@ -261,7 +281,7 @@ mod tests {
                     })
                 }
             })
-            .variant("bar", |doc: &EureDocument, id| {
+            .priority("bar", |doc: &EureDocument, id| {
                 let s: &str = doc.parse(id)?;
                 if s == "bar" {
                     Ok(TestEnum::Bar)
@@ -286,8 +306,8 @@ mod tests {
         // Both variants would match, but first one wins due to priority
         let result: String = doc
             .parse_union(root_id)
-            .variant("first", |doc: &EureDocument, id| doc.parse::<String>(id))
-            .variant("second", |doc: &EureDocument, id| doc.parse::<String>(id))
+            .priority("first", |doc: &EureDocument, id| doc.parse::<String>(id))
+            .priority("second", |doc: &EureDocument, id| doc.parse::<String>(id))
             .parse()
             .unwrap();
 
@@ -301,7 +321,7 @@ mod tests {
 
         let result: Result<TestEnum, _> = doc
             .parse_union(root_id)
-            .variant("foo", |doc: &EureDocument, id| {
+            .priority("foo", |doc: &EureDocument, id| {
                 let s: &str = doc.parse(id)?;
                 if s == "foo" {
                     Ok(TestEnum::Foo)
@@ -319,7 +339,7 @@ mod tests {
 
     #[test]
     fn test_union_with_borrowed_str_fn_pointer() {
-        // 関数ポインタで &str を返す
+        // Function pointer returning &str
         fn parse_str(doc: &EureDocument, id: NodeId) -> Result<&str, ParseError> {
             doc.parse(id)
         }
@@ -329,7 +349,7 @@ mod tests {
 
         let result: &str = doc
             .parse_union(root_id)
-            .variant("str", parse_str)
+            .priority("str", parse_str)
             .parse()
             .unwrap();
 
@@ -338,13 +358,13 @@ mod tests {
 
     #[test]
     fn test_union_with_borrowed_str_closure() {
-        // クロージャで &str を返す (型注釈で関数ポインタに coerce)
+        // Closure returning &str (type annotation coerces to function pointer)
         let doc = create_text_doc("world");
         let root_id = doc.get_root_id();
 
         let result: &str = doc
             .parse_union(root_id)
-            .variant(
+            .priority(
                 "str",
                 (|doc, id| doc.parse(id)) as fn(&EureDocument, NodeId) -> Result<&str, ParseError>,
             )
@@ -358,15 +378,15 @@ mod tests {
 
     #[test]
     fn test_variant_extension_match_success() {
-        // $variant = "baz" specified, matches other("baz")
+        // $variant = "baz" specified, matches fallback("baz")
         // All parsers always succeed
         let doc = create_doc_with_variant("anything", "baz");
         let root_id = doc.get_root_id();
 
         let result: TestEnum = doc
             .parse_union(root_id)
-            .variant("foo", |_, _| Ok(TestEnum::Foo))
-            .other("baz", |_, _| Ok(TestEnum::Bar))
+            .priority("foo", |_, _| Ok(TestEnum::Foo))
+            .fallback("baz", |_, _| Ok(TestEnum::Bar))
             .parse()
             .unwrap();
 
@@ -382,8 +402,8 @@ mod tests {
 
         let err = doc
             .parse_union::<TestEnum>(root_id)
-            .variant("foo", |_, _| Ok(TestEnum::Foo))
-            .other("baz", |_, _| Ok(TestEnum::Bar))
+            .priority("foo", |_, _| Ok(TestEnum::Foo))
+            .fallback("baz", |_, _| Ok(TestEnum::Bar))
             .parse()
             .unwrap_err();
 
@@ -402,8 +422,8 @@ mod tests {
 
         let err = doc
             .parse_union::<TestEnum>(root_id)
-            .variant("foo", |_, _| Ok(TestEnum::Foo))
-            .other("baz", |_, id| {
+            .priority("foo", |_, _| Ok(TestEnum::Foo))
+            .fallback("baz", |_, id| {
                 Err(ParseError {
                     node_id: id,
                     kind: ParseErrorKind::MissingField("test".to_string()),
