@@ -1014,7 +1014,7 @@ mod tests {
         let root = doc.node(root_id);
         let placeholder_id = root.as_map().unwrap().get(&"placeholder".into()).unwrap();
         let placeholder = doc.node(placeholder_id);
-        assert!(matches!(placeholder.content, NodeValue::Hole));
+        assert_eq!(placeholder.content, NodeValue::Hole(None));
     }
 
     #[test]
