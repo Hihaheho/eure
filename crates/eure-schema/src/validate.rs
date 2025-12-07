@@ -37,6 +37,7 @@ use eure_document::data_model::VariantRepr;
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
+use eure_document::parse::VariantPath;
 use eure_document::path::{EurePath, PathSegment};
 use eure_document::text::Language;
 use eure_document::value::{ObjectKey, PrimitiveValue, Tuple, Value};
@@ -1251,32 +1252,13 @@ impl<'a> Validator<'a> {
     fn validate_union_external(&mut self, node: &Node, schema: &UnionSchema) -> ValidationResult {
         // External representation in Eure uses $variant extension
         // Example: { $variant = "circle", radius = 5.0 }
+        // Nested unions: { $variant = "ok.some.left", value = 42 }
 
         // Check for $variant extension
         if let Some(tag) = self.get_extension_as_string(node, &identifiers::VARIANT) {
-            if let Some(&variant_schema) = schema.variants.get(&tag) {
-                // Validate the node content against the variant schema
-                // Push tag as identifier if valid, otherwise as string key
-                if let Ok(ident) = tag.parse::<Identifier>() {
-                    self.push_path_ident(ident);
-                } else {
-                    self.push_path_key(ObjectKey::String(tag.clone()));
-                }
-                let result = self.validate_content(
-                    node,
-                    &self.schema.node(variant_schema).content,
-                    variant_schema,
-                );
-                self.pop_path();
-                return result;
-            } else {
-                return ValidationResult::failure(ValidationError::InvalidVariantTag {
-                    tag,
-                    path: self.current_path(),
-                    node_id: self.node_id(),
-                    schema_node_id: self.schema_node_id(),
-                });
-            }
+            // Parse as variant path for nested union support
+            let path: VariantPath = tag.as_str().into();
+            return self.validate_union_with_path(node, schema, &path);
         }
 
         // Also support PrimitiveValue::Variant for backward compatibility
@@ -1312,6 +1294,94 @@ impl<'a> Validator<'a> {
         // No $variant extension found - try untagged matching as fallback
         // (This allows literal variants like `integer` shorthand to work)
         self.validate_union_untagged(node, schema)
+    }
+
+    /// Validate a union with a variant path (supports nested unions).
+    ///
+    /// For a path like `ok.some.left`:
+    /// 1. Find the "ok" variant in the current union schema
+    /// 2. If "ok"'s schema is also a union, recursively validate with "some.left"
+    /// 3. Continue until the path is exhausted
+    fn validate_union_with_path(
+        &mut self,
+        node: &Node,
+        schema: &UnionSchema,
+        path: &VariantPath,
+    ) -> ValidationResult {
+        let Some((first, rest)) = path.split_first() else {
+            // Empty path - shouldn't happen, but handle gracefully
+            return self.validate_union_untagged(node, schema);
+        };
+
+        // Find the variant schema for the first segment
+        let Some(&variant_schema_id) = schema.variants.get(first) else {
+            return ValidationResult::failure(ValidationError::InvalidVariantTag {
+                tag: path.to_string(),
+                path: self.current_path(),
+                node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
+            });
+        };
+
+        // Push path segment
+        if let Ok(ident) = first.parse::<Identifier>() {
+            self.push_path_ident(ident);
+        } else {
+            self.push_path_key(ObjectKey::String(first.to_string()));
+        }
+
+        let variant_schema_node = self.schema.node(variant_schema_id);
+
+        let result = if let Some(rest_path) = rest {
+            // There are more segments - the variant must be a union
+            match &variant_schema_node.content {
+                SchemaNodeContent::Union(inner_union) => {
+                    // Recursively validate with the remaining path
+                    self.validate_union_with_path(node, inner_union, &rest_path)
+                }
+                SchemaNodeContent::Reference(type_ref) => {
+                    // Resolve the reference and check if it's a union
+                    // TODO: Cross-schema references not yet supported for nested unions
+                    if let Some(resolved_id) = self.schema.get_type(&type_ref.name) {
+                        let resolved_node = self.schema.node(resolved_id);
+                        if let SchemaNodeContent::Union(inner_union) = &resolved_node.content {
+                            self.validate_union_with_path(node, inner_union, &rest_path)
+                        } else {
+                            // Not a union - remaining path is invalid
+                            ValidationResult::failure(ValidationError::InvalidVariantTag {
+                                tag: path.to_string(),
+                                path: self.current_path(),
+                                node_id: self.node_id(),
+                                schema_node_id: Some(variant_schema_id),
+                            })
+                        }
+                    } else {
+                        // Unresolved reference
+                        ValidationResult::failure(ValidationError::InvalidVariantTag {
+                            tag: path.to_string(),
+                            path: self.current_path(),
+                            node_id: self.node_id(),
+                            schema_node_id: Some(variant_schema_id),
+                        })
+                    }
+                }
+                _ => {
+                    // Not a union - remaining path is invalid
+                    ValidationResult::failure(ValidationError::InvalidVariantTag {
+                        tag: path.to_string(),
+                        path: self.current_path(),
+                        node_id: self.node_id(),
+                        schema_node_id: Some(variant_schema_id),
+                    })
+                }
+            }
+        } else {
+            // No more segments - validate the node against this variant's schema
+            self.validate_content(node, &variant_schema_node.content, variant_schema_id)
+        };
+
+        self.pop_path();
+        result
     }
 
     fn validate_union_internal(

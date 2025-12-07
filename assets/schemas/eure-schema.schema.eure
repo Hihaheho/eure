@@ -262,6 +262,16 @@ $ext-type.codegen-defaults.$optional = true
   @variants.external = { = "external", $variant => "literal" }
 }
 
+/// Variant path for nested union types.
+/// Represents a dot-separated path like `ok.some.left` for nested unions
+/// such as `Result<Option<Either<T, U>>>`.
+@ $types.variant-path {
+  $variant: text
+  language = "plaintext"
+  // One or more identifiers separated by dots
+  pattern = regex`[\p{XID_Start}_][\p{XID_Continue}-]*(\.[\p{XID_Start}_][\p{XID_Continue}-]*)*`
+}
+
 /// Policy for handling unknown fields in record types.
 @ $types.unknown-fields-policy {
   $variant: union
