@@ -1079,6 +1079,48 @@ mod tests {
         assert_eq!(text.as_str(), "hello");
     }
 
+    #[test]
+    fn test_eure_code_with_language_at_root() {
+        // Test @code("lang", "content") at root level
+        let doc = eure!({
+            = @code("sql", "SELECT 1"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let text = root.as_primitive().unwrap().as_text().unwrap();
+        assert_eq!(text.as_str(), "SELECT 1");
+        assert_eq!(text.language.as_str(), Some("sql"));
+    }
+
+    #[test]
+    fn test_eure_block_at_root() {
+        // Test @block("content") at root level
+        let doc = eure!({
+            = @block("fn main() {}"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let text = root.as_primitive().unwrap().as_text().unwrap();
+        assert_eq!(text.as_str(), "fn main() {}\n");
+        assert!(text.language.is_implicit());
+    }
+
+    #[test]
+    fn test_eure_block_with_language_at_root() {
+        // Test @block("lang", "content") at root level
+        let doc = eure!({
+            = @block("rust", "fn main() {}"),
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let text = root.as_primitive().unwrap().as_text().unwrap();
+        assert_eq!(text.as_str(), "fn main() {}\n");
+        assert_eq!(text.language.as_str(), Some("rust"));
+    }
+
     // ========================================================================
     // Tests for edge cases and missing coverage
     // ========================================================================
