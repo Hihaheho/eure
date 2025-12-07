@@ -162,6 +162,7 @@ macro_rules! eure {
 
     // Document with body: `eure!({ ... })` creates a document and processes the body
     ({ $($body:tt)* }) => {{
+        #[allow(unused_mut)]
         let mut c = $crate::document::constructor::DocumentConstructor::new();
         $crate::eure!(@body c; $($body)*);
         c.finish()
