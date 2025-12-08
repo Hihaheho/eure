@@ -25,8 +25,8 @@ $schema = "my-config.schema.eure"
 
 // This schema's root type is a record with specific fields
 $root-type = {
-  name = .text
-  version = .text
+  name = `text`
+  version = `text`
 }
 ```
 
@@ -36,8 +36,8 @@ Defines extension types for specific paths in schemas. When users write document
 
 **Schema side:**
 ```eure
-field.$ext-type.optional = .boolean
-field.$ext-type.binding-style = .$types.binding-style
+field.$ext-type.optional = `boolean`
+field.$ext-type.binding-style = `$types.binding-style`
 ```
 
 **User side:**
@@ -60,7 +60,7 @@ pattern = "^[a-z0-9_]+$"
 
 // Use the custom type
 @ user
-name = .$types.username
+name = `$types.username`
 ```
 
 ### $cascade-ext-types
@@ -84,27 +84,27 @@ All types in Eure Schema are variants of a union type (`$types.type`).
 
 ```eure
 // String type
-name = .text
+name = `text`
 name.$description: User's display name
 
 // Integer type
-age = .integer
+age = `integer`
 age.$optional = true
 
 // Float type
-score = .float
+score = `float`
 
 // Boolean type
-active = .boolean
+active = `boolean`
 
 // Null type
-deleted = .null
+deleted = `null`
 
 // Any type (accepts any valid Eure value)
-metadata = .any
+metadata = `any`
 ```
 
-**Shorthands:** `.text`, `.integer`, `.float`, `.boolean`, `.null`, `.any`
+**Shorthands:** `text`, `integer`, `float`, `boolean`, `null`, `any`
 
 Shorthands are for simple types without constraints. For constraints, use the full form.
 
@@ -135,7 +135,7 @@ Shorthands are for simple types without constraints. For constraints, use the fu
 }
 
 // Or using shorthand with extensions
-age = .integer
+age = `integer`
 age.$range = "0..=150"  // 0 <= x <= 150
 ```
 
@@ -148,7 +148,7 @@ age.$range = "0..=150"  // 0 <= x <= 150
 }
 
 // Rust-style
-temperature = .float
+temperature = `float`
 temperature.$range = "-273.15.."  // x >= -273.15
 ```
 
@@ -177,28 +177,28 @@ Text type supports optional language specifier for code blocks or semantic text.
 
 ```eure
 // Plain text
-content = .text
+content = `text`
 
 // Text with language
-script = .text.javascript
-query = .text.sql
-email = .text.email
-url = .text.url
+script = `text.javascript`
+query = `text.sql`
+email = `text.email`
+url = `text.url`
 ```
 
-**Shorthand:** `.text`, `.text.rust`, `.text.email`, etc.
+**Shorthand:** `text`, `text.rust`, `text.email`, etc.
 
 ### Path Type
 
 Path type for document path values.
 
 ```eure
-reference = .path
+reference = `path`
 
 // With constraints
 @ ref {
   $variant: path
-  starts-with = .config
+  starts-with = `config`
   min-length = 2
   max-length = 10
 }
@@ -215,22 +215,22 @@ Fixed named fields where each field has a specific name and type.
 ```eure
 // Shorthand (implicit record)
 @ user
-name = .text
-age = .integer
-email = .text.email
+name = `text`
+age = `integer`
+email = `text.email`
 
 // Explicit record variant
 @ user {
   $variant: record
-  name = .text
-  age = .integer
+  name = `text`
+  age = `integer`
 }
 
 // With unknown fields policy
 @ config {
   $variant: record
-  host = .text
-  port = .integer
+  host = `text`
+  port = `integer`
   $unknown-fields = "allow"  // or "deny" (default) or a type schema
 }
 ```
@@ -241,12 +241,12 @@ Ordered list of elements with the same type.
 
 ```eure
 // Shorthand
-tags = [.text]
+tags = [`text`]
 
 // Full form
 @ tags {
   $variant: array
-  item = .text
+  item = `text`
   min-length = 1
   max-length = 10
   unique = true
@@ -254,7 +254,7 @@ tags = [.text]
 }
 
 // Nested arrays
-matrix = [[.integer]]
+matrix = [[`integer`]]
 ```
 
 ### Map Type
@@ -265,8 +265,8 @@ Dynamic key-value pairs where all keys have the same type and all values have th
 // Full form
 @ headers {
   $variant: map
-  key = .text
-  value = .text
+  key = `text`
+  value = `text`
   min-size = 0
   max-size = 100
 }
@@ -278,13 +278,13 @@ Fixed-length, ordered elements where each position has a specific type.
 
 ```eure
 // Shorthand
-point = (.float, .float)
-rgb = (.integer, .integer, .integer)
+point = (`float`, `float`)
+rgb = (`integer`, `integer`, `integer`)
 
 // Full form
 @ coordinate {
   $variant: tuple
-  elements = [.float, .float, .float]
+  elements = [`float`, `float`, `float`]
 }
 ```
 
@@ -296,12 +296,12 @@ Tagged union that accepts one of multiple variant types.
 // Full form with named variants
 @ $types.response {
   $variant: union
-  variants.success = { data = .any }
-  variants.error = { message = .text, code = .integer }
+  variants.success = { data = `any` }
+  variants.error = { message = `text`, code = `integer` }
 }
 
 // Using the union type
-result = .$types.response
+result = `$types.response`
 ```
 
 **Note:** Union types always have a discriminator. Use `$variant-repr` to customize representation.
@@ -320,8 +320,8 @@ The variant name wraps the content.
 @ $types.shape {
   $variant: union
   // Default: external representation
-  variants.circle = { radius = .float }
-  variants.rectangle = { width = .float, height = .float }
+  variants.circle = { radius = `float` }
+  variants.rectangle = { width = `float`, height = `float` }
 }
 
 // Data example:
@@ -336,8 +336,8 @@ Custom tag field name inside the content.
 @ $types.message {
   $variant: union
   $variant-repr = { tag = "type" }
-  variants.text = { content = .text }
-  variants.image = { url = .text }
+  variants.text = { content = `text` }
+  variants.image = { url = `text` }
 }
 
 // Data example:
@@ -352,8 +352,8 @@ Separate tag and content fields.
 @ $types.event {
   $variant: union
   $variant-repr = { tag = "kind", content = "data" }
-  variants.login = { username = .text }
-  variants.logout = { reason = .text }
+  variants.login = { username = `text` }
+  variants.logout = { reason = `text` }
 }
 
 // Data example:
@@ -368,8 +368,8 @@ No discriminator field (type is inferred from content).
 @ $types.value {
   $variant: union
   $variant-repr = "untagged"
-  variants.string = .text
-  variants.number = .integer
+  variants.string = `text`
+  variants.number = `integer`
 }
 
 // Data example:
@@ -386,8 +386,8 @@ For untagged unions where multiple variants may match, use `priority` to specify
   $variant-repr = "untagged"
   priority: ["error", "success"]  // error takes precedence
 
-  variants.error = { code = .integer, message = .text }
-  variants.success = { data = .any }
+  variants.error = { code = `integer`, message = `text` }
+  variants.success = { data = `any` }
 }
 
 // If a value matches both error and success, error is selected
@@ -424,14 +424,14 @@ Reference other type definitions using path syntax.
 
 ```eure
 // Define types
-$types.email = .text.email
+$types.email = `text.email`
 $types.user = {
-  name = .text
-  email = .$types.email
+  name = `text`
+  email = `$types.email`
 }
 
 // Use type reference
-contact = .$types.user
+contact = `$types.user`
 ```
 
 ---
@@ -453,15 +453,15 @@ $import = {
 
 // Reference imported types using: .$types.<namespace>.<type-name>
 @ user
-name = .$types.common.username      // from common.schema.eure
-email = .$types.common.email        // from common.schema.eure
-token = .$types.auth.jwt-token      // from auth/types.schema.eure
-local-field = .$types.my-local-type // local type (no namespace)
+name = `$types.common.username`      // from common.schema.eure
+email = `$types.common.email`        // from common.schema.eure
+token = `$types.auth.jwt-token`      // from auth/types.schema.eure
+local-field = `$types.my-local-type` // local type (no namespace)
 ```
 
 **Resolution rules:**
-- Path length 2 (`.$types.T`): Local type reference
-- Path length 3 (`.$types.N.T`): External type reference (N must be in `$import`)
+- Path length 2 (`$types.T`): Local type reference
+- Path length 3 (`$types.N.T`): External type reference (N must be in `$import`)
 
 **Important:** Imports are resolved at schema bundling/validation time, not at runtime. Distributed schemas should be self-contained with all imports inlined. This follows Eure's design principle that documents should be self-contained.
 
@@ -497,7 +497,7 @@ $export = ["username", "email"]
   pattern = "^[a-z0-9_]+$"
 }
 
-@ $types.email = .text.email
+@ $types.email = `text.email`
 ```
 
 **user.schema.eure:**
@@ -507,13 +507,13 @@ $import = {
 }
 
 @ $types.user {
-  username = .$types.common.username
-  email = .$types.common.email
-  bio = .text
+  username = `$types.common.username`
+  email = `$types.common.email`
+  bio = `text`
   bio.$optional = true
 }
 
-$root-type = .$types.user
+$root-type = `$types.user`
 ```
 
 ### Bundling
@@ -524,7 +524,7 @@ For distribution, use the schema bundler to inline all imports:
 eure-schema bundle user.schema.eure -o dist/user.schema.eure
 ```
 
-The bundled schema will be self-contained with all external types inlined and renamed (e.g., `.$types.common.username` → `.$types.common__username`).
+The bundled schema will be self-contained with all external types inlined and renamed (e.g., `$types.common.username` → `$types.common__username`).
 
 ---
 
@@ -536,8 +536,8 @@ Marks a field as optional. Fields are required by default.
 
 ```eure
 @ user
-name = .text           // Required
-bio = .text
+name = `text`           // Required
+bio = `text`
 bio.$optional = true     // Optional
 ```
 
@@ -547,7 +547,7 @@ Field description (supports plain text or rich markdown).
 
 ```eure
 @ user
-email = .text.email
+email = `text.email`
 email.$description: User's primary email address for authentication.
 
 // Or with markdown
@@ -559,7 +559,7 @@ email.$description = markdown`User's **primary** email address.`
 Marks a field as deprecated.
 
 ```eure
-old_field = .text
+old_field = `text`
 old_field.$deprecated = true
 ```
 
@@ -568,7 +568,7 @@ old_field.$deprecated = true
 Default value for optional fields.
 
 ```eure
-timeout = .integer
+timeout = `integer`
 timeout.$optional = true
 timeout.$default = 30
 ```
@@ -578,7 +578,7 @@ timeout.$default = 30
 Example values in Eure code format.
 
 ```eure
-email = .text.email
+email = `text.email`
 email.$examples = [eure`"user@example.com"`, eure`"admin@company.org"`]
 ```
 
@@ -611,8 +611,8 @@ Controls handling of fields not defined in the schema.
 
 ```eure
 @ config {
-  host = .text
-  port = .integer
+  host = `text`
+  port = `integer`
 
   // Reject unknown fields (default)
   $unknown-fields = "deny"
@@ -621,7 +621,7 @@ Controls handling of fields not defined in the schema.
   $unknown-fields = "allow"
 
   // Or validate unknown fields against a schema
-  $unknown-fields = .text
+  $unknown-fields = `text`
 }
 ```
 
@@ -649,28 +649,28 @@ $schema = "eure-schema.schema.eure"
 
 // Main schema
 @ $types.user {
-  username = .$types.username
+  username = `$types.username`
   username.$description: Unique username for the account.
 
-  email = .text.email
+  email = `text.email`
 
-  role = .$types.role
+  role = `$types.role`
   role.$default = "user"
 
-  age = .integer
+  age = `integer`
   age.$optional = true
   age.$description: User's age in years.
 
   @ tags {
     $variant: array
-    item = .text
+    item = `text`
     unique = true
   }
   tags.$optional = true
 }
 
 // Set root type
-$root-type = .$types.user
+$root-type = `$types.user`
 ```
 
 ---
@@ -692,8 +692,8 @@ Express nullable types using union with null:
 ```eure
 @ nullable-string {
   $variant: union
-  variants.value = .text
-  variants.null = .null
+  variants.value = `text`
+  variants.null = `null`
 }
 ```
 
