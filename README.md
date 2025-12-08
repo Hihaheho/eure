@@ -59,11 +59,11 @@ scene: scenes/room_a.scn.ron
 
 ## TODO
 
-- [ ] eure-parol: Complete the grammar and parser
+- [x] eure-parol: Complete the grammar and parser
 - [ ] eure-ls: Syntax highlighting
-- [ ] eure-schema: Eure Schema specification
+- [x] eure-schema: Eure Schema specification
 - [ ] serde-eure: Serde support
-- [ ] eure-dev: Making the landing page on <https://eure.dev>
+- [x] eure-dev: Making the landing page on <https://eure.dev>
 - [ ] eure-fmt: Make the formatter
 - [ ] eure-cli: command to convert Eure to other formats
 - [ ] eure-check: Eure files validator
@@ -73,7 +73,7 @@ scene: scenes/room_a.scn.ron
 - [ ] eure-toml: TOML conversion support
 - [ ] eure-json: JSON conversion support
 - [ ] eure-yaml: YAML conversion support
-- [ ] eure-document: Type-safe data-type of Eure data-model
+- [x] eure-document: Type-safe data-type of Eure data-model
 
 ## Credits
 
