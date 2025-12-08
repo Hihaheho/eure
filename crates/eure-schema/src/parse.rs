@@ -54,7 +54,7 @@ impl ParseDocument<'_> for BindingStyle {
 
 impl ParseDocument<'_> for Description {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
-        ctx.parse_union()
+        ctx.parse_union()?
             .variant("string", |ctx| {
                 let text: String = ctx.parse()?;
                 Ok(Description::String(text))

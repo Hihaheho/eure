@@ -79,7 +79,9 @@ impl<'doc> ParseContext<'doc> {
     }
 
     /// Get a union parser for the current node.
-    pub fn parse_union<T>(&self) -> UnionParser<'doc, '_, T> {
+    ///
+    /// Returns error if `$variant` extension has invalid type or syntax.
+    pub fn parse_union<T>(&self) -> Result<UnionParser<'doc, '_, T>, ParseError> {
         UnionParser::new(self)
     }
 
@@ -277,6 +279,14 @@ pub enum ParseErrorKind {
     /// Variant path provided but type is not a union.
     #[error("unexpected variant path: {0}")]
     UnexpectedVariantPath(VariantPath),
+
+    /// $variant extension has invalid type (not a string).
+    #[error("$variant must be a string, got {0}")]
+    InvalidVariantType(ValueKind),
+
+    /// $variant extension has invalid path syntax.
+    #[error("invalid $variant path syntax: {0}")]
+    InvalidVariantPath(String),
 }
 
 impl ParseErrorKind {
@@ -614,7 +624,7 @@ where
     T: ParseDocument<'doc>,
 {
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        ctx.parse_union()
+        ctx.parse_union()?
             .variant("some", |ctx| ctx.parse::<T>().map(Some))
             .variant("none", |ctx| {
                 if ctx.is_null() {
@@ -644,7 +654,7 @@ where
     E: ParseDocument<'doc>,
 {
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        ctx.parse_union()
+        ctx.parse_union()?
             .variant("ok", |ctx| ctx.parse::<T>().map(Ok))
             .variant("err", |ctx| ctx.parse::<E>().map(Err))
             .parse()

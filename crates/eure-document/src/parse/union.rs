@@ -28,7 +28,7 @@ pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
 /// ```ignore
 /// impl<'doc> ParseDocument<'doc> for Description {
 ///     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-///         ctx.parse_union()
+///         ctx.parse_union()?
 ///             .variant("string", |ctx| {
 ///                 let text: String = ctx.parse()?;
 ///                 Ok(Description::String(text))
@@ -57,7 +57,9 @@ pub struct UnionParser<'doc, 'ctx, T> {
 
 impl<'doc, 'ctx, T> UnionParser<'doc, 'ctx, T> {
     /// Create a new UnionParser for the given context.
-    pub(crate) fn new(ctx: &'ctx ParseContext<'doc>) -> Self {
+    ///
+    /// Returns error if `$variant` extension has invalid type or syntax.
+    pub(crate) fn new(ctx: &'ctx ParseContext<'doc>) -> Result<Self, ParseError> {
         // Determine variant path:
         // - None (from context) = extract from node
         // - Some(non-empty) = use the path
@@ -65,25 +67,47 @@ impl<'doc, 'ctx, T> UnionParser<'doc, 'ctx, T> {
         let variant_path = match ctx.variant_path() {
             Some(vp) if !vp.is_empty() => Some(vp.clone()),
             Some(_) => None, // Empty path = no explicit variant, use try-all logic
-            None => Self::extract_variant(ctx),
+            None => Self::extract_variant(ctx)?,
         };
 
-        Self {
+        Ok(Self {
             ctx,
             variant_path,
             variant_result: None,
             priority_result: None,
             other_results: Vec::new(),
             other_failures: Vec::new(),
-        }
+        })
     }
 
     /// Extract the `$variant` extension value from the node.
-    fn extract_variant(ctx: &ParseContext<'doc>) -> Option<VariantPath> {
+    ///
+    /// Returns:
+    /// - `Ok(None)` if no `$variant` extension present
+    /// - `Ok(Some(path))` if valid variant path
+    /// - `Err(InvalidVariantType)` if `$variant` is not a string
+    /// - `Err(InvalidVariantPath)` if `$variant` has invalid path syntax
+    fn extract_variant(ctx: &ParseContext<'doc>) -> Result<Option<VariantPath>, ParseError> {
         let node = ctx.node();
-        let variant_node_id = node.extensions.get(&VARIANT)?;
-        let s: &str = ctx.doc().parse(*variant_node_id).ok()?;
-        VariantPath::parse(s).ok()
+        let Some(&variant_node_id) = node.extensions.get(&VARIANT) else {
+            return Ok(None);
+        };
+
+        let variant_node = ctx.doc().node(variant_node_id);
+        let s: &str = ctx.doc().parse(variant_node_id).map_err(|_| ParseError {
+            node_id: variant_node_id,
+            kind: ParseErrorKind::InvalidVariantType(
+                variant_node
+                    .content
+                    .value_kind()
+                    .unwrap_or(crate::value::ValueKind::Null),
+            ),
+        })?;
+
+        VariantPath::parse(s).map(Some).map_err(|_| ParseError {
+            node_id: variant_node_id,
+            kind: ParseErrorKind::InvalidVariantPath(s.to_string()),
+        })
     }
 
     /// Register a priority variant.
@@ -269,6 +293,7 @@ mod tests {
 
         let result: TestEnum = ctx
             .parse_union()
+            .unwrap()
             .variant("foo", |ctx| {
                 let s: &str = ctx.parse()?;
                 if s == "foo" {
@@ -306,6 +331,7 @@ mod tests {
         // Both variants would match, but first one wins due to priority
         let result: String = ctx
             .parse_union()
+            .unwrap()
             .variant("first", |ctx| ctx.parse::<String>())
             .variant("second", |ctx| ctx.parse::<String>())
             .parse()
@@ -322,6 +348,7 @@ mod tests {
 
         let result: Result<TestEnum, _> = ctx
             .parse_union()
+            .unwrap()
             .variant("foo", |ctx| {
                 let s: &str = ctx.parse()?;
                 if s == "foo" {
@@ -350,6 +377,7 @@ mod tests {
 
         let result: TestEnum = ctx
             .parse_union()
+            .unwrap()
             .variant("foo", |_| Ok(TestEnum::Foo))
             .other("baz", |_| Ok(TestEnum::Bar))
             .parse()
@@ -368,6 +396,7 @@ mod tests {
 
         let err = ctx
             .parse_union::<TestEnum>()
+            .unwrap()
             .variant("foo", |_| Ok(TestEnum::Foo))
             .other("baz", |_| Ok(TestEnum::Bar))
             .parse()
@@ -389,6 +418,7 @@ mod tests {
 
         let err = ctx
             .parse_union::<TestEnum>()
+            .unwrap()
             .variant("foo", |_| Ok(TestEnum::Foo))
             .other("baz", |ctx| {
                 Err(ParseError {
@@ -420,6 +450,7 @@ mod tests {
 
     fn parse_inner(ctx: &ParseContext<'_>) -> Result<Inner, ParseError> {
         ctx.parse_union()
+            .unwrap()
             .variant("x", |_| Ok(Inner::X))
             .variant("y", |_| Ok(Inner::Y))
             .parse()
@@ -434,6 +465,7 @@ mod tests {
 
         let result: Outer = ctx
             .parse_union()
+            .unwrap()
             .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
             .variant("b", |_| Ok(Outer::B(42)))
             .parse()
@@ -451,6 +483,7 @@ mod tests {
 
         let result: Outer = ctx
             .parse_union()
+            .unwrap()
             .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
             .variant("b", |_| Ok(Outer::B(42)))
             .parse()
@@ -468,6 +501,7 @@ mod tests {
 
         let err = ctx
             .parse_union::<Outer>()
+            .unwrap()
             .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
             .variant("b", |_| Ok(Outer::B(42)))
             .parse()
@@ -491,6 +525,7 @@ mod tests {
         // but a proper impl would use ctx.parse_primitive() which errors
         let err = ctx
             .parse_union::<Outer>()
+            .unwrap()
             .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
             .variant("b", |ctx| {
                 // Simulate parsing a primitive that checks variant path
@@ -506,8 +541,14 @@ mod tests {
 
     // --- invalid $variant tests ---
 
-    /// Create a document with $variant set to an integer (invalid type)
-    fn create_doc_with_integer_variant(content: &str, variant_value: i64) -> EureDocument {
+    use crate::value::ValueKind;
+
+    /// Create a document with $variant set to an integer (invalid type).
+    /// Returns (doc, variant_node_id) for error assertion.
+    fn create_doc_with_integer_variant(
+        content: &str,
+        variant_value: i64,
+    ) -> (EureDocument, crate::document::NodeId) {
         use num_bigint::BigInt;
 
         let mut doc = EureDocument::new();
@@ -525,66 +566,68 @@ mod tests {
         doc.node_mut(variant_node_id).content =
             NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(variant_value)));
 
-        doc
+        (doc, variant_node_id)
+    }
+
+    /// Create a document with $variant extension.
+    /// Returns (doc, variant_node_id) for error assertion.
+    fn create_doc_with_variant_ext(
+        content: &str,
+        variant: &str,
+    ) -> (EureDocument, crate::document::NodeId) {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Set content
+        doc.node_mut(root_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(content.to_string())));
+
+        // Add $variant extension
+        let variant_node_id = doc
+            .add_extension(identifier("variant"), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(variant_node_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(variant.to_string())));
+
+        (doc, variant_node_id)
     }
 
     #[test]
-    #[ignore = "BUG: invalid $variant type silently falls back to try-all"]
-    fn test_invalid_variant_type_should_error() {
-        // $variant = 123 (integer, not string) - should error, not silently fall back
-        let doc = create_doc_with_integer_variant("foo", 123);
+    fn test_invalid_variant_type_errors() {
+        // $variant = 123 (integer, not string) - should error at parse_union()
+        let (doc, variant_node_id) = create_doc_with_integer_variant("foo", 123);
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
-        // Current behavior: silently ignores invalid $variant and falls back to try-all
-        // Expected behavior: should return an error about invalid $variant type
-        let result = ctx
-            .parse_union::<TestEnum>()
-            .variant("foo", |ctx| {
-                let s: &str = ctx.parse()?;
-                if s == "foo" {
-                    Ok(TestEnum::Foo)
-                } else {
-                    Err(ParseError {
-                        node_id: ctx.node_id(),
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
-            })
-            .variant("bar", |_| Ok(TestEnum::Bar))
-            .parse();
-
-        // BUG: This currently succeeds with Foo (falls back to try-all)
-        // It SHOULD fail with an error about invalid $variant type
-        assert!(result.is_err(), "Should error on invalid $variant type");
+        let Err(err) = ctx.parse_union::<TestEnum>() else {
+            panic!("Expected error");
+        };
+        assert_eq!(
+            err,
+            ParseError {
+                node_id: variant_node_id,
+                kind: ParseErrorKind::InvalidVariantType(ValueKind::Integer),
+            }
+        );
     }
 
     #[test]
-    #[ignore = "BUG: invalid $variant path syntax silently falls back to try-all"]
-    fn test_invalid_variant_path_syntax_should_error() {
-        // $variant = "foo..bar" (invalid path syntax) - should error
-        let doc = create_doc_with_variant("foo", "foo..bar");
+    fn test_invalid_variant_path_syntax_errors() {
+        // $variant = "foo..bar" (invalid path syntax) - should error at parse_union()
+        let (doc, variant_node_id) = create_doc_with_variant_ext("foo", "foo..bar");
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
-        let result = ctx
-            .parse_union::<TestEnum>()
-            .variant("foo", |ctx| {
-                let s: &str = ctx.parse()?;
-                if s == "foo" {
-                    Ok(TestEnum::Foo)
-                } else {
-                    Err(ParseError {
-                        node_id: ctx.node_id(),
-                        kind: ParseErrorKind::UnknownVariant(s.to_string()),
-                    })
-                }
-            })
-            .variant("bar", |_| Ok(TestEnum::Bar))
-            .parse();
-
-        // BUG: This currently succeeds with Foo (falls back to try-all)
-        // It SHOULD fail with an error about invalid $variant path syntax
-        assert!(result.is_err(), "Should error on invalid $variant path syntax");
+        let Err(err) = ctx.parse_union::<TestEnum>() else {
+            panic!("Expected error");
+        };
+        assert_eq!(
+            err,
+            ParseError {
+                node_id: variant_node_id,
+                kind: ParseErrorKind::InvalidVariantPath("foo..bar".to_string()),
+            }
+        );
     }
 }
