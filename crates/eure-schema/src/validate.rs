@@ -761,8 +761,8 @@ impl<'a> ValidationContext<'a> {
 
         // Validate each field in schema
         for (field_name, field_schema) in &schema.properties {
-            match rec.field_node_optional(field_name) {
-                Some(field_id) => {
+            match rec.field_ctx_optional(field_name) {
+                Some(field_ctx) => {
                     // Check deprecated
                     let field_schema_node = self.schema.node(field_schema.schema);
                     if field_schema_node.metadata.deprecated {
@@ -778,7 +778,7 @@ impl<'a> ValidationContext<'a> {
                     } else {
                         self.push_path_key(ObjectKey::String(field_name.clone()));
                     }
-                    let _ = self.validate_node(field_id, field_schema.schema);
+                    let _ = self.validate_node(field_ctx.node_id(), field_schema.schema);
                     self.pop_path();
                 }
                 None if !field_schema.optional => {
@@ -794,7 +794,7 @@ impl<'a> ValidationContext<'a> {
         }
 
         // Handle unknown fields
-        for (field_name, field_id) in rec.unknown_fields() {
+        for (field_name, field_ctx) in rec.unknown_fields() {
             match &schema.unknown_fields {
                 UnknownFieldsPolicy::Deny => {
                     self.record_error(ValidationError::UnknownField {
@@ -811,7 +811,7 @@ impl<'a> ValidationContext<'a> {
                     } else {
                         self.push_path_key(ObjectKey::String(field_name.to_string()));
                     }
-                    let _ = self.validate_node(field_id, *s);
+                    let _ = self.validate_node(field_ctx.node_id(), *s);
                     self.pop_path();
                 }
             }

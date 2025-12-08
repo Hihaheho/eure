@@ -55,7 +55,7 @@ use crate::{
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
-use eure_document::parse::{ParseDocument, ParseError};
+use eure_document::parse::ParseError;
 use eure_document::value::ObjectKey;
 use num_bigint::BigInt;
 use std::collections::HashMap;
@@ -166,7 +166,7 @@ impl<'a> Converter<'a> {
     /// Convert a document node to a schema node using ParseDocument trait
     fn convert_node(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
         // Parse the node using ParseDocument trait
-        let parsed = ParsedSchemaNode::parse(self.doc, node_id)?;
+        let parsed: ParsedSchemaNode = self.doc.parse(node_id)?;
 
         // Convert the parsed node to final schema
         let content = self.convert_content(parsed.content)?;
@@ -861,7 +861,7 @@ mod tests {
             ConversionError::ParseError(ParseError {
                 node_id: NodeId(3),
                 kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::Text,
+                    expected: ValueKind::Bool,
                     actual: ValueKind::Integer,
                 }
             })

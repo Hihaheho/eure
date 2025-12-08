@@ -20,6 +20,11 @@ impl VariantPath {
         Self(segments)
     }
 
+    /// Create an empty variant path.
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+
     /// Parse a variant path from a dotted string (e.g., "ok.some.left").
     pub fn parse(s: &str) -> Result<Self, IdentifierError> {
         let segments: Result<Vec<_>, _> =

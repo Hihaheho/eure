@@ -18,13 +18,151 @@ use alloc::format;
 use num_bigint::BigInt;
 
 use crate::{
-    document::node::NodeArray, identifier::IdentifierError, prelude_internal::*, value::ValueKind,
+    document::node::{Node, NodeArray},
+    identifier::IdentifierError,
+    prelude_internal::*,
+    value::ValueKind,
 };
+
+// =============================================================================
+// ParseContext
+// =============================================================================
+
+/// Context for parsing Eure documents.
+///
+/// Encapsulates the document, current node, and variant path state.
+/// Similar to `DocumentConstructor` for writing, but for reading.
+#[derive(Clone, Debug)]
+pub struct ParseContext<'doc> {
+    doc: &'doc EureDocument,
+    node_id: NodeId,
+    variant_path: Option<VariantPath>,
+}
+
+impl<'doc> ParseContext<'doc> {
+    /// Create a new parse context at the given node.
+    pub fn new(doc: &'doc EureDocument, node_id: NodeId) -> Self {
+        Self {
+            doc,
+            node_id,
+            variant_path: None,
+        }
+    }
+
+    /// Get the current node ID.
+    pub fn node_id(&self) -> NodeId {
+        self.node_id
+    }
+
+    /// Get the document reference (internal use only).
+    pub(crate) fn doc(&self) -> &'doc EureDocument {
+        self.doc
+    }
+
+    /// Get the current node.
+    pub fn node(&self) -> &'doc Node {
+        self.doc.node(self.node_id)
+    }
+
+    /// Create a new context at a different node (clears variant path).
+    pub(crate) fn at(&self, node_id: NodeId) -> Self {
+        Self {
+            doc: self.doc,
+            node_id,
+            variant_path: None,
+        }
+    }
+
+    /// Parse the current node as type T.
+    pub fn parse<T: ParseDocument<'doc>>(&self) -> Result<T, ParseError> {
+        T::parse(self)
+    }
+
+    /// Get a union parser for the current node.
+    pub fn parse_union<T>(&self) -> UnionParser<'doc, '_, T> {
+        UnionParser::new(self)
+    }
+
+    /// Parse the current node as a record.
+    ///
+    /// Returns error if variant path is not empty.
+    pub fn parse_record(&self) -> Result<RecordParser<'doc>, ParseError> {
+        self.ensure_no_variant_path()?;
+        RecordParser::new(self)
+    }
+
+    /// Parse the current node as a tuple.
+    ///
+    /// Returns error if variant path is not empty.
+    pub fn parse_tuple(&self) -> Result<TupleParser<'doc>, ParseError> {
+        self.ensure_no_variant_path()?;
+        TupleParser::new(self)
+    }
+
+    /// Parse the current node as a primitive value.
+    ///
+    /// Returns error if variant path is not empty.
+    pub fn parse_primitive(&self) -> Result<&'doc PrimitiveValue, ParseError> {
+        self.ensure_no_variant_path()?;
+        match &self.node().content {
+            NodeValue::Primitive(p) => Ok(p),
+            value => Err(ParseError {
+                node_id: self.node_id,
+                kind: handle_unexpected_node_value(value),
+            }),
+        }
+    }
+
+    /// Get an ExtParser for parsing extension types on the current node.
+    pub fn parse_extension(&self) -> ExtParser<'doc> {
+        let node = self.node();
+        ExtParser::new(self.doc, self.node_id, &node.extensions)
+    }
+
+    /// Check if the current node is null.
+    pub fn is_null(&self) -> bool {
+        matches!(
+            &self.node().content,
+            NodeValue::Primitive(PrimitiveValue::Null)
+        )
+    }
+
+    /// Create a child context with the remaining variant path.
+    pub(crate) fn with_variant_rest(&self, rest: Option<VariantPath>) -> Self {
+        Self {
+            doc: self.doc,
+            node_id: self.node_id,
+            variant_path: rest,
+        }
+    }
+
+    /// Get the current variant path.
+    pub(crate) fn variant_path(&self) -> Option<&VariantPath> {
+        self.variant_path.as_ref()
+    }
+
+    /// Check that no variant path remains, error otherwise.
+    fn ensure_no_variant_path(&self) -> Result<(), ParseError> {
+        if let Some(vp) = &self.variant_path
+            && !vp.is_empty()
+        {
+            return Err(ParseError {
+                node_id: self.node_id,
+                kind: ParseErrorKind::UnexpectedVariantPath(vp.clone()),
+            });
+        }
+        Ok(())
+    }
+}
+
+// =============================================================================
+// ParseDocument trait
+// =============================================================================
 
 /// Trait for parsing Rust types from Eure documents.
 ///
-/// Types implementing this trait can be constructed from [`EureDocument`].
-/// Used for type-safe extraction of structures from documents during conversion.
+/// Types implementing this trait can be constructed from [`EureDocument`]
+/// via [`ParseContext`].
 ///
 /// # Lifetime Parameter
 ///
@@ -41,24 +179,8 @@ use crate::{
 /// impl ParseDocument<'_> for String { ... }
 /// ```
 pub trait ParseDocument<'doc>: Sized {
-    /// Parse a value of this type from an Eure document at the given node.
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError>;
-
-    /// Parse with an explicit variant path (for nested unions).
-    ///
-    /// Default implementation returns error - non-union types don't support variant paths.
-    /// Union types override this to use the variant path.
-    fn parse_with_variant(
-        doc: &'doc EureDocument,
-        node_id: NodeId,
-        variant: VariantPath,
-    ) -> Result<Self, ParseError> {
-        let _ = doc;
-        Err(ParseError {
-            node_id,
-            kind: ParseErrorKind::UnexpectedVariantPath(variant),
-        })
-    }
+    /// Parse a value of this type from the given parse context.
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError>;
 }
 
 fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
@@ -168,181 +290,231 @@ impl ParseErrorKind {
 }
 
 impl<'doc> EureDocument {
+    /// Parse a value of type T from the given node.
     pub fn parse<T: ParseDocument<'doc>>(&'doc self, node_id: NodeId) -> Result<T, ParseError> {
-        T::parse(self, node_id)
+        let ctx = ParseContext::new(self, node_id);
+        T::parse(&ctx)
+    }
+
+    /// Create a parse context at the given node.
+    pub fn parse_context(&'doc self, node_id: NodeId) -> ParseContext<'doc> {
+        ParseContext::new(self, node_id)
+    }
+
+    /// Parse a node as a record.
+    ///
+    /// Convenience method equivalent to `doc.parse_context(node_id).parse_record()`.
+    pub fn parse_record(&'doc self, node_id: NodeId) -> Result<RecordParser<'doc>, ParseError> {
+        RecordParser::from_doc_and_node(self, node_id)
+    }
+
+    /// Get an extension parser for a node.
+    ///
+    /// Convenience method equivalent to `doc.parse_context(node_id).parse_extension()`.
+    pub fn parse_extension(&'doc self, node_id: NodeId) -> ExtParser<'doc> {
+        let node = self.node(node_id);
+        ExtParser::new(self, node_id, &node.extensions)
+    }
+
+    /// Parse a node as a tuple.
+    ///
+    /// Convenience method equivalent to `doc.parse_context(node_id).parse_tuple()`.
+    pub fn parse_tuple(&'doc self, node_id: NodeId) -> Result<TupleParser<'doc>, ParseError> {
+        TupleParser::from_doc_and_node(self, node_id)
     }
 }
 
 impl<'doc> ParseDocument<'doc> for &'doc str {
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
-            NodeValue::Primitive(PrimitiveValue::Text(text)) => Ok(text.as_str()),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        match ctx.parse_primitive()? {
+            PrimitiveValue::Text(text) => Ok(text.as_str()),
+            _ => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::Text,
+                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                },
             }),
         }
     }
 }
 
 impl ParseDocument<'_> for String {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        doc.parse::<&str>(node_id).map(String::from)
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        ctx.parse::<&str>().map(String::from)
     }
 }
 
 impl ParseDocument<'_> for Text {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
-            NodeValue::Primitive(PrimitiveValue::Text(text)) => Ok(text.clone()),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        match ctx.parse_primitive()? {
+            PrimitiveValue::Text(text) => Ok(text.clone()),
+            _ => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::Text,
+                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                },
             }),
         }
     }
 }
 
 impl ParseDocument<'_> for bool {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
-            NodeValue::Primitive(PrimitiveValue::Bool(b)) => Ok(*b),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        match ctx.parse_primitive()? {
+            PrimitiveValue::Bool(b) => Ok(*b),
+            _ => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::Bool,
+                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                },
             }),
         }
     }
 }
 
 impl ParseDocument<'_> for BigInt {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
-            NodeValue::Primitive(PrimitiveValue::Integer(i)) => Ok(i.clone()),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        match ctx.parse_primitive()? {
+            PrimitiveValue::Integer(i) => Ok(i.clone()),
+            _ => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::Integer,
+                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                },
             }),
         }
     }
 }
 
 impl ParseDocument<'_> for f32 {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
-            NodeValue::Primitive(PrimitiveValue::F32(f)) => Ok(*f),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        match ctx.parse_primitive()? {
+            PrimitiveValue::F32(f) => Ok(*f),
+            _ => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::F32,
+                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                },
             }),
         }
     }
 }
 
 impl ParseDocument<'_> for f64 {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        match ctx.parse_primitive()? {
             // Accept both F32 (with conversion) and F64 if we add it later
-            NodeValue::Primitive(PrimitiveValue::F32(f)) => Ok(*f as f64),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
+            PrimitiveValue::F32(f) => Ok(*f as f64),
+            _ => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::F64,
+                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                },
             }),
         }
     }
 }
 
 impl ParseDocument<'_> for u32 {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let value: BigInt = doc.parse(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let value: BigInt = ctx.parse()?;
         u32::try_from(&value).map_err(|_| ParseError {
-            node_id,
+            node_id: ctx.node_id(),
             kind: ParseErrorKind::OutOfRange(format!("value {} out of u32 range", value)),
         })
     }
 }
 
 impl ParseDocument<'_> for i32 {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let value: BigInt = doc.parse(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let value: BigInt = ctx.parse()?;
         i32::try_from(&value).map_err(|_| ParseError {
-            node_id,
+            node_id: ctx.node_id(),
             kind: ParseErrorKind::OutOfRange(format!("value {} out of i32 range", value)),
         })
     }
 }
 
 impl ParseDocument<'_> for i64 {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let value: BigInt = doc.parse(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let value: BigInt = ctx.parse()?;
         i64::try_from(&value).map_err(|_| ParseError {
-            node_id,
+            node_id: ctx.node_id(),
             kind: ParseErrorKind::OutOfRange(format!("value {} out of i64 range", value)),
         })
     }
 }
 
 impl ParseDocument<'_> for u64 {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let value: BigInt = doc.parse(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let value: BigInt = ctx.parse()?;
         u64::try_from(&value).map_err(|_| ParseError {
-            node_id,
+            node_id: ctx.node_id(),
             kind: ParseErrorKind::OutOfRange(format!("value {} out of u64 range", value)),
         })
     }
 }
 
 impl ParseDocument<'_> for usize {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let value: BigInt = doc.parse(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let value: BigInt = ctx.parse()?;
         usize::try_from(&value).map_err(|_| ParseError {
-            node_id,
+            node_id: ctx.node_id(),
             kind: ParseErrorKind::OutOfRange(format!("value {} out of usize range", value)),
         })
     }
 }
 
 impl<'doc> ParseDocument<'doc> for &'doc PrimitiveValue {
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
-            NodeValue::Primitive(primitive) => Ok(primitive),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
-            }),
-        }
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        ctx.parse_primitive()
     }
 }
 
 impl ParseDocument<'_> for PrimitiveValue {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        doc.parse::<&PrimitiveValue>(node_id).cloned()
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        ctx.parse::<&PrimitiveValue>().cloned()
     }
 }
 
 impl ParseDocument<'_> for Identifier {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
-            NodeValue::Primitive(PrimitiveValue::Text(text)) => Ok(text
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        match ctx.parse_primitive()? {
+            PrimitiveValue::Text(text) => text
                 .content
                 .parse()
                 .map_err(ParseErrorKind::InvalidIdentifier)
-                .map_err(|kind| ParseError { node_id, kind })?),
-            value => Err(ParseError {
-                node_id,
-                kind: handle_unexpected_node_value(value),
+                .map_err(|kind| ParseError {
+                    node_id: ctx.node_id(),
+                    kind,
+                }),
+            _ => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: ValueKind::Text,
+                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                },
             }),
         }
     }
 }
 
 impl<'doc> ParseDocument<'doc> for &'doc NodeArray {
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        ctx.ensure_no_variant_path()?;
+        match &ctx.node().content {
             NodeValue::Array(array) => Ok(array),
-            value => Err(handle_unexpected_node_value(value)),
+            value => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: handle_unexpected_node_value(value),
+            }),
         }
-        .map_err(|kind| ParseError { node_id, kind })
     }
 }
 
@@ -350,14 +522,15 @@ impl<'doc, T> ParseDocument<'doc> for Vec<T>
 where
     T: ParseDocument<'doc>,
 {
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        match &doc.node(node_id).content {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        ctx.ensure_no_variant_path()?;
+        match &ctx.node().content {
             NodeValue::Array(array) => array
                 .iter()
-                .map(|item| T::parse(doc, *item))
+                .map(|item| T::parse(&ctx.at(*item)))
                 .collect::<Result<Vec<_>, _>>(),
             value => Err(ParseError {
-                node_id,
+                node_id: ctx.node_id(),
                 kind: handle_unexpected_node_value(value),
             }),
         }
@@ -367,16 +540,17 @@ where
 macro_rules! parse_tuple {
     ($n:expr, $($var:ident),*) => {
         impl<'doc, $($var: ParseDocument<'doc>),*> ParseDocument<'doc> for ($($var),*,) {
-            fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-                let tuple = match &doc.node(node_id).content {
+            fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+                ctx.ensure_no_variant_path()?;
+                let tuple = match &ctx.node().content {
                     NodeValue::Tuple(tuple) => tuple,
-                    value => return Err(ParseError { node_id, kind: handle_unexpected_node_value(value) }),
+                    value => return Err(ParseError { node_id: ctx.node_id(), kind: handle_unexpected_node_value(value) }),
                 };
                 if tuple.len() != $n {
-                    return Err(ParseError { node_id, kind: ParseErrorKind::UnexpectedTupleLength { expected: $n, actual: tuple.len() } });
+                    return Err(ParseError { node_id: ctx.node_id(), kind: ParseErrorKind::UnexpectedTupleLength { expected: $n, actual: tuple.len() } });
                 }
                 let mut iter = tuple.iter();
-                Ok(($($var::parse(doc, *iter.next().unwrap())?),*,))
+                Ok(($($var::parse(&ctx.at(*iter.next().unwrap()))?),*,))
             }
         }
     }
@@ -404,12 +578,13 @@ where
     K: ParseObjectKey<'doc>,
     T: ParseDocument<'doc>,
 {
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let map = match &doc.node(node_id).content {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        ctx.ensure_no_variant_path()?;
+        let map = match &ctx.node().content {
             NodeValue::Map(map) => map,
             value => {
                 return Err(ParseError {
-                    node_id,
+                    node_id: ctx.node_id(),
                     kind: handle_unexpected_node_value(value),
                 });
             }
@@ -417,20 +592,15 @@ where
         map.iter()
             .map(|(key, value)| {
                 Ok((
-                    K::from_object_key(key).map_err(|kind| ParseError { node_id, kind })?,
-                    T::parse(doc, *value)?,
+                    K::from_object_key(key).map_err(|kind| ParseError {
+                        node_id: ctx.node_id(),
+                        kind,
+                    })?,
+                    T::parse(&ctx.at(*value))?,
                 ))
             })
             .collect::<Result<Map<_, _>, _>>()
     }
-}
-
-/// Helper to check if a node is null.
-fn is_null(doc: &EureDocument, node_id: NodeId) -> bool {
-    matches!(
-        &doc.node(node_id).content,
-        NodeValue::Primitive(PrimitiveValue::Null)
-    )
 }
 
 /// `Option<T>` is a union with variants `some` and `none`.
@@ -441,50 +611,20 @@ fn is_null(doc: &EureDocument, node_id: NodeId) -> bool {
 /// - No `$variant` and value is not null -> try parsing as T (Some)
 impl<'doc, T> ParseDocument<'doc> for Option<T>
 where
-    T: ParseDocument<'doc> + 'doc,
+    T: ParseDocument<'doc>,
 {
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        doc.parse_union(node_id)
-            .variant_nested("some", |doc, id, rest| match rest {
-                Some(r) => T::parse_with_variant(doc, id, r).map(Some),
-                None => T::parse(doc, id).map(Some),
-            })
-            .variant("none", |doc, id| {
-                // Verify it's null
-                if is_null(doc, id) {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        ctx.parse_union()
+            .variant("some", |ctx| ctx.parse::<T>().map(Some))
+            .variant("none", |ctx| {
+                if ctx.is_null() {
                     Ok(None)
                 } else {
                     Err(ParseError {
-                        node_id: id,
+                        node_id: ctx.node_id(),
                         kind: ParseErrorKind::TypeMismatch {
                             expected: ValueKind::Null,
-                            actual: doc.node(id).content.value_kind().unwrap_or(ValueKind::Null),
-                        },
-                    })
-                }
-            })
-            .parse()
-    }
-
-    fn parse_with_variant(
-        doc: &'doc EureDocument,
-        node_id: NodeId,
-        variant: VariantPath,
-    ) -> Result<Self, ParseError> {
-        doc.parse_union_with_variant(node_id, variant)
-            .variant_nested("some", |doc, id, rest| match rest {
-                Some(r) => T::parse_with_variant(doc, id, r).map(Some),
-                None => T::parse(doc, id).map(Some),
-            })
-            .variant("none", |doc, id| {
-                if is_null(doc, id) {
-                    Ok(None)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::TypeMismatch {
-                            expected: ValueKind::Null,
-                            actual: doc.node(id).content.value_kind().unwrap_or(ValueKind::Null),
+                            actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
                         },
                     })
                 }
@@ -500,58 +640,35 @@ where
 /// - No `$variant` -> try Ok first, then Err (priority-based)
 impl<'doc, T, E> ParseDocument<'doc> for Result<T, E>
 where
-    T: ParseDocument<'doc> + 'doc,
-    E: ParseDocument<'doc> + 'doc,
+    T: ParseDocument<'doc>,
+    E: ParseDocument<'doc>,
 {
-    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        doc.parse_union(node_id)
-            .variant_nested("ok", |doc, id, rest| match rest {
-                Some(r) => T::parse_with_variant(doc, id, r).map(Ok),
-                None => T::parse(doc, id).map(Ok),
-            })
-            .variant_nested("err", |doc, id, rest| match rest {
-                Some(r) => E::parse_with_variant(doc, id, r).map(Err),
-                None => E::parse(doc, id).map(Err),
-            })
-            .parse()
-    }
-
-    fn parse_with_variant(
-        doc: &'doc EureDocument,
-        node_id: NodeId,
-        variant: VariantPath,
-    ) -> Result<Self, ParseError> {
-        doc.parse_union_with_variant(node_id, variant)
-            .variant_nested("ok", |doc, id, rest| match rest {
-                Some(r) => T::parse_with_variant(doc, id, r).map(Ok),
-                None => T::parse(doc, id).map(Ok),
-            })
-            .variant_nested("err", |doc, id, rest| match rest {
-                Some(r) => E::parse_with_variant(doc, id, r).map(Err),
-                None => E::parse(doc, id).map(Err),
-            })
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        ctx.parse_union()
+            .variant("ok", |ctx| ctx.parse::<T>().map(Ok))
+            .variant("err", |ctx| ctx.parse::<E>().map(Err))
             .parse()
     }
 }
 
 impl ParseDocument<'_> for crate::data_model::VariantRepr {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         use crate::data_model::VariantRepr;
 
         // Check if it's a simple string value
-        if let Ok(value) = doc.parse::<&str>(node_id) {
+        if let Ok(value) = ctx.parse::<&str>() {
             return match value {
                 "external" => Ok(VariantRepr::External),
                 "untagged" => Ok(VariantRepr::Untagged),
                 _ => Err(ParseError {
-                    node_id,
+                    node_id: ctx.node_id(),
                     kind: ParseErrorKind::UnknownVariant(value.to_string()),
                 }),
             };
         }
 
         // Otherwise, it should be a record with tag/content fields
-        let mut rec = doc.parse_record(node_id)?;
+        let mut rec = ctx.parse_record()?;
 
         let tag = rec.field_optional::<String>("tag")?;
         let content = rec.field_optional::<String>("content")?;
@@ -563,7 +680,7 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
             (Some(tag), None) => Ok(VariantRepr::Internal { tag }),
             (None, None) => Ok(VariantRepr::External),
             (None, Some(_)) => Err(ParseError {
-                node_id,
+                node_id: ctx.node_id(),
                 kind: ParseErrorKind::MissingField(
                     "tag (required when content is present)".to_string(),
                 ),

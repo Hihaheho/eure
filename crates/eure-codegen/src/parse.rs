@@ -14,9 +14,8 @@
 
 use std::collections::HashMap;
 
-use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
-use eure_document::parse::{ParseDocument, ParseError};
+use eure_document::parse::{ParseContext, ParseDocument, ParseError};
 
 // ============================================================================
 // Root-Level Codegen Types
@@ -41,8 +40,8 @@ pub struct RootCodegen {
 }
 
 impl ParseDocument<'_> for RootCodegen {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let mut rec = ctx.parse_record()?;
 
         let type_name = rec.field_optional::<String>("type")?;
 
@@ -80,8 +79,8 @@ pub struct CodegenDefaults {
 }
 
 impl ParseDocument<'_> for CodegenDefaults {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let mut rec = ctx.parse_record()?;
 
         let derive = rec.field_optional::<Vec<String>>("derive")?;
         let ext_types_field_prefix = rec.field_optional::<String>("ext-types-field-prefix")?;
@@ -136,8 +135,8 @@ pub struct UnionCodegen {
 }
 
 impl ParseDocument<'_> for UnionCodegen {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
         let type_name = rec.field_optional::<String>("type")?;
@@ -188,8 +187,8 @@ pub struct RecordCodegen {
 }
 
 impl ParseDocument<'_> for RecordCodegen {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
         let type_name = rec.field_optional::<String>("type")?;
@@ -221,8 +220,8 @@ pub struct FieldCodegen {
 }
 
 impl ParseDocument<'_> for FieldCodegen {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let mut rec = ctx.parse_record()?;
 
         let name = rec.field_optional::<String>("name")?;
 
@@ -261,8 +260,8 @@ pub struct CodegenStruct {
 }
 
 impl ParseDocument<'_> for CodegenStruct {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+        let mut rec = ctx.parse_record()?;
 
         let fields = rec.field::<Vec<Identifier>>("fields")?;
 
@@ -304,10 +303,10 @@ pub struct CascadeExtTypeCodegen {
 }
 
 impl ParseDocument<'_> for CascadeExtTypeCodegen {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         use eure_document::parse::ParseErrorKind;
 
-        let mut rec = doc.parse_record(node_id)?;
+        let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
         let type_name = rec.field_optional::<String>("type")?;
@@ -316,17 +315,16 @@ impl ParseDocument<'_> for CascadeExtTypeCodegen {
         // Parse cascade-ext-type-specific fields
         // Parse structs map manually since Identifier doesn't implement ParseObjectKey
         let structs: Option<HashMap<Identifier, CodegenStruct>> =
-            match rec.field_node_optional("structs") {
-                Some(structs_node_id) => {
-                    let structs_rec = doc.parse_record(structs_node_id)?;
+            match rec.field_record_optional("structs")? {
+                Some(structs_rec) => {
                     let mut result = HashMap::new();
 
-                    for (name, struct_node_id) in structs_rec.unknown_fields() {
+                    for (name, field_ctx) in structs_rec.unknown_fields() {
                         let ident: Identifier = name.parse().map_err(|e| ParseError {
-                            node_id: structs_node_id,
+                            node_id: structs_rec.node_id(),
                             kind: ParseErrorKind::InvalidIdentifier(e),
                         })?;
-                        let codegen_struct = CodegenStruct::parse(doc, struct_node_id)?;
+                        let codegen_struct: CodegenStruct = field_ctx.parse()?;
                         result.insert(ident, codegen_struct);
                     }
 
@@ -350,6 +348,7 @@ impl ParseDocument<'_> for CascadeExtTypeCodegen {
 mod tests {
     use super::*;
     use eure_document::document::node::NodeValue;
+    use eure_document::document::{EureDocument, NodeId};
 
     fn create_empty_map_node(doc: &mut EureDocument) -> NodeId {
         let root_id = doc.get_root_id();

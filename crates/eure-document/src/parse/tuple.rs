@@ -7,7 +7,7 @@ use alloc::format;
 use crate::document::node::NodeTuple;
 use crate::prelude_internal::*;
 
-use super::{ParseDocument, ParseError, ParseErrorKind};
+use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
 
 /// Helper for parsing tuple types from Eure documents.
 ///
@@ -17,7 +17,7 @@ use super::{ParseDocument, ParseError, ParseErrorKind};
 /// # Example
 ///
 /// ```ignore
-/// let mut tuple = doc.parse_tuple(node_id)?;
+/// let mut tuple = ctx.parse_tuple()?;
 /// let first: String = tuple.next()?;
 /// let second: i32 = tuple.next()?;
 /// tuple.finish()?; // Ensures no extra elements
@@ -31,24 +31,44 @@ pub struct TupleParser<'doc> {
 }
 
 impl<'doc> TupleParser<'doc> {
-    /// Create a new TupleParser for the given node.
-    pub(crate) fn new(doc: &'doc EureDocument, node_id: NodeId, tuple: &'doc NodeTuple) -> Self {
-        Self {
-            doc,
-            node_id,
-            tuple,
-            position: 0,
+    /// Create a new TupleParser for the given context.
+    pub(crate) fn new(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        Self::from_doc_and_node(ctx.doc(), ctx.node_id())
+    }
+
+    /// Create a new TupleParser from document and node ID directly.
+    pub(crate) fn from_doc_and_node(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+    ) -> Result<Self, ParseError> {
+        let node = doc.node(node_id);
+        match &node.content {
+            NodeValue::Tuple(tuple) => Ok(Self {
+                doc,
+                node_id,
+                tuple,
+                position: 0,
+            }),
+            NodeValue::Hole(_) => Err(ParseError {
+                node_id,
+                kind: ParseErrorKind::UnexpectedHole,
+            }),
+            value => Err(ParseError {
+                node_id,
+                kind: value
+                    .value_kind()
+                    .map(|actual| ParseErrorKind::TypeMismatch {
+                        expected: crate::value::ValueKind::Tuple,
+                        actual,
+                    })
+                    .unwrap_or(ParseErrorKind::UnexpectedHole),
+            }),
         }
     }
 
     /// Get the node ID being parsed.
     pub fn node_id(&self) -> NodeId {
         self.node_id
-    }
-
-    /// Get a reference to the document being parsed.
-    pub fn doc(&self) -> &'doc EureDocument {
-        self.doc
     }
 
     /// Get the next element, advancing the position.
@@ -62,7 +82,8 @@ impl<'doc> TupleParser<'doc> {
             kind: ParseErrorKind::MissingField(format!("#{}", index)),
         })?;
         self.position += 1;
-        T::parse(self.doc, element_node_id)
+        let ctx = ParseContext::new(self.doc, element_node_id);
+        T::parse(&ctx)
     }
 
     /// Get the element at a specific index without advancing position.
@@ -73,7 +94,8 @@ impl<'doc> TupleParser<'doc> {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingField(format!("#{}", index)),
         })?;
-        T::parse(self.doc, element_node_id)
+        let ctx = ParseContext::new(self.doc, element_node_id);
+        T::parse(&ctx)
     }
 
     /// Get the number of remaining elements.
@@ -121,32 +143,6 @@ impl<'doc> TupleParser<'doc> {
     /// Check if the tuple is empty.
     pub fn is_empty(&self) -> bool {
         self.tuple.is_empty()
-    }
-}
-
-impl EureDocument {
-    /// Get a TupleParser for parsing a tuple.
-    ///
-    /// Returns `ParseError` if the node is not a tuple.
-    pub fn parse_tuple(&self, node_id: NodeId) -> Result<TupleParser<'_>, ParseError> {
-        let node = self.node(node_id);
-        match &node.content {
-            NodeValue::Tuple(tuple) => Ok(TupleParser::new(self, node_id, tuple)),
-            NodeValue::Hole(_) => Err(ParseError {
-                node_id,
-                kind: ParseErrorKind::UnexpectedHole,
-            }),
-            value => Err(ParseError {
-                node_id,
-                kind: value
-                    .value_kind()
-                    .map(|actual| ParseErrorKind::TypeMismatch {
-                        expected: crate::value::ValueKind::Tuple,
-                        actual,
-                    })
-                    .unwrap_or(ParseErrorKind::UnexpectedHole),
-            }),
-        }
     }
 }
 
