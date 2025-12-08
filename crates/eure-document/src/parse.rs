@@ -6,11 +6,13 @@ pub mod object_key;
 pub mod record;
 pub mod tuple;
 pub mod union;
+pub mod variant_path;
 
 pub use object_key::ParseObjectKey;
 pub use record::{ExtParser, RecordParser};
 pub use tuple::TupleParser;
 pub use union::UnionParser;
+pub use variant_path::VariantPath;
 
 use alloc::format;
 use num_bigint::BigInt;
@@ -41,6 +43,22 @@ use crate::{
 pub trait ParseDocument<'doc>: Sized {
     /// Parse a value of this type from an Eure document at the given node.
     fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError>;
+
+    /// Parse with an explicit variant path (for nested unions).
+    ///
+    /// Default implementation returns error - non-union types don't support variant paths.
+    /// Union types override this to use the variant path.
+    fn parse_with_variant(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        variant: VariantPath,
+    ) -> Result<Self, ParseError> {
+        let _ = doc;
+        Err(ParseError {
+            node_id,
+            kind: ParseErrorKind::UnexpectedVariantPath(variant),
+        })
+    }
 }
 
 fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
@@ -133,6 +151,10 @@ pub enum ParseErrorKind {
     #[error("literal value mismatch: expected {expected}, got {actual}")]
     // FIXME: Use EureDocument instead of String?
     LiteralMismatch { expected: String, actual: String },
+
+    /// Variant path provided but type is not a union.
+    #[error("unexpected variant path: {0}")]
+    UnexpectedVariantPath(VariantPath),
 }
 
 impl ParseErrorKind {
@@ -403,6 +425,140 @@ where
     }
 }
 
+/// Helper to check if a node is null.
+fn is_null(doc: &EureDocument, node_id: NodeId) -> bool {
+    matches!(
+        &doc.node(node_id).content,
+        NodeValue::Primitive(PrimitiveValue::Null)
+    )
+}
+
+/// `Option<T>` is a union with variants `some` and `none`.
+///
+/// - `$variant: some` -> parse T
+/// - `$variant: none` -> None
+/// - No `$variant` and value is null -> None
+/// - No `$variant` and value is not null -> try parsing as T (Some)
+impl<'doc, T> ParseDocument<'doc> for Option<T>
+where
+    T: ParseDocument<'doc> + 'doc,
+{
+    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        doc.parse_union(node_id)
+            .variant_nested("some", |doc, id, rest| match rest {
+                Some(r) => T::parse_with_variant(doc, id, r).map(Some),
+                None => T::parse(doc, id).map(Some),
+            })
+            .variant("none", |doc, id| {
+                // Verify it's null
+                if is_null(doc, id) {
+                    Ok(None)
+                } else {
+                    Err(ParseError {
+                        node_id: id,
+                        kind: ParseErrorKind::TypeMismatch {
+                            expected: ValueKind::Null,
+                            actual: doc.node(id).content.value_kind().unwrap_or(ValueKind::Null),
+                        },
+                    })
+                }
+            })
+            .other("none_untagged", |doc, id| {
+                // Without $variant: null is None
+                if is_null(doc, id) {
+                    Ok(None)
+                } else {
+                    Err(ParseError {
+                        node_id: id,
+                        kind: ParseErrorKind::NoMatchingVariant,
+                    })
+                }
+            })
+            .other_nested("some_untagged", |doc, id, rest| {
+                // Without $variant: non-null is Some(T)
+                if is_null(doc, id) {
+                    Err(ParseError {
+                        node_id: id,
+                        kind: ParseErrorKind::NoMatchingVariant,
+                    })
+                } else {
+                    match rest {
+                        Some(r) => T::parse_with_variant(doc, id, r).map(Some),
+                        None => T::parse(doc, id).map(Some),
+                    }
+                }
+            })
+            .parse()
+    }
+
+    fn parse_with_variant(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        variant: VariantPath,
+    ) -> Result<Self, ParseError> {
+        doc.parse_union_with_variant(node_id, variant)
+            .variant_nested("some", |doc, id, rest| match rest {
+                Some(r) => T::parse_with_variant(doc, id, r).map(Some),
+                None => T::parse(doc, id).map(Some),
+            })
+            .variant("none", |doc, id| {
+                if is_null(doc, id) {
+                    Ok(None)
+                } else {
+                    Err(ParseError {
+                        node_id: id,
+                        kind: ParseErrorKind::TypeMismatch {
+                            expected: ValueKind::Null,
+                            actual: doc.node(id).content.value_kind().unwrap_or(ValueKind::Null),
+                        },
+                    })
+                }
+            })
+            .parse()
+    }
+}
+
+/// `Result<T, E>` is a union with variants `ok` and `err`.
+///
+/// - `$variant: ok` -> parse T as Ok
+/// - `$variant: err` -> parse E as Err
+/// - No `$variant` -> try Ok first, then Err (priority-based)
+impl<'doc, T, E> ParseDocument<'doc> for Result<T, E>
+where
+    T: ParseDocument<'doc> + 'doc,
+    E: ParseDocument<'doc> + 'doc,
+{
+    fn parse(doc: &'doc EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
+        doc.parse_union(node_id)
+            .variant_nested("ok", |doc, id, rest| match rest {
+                Some(r) => T::parse_with_variant(doc, id, r).map(Ok),
+                None => T::parse(doc, id).map(Ok),
+            })
+            .variant_nested("err", |doc, id, rest| match rest {
+                Some(r) => E::parse_with_variant(doc, id, r).map(Err),
+                None => E::parse(doc, id).map(Err),
+            })
+            .parse()
+    }
+
+    fn parse_with_variant(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        variant: VariantPath,
+    ) -> Result<Self, ParseError> {
+        doc.parse_union_with_variant(node_id, variant)
+            .variant_nested("ok", |doc, id, rest| match rest {
+                Some(r) => T::parse_with_variant(doc, id, r).map(Ok),
+                None => T::parse(doc, id).map(Ok),
+            })
+            .variant_nested("err", |doc, id, rest| match rest {
+                Some(r) => E::parse_with_variant(doc, id, r).map(Err),
+                None => E::parse(doc, id).map(Err),
+            })
+            .parse()
+    }
+}
+
 impl ParseDocument<'_> for crate::data_model::VariantRepr {
     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
         use crate::data_model::VariantRepr;
@@ -507,5 +663,199 @@ pub trait DocumentParserExt<'doc>: DocumentParser<'doc> + Sized {
             parser: self,
             mapper,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::document::node::NodeValue;
+    use crate::eure;
+    use crate::identifier::Identifier;
+    use crate::text::Text;
+    use crate::value::ObjectKey;
+    use num_bigint::BigInt;
+
+    fn identifier(s: &str) -> Identifier {
+        s.parse().unwrap()
+    }
+
+    /// Create a document with a single field that has a $variant extension
+    fn create_record_with_variant(
+        field_name: &str,
+        value: NodeValue,
+        variant: &str,
+    ) -> EureDocument {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Add field
+        let field_id = doc
+            .add_map_child(ObjectKey::String(field_name.to_string()), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(field_id).content = value;
+
+        // Add $variant extension
+        let variant_node_id = doc
+            .add_extension(identifier("variant"), field_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(variant_node_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(variant.to_string())));
+
+        doc
+    }
+
+    #[test]
+    fn test_option_some_tagged() {
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
+            "some",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Option<i32> = rec.field("value").unwrap();
+        assert_eq!(value, Some(42));
+    }
+
+    #[test]
+    fn test_option_none_tagged() {
+        let doc =
+            create_record_with_variant("value", NodeValue::Primitive(PrimitiveValue::Null), "none");
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Option<i32> = rec.field("value").unwrap();
+        assert_eq!(value, None);
+    }
+
+    #[test]
+    fn test_option_some_untagged() {
+        // Without $variant, non-null value is Some
+        let doc = eure!({ value = 42 });
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Option<i32> = rec.field("value").unwrap();
+        assert_eq!(value, Some(42));
+    }
+
+    #[test]
+    fn test_option_none_untagged() {
+        // Without $variant, null is None
+        let doc = eure!({ value = null });
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Option<i32> = rec.field("value").unwrap();
+        assert_eq!(value, None);
+    }
+
+    #[test]
+    fn test_result_ok_tagged() {
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
+            "ok",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Result<i32, String> = rec.field("value").unwrap();
+        assert_eq!(value, Ok(42));
+    }
+
+    #[test]
+    fn test_result_err_tagged() {
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(
+                "error message".to_string(),
+            ))),
+            "err",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Result<i32, String> = rec.field("value").unwrap();
+        assert_eq!(value, Err("error message".to_string()));
+    }
+
+    #[test]
+    fn test_nested_result_option_ok_some() {
+        // $variant: ok.some - Result<Option<i32>, String>
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
+            "ok.some",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Result<Option<i32>, String> = rec.field("value").unwrap();
+        assert_eq!(value, Ok(Some(42)));
+    }
+
+    #[test]
+    fn test_nested_result_option_ok_none() {
+        // $variant: ok.none - Result<Option<i32>, String>
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Null),
+            "ok.none",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Result<Option<i32>, String> = rec.field("value").unwrap();
+        assert_eq!(value, Ok(None));
+    }
+
+    #[test]
+    fn test_nested_result_option_err() {
+        // $variant: err - Result<Option<i32>, String>
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("error".to_string()))),
+            "err",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Result<Option<i32>, String> = rec.field("value").unwrap();
+        assert_eq!(value, Err("error".to_string()));
+    }
+
+    #[test]
+    fn test_deeply_nested_option_option() {
+        // $variant: some.some - Option<Option<i32>>
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42))),
+            "some.some",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Option<Option<i32>> = rec.field("value").unwrap();
+        assert_eq!(value, Some(Some(42)));
+    }
+
+    #[test]
+    fn test_deeply_nested_option_none() {
+        // $variant: some.none - Option<Option<i32>> inner None
+        let doc = create_record_with_variant(
+            "value",
+            NodeValue::Primitive(PrimitiveValue::Null),
+            "some.none",
+        );
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Option<Option<i32>> = rec.field("value").unwrap();
+        assert_eq!(value, Some(None));
+    }
+
+    #[test]
+    fn test_outer_none() {
+        // $variant: none - Option<Option<i32>> outer None
+        let doc =
+            create_record_with_variant("value", NodeValue::Primitive(PrimitiveValue::Null), "none");
+        let root_id = doc.get_root_id();
+        let mut rec = doc.parse_record(root_id).unwrap();
+        let value: Option<Option<i32>> = rec.field("value").unwrap();
+        assert_eq!(value, None);
     }
 }

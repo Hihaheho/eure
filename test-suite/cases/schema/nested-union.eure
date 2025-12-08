@@ -1,0 +1,39 @@
+input_eure = ```eure
+a {
+  $variant: ok.some.left
+  value = 1
+}
+b {
+  = "none"
+  $variant: ok.none
+}
+c {
+  $variant: err
+  message = "error"
+}
+```
+
+schema = ```eure
+a = `$types.union`
+b = `$types.union`
+c = `$types.union`
+
+$types.union {
+  $variant: union
+  variants.ok {
+    $variant: union
+    variants.some {
+      $variant: union
+      variants.left.value = `integer`
+      variants.right.value = `text`
+    }
+    variants.none {
+      = "none"
+    }
+  }
+  variants.err {
+    message = `text`
+  }
+}
+
+```

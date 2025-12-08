@@ -27,6 +27,7 @@ use crate::{
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
+use eure_document::parse::VariantPath;
 use eure_document::path::{EurePath, PathSegment};
 use eure_document::text::Language;
 use eure_document::value::{ObjectKey, PrimitiveValue};
@@ -862,8 +863,19 @@ impl<'a> ValidationContext<'a> {
 
     fn validate_union(&mut self, node: &Node, schema: &UnionSchema) -> Result<(), ()> {
         // Check for $variant extension
-        if let Some(tag) = self.get_extension_as_string(node, &identifiers::VARIANT) {
-            return self.validate_union_tagged(node, schema, &tag);
+        if let Some(tag_str) = self.get_extension_as_string(node, &identifiers::VARIANT) {
+            match VariantPath::parse(&tag_str) {
+                Ok(path) => return self.validate_union_tagged(node, schema, &path),
+                Err(_) => {
+                    self.record_error(ValidationError::InvalidVariantTag {
+                        tag: tag_str,
+                        path: self.current_path(),
+                        node_id: self.node_id(),
+                        schema_node_id: self.schema_node_id(),
+                    });
+                    return Ok(());
+                }
+            }
         }
 
         // No $variant - try untagged matching
@@ -874,14 +886,50 @@ impl<'a> ValidationContext<'a> {
         &mut self,
         _node: &Node,
         schema: &UnionSchema,
-        tag: &str,
+        variant_path: &VariantPath,
     ) -> Result<(), ()> {
-        if let Some(&variant_schema) = schema.variants.get(tag) {
+        let first = match variant_path.first() {
+            Some(f) => f.as_ref(),
+            None => {
+                self.record_error(ValidationError::InvalidVariantTag {
+                    tag: variant_path.to_string(),
+                    path: self.current_path(),
+                    node_id: self.node_id(),
+                    schema_node_id: self.schema_node_id(),
+                });
+                return Ok(());
+            }
+        };
+
+        if let Some(&variant_schema_id) = schema.variants.get(first) {
+            if let Some(rest) = variant_path.rest() {
+                // More path segments - variant must be a union
+                let nested_schema = {
+                    let content = self.resolve_schema_content(variant_schema_id);
+                    match content {
+                        SchemaNodeContent::Union(s) => Some(s.clone()),
+                        _ => None,
+                    }
+                };
+
+                if let Some(nested) = nested_schema {
+                    return self.validate_union_tagged(_node, &nested, &rest);
+                } else {
+                    self.record_error(ValidationError::InvalidVariantTag {
+                        tag: variant_path.to_string(),
+                        path: self.current_path(),
+                        node_id: self.node_id(),
+                        schema_node_id: self.schema_node_id(),
+                    });
+                    return Ok(());
+                }
+            }
+
             let node_id = self.current_node_id.unwrap();
-            self.validate_node(node_id, variant_schema)
+            self.validate_node(node_id, variant_schema_id)
         } else {
             self.record_error(ValidationError::InvalidVariantTag {
-                tag: tag.to_string(),
+                tag: variant_path.to_string(),
                 path: self.current_path(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
@@ -1312,8 +1360,12 @@ fn copy_subtree(src: &EureDocument, src_id: NodeId, dst: &mut EureDocument, dst_
     let src_node = src.node(src_id);
     dst.node_mut(dst_id).content = src_node.content.clone();
 
-    // Copy extensions
+    // Copy extensions (except $variant which is metadata for union discrimination)
     for (ext_ident, &ext_src_id) in &src_node.extensions {
+        // Skip $variant extension as it's union metadata, not actual data
+        if ext_ident == &identifiers::VARIANT {
+            continue;
+        }
         if let Ok(result) = dst.add_extension(ext_ident.clone(), dst_id) {
             let child_dst_id = result.node_id;
             copy_subtree(src, ext_src_id, dst, child_dst_id);

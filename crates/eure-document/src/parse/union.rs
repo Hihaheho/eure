@@ -10,6 +10,7 @@ use alloc::vec::Vec;
 use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
 
+use super::variant_path::VariantPath;
 use super::{DocumentParser, ParseError, ParseErrorKind};
 
 /// The `$variant` extension identifier.
@@ -44,8 +45,8 @@ pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
 pub struct UnionParser<'doc, T> {
     doc: &'doc EureDocument,
     node_id: NodeId,
-    /// Variant name from `$variant` extension (if specified)
-    variant_name: Option<String>,
+    /// Variant path from `$variant` extension (if specified)
+    variant_path: Option<VariantPath>,
     /// Result when `$variant` is specified and matches
     variant_result: Option<Result<T, ParseError>>,
     /// First matching priority variant (short-circuit result)
@@ -59,12 +60,31 @@ pub struct UnionParser<'doc, T> {
 impl<'doc, T> UnionParser<'doc, T> {
     /// Create a new UnionParser for the given node.
     pub(crate) fn new(doc: &'doc EureDocument, node_id: NodeId) -> Self {
-        let variant_name = Self::extract_variant(doc, node_id);
+        Self::new_with_variant_opt(doc, node_id, None)
+    }
+
+    /// Create a new UnionParser with an explicit variant path.
+    pub(crate) fn new_with_variant(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        variant: VariantPath,
+    ) -> Self {
+        Self::new_with_variant_opt(doc, node_id, Some(variant))
+    }
+
+    /// Internal constructor that accepts optional variant.
+    fn new_with_variant_opt(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        variant: Option<VariantPath>,
+    ) -> Self {
+        // Use explicit variant if provided, otherwise extract from node
+        let variant_path = variant.or_else(|| Self::extract_variant(doc, node_id));
 
         Self {
             doc,
             node_id,
-            variant_name,
+            variant_path,
             variant_result: None,
             priority_result: None,
             other_results: Vec::new(),
@@ -73,23 +93,32 @@ impl<'doc, T> UnionParser<'doc, T> {
     }
 
     /// Extract the `$variant` extension value from the node.
-    fn extract_variant(doc: &EureDocument, node_id: NodeId) -> Option<String> {
+    fn extract_variant(doc: &EureDocument, node_id: NodeId) -> Option<VariantPath> {
         let node = doc.node(node_id);
         let variant_node_id = node.extensions.get(&VARIANT)?;
-        doc.parse::<&str>(*variant_node_id).ok().map(String::from)
+        let s: &str = doc.parse(*variant_node_id).ok()?;
+        VariantPath::parse(s).ok()
     }
 
     /// Register a priority variant.
     ///
     /// Priority variants are tried in registration order.
     /// When a priority variant matches, parsing short-circuits and returns immediately.
+    ///
+    /// When `$variant` is specified, this matches only single-segment paths.
+    /// For nested unions (multi-segment paths), use `variant_nested`.
     pub fn variant<P>(mut self, name: &str, parser: P) -> Self
     where
         P: DocumentParser<'doc, Output = T> + 'doc,
     {
-        if let Some(ref vn) = self.variant_name {
-            // $variant specified: only parse if name matches and no result yet
-            if vn == name && self.variant_result.is_none() {
+        let name_ident: Identifier = match name.parse() {
+            Ok(i) => i,
+            Err(_) => return self,
+        };
+
+        if let Some(ref vp) = self.variant_path {
+            // $variant specified: match if path is exactly this single segment
+            if vp.is_single() && vp.first() == Some(&name_ident) && self.variant_result.is_none() {
                 self.variant_result = Some(parser.parse(self.doc, self.node_id));
             }
         } else if self.priority_result.is_none()
@@ -101,23 +130,88 @@ impl<'doc, T> UnionParser<'doc, T> {
         self
     }
 
+    /// Register a priority variant that may contain nested unions.
+    ///
+    /// The closure receives the remaining VariantPath for nested parsing.
+    /// Use this when the variant's content is itself a union type.
+    pub fn variant_nested<F>(mut self, name: &str, f: F) -> Self
+    where
+        F: FnOnce(&'doc EureDocument, NodeId, Option<VariantPath>) -> Result<T, ParseError>,
+    {
+        let name_ident: Identifier = match name.parse() {
+            Ok(i) => i,
+            Err(_) => return self,
+        };
+
+        if let Some(ref vp) = self.variant_path {
+            // $variant specified: match if path starts with this segment
+            if vp.first() == Some(&name_ident) && self.variant_result.is_none() {
+                self.variant_result = Some(f(self.doc, self.node_id, vp.rest()));
+            }
+        } else if self.priority_result.is_none() {
+            // No $variant: try parsing (pass None for rest)
+            if let Ok(value) = f(self.doc, self.node_id, None) {
+                self.priority_result = Some(value);
+            }
+        }
+        self
+    }
+
     /// Register a non-priority variant.
     ///
     /// Non-priority variants are only tried if no priority variant matches.
     /// All non-priority variants are tried to detect ambiguity.
+    ///
+    /// When `$variant` is specified, this matches only single-segment paths.
+    /// For nested unions (multi-segment paths), use `other_nested`.
     pub fn other<P>(mut self, name: &str, parser: P) -> Self
     where
         P: DocumentParser<'doc, Output = T> + 'doc,
     {
-        if let Some(ref vn) = self.variant_name {
-            // $variant specified: only parse if name matches and no result yet
-            if vn == name && self.variant_result.is_none() {
+        let name_ident: Identifier = match name.parse() {
+            Ok(i) => i,
+            Err(_) => return self,
+        };
+
+        if let Some(ref vp) = self.variant_path {
+            // $variant specified: match if path is exactly this single segment
+            if vp.is_single() && vp.first() == Some(&name_ident) && self.variant_result.is_none() {
                 self.variant_result = Some(parser.parse(self.doc, self.node_id));
             }
         } else {
             // No $variant: try all for ambiguity detection (only if no priority match)
             if self.priority_result.is_none() {
                 match parser.parse(self.doc, self.node_id) {
+                    Ok(value) => self.other_results.push((name.to_string(), value)),
+                    Err(e) => self.other_failures.push((name.to_string(), e)),
+                }
+            }
+        }
+        self
+    }
+
+    /// Register a non-priority variant that may contain nested unions.
+    ///
+    /// The closure receives the remaining VariantPath for nested parsing.
+    /// Use this when the variant's content is itself a union type.
+    pub fn other_nested<F>(mut self, name: &str, f: F) -> Self
+    where
+        F: FnOnce(&'doc EureDocument, NodeId, Option<VariantPath>) -> Result<T, ParseError>,
+    {
+        let name_ident: Identifier = match name.parse() {
+            Ok(i) => i,
+            Err(_) => return self,
+        };
+
+        if let Some(ref vp) = self.variant_path {
+            // $variant specified: match if path starts with this segment
+            if vp.first() == Some(&name_ident) && self.variant_result.is_none() {
+                self.variant_result = Some(f(self.doc, self.node_id, vp.rest()));
+            }
+        } else {
+            // No $variant: try all for ambiguity detection (only if no priority match)
+            if self.priority_result.is_none() {
+                match f(self.doc, self.node_id, None) {
                     Ok(value) => self.other_results.push((name.to_string(), value)),
                     Err(e) => self.other_failures.push((name.to_string(), e)),
                 }
@@ -137,11 +231,11 @@ impl<'doc, T> UnionParser<'doc, T> {
         let node_id = self.node_id;
 
         // $variant specified
-        if let Some(variant_name) = self.variant_name {
+        if let Some(variant_path) = self.variant_path {
             return self.variant_result.unwrap_or_else(|| {
                 Err(ParseError {
                     node_id,
-                    kind: ParseErrorKind::UnknownVariant(variant_name),
+                    kind: ParseErrorKind::UnknownVariant(variant_path.to_string()),
                 })
             });
         }
@@ -195,6 +289,18 @@ impl EureDocument {
     /// ```
     pub fn parse_union<T>(&self, node_id: NodeId) -> UnionParser<'_, T> {
         UnionParser::new(self, node_id)
+    }
+
+    /// Get a UnionParser with an explicit variant path.
+    ///
+    /// Used for nested union parsing when the variant path is passed down
+    /// from an outer union.
+    pub fn parse_union_with_variant<T>(
+        &self,
+        node_id: NodeId,
+        variant: VariantPath,
+    ) -> UnionParser<'_, T> {
+        UnionParser::new_with_variant(self, node_id, variant)
     }
 }
 
@@ -415,5 +521,114 @@ mod tests {
         // Parser's error is returned directly
         assert_eq!(err.node_id, root_id);
         assert_eq!(err.kind, ParseErrorKind::MissingField("test".to_string()));
+    }
+
+    // --- variant_nested tests ---
+
+    #[derive(Debug, PartialEq)]
+    enum Outer {
+        A(Inner),
+        B(i32),
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum Inner {
+        X,
+        Y,
+    }
+
+    fn parse_inner(
+        _doc: &EureDocument,
+        _id: NodeId,
+        rest: Option<super::VariantPath>,
+    ) -> Result<Inner, ParseError> {
+        // If we have a rest path, dispatch on it
+        if let Some(path) = rest {
+            let first = path.first().map(|i| i.as_ref());
+            match first {
+                Some("x") if path.is_single() => Ok(Inner::X),
+                Some("y") if path.is_single() => Ok(Inner::Y),
+                _ => Err(ParseError {
+                    node_id: _id,
+                    kind: ParseErrorKind::UnknownVariant(path.to_string()),
+                }),
+            }
+        } else {
+            // Default to X if no variant specified
+            Ok(Inner::X)
+        }
+    }
+
+    #[test]
+    fn test_variant_nested_single_segment() {
+        // $variant = "a" - matches "a", rest is None
+        let doc = create_doc_with_variant("value", "a");
+        let root_id = doc.get_root_id();
+
+        let result: Outer = doc
+            .parse_union(root_id)
+            .variant_nested("a", |doc, id, rest| {
+                parse_inner(doc, id, rest).map(Outer::A)
+            })
+            .variant("b", |_, _| Ok(Outer::B(42)))
+            .parse()
+            .unwrap();
+
+        assert_eq!(result, Outer::A(Inner::X));
+    }
+
+    #[test]
+    fn test_variant_nested_multi_segment() {
+        // $variant = "a.y" - matches "a", rest is Some("y")
+        let doc = create_doc_with_variant("value", "a.y");
+        let root_id = doc.get_root_id();
+
+        let result: Outer = doc
+            .parse_union(root_id)
+            .variant_nested("a", |doc, id, rest| {
+                parse_inner(doc, id, rest).map(Outer::A)
+            })
+            .variant("b", |_, _| Ok(Outer::B(42)))
+            .parse()
+            .unwrap();
+
+        assert_eq!(result, Outer::A(Inner::Y));
+    }
+
+    #[test]
+    fn test_variant_nested_invalid_inner() {
+        // $variant = "a.z" - matches "a", but "z" is not valid for Inner
+        let doc = create_doc_with_variant("value", "a.z");
+        let root_id = doc.get_root_id();
+
+        let err = doc
+            .parse_union::<Outer>(root_id)
+            .variant_nested("a", |doc, id, rest| {
+                parse_inner(doc, id, rest).map(Outer::A)
+            })
+            .variant("b", |_, _| Ok(Outer::B(42)))
+            .parse()
+            .unwrap_err();
+
+        assert_eq!(err.kind, ParseErrorKind::UnknownVariant("z".to_string()));
+    }
+
+    #[test]
+    fn test_variant_non_nested_with_nested_path() {
+        // $variant = "b.x" but "b" is not a nested variant (no variant_nested)
+        let doc = create_doc_with_variant("value", "b.x");
+        let root_id = doc.get_root_id();
+
+        let err = doc
+            .parse_union::<Outer>(root_id)
+            .variant_nested("a", |doc, id, rest| {
+                parse_inner(doc, id, rest).map(Outer::A)
+            })
+            .variant("b", |_, _| Ok(Outer::B(42))) // "b" is not nested, but we're trying "b.x"
+            .parse()
+            .unwrap_err();
+
+        // "b.x" won't match "b" because variant() requires is_single()
+        assert_eq!(err.kind, ParseErrorKind::UnknownVariant("b.x".to_string()));
     }
 }
