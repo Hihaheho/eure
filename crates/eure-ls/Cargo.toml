@@ -9,6 +9,10 @@ repository = "https://github.com/Hihaheho/eure"
 license = "MIT OR Apache-2.0"
 keywords = ["eure", "ide", "language-server", "lsp"]
 
+[[bin]]
+name = "eurels"
+path = "src/main.rs"
+
 [dependencies]
 anyhow.workspace = true
 eure = { workspace = true }
