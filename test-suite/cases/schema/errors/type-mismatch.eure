@@ -10,11 +10,11 @@ name = `text`
 
 schema_errors = [
   ```
-error: Type mismatch: expected text, got integer at path $.name
+error: Type mismatch: expected text, got integer at path name
  --> <input>:1:1
   |
 1 | name = 42
-  | ^^^^^^^^^ Type mismatch: expected text, got integer at path $.name
+  | ^^^^^^^^^ Type mismatch: expected text, got integer at path name
   |
 note: constraint defined here
  --> <schema>:1:1

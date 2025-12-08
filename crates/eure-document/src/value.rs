@@ -104,10 +104,20 @@ pub enum ObjectKey {
 impl core::fmt::Display for ObjectKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            ObjectKey::Bool(bool) => write!(f, "{}", bool),
-            ObjectKey::Number(big_int) => write!(f, "{}", big_int),
-            ObjectKey::String(string) => write!(f, "{}", string),
-            ObjectKey::Tuple(tuple) => write!(f, "{}", tuple),
+            ObjectKey::Bool(b) => write!(f, "{}", b),
+            ObjectKey::Number(n) => write!(f, "{}", n),
+            ObjectKey::String(s) => {
+                write!(f, "\"")?;
+                for c in s.chars() {
+                    match c {
+                        '"' => write!(f, "\\\"")?,
+                        '\\' => write!(f, "\\\\")?,
+                        _ => write!(f, "{}", c)?,
+                    }
+                }
+                write!(f, "\"")
+            }
+            ObjectKey::Tuple(t) => write!(f, "{}", t),
         }
     }
 }

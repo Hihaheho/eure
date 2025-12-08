@@ -12,11 +12,11 @@ numbers = [`integer`]
 
 schema_errors = [
   ```
-error: Type mismatch: expected integer, got text at path $.numbers[1]
+error: Type mismatch: expected integer, got text at path numbers[1]
  --> <input>:2:1
   |
 2 | numbers[] = "two"
-  | ^^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path $.numbers[1]
+  | ^^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path numbers[1]
   |
 note: constraint defined here
  --> <schema>:1:11

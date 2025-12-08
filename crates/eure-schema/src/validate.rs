@@ -173,14 +173,6 @@ impl<'a> ValidationContext<'a> {
     // Path management
     // -------------------------------------------------------------------------
 
-    fn current_path(&self) -> String {
-        if self.path.is_root() {
-            "$".to_string()
-        } else {
-            format!("${}", self.path)
-        }
-    }
-
     fn node_id(&self) -> NodeId {
         self.current_node_id
     }
@@ -271,7 +263,7 @@ impl<'a> ValidationContext<'a> {
             if !ext_schema.optional && !node.extensions.contains_key(ext_ident) {
                 self.record_error(ValidationError::MissingRequiredExtension {
                     extension: ext_ident.to_string(),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -292,7 +284,7 @@ impl<'a> ValidationContext<'a> {
             } else {
                 self.record_warning(ValidationWarning::UnknownExtension {
                     name: ext_ident.to_string(),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                 });
             }
         }
@@ -309,7 +301,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "text".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -329,7 +321,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::LanguageMismatch {
                     expected: expected_lang.clone(),
                     actual: format!("{:?}", actual_lang),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -345,7 +337,7 @@ impl<'a> ValidationContext<'a> {
                 length: len,
                 min: Some(min),
                 max: schema.max_length,
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -359,7 +351,7 @@ impl<'a> ValidationContext<'a> {
                 length: len,
                 min: schema.min_length,
                 max: Some(max),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -371,7 +363,7 @@ impl<'a> ValidationContext<'a> {
         {
             self.record_error(ValidationError::PatternMismatch {
                 pattern: regex.as_str().to_string(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -387,7 +379,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "integer".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -411,7 +403,7 @@ impl<'a> ValidationContext<'a> {
         if !in_range {
             self.record_error(ValidationError::OutOfRange {
                 value: int_val.to_string(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -423,7 +415,7 @@ impl<'a> ValidationContext<'a> {
         {
             self.record_error(ValidationError::NotMultipleOf {
                 divisor: divisor.to_string(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -444,7 +436,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "float".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -470,7 +462,7 @@ impl<'a> ValidationContext<'a> {
         if !in_range {
             self.record_error(ValidationError::OutOfRange {
                 value: float_val.to_string(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -482,7 +474,7 @@ impl<'a> ValidationContext<'a> {
         {
             self.record_error(ValidationError::NotMultipleOf {
                 divisor: divisor.to_string(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -498,7 +490,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "boolean".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -514,7 +506,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "null".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -530,7 +522,7 @@ impl<'a> ValidationContext<'a> {
             self.record_error(ValidationError::LiteralMismatch {
                 expected: format!("{:?}", expected),
                 actual: format!("{:?}", actual),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -550,7 +542,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "array".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -568,7 +560,7 @@ impl<'a> ValidationContext<'a> {
                 length: len,
                 min: Some(min),
                 max: schema.max_length,
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -580,7 +572,7 @@ impl<'a> ValidationContext<'a> {
                 length: len,
                 min: schema.min_length,
                 max: Some(max),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -615,7 +607,7 @@ impl<'a> ValidationContext<'a> {
                 let doc_j = node_subtree_to_document(self.document, items[j]);
                 if doc_i == doc_j {
                     self.record_error(ValidationError::ArrayNotUnique {
-                        path: self.current_path(),
+                        path: self.path.clone(),
                         node_id: self.node_id(),
                         schema_node_id: self.schema_node_id(),
                     });
@@ -639,7 +631,7 @@ impl<'a> ValidationContext<'a> {
             }
         }
         self.record_error(ValidationError::ArrayMissingContains {
-            path: self.current_path(),
+            path: self.path.clone(),
             node_id: self.node_id(),
             schema_node_id: self.schema_node_id(),
         });
@@ -652,7 +644,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "map".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -670,7 +662,7 @@ impl<'a> ValidationContext<'a> {
                 size,
                 min: Some(min),
                 max: schema.max_size,
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -682,7 +674,7 @@ impl<'a> ValidationContext<'a> {
                 size,
                 min: schema.min_size,
                 max: Some(max),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -712,7 +704,7 @@ impl<'a> ValidationContext<'a> {
             (_, SchemaNodeContent::Any) => {} // Any accepts any key type
             _ => {
                 self.record_error(ValidationError::InvalidKeyType {
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -756,7 +748,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "record".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: record_node_id,
                     schema_node_id: record_schema_node_id,
                 });
@@ -773,7 +765,7 @@ impl<'a> ValidationContext<'a> {
                     if field_schema_node.metadata.deprecated {
                         self.record_warning(ValidationWarning::DeprecatedField {
                             field: field_name.clone(),
-                            path: self.current_path(),
+                            path: self.path.clone(),
                         });
                     }
 
@@ -789,7 +781,7 @@ impl<'a> ValidationContext<'a> {
                 None if !field_schema.optional => {
                     self.record_error(ValidationError::MissingRequiredField {
                         field: field_name.clone(),
-                        path: self.current_path(),
+                        path: self.path.clone(),
                         node_id: record_node_id,
                         schema_node_id: record_schema_node_id,
                     });
@@ -804,7 +796,7 @@ impl<'a> ValidationContext<'a> {
                 UnknownFieldsPolicy::Deny => {
                     self.record_error(ValidationError::UnknownField {
                         field: field_name.to_string(),
-                        path: self.current_path(),
+                        path: self.path.clone(),
                         node_id: record_node_id,
                         schema_node_id: record_schema_node_id,
                     });
@@ -832,7 +824,7 @@ impl<'a> ValidationContext<'a> {
                 self.record_error(ValidationError::TypeMismatch {
                     expected: "tuple".to_string(),
                     actual: node_type_name(&node.content),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -845,7 +837,7 @@ impl<'a> ValidationContext<'a> {
             self.record_error(ValidationError::TupleLengthMismatch {
                 expected: schema.elements.len(),
                 actual: tuple.len(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -874,7 +866,7 @@ impl<'a> ValidationContext<'a> {
                 Err(_) => {
                     self.record_error(ValidationError::InvalidVariantTag {
                         tag: tag_str,
-                        path: self.current_path(),
+                        path: self.path.clone(),
                         node_id: self.node_id(),
                         schema_node_id: self.schema_node_id(),
                     });
@@ -898,7 +890,7 @@ impl<'a> ValidationContext<'a> {
             None => {
                 self.record_error(ValidationError::InvalidVariantTag {
                     tag: variant_path.to_string(),
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
                 });
@@ -922,7 +914,7 @@ impl<'a> ValidationContext<'a> {
                 } else {
                     self.record_error(ValidationError::InvalidVariantTag {
                         tag: variant_path.to_string(),
-                        path: self.current_path(),
+                        path: self.path.clone(),
                         node_id: self.node_id(),
                         schema_node_id: self.schema_node_id(),
                     });
@@ -935,7 +927,7 @@ impl<'a> ValidationContext<'a> {
         } else {
             self.record_error(ValidationError::InvalidVariantTag {
                 tag: variant_path.to_string(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -980,7 +972,7 @@ impl<'a> ValidationContext<'a> {
         match matched.len() {
             0 => {
                 self.record_error(ValidationError::NoVariantMatched {
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     variant_errors: Vec::new(),
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
@@ -995,7 +987,7 @@ impl<'a> ValidationContext<'a> {
             _ => {
                 let names: Vec<_> = matched.into_iter().map(|(n, _)| n).collect();
                 self.record_error(ValidationError::AmbiguousUnion {
-                    path: self.current_path(),
+                    path: self.path.clone(),
                     variants: names,
                     node_id: self.node_id(),
                     schema_node_id: self.schema_node_id(),
@@ -1022,7 +1014,7 @@ impl<'a> ValidationContext<'a> {
         if type_ref.namespace.is_some() {
             self.record_error(ValidationError::UndefinedTypeReference {
                 name: format!("{}.{}", type_ref.namespace.as_ref().unwrap(), type_ref.name),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -1034,7 +1026,7 @@ impl<'a> ValidationContext<'a> {
         } else {
             self.record_error(ValidationError::UndefinedTypeReference {
                 name: type_ref.name.to_string(),
-                path: self.current_path(),
+                path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
@@ -1053,7 +1045,7 @@ pub enum ValidationError {
     TypeMismatch {
         expected: String,
         actual: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1061,7 +1053,7 @@ pub enum ValidationError {
     #[error("Missing required field '{field}' at path {path}")]
     MissingRequiredField {
         field: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1069,7 +1061,7 @@ pub enum ValidationError {
     #[error("Unknown field '{field}' at path {path}")]
     UnknownField {
         field: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1077,7 +1069,7 @@ pub enum ValidationError {
     #[error("Value {value} is out of range at path {path}")]
     OutOfRange {
         value: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1087,7 +1079,7 @@ pub enum ValidationError {
         length: usize,
         min: Option<u32>,
         max: Option<u32>,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1095,7 +1087,7 @@ pub enum ValidationError {
     #[error("String does not match pattern '{pattern}' at path {path}")]
     PatternMismatch {
         pattern: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1105,7 +1097,7 @@ pub enum ValidationError {
         length: usize,
         min: Option<u32>,
         max: Option<u32>,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1115,7 +1107,7 @@ pub enum ValidationError {
         size: usize,
         min: Option<u32>,
         max: Option<u32>,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1124,28 +1116,28 @@ pub enum ValidationError {
     TupleLengthMismatch {
         expected: usize,
         actual: usize,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
 
     #[error("Array elements must be unique at path {path}")]
     ArrayNotUnique {
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
 
     #[error("Array must contain required element at path {path}")]
     ArrayMissingContains {
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
 
     #[error("No variant matched for union at path {path}")]
     NoVariantMatched {
-        path: String,
+        path: EurePath,
         variant_errors: Vec<(String, ValidationError)>,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
@@ -1153,7 +1145,7 @@ pub enum ValidationError {
 
     #[error("Multiple variants matched for union at path {path}: {variants:?}")]
     AmbiguousUnion {
-        path: String,
+        path: EurePath,
         variants: Vec<String>,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
@@ -1162,7 +1154,7 @@ pub enum ValidationError {
     #[error("Invalid variant tag '{tag}' at path {path}")]
     InvalidVariantTag {
         tag: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1171,7 +1163,7 @@ pub enum ValidationError {
     LiteralMismatch {
         expected: String,
         actual: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1180,14 +1172,14 @@ pub enum ValidationError {
     LanguageMismatch {
         expected: String,
         actual: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
 
     #[error("Invalid key type at path {path}")]
     InvalidKeyType {
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1195,7 +1187,7 @@ pub enum ValidationError {
     #[error("Integer not a multiple of {divisor} at path {path}")]
     NotMultipleOf {
         divisor: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1203,7 +1195,7 @@ pub enum ValidationError {
     #[error("Undefined type reference '{name}' at path {path}")]
     UndefinedTypeReference {
         name: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1211,7 +1203,7 @@ pub enum ValidationError {
     #[error("Missing required extension '{extension}' at path {path}")]
     MissingRequiredExtension {
         extension: String,
-        path: String,
+        path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -1330,8 +1322,8 @@ impl ValidationError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValidationWarning {
-    UnknownExtension { name: String, path: String },
-    DeprecatedField { field: String, path: String },
+    UnknownExtension { name: String, path: EurePath },
+    DeprecatedField { field: String, path: EurePath },
 }
 
 // =============================================================================

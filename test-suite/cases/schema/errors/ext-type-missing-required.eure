@@ -11,11 +11,11 @@ name.$ext-type.description = `text`
 
 schema_errors = [
   ```
-error: Missing required extension 'description' at path $.name
+error: Missing required extension 'description' at path name
  --> <input>:1:1
   |
 1 | name = "Alice"
-  | ^^^^^^^^^^^^^^ Missing required extension 'description' at path $.name
+  | ^^^^^^^^^^^^^^ Missing required extension 'description' at path name
   |
 note: constraint defined here
  --> <schema>:1:1

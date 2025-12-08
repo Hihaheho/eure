@@ -11,10 +11,10 @@ email = `text`
 
 schema_errors = [
   ```
-error: Missing required field 'email' at path $
+error: Missing required field 'email' at path (root)
  --> <input>:1:16
   |
 1 | name = "Alice"
-  |               ^ Missing required field 'email' at path $
+  |               ^ Missing required field 'email' at path (root)
 ```
 ]
