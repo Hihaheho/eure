@@ -3,8 +3,11 @@ use std::path::PathBuf;
 use eure::{
     Map,
     document::{
-        DocumentConstructionError, EureDocument, NodeId, NodeValue,
-        parse::{ParseDocument, ParseError as DocumentParseError, ParseErrorKind, RecordParser},
+        DocumentConstructionError, NodeValue,
+        parse::{
+            ParseContext, ParseDocument, ParseError as DocumentParseError, ParseErrorKind,
+            RecordParser,
+        },
     },
     parol::EureParseError,
     tree::Cst,
@@ -71,26 +74,26 @@ impl CaseData {
 }
 
 impl ParseDocument<'_> for CaseData {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, DocumentParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+        let mut rec = ctx.parse_record()?;
 
-        let input_eure = rec.field_optional::<Text>("input_eure")?;
-        let input_json = rec.field_optional::<Text>("input_json")?;
-        let normalized = rec.field_optional::<Text>("normalized")?;
-        let output_json = rec.field_optional::<Text>("output_json")?;
-        let schema = rec.field_optional::<Text>("schema")?;
+        let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
+        let input_json = rec.parse_field_optional::<Text>("input_json")?;
+        let normalized = rec.parse_field_optional::<Text>("normalized")?;
+        let output_json = rec.parse_field_optional::<Text>("output_json")?;
+        let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
-            .field_optional::<Vec<Text>>("schema_errors")?
+            .parse_field_optional::<Vec<Text>>("schema_errors")?
             .unwrap_or_default();
-        let output_json_schema = rec.field_optional::<Text>("output_json_schema")?;
+        let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
         let json_schema_errors = rec
-            .field_optional::<Vec<Text>>("json_schema_errors")?
+            .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
 
         // Editor-specific fields (consume but don't parse - not yet implemented)
         for field in IGNORED_FIELDS {
-            rec.field_node_optional(field);
+            rec.field_optional(field);
         }
 
         rec.deny_unknown_fields()?;
@@ -114,16 +117,16 @@ impl ParseDocument<'_> for CaseData {
 /// - `true` → Some("") (unimplemented, no reason)
 /// - `false` → None (not unimplemented)
 /// - A string → Some(string) (unimplemented with reason)
-fn parse_unimplemented_field(
-    rec: &mut RecordParser<'_>,
+fn parse_unimplemented_field<'doc>(
+    rec: &mut RecordParser<'doc>,
 ) -> Result<Option<String>, DocumentParseError> {
-    let node_id = match rec.field_node_optional("unimplemented") {
-        Some(id) => id,
+    let field_ctx = match rec.field_optional("unimplemented") {
+        Some(ctx) => ctx,
         None => return Ok(None),
     };
 
-    let doc = rec.doc();
-    let node = doc.node(node_id);
+    let node = field_ctx.node();
+    let node_id = field_ctx.node_id();
 
     match &node.content {
         NodeValue::Primitive(PrimitiveValue::Bool(true)) => Ok(Some(String::new())),
@@ -171,38 +174,38 @@ impl CaseFile {
 }
 
 impl ParseDocument<'_> for CaseFile {
-    fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, DocumentParseError> {
-        let mut rec = doc.parse_record(node_id)?;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+        let mut rec = ctx.parse_record()?;
 
         // Parse root-level fields as default case
-        let input_eure = rec.field_optional::<Text>("input_eure")?;
-        let input_json = rec.field_optional::<Text>("input_json")?;
-        let normalized = rec.field_optional::<Text>("normalized")?;
-        let output_json = rec.field_optional::<Text>("output_json")?;
-        let schema = rec.field_optional::<Text>("schema")?;
+        let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
+        let input_json = rec.parse_field_optional::<Text>("input_json")?;
+        let normalized = rec.parse_field_optional::<Text>("normalized")?;
+        let output_json = rec.parse_field_optional::<Text>("output_json")?;
+        let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
-            .field_optional::<Vec<Text>>("schema_errors")?
+            .parse_field_optional::<Vec<Text>>("schema_errors")?
             .unwrap_or_default();
-        let output_json_schema = rec.field_optional::<Text>("output_json_schema")?;
+        let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
         let json_schema_errors = rec
-            .field_optional::<Vec<Text>>("json_schema_errors")?
+            .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
 
         // Editor-specific fields (consume but don't parse - not yet implemented)
         for field in IGNORED_FIELDS {
-            rec.field_node_optional(field);
+            rec.field_optional(field);
         }
 
         // Parse named cases from "cases" section
         // Note: Some legacy test files use "cases[]" (array) instead of "cases.<name>" (map).
         // We only support the map format for named cases; arrays are ignored.
-        let named_cases = match rec.field_node_optional("cases") {
-            Some(cases_node_id) => {
+        let named_cases = match rec.field_optional("cases") {
+            Some(cases_ctx) => {
                 // Try to parse as Map<String, CaseData>. If it fails (e.g., it's an array),
                 // just return an empty map and let the tests handle unknown fields.
-                rec.doc()
-                    .parse::<Map<String, CaseData>>(cases_node_id)
+                cases_ctx
+                    .parse::<Map<String, CaseData>>()
                     .unwrap_or_default()
             }
             None => Map::default(),

@@ -7,10 +7,10 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
 
-use super::{DocumentParser, ParseError, ParseErrorKind};
+use super::variant_path::VariantPath;
+use super::{ParseContext, ParseError, ParseErrorKind};
 
 /// The `$variant` extension identifier.
 pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
@@ -26,26 +26,25 @@ pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
 /// # Example
 ///
 /// ```ignore
-/// impl ParseDocument<'_> for Description {
-///     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-///         doc.parse_union(node_id)
-///             .variant("string", |doc, id| {
-///                 let text: String = doc.parse(id)?;
+/// impl<'doc> ParseDocument<'doc> for Description {
+///     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+///         ctx.parse_union()?
+///             .variant("string", |ctx| {
+///                 let text: String = ctx.parse()?;
 ///                 Ok(Description::String(text))
 ///             })
-///             .variant("markdown", |doc, id| {
-///                 let text: String = doc.parse(id)?;
+///             .variant("markdown", |ctx| {
+///                 let text: String = ctx.parse()?;
 ///                 Ok(Description::Markdown(text))
 ///             })
 ///             .parse()
 ///     }
 /// }
 /// ```
-pub struct UnionParser<'doc, T> {
-    doc: &'doc EureDocument,
-    node_id: NodeId,
-    /// Variant name from `$variant` extension (if specified)
-    variant_name: Option<String>,
+pub struct UnionParser<'doc, 'ctx, T> {
+    ctx: &'ctx ParseContext<'doc>,
+    /// Variant path (from context or extracted from `$variant` extension)
+    variant_path: Option<VariantPath>,
     /// Result when `$variant` is specified and matches
     variant_result: Option<Result<T, ParseError>>,
     /// First matching priority variant (short-circuit result)
@@ -56,47 +55,91 @@ pub struct UnionParser<'doc, T> {
     other_failures: Vec<(String, ParseError)>,
 }
 
-impl<'doc, T> UnionParser<'doc, T> {
-    /// Create a new UnionParser for the given node.
-    pub(crate) fn new(doc: &'doc EureDocument, node_id: NodeId) -> Self {
-        let variant_name = Self::extract_variant(doc, node_id);
+impl<'doc, 'ctx, T> UnionParser<'doc, 'ctx, T> {
+    /// Create a new UnionParser for the given context.
+    ///
+    /// Returns error if `$variant` extension has invalid type or syntax.
+    pub(crate) fn new(ctx: &'ctx ParseContext<'doc>) -> Result<Self, ParseError> {
+        // Determine variant path:
+        // - None (from context) = extract from node
+        // - Some(non-empty) = use the path
+        // - Some(empty) = variant consumed, use try-all logic (don't extract)
+        let variant_path = match ctx.variant_path() {
+            Some(vp) if !vp.is_empty() => Some(vp.clone()),
+            Some(_) => None, // Empty path = no explicit variant, use try-all logic
+            None => Self::extract_variant(ctx)?,
+        };
 
-        Self {
-            doc,
-            node_id,
-            variant_name,
+        Ok(Self {
+            ctx,
+            variant_path,
             variant_result: None,
             priority_result: None,
             other_results: Vec::new(),
             other_failures: Vec::new(),
-        }
+        })
     }
 
     /// Extract the `$variant` extension value from the node.
-    fn extract_variant(doc: &EureDocument, node_id: NodeId) -> Option<String> {
-        let node = doc.node(node_id);
-        let variant_node_id = node.extensions.get(&VARIANT)?;
-        doc.parse::<&str>(*variant_node_id).ok().map(String::from)
+    ///
+    /// Returns:
+    /// - `Ok(None)` if no `$variant` extension present
+    /// - `Ok(Some(path))` if valid variant path
+    /// - `Err(InvalidVariantType)` if `$variant` is not a string
+    /// - `Err(InvalidVariantPath)` if `$variant` has invalid path syntax
+    fn extract_variant(ctx: &ParseContext<'doc>) -> Result<Option<VariantPath>, ParseError> {
+        let node = ctx.node();
+        let Some(&variant_node_id) = node.extensions.get(&VARIANT) else {
+            return Ok(None);
+        };
+
+        let variant_node = ctx.doc().node(variant_node_id);
+        let s: &str = ctx.doc().parse(variant_node_id).map_err(|_| ParseError {
+            node_id: variant_node_id,
+            kind: ParseErrorKind::InvalidVariantType(
+                variant_node
+                    .content
+                    .value_kind()
+                    .unwrap_or(crate::value::ValueKind::Null),
+            ),
+        })?;
+
+        VariantPath::parse(s).map(Some).map_err(|_| ParseError {
+            node_id: variant_node_id,
+            kind: ParseErrorKind::InvalidVariantPath(s.to_string()),
+        })
     }
 
     /// Register a priority variant.
     ///
     /// Priority variants are tried in registration order.
     /// When a priority variant matches, parsing short-circuits and returns immediately.
-    pub fn variant<P>(mut self, name: &str, parser: P) -> Self
+    ///
+    /// The closure receives a child context with the remaining variant path (if any).
+    /// This handles both single-segment and multi-segment paths uniformly.
+    pub fn variant<F>(mut self, name: &str, f: F) -> Self
     where
-        P: DocumentParser<'doc, Output = T> + 'doc,
+        F: FnOnce(&ParseContext<'doc>) -> Result<T, ParseError>,
     {
-        if let Some(ref vn) = self.variant_name {
-            // $variant specified: only parse if name matches and no result yet
-            if vn == name && self.variant_result.is_none() {
-                self.variant_result = Some(parser.parse(self.doc, self.node_id));
+        let name_ident: Identifier = match name.parse() {
+            Ok(i) => i,
+            Err(_) => return self,
+        };
+
+        if let Some(ref vp) = self.variant_path {
+            // $variant specified: match if path starts with this segment
+            if vp.first() == Some(&name_ident) && self.variant_result.is_none() {
+                // Use Some(empty) when path is consumed to signal "don't extract from node"
+                let rest = Some(vp.rest().unwrap_or_else(VariantPath::empty));
+                let child_ctx = self.ctx.with_variant_rest(rest);
+                self.variant_result = Some(f(&child_ctx));
             }
-        } else if self.priority_result.is_none()
-            && let Ok(value) = parser.parse(self.doc, self.node_id)
-        {
-            // No $variant: short-circuit on first match
-            self.priority_result = Some(value);
+        } else if self.priority_result.is_none() {
+            // No $variant: try parsing with empty variant path
+            let child_ctx = self.ctx.with_variant_rest(None);
+            if let Ok(value) = f(&child_ctx) {
+                self.priority_result = Some(value);
+            }
         }
         self
     }
@@ -105,19 +148,30 @@ impl<'doc, T> UnionParser<'doc, T> {
     ///
     /// Non-priority variants are only tried if no priority variant matches.
     /// All non-priority variants are tried to detect ambiguity.
-    pub fn other<P>(mut self, name: &str, parser: P) -> Self
+    ///
+    /// The closure receives a child context with the remaining variant path (if any).
+    pub fn other<F>(mut self, name: &str, f: F) -> Self
     where
-        P: DocumentParser<'doc, Output = T> + 'doc,
+        F: FnOnce(&ParseContext<'doc>) -> Result<T, ParseError>,
     {
-        if let Some(ref vn) = self.variant_name {
-            // $variant specified: only parse if name matches and no result yet
-            if vn == name && self.variant_result.is_none() {
-                self.variant_result = Some(parser.parse(self.doc, self.node_id));
+        let name_ident: Identifier = match name.parse() {
+            Ok(i) => i,
+            Err(_) => return self,
+        };
+
+        if let Some(ref vp) = self.variant_path {
+            // $variant specified: match if path starts with this segment
+            if vp.first() == Some(&name_ident) && self.variant_result.is_none() {
+                // Use Some(empty) when path is consumed to signal "don't extract from node"
+                let rest = Some(vp.rest().unwrap_or_else(VariantPath::empty));
+                let child_ctx = self.ctx.with_variant_rest(rest);
+                self.variant_result = Some(f(&child_ctx));
             }
         } else {
             // No $variant: try all for ambiguity detection (only if no priority match)
             if self.priority_result.is_none() {
-                match parser.parse(self.doc, self.node_id) {
+                let child_ctx = self.ctx.with_variant_rest(None);
+                match f(&child_ctx) {
                     Ok(value) => self.other_results.push((name.to_string(), value)),
                     Err(e) => self.other_failures.push((name.to_string(), e)),
                 }
@@ -134,14 +188,14 @@ impl<'doc, T> UnionParser<'doc, T> {
     /// - `Err(NoMatchingVariant)` if no variants match
     /// - `Err(AmbiguousUnion)` if multiple non-priority variants match
     pub fn parse(self) -> Result<T, ParseError> {
-        let node_id = self.node_id;
+        let node_id = self.ctx.node_id();
 
         // $variant specified
-        if let Some(variant_name) = self.variant_name {
+        if let Some(variant_path) = self.variant_path {
             return self.variant_result.unwrap_or_else(|| {
                 Err(ParseError {
                     node_id,
-                    kind: ParseErrorKind::UnknownVariant(variant_name),
+                    kind: ParseErrorKind::UnknownVariant(variant_path.to_string()),
                 })
             });
         }
@@ -168,7 +222,10 @@ impl<'doc, T> UnionParser<'doc, T> {
     }
 
     /// Create an error for when no variant matches.
-    fn no_match_error(node_id: NodeId, failures: Vec<(String, ParseError)>) -> ParseError {
+    fn no_match_error(
+        node_id: crate::document::NodeId,
+        failures: Vec<(String, ParseError)>,
+    ) -> ParseError {
         // For now, return the first failure or a generic error
         // TODO: Implement "closest error" selection based on error depth
         failures
@@ -182,25 +239,10 @@ impl<'doc, T> UnionParser<'doc, T> {
     }
 }
 
-impl EureDocument {
-    /// Get a UnionParser for parsing a union type.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// doc.parse_union(node_id)
-    ///     .variant("foo", parser_for_foo)
-    ///     .variant("bar", parser_for_bar)
-    ///     .parse()
-    /// ```
-    pub fn parse_union<T>(&self, node_id: NodeId) -> UnionParser<'_, T> {
-        UnionParser::new(self, node_id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::document::EureDocument;
     use crate::document::node::NodeValue;
     use crate::text::Text;
     use crate::value::PrimitiveValue;
@@ -247,27 +289,29 @@ mod tests {
     fn test_union_single_match() {
         let doc = create_text_doc("foo");
         let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
 
-        let result: TestEnum = doc
-            .parse_union(root_id)
-            .variant("foo", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
+        let result: TestEnum = ctx
+            .parse_union()
+            .unwrap()
+            .variant("foo", |ctx| {
+                let s: &str = ctx.parse()?;
                 if s == "foo" {
                     Ok(TestEnum::Foo)
                 } else {
                     Err(ParseError {
-                        node_id: id,
+                        node_id: ctx.node_id(),
                         kind: ParseErrorKind::UnknownVariant(s.to_string()),
                     })
                 }
             })
-            .variant("bar", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
+            .variant("bar", |ctx| {
+                let s: &str = ctx.parse()?;
                 if s == "bar" {
                     Ok(TestEnum::Bar)
                 } else {
                     Err(ParseError {
-                        node_id: id,
+                        node_id: ctx.node_id(),
                         kind: ParseErrorKind::UnknownVariant(s.to_string()),
                     })
                 }
@@ -282,12 +326,14 @@ mod tests {
     fn test_union_priority_short_circuit() {
         let doc = create_text_doc("value");
         let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
 
         // Both variants would match, but first one wins due to priority
-        let result: String = doc
-            .parse_union(root_id)
-            .variant("first", |doc: &EureDocument, id| doc.parse::<String>(id))
-            .variant("second", |doc: &EureDocument, id| doc.parse::<String>(id))
+        let result: String = ctx
+            .parse_union()
+            .unwrap()
+            .variant("first", |ctx| ctx.parse::<String>())
+            .variant("second", |ctx| ctx.parse::<String>())
             .parse()
             .unwrap();
 
@@ -298,16 +344,18 @@ mod tests {
     fn test_union_no_match() {
         let doc = create_text_doc("baz");
         let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
 
-        let result: Result<TestEnum, _> = doc
-            .parse_union(root_id)
-            .variant("foo", |doc: &EureDocument, id| {
-                let s: &str = doc.parse(id)?;
+        let result: Result<TestEnum, _> = ctx
+            .parse_union()
+            .unwrap()
+            .variant("foo", |ctx| {
+                let s: &str = ctx.parse()?;
                 if s == "foo" {
                     Ok(TestEnum::Foo)
                 } else {
                     Err(ParseError {
-                        node_id: id,
+                        node_id: ctx.node_id(),
                         kind: ParseErrorKind::UnknownVariant(s.to_string()),
                     })
                 }
@@ -315,43 +363,6 @@ mod tests {
             .parse();
 
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_union_with_borrowed_str_fn_pointer() {
-        // 関数ポインタで &str を返す
-        fn parse_str(doc: &EureDocument, id: NodeId) -> Result<&str, ParseError> {
-            doc.parse(id)
-        }
-
-        let doc = create_text_doc("hello");
-        let root_id = doc.get_root_id();
-
-        let result: &str = doc
-            .parse_union(root_id)
-            .variant("str", parse_str)
-            .parse()
-            .unwrap();
-
-        assert_eq!(result, "hello");
-    }
-
-    #[test]
-    fn test_union_with_borrowed_str_closure() {
-        // クロージャで &str を返す (型注釈で関数ポインタに coerce)
-        let doc = create_text_doc("world");
-        let root_id = doc.get_root_id();
-
-        let result: &str = doc
-            .parse_union(root_id)
-            .variant(
-                "str",
-                (|doc, id| doc.parse(id)) as fn(&EureDocument, NodeId) -> Result<&str, ParseError>,
-            )
-            .parse()
-            .unwrap();
-
-        assert_eq!(result, "world");
     }
 
     // --- $variant extension tests ---
@@ -362,11 +373,13 @@ mod tests {
         // All parsers always succeed
         let doc = create_doc_with_variant("anything", "baz");
         let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
 
-        let result: TestEnum = doc
-            .parse_union(root_id)
-            .variant("foo", |_, _| Ok(TestEnum::Foo))
-            .other("baz", |_, _| Ok(TestEnum::Bar))
+        let result: TestEnum = ctx
+            .parse_union()
+            .unwrap()
+            .variant("foo", |_| Ok(TestEnum::Foo))
+            .other("baz", |_| Ok(TestEnum::Bar))
             .parse()
             .unwrap();
 
@@ -379,11 +392,13 @@ mod tests {
         // All parsers always succeed
         let doc = create_doc_with_variant("anything", "unknown");
         let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
 
-        let err = doc
-            .parse_union::<TestEnum>(root_id)
-            .variant("foo", |_, _| Ok(TestEnum::Foo))
-            .other("baz", |_, _| Ok(TestEnum::Bar))
+        let err = ctx
+            .parse_union::<TestEnum>()
+            .unwrap()
+            .variant("foo", |_| Ok(TestEnum::Foo))
+            .other("baz", |_| Ok(TestEnum::Bar))
             .parse()
             .unwrap_err();
 
@@ -399,13 +414,15 @@ mod tests {
         // $variant = "baz" specified, "baz" parser fails
         let doc = create_doc_with_variant("anything", "baz");
         let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
 
-        let err = doc
-            .parse_union::<TestEnum>(root_id)
-            .variant("foo", |_, _| Ok(TestEnum::Foo))
-            .other("baz", |_, id| {
+        let err = ctx
+            .parse_union::<TestEnum>()
+            .unwrap()
+            .variant("foo", |_| Ok(TestEnum::Foo))
+            .other("baz", |ctx| {
                 Err(ParseError {
-                    node_id: id,
+                    node_id: ctx.node_id(),
                     kind: ParseErrorKind::MissingField("test".to_string()),
                 })
             })
@@ -415,5 +432,202 @@ mod tests {
         // Parser's error is returned directly
         assert_eq!(err.node_id, root_id);
         assert_eq!(err.kind, ParseErrorKind::MissingField("test".to_string()));
+    }
+
+    // --- nested variant tests ---
+
+    #[derive(Debug, PartialEq)]
+    enum Outer {
+        A(Inner),
+        B(i32),
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum Inner {
+        X,
+        Y,
+    }
+
+    fn parse_inner(ctx: &ParseContext<'_>) -> Result<Inner, ParseError> {
+        ctx.parse_union()
+            .unwrap()
+            .variant("x", |_| Ok(Inner::X))
+            .variant("y", |_| Ok(Inner::Y))
+            .parse()
+    }
+
+    #[test]
+    fn test_variant_nested_single_segment() {
+        // $variant = "a" - matches "a", rest is None -> Inner defaults to X
+        let doc = create_doc_with_variant("value", "a");
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let result: Outer = ctx
+            .parse_union()
+            .unwrap()
+            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
+            .variant("b", |_| Ok(Outer::B(42)))
+            .parse()
+            .unwrap();
+
+        assert_eq!(result, Outer::A(Inner::X));
+    }
+
+    #[test]
+    fn test_variant_nested_multi_segment() {
+        // $variant = "a.y" - matches "a", rest is Some("y")
+        let doc = create_doc_with_variant("value", "a.y");
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let result: Outer = ctx
+            .parse_union()
+            .unwrap()
+            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
+            .variant("b", |_| Ok(Outer::B(42)))
+            .parse()
+            .unwrap();
+
+        assert_eq!(result, Outer::A(Inner::Y));
+    }
+
+    #[test]
+    fn test_variant_nested_invalid_inner() {
+        // $variant = "a.z" - matches "a", but "z" is not valid for Inner
+        let doc = create_doc_with_variant("value", "a.z");
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let err = ctx
+            .parse_union::<Outer>()
+            .unwrap()
+            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
+            .variant("b", |_| Ok(Outer::B(42)))
+            .parse()
+            .unwrap_err();
+
+        assert_eq!(err.kind, ParseErrorKind::UnknownVariant("z".to_string()));
+    }
+
+    #[test]
+    fn test_variant_non_nested_with_nested_path() {
+        // $variant = "b.x" but "b" parser doesn't expect nested path
+        // The child context will have variant_path = Some("x")
+        // If the "b" parser is a non-union type, it should error on unexpected variant path
+        let doc = create_doc_with_variant("value", "b.x");
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        // "b" is registered as a variant but if called with "b.x",
+        // the closure gets ctx with variant_path = Some("x")
+        // The simple parser Ok(Outer::B(42)) doesn't check variant path,
+        // but a proper impl would use ctx.parse_primitive() which errors
+        let err = ctx
+            .parse_union::<Outer>()
+            .unwrap()
+            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
+            .variant("b", |ctx| {
+                // Simulate parsing a primitive that checks variant path
+                ctx.parse_primitive()?;
+                Ok(Outer::B(42))
+            })
+            .parse()
+            .unwrap_err();
+
+        // parse_primitive should error because variant path "x" remains
+        assert!(matches!(err.kind, ParseErrorKind::UnexpectedVariantPath(_)));
+    }
+
+    // --- invalid $variant tests ---
+
+    use crate::value::ValueKind;
+
+    /// Create a document with $variant set to an integer (invalid type).
+    /// Returns (doc, variant_node_id) for error assertion.
+    fn create_doc_with_integer_variant(
+        content: &str,
+        variant_value: i64,
+    ) -> (EureDocument, crate::document::NodeId) {
+        use num_bigint::BigInt;
+
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Set content
+        doc.node_mut(root_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(content.to_string())));
+
+        // Add $variant extension with integer value (invalid!)
+        let variant_node_id = doc
+            .add_extension(identifier("variant"), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(variant_node_id).content =
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(variant_value)));
+
+        (doc, variant_node_id)
+    }
+
+    /// Create a document with $variant extension.
+    /// Returns (doc, variant_node_id) for error assertion.
+    fn create_doc_with_variant_ext(
+        content: &str,
+        variant: &str,
+    ) -> (EureDocument, crate::document::NodeId) {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+
+        // Set content
+        doc.node_mut(root_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(content.to_string())));
+
+        // Add $variant extension
+        let variant_node_id = doc
+            .add_extension(identifier("variant"), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(variant_node_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(variant.to_string())));
+
+        (doc, variant_node_id)
+    }
+
+    #[test]
+    fn test_invalid_variant_type_errors() {
+        // $variant = 123 (integer, not string) - should error at parse_union()
+        let (doc, variant_node_id) = create_doc_with_integer_variant("foo", 123);
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let Err(err) = ctx.parse_union::<TestEnum>() else {
+            panic!("Expected error");
+        };
+        assert_eq!(
+            err,
+            ParseError {
+                node_id: variant_node_id,
+                kind: ParseErrorKind::InvalidVariantType(ValueKind::Integer),
+            }
+        );
+    }
+
+    #[test]
+    fn test_invalid_variant_path_syntax_errors() {
+        // $variant = "foo..bar" (invalid path syntax) - should error at parse_union()
+        let (doc, variant_node_id) = create_doc_with_variant_ext("foo", "foo..bar");
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let Err(err) = ctx.parse_union::<TestEnum>() else {
+            panic!("Expected error");
+        };
+        assert_eq!(
+            err,
+            ParseError {
+                node_id: variant_node_id,
+                kind: ParseErrorKind::InvalidVariantPath("foo..bar".to_string()),
+            }
+        );
     }
 }

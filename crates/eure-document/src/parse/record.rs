@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::document::node::NodeMap;
 use crate::prelude_internal::*;
 
-use super::{ParseDocument, ParseError, ParseErrorKind};
+use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
 
 /// Helper for parsing record (map with string keys) from Eure documents.
 ///
@@ -17,9 +17,9 @@ use super::{ParseDocument, ParseError, ParseErrorKind};
 /// # Example
 ///
 /// ```ignore
-/// impl ParseDocument<'_> for User {
-///     fn parse(doc: &EureDocument, node_id: NodeId) -> Result<Self, ParseError> {
-///         let mut rec = doc.parse_record(node_id)?;
+/// impl<'doc> ParseDocument<'doc> for User {
+///     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+///         let mut rec = ctx.parse_record()?;
 ///         let name = rec.field::<String>("name")?;
 ///         let age = rec.field_optional::<u32>("age")?;
 ///         rec.deny_unknown_fields()?;
@@ -35,13 +35,38 @@ pub struct RecordParser<'doc> {
 }
 
 impl<'doc> RecordParser<'doc> {
-    /// Create a new RecordParser for the given node.
-    pub(crate) fn new(doc: &'doc EureDocument, node_id: NodeId, map: &'doc NodeMap) -> Self {
-        Self {
-            doc,
-            node_id,
-            map,
-            accessed: HashSet::new(),
+    /// Create a new RecordParser for the given context.
+    pub(crate) fn new(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        Self::from_doc_and_node(ctx.doc(), ctx.node_id())
+    }
+
+    /// Create a new RecordParser from document and node ID directly.
+    pub(crate) fn from_doc_and_node(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+    ) -> Result<Self, ParseError> {
+        let node = doc.node(node_id);
+        match &node.content {
+            NodeValue::Map(map) => Ok(Self {
+                doc,
+                node_id,
+                map,
+                accessed: HashSet::new(),
+            }),
+            NodeValue::Hole(_) => Err(ParseError {
+                node_id,
+                kind: ParseErrorKind::UnexpectedHole,
+            }),
+            value => Err(ParseError {
+                node_id,
+                kind: value
+                    .value_kind()
+                    .map(|actual| ParseErrorKind::TypeMismatch {
+                        expected: crate::value::ValueKind::Map,
+                        actual,
+                    })
+                    .unwrap_or(ParseErrorKind::UnexpectedHole),
+            }),
         }
     }
 
@@ -50,15 +75,10 @@ impl<'doc> RecordParser<'doc> {
         self.node_id
     }
 
-    /// Get a reference to the document being parsed.
-    pub fn doc(&self) -> &'doc EureDocument {
-        self.doc
-    }
-
     /// Get a required field.
     ///
     /// Returns `ParseErrorKind::MissingField` if the field is not present.
-    pub fn field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
+    pub fn parse_field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         self.accessed.insert(name.to_string());
         let field_node_id = self
             .map
@@ -67,42 +87,84 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        T::parse(self.doc, field_node_id)
+        let ctx = ParseContext::new(self.doc, field_node_id);
+        T::parse(&ctx)
     }
 
     /// Get an optional field.
     ///
     /// Returns `Ok(None)` if the field is not present.
-    pub fn field_optional<T: ParseDocument<'doc>>(
+    pub fn parse_field_optional<T: ParseDocument<'doc>>(
         &mut self,
         name: &str,
     ) -> Result<Option<T>, ParseError> {
         self.accessed.insert(name.to_string());
         match self.map.get(&ObjectKey::String(name.to_string())) {
-            Some(field_node_id) => Ok(Some(T::parse(self.doc, field_node_id)?)),
+            Some(field_node_id) => {
+                let ctx = ParseContext::new(self.doc, field_node_id);
+                Ok(Some(T::parse(&ctx)?))
+            }
             None => Ok(None),
         }
     }
 
-    /// Get the NodeId for a field (for manual handling).
+    /// Get the parse context for a field without parsing it.
     ///
+    /// Use this when you need access to the field's NodeId or want to defer parsing.
     /// Returns `ParseErrorKind::MissingField` if the field is not present.
-    pub fn field_node(&mut self, name: &str) -> Result<NodeId, ParseError> {
+    pub fn field(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
         self.accessed.insert(name.to_string());
-        self.map
+        let field_node_id = self
+            .map
             .get(&ObjectKey::String(name.to_string()))
             .ok_or_else(|| ParseError {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
-            })
+            })?;
+        Ok(ParseContext::new(self.doc, field_node_id))
     }
 
-    /// Get the NodeId for an optional field.
+    /// Get the parse context for an optional field without parsing it.
     ///
+    /// Use this when you need access to the field's NodeId or want to defer parsing.
     /// Returns `None` if the field is not present.
-    pub fn field_node_optional(&mut self, name: &str) -> Option<NodeId> {
+    pub fn field_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
         self.accessed.insert(name.to_string());
-        self.map.get(&ObjectKey::String(name.to_string()))
+        self.map
+            .get(&ObjectKey::String(name.to_string()))
+            .map(|node_id| ParseContext::new(self.doc, node_id))
+    }
+
+    /// Get a field as a nested record parser.
+    ///
+    /// Returns `ParseErrorKind::MissingField` if the field is not present.
+    pub fn field_record(&mut self, name: &str) -> Result<RecordParser<'doc>, ParseError> {
+        self.accessed.insert(name.to_string());
+        let field_node_id = self
+            .map
+            .get(&ObjectKey::String(name.to_string()))
+            .ok_or_else(|| ParseError {
+                node_id: self.node_id,
+                kind: ParseErrorKind::MissingField(name.to_string()),
+            })?;
+        RecordParser::from_doc_and_node(self.doc, field_node_id)
+    }
+
+    /// Get an optional field as a nested record parser.
+    ///
+    /// Returns `Ok(None)` if the field is not present.
+    pub fn field_record_optional(
+        &mut self,
+        name: &str,
+    ) -> Result<Option<RecordParser<'doc>>, ParseError> {
+        self.accessed.insert(name.to_string());
+        match self.map.get(&ObjectKey::String(name.to_string())) {
+            Some(field_node_id) => Ok(Some(RecordParser::from_doc_and_node(
+                self.doc,
+                field_node_id,
+            )?)),
+            None => Ok(None),
+        }
     }
 
     /// Finish parsing with Deny policy (error if unknown fields exist).
@@ -151,13 +213,14 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get an iterator over unknown fields (for Schema policy or custom handling).
     ///
-    /// Returns (field_name, node_id) pairs for fields that haven't been accessed.
-    pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, NodeId)> + '_ {
-        self.map.iter().filter_map(|(key, &node_id)| {
+    /// Returns (field_name, context) pairs for fields that haven't been accessed.
+    pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, ParseContext<'doc>)> + '_ {
+        let doc = self.doc;
+        self.map.iter().filter_map(move |(key, &node_id)| {
             if let ObjectKey::String(name) = key
                 && !self.accessed.contains(name.as_str())
             {
-                return Some((name.as_str(), node_id));
+                return Some((name.as_str(), ParseContext::new(doc, node_id)));
             }
             None
         })
@@ -171,10 +234,10 @@ impl<'doc> RecordParser<'doc> {
 /// # Example
 ///
 /// ```ignore
-/// let mut ext = doc.parse_extension(node_id);
-/// let optional = ext.field_optional::<bool>("optional")?;
-/// let binding_style = ext.field_optional::<BindingStyle>("binding-style")?;
-/// ext.allow_unknown_fields()?;
+/// let mut ext = ctx.parse_extension();
+/// let optional = ext.ext_optional::<bool>("optional")?;
+/// let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
+/// ext.allow_unknown_extensions();
 /// ```
 pub struct ExtParser<'doc> {
     doc: &'doc EureDocument,
@@ -206,7 +269,7 @@ impl<'doc> ExtParser<'doc> {
     /// Get a required extension field.
     ///
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
-    pub fn ext<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
+    pub fn parse_ext<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -216,13 +279,14 @@ impl<'doc> ExtParser<'doc> {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingExtension(name.to_string()),
         })?;
-        T::parse(self.doc, *ext_node_id)
+        let ctx = ParseContext::new(self.doc, *ext_node_id);
+        T::parse(&ctx)
     }
 
     /// Get an optional extension field.
     ///
     /// Returns `Ok(None)` if the extension is not present.
-    pub fn ext_optional<T: ParseDocument<'doc>>(
+    pub fn parse_ext_optional<T: ParseDocument<'doc>>(
         &mut self,
         name: &str,
     ) -> Result<Option<T>, ParseError> {
@@ -232,36 +296,45 @@ impl<'doc> ExtParser<'doc> {
         })?;
         self.accessed.insert(ident.clone());
         match self.extensions.get(&ident) {
-            Some(ext_node_id) => Ok(Some(T::parse(self.doc, *ext_node_id)?)),
+            Some(ext_node_id) => {
+                let ctx = ParseContext::new(self.doc, *ext_node_id);
+                Ok(Some(T::parse(&ctx)?))
+            }
             None => Ok(None),
         }
     }
 
-    /// Get the NodeId for an extension field (for manual handling).
+    /// Get the parse context for an extension field without parsing it.
     ///
+    /// Use this when you need access to the extension's NodeId or want to defer parsing.
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
-    pub fn ext_node(&mut self, name: &str) -> Result<NodeId, ParseError> {
+    pub fn ext(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
         })?;
         self.accessed.insert(ident.clone());
-        self.extensions
+        let ext_node_id = self
+            .extensions
             .get(&ident)
             .copied()
             .ok_or_else(|| ParseError {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingExtension(name.to_string()),
-            })
+            })?;
+        Ok(ParseContext::new(self.doc, ext_node_id))
     }
 
-    /// Get the NodeId for an optional extension field.
+    /// Get the parse context for an optional extension field without parsing it.
     ///
+    /// Use this when you need access to the extension's NodeId or want to defer parsing.
     /// Returns `None` if the extension is not present.
-    pub fn ext_node_optional(&mut self, name: &str) -> Option<NodeId> {
+    pub fn ext_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
         let ident: Identifier = name.parse().ok()?;
         self.accessed.insert(ident.clone());
-        self.extensions.get(&ident).copied()
+        self.extensions
+            .get(&ident)
+            .map(|&node_id| ParseContext::new(self.doc, node_id))
     }
 
     /// Finish parsing with Deny policy (error if unknown extensions exist).
@@ -284,47 +357,18 @@ impl<'doc> ExtParser<'doc> {
 
     /// Get an iterator over unknown extensions (for custom handling).
     ///
-    /// Returns (identifier, node_id) pairs for extensions that haven't been accessed.
-    pub fn unknown_extensions(&self) -> impl Iterator<Item = (&'doc Identifier, NodeId)> + '_ {
-        self.extensions.iter().filter_map(|(ident, node_id)| {
+    /// Returns (identifier, context) pairs for extensions that haven't been accessed.
+    pub fn unknown_extensions(
+        &self,
+    ) -> impl Iterator<Item = (&'doc Identifier, ParseContext<'doc>)> + '_ {
+        let doc = self.doc;
+        self.extensions.iter().filter_map(move |(ident, &node_id)| {
             if !self.accessed.contains(ident) {
-                Some((ident, *node_id))
+                Some((ident, ParseContext::new(doc, node_id)))
             } else {
                 None
             }
         })
-    }
-}
-
-impl EureDocument {
-    /// Get a RecordParser for parsing a record (map with string keys).
-    ///
-    /// Returns `ParseError` if the node is not a map.
-    pub fn parse_record(&self, node_id: NodeId) -> Result<RecordParser<'_>, ParseError> {
-        let node = self.node(node_id);
-        match &node.content {
-            NodeValue::Map(map) => Ok(RecordParser::new(self, node_id, map)),
-            NodeValue::Hole(_) => Err(ParseError {
-                node_id,
-                kind: ParseErrorKind::UnexpectedHole,
-            }),
-            value => Err(ParseError {
-                node_id,
-                kind: value
-                    .value_kind()
-                    .map(|actual| ParseErrorKind::TypeMismatch {
-                        expected: crate::value::ValueKind::Map,
-                        actual,
-                    })
-                    .unwrap_or(ParseErrorKind::UnexpectedHole),
-            }),
-        }
-    }
-
-    /// Get an ExtParser for parsing extension types on a node.
-    pub fn parse_extension(&self, node_id: NodeId) -> ExtParser<'_> {
-        let node = self.node(node_id);
-        ExtParser::new(self, node_id, &node.extensions)
     }
 }
 
@@ -360,7 +404,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let name: String = rec.field("name").unwrap();
+        let name: String = rec.parse_field("name").unwrap();
         assert_eq!(name, "Alice");
     }
 
@@ -369,7 +413,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let result: Result<String, _> = rec.field("nonexistent");
+        let result: Result<String, _> = rec.parse_field("nonexistent");
         assert!(matches!(
             result.unwrap_err().kind,
             ParseErrorKind::MissingField(_)
@@ -381,10 +425,10 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let name: Option<String> = rec.field_optional("name").unwrap();
+        let name: Option<String> = rec.parse_field_optional("name").unwrap();
         assert_eq!(name, Some("Alice".to_string()));
 
-        let missing: Option<String> = rec.field_optional("nonexistent").unwrap();
+        let missing: Option<String> = rec.parse_field_optional("nonexistent").unwrap();
         assert_eq!(missing, None);
     }
 
@@ -393,7 +437,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
         // Didn't access "age", so deny should fail
         let result = rec.deny_unknown_fields();
         assert!(matches!(
@@ -407,8 +451,8 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
-        let _age: num_bigint::BigInt = rec.field("age").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
+        let _age: num_bigint::BigInt = rec.parse_field("age").unwrap();
         // Accessed all fields, should succeed
         rec.deny_unknown_fields().unwrap();
     }
@@ -418,7 +462,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
         // Didn't access "age", but allow should succeed
         rec.allow_unknown_fields().unwrap();
     }
@@ -428,7 +472,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
         // "age" should be in unknown fields
         let unknown: Vec<_> = rec.unknown_fields().collect();
         assert_eq!(unknown.len(), 1);
@@ -506,7 +550,7 @@ mod tests {
         doc.node_mut(ext_id).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
 
         let mut ext = doc.parse_extension(root_id);
-        let optional: bool = ext.ext("optional").unwrap();
+        let optional: bool = ext.parse_ext("optional").unwrap();
         assert!(optional);
     }
 
@@ -516,7 +560,7 @@ mod tests {
         let root_id = doc.get_root_id();
 
         let mut ext = doc.parse_extension(root_id);
-        let optional: Option<bool> = ext.ext_optional("optional").unwrap();
+        let optional: Option<bool> = ext.parse_ext_optional("optional").unwrap();
         assert_eq!(optional, None);
     }
 }
