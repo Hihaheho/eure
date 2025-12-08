@@ -66,11 +66,9 @@ fn validation_error_to_span(
     let (node_id, _schema_node_id) = error.node_ids();
 
     // Try to get span from node_id via origin map
-    let span = node_id.and_then(|nid| {
-        origins
-            .get(&nid)
-            .and_then(|origins_list| origins_list.first().and_then(|origin| origin.get_span(cst)))
-    });
+    let span = origins
+        .get(&node_id)
+        .and_then(|origins_list| origins_list.first().and_then(|origin| origin.get_span(cst)));
 
     match span {
         Some(s) => ErrorSpan {

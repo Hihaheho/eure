@@ -1,5 +1,6 @@
 pub mod document;
 pub mod error;
+pub mod report;
 pub mod tree;
 pub mod value;
 

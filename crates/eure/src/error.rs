@@ -1,110 +1,19 @@
 //! Error formatting utilities for Eure.
+//!
+//! This module provides backward-compatible functions that use the new
+//! `report` module internally.
 
-use annotate_snippets::{AnnotationKind, Group, Level, Renderer, Snippet};
 use eure_parol::EureParseError;
-use eure_parol::error::ParseErrorEntry;
-use eure_schema::SchemaNodeId;
 use eure_schema::convert::SchemaSourceMap;
 use eure_schema::validate::ValidationError;
 use eure_tree::prelude::Cst;
 
 use crate::document::{DocumentConstructionError, NodeOriginMap};
-
-/// Format a parse error with source context using annotate-snippets.
-///
-/// # Arguments
-/// * `error` - The parse error to format
-/// * `input` - The source input that was being parsed
-/// * `path` - The file path (for display purposes)
-///
-/// # Returns
-/// A formatted error string suitable for terminal output
-pub fn format_parse_error_color(error: &EureParseError, input: &str, path: &str) -> String {
-    let mut reports = Vec::new();
-
-    for entry in &error.entries {
-        format_entry_recursive(entry, input, path, &mut reports);
-    }
-
-    if reports.is_empty() {
-        return String::new();
-    }
-
-    Renderer::styled().render(&reports).to_string()
-}
-
-pub fn format_parse_error_plain(error: &EureParseError, input: &str, path: &str) -> String {
-    let mut reports = Vec::new();
-
-    for entry in &error.entries {
-        format_entry_recursive(entry, input, path, &mut reports);
-    }
-
-    Renderer::plain().render(&reports).to_string()
-}
-
-/// Format a document construction error with source context using annotate-snippets.
-///
-/// # Arguments
-/// * `error` - The document construction error to format
-/// * `input` - The source input that was being parsed
-/// * `path` - The file path (for display purposes)
-/// * `cst` - The CST for span resolution
-///
-/// # Returns
-/// A formatted error string suitable for terminal output
-pub fn format_document_error(
-    error: &DocumentConstructionError,
-    input: &str,
-    path: &str,
-    cst: &Cst,
-) -> String {
-    let error_message = error.to_string();
-    let span = error.span(cst);
-
-    match span {
-        Some(span) => {
-            let report = Level::ERROR.primary_title(&error_message).element(
-                Snippet::source(input).line_start(1).path(path).annotation(
-                    AnnotationKind::Primary
-                        .span(span.start as usize..span.end as usize)
-                        .label(&error_message),
-                ),
-            );
-            Renderer::styled().render(&[report]).to_string()
-        }
-        None => format!("error: {}\n", error_message),
-    }
-}
-
-/// Format a single parse error entry and its nested source errors recursively.
-fn format_entry_recursive<'a>(
-    entry: &'a ParseErrorEntry,
-    input: &'a str,
-    path: &'a str,
-    reports: &mut Vec<Group<'a>>,
-) {
-    // Use the entire input as span if none is provided
-    let span_range = entry
-        .span
-        .map(|s| s.start as usize..s.end as usize)
-        .unwrap_or(0..input.len());
-
-    let report = Level::ERROR.primary_title(&entry.message).element(
-        Snippet::source(input).line_start(1).path(path).annotation(
-            AnnotationKind::Primary
-                .span(span_range)
-                .label(&entry.message),
-        ),
-    );
-
-    reports.push(report);
-
-    // Recursively process nested source errors
-    for source_entry in &entry.source {
-        format_entry_recursive(source_entry, input, path, reports);
-    }
-}
+use crate::report::{
+    DocumentReportContext, FileRegistry, SchemaReportContext, format_error_report,
+    format_error_reports, report_document_error_simple, report_parse_error,
+    report_schema_validation_errors,
+};
 
 /// Context for formatting schema validation errors with source spans.
 ///
@@ -131,34 +40,41 @@ pub struct SchemaErrorContext<'a> {
     pub schema_source_map: &'a SchemaSourceMap,
 }
 
+/// Format a parse error with source context using annotate-snippets.
+pub fn format_parse_error_color(error: &EureParseError, input: &str, path: &str) -> String {
+    let mut files = FileRegistry::new();
+    let file_id = files.register(path, input);
+    let reports = report_parse_error(error, file_id);
+    format_error_reports(&reports, &files, true)
+}
+
+/// Format a parse error with source context (plain text, no colors).
+pub fn format_parse_error_plain(error: &EureParseError, input: &str, path: &str) -> String {
+    let mut files = FileRegistry::new();
+    let file_id = files.register(path, input);
+    let reports = report_parse_error(error, file_id);
+    format_error_reports(&reports, &files, false)
+}
+
+/// Format a document construction error with source context using annotate-snippets.
+pub fn format_document_error(
+    error: &DocumentConstructionError,
+    input: &str,
+    path: &str,
+    cst: &Cst,
+) -> String {
+    let mut files = FileRegistry::new();
+    let file_id = files.register(path, input);
+    let report = report_document_error_simple(error, file_id, cst);
+    format_error_report(&report, &files, true)
+}
+
 /// Format a schema validation error with annotated source locations (with colors).
-///
-/// Shows both:
-/// - The document location where the error occurred (primary)
-/// - The schema location where the constraint is defined (secondary)
-///
-/// # Arguments
-/// * `error` - The validation error to format
-/// * `context` - Context containing source files, CSTs, and origin mappings
-///
-/// # Returns
-/// A formatted error string suitable for terminal output with ANSI colors
 pub fn format_schema_error(error: &ValidationError, context: &SchemaErrorContext<'_>) -> String {
     format_schema_error_impl(error, context, true)
 }
 
 /// Format a schema validation error with annotated source locations (plain text).
-///
-/// Shows both:
-/// - The document location where the error occurred (primary)
-/// - The schema location where the constraint is defined (secondary)
-///
-/// # Arguments
-/// * `error` - The validation error to format
-/// * `context` - Context containing source files, CSTs, and origin mappings
-///
-/// # Returns
-/// A formatted error string suitable for plain text output (no ANSI colors)
 pub fn format_schema_error_plain(
     error: &ValidationError,
     context: &SchemaErrorContext<'_>,
@@ -166,106 +82,27 @@ pub fn format_schema_error_plain(
     format_schema_error_impl(error, context, false)
 }
 
-/// Internal implementation of schema error formatting.
 fn format_schema_error_impl(
     error: &ValidationError,
     context: &SchemaErrorContext<'_>,
     styled: bool,
 ) -> String {
-    let (doc_node_id, schema_node_id) = error.node_ids();
-    let error_message = error.to_string();
+    let mut files = FileRegistry::new();
+    let doc_file_id = files.register(context.doc_path, context.doc_source);
+    let schema_file_id = files.register(context.schema_path, context.schema_source);
 
-    // Try to get document span
-    let doc_span = doc_node_id.and_then(|node_id| {
-        context
-            .doc_origins
-            .get(&node_id)
-            .and_then(|origins| origins.first().and_then(|o| o.get_span(context.doc_cst)))
-    });
-
-    // Try to get schema span
-    let schema_span = schema_node_id.and_then(|id| resolve_schema_span(id, context));
-
-    let renderer = if styled {
-        Renderer::styled()
-    } else {
-        Renderer::plain()
+    let report_ctx = SchemaReportContext {
+        doc: DocumentReportContext {
+            file: doc_file_id,
+            cst: context.doc_cst,
+            origins: context.doc_origins,
+        },
+        schema_file: schema_file_id,
+        schema_cst: context.schema_cst,
+        schema_origins: context.schema_origins,
+        schema_source_map: context.schema_source_map,
     };
 
-    // Build report based on what spans are available
-    match (doc_span, schema_span) {
-        (Some(doc_span), Some(schema_span)) => {
-            // Both spans available - show both
-            let report = Level::ERROR.primary_title(&error_message).element(
-                Snippet::source(context.doc_source)
-                    .line_start(1)
-                    .path(context.doc_path)
-                    .annotation(
-                        AnnotationKind::Primary
-                            .span(doc_span.start as usize..doc_span.end as usize)
-                            .label(&error_message),
-                    ),
-            );
-            let note = Level::NOTE
-                .primary_title("constraint defined here")
-                .element(
-                    Snippet::source(context.schema_source)
-                        .line_start(1)
-                        .path(context.schema_path)
-                        .annotation(
-                            AnnotationKind::Context
-                                .span(schema_span.start as usize..schema_span.end as usize)
-                                .label("constraint defined here"),
-                        ),
-                );
-            renderer.render(&[report, note]).to_string()
-        }
-        (Some(doc_span), None) => {
-            // Only document span
-            let report = Level::ERROR.primary_title(&error_message).element(
-                Snippet::source(context.doc_source)
-                    .line_start(1)
-                    .path(context.doc_path)
-                    .annotation(
-                        AnnotationKind::Primary
-                            .span(doc_span.start as usize..doc_span.end as usize)
-                            .label(&error_message),
-                    ),
-            );
-            renderer.render(&[report]).to_string()
-        }
-        (None, Some(schema_span)) => {
-            // Only schema span
-            let report = Level::ERROR.primary_title(&error_message).element(
-                Snippet::source(context.schema_source)
-                    .line_start(1)
-                    .path(context.schema_path)
-                    .annotation(
-                        AnnotationKind::Primary
-                            .span(schema_span.start as usize..schema_span.end as usize)
-                            .label(&error_message),
-                    ),
-            );
-            renderer.render(&[report]).to_string()
-        }
-        (None, None) => {
-            // No spans available - just format the error
-            format!("error: {}\n", error_message)
-        }
-    }
-}
-
-/// Resolve a schema node ID to an input span.
-///
-/// This goes through the chain: SchemaNodeId → NodeId → NodeOrigin → InputSpan
-fn resolve_schema_span(
-    schema_id: SchemaNodeId,
-    context: &SchemaErrorContext<'_>,
-) -> Option<eure_tree::tree::InputSpan> {
-    // SchemaNodeId → NodeId (from schema source map)
-    let doc_node_id = context.schema_source_map.get(&schema_id)?;
-    // NodeId → NodeOrigins
-    let origins = context.schema_origins.get(doc_node_id)?;
-    // NodeOrigin → InputSpan
-    origins.first().and_then(|o| o.get_span(context.schema_cst))
+    let reports = report_schema_validation_errors(std::slice::from_ref(error), &report_ctx);
+    format_error_reports(&reports, &files, styled)
 }

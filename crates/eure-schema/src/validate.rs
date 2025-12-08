@@ -53,8 +53,8 @@ use thiserror::Error;
 /// }
 /// ```
 pub fn validate(document: &EureDocument, schema: &SchemaDocument) -> ValidationOutput {
-    let mut ctx = ValidationContext::new(document, schema);
     let root_id = document.get_root_id();
+    let mut ctx = ValidationContext::new(document, schema, root_id, schema.root);
     let _ = ctx.validate_node(root_id, schema.root);
     ctx.finish()
 }
@@ -66,7 +66,7 @@ pub fn validate_node(
     node_id: NodeId,
     schema_id: SchemaNodeId,
 ) -> ValidationOutput {
-    let mut ctx = ValidationContext::new(document, schema);
+    let mut ctx = ValidationContext::new(document, schema, node_id, schema_id);
     let _ = ctx.validate_node(node_id, schema_id);
     ctx.finish()
 }
@@ -98,21 +98,26 @@ pub struct ValidationContext<'a> {
     document: &'a EureDocument,
     path: EurePath,
     has_holes: bool,
-    current_node_id: Option<NodeId>,
-    current_schema_node_id: Option<SchemaNodeId>,
+    current_node_id: NodeId,
+    current_schema_node_id: SchemaNodeId,
     errors: Vec<ValidationError>,
     warnings: Vec<ValidationWarning>,
 }
 
 impl<'a> ValidationContext<'a> {
-    fn new(document: &'a EureDocument, schema: &'a SchemaDocument) -> Self {
+    fn new(
+        document: &'a EureDocument,
+        schema: &'a SchemaDocument,
+        root_node_id: NodeId,
+        root_schema_id: SchemaNodeId,
+    ) -> Self {
         Self {
             schema,
             document,
             path: EurePath::root(),
             has_holes: false,
-            current_node_id: None,
-            current_schema_node_id: None,
+            current_node_id: root_node_id,
+            current_schema_node_id: root_schema_id,
             errors: Vec::new(),
             warnings: Vec::new(),
         }
@@ -176,11 +181,11 @@ impl<'a> ValidationContext<'a> {
         }
     }
 
-    fn node_id(&self) -> Option<NodeId> {
+    fn node_id(&self) -> NodeId {
         self.current_node_id
     }
 
-    fn schema_node_id(&self) -> Option<SchemaNodeId> {
+    fn schema_node_id(&self) -> SchemaNodeId {
         self.current_schema_node_id
     }
 
@@ -214,8 +219,8 @@ impl<'a> ValidationContext<'a> {
 
     /// Validate a node against a schema node.
     fn validate_node(&mut self, node_id: NodeId, schema_id: SchemaNodeId) -> Result<(), ()> {
-        self.current_node_id = Some(node_id);
-        self.current_schema_node_id = Some(schema_id);
+        self.current_node_id = node_id;
+        self.current_schema_node_id = schema_id;
 
         let node = self.document.node(node_id);
 
@@ -519,7 +524,7 @@ impl<'a> ValidationContext<'a> {
     }
 
     fn validate_literal(&mut self, _node: &Node, expected: &EureDocument) -> Result<(), ()> {
-        let node_id = self.node_id().expect("node_id should be set");
+        let node_id = self.node_id();
         let actual = node_subtree_to_document(self.document, node_id);
         if actual != *expected {
             self.record_error(ValidationError::LiteralMismatch {
@@ -741,11 +746,11 @@ impl<'a> ValidationContext<'a> {
     fn validate_record(&mut self, node: &Node, schema: &RecordSchema) -> Result<(), ()> {
         // Save record-level node IDs for structure errors (missing fields, unknown fields)
         // before recursive validation calls overwrite current_node_id/current_schema_node_id
-        let record_node_id = self.current_node_id;
-        let record_schema_node_id = self.current_schema_node_id;
+        let record_node_id = self.node_id();
+        let record_schema_node_id = self.schema_node_id();
 
         // Use RecordParser from eure-document
-        let mut rec = match self.document.parse_record(self.current_node_id.unwrap()) {
+        let mut rec = match self.document.parse_record(record_node_id) {
             Ok(r) => r,
             Err(_) => {
                 self.record_error(ValidationError::TypeMismatch {
@@ -925,7 +930,7 @@ impl<'a> ValidationContext<'a> {
                 }
             }
 
-            let node_id = self.current_node_id.unwrap();
+            let node_id = self.current_node_id;
             self.validate_node(node_id, variant_schema_id)
         } else {
             self.record_error(ValidationError::InvalidVariantTag {
@@ -941,7 +946,7 @@ impl<'a> ValidationContext<'a> {
     fn validate_union_untagged(&mut self, _node: &Node, schema: &UnionSchema) -> Result<(), ()> {
         let priority_names: HashSet<_> = schema.priority.iter().flatten().cloned().collect();
 
-        let node_id = self.current_node_id.unwrap();
+        let node_id = self.current_node_id;
 
         // 1. Try priority variants first (first match wins)
         if let Some(priority) = &schema.priority {
@@ -1049,32 +1054,32 @@ pub enum ValidationError {
         expected: String,
         actual: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Missing required field '{field}' at path {path}")]
     MissingRequiredField {
         field: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Unknown field '{field}' at path {path}")]
     UnknownField {
         field: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Value {value} is out of range at path {path}")]
     OutOfRange {
         value: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("String length {length} is out of bounds at path {path}")]
@@ -1083,16 +1088,16 @@ pub enum ValidationError {
         min: Option<u32>,
         max: Option<u32>,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("String does not match pattern '{pattern}' at path {path}")]
     PatternMismatch {
         pattern: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Array length {length} is out of bounds at path {path}")]
@@ -1101,8 +1106,8 @@ pub enum ValidationError {
         min: Option<u32>,
         max: Option<u32>,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Map size {size} is out of bounds at path {path}")]
@@ -1111,8 +1116,8 @@ pub enum ValidationError {
         min: Option<u32>,
         max: Option<u32>,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Tuple length mismatch: expected {expected}, got {actual} at path {path}")]
@@ -1120,46 +1125,46 @@ pub enum ValidationError {
         expected: usize,
         actual: usize,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Array elements must be unique at path {path}")]
     ArrayNotUnique {
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Array must contain required element at path {path}")]
     ArrayMissingContains {
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("No variant matched for union at path {path}")]
     NoVariantMatched {
         path: String,
         variant_errors: Vec<(String, ValidationError)>,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Multiple variants matched for union at path {path}: {variants:?}")]
     AmbiguousUnion {
         path: String,
         variants: Vec<String>,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Invalid variant tag '{tag}' at path {path}")]
     InvalidVariantTag {
         tag: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Literal value mismatch at path {path}")]
@@ -1167,8 +1172,8 @@ pub enum ValidationError {
         expected: String,
         actual: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Language mismatch: expected {expected}, got {actual} at path {path}")]
@@ -1176,44 +1181,44 @@ pub enum ValidationError {
         expected: String,
         actual: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Invalid key type at path {path}")]
     InvalidKeyType {
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Integer not a multiple of {divisor} at path {path}")]
     NotMultipleOf {
         divisor: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Undefined type reference '{name}' at path {path}")]
     UndefinedTypeReference {
         name: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 
     #[error("Missing required extension '{extension}' at path {path}")]
     MissingRequiredExtension {
         extension: String,
         path: String,
-        node_id: Option<NodeId>,
-        schema_node_id: Option<SchemaNodeId>,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
     },
 }
 
 impl ValidationError {
-    pub fn node_ids(&self) -> (Option<NodeId>, Option<SchemaNodeId>) {
+    pub fn node_ids(&self) -> (NodeId, SchemaNodeId) {
         match self {
             Self::TypeMismatch {
                 node_id,
