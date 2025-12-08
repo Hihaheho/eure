@@ -761,7 +761,7 @@ impl<'a> ValidationContext<'a> {
 
         // Validate each field in schema
         for (field_name, field_schema) in &schema.properties {
-            match rec.field_ctx_optional(field_name) {
+            match rec.field_optional(field_name) {
                 Some(field_ctx) => {
                     // Check deprecated
                     let field_schema_node = self.schema.node(field_schema.schema);

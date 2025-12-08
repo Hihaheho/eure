@@ -77,23 +77,23 @@ impl ParseDocument<'_> for CaseData {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let input_eure = rec.field_optional::<Text>("input_eure")?;
-        let input_json = rec.field_optional::<Text>("input_json")?;
-        let normalized = rec.field_optional::<Text>("normalized")?;
-        let output_json = rec.field_optional::<Text>("output_json")?;
-        let schema = rec.field_optional::<Text>("schema")?;
+        let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
+        let input_json = rec.parse_field_optional::<Text>("input_json")?;
+        let normalized = rec.parse_field_optional::<Text>("normalized")?;
+        let output_json = rec.parse_field_optional::<Text>("output_json")?;
+        let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
-            .field_optional::<Vec<Text>>("schema_errors")?
+            .parse_field_optional::<Vec<Text>>("schema_errors")?
             .unwrap_or_default();
-        let output_json_schema = rec.field_optional::<Text>("output_json_schema")?;
+        let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
         let json_schema_errors = rec
-            .field_optional::<Vec<Text>>("json_schema_errors")?
+            .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
 
         // Editor-specific fields (consume but don't parse - not yet implemented)
         for field in IGNORED_FIELDS {
-            rec.field_ctx_optional(field);
+            rec.field_optional(field);
         }
 
         rec.deny_unknown_fields()?;
@@ -120,7 +120,7 @@ impl ParseDocument<'_> for CaseData {
 fn parse_unimplemented_field<'doc>(
     rec: &mut RecordParser<'doc>,
 ) -> Result<Option<String>, DocumentParseError> {
-    let field_ctx = match rec.field_ctx_optional("unimplemented") {
+    let field_ctx = match rec.field_optional("unimplemented") {
         Some(ctx) => ctx,
         None => return Ok(None),
     };
@@ -178,29 +178,29 @@ impl ParseDocument<'_> for CaseFile {
         let mut rec = ctx.parse_record()?;
 
         // Parse root-level fields as default case
-        let input_eure = rec.field_optional::<Text>("input_eure")?;
-        let input_json = rec.field_optional::<Text>("input_json")?;
-        let normalized = rec.field_optional::<Text>("normalized")?;
-        let output_json = rec.field_optional::<Text>("output_json")?;
-        let schema = rec.field_optional::<Text>("schema")?;
+        let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
+        let input_json = rec.parse_field_optional::<Text>("input_json")?;
+        let normalized = rec.parse_field_optional::<Text>("normalized")?;
+        let output_json = rec.parse_field_optional::<Text>("output_json")?;
+        let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
-            .field_optional::<Vec<Text>>("schema_errors")?
+            .parse_field_optional::<Vec<Text>>("schema_errors")?
             .unwrap_or_default();
-        let output_json_schema = rec.field_optional::<Text>("output_json_schema")?;
+        let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
         let json_schema_errors = rec
-            .field_optional::<Vec<Text>>("json_schema_errors")?
+            .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
 
         // Editor-specific fields (consume but don't parse - not yet implemented)
         for field in IGNORED_FIELDS {
-            rec.field_ctx_optional(field);
+            rec.field_optional(field);
         }
 
         // Parse named cases from "cases" section
         // Note: Some legacy test files use "cases[]" (array) instead of "cases.<name>" (map).
         // We only support the map format for named cases; arrays are ignored.
-        let named_cases = match rec.field_ctx_optional("cases") {
+        let named_cases = match rec.field_optional("cases") {
             Some(cases_ctx) => {
                 // Try to parse as Map<String, CaseData>. If it fails (e.g., it's an array),
                 // just return an empty map and let the tests handle unknown fields.

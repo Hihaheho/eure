@@ -43,7 +43,7 @@ impl ParseDocument<'_> for RootCodegen {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let type_name = rec.field_optional::<String>("type")?;
+        let type_name = rec.parse_field_optional::<String>("type")?;
 
         rec.deny_unknown_fields()?;
 
@@ -82,10 +82,12 @@ impl ParseDocument<'_> for CodegenDefaults {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let derive = rec.field_optional::<Vec<String>>("derive")?;
-        let ext_types_field_prefix = rec.field_optional::<String>("ext-types-field-prefix")?;
-        let ext_types_type_prefix = rec.field_optional::<String>("ext-types-type-prefix")?;
-        let document_node_id_field = rec.field_optional::<String>("document-node-id-field")?;
+        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
+        let ext_types_field_prefix =
+            rec.parse_field_optional::<String>("ext-types-field-prefix")?;
+        let ext_types_type_prefix = rec.parse_field_optional::<String>("ext-types-type-prefix")?;
+        let document_node_id_field =
+            rec.parse_field_optional::<String>("document-node-id-field")?;
 
         rec.deny_unknown_fields()?;
 
@@ -139,12 +141,12 @@ impl ParseDocument<'_> for UnionCodegen {
         let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
-        let type_name = rec.field_optional::<String>("type")?;
-        let derive = rec.field_optional::<Vec<String>>("derive")?;
+        let type_name = rec.parse_field_optional::<String>("type")?;
+        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
 
         // Parse union-specific fields
-        let variant_types = rec.field_optional::<bool>("variant-types")?;
-        let variant_types_suffix = rec.field_optional::<String>("variant-types-suffix")?;
+        let variant_types = rec.parse_field_optional::<bool>("variant-types")?;
+        let variant_types_suffix = rec.parse_field_optional::<String>("variant-types-suffix")?;
 
         rec.deny_unknown_fields()?;
 
@@ -191,8 +193,8 @@ impl ParseDocument<'_> for RecordCodegen {
         let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
-        let type_name = rec.field_optional::<String>("type")?;
-        let derive = rec.field_optional::<Vec<String>>("derive")?;
+        let type_name = rec.parse_field_optional::<String>("type")?;
+        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
 
         rec.deny_unknown_fields()?;
 
@@ -223,7 +225,7 @@ impl ParseDocument<'_> for FieldCodegen {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let name = rec.field_optional::<String>("name")?;
+        let name = rec.parse_field_optional::<String>("name")?;
 
         rec.deny_unknown_fields()?;
 
@@ -263,7 +265,7 @@ impl ParseDocument<'_> for CodegenStruct {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let fields = rec.field::<Vec<Identifier>>("fields")?;
+        let fields = rec.parse_field::<Vec<Identifier>>("fields")?;
 
         rec.deny_unknown_fields()?;
 
@@ -309,8 +311,8 @@ impl ParseDocument<'_> for CascadeExtTypeCodegen {
         let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
-        let type_name = rec.field_optional::<String>("type")?;
-        let derive = rec.field_optional::<Vec<String>>("derive")?;
+        let type_name = rec.parse_field_optional::<String>("type")?;
+        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
 
         // Parse cascade-ext-type-specific fields
         // Parse structs map manually since Identifier doesn't implement ParseObjectKey

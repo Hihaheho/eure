@@ -120,10 +120,10 @@ impl ParseDocument<'_> for TextSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let language = rec.field_optional::<String>("language")?;
-        let min_length = rec.field_optional::<u32>("min-length")?;
-        let max_length = rec.field_optional::<u32>("max-length")?;
-        let pattern_str = rec.field_optional::<String>("pattern")?;
+        let language = rec.parse_field_optional::<String>("language")?;
+        let min_length = rec.parse_field_optional::<u32>("min-length")?;
+        let max_length = rec.parse_field_optional::<u32>("max-length")?;
+        let pattern_str = rec.parse_field_optional::<String>("pattern")?;
 
         // Compile regex at parse time
         let pattern = pattern_str
@@ -157,7 +157,7 @@ impl ParseDocument<'_> for TextSchema {
 impl ParseDocument<'_> for crate::SchemaRef {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut ext = ctx.parse_extension();
-        let schema_ctx = ext.ext_ctx("schema")?;
+        let schema_ctx = ext.ext("schema")?;
         ext.allow_unknown_extensions();
 
         let path: String = schema_ctx.parse()?;
@@ -187,8 +187,8 @@ impl ParseDocument<'_> for ParsedIntegerSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let range = rec.field_optional::<String>("range")?;
-        let multiple_of = rec.field_optional::<BigInt>("multiple-of")?;
+        let range = rec.parse_field_optional::<String>("range")?;
+        let multiple_of = rec.parse_field_optional::<BigInt>("multiple-of")?;
 
         // Collect unknown fields for future extensions
         let unknown_fields: HashMap<String, NodeId> = rec
@@ -220,8 +220,8 @@ impl ParseDocument<'_> for ParsedFloatSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let range = rec.field_optional::<String>("range")?;
-        let multiple_of = rec.field_optional::<f64>("multiple-of")?;
+        let range = rec.parse_field_optional::<String>("range")?;
+        let multiple_of = rec.parse_field_optional::<f64>("multiple-of")?;
 
         // Collect unknown fields for future extensions
         let unknown_fields: HashMap<String, NodeId> = rec
@@ -261,11 +261,11 @@ impl ParseDocument<'_> for ParsedArraySchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let item = rec.field_ctx("item")?.node_id();
-        let min_length = rec.field_optional::<u32>("min-length")?;
-        let max_length = rec.field_optional::<u32>("max-length")?;
-        let unique = rec.field_optional::<bool>("unique")?.unwrap_or(false);
-        let contains = rec.field_ctx_optional("contains").map(|ctx| ctx.node_id());
+        let item = rec.field("item")?.node_id();
+        let min_length = rec.parse_field_optional::<u32>("min-length")?;
+        let max_length = rec.parse_field_optional::<u32>("max-length")?;
+        let unique = rec.parse_field_optional::<bool>("unique")?.unwrap_or(false);
+        let contains = rec.field_optional("contains").map(|ctx| ctx.node_id());
 
         // Collect unknown fields for future extensions
         let unknown_fields: HashMap<String, NodeId> = rec
@@ -276,7 +276,7 @@ impl ParseDocument<'_> for ParsedArraySchema {
 
         // Parse $ext-type.binding-style
         let mut ext = ctx.parse_extension();
-        let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
+        let binding_style = ext.parse_ext_optional::<BindingStyle>("binding-style")?;
         ext.allow_unknown_extensions();
 
         Ok(ParsedArraySchema {
@@ -310,10 +310,10 @@ impl ParseDocument<'_> for ParsedMapSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut rec = ctx.parse_record()?;
 
-        let key = rec.field_ctx("key")?.node_id();
-        let value = rec.field_ctx("value")?.node_id();
-        let min_size = rec.field_optional::<u32>("min-size")?;
-        let max_size = rec.field_optional::<u32>("max-size")?;
+        let key = rec.field("key")?.node_id();
+        let value = rec.field("value")?.node_id();
+        let min_size = rec.parse_field_optional::<u32>("min-size")?;
+        let max_size = rec.parse_field_optional::<u32>("max-size")?;
 
         // Collect unknown fields for future extensions
         let unknown_fields: HashMap<String, NodeId> = rec
@@ -347,8 +347,8 @@ impl ParseDocument<'_> for ParsedRecordFieldSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut ext = ctx.parse_extension();
 
-        let optional = ext.ext_optional::<bool>("optional")?.unwrap_or(false);
-        let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
+        let optional = ext.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
+        let binding_style = ext.parse_ext_optional::<BindingStyle>("binding-style")?;
 
         // Allow other extensions (description, deprecated, etc.)
         ext.allow_unknown_extensions();
@@ -412,7 +412,7 @@ impl ParseDocument<'_> for ParsedRecordSchema {
         // Parse $unknown-fields extension
         let mut ext = ctx.parse_extension();
         let unknown_fields = ext
-            .ext_optional::<ParsedUnknownFieldsPolicy>("unknown-fields")?
+            .parse_ext_optional::<ParsedUnknownFieldsPolicy>("unknown-fields")?
             .unwrap_or_default();
         ext.allow_unknown_extensions();
 
@@ -448,7 +448,7 @@ impl ParseDocument<'_> for ParsedTupleSchema {
         let mut rec = ctx.parse_record()?;
 
         // elements is an array of NodeIds
-        let elements_ctx = rec.field_ctx("elements")?;
+        let elements_ctx = rec.field("elements")?;
         let elements: Vec<NodeId> = {
             let array = elements_ctx.parse::<&eure_document::document::node::NodeArray>()?;
             array.iter().copied().collect()
@@ -463,7 +463,7 @@ impl ParseDocument<'_> for ParsedTupleSchema {
 
         // Parse $ext-type.binding-style
         let mut ext = ctx.parse_extension();
-        let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
+        let binding_style = ext.parse_ext_optional::<BindingStyle>("binding-style")?;
         ext.allow_unknown_extensions();
 
         Ok(ParsedTupleSchema {
@@ -491,7 +491,7 @@ impl ParseDocument<'_> for ParsedUnionSchema {
         let mut variants = HashMap::new();
 
         // Check for variants = { ... } field
-        if let Some(variants_ctx) = rec.field_ctx_optional("variants") {
+        if let Some(variants_ctx) = rec.field_optional("variants") {
             let variants_rec = variants_ctx.parse_record()?;
             for (name, var_ctx) in variants_rec.unknown_fields() {
                 variants.insert(name.to_string(), var_ctx.node_id());
@@ -499,13 +499,13 @@ impl ParseDocument<'_> for ParsedUnionSchema {
         }
 
         // Parse priority
-        let priority = rec.field_optional::<Vec<String>>("priority")?;
+        let priority = rec.parse_field_optional::<Vec<String>>("priority")?;
         rec.allow_unknown_fields()?;
 
         // Parse $variant-repr extension
         let mut ext = ctx.parse_extension();
         let repr = ext
-            .ext_optional::<VariantRepr>("variant-repr")?
+            .parse_ext_optional::<VariantRepr>("variant-repr")?
             .unwrap_or_default();
         ext.allow_unknown_extensions();
 
@@ -529,7 +529,7 @@ pub struct ParsedExtTypeSchema {
 impl ParseDocument<'_> for ParsedExtTypeSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut ext = ctx.parse_extension();
-        let optional = ext.ext_optional::<bool>("optional")?.unwrap_or(false);
+        let optional = ext.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
         ext.allow_unknown_extensions();
 
         Ok(ParsedExtTypeSchema {
@@ -557,10 +557,12 @@ impl ParsedSchemaMetadata {
     pub fn parse_from_extensions(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
         let mut ext = ctx.parse_extension();
 
-        let description = ext.ext_optional::<Description>("description")?;
-        let deprecated = ext.ext_optional::<bool>("deprecated")?.unwrap_or(false);
-        let default = ext.ext_ctx_optional("default").map(|ctx| ctx.node_id());
-        let examples = ext.ext_optional::<Vec<String>>("examples")?;
+        let description = ext.parse_ext_optional::<Description>("description")?;
+        let deprecated = ext
+            .parse_ext_optional::<bool>("deprecated")?
+            .unwrap_or(false);
+        let default = ext.ext_optional("default").map(|ctx| ctx.node_id());
+        let examples = ext.parse_ext_optional::<Vec<String>>("examples")?;
 
         // Allow other extensions (codegen, etc.)
         ext.allow_unknown_extensions();
@@ -627,7 +629,7 @@ use eure_document::value::{PrimitiveValue, ValueKind};
 /// Get the $variant extension value as a string if present.
 fn get_variant_string(ctx: &ParseContext<'_>) -> Result<Option<String>, ParseError> {
     let mut ext = ctx.parse_extension();
-    let variant_ctx = ext.ext_ctx_optional("variant");
+    let variant_ctx = ext.ext_optional("variant");
     ext.allow_unknown_extensions();
 
     match variant_ctx {
@@ -848,7 +850,7 @@ fn parse_ext_types(
     ctx: &ParseContext<'_>,
 ) -> Result<HashMap<Identifier, ParsedExtTypeSchema>, ParseError> {
     let mut ext = ctx.parse_extension();
-    let ext_type_ctx = ext.ext_ctx_optional("ext-type");
+    let ext_type_ctx = ext.ext_optional("ext-type");
     ext.allow_unknown_extensions();
 
     let mut result = HashMap::new();

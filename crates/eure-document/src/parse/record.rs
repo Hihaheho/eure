@@ -78,7 +78,7 @@ impl<'doc> RecordParser<'doc> {
     /// Get a required field.
     ///
     /// Returns `ParseErrorKind::MissingField` if the field is not present.
-    pub fn field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
+    pub fn parse_field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         self.accessed.insert(name.to_string());
         let field_node_id = self
             .map
@@ -94,7 +94,7 @@ impl<'doc> RecordParser<'doc> {
     /// Get an optional field.
     ///
     /// Returns `Ok(None)` if the field is not present.
-    pub fn field_optional<T: ParseDocument<'doc>>(
+    pub fn parse_field_optional<T: ParseDocument<'doc>>(
         &mut self,
         name: &str,
     ) -> Result<Option<T>, ParseError> {
@@ -112,7 +112,7 @@ impl<'doc> RecordParser<'doc> {
     ///
     /// Use this when you need access to the field's NodeId or want to defer parsing.
     /// Returns `ParseErrorKind::MissingField` if the field is not present.
-    pub fn field_ctx(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
+    pub fn field(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
         self.accessed.insert(name.to_string());
         let field_node_id = self
             .map
@@ -128,7 +128,7 @@ impl<'doc> RecordParser<'doc> {
     ///
     /// Use this when you need access to the field's NodeId or want to defer parsing.
     /// Returns `None` if the field is not present.
-    pub fn field_ctx_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
+    pub fn field_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
         self.accessed.insert(name.to_string());
         self.map
             .get(&ObjectKey::String(name.to_string()))
@@ -269,7 +269,7 @@ impl<'doc> ExtParser<'doc> {
     /// Get a required extension field.
     ///
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
-    pub fn ext<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
+    pub fn parse_ext<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -286,7 +286,7 @@ impl<'doc> ExtParser<'doc> {
     /// Get an optional extension field.
     ///
     /// Returns `Ok(None)` if the extension is not present.
-    pub fn ext_optional<T: ParseDocument<'doc>>(
+    pub fn parse_ext_optional<T: ParseDocument<'doc>>(
         &mut self,
         name: &str,
     ) -> Result<Option<T>, ParseError> {
@@ -308,7 +308,7 @@ impl<'doc> ExtParser<'doc> {
     ///
     /// Use this when you need access to the extension's NodeId or want to defer parsing.
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
-    pub fn ext_ctx(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
+    pub fn ext(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -329,7 +329,7 @@ impl<'doc> ExtParser<'doc> {
     ///
     /// Use this when you need access to the extension's NodeId or want to defer parsing.
     /// Returns `None` if the extension is not present.
-    pub fn ext_ctx_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
+    pub fn ext_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
         let ident: Identifier = name.parse().ok()?;
         self.accessed.insert(ident.clone());
         self.extensions
@@ -404,7 +404,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let name: String = rec.field("name").unwrap();
+        let name: String = rec.parse_field("name").unwrap();
         assert_eq!(name, "Alice");
     }
 
@@ -413,7 +413,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let result: Result<String, _> = rec.field("nonexistent");
+        let result: Result<String, _> = rec.parse_field("nonexistent");
         assert!(matches!(
             result.unwrap_err().kind,
             ParseErrorKind::MissingField(_)
@@ -425,10 +425,10 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let name: Option<String> = rec.field_optional("name").unwrap();
+        let name: Option<String> = rec.parse_field_optional("name").unwrap();
         assert_eq!(name, Some("Alice".to_string()));
 
-        let missing: Option<String> = rec.field_optional("nonexistent").unwrap();
+        let missing: Option<String> = rec.parse_field_optional("nonexistent").unwrap();
         assert_eq!(missing, None);
     }
 
@@ -437,7 +437,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
         // Didn't access "age", so deny should fail
         let result = rec.deny_unknown_fields();
         assert!(matches!(
@@ -451,8 +451,8 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
-        let _age: num_bigint::BigInt = rec.field("age").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
+        let _age: num_bigint::BigInt = rec.parse_field("age").unwrap();
         // Accessed all fields, should succeed
         rec.deny_unknown_fields().unwrap();
     }
@@ -462,7 +462,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
         // Didn't access "age", but allow should succeed
         rec.allow_unknown_fields().unwrap();
     }
@@ -472,7 +472,7 @@ mod tests {
         let doc = create_test_doc();
         let mut rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        let _name: String = rec.field("name").unwrap();
+        let _name: String = rec.parse_field("name").unwrap();
         // "age" should be in unknown fields
         let unknown: Vec<_> = rec.unknown_fields().collect();
         assert_eq!(unknown.len(), 1);
@@ -550,7 +550,7 @@ mod tests {
         doc.node_mut(ext_id).content = NodeValue::Primitive(PrimitiveValue::Bool(true));
 
         let mut ext = doc.parse_extension(root_id);
-        let optional: bool = ext.ext("optional").unwrap();
+        let optional: bool = ext.parse_ext("optional").unwrap();
         assert!(optional);
     }
 
@@ -560,7 +560,7 @@ mod tests {
         let root_id = doc.get_root_id();
 
         let mut ext = doc.parse_extension(root_id);
-        let optional: Option<bool> = ext.ext_optional("optional").unwrap();
+        let optional: Option<bool> = ext.parse_ext_optional("optional").unwrap();
         assert_eq!(optional, None);
     }
 }

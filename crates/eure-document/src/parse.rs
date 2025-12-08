@@ -680,8 +680,8 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
         // Otherwise, it should be a record with tag/content fields
         let mut rec = ctx.parse_record()?;
 
-        let tag = rec.field_optional::<String>("tag")?;
-        let content = rec.field_optional::<String>("content")?;
+        let tag = rec.parse_field_optional::<String>("tag")?;
+        let content = rec.parse_field_optional::<String>("content")?;
 
         rec.allow_unknown_fields()?;
 
@@ -818,7 +818,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Option<i32> = rec.field("value").unwrap();
+        let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(42));
     }
 
@@ -828,7 +828,7 @@ mod tests {
             create_record_with_variant("value", NodeValue::Primitive(PrimitiveValue::Null), "none");
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Option<i32> = rec.field("value").unwrap();
+        let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, None);
     }
 
@@ -838,7 +838,7 @@ mod tests {
         let doc = eure!({ value = 42 });
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Option<i32> = rec.field("value").unwrap();
+        let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(42));
     }
 
@@ -848,7 +848,7 @@ mod tests {
         let doc = eure!({ value = null });
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Option<i32> = rec.field("value").unwrap();
+        let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, None);
     }
 
@@ -861,7 +861,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Result<i32, String> = rec.field("value").unwrap();
+        let value: Result<i32, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Ok(42));
     }
 
@@ -876,7 +876,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Result<i32, String> = rec.field("value").unwrap();
+        let value: Result<i32, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Err("error message".to_string()));
     }
 
@@ -890,7 +890,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Result<Option<i32>, String> = rec.field("value").unwrap();
+        let value: Result<Option<i32>, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Ok(Some(42)));
     }
 
@@ -904,7 +904,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Result<Option<i32>, String> = rec.field("value").unwrap();
+        let value: Result<Option<i32>, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Ok(None));
     }
 
@@ -918,7 +918,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Result<Option<i32>, String> = rec.field("value").unwrap();
+        let value: Result<Option<i32>, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Err("error".to_string()));
     }
 
@@ -932,7 +932,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Option<Option<i32>> = rec.field("value").unwrap();
+        let value: Option<Option<i32>> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(Some(42)));
     }
 
@@ -946,7 +946,7 @@ mod tests {
         );
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Option<Option<i32>> = rec.field("value").unwrap();
+        let value: Option<Option<i32>> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(None));
     }
 
@@ -957,7 +957,7 @@ mod tests {
             create_record_with_variant("value", NodeValue::Primitive(PrimitiveValue::Null), "none");
         let root_id = doc.get_root_id();
         let mut rec = doc.parse_record(root_id).unwrap();
-        let value: Option<Option<i32>> = rec.field("value").unwrap();
+        let value: Option<Option<i32>> = rec.parse_field("value").unwrap();
         assert_eq!(value, None);
     }
 }
