@@ -463,31 +463,6 @@ where
                     })
                 }
             })
-            .other("none_untagged", |doc, id| {
-                // Without $variant: null is None
-                if is_null(doc, id) {
-                    Ok(None)
-                } else {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::NoMatchingVariant,
-                    })
-                }
-            })
-            .other_nested("some_untagged", |doc, id, rest| {
-                // Without $variant: non-null is Some(T)
-                if is_null(doc, id) {
-                    Err(ParseError {
-                        node_id: id,
-                        kind: ParseErrorKind::NoMatchingVariant,
-                    })
-                } else {
-                    match rest {
-                        Some(r) => T::parse_with_variant(doc, id, r).map(Some),
-                        None => T::parse(doc, id).map(Some),
-                    }
-                }
-            })
             .parse()
     }
 
