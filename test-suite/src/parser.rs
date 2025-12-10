@@ -114,6 +114,7 @@ pub struct CaseData {
     pub output_json: Option<Text>,
     pub schema: Option<Text>,
     pub schema_errors: Vec<Text>,
+    pub meta_schema_errors: Vec<Text>,
     pub output_json_schema: Option<Text>,
     pub json_schema_errors: Vec<Text>,
     pub unimplemented: Option<String>,
@@ -131,6 +132,7 @@ impl CaseData {
             && self.output_json.is_none()
             && self.schema.is_none()
             && self.schema_errors.is_empty()
+            && self.meta_schema_errors.is_empty()
             && self.output_json_schema.is_none()
             && self.json_schema_errors.is_empty()
             && self.completions_scenario.is_none()
@@ -151,6 +153,9 @@ impl ParseDocument<'_> for CaseData {
         let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
             .parse_field_optional::<Vec<Text>>("schema_errors")?
+            .unwrap_or_default();
+        let meta_schema_errors = rec
+            .parse_field_optional::<Vec<Text>>("meta_schema_errors")?
             .unwrap_or_default();
         let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
         let json_schema_errors = rec
@@ -193,6 +198,7 @@ impl ParseDocument<'_> for CaseData {
             output_json,
             schema,
             schema_errors,
+            meta_schema_errors,
             output_json_schema,
             json_schema_errors,
             unimplemented,
@@ -278,6 +284,9 @@ impl ParseDocument<'_> for CaseFile {
         let schema_errors = rec
             .parse_field_optional::<Vec<Text>>("schema_errors")?
             .unwrap_or_default();
+        let meta_schema_errors = rec
+            .parse_field_optional::<Vec<Text>>("meta_schema_errors")?
+            .unwrap_or_default();
         let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
         let json_schema_errors = rec
             .parse_field_optional::<Vec<Text>>("json_schema_errors")?
@@ -335,6 +344,7 @@ impl ParseDocument<'_> for CaseFile {
                 output_json,
                 schema,
                 schema_errors,
+                meta_schema_errors,
                 output_json_schema,
                 json_schema_errors,
                 unimplemented,

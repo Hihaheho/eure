@@ -1,14 +1,44 @@
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use eure::{
-    document::{DocumentConstructionError, EureDocument},
+    document::{DocumentConstructionError, EureDocument, OriginMap},
     error::format_parse_error_color,
     parol::EureParseError,
     tree::Cst,
     value::{Language, Text},
 };
+use eure_schema::SchemaDocument;
+use eure_schema::convert::SchemaSourceMap;
 
 use crate::parser::{CompletionsScenario, DiagnosticsScenario};
+
+// ============================================================================
+// Meta Schema Loader
+// ============================================================================
+
+static META_SCHEMA_TEXT: &str = include_str!("../../assets/schemas/eure-schema.schema.eure");
+
+struct MetaSchema {
+    cst: Cst,
+    origins: OriginMap,
+    schema: SchemaDocument,
+    source_map: SchemaSourceMap,
+}
+
+static META_SCHEMA: LazyLock<MetaSchema> = LazyLock::new(|| {
+    let cst = eure::parol::parse(META_SCHEMA_TEXT).expect("Meta schema should parse");
+    let (doc, origins) = eure::document::cst_to_document_and_origin_map(META_SCHEMA_TEXT, &cst)
+        .expect("Meta schema should construct");
+    let (schema, source_map) =
+        eure_schema::convert::document_to_schema(&doc).expect("Meta schema should convert");
+    MetaSchema {
+        cst,
+        origins,
+        schema,
+        source_map,
+    }
+});
 
 /// Error type for scenario execution failures.
 /// Each variant represents a specific failure mode that can occur during test scenario execution.
@@ -61,6 +91,21 @@ pub enum ScenarioError {
     PreprocessingError { message: String },
     /// Scenario is not yet implemented
     Unimplemented { scenario_name: String },
+}
+
+/// Format helper for displaying expected error not found with actual errors list
+fn format_expected_error_not_found(
+    f: &mut std::fmt::Formatter<'_>,
+    expected: &str,
+    actual_errors: &[String],
+) -> std::fmt::Result {
+    writeln!(f, "Expected error containing '{}' not found.", expected)?;
+    writeln!(f, "Actual errors ({}):", actual_errors.len())?;
+    for (i, error) in actual_errors.iter().enumerate() {
+        writeln!(f, "\n--- Error {} ---", i + 1)?;
+        write!(f, "{}", error)?;
+    }
+    Ok(())
 }
 
 impl std::fmt::Display for ScenarioError {
@@ -128,30 +173,29 @@ impl std::fmt::Display for ScenarioError {
                 write!(f, "Schema validation failed:\n{}", errors.join("\n"))
             }
             ScenarioError::ExpectedValidationToFail { expected_errors } => {
-                write!(
-                    f,
-                    "Expected validation to fail with errors {:?}, but validation passed",
-                    expected_errors
-                )
-            }
-            ScenarioError::ExpectedErrorNotFound {
-                expected,
-                actual_errors,
-            } => {
-                writeln!(f, "Expected error containing '{}' not found.", expected)?;
-                writeln!(f, "Actual errors ({}):", actual_errors.len())?;
-                for (i, error) in actual_errors.iter().enumerate() {
-                    writeln!(f, "\n--- Error {} ---", i + 1)?;
+                writeln!(f, "Expected validation to fail, but validation passed.")?;
+                writeln!(f, "Expected errors ({}):", expected_errors.len())?;
+                for (i, error) in expected_errors.iter().enumerate() {
+                    writeln!(f, "\n--- Expected Error {} ---", i + 1)?;
                     write!(f, "{}", error)?;
                 }
                 Ok(())
             }
+            ScenarioError::ExpectedErrorNotFound {
+                expected,
+                actual_errors,
+            } => format_expected_error_not_found(f, expected, actual_errors),
             ScenarioError::ExpectedJsonSchemaConversionToFail { expected_errors } => {
-                write!(
+                writeln!(
                     f,
-                    "Expected JSON Schema conversion to fail with errors {:?}, but conversion succeeded",
-                    expected_errors
-                )
+                    "Expected JSON Schema conversion to fail, but conversion succeeded."
+                )?;
+                writeln!(f, "Expected errors ({}):", expected_errors.len())?;
+                for (i, error) in expected_errors.iter().enumerate() {
+                    writeln!(f, "\n--- Expected Error {} ---", i + 1)?;
+                    write!(f, "{}", error)?;
+                }
+                Ok(())
             }
             ScenarioError::PreprocessingError { message } => {
                 write!(f, "Preprocessing error: {}", message)
@@ -239,6 +283,7 @@ pub enum Scenario<'a> {
     JsonToEure(JsonToEureScenario<'a>),
     SchemaValidation(SchemaValidationScenario<'a>),
     SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
+    MetaSchema(MetaSchemaScenario<'a>),
     EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario<'a>),
     EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario<'a>),
     Completions(&'a CompletionsScenario),
@@ -253,6 +298,7 @@ impl Scenario<'_> {
             Scenario::JsonToEure(s) => format!("json_to_eure({})", s.source),
             Scenario::SchemaValidation(_) => "schema_validation".to_string(),
             Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
+            Scenario::MetaSchema(_) => "meta_schema".to_string(),
             Scenario::EureSchemaToJsonSchema(_) => "eure_schema_to_json_schema".to_string(),
             Scenario::EureSchemaToJsonSchemaError(_) => {
                 "eure_schema_to_json_schema_error".to_string()
@@ -269,6 +315,7 @@ impl Scenario<'_> {
             Scenario::JsonToEure(s) => s.run(),
             Scenario::SchemaValidation(s) => s.run(),
             Scenario::SchemaErrorValidation(s) => s.run(),
+            Scenario::MetaSchema(s) => s.run(),
             Scenario::EureSchemaToJsonSchema(s) => s.run(),
             Scenario::EureSchemaToJsonSchemaError(s) => s.run(),
             Scenario::Completions(s) => s.run(),
@@ -285,6 +332,7 @@ pub struct PreprocessedCase {
     pub output_json: Option<serde_json::Value>,
     pub schema: Option<PreprocessedEure>,
     pub schema_errors: Vec<String>,
+    pub meta_schema_errors: Vec<String>,
     pub output_json_schema: Option<serde_json::Value>,
     pub json_schema_errors: Vec<String>,
     // Editor scenarios
@@ -523,6 +571,12 @@ impl Case {
             .iter()
             .map(|e| e.as_str().to_string())
             .collect();
+        let meta_schema_errors = self
+            .data
+            .meta_schema_errors
+            .iter()
+            .map(|e| e.as_str().to_string())
+            .collect();
         let output_json_schema = self
             .data
             .output_json_schema
@@ -550,6 +604,7 @@ impl Case {
             output_json,
             schema,
             schema_errors,
+            meta_schema_errors,
             output_json_schema,
             json_schema_errors,
             completions_scenario: self.data.completions_scenario.clone(),
@@ -580,13 +635,13 @@ impl NormalizationScenario<'_> {
             .input
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let normalized_doc =
             self.normalized
                 .doc()
                 .map_err(|e| ScenarioError::PreprocessingError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 })?;
         if input_doc != normalized_doc {
             return Err(ScenarioError::NormalizationMismatch {
@@ -610,11 +665,11 @@ impl EureToJsonScenario<'_> {
             .input
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let actual = eure_json::document_to_value(input_doc, &eure_json::Config::default())
             .map_err(|e| ScenarioError::EureToJsonConversionError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         if actual != *self.output_json {
             return Err(ScenarioError::EureToJsonMismatch {
@@ -639,14 +694,14 @@ impl JsonToEureScenario<'_> {
             .expected
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
 
         // Convert JSON to EureDocument
         let actual_doc =
             eure_json::value_to_document(self.input_json, &eure_json::Config::default()).map_err(
                 |e| ScenarioError::JsonToEureConversionError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 },
             )?;
 
@@ -672,43 +727,43 @@ impl SchemaValidationScenario<'_> {
             .input
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let input_cst = self
             .input
             .cst()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let input_origins =
             self.input
                 .origins()
                 .map_err(|e| ScenarioError::PreprocessingError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 })?;
         let schema_doc = self
             .schema
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let schema_cst = self
             .schema
             .cst()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let schema_origins =
             self.schema
                 .origins()
                 .map_err(|e| ScenarioError::PreprocessingError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 })?;
 
         // Convert schema document to SchemaDocument
         let (schema, schema_source_map) = eure_schema::convert::document_to_schema(schema_doc)
             .map_err(|e| ScenarioError::SchemaConversionError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
 
         // Validate document directly
@@ -753,43 +808,43 @@ impl SchemaErrorValidationScenario<'_> {
             .input
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let input_cst = self
             .input
             .cst()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let input_origins =
             self.input
                 .origins()
                 .map_err(|e| ScenarioError::PreprocessingError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 })?;
         let schema_doc = self
             .schema
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let schema_cst = self
             .schema
             .cst()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
         let schema_origins =
             self.schema
                 .origins()
                 .map_err(|e| ScenarioError::PreprocessingError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 })?;
 
         // Convert schema document to SchemaDocument
         let (schema, schema_source_map) = eure_schema::convert::document_to_schema(schema_doc)
             .map_err(|e| ScenarioError::SchemaConversionError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
 
         // Validate document directly
@@ -869,21 +924,21 @@ impl EureSchemaToJsonSchemaScenario<'_> {
             .schema
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
 
         // Convert Eure document to SchemaDocument
         let (schema, _source_map) =
             eure_schema::convert::document_to_schema(schema_doc).map_err(|e| {
                 ScenarioError::SchemaConversionError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 }
             })?;
 
         // Convert SchemaDocument to JSON Schema
         let json_schema = eure_json_schema::eure_to_json_schema(&schema).map_err(|e| {
             ScenarioError::JsonSchemaConversionError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             }
         })?;
 
@@ -956,14 +1011,14 @@ impl EureSchemaToJsonSchemaErrorScenario<'_> {
             .schema
             .doc()
             .map_err(|e| ScenarioError::PreprocessingError {
-                message: format!("{:?}", e),
+                message: format!("{}", e),
             })?;
 
         // Convert Eure document to SchemaDocument
         let (schema, _source_map) =
             eure_schema::convert::document_to_schema(schema_doc).map_err(|e| {
                 ScenarioError::SchemaConversionError {
-                    message: format!("{:?}", e),
+                    message: format!("{}", e),
                 }
             })?;
 
@@ -998,6 +1053,120 @@ impl EureSchemaToJsonSchemaErrorScenario<'_> {
                 expected: expected.to_string(),
                 actual_errors: vec![error],
             });
+        }
+
+        Ok(())
+    }
+}
+
+// ============================================================================
+// Meta Schema Validation Scenario
+// ============================================================================
+
+/// Validates a schema against the meta-schema (eure-schema.schema.eure).
+/// If expected_errors is empty, validation should pass.
+/// If expected_errors is non-empty, validation should fail with those specific errors.
+pub struct MetaSchemaScenario<'a> {
+    schema: &'a PreprocessedEure,
+    expected_errors: &'a [String],
+}
+
+impl MetaSchemaScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        let schema_doc = self
+            .schema
+            .doc()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+        let schema_cst = self
+            .schema
+            .cst()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+        let schema_origins =
+            self.schema
+                .origins()
+                .map_err(|e| ScenarioError::PreprocessingError {
+                    message: format!("{}", e),
+                })?;
+
+        // Validate the schema document against the meta-schema
+        let meta = &*META_SCHEMA;
+        let result = eure_schema::validate::validate(schema_doc, &meta.schema);
+
+        let context = eure::error::SchemaErrorContext {
+            doc_source: self.schema.input(),
+            doc_path: "<schema>",
+            doc_cst: schema_cst,
+            doc_origins: schema_origins,
+            schema_source: META_SCHEMA_TEXT,
+            schema_path: "<meta-schema>",
+            schema_cst: &meta.cst,
+            schema_origins: &meta.origins,
+            schema_source_map: &meta.source_map,
+        };
+
+        if self.expected_errors.is_empty() {
+            // No errors expected - validation should pass
+            if !result.is_valid {
+                let formatted_errors: Vec<String> = result
+                    .errors
+                    .iter()
+                    .map(|e| eure::error::format_schema_error(e, &context))
+                    .collect();
+                return Err(ScenarioError::SchemaValidationFailed {
+                    errors: formatted_errors,
+                });
+            }
+        } else {
+            // Errors expected - validation should fail
+            if result.is_valid {
+                return Err(ScenarioError::ExpectedValidationToFail {
+                    expected_errors: self.expected_errors.to_vec(),
+                });
+            }
+
+            // Format errors with source spans using plain text (no ANSI colors)
+            let actual_errors: Vec<String> = result
+                .errors
+                .iter()
+                .map(|e| eure::error::format_schema_error_plain(e, &context))
+                .collect();
+
+            // Normalize errors by trimming whitespace for comparison
+            let actual_errors_trimmed: Vec<String> =
+                actual_errors.iter().map(|e| e.trim().to_string()).collect();
+            let expected_errors_trimmed: Vec<String> = self
+                .expected_errors
+                .iter()
+                .map(|e| e.trim().to_string())
+                .collect();
+
+            // Check exact match between expected and actual errors
+            if expected_errors_trimmed.len() != actual_errors_trimmed.len() {
+                return Err(ScenarioError::ExpectedErrorNotFound {
+                    expected: format!(
+                        "Expected {} errors, got {}",
+                        expected_errors_trimmed.len(),
+                        actual_errors_trimmed.len()
+                    ),
+                    actual_errors: actual_errors.clone(),
+                });
+            }
+
+            for expected in &expected_errors_trimmed {
+                let found = actual_errors_trimmed
+                    .iter()
+                    .any(|actual| actual == expected);
+                if !found {
+                    return Err(ScenarioError::ExpectedErrorNotFound {
+                        expected: expected.clone(),
+                        actual_errors: actual_errors.clone(),
+                    });
+                }
+            }
         }
 
         Ok(())
@@ -1068,6 +1237,17 @@ impl PreprocessedCase {
                     },
                 ));
             }
+        }
+
+        // Meta schema validation scenario
+        // When schema is present but input_eure is not, validate schema against meta-schema
+        if let Some(schema) = &self.schema
+            && self.input_eure.is_none()
+        {
+            scenarios.push(Scenario::MetaSchema(MetaSchemaScenario {
+                schema,
+                expected_errors: &self.meta_schema_errors,
+            }));
         }
 
         // Eure Schema to JSON Schema conversion scenarios
@@ -1299,15 +1479,9 @@ mod tests {
     fn scenarios_all_fields_present() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
-            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
-            completions_scenario: None,
-            diagnostics_scenario: None,
+            ..Default::default()
         };
 
         let scenarios = case.scenarios();
@@ -1323,15 +1497,8 @@ mod tests {
     fn scenarios_input_and_normalized_only() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
-            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
-            output_json: None,
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
-            completions_scenario: None,
-            diagnostics_scenario: None,
+            ..Default::default()
         };
 
         let scenarios = case.scenarios();
@@ -1343,15 +1510,8 @@ mod tests {
     fn scenarios_input_and_json_only() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
-            input_json: None,
-            normalized: None,
             output_json: Some(serde_json::json!({"a": 1})),
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
-            completions_scenario: None,
-            diagnostics_scenario: None,
+            ..Default::default()
         };
 
         let scenarios = case.scenarios();
@@ -1362,16 +1522,9 @@ mod tests {
     #[test]
     fn scenarios_normalized_and_json_only() {
         let case = PreprocessedCase {
-            input_eure: None,
-            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
-            completions_scenario: None,
-            diagnostics_scenario: None,
+            ..Default::default()
         };
 
         let scenarios = case.scenarios();
