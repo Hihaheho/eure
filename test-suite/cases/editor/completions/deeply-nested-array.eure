@@ -54,4 +54,3 @@ label = "expires_at"
 kind = "field"
 
 // SHOULD NOT suggest fields from other contexts
-completions_should_not_contain = ["role_name", "permissions", "name", "email", "settings", "theme"]

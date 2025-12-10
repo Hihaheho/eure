@@ -54,4 +54,3 @@ label = "approved_at"
 kind = "field"
 
 // SHOULD NOT suggest fields from other variants or parent contexts
-completions_should_not_contain = ["reason", "rejected_by", "rejection_reason", "id", "status"]

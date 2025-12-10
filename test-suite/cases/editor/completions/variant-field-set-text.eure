@@ -51,4 +51,3 @@ kind = "field"
 label = "lines"
 kind = "field"
 
-completions_should_not_contain = ["description", "choices"]

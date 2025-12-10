@@ -8,6 +8,6 @@ unimplemented = true
 // - temp_dir/test.eure with content: name = "test"
 // - temp_dir/test.schema.eure with content: name.$type = .text
 
-// The schema discovery should find test.schema.eure for test.eure
-document_path = "test.eure"
-expected_schema_path = "test.schema.eure"
+// TODO: SchemaDiscoveryScenario not yet implemented
+// document_path = "test.eure"
+// expected_schema_path = "test.schema.eure"

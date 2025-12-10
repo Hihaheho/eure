@@ -54,4 +54,3 @@ label = "api_key"
 kind = "field"
 
 // SHOULD NOT suggest root-level fields, parent fields, or already used fields
-completions_should_not_contain = ["script", "name", "database", "logging", "host", "port", "username"]

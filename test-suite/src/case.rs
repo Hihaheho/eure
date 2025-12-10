@@ -8,6 +8,8 @@ use eure::{
     value::{Language, Text},
 };
 
+use crate::parser::{CompletionsScenario, DiagnosticsScenario};
+
 /// Error type for scenario execution failures.
 /// Each variant represents a specific failure mode that can occur during test scenario execution.
 #[derive(Debug, Clone)]
@@ -57,6 +59,8 @@ pub enum ScenarioError {
     ExpectedJsonSchemaConversionToFail { expected_errors: Vec<String> },
     /// Preprocessing error (parse error, file read error, etc.)
     PreprocessingError { message: String },
+    /// Scenario is not yet implemented
+    Unimplemented { scenario_name: String },
 }
 
 impl std::fmt::Display for ScenarioError {
@@ -150,6 +154,9 @@ impl std::fmt::Display for ScenarioError {
             ScenarioError::PreprocessingError { message } => {
                 write!(f, "Preprocessing error: {}", message)
             }
+            ScenarioError::Unimplemented { scenario_name } => {
+                write!(f, "Scenario '{}' is not yet implemented", scenario_name)
+            }
         }
     }
 }
@@ -232,6 +239,8 @@ pub enum Scenario<'a> {
     SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
     EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario<'a>),
     EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario<'a>),
+    Completions(&'a CompletionsScenario),
+    Diagnostics(&'a DiagnosticsScenario),
 }
 
 impl Scenario<'_> {
@@ -246,6 +255,8 @@ impl Scenario<'_> {
             Scenario::EureSchemaToJsonSchemaError(_) => {
                 "eure_schema_to_json_schema_error".to_string()
             }
+            Scenario::Completions(_) => "completions".to_string(),
+            Scenario::Diagnostics(_) => "diagnostics".to_string(),
         }
     }
 
@@ -258,10 +269,13 @@ impl Scenario<'_> {
             Scenario::SchemaErrorValidation(s) => s.run(),
             Scenario::EureSchemaToJsonSchema(s) => s.run(),
             Scenario::EureSchemaToJsonSchemaError(s) => s.run(),
+            Scenario::Completions(s) => s.run(),
+            Scenario::Diagnostics(s) => s.run(),
         }
     }
 }
 
+#[derive(Default)]
 pub struct PreprocessedCase {
     pub input_eure: Option<PreprocessedEure>,
     pub input_json: Option<serde_json::Value>,
@@ -271,6 +285,9 @@ pub struct PreprocessedCase {
     pub schema_errors: Vec<String>,
     pub output_json_schema: Option<serde_json::Value>,
     pub json_schema_errors: Vec<String>,
+    // Editor scenarios
+    pub completions_scenario: Option<CompletionsScenario>,
+    pub diagnostics_scenario: Option<DiagnosticsScenario>,
 }
 
 pub enum PreprocessedEure {
@@ -468,19 +485,35 @@ impl Case {
             Err(e) => PreprocessedEure::ErrParol { input, error: e },
         }
     }
-    pub fn preprocess(&self) -> PreprocessedCase {
+    pub fn preprocess(&self) -> Result<PreprocessedCase, PreprocessError> {
         let input_eure = self.data.input_eure.as_ref().map(Self::preprocess_eure);
         let input_json = self
             .data
             .input_json
             .as_ref()
-            .map(|code| serde_json::from_str(code.as_str()).unwrap());
+            .map(|code| {
+                serde_json::from_str(code.as_str()).map_err(|source| {
+                    PreprocessError::JsonParseError {
+                        field: "input_json",
+                        source,
+                    }
+                })
+            })
+            .transpose()?;
         let normalized = self.data.normalized.as_ref().map(Self::preprocess_eure);
         let output_json = self
             .data
             .output_json
             .as_ref()
-            .map(|code| serde_json::from_str(code.as_str()).unwrap());
+            .map(|code| {
+                serde_json::from_str(code.as_str()).map_err(|source| {
+                    PreprocessError::JsonParseError {
+                        field: "output_json",
+                        source,
+                    }
+                })
+            })
+            .transpose()?;
         let schema = self.data.schema.as_ref().map(Self::preprocess_eure);
         let schema_errors = self
             .data
@@ -492,7 +525,15 @@ impl Case {
             .data
             .output_json_schema
             .as_ref()
-            .map(|code| serde_json::from_str(code.as_str()).unwrap());
+            .map(|code| {
+                serde_json::from_str(code.as_str()).map_err(|source| {
+                    PreprocessError::JsonParseError {
+                        field: "output_json_schema",
+                        source,
+                    }
+                })
+            })
+            .transpose()?;
         let json_schema_errors = self
             .data
             .json_schema_errors
@@ -500,7 +541,7 @@ impl Case {
             .map(|e| e.as_str().to_string())
             .collect();
 
-        PreprocessedCase {
+        Ok(PreprocessedCase {
             input_eure,
             input_json,
             normalized,
@@ -509,8 +550,21 @@ impl Case {
             schema_errors,
             output_json_schema,
             json_schema_errors,
-        }
+            completions_scenario: self.data.completions_scenario.clone(),
+            diagnostics_scenario: self.data.diagnostics_scenario.clone(),
+        })
     }
+}
+
+/// Error that can occur during case preprocessing
+#[derive(Debug, thiserror::Error)]
+pub enum PreprocessError {
+    #[error("Failed to parse {field} as JSON: {source}")]
+    JsonParseError {
+        field: &'static str,
+        #[source]
+        source: serde_json::Error,
+    },
 }
 
 pub struct NormalizationScenario<'a> {
@@ -1034,6 +1088,14 @@ impl PreprocessedCase {
             }
         }
 
+        // Editor scenarios
+        if let Some(completions_scenario) = &self.completions_scenario {
+            scenarios.push(Scenario::Completions(completions_scenario));
+        }
+        if let Some(diagnostics_scenario) = &self.diagnostics_scenario {
+            scenarios.push(Scenario::Diagnostics(diagnostics_scenario));
+        }
+
         scenarios
     }
 
@@ -1241,6 +1303,8 @@ mod tests {
             schema_errors: vec![],
             output_json_schema: None,
             json_schema_errors: vec![],
+            completions_scenario: None,
+            diagnostics_scenario: None,
         };
 
         let scenarios = case.scenarios();
@@ -1263,6 +1327,8 @@ mod tests {
             schema_errors: vec![],
             output_json_schema: None,
             json_schema_errors: vec![],
+            completions_scenario: None,
+            diagnostics_scenario: None,
         };
 
         let scenarios = case.scenarios();
@@ -1281,6 +1347,8 @@ mod tests {
             schema_errors: vec![],
             output_json_schema: None,
             json_schema_errors: vec![],
+            completions_scenario: None,
+            diagnostics_scenario: None,
         };
 
         let scenarios = case.scenarios();
@@ -1299,6 +1367,8 @@ mod tests {
             schema_errors: vec![],
             output_json_schema: None,
             json_schema_errors: vec![],
+            completions_scenario: None,
+            diagnostics_scenario: None,
         };
 
         let scenarios = case.scenarios();
@@ -1310,13 +1380,7 @@ mod tests {
     fn scenarios_input_only() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
-            input_json: None,
-            normalized: None,
-            output_json: None,
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
+            ..Default::default()
         };
 
         let scenarios = case.scenarios();
@@ -1326,14 +1390,8 @@ mod tests {
     #[test]
     fn scenarios_normalized_only() {
         let case = PreprocessedCase {
-            input_eure: None,
-            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
-            output_json: None,
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
+            ..Default::default()
         };
 
         let scenarios = case.scenarios();
@@ -1343,14 +1401,8 @@ mod tests {
     #[test]
     fn scenarios_json_only() {
         let case = PreprocessedCase {
-            input_eure: None,
-            input_json: None,
-            normalized: None,
             output_json: Some(serde_json::json!({"a": 1})),
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
+            ..Default::default()
         };
 
         let scenarios = case.scenarios();
@@ -1359,16 +1411,7 @@ mod tests {
 
     #[test]
     fn scenarios_empty() {
-        let case = PreprocessedCase {
-            input_eure: None,
-            input_json: None,
-            normalized: None,
-            output_json: None,
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
-        };
+        let case = PreprocessedCase::default();
 
         let scenarios = case.scenarios();
         assert_eq!(scenarios.len(), 0);
@@ -1378,13 +1421,9 @@ mod tests {
     fn scenario_count_matches_scenarios_len() {
         let case = PreprocessedCase {
             input_eure: Some(preprocess("a = 1")),
-            input_json: None,
             normalized: Some(preprocess("= { a => 1 }")),
             output_json: Some(serde_json::json!({"a": 1})),
-            schema: None,
-            schema_errors: vec![],
-            output_json_schema: None,
-            json_schema_errors: vec![],
+            ..Default::default()
         };
 
         assert_eq!(case.scenario_count(), case.scenarios().len());

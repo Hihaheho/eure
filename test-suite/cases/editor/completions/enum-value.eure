@@ -30,15 +30,14 @@ environment = |_|
 
 trigger = "="
 
-// TODO: Once implemented, should have enum values
-// @ completions[]
-// label = "\"development\""
-// kind = "value"
+@ completions[]
+label = "\"development\""
+kind = "value"
 
-// @ completions[]
-// label = "\"staging\""
-// kind = "value"
+@ completions[]
+label = "\"staging\""
+kind = "value"
 
-// @ completions[]
-// label = "\"production\""
-// kind = "value"
+@ completions[]
+label = "\"production\""
+kind = "value"

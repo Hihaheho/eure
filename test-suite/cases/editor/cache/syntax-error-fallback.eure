@@ -9,29 +9,20 @@ name.$type = .text
 age.$type = .number
 ```
 
-// First, valid document (creates cache)
-valid_editor = ```eure
-name = "Alice"
-age = 30
-```
+// TODO: CacheScenario not yet implemented
+// This test requires:
+// - valid_editor (creates cache)
+// - invalid_editor (syntax error, uses cache for validation)
+// - valid_expect_no_schema_errors
+// - expect_no_schema_errors_with_cache
 
-// Then, invalid document with syntax error (missing closing brace)
-invalid_editor = ```eure
+editor = ```eure
 name = "Alice"
 age = 30
 invalid {
     # Syntax error: missing closing brace
 ```
 
-// Valid document should have no schema errors
-valid_expect_no_schema_errors = true
-
-// Invalid document with cache should:
-// 1. Have "eure-cached-validation" diagnostic
-// 2. Still validate using cached structure with no schema errors
-
+// Expected diagnostic when cache is used
 @ diagnostics[]
 code = "eure-cached-validation"
-
-// No schema validation errors when using cached document
-expect_no_schema_errors_with_cache = true

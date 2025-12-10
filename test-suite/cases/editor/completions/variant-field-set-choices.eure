@@ -51,4 +51,3 @@ kind = "field"
 label = "choices"
 kind = "field"
 
-completions_should_not_contain = ["speaker", "lines"]

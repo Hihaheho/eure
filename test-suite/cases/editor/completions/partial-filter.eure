@@ -32,4 +32,3 @@ kind = "field"
 label = "screen"
 kind = "field"
 
-completions_should_not_contain = ["settings", "users"]

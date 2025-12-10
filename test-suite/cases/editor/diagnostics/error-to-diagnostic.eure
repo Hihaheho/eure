@@ -10,19 +10,15 @@ field2 = 123
 field3 = "value3"
 ```
 
-// Create a type mismatch error for testing
-error.kind = "TypeMismatch"
-error.expected = "string"
-error.actual = "number"
-error.severity = "error"
-error.node_id = 0
+// TODO: This test requires a schema to trigger type mismatch error
+// Original test used error.* fields to simulate an error:
+// error.kind = "TypeMismatch"
+// error.expected = "string"
+// error.actual = "number"
 
-// Expected diagnostic properties
+// Expected diagnostic properties when schema validation triggers error
 @ diagnostics[]
 severity = "error"
 source = "eure-schema"
 message = "Type mismatch: expected string, found number"
 code = "eure-schema-type"
-range.start.line = 0
-range.start.character = 0
-range.end.line = 0

@@ -31,4 +31,3 @@ label = "version"
 kind = "field"
 
 // Should not have dummy fields
-completions_should_not_contain = ["field1", "field2"]

@@ -17,5 +17,9 @@ editor = ```eure
 ```
 
 // Should provide root-level completions for empty document
-// Specific assertions depend on implementation details
-expect_non_empty_completions = true
+// TODO: Add specific expected completions when implementing
+@ completions[]
+label = "config"
+
+@ completions[]
+label = "version"

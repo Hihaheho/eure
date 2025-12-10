@@ -27,48 +27,52 @@ e = [{ array => [`integer`] }]
 
 output_json_schema = ```json
 {
+  "type": "object",
   "additionalProperties": false,
-  "a": {
-    "type": "array",
-    "items": { "type": "integer" },
-  },
-  "b": {
-    "type": "array",
-    "items": { "type": "integer" }
-  },
-  "c": {
-    "type": "array",
-    "items": {
+  "properties": {
+    "a": {
       "type": "array",
       "items": { "type": "integer" }
+    },
+    "b": {
+      "type": "array",
+      "items": { "type": "integer" }
+    },
+    "c": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "integer" }
+      }
+    },
+    "d": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "a": { "type": "integer" },
+          "b": { "type": "integer" }
+        },
+        "required": ["a", "b"]
+      }
+    },
+    "e": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "array": {
+            "type": "array",
+            "items": { "type": "integer" }
+          }
+        },
+        "required": ["array"]
+      }
     }
   },
-  "d": {
-    "type": "array",
-    "items": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "a": { "type": "integer" },
-        "b": { "type": "integer" }
-      },
-      "required": ["a", "b"]
-    }
-  },
-  "e": {
-    "type": "array",
-    "items": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "array": {
-          "type": "array",
-          "items": { "type": "integer" }
-        }
-      },
-      "required": ["array"]
-    }
-  }
+  "required": ["a", "b", "c", "d", "e"]
 }
 ```
 

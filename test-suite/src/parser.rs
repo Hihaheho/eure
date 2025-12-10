@@ -14,33 +14,92 @@ use eure::{
     value::{PrimitiveValue, Text, ValueKind},
 };
 
-/// Fields that are recognized but not yet implemented in the test runner.
-/// These are consumed during parsing to avoid "unknown field" errors.
-const IGNORED_FIELDS: &[&str] = &[
-    // Editor-specific fields
-    "editor",
-    "expect_no_diagnostics",
-    "document_uri",
-    "completions",
-    "completions_should_not_contain",
-    "trigger",
-    "reference_tests",
-    "expected_path",
-    "expected_schema_path",
-    "expected_schema_ref",
-    "valid_expect_no_schema_errors",
-    "expect_non_empty_completions",
-    "expect_empty_completions",
-    "diagnostics",
-    "diagnostics_should_not_contain_code",
-    "document_path",
-    "error",
-    "invalid_editor",
-    "valid_editor",
-    "schema_uri",
-    "cached_document",
-    "cursor_offset",
-];
+// ============================================================================
+// Completions Scenario Types
+// ============================================================================
+
+/// A single completion item expected in completions scenario
+#[derive(Debug, Clone)]
+pub struct CompletionItem {
+    pub label: String,
+    pub kind: Option<String>,
+}
+
+impl ParseDocument<'_> for CompletionItem {
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+        let mut rec = ctx.parse_record()?;
+        let label = rec.parse_field::<String>("label")?;
+        let kind = rec.parse_field_optional::<String>("kind")?;
+        rec.deny_unknown_fields()?;
+        Ok(CompletionItem { label, kind })
+    }
+}
+
+/// Completions test scenario
+#[derive(Debug, Clone)]
+pub struct CompletionsScenario {
+    /// Editor content with cursor position marked as `|_|`
+    pub editor: Text,
+    /// Expected completions (exact match)
+    pub completions: Vec<CompletionItem>,
+    /// Trigger character (e.g., ".", "@", "=")
+    pub trigger: Option<String>,
+}
+
+impl CompletionsScenario {
+    pub fn run(&self) -> Result<(), crate::case::ScenarioError> {
+        Err(crate::case::ScenarioError::Unimplemented {
+            scenario_name: "completions".to_string(),
+        })
+    }
+}
+
+// ============================================================================
+// Diagnostics Scenario Types
+// ============================================================================
+
+/// A single diagnostic item expected in diagnostics scenario
+#[derive(Debug, Clone)]
+pub struct DiagnosticItem {
+    pub severity: Option<String>,
+    pub source: Option<String>,
+    pub message: Option<String>,
+    pub code: Option<String>,
+}
+
+impl ParseDocument<'_> for DiagnosticItem {
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+        let mut rec = ctx.parse_record()?;
+        let severity = rec.parse_field_optional::<String>("severity")?;
+        let source = rec.parse_field_optional::<String>("source")?;
+        let message = rec.parse_field_optional::<String>("message")?;
+        let code = rec.parse_field_optional::<String>("code")?;
+        // Allow other fields like range.* for now
+        Ok(DiagnosticItem {
+            severity,
+            source,
+            message,
+            code,
+        })
+    }
+}
+
+/// Diagnostics test scenario
+#[derive(Debug, Clone)]
+pub struct DiagnosticsScenario {
+    /// Editor content with cursor position marked as `|_|`
+    pub editor: Text,
+    /// Expected diagnostics (exact match, empty = no diagnostics expected)
+    pub diagnostics: Vec<DiagnosticItem>,
+}
+
+impl DiagnosticsScenario {
+    pub fn run(&self) -> Result<(), crate::case::ScenarioError> {
+        Err(crate::case::ScenarioError::Unimplemented {
+            scenario_name: "diagnostics".to_string(),
+        })
+    }
+}
 
 /// A single test case's data fields
 #[derive(Debug, Clone, Default)]
@@ -54,6 +113,9 @@ pub struct CaseData {
     pub output_json_schema: Option<Text>,
     pub json_schema_errors: Vec<Text>,
     pub unimplemented: Option<String>,
+    // Editor scenarios
+    pub completions_scenario: Option<CompletionsScenario>,
+    pub diagnostics_scenario: Option<DiagnosticsScenario>,
 }
 
 impl CaseData {
@@ -67,6 +129,8 @@ impl CaseData {
             && self.schema_errors.is_empty()
             && self.output_json_schema.is_none()
             && self.json_schema_errors.is_empty()
+            && self.completions_scenario.is_none()
+            && self.diagnostics_scenario.is_none()
     }
 }
 
@@ -88,10 +152,31 @@ impl ParseDocument<'_> for CaseData {
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
 
-        // Editor-specific fields (consume but don't parse - not yet implemented)
-        for field in IGNORED_FIELDS {
-            rec.field_optional(field);
-        }
+        // Parse editor scenario fields
+        let editor = rec.parse_field_optional::<Text>("editor")?;
+        let completions = rec.parse_field_optional::<Vec<CompletionItem>>("completions")?;
+        let trigger = rec.parse_field_optional::<String>("trigger")?;
+        let diagnostics = rec.parse_field_optional::<Vec<DiagnosticItem>>("diagnostics")?;
+
+        // Build scenarios based on which fields are present
+        // If completions field exists (even if empty), create CompletionsScenario
+        let completions_scenario = match (&editor, completions) {
+            (Some(ed), Some(comps)) => Some(CompletionsScenario {
+                editor: ed.clone(),
+                completions: comps,
+                trigger,
+            }),
+            _ => None,
+        };
+
+        // If diagnostics field exists (even if empty), create DiagnosticsScenario
+        let diagnostics_scenario = match (&editor, diagnostics) {
+            (Some(ed), Some(diags)) => Some(DiagnosticsScenario {
+                editor: ed.clone(),
+                diagnostics: diags,
+            }),
+            _ => None,
+        };
 
         rec.deny_unknown_fields()?;
 
@@ -105,6 +190,8 @@ impl ParseDocument<'_> for CaseData {
             output_json_schema,
             json_schema_errors,
             unimplemented,
+            completions_scenario,
+            diagnostics_scenario,
         })
     }
 }
@@ -189,10 +276,31 @@ impl ParseDocument<'_> for CaseFile {
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
 
-        // Editor-specific fields (consume but don't parse - not yet implemented)
-        for field in IGNORED_FIELDS {
-            rec.field_optional(field);
-        }
+        // Parse editor scenario fields
+        let editor = rec.parse_field_optional::<Text>("editor")?;
+        let completions = rec.parse_field_optional::<Vec<CompletionItem>>("completions")?;
+        let trigger = rec.parse_field_optional::<String>("trigger")?;
+        let diagnostics = rec.parse_field_optional::<Vec<DiagnosticItem>>("diagnostics")?;
+
+        // Build scenarios based on which fields are present
+        // If completions field exists (even if empty), create CompletionsScenario
+        let completions_scenario = match (&editor, completions) {
+            (Some(ed), Some(comps)) => Some(CompletionsScenario {
+                editor: ed.clone(),
+                completions: comps,
+                trigger,
+            }),
+            _ => None,
+        };
+
+        // If diagnostics field exists (even if empty), create DiagnosticsScenario
+        let diagnostics_scenario = match (&editor, diagnostics) {
+            (Some(ed), Some(diags)) => Some(DiagnosticsScenario {
+                editor: ed.clone(),
+                diagnostics: diags,
+            }),
+            _ => None,
+        };
 
         // Parse named cases from "cases" section
         // Note: Some legacy test files use "cases[]" (array) instead of "cases.<name>" (map).
@@ -222,6 +330,8 @@ impl ParseDocument<'_> for CaseFile {
                 output_json_schema,
                 json_schema_errors,
                 unimplemented,
+                completions_scenario,
+                diagnostics_scenario,
             },
             named_cases,
         })

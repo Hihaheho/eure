@@ -11,6 +11,5 @@ editor = ```eure
 
 trigger = "."
 
-// Should not have any hardcoded values without schema
-expect_empty_completions = true
-completions_should_not_contain = ["commands", "options", "field1", "field2"]
+// Should not have any hardcoded values without schema (completions = [] means empty)
+completions = []

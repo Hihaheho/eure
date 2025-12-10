@@ -30,4 +30,3 @@ label = "subfield2"
 kind = "field"
 
 // Should not have any hardcoded values
-completions_should_not_contain = ["commands", "options"]

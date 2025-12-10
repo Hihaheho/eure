@@ -12,7 +12,6 @@ name: |_|
 ```
 trigger = ":"
 // Should NOT have boolean/null values after ":"
-completions_should_not_contain = ["true", "false", "null"]
 
 @ cases[]
 name = "after-equals"

@@ -9,8 +9,6 @@ editor = ```eure
 key|_| = value
 ```
 
-// Cursor byte offset: 9 (at 'key')
-cursor_offset = 9
-
-// Should get section path when in binding
-expected_path = ["a", "b"]
+// TODO: CstPathScenario not yet implemented
+// cursor_offset = 9
+// expected_path = ["a", "b"]

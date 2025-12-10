@@ -15,12 +15,12 @@ name = 123
 ```
 
 // Should have validation errors
+// TODO: Use exact messages when implementing DiagnosticsScenario
 
 @ diagnostics[]
 severity = "error"
-message_contains = "Type mismatch"
+message = "Type mismatch: expected text, found number"
 
 @ diagnostics[]
 severity = "error"
-message_contains = "Required field"
-message_contains_also = "missing"
+message = "Required field 'age' is missing"

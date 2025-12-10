@@ -18,5 +18,5 @@ editor = ```eure
 }
 ```
 
-// Should have no validation errors
-expect_no_diagnostics = true
+// Should have no validation errors (diagnostics = [] means no diagnostics expected)
+diagnostics = []

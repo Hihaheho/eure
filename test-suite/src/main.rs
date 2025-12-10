@@ -169,7 +169,14 @@ fn run(args: &Args) -> i32 {
                                     case_data.clone(),
                                 );
                                 let unimplemented = case.data.unimplemented.clone();
-                                let preprocessed = case.preprocess();
+                                let preprocessed = case.preprocess().unwrap_or_else(|e| {
+                                    panic!(
+                                        "Failed to preprocess case '{}' in {}: {}",
+                                        name,
+                                        case_file.path.display(),
+                                        e
+                                    )
+                                });
                                 let status_info = {
                                     let summary = preprocessed.status_summary();
                                     if summary.is_empty() {

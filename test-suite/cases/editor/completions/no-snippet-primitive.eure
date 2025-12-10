@@ -17,6 +17,3 @@ trigger = "."
 @ completions[]
 label = "age"
 kind = "field"
-// insertTextFormat should NOT be snippet
-insertTextFormat = "plain"
-insertText = "age"

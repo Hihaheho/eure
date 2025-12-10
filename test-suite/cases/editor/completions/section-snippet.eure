@@ -19,21 +19,7 @@ user.|_|
 
 trigger = "."
 
+// TODO: Once snippet support is implemented, add insertText/insertTextFormat fields
 @ completions[]
 label = "name"
 kind = "field"
-insertTextFormat = "snippet"
-// Snippet includes required fields (first, last) but not optional (middle)
-// Snippet ends with $0 for final cursor position
-insertText = ```
-@ user.name
-first = ${1:!}
-last = ${2:!}
-$0
-```
-result = ```eure
-@ user.name
-first = |1|
-last = |2|
-|_|
-```

@@ -25,13 +25,11 @@ em|_|
 ```
 
 // Should provide completions that match the prefix "em"
-// TODO: Once implemented, uncomment:
-// @ completions[]
-// label = "email"
-// kind = "field"
+@ completions[]
+label = "email"
+kind = "field"
 
-// @ completions[]
-// label = "employee_id"
-// kind = "field"
+@ completions[]
+label = "employee_id"
+kind = "field"
 
-// completions_should_not_contain = ["name"]

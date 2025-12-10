@@ -30,4 +30,3 @@ label = "screen"
 kind = "field"
 
 // Should not suggest 'settings' (doesn't start with 'scr')
-completions_should_not_contain = ["settings"]

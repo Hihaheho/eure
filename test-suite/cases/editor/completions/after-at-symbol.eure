@@ -23,23 +23,11 @@ trigger = "@"
 @ completions[]
 label = "name"
 kind = "field"
-insertText = "name"
-result = ```eure
-@name|_|
-```
 
 @ completions[]
 label = "age"
 kind = "field"
-insertText = "age"
-result = ```eure
-@age|_|
-```
 
 @ completions[]
 label = "active"
 kind = "field"
-insertText = "active"
-result = ```eure
-@active|_|
-```

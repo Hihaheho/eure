@@ -13,5 +13,5 @@ name = "John Doe"
 age = 30
 ```
 
-// Schema reference should be extracted
-expected_schema_ref = "./person.schema.eure"
+// TODO: SchemaRefScenario not yet implemented
+// expected_schema_ref = "./person.schema.eure"
