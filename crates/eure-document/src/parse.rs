@@ -100,7 +100,7 @@ impl<'doc> ParseContext<'doc> {
     }
 
     /// Parse the current node as type T.
-    pub fn parse<T: ParseDocument<'doc>>(&self) -> Result<T, ParseError> {
+    pub fn parse<T: ParseDocument<'doc>>(&self) -> Result<T, T::Error> {
         T::parse(self)
     }
 
@@ -111,11 +111,11 @@ impl<'doc> ParseContext<'doc> {
     /// # Arguments
     ///
     /// * `repr` - The variant representation to use. Use `VariantRepr::default()` for Untagged.
-    pub fn parse_union<T>(
-        &self,
-        repr: VariantRepr,
-    ) -> Result<UnionParser<'doc, '_, T>, ParseError> {
-        UnionParser::new(self, repr)
+    pub fn parse_union<T, E>(&self, repr: VariantRepr) -> Result<UnionParser<'doc, '_, T, E>, E>
+    where
+        E: From<ParseError>,
+    {
+        UnionParser::new(self, repr).map_err(Into::into)
     }
 
     /// Parse the current node as a record.
@@ -215,8 +215,11 @@ impl<'doc> ParseContext<'doc> {
 /// impl ParseDocument<'_> for String { ... }
 /// ```
 pub trait ParseDocument<'doc>: Sized {
+    /// The error type returned by parsing.
+    type Error;
+
     /// Parse a value of this type from the given parse context.
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError>;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error>;
 }
 
 fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
@@ -342,7 +345,7 @@ impl ParseErrorKind {
 
 impl<'doc> EureDocument {
     /// Parse a value of type T from the given node.
-    pub fn parse<T: ParseDocument<'doc>>(&'doc self, node_id: NodeId) -> Result<T, ParseError> {
+    pub fn parse<T: ParseDocument<'doc>>(&'doc self, node_id: NodeId) -> Result<T, T::Error> {
         let ctx = ParseContext::new(self, node_id);
         T::parse(&ctx)
     }
@@ -376,7 +379,9 @@ impl<'doc> EureDocument {
 }
 
 impl<'doc> ParseDocument<'doc> for &'doc str {
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
             PrimitiveValue::Text(text) => Ok(text.as_str()),
             _ => Err(ParseError {
@@ -391,13 +396,17 @@ impl<'doc> ParseDocument<'doc> for &'doc str {
 }
 
 impl ParseDocument<'_> for String {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         ctx.parse::<&str>().map(String::from)
     }
 }
 
 impl ParseDocument<'_> for Text {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
             PrimitiveValue::Text(text) => Ok(text.clone()),
             _ => Err(ParseError {
@@ -412,7 +421,9 @@ impl ParseDocument<'_> for Text {
 }
 
 impl ParseDocument<'_> for bool {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
             PrimitiveValue::Bool(b) => Ok(*b),
             _ => Err(ParseError {
@@ -427,7 +438,9 @@ impl ParseDocument<'_> for bool {
 }
 
 impl ParseDocument<'_> for BigInt {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
             PrimitiveValue::Integer(i) => Ok(i.clone()),
             _ => Err(ParseError {
@@ -442,7 +455,9 @@ impl ParseDocument<'_> for BigInt {
 }
 
 impl ParseDocument<'_> for f32 {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
             PrimitiveValue::F32(f) => Ok(*f),
             _ => Err(ParseError {
@@ -457,7 +472,9 @@ impl ParseDocument<'_> for f32 {
 }
 
 impl ParseDocument<'_> for f64 {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
             // Accept both F32 (with conversion) and F64 if we add it later
             PrimitiveValue::F32(f) => Ok(*f as f64),
@@ -473,7 +490,9 @@ impl ParseDocument<'_> for f64 {
 }
 
 impl ParseDocument<'_> for u32 {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let value: BigInt = ctx.parse()?;
         u32::try_from(&value).map_err(|_| ParseError {
             node_id: ctx.node_id(),
@@ -483,7 +502,9 @@ impl ParseDocument<'_> for u32 {
 }
 
 impl ParseDocument<'_> for i32 {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let value: BigInt = ctx.parse()?;
         i32::try_from(&value).map_err(|_| ParseError {
             node_id: ctx.node_id(),
@@ -493,7 +514,9 @@ impl ParseDocument<'_> for i32 {
 }
 
 impl ParseDocument<'_> for i64 {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let value: BigInt = ctx.parse()?;
         i64::try_from(&value).map_err(|_| ParseError {
             node_id: ctx.node_id(),
@@ -503,7 +526,9 @@ impl ParseDocument<'_> for i64 {
 }
 
 impl ParseDocument<'_> for u64 {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let value: BigInt = ctx.parse()?;
         u64::try_from(&value).map_err(|_| ParseError {
             node_id: ctx.node_id(),
@@ -513,7 +538,9 @@ impl ParseDocument<'_> for u64 {
 }
 
 impl ParseDocument<'_> for usize {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let value: BigInt = ctx.parse()?;
         usize::try_from(&value).map_err(|_| ParseError {
             node_id: ctx.node_id(),
@@ -523,19 +550,25 @@ impl ParseDocument<'_> for usize {
 }
 
 impl<'doc> ParseDocument<'doc> for &'doc PrimitiveValue {
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         ctx.parse_primitive()
     }
 }
 
 impl ParseDocument<'_> for PrimitiveValue {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         ctx.parse::<&PrimitiveValue>().cloned()
     }
 }
 
 impl ParseDocument<'_> for Identifier {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
             PrimitiveValue::Text(text) => text
                 .content
@@ -557,7 +590,9 @@ impl ParseDocument<'_> for Identifier {
 }
 
 impl<'doc> ParseDocument<'doc> for &'doc NodeArray {
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         ctx.ensure_no_variant_path()?;
         match &ctx.node().content {
             NodeValue::Array(array) => Ok(array),
@@ -572,8 +607,11 @@ impl<'doc> ParseDocument<'doc> for &'doc NodeArray {
 impl<'doc, T> ParseDocument<'doc> for Vec<T>
 where
     T: ParseDocument<'doc>,
+    T::Error: From<ParseError>,
 {
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+    type Error = T::Error;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         ctx.ensure_no_variant_path()?;
         match &ctx.node().content {
             NodeValue::Array(array) => array
@@ -583,22 +621,28 @@ where
             value => Err(ParseError {
                 node_id: ctx.node_id(),
                 kind: handle_unexpected_node_value(value),
-            }),
+            }
+            .into()),
         }
     }
 }
 
 macro_rules! parse_tuple {
     ($n:expr, $($var:ident),*) => {
-        impl<'doc, $($var: ParseDocument<'doc>),*> ParseDocument<'doc> for ($($var),*,) {
-            fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+        impl<'doc, $($var),*, Err> ParseDocument<'doc> for ($($var),*,)
+            where $($var: ParseDocument<'doc, Error = Err>),*,
+            Err: From<ParseError>,
+        {
+            type Error = Err;
+
+            fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
                 ctx.ensure_no_variant_path()?;
                 let tuple = match &ctx.node().content {
                     NodeValue::Tuple(tuple) => tuple,
-                    value => return Err(ParseError { node_id: ctx.node_id(), kind: handle_unexpected_node_value(value) }),
+                    value => return Err(ParseError { node_id: ctx.node_id(), kind: handle_unexpected_node_value(value) }.into()),
                 };
                 if tuple.len() != $n {
-                    return Err(ParseError { node_id: ctx.node_id(), kind: ParseErrorKind::UnexpectedTupleLength { expected: $n, actual: tuple.len() } });
+                    return Err(ParseError { node_id: ctx.node_id(), kind: ParseErrorKind::UnexpectedTupleLength { expected: $n, actual: tuple.len() } }.into());
                 }
                 let mut iter = tuple.iter();
                 Ok(($($var::parse(&ctx.at(*iter.next().unwrap()))?),*,))
@@ -628,8 +672,11 @@ impl<'doc, K, T> ParseDocument<'doc> for Map<K, T>
 where
     K: ParseObjectKey<'doc>,
     T: ParseDocument<'doc>,
+    T::Error: From<ParseError>,
 {
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
+    type Error = T::Error;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         ctx.ensure_no_variant_path()?;
         let map = match &ctx.node().content {
             NodeValue::Map(map) => map,
@@ -637,7 +684,8 @@ where
                 return Err(ParseError {
                     node_id: ctx.node_id(),
                     kind: handle_unexpected_node_value(value),
-                });
+                }
+                .into());
             }
         };
         map.iter()
@@ -663,9 +711,12 @@ where
 impl<'doc, T> ParseDocument<'doc> for Option<T>
 where
     T: ParseDocument<'doc>,
+    T::Error: From<ParseError>,
 {
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        ctx.parse_union(VariantRepr::default())?
+    type Error = T::Error;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        ctx.parse_union::<Option<T>, T::Error>(VariantRepr::default())?
             .variant("some", |ctx| ctx.parse::<T>().map(Some))
             .variant("none", |ctx| {
                 if ctx.is_null() {
@@ -677,7 +728,8 @@ where
                             expected: ValueKind::Null,
                             actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
                         },
-                    })
+                    }
+                    .into())
                 }
             })
             .parse()
@@ -689,13 +741,16 @@ where
 /// - `$variant: ok` -> parse T as Ok
 /// - `$variant: err` -> parse E as Err
 /// - No `$variant` -> try Ok first, then Err (priority-based)
-impl<'doc, T, E> ParseDocument<'doc> for Result<T, E>
+impl<'doc, T, E, Err> ParseDocument<'doc> for Result<T, E>
 where
-    T: ParseDocument<'doc>,
-    E: ParseDocument<'doc>,
+    T: ParseDocument<'doc, Error = Err>,
+    E: ParseDocument<'doc, Error = Err>,
+    Err: From<ParseError>,
 {
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        ctx.parse_union(VariantRepr::default())?
+    type Error = Err;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        ctx.parse_union::<Self, Err>(VariantRepr::default())?
             .variant("ok", |ctx| ctx.parse::<T>().map(Ok))
             .variant("err", |ctx| ctx.parse::<E>().map(Err))
             .parse()
@@ -703,7 +758,9 @@ where
 }
 
 impl ParseDocument<'_> for crate::data_model::VariantRepr {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         use crate::data_model::VariantRepr;
 
         // Check if it's a simple string value
@@ -760,10 +817,11 @@ pub struct LiteralParser<T>(T);
 impl<'doc, T> DocumentParser<'doc> for LiteralParser<T>
 where
     T: 'doc + ParseDocument<'doc> + PartialEq + core::fmt::Debug,
+    T::Error: From<ParseError> + Into<ParseError>,
 {
     type Output = T;
     fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
-        let value: T = doc.parse(node_id)?;
+        let value: T = doc.parse(node_id).map_err(Into::into)?;
         if value == self.0 {
             Ok(value)
         } else {

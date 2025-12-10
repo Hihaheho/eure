@@ -34,7 +34,8 @@ use crate::{BindingStyle, Description, TextSchema, TypeReference};
 // ============================================================================
 
 impl ParseDocument<'_> for BindingStyle {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let value: &str = ctx.parse()?;
         match value {
             "auto" => Ok(BindingStyle::Auto),
@@ -53,7 +54,8 @@ impl ParseDocument<'_> for BindingStyle {
 }
 
 impl ParseDocument<'_> for Description {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         use eure_document::data_model::VariantRepr;
         ctx.parse_union(VariantRepr::default())?
             .variant("string", |ctx| {
@@ -69,7 +71,8 @@ impl ParseDocument<'_> for Description {
 }
 
 impl ParseDocument<'_> for TypeReference {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         // TypeReference is parsed from a path like `$types.my-type` or `$types.namespace.type`
         // The path is stored as text in inline code format
         let path: &str = ctx.parse()?;
@@ -118,7 +121,8 @@ impl ParseDocument<'_> for TypeReference {
 }
 
 impl ParseDocument<'_> for TextSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let language = rec.parse_field_optional::<String>("language")?;
@@ -156,7 +160,9 @@ impl ParseDocument<'_> for TextSchema {
 }
 
 impl ParseDocument<'_> for crate::SchemaRef {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut ext = ctx.parse_extension();
         let schema_ctx = ext.ext("schema")?;
         ext.allow_unknown_extensions();
@@ -185,7 +191,8 @@ pub struct ParsedIntegerSchema {
 }
 
 impl ParseDocument<'_> for ParsedIntegerSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let range = rec.parse_field_optional::<String>("range")?;
@@ -218,7 +225,8 @@ pub struct ParsedFloatSchema {
 }
 
 impl ParseDocument<'_> for ParsedFloatSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let range = rec.parse_field_optional::<String>("range")?;
@@ -259,7 +267,8 @@ pub struct ParsedArraySchema {
 }
 
 impl ParseDocument<'_> for ParsedArraySchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let item = rec.field("item")?.node_id();
@@ -308,7 +317,8 @@ pub struct ParsedMapSchema {
 }
 
 impl ParseDocument<'_> for ParsedMapSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let key = rec.field("key")?.node_id();
@@ -345,7 +355,8 @@ pub struct ParsedRecordFieldSchema {
 }
 
 impl ParseDocument<'_> for ParsedRecordFieldSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut ext = ctx.parse_extension();
 
         let optional = ext.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
@@ -375,7 +386,8 @@ pub enum ParsedUnknownFieldsPolicy {
 }
 
 impl ParseDocument<'_> for ParsedUnknownFieldsPolicy {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let node = ctx.node();
         let node_id = ctx.node_id();
 
@@ -409,7 +421,8 @@ pub struct ParsedRecordSchema {
 }
 
 impl ParseDocument<'_> for ParsedRecordSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         // Parse $unknown-fields extension
         let mut ext = ctx.parse_extension();
         let unknown_fields = ext
@@ -445,7 +458,8 @@ pub struct ParsedTupleSchema {
 }
 
 impl ParseDocument<'_> for ParsedTupleSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         // elements is an array of NodeIds
@@ -487,7 +501,8 @@ pub struct ParsedUnionSchema {
 }
 
 impl ParseDocument<'_> for ParsedUnionSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
         let mut variants = HashMap::new();
 
@@ -528,7 +543,8 @@ pub struct ParsedExtTypeSchema {
 }
 
 impl ParseDocument<'_> for ParsedExtTypeSchema {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut ext = ctx.parse_extension();
         let optional = ext.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
         ext.allow_unknown_extensions();
@@ -776,7 +792,8 @@ fn parse_map_as_schema(
 }
 
 impl ParseDocument<'_> for ParsedSchemaNodeContent {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let node_id = ctx.node_id();
         let node = ctx.node();
         let variant = get_variant_string(ctx)?;
@@ -833,7 +850,8 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
 }
 
 impl ParseDocument<'_> for ParsedSchemaNode {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let content = ctx.parse::<ParsedSchemaNodeContent>()?;
         let metadata = ParsedSchemaMetadata::parse_from_extensions(ctx)?;
         let ext_types = parse_ext_types(ctx)?;

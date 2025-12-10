@@ -26,7 +26,9 @@ pub struct CompletionItem {
 }
 
 impl ParseDocument<'_> for CompletionItem {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+    type Error = DocumentParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
         let label = rec.parse_field::<String>("label")?;
         let kind = rec.parse_field_optional::<String>("kind")?;
@@ -68,7 +70,9 @@ pub struct DiagnosticItem {
 }
 
 impl ParseDocument<'_> for DiagnosticItem {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+    type Error = DocumentParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
         let severity = rec.parse_field_optional::<String>("severity")?;
         let source = rec.parse_field_optional::<String>("source")?;
@@ -135,7 +139,9 @@ impl CaseData {
 }
 
 impl ParseDocument<'_> for CaseData {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+    type Error = DocumentParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
@@ -258,7 +264,9 @@ impl CaseFile {
 }
 
 impl ParseDocument<'_> for CaseFile {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, DocumentParseError> {
+    type Error = DocumentParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         // Parse root-level fields as default case

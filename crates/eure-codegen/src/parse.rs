@@ -40,7 +40,8 @@ pub struct RootCodegen {
 }
 
 impl ParseDocument<'_> for RootCodegen {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let type_name = rec.parse_field_optional::<String>("type")?;
@@ -79,7 +80,8 @@ pub struct CodegenDefaults {
 }
 
 impl ParseDocument<'_> for CodegenDefaults {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
@@ -137,7 +139,8 @@ pub struct UnionCodegen {
 }
 
 impl ParseDocument<'_> for UnionCodegen {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
@@ -189,7 +192,8 @@ pub struct RecordCodegen {
 }
 
 impl ParseDocument<'_> for RecordCodegen {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
@@ -222,7 +226,8 @@ pub struct FieldCodegen {
 }
 
 impl ParseDocument<'_> for FieldCodegen {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let name = rec.parse_field_optional::<String>("name")?;
@@ -262,7 +267,8 @@ pub struct CodegenStruct {
 }
 
 impl ParseDocument<'_> for CodegenStruct {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
 
         let fields = rec.parse_field::<Vec<Identifier>>("fields")?;
@@ -305,7 +311,8 @@ pub struct CascadeExtTypeCodegen {
 }
 
 impl ParseDocument<'_> for CascadeExtTypeCodegen {
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         use eure_document::parse::ParseErrorKind;
 
         let mut rec = ctx.parse_record()?;

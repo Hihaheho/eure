@@ -91,14 +91,19 @@ impl<'doc> RecordParser<'doc> {
     /// Get a required field.
     ///
     /// Returns `ParseErrorKind::MissingField` if the field is not present or is excluded.
-    pub fn parse_field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
+    pub fn parse_field<T>(&mut self, name: &str) -> Result<T, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
         self.accessed.insert(name.to_string());
         // Excluded fields are treated as missing
         if self.excluded.contains(name) {
             return Err(ParseError {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
-            });
+            }
+            .into());
         }
         let field_node_id = self
             .map
@@ -114,10 +119,11 @@ impl<'doc> RecordParser<'doc> {
     /// Get an optional field.
     ///
     /// Returns `Ok(None)` if the field is not present or is excluded.
-    pub fn parse_field_optional<T: ParseDocument<'doc>>(
-        &mut self,
-        name: &str,
-    ) -> Result<Option<T>, ParseError> {
+    pub fn parse_field_optional<T>(&mut self, name: &str) -> Result<Option<T>, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
         self.accessed.insert(name.to_string());
         // Excluded fields are treated as missing
         if self.excluded.contains(name) {
@@ -331,7 +337,11 @@ impl<'doc> ExtParser<'doc> {
     /// Get a required extension field.
     ///
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
-    pub fn parse_ext<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
+    pub fn parse_ext<T>(&mut self, name: &str) -> Result<T, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -348,10 +358,11 @@ impl<'doc> ExtParser<'doc> {
     /// Get an optional extension field.
     ///
     /// Returns `Ok(None)` if the extension is not present.
-    pub fn parse_ext_optional<T: ParseDocument<'doc>>(
-        &mut self,
-        name: &str,
-    ) -> Result<Option<T>, ParseError> {
+    pub fn parse_ext_optional<T>(&mut self, name: &str) -> Result<Option<T>, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),

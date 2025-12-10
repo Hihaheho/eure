@@ -75,7 +75,11 @@ impl<'doc> TupleParser<'doc> {
     ///
     /// Returns `ParseErrorKind::MissingField` if no more elements.
     #[allow(clippy::should_implement_trait)]
-    pub fn next<T: ParseDocument<'doc>>(&mut self) -> Result<T, ParseError> {
+    pub fn next<T>(&mut self) -> Result<T, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
         let index = self.position;
         let element_node_id = self.tuple.get(index).ok_or_else(|| ParseError {
             node_id: self.node_id,
@@ -89,7 +93,11 @@ impl<'doc> TupleParser<'doc> {
     /// Get the element at a specific index without advancing position.
     ///
     /// Returns `ParseErrorKind::MissingField` if the index is out of bounds.
-    pub fn get<T: ParseDocument<'doc>>(&self, index: usize) -> Result<T, ParseError> {
+    pub fn get<T>(&self, index: usize) -> Result<T, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
         let element_node_id = self.tuple.get(index).ok_or_else(|| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingField(format!("#{}", index)),
