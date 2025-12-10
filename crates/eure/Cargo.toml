@@ -19,3 +19,4 @@ eure-tree = { workspace = true }
 num-bigint = { workspace = true }
 regex = { workspace = true }
 thiserror = { workspace = true }
+thisisplural = { workspace = true }

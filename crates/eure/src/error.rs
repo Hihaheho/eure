@@ -43,7 +43,8 @@ pub struct SchemaErrorContext<'a> {
 pub fn format_parse_error_color(error: &EureParseError, input: &str, path: &str) -> String {
     let mut files = FileRegistry::new();
     let file_id = files.register(path, input);
-    let reports = report_parse_error(error, file_id);
+    let mut reports = report_parse_error(error, file_id);
+    reports.sort_by_span();
     format_error_reports(&reports, &files, true)
 }
 
@@ -51,7 +52,8 @@ pub fn format_parse_error_color(error: &EureParseError, input: &str, path: &str)
 pub fn format_parse_error_plain(error: &EureParseError, input: &str, path: &str) -> String {
     let mut files = FileRegistry::new();
     let file_id = files.register(path, input);
-    let reports = report_parse_error(error, file_id);
+    let mut reports = report_parse_error(error, file_id);
+    reports.sort_by_span();
     format_error_reports(&reports, &files, false)
 }
 
@@ -102,6 +104,7 @@ fn format_schema_error_impl(
         schema_source_map: context.schema_source_map,
     };
 
-    let reports = report_schema_validation_errors(std::slice::from_ref(error), &report_ctx);
+    let mut reports = report_schema_validation_errors(std::slice::from_ref(error), &report_ctx);
+    reports.sort_by_span();
     format_error_reports(&reports, &files, styled)
 }

@@ -15,6 +15,7 @@ use eure_schema::convert::{ConversionError, SchemaSourceMap};
 use eure_schema::validate::ValidationError;
 use eure_tree::prelude::{Cst, CstNodeId};
 use eure_tree::tree::InputSpan;
+use thisisplural::Plural;
 
 use crate::document::{DocumentConstructionError, OriginMap};
 
@@ -283,6 +284,26 @@ impl ErrorReport {
 }
 
 // ============================================================================
+// ErrorReports
+// ============================================================================
+
+/// A collection of error reports.
+#[derive(Debug, Clone, Plural)]
+pub struct ErrorReports(Vec<ErrorReport>);
+
+impl ErrorReports {
+    /// Sort reports by their primary origin span start position.
+    pub fn sort_by_span(&mut self) {
+        self.0.sort_by(|a, b| {
+            a.primary_origin
+                .span
+                .start
+                .cmp(&b.primary_origin.span.start)
+        });
+    }
+}
+
+// ============================================================================
 // Element
 // ============================================================================
 
@@ -356,7 +377,7 @@ pub struct SchemaReportContext<'a> {
 // ============================================================================
 
 /// Convert a parse error to ErrorReports.
-pub fn report_parse_error(error: &EureParseError, file: FileId) -> Vec<ErrorReport> {
+pub fn report_parse_error(error: &EureParseError, file: FileId) -> ErrorReports {
     error
         .entries
         .iter()
@@ -420,7 +441,7 @@ pub fn report_document_error_simple(
 pub fn report_schema_validation_errors(
     errors: &[ValidationError],
     ctx: &SchemaReportContext<'_>,
-) -> Vec<ErrorReport> {
+) -> ErrorReports {
     errors
         .iter()
         .map(|error| report_validation_error(error, ctx))
@@ -549,7 +570,7 @@ pub fn format_error_report(report: &ErrorReport, files: &FileRegistry, styled: b
 }
 
 /// Render multiple ErrorReports to a string.
-pub fn format_error_reports(reports: &[ErrorReport], files: &FileRegistry, styled: bool) -> String {
+pub fn format_error_reports(reports: &ErrorReports, files: &FileRegistry, styled: bool) -> String {
     reports
         .iter()
         .map(|r| format_error_report(r, files, styled))

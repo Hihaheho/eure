@@ -1450,6 +1450,7 @@ dependencies = [
  "num-bigint",
  "regex",
  "thiserror 2.0.17",
+ "thisisplural",
 ]
 
 [[package]]
