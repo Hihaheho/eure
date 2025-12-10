@@ -5,8 +5,8 @@ extern crate alloc;
 use alloc::format;
 use std::collections::HashSet;
 
-use crate::document::node::NodeMap;
 use crate::prelude_internal::*;
+use crate::{document::node::NodeMap, parse::DocumentParser};
 
 use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
 
@@ -96,6 +96,14 @@ impl<'doc> RecordParser<'doc> {
         T: ParseDocument<'doc>,
         T::Error: From<ParseError>,
     {
+        self.parse_field_with(name, T::parse)
+    }
+
+    pub fn parse_field_with<T>(&mut self, name: &str, mut parser: T) -> Result<T::Output, T::Error>
+    where
+        T: DocumentParser<'doc>,
+        T::Error: From<ParseError>,
+    {
         self.accessed.insert(name.to_string());
         // Excluded fields are treated as missing
         if self.excluded.contains(name) {
@@ -113,15 +121,27 @@ impl<'doc> RecordParser<'doc> {
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
         let ctx = ParseContext::new(self.doc, field_node_id);
-        T::parse(&ctx)
+        parser.parse(&ctx)
+    }
+
+    pub fn parse_field_optional<T>(&mut self, name: &str) -> Result<Option<T>, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
+        self.parse_field_optional_with(name, T::parse)
     }
 
     /// Get an optional field.
     ///
     /// Returns `Ok(None)` if the field is not present or is excluded.
-    pub fn parse_field_optional<T>(&mut self, name: &str) -> Result<Option<T>, T::Error>
+    pub fn parse_field_optional_with<T>(
+        &mut self,
+        name: &str,
+        mut parser: T,
+    ) -> Result<Option<T::Output>, T::Error>
     where
-        T: ParseDocument<'doc>,
+        T: DocumentParser<'doc>,
         T::Error: From<ParseError>,
     {
         self.accessed.insert(name.to_string());
@@ -132,7 +152,7 @@ impl<'doc> RecordParser<'doc> {
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => {
                 let ctx = ParseContext::new(self.doc, field_node_id);
-                Ok(Some(T::parse(&ctx)?))
+                Ok(Some(parser.parse(&ctx)?))
             }
             None => Ok(None),
         }
@@ -342,6 +362,14 @@ impl<'doc> ExtParser<'doc> {
         T: ParseDocument<'doc>,
         T::Error: From<ParseError>,
     {
+        self.parse_ext_with(name, T::parse)
+    }
+
+    pub fn parse_ext_with<T>(&mut self, name: &str, mut parser: T) -> Result<T::Output, T::Error>
+    where
+        T: DocumentParser<'doc>,
+        T::Error: From<ParseError>,
+    {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -352,7 +380,7 @@ impl<'doc> ExtParser<'doc> {
             kind: ParseErrorKind::MissingExtension(name.to_string()),
         })?;
         let ctx = ParseContext::new(self.doc, *ext_node_id);
-        T::parse(&ctx)
+        parser.parse(&ctx)
     }
 
     /// Get an optional extension field.
@@ -363,6 +391,21 @@ impl<'doc> ExtParser<'doc> {
         T: ParseDocument<'doc>,
         T::Error: From<ParseError>,
     {
+        self.parse_ext_optional_with(name, T::parse)
+    }
+
+    /// Get an optional extension field with a custom parser.
+    ///
+    /// Returns `Ok(None)` if the extension is not present.
+    pub fn parse_ext_optional_with<T>(
+        &mut self,
+        name: &str,
+        mut parser: T,
+    ) -> Result<Option<T::Output>, T::Error>
+    where
+        T: DocumentParser<'doc>,
+        T::Error: From<ParseError>,
+    {
         let ident: Identifier = name.parse().map_err(|e| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
@@ -371,7 +414,7 @@ impl<'doc> ExtParser<'doc> {
         match self.extensions.get(&ident) {
             Some(ext_node_id) => {
                 let ctx = ParseContext::new(self.doc, *ext_node_id);
-                Ok(Some(T::parse(&ctx)?))
+                Ok(Some(parser.parse(&ctx)?))
             }
             None => Ok(None),
         }
