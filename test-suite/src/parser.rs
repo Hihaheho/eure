@@ -40,9 +40,6 @@ const IGNORED_FIELDS: &[&str] = &[
     "schema_uri",
     "cached_document",
     "cursor_offset",
-    // Legacy field names
-    "expected_json",
-    "expected_json_schema",
 ];
 
 /// A single test case's data fields

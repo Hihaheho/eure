@@ -25,7 +25,7 @@ d = `boolean`
 e = `null`
 ```
 
-expected_json = ```json
+output_json = ```json
 {
   "a": "hello",
   "b": 1,
@@ -35,7 +35,7 @@ expected_json = ```json
 }
 ```
 
-expected_json_schema = ```json
+output_json_schema = ```json
 {
   "type": "object",
   "properties": {
@@ -45,6 +45,7 @@ expected_json_schema = ```json
     "d": { "type": "boolean" },
     "e": { "type": "null" }
   },
+  "additionalProperties": false,
   "required": ["a", "b", "c", "d", "e"]
 }
 ```

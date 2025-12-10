@@ -25,15 +25,12 @@ d = [{ a => `integer`, b => `integer` }]
 e = [{ array => [`integer`] }]
 ```
 
-expected_json_schema = ```json
+output_json_schema = ```json
 {
+  "additionalProperties": false,
   "a": {
     "type": "array",
     "items": { "type": "integer" },
-    "minItems": 1,
-    "maxItems": 3,
-    "uniqueItems": true,
-    "contains": { "const": 1 }
   },
   "b": {
     "type": "array",
@@ -50,6 +47,7 @@ expected_json_schema = ```json
     "type": "array",
     "items": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "a": { "type": "integer" },
         "b": { "type": "integer" }
@@ -61,6 +59,7 @@ expected_json_schema = ```json
     "type": "array",
     "items": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "array": {
           "type": "array",
