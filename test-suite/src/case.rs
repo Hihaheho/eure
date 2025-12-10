@@ -138,11 +138,13 @@ impl std::fmt::Display for ScenarioError {
                 expected,
                 actual_errors,
             } => {
-                write!(
-                    f,
-                    "Expected error containing '{}' not found. Actual errors: {:?}",
-                    expected, actual_errors
-                )
+                writeln!(f, "Expected error containing '{}' not found.", expected)?;
+                writeln!(f, "Actual errors ({}):", actual_errors.len())?;
+                for (i, error) in actual_errors.iter().enumerate() {
+                    writeln!(f, "\n--- Error {} ---", i + 1)?;
+                    write!(f, "{}", error)?;
+                }
+                Ok(())
             }
             ScenarioError::ExpectedJsonSchemaConversionToFail { expected_errors } => {
                 write!(
@@ -295,7 +297,7 @@ pub enum PreprocessedEure {
         input: String,
         cst: Cst,
         doc: EureDocument,
-        origins: eure::document::NodeOriginMap,
+        origins: eure::document::OriginMap,
     },
     ErrParol {
         input: String,
@@ -416,7 +418,7 @@ impl PreprocessedEure {
         }
     }
 
-    pub fn origins(&self) -> eros::Result<&eure::document::NodeOriginMap> {
+    pub fn origins(&self) -> eros::Result<&eure::document::OriginMap> {
         match self {
             PreprocessedEure::Ok { origins, .. } => Ok(origins),
             PreprocessedEure::ErrParol { error, .. } => Err(eros::traced!("{}", error)),
@@ -469,7 +471,7 @@ impl Case {
         };
 
         match eure::parol::parse(&input) {
-            Ok(cst) => match eure::document::cst_to_document_and_origins(&input, &cst) {
+            Ok(cst) => match eure::document::cst_to_document_and_origin_map(&input, &cst) {
                 Ok((doc, origins)) => PreprocessedEure::Ok {
                     input,
                     cst,
@@ -713,7 +715,7 @@ impl SchemaValidationScenario<'_> {
         let result = eure_schema::validate::validate(input_doc, &schema);
 
         if !result.is_valid {
-            // Format errors with source spans
+            // Format errors with source spans (using V2 for precise key spans)
             let context = eure::error::SchemaErrorContext {
                 doc_source: self.input.input(),
                 doc_path: "<input>",
@@ -801,6 +803,7 @@ impl SchemaErrorValidationScenario<'_> {
         }
 
         // Format errors with source spans using plain text (no ANSI colors)
+        // Using V2 for precise key spans
         let context = eure::error::SchemaErrorContext {
             doc_source: self.input.input(),
             doc_path: "<input>",
@@ -1275,7 +1278,7 @@ mod tests {
     fn preprocess(code: &str) -> PreprocessedEure {
         let input = code.to_string();
         match eure::parol::parse(code) {
-            Ok(cst) => match eure::document::cst_to_document_and_origins(code, &cst) {
+            Ok(cst) => match eure::document::cst_to_document_and_origin_map(code, &cst) {
                 Ok((doc, origins)) => PreprocessedEure::Ok {
                     input,
                     cst,
