@@ -265,8 +265,9 @@ where
     ) -> ParseContext<'doc> {
         match repr {
             // Internal repr: exclude tag field from the same node
+            // Inherit parent's excluded_fields for nested Internal reprs
             VariantRepr::Internal { tag } => {
-                let mut excluded = std::collections::HashSet::new();
+                let mut excluded = ctx.excluded_fields().cloned().unwrap_or_default();
                 excluded.insert(tag.clone());
                 ParseContext::with_excluded_fields(ctx.doc(), content_node_id, excluded)
             }

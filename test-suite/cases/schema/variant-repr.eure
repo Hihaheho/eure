@@ -32,7 +32,6 @@ value {
 // ============================================================================
 
 @ cases.internal-valid
-unimplemented = "Internal repr tag exclusion not implemented"
 
 input_eure = ```eure
 value {
@@ -130,7 +129,6 @@ value {
 // ============================================================================
 
 @ cases.internal-nested
-unimplemented = "Internal repr tag exclusion not implemented"
 input_eure = ```eure
 value {
   type = "wrapper"
@@ -159,7 +157,6 @@ value {
 // ============================================================================
 
 @ cases.variant-agrees
-unimplemented = "Internal repr tag exclusion not implemented"
 input_eure = ```eure
 value {
   $variant = "success"
@@ -183,7 +180,6 @@ value {
 // ============================================================================
 
 @ cases.mixed-repr-nested
-unimplemented = "Internal repr tag exclusion not implemented"
 input_eure = ```eure
 value {
   outer {
@@ -213,7 +209,6 @@ value {
 // ============================================================================
 
 @ cases.variant-path-nested
-unimplemented = "Nested variant path resolution not fully implemented"
 
 input_eure = ```eure
 value {
@@ -461,8 +456,10 @@ note: constraint defined here
 input_eure = ```eure
 value {
   outer {
-    unknown {
-      data = 42
+    outer {
+      unknown {
+        data = 42
+      }
     }
   }
 }
@@ -475,8 +472,13 @@ value {
   variants.outer {
     $variant = "union"
     $variant-repr = "external"
-    variants.inner.data = `integer`
-    variants.other.name = `text`
+    variants.outer {
+      $variant = "union"
+      $variant-repr = "external"
+      variants.inner.data = `integer`
+      variants.other.name = `text`
+    }
+    variants.simple = `text`
   }
   variants.simple = `text`
 }
@@ -484,23 +486,23 @@ value {
 
 schema_errors[] = ```text
 error: Invalid variant tag 'unknown' at path value
- --> <input>:2:3
-  |
-2 | /   outer {
-3 | |     unknown {
-4 | |       data = 42
-5 | |     }
-6 | |   }
-  | |___^ Invalid variant tag 'unknown' at path value
-  |
+  --> <input>:3:5
+   |
+ 3 | /     outer {
+ 4 | |       unknown {
+ 5 | |         data = 42
+ 6 | |       }
+ 7 | |     }
+   | |_____^ Invalid variant tag 'unknown' at path value
+   |
 note: constraint defined here
- --> <schema>:4:3
-  |
-4 | /   variants.outer {
-5 | |     $variant = "union"
-6 | |     $variant-repr = "external"
-7 | |     variants.inner.data = `integer`
-8 | |     variants.other.name = `text`
-9 | |   }
-  | |___- constraint defined here
+  --> <schema>:7:5
+   |
+ 7 | /     variants.outer {
+ 8 | |       $variant = "union"
+ 9 | |       $variant-repr = "external"
+10 | |       variants.inner.data = `integer`
+11 | |       variants.other.name = `text`
+12 | |     }
+   | |_____- constraint defined here
 ```

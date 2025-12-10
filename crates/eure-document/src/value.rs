@@ -2,7 +2,7 @@ use num_bigint::BigInt;
 
 use crate::{prelude_internal::*, text::Text};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ValueKind {
     Hole,
     Null,

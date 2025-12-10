@@ -105,6 +105,13 @@ impl<'doc> ParseContext<'doc> {
         T::parse(self)
     }
 
+    pub fn parse_with<T: DocumentParser<'doc>>(
+        &self,
+        mut parser: T,
+    ) -> Result<T::Output, T::Error> {
+        parser.parse(self)
+    }
+
     /// Get a union parser for the current node with the specified variant representation.
     ///
     /// Returns error if `$variant` extension has invalid type or syntax.
@@ -484,8 +491,9 @@ impl ParseDocument<'_> for f64 {
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
-            // Accept both F32 (with conversion) and F64 if we add it later
+            // Accept both F32 (with conversion) and F64
             PrimitiveValue::F32(f) => Ok(*f as f64),
+            PrimitiveValue::F64(f) => Ok(*f),
             _ => Err(ParseError {
                 node_id: ctx.node_id(),
                 kind: ParseErrorKind::TypeMismatch {
