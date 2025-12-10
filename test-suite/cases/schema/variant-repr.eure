@@ -1,0 +1,506 @@
+// Test cases for variant representation (VariantRepr) in union schema validation
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: External Repr - Valid
+// ============================================================================
+
+@ cases.external-valid
+input_eure = ```eure
+value {
+  success {
+    message = "ok"
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.success.message = `text`
+  variants.error.code = `integer`
+}
+```
+
+// ============================================================================
+// Test Case 2: Internal Repr - Valid
+// Note: Internal repr tag exclusion not yet implemented in schema validation
+// ============================================================================
+
+@ cases.internal-valid
+unimplemented = "Internal repr tag exclusion not implemented"
+
+input_eure = ```eure
+value {
+  type = "success"
+  message = "ok"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.success.message = `text`
+  variants.error.code = `integer`
+}
+```
+
+// ============================================================================
+// Test Case 3: Adjacent Repr - Valid
+// Note: Adjacent repr not yet implemented in schema validation
+// ============================================================================
+
+@ cases.adjacent-valid
+
+input_eure = ```eure
+value {
+  kind = "success"
+  data {
+    message = "ok"
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = { "tag" => "kind", "content" => "data" }
+  variants.success.message = `text`
+  variants.error.code = `integer`
+}
+```
+
+// ============================================================================
+// Test Case 4: Untagged Repr - Valid (default)
+// ============================================================================
+
+@ cases.untagged-valid
+input_eure = ```eure
+value {
+  message = "ok"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  // No $variant-repr means Untagged (default)
+  variants.text-variant.message = `text`
+  variants.int-variant.value = `integer`
+}
+```
+
+// ============================================================================
+// Test Case 5: External Repr with Nested Union
+// ============================================================================
+
+@ cases.external-nested
+input_eure = ```eure
+value {
+  outer {
+    inner {
+      value = 42
+    }
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.outer {
+    $variant = "union"
+    $variant-repr = "external"
+    variants.inner.value = `integer`
+    variants.other.name = `text`
+  }
+  variants.simple = `text`
+}
+```
+
+// ============================================================================
+// Test Case 6: Internal Repr with Nested Union (flattened)
+// Note: Internal repr tag exclusion not yet implemented in schema validation
+// ============================================================================
+
+@ cases.internal-nested
+unimplemented = "Internal repr tag exclusion not implemented"
+input_eure = ```eure
+value {
+  type = "wrapper"
+  inner-type = "left"
+  data = 100
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.wrapper {
+    $variant = "union"
+    $variant-repr { tag = "inner-type" }
+    variants.left.data = `integer`
+    variants.right.data = `text`
+  }
+  variants.simple.name = `text`
+}
+```
+
+// ============================================================================
+// Test Case 7: $variant Agrees with Repr - Valid
+// Note: Internal repr tag exclusion not yet implemented in schema validation
+// ============================================================================
+
+@ cases.variant-agrees
+unimplemented = "Internal repr tag exclusion not implemented"
+input_eure = ```eure
+value {
+  $variant = "success"
+  type = "success"
+  message = "ok"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.success.message = `text`
+  variants.error.code = `integer`
+}
+```
+
+// ============================================================================
+// Test Case 8: Mixed Repr - External containing Internal
+// Note: Internal repr tag exclusion not yet implemented in schema validation
+// ============================================================================
+
+@ cases.mixed-repr-nested
+unimplemented = "Internal repr tag exclusion not implemented"
+input_eure = ```eure
+value {
+  outer {
+    type = "inner-a"
+    value = 123
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.outer {
+    $variant = "union"
+    $variant-repr { tag = "type" }
+    variants.inner-a.value = `integer`
+    variants.inner-b.value = `text`
+  }
+  variants.simple = `boolean`
+}
+```
+
+// ============================================================================
+// Test Case 9: Nested $variant path with External Repr
+// Note: Nested variant path resolution not yet fully implemented
+// ============================================================================
+
+@ cases.variant-path-nested
+unimplemented = "Nested variant path resolution not fully implemented"
+
+input_eure = ```eure
+value {
+  $variant = "outer.inner"
+  outer {
+    inner {
+      data = 42
+    }
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.outer {
+    $variant = "union"
+    $variant-repr = "external"
+    variants.inner.data = `integer`
+    variants.other.data = `text`
+  }
+  variants.leaf = `text`
+}
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 10: Conflicting variant tags ($variant differs from repr extraction)
+// ============================================================================
+
+@ cases.conflicting-tags
+input_eure = ```eure
+value {
+  $variant = "error"
+  type = "success"
+  message = "ok"
+}
+```
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.success.message = `text`
+  variants.error.code = `integer`
+}
+```
+schema_errors[] = ```text
+error: Conflicting variant tags: $variant = error, repr = success at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   $variant = "error"
+3 | |   type = "success"
+4 | |   message = "ok"
+5 | | }
+  | |_^ Conflicting variant tags: $variant = error, repr = success at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   $variant-repr { tag = "type" }
+4 | |   variants.success.message = `text`
+5 | |   variants.error.code = `integer`
+6 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 11: Invalid variant tag (variant name doesn't exist)
+// ============================================================================
+
+@ cases.invalid-variant-name
+input_eure = ```eure
+value {
+  unknown {
+    data = 42
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.success.message = `text`
+  variants.error.code = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: Invalid variant tag 'unknown' at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   unknown {
+3 | |     data = 42
+4 | |   }
+5 | | }
+  | |_^ Invalid variant tag 'unknown' at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   $variant-repr = "external"
+4 | |   variants.success.message = `text`
+5 | |   variants.error.code = `integer`
+6 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 12: No variant matched (untagged, none match)
+// ============================================================================
+
+@ cases.no-variant-matched
+input_eure = ```eure
+value {
+  unknown_field = "test"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  variants.a.message = `text`
+  variants.b.code = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: No variant matched for union at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   unknown_field = "test"
+3 | | }
+  | |_^ No variant matched for union at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   variants.a.message = `text`
+4 | |   variants.b.code = `integer`
+5 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 13: External repr - missing wrapper key
+// ============================================================================
+
+@ cases.external-missing-wrapper
+input_eure = ```eure
+value {
+  message = "direct content without wrapper"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.success.message = `text`
+  variants.error.code = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: Invalid variant tag 'message' at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   message = "direct content without wrapper"
+3 | | }
+  | |_^ Invalid variant tag 'message' at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   $variant-repr = "external"
+4 | |   variants.success.message = `text`
+5 | |   variants.error.code = `integer`
+6 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 14: Explicit $variant with invalid variant name
+// ============================================================================
+
+@ cases.explicit-variant-invalid
+input_eure = ```eure
+value {
+  $variant = "nonexistent"
+  data = 42
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  variants.a.message = `text`
+  variants.b.code = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: Invalid variant tag 'nonexistent' at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   $variant = "nonexistent"
+3 | |   data = 42
+4 | | }
+  | |_^ Invalid variant tag 'nonexistent' at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   variants.a.message = `text`
+4 | |   variants.b.code = `integer`
+5 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 15: Nested union - invalid inner variant
+// ============================================================================
+
+@ cases.nested-invalid-inner
+input_eure = ```eure
+value {
+  outer {
+    unknown {
+      data = 42
+    }
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.outer {
+    $variant = "union"
+    $variant-repr = "external"
+    variants.inner.data = `integer`
+    variants.other.name = `text`
+  }
+  variants.simple = `text`
+}
+```
+
+schema_errors[] = ```text
+error: Invalid variant tag 'unknown' at path value
+ --> <input>:2:3
+  |
+2 | /   outer {
+3 | |     unknown {
+4 | |       data = 42
+5 | |     }
+6 | |   }
+  | |___^ Invalid variant tag 'unknown' at path value
+  |
+note: constraint defined here
+ --> <schema>:4:3
+  |
+4 | /   variants.outer {
+5 | |     $variant = "union"
+6 | |     $variant-repr = "external"
+7 | |     variants.inner.data = `integer`
+8 | |     variants.other.name = `text`
+9 | |   }
+  | |___- constraint defined here
+```

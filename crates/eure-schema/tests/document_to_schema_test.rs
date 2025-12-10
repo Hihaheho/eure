@@ -1019,7 +1019,7 @@ fn test_union_with_adjacent_tag() {
 }
 
 #[test]
-fn test_union_default_external() {
+fn test_union_default_untagged() {
     let doc = eure!({
         %types.status {
             %variant = Text::inline_implicit("union"),
@@ -1031,11 +1031,11 @@ fn test_union_default_external() {
 
     let status_id = schema.types[&ident("status")];
 
-    // Default representation should be External
+    // Default representation should be Untagged (not External)
     assert_union_repr(&schema, status_id, |repr| {
         assert!(
-            matches!(repr, VariantRepr::External),
-            "Expected VariantRepr::External, got {:?}",
+            matches!(repr, VariantRepr::Untagged),
+            "Expected VariantRepr::Untagged, got {:?}",
             repr
         );
     });

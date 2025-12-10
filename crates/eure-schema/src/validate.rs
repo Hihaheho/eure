@@ -28,6 +28,7 @@ use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::parse::VariantPath;
+use eure_document::parse::union::extract_repr_variant;
 use eure_document::path::{EurePath, PathSegment};
 use eure_document::text::Language;
 use eure_document::value::{ObjectKey, PrimitiveValue};
@@ -855,84 +856,150 @@ impl<'a> ValidationContext<'a> {
     }
 
     // -------------------------------------------------------------------------
-    // Union validation (simplified: $variant + untagged only)
+    // Union validation (supports $variant, VariantRepr, and untagged)
     // -------------------------------------------------------------------------
 
     fn validate_union(&mut self, node: &Node, schema: &UnionSchema) -> Result<(), ()> {
-        // Check for $variant extension
-        if let Some(tag_str) = self.get_extension_as_string(node, &identifiers::VARIANT) {
-            match VariantPath::parse(&tag_str) {
-                Ok(path) => return self.validate_union_tagged(node, schema, &path),
+        let node_id = self.current_node_id;
+
+        // 1. Extract $variant extension if present
+        let explicit_variant = self.get_extension_as_string(node, &identifiers::VARIANT);
+        let explicit_path = match &explicit_variant {
+            Some(tag_str) => match VariantPath::parse(tag_str) {
+                Ok(path) => Some(path),
                 Err(_) => {
                     self.record_error(ValidationError::InvalidVariantTag {
-                        tag: tag_str,
+                        tag: tag_str.clone(),
                         path: self.path.clone(),
                         node_id: self.node_id(),
                         schema_node_id: self.schema_node_id(),
                     });
                     return Ok(());
                 }
-            }
-        }
+            },
+            None => None,
+        };
 
-        // No $variant - try untagged matching
-        self.validate_union_untagged(node, schema)
-    }
-
-    fn validate_union_tagged(
-        &mut self,
-        _node: &Node,
-        schema: &UnionSchema,
-        variant_path: &VariantPath,
-    ) -> Result<(), ()> {
-        let first = match variant_path.first() {
-            Some(f) => f.as_ref(),
-            None => {
+        // 2. Extract variant from repr pattern (using shared function)
+        let repr_variant = match extract_repr_variant(self.document, node_id, &schema.repr) {
+            Ok(rv) => rv,
+            Err(e) => {
+                // Tag field exists but has invalid type
                 self.record_error(ValidationError::InvalidVariantTag {
-                    tag: variant_path.to_string(),
+                    tag: format!("parse error: {}", e.kind),
                     path: self.path.clone(),
-                    node_id: self.node_id(),
+                    node_id: e.node_id,
                     schema_node_id: self.schema_node_id(),
                 });
                 return Ok(());
             }
         };
 
-        if let Some(&variant_schema_id) = schema.variants.get(first) {
-            if let Some(rest) = variant_path.rest() {
-                // More path segments - variant must be a union
-                let nested_schema = {
-                    let content = self.resolve_schema_content(variant_schema_id);
-                    match content {
-                        SchemaNodeContent::Union(s) => Some(s.clone()),
-                        _ => None,
-                    }
-                };
-
-                if let Some(nested) = nested_schema {
-                    return self.validate_union_tagged(_node, &nested, &rest);
-                } else {
-                    self.record_error(ValidationError::InvalidVariantTag {
-                        tag: variant_path.to_string(),
+        // 3. Resolve variant - conflict is an error
+        let resolved = match &explicit_path {
+            // $variant present
+            Some(ev) => {
+                let name = ev
+                    .first()
+                    .map(|i| i.as_ref().to_string())
+                    .unwrap_or_default();
+                // Check for conflict with repr
+                if let Some((rv_name, _)) = &repr_variant
+                    && rv_name != &name
+                {
+                    self.record_error(ValidationError::ConflictingVariantTags {
+                        explicit: name,
+                        repr: rv_name.clone(),
                         path: self.path.clone(),
                         node_id: self.node_id(),
                         schema_node_id: self.schema_node_id(),
                     });
                     return Ok(());
                 }
+                // If repr also matched (same name), use repr's content (better context)
+                let content = repr_variant.as_ref().map(|(_, rv_content)| *rv_content);
+                Some((name, content, ev.rest()))
             }
+            // Only repr - use repr's content
+            None => repr_variant
+                .as_ref()
+                .map(|(name, content)| (name.clone(), Some(*content), None)),
+        };
 
-            let node_id = self.current_node_id;
-            self.validate_node(node_id, variant_schema_id)
-        } else {
+        // 4. Validate based on resolved variant
+        match resolved {
+            Some((variant_name, content_node_id, rest_path)) => self.validate_union_with_variant(
+                node,
+                schema,
+                &variant_name,
+                content_node_id,
+                rest_path,
+            ),
+            None => self.validate_union_untagged(node, schema),
+        }
+    }
+
+    /// Validate union with a determined variant.
+    fn validate_union_with_variant(
+        &mut self,
+        _node: &Node,
+        schema: &UnionSchema,
+        variant_name: &str,
+        content_node_id: Option<NodeId>,
+        rest_path: Option<VariantPath>,
+    ) -> Result<(), ()> {
+        // Look up variant schema
+        let Some(&variant_schema_id) = schema.variants.get(variant_name) else {
             self.record_error(ValidationError::InvalidVariantTag {
-                tag: variant_path.to_string(),
+                tag: variant_name.to_string(),
                 path: self.path.clone(),
                 node_id: self.node_id(),
                 schema_node_id: self.schema_node_id(),
             });
-            Ok(())
+            return Ok(());
+        };
+
+        // Handle nested variant path
+        if let Some(rest) = rest_path
+            && !rest.is_empty()
+        {
+            // More path segments - variant must be a union
+            let nested_schema = {
+                let content = self.resolve_schema_content(variant_schema_id);
+                match content {
+                    SchemaNodeContent::Union(s) => Some(s.clone()),
+                    _ => None,
+                }
+            };
+
+            if let Some(nested) = nested_schema {
+                let rest_str = rest.to_string();
+                if let Ok(path) = VariantPath::parse(&rest_str) {
+                    let ev_first = path
+                        .first()
+                        .map(|i| i.as_ref().to_string())
+                        .unwrap_or_default();
+                    return self.validate_union_with_variant(
+                        _node,
+                        &nested,
+                        &ev_first,
+                        content_node_id,
+                        path.rest(),
+                    );
+                }
+            }
+            self.record_error(ValidationError::InvalidVariantTag {
+                tag: rest.to_string(),
+                path: self.path.clone(),
+                node_id: self.node_id(),
+                schema_node_id: self.schema_node_id(),
+            });
+            return Ok(());
         }
+
+        // Validate content against variant schema
+        let node_to_validate = content_node_id.unwrap_or(self.current_node_id);
+        self.validate_node(node_to_validate, variant_schema_id)
     }
 
     fn validate_union_untagged(&mut self, _node: &Node, schema: &UnionSchema) -> Result<(), ()> {
@@ -1159,6 +1226,15 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
+    #[error("Conflicting variant tags: $variant = {explicit}, repr = {repr} at path {path}")]
+    ConflictingVariantTags {
+        explicit: String,
+        repr: String,
+        path: EurePath,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
+    },
+
     #[error("Literal value mismatch at path {path}")]
     LiteralMismatch {
         expected: String,
@@ -1278,6 +1354,11 @@ impl ValidationError {
                 ..
             }
             | Self::InvalidVariantTag {
+                node_id,
+                schema_node_id,
+                ..
+            }
+            | Self::ConflictingVariantTags {
                 node_id,
                 schema_node_id,
                 ..

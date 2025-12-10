@@ -1,0 +1,102 @@
+// Test cases for primitive type schemas
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: All primitive types
+// ============================================================================
+
+@ cases.all-primitives
+input_eure = ```eure
+a = "hello"
+b = 1
+c = 1.0
+d = true
+e = null
+```
+
+schema = ```eure
+a = `text`
+b = `integer`
+c = `float`
+d = `boolean`
+e = `null`
+```
+
+expected_json = ```json
+{
+  "a": "hello",
+  "b": 1,
+  "c": 1.0,
+  "d": true,
+  "e": null
+}
+```
+
+expected_json_schema = ```json
+{
+  "type": "object",
+  "properties": {
+    "a": { "type": "string" },
+    "b": { "type": "integer" },
+    "c": { "type": "number" },
+    "d": { "type": "boolean" },
+    "e": { "type": "null" }
+  },
+  "required": ["a", "b", "c", "d", "e"]
+}
+```
+
+// ============================================================================
+// Test Case 2: Basic primitive validation
+// ============================================================================
+
+@ cases.basic-validation
+input_eure = ```eure
+name = "Alice"
+age = 30
+score = 1.0
+active = true
+```
+
+schema = ```eure
+name = `text`
+age = `integer`
+score = `float`
+active = `boolean`
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 3: Type mismatch error
+// ============================================================================
+
+@ cases.type-mismatch
+input_eure = ```eure
+name = 42
+```
+
+schema = ```eure
+name = `text`
+```
+
+schema_errors = [
+  ```
+error: Type mismatch: expected text, got integer at path name
+ --> <input>:1:1
+  |
+1 | name = 42
+  | ^^^^^^^^^ Type mismatch: expected text, got integer at path name
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | name = `text`
+  | ------------- constraint defined here
+```
+]

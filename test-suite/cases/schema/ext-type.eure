@@ -1,0 +1,100 @@
+// Test cases for extension type ($ext-type) schemas
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: Extension provided with correct type
+// ============================================================================
+
+@ cases.extension-provided
+input_eure = ```eure
+name = "Alice"
+name.$description = "The user's name"
+```
+
+schema = ```eure
+name = `text`
+name.$ext-type.description = `text`
+```
+
+// ============================================================================
+// Test Case 2: Optional extension omitted
+// ============================================================================
+
+@ cases.optional-omitted
+input_eure = ```eure
+name = "Alice"
+```
+
+schema = ```eure
+name = `text`
+name.$ext-type.description = `text`
+name.$ext-type.description.$optional = true
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 3: Required extension missing
+// ============================================================================
+
+@ cases.missing-required
+input_eure = ```eure
+name = "Alice"
+```
+
+schema = ```eure
+name = `text`
+name.$ext-type.description = `text`
+```
+
+schema_errors = [
+  ```
+error: Missing required extension 'description' at path name
+ --> <input>:1:1
+  |
+1 | name = "Alice"
+  | ^^^^^^^^^^^^^^ Missing required extension 'description' at path name
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | name = `text`
+  | ------------- constraint defined here
+```
+]
+
+// ============================================================================
+// Test Case 4: Extension type mismatch
+// ============================================================================
+
+@ cases.type-mismatch
+input_eure = ```eure
+name = "Alice"
+name.$description = 42
+```
+
+schema = ```eure
+name = `text`
+name.$ext-type.description = `text`
+```
+
+schema_errors = [
+  ```
+error: Type mismatch: expected text, got integer at path name.$description
+ --> <input>:2:1
+  |
+2 | name.$description = 42
+  | ^^^^^^^^^^^^^^^^^^^^^^ Type mismatch: expected text, got integer at path name.$description
+  |
+note: constraint defined here
+ --> <schema>:2:1
+  |
+2 | name.$ext-type.description = `text`
+  | ----------------------------------- constraint defined here
+```
+]

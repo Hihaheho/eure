@@ -32,18 +32,30 @@ pub struct RecordParser<'doc> {
     node_id: NodeId,
     map: &'doc NodeMap,
     accessed: HashSet<String>,
+    /// Fields to exclude from parsing (used for Internal repr flatten).
+    excluded: HashSet<String>,
 }
 
 impl<'doc> RecordParser<'doc> {
     /// Create a new RecordParser for the given context.
     pub(crate) fn new(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        Self::from_doc_and_node(ctx.doc(), ctx.node_id())
+        let excluded = ctx.excluded_fields().cloned().unwrap_or_else(HashSet::new);
+        Self::from_doc_and_node_with_excluded(ctx.doc(), ctx.node_id(), excluded)
     }
 
     /// Create a new RecordParser from document and node ID directly.
     pub(crate) fn from_doc_and_node(
         doc: &'doc EureDocument,
         node_id: NodeId,
+    ) -> Result<Self, ParseError> {
+        Self::from_doc_and_node_with_excluded(doc, node_id, HashSet::new())
+    }
+
+    /// Create a new RecordParser with excluded fields.
+    fn from_doc_and_node_with_excluded(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        excluded: HashSet<String>,
     ) -> Result<Self, ParseError> {
         let node = doc.node(node_id);
         match &node.content {
@@ -52,6 +64,7 @@ impl<'doc> RecordParser<'doc> {
                 node_id,
                 map,
                 accessed: HashSet::new(),
+                excluded,
             }),
             NodeValue::Hole(_) => Err(ParseError {
                 node_id,
@@ -77,9 +90,16 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get a required field.
     ///
-    /// Returns `ParseErrorKind::MissingField` if the field is not present.
+    /// Returns `ParseErrorKind::MissingField` if the field is not present or is excluded.
     pub fn parse_field<T: ParseDocument<'doc>>(&mut self, name: &str) -> Result<T, ParseError> {
         self.accessed.insert(name.to_string());
+        // Excluded fields are treated as missing
+        if self.excluded.contains(name) {
+            return Err(ParseError {
+                node_id: self.node_id,
+                kind: ParseErrorKind::MissingField(name.to_string()),
+            });
+        }
         let field_node_id = self
             .map
             .get(&ObjectKey::String(name.to_string()))
@@ -93,12 +113,16 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get an optional field.
     ///
-    /// Returns `Ok(None)` if the field is not present.
+    /// Returns `Ok(None)` if the field is not present or is excluded.
     pub fn parse_field_optional<T: ParseDocument<'doc>>(
         &mut self,
         name: &str,
     ) -> Result<Option<T>, ParseError> {
         self.accessed.insert(name.to_string());
+        // Excluded fields are treated as missing
+        if self.excluded.contains(name) {
+            return Ok(None);
+        }
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => {
                 let ctx = ParseContext::new(self.doc, field_node_id);
@@ -111,9 +135,16 @@ impl<'doc> RecordParser<'doc> {
     /// Get the parse context for a field without parsing it.
     ///
     /// Use this when you need access to the field's NodeId or want to defer parsing.
-    /// Returns `ParseErrorKind::MissingField` if the field is not present.
+    /// Returns `ParseErrorKind::MissingField` if the field is not present or is excluded.
     pub fn field(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
         self.accessed.insert(name.to_string());
+        // Excluded fields are treated as missing
+        if self.excluded.contains(name) {
+            return Err(ParseError {
+                node_id: self.node_id,
+                kind: ParseErrorKind::MissingField(name.to_string()),
+            });
+        }
         let field_node_id = self
             .map
             .get(&ObjectKey::String(name.to_string()))
@@ -127,9 +158,13 @@ impl<'doc> RecordParser<'doc> {
     /// Get the parse context for an optional field without parsing it.
     ///
     /// Use this when you need access to the field's NodeId or want to defer parsing.
-    /// Returns `None` if the field is not present.
+    /// Returns `None` if the field is not present or is excluded.
     pub fn field_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
         self.accessed.insert(name.to_string());
+        // Excluded fields are treated as missing
+        if self.excluded.contains(name) {
+            return None;
+        }
         self.map
             .get(&ObjectKey::String(name.to_string()))
             .map(|node_id| ParseContext::new(self.doc, node_id))
@@ -137,9 +172,16 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get a field as a nested record parser.
     ///
-    /// Returns `ParseErrorKind::MissingField` if the field is not present.
+    /// Returns `ParseErrorKind::MissingField` if the field is not present or is excluded.
     pub fn field_record(&mut self, name: &str) -> Result<RecordParser<'doc>, ParseError> {
         self.accessed.insert(name.to_string());
+        // Excluded fields are treated as missing
+        if self.excluded.contains(name) {
+            return Err(ParseError {
+                node_id: self.node_id,
+                kind: ParseErrorKind::MissingField(name.to_string()),
+            });
+        }
         let field_node_id = self
             .map
             .get(&ObjectKey::String(name.to_string()))
@@ -152,12 +194,16 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get an optional field as a nested record parser.
     ///
-    /// Returns `Ok(None)` if the field is not present.
+    /// Returns `Ok(None)` if the field is not present or is excluded.
     pub fn field_record_optional(
         &mut self,
         name: &str,
     ) -> Result<Option<RecordParser<'doc>>, ParseError> {
         self.accessed.insert(name.to_string());
+        // Excluded fields are treated as missing
+        if self.excluded.contains(name) {
+            return Ok(None);
+        }
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => Ok(Some(RecordParser::from_doc_and_node(
                 self.doc,
@@ -171,10 +217,15 @@ impl<'doc> RecordParser<'doc> {
     ///
     /// This also errors if the map contains non-string keys, as records
     /// should only have string-keyed fields.
+    /// Excluded fields are not considered unknown.
     pub fn deny_unknown_fields(self) -> Result<(), ParseError> {
         for (key, _) in self.map.iter() {
             match key {
                 ObjectKey::String(name) => {
+                    // Excluded fields are not considered unknown
+                    if self.excluded.contains(name.as_str()) {
+                        continue;
+                    }
                     if !self.accessed.contains(name.as_str()) {
                         return Err(ParseError {
                             node_id: self.node_id,
@@ -214,16 +265,27 @@ impl<'doc> RecordParser<'doc> {
     /// Get an iterator over unknown fields (for Schema policy or custom handling).
     ///
     /// Returns (field_name, context) pairs for fields that haven't been accessed.
+    /// Excluded fields are not included.
     pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
         self.map.iter().filter_map(move |(key, &node_id)| {
             if let ObjectKey::String(name) = key
                 && !self.accessed.contains(name.as_str())
+                && !self.excluded.contains(name.as_str())
             {
                 return Some((name.as_str(), ParseContext::new(doc, node_id)));
             }
             None
         })
+    }
+
+    /// Create a context with accessed fields excluded.
+    ///
+    /// This is used for Internal variant representation flatten pattern,
+    /// where the tag field is accessed and the remaining fields should be
+    /// parsed by the variant parser.
+    pub fn flatten_context(self) -> ParseContext<'doc> {
+        ParseContext::with_excluded_fields(self.doc, self.node_id, self.accessed)
     }
 }
 

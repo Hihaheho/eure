@@ -17,7 +17,10 @@ pub use variant_path::VariantPath;
 use alloc::format;
 use num_bigint::BigInt;
 
+use std::collections::HashSet;
+
 use crate::{
+    data_model::VariantRepr,
     document::node::{Node, NodeArray},
     identifier::IdentifierError,
     prelude_internal::*,
@@ -37,6 +40,8 @@ pub struct ParseContext<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
     variant_path: Option<VariantPath>,
+    /// Fields to exclude from record parsing (used for Internal repr flatten).
+    excluded_fields: Option<HashSet<String>>,
 }
 
 impl<'doc> ParseContext<'doc> {
@@ -46,7 +51,27 @@ impl<'doc> ParseContext<'doc> {
             doc,
             node_id,
             variant_path: None,
+            excluded_fields: None,
         }
+    }
+
+    /// Create a context with excluded fields (for Internal repr flatten).
+    pub(crate) fn with_excluded_fields(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        excluded: HashSet<String>,
+    ) -> Self {
+        Self {
+            doc,
+            node_id,
+            variant_path: None,
+            excluded_fields: Some(excluded),
+        }
+    }
+
+    /// Get the excluded fields.
+    pub(crate) fn excluded_fields(&self) -> Option<&HashSet<String>> {
+        self.excluded_fields.as_ref()
     }
 
     /// Get the current node ID.
@@ -64,12 +89,13 @@ impl<'doc> ParseContext<'doc> {
         self.doc.node(self.node_id)
     }
 
-    /// Create a new context at a different node (clears variant path).
+    /// Create a new context at a different node (clears variant path and excluded fields).
     pub(crate) fn at(&self, node_id: NodeId) -> Self {
         Self {
             doc: self.doc,
             node_id,
             variant_path: None,
+            excluded_fields: None,
         }
     }
 
@@ -78,11 +104,18 @@ impl<'doc> ParseContext<'doc> {
         T::parse(self)
     }
 
-    /// Get a union parser for the current node.
+    /// Get a union parser for the current node with the specified variant representation.
     ///
     /// Returns error if `$variant` extension has invalid type or syntax.
-    pub fn parse_union<T>(&self) -> Result<UnionParser<'doc, '_, T>, ParseError> {
-        UnionParser::new(self)
+    ///
+    /// # Arguments
+    ///
+    /// * `repr` - The variant representation to use. Use `VariantRepr::default()` for Untagged.
+    pub fn parse_union<T>(
+        &self,
+        repr: VariantRepr,
+    ) -> Result<UnionParser<'doc, '_, T>, ParseError> {
+        UnionParser::new(self, repr)
     }
 
     /// Parse the current node as a record.
@@ -135,6 +168,7 @@ impl<'doc> ParseContext<'doc> {
             doc: self.doc,
             node_id: self.node_id,
             variant_path: rest,
+            excluded_fields: self.excluded_fields.clone(),
         }
     }
 
@@ -264,8 +298,15 @@ pub enum ParseErrorKind {
     InvalidKeyType(crate::value::ObjectKey),
 
     /// No variant matched in union type.
-    #[error("no matching variant")]
-    NoMatchingVariant,
+    #[error("no matching variant{}", variant.as_ref().map(|v| format!(" (variant: {})", v)).unwrap_or_default())]
+    NoMatchingVariant {
+        /// Variant name extracted (if any).
+        variant: Option<String>,
+    },
+
+    /// Conflicting variant tags: $variant and repr extracted different variant names.
+    #[error("conflicting variant tags: $variant = {explicit}, repr = {repr}")]
+    ConflictingVariantTags { explicit: String, repr: String },
 
     /// Multiple variants matched with no priority to resolve.
     #[error("ambiguous union: {0:?}")]
@@ -624,7 +665,7 @@ where
     T: ParseDocument<'doc>,
 {
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        ctx.parse_union()?
+        ctx.parse_union(VariantRepr::default())?
             .variant("some", |ctx| ctx.parse::<T>().map(Some))
             .variant("none", |ctx| {
                 if ctx.is_null() {
@@ -654,7 +695,7 @@ where
     E: ParseDocument<'doc>,
 {
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        ctx.parse_union()?
+        ctx.parse_union(VariantRepr::default())?
             .variant("ok", |ctx| ctx.parse::<T>().map(Ok))
             .variant("err", |ctx| ctx.parse::<E>().map(Err))
             .parse()

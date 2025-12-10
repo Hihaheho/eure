@@ -68,8 +68,7 @@ pub enum TupleRepr {
 #[derive(Debug, Clone, PartialEq, Default)]
 /// How to represent variant in a data model. Corresponds to the `$variant-repr` extension.
 pub enum VariantRepr {
-    /// Default representation: {"variant-name": {...}}
-    #[default]
+    /// External tagging: {"variant-name": {...}}
     External,
 
     /// Internal tagging: {"type": "variant-name", ...fields...}
@@ -78,7 +77,9 @@ pub enum VariantRepr {
     /// Adjacent tagging: {"type": "variant-name", "content": {...}}
     Adjacent { tag: String, content: String },
 
-    /// Untagged: just the content without variant information
+    /// Untagged: try all variants without structure-based matching.
+    /// This is the default when no `$variant-repr` is specified.
+    #[default]
     Untagged,
 }
 

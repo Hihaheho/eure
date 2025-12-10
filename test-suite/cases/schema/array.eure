@@ -1,0 +1,124 @@
+// Test cases for array type schemas
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: Basic array types
+// ============================================================================
+
+@ cases.basic
+input_eure = ```eure
+a = [1, 2, 3]
+b = [1, 2, 3]
+c = [[1, 2], [3, 4]]
+d = [{ a => 1, b => 2 }, { a => 3, b => 4 }]
+e = [{ array => [1, 2, 3] }, { array => [4, 5, 6] }]
+```
+
+schema = ```eure
+a = [`integer`]
+b = [`integer`]
+c = [[`integer`]]
+d = [{ a => `integer`, b => `integer` }]
+e = [{ array => [`integer`] }]
+```
+
+expected_json_schema = ```json
+{
+  "a": {
+    "type": "array",
+    "items": { "type": "integer" },
+    "minItems": 1,
+    "maxItems": 3,
+    "uniqueItems": true,
+    "contains": { "const": 1 }
+  },
+  "b": {
+    "type": "array",
+    "items": { "type": "integer" }
+  },
+  "c": {
+    "type": "array",
+    "items": {
+      "type": "array",
+      "items": { "type": "integer" }
+    }
+  },
+  "d": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "a": { "type": "integer" },
+        "b": { "type": "integer" }
+      },
+      "required": ["a", "b"]
+    }
+  },
+  "e": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "array": {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+      },
+      "required": ["array"]
+    }
+  }
+}
+```
+
+// ============================================================================
+// Test Case 2: Array with section syntax
+// ============================================================================
+
+@ cases.section-syntax
+input_eure = ```eure
+tags[] = "rust"
+tags[] = "eure"
+tags[] = "schema"
+```
+
+schema = ```eure
+tags = [`text`]
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 3: Array item type mismatch
+// ============================================================================
+
+@ cases.item-type-mismatch
+input_eure = ```eure
+numbers[] = 1
+numbers[] = "two"
+numbers[] = 3
+```
+
+schema = ```eure
+numbers = [`integer`]
+```
+
+schema_errors = [
+  ```
+error: Type mismatch: expected integer, got text at path numbers[1]
+ --> <input>:2:1
+  |
+2 | numbers[] = "two"
+  | ^^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path numbers[1]
+  |
+note: constraint defined here
+ --> <schema>:1:11
+  |
+1 | numbers = [`integer`]
+  |           ----------- constraint defined here
+```
+]

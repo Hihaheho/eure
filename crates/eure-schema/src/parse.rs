@@ -54,7 +54,8 @@ impl ParseDocument<'_> for BindingStyle {
 
 impl ParseDocument<'_> for Description {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
-        ctx.parse_union()?
+        use eure_document::data_model::VariantRepr;
+        ctx.parse_union(VariantRepr::default())?
             .variant("string", |ctx| {
                 let text: String = ctx.parse()?;
                 Ok(Description::String(text))
