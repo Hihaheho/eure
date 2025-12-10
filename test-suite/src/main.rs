@@ -341,19 +341,30 @@ fn run(args: &Args) -> i32 {
             total_scenarios
         );
 
-        // Show warning for fully passing unimplemented cases
+        // Show error for fully passing unimplemented cases (stale markers)
         let fully_passing_unimpl: Vec<_> = unimplemented_cases
             .iter()
             .filter(|(_, all_passed)| *all_passed)
             .collect();
+        let stale_unimpl_count = fully_passing_unimpl.len();
 
-        if !fully_passing_unimpl.is_empty() {
+        if stale_unimpl_count > 0 {
             println!(
-                "\n{}Note:{} {} unimplemented case(s) have all scenarios passing",
+                "\n{}{}Stale Unimplemented Markers{}",
                 colors::BOLD,
-                colors::RESET,
-                fully_passing_unimpl.len()
+                colors::RED,
+                colors::RESET
             );
+            println!("{}{}", colors::DIM, "-".repeat(50));
+            println!("{}", colors::RESET);
+            println!(
+                "  {} case(s) marked as unimplemented have all scenarios passing.",
+                stale_unimpl_count
+            );
+            println!("  Remove the $unimplemented marker from these cases:\n");
+            for (case_name, _) in &fully_passing_unimpl {
+                println!("    - {}", case_name);
+            }
         }
 
         // Print detailed failure reports
@@ -386,7 +397,7 @@ fn run(args: &Args) -> i32 {
 
         // Final status line
         println!();
-        if total_failed == 0 {
+        if total_failed == 0 && stale_unimpl_count == 0 {
             println!(
                 "{}{}All tests passed!{}",
                 colors::BOLD,
@@ -395,11 +406,12 @@ fn run(args: &Args) -> i32 {
             );
             0
         } else {
+            let error_count = total_failed + stale_unimpl_count;
             println!(
-                "{}{}{} test(s) failed.{}",
+                "{}{}{} error(s).{}",
                 colors::BOLD,
                 colors::RED,
-                total_failed,
+                error_count,
                 colors::RESET
             );
             1
