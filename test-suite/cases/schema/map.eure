@@ -1,0 +1,78 @@
+// Test cases for map type schemas
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: Basic map with string keys
+// ============================================================================
+
+@ cases.string-keys-valid
+input_eure = ```eure
+data = { "a" => 1, "b" => 2 }
+```
+
+schema = ```eure
+data {
+  $variant = "map"
+  key = `text`
+  value = `integer`
+}
+```
+
+// ============================================================================
+// Test Case 2: Map with integer keys
+// ============================================================================
+
+@ cases.integer-keys-valid
+input_eure = ```eure
+data = { 1 => "one", 2 => "two" }
+```
+
+schema = ```eure
+data {
+  $variant = "map"
+  key = `integer`
+  value = `text`
+}
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 3: Invalid key type (string key when integer expected)
+// ============================================================================
+
+@ cases.invalid-key-type
+input_eure = ```eure
+data = { "string-key" => 1 }
+```
+
+schema = ```eure
+data {
+  $variant = "map"
+  key = `integer`
+  value = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: Invalid key type at path data
+ --> <input>:1:1
+  |
+1 | data = { "string-key" => 1 }
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Invalid key type at path data
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / data {
+2 | |   $variant = "map"
+3 | |   key = `integer`
+4 | |   value = `integer`
+5 | | }
+  | |_- constraint defined here
+```

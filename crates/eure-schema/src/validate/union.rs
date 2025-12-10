@@ -79,8 +79,9 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
                 if let Some(&variant_schema_id) = self.schema.variants.get(name) {
                     let ctx = self.ctx;
                     let schema_node_id = variant_schema_id;
+                    let variant_name = name.clone();
                     builder = builder.variant(name, move |parse_ctx: &ParseContext<'_>| {
-                        validate_variant(ctx, parse_ctx, schema_node_id, is_tagged)
+                        validate_variant(ctx, parse_ctx, schema_node_id, is_tagged, &variant_name)
                     });
                 }
             }
@@ -93,8 +94,9 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
             }
             let ctx = self.ctx;
             let schema_node_id = variant_schema_id;
+            let variant_name = name.clone();
             builder = builder.other(name, move |parse_ctx: &ParseContext<'_>| {
-                validate_variant(ctx, parse_ctx, schema_node_id, is_tagged)
+                validate_variant(ctx, parse_ctx, schema_node_id, is_tagged, &variant_name)
             });
         }
 
@@ -144,6 +146,7 @@ fn validate_variant<'doc>(
     parse_ctx: &ParseContext<'doc>,
     schema_node_id: SchemaNodeId,
     propagate_errors: bool,
+    variant_name: &str,
 ) -> Result<(), ValidatorError> {
     // Fork state for trial validation
     let forked_state = ctx.fork_state();
@@ -170,7 +173,7 @@ fn validate_variant<'doc>(
             Err(ValidatorError::InnerErrorsPropagated)
         } else {
             Err(ValidatorError::InvalidVariantTag {
-                tag: "variant validation failed".to_string(),
+                tag: variant_name.to_string(),
                 reason: "type mismatch".to_string(),
             })
         }

@@ -66,14 +66,12 @@ fn value_kind_to_name(kind: eure_document::value::ValueKind) -> String {
 // =============================================================================
 
 /// Validates any value (always succeeds).
-pub struct AnyValidator<'a, 'doc> {
-    #[allow(dead_code)]
-    pub ctx: &'a ValidationContext<'doc>,
-    #[allow(dead_code)]
-    pub schema_node_id: SchemaNodeId,
-}
+///
+/// Note: Hole checking is done in `SchemaValidator` before dispatching,
+/// so by the time `AnyValidator` runs, the node is guaranteed non-hole.
+pub struct AnyValidator;
 
-impl<'a, 'doc> DocumentParser<'doc> for AnyValidator<'a, 'doc> {
+impl<'doc> DocumentParser<'doc> for AnyValidator {
     type Output = ();
     type Error = ValidatorError;
 

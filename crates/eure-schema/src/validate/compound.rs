@@ -96,12 +96,12 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for ArrayValidator<'a, 'doc, 's> {
 
         // Validate unique constraint
         if self.schema.unique {
-            self.validate_unique(&items);
+            self.validate_unique(&items, node_id);
         }
 
         // Validate contains constraint
         if let Some(contains_schema) = self.schema.contains {
-            self.validate_contains(&items, contains_schema);
+            self.validate_contains(&items, contains_schema, node_id);
         }
 
         Ok(())
@@ -109,7 +109,11 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for ArrayValidator<'a, 'doc, 's> {
 }
 
 impl<'a, 'doc, 's> ArrayValidator<'a, 'doc, 's> {
-    fn validate_unique(&self, items: &[eure_document::document::NodeId]) {
+    fn validate_unique(
+        &self,
+        items: &[eure_document::document::NodeId],
+        array_node_id: eure_document::document::NodeId,
+    ) {
         // O(n²) comparison - could be optimized with hashing
         for i in 0..items.len() {
             for j in (i + 1)..items.len() {
@@ -118,7 +122,7 @@ impl<'a, 'doc, 's> ArrayValidator<'a, 'doc, 's> {
                 if doc_i == doc_j {
                     self.ctx.record_error(ValidationError::ArrayNotUnique {
                         path: self.ctx.path(),
-                        node_id: items[i], // Report first duplicate
+                        node_id: array_node_id,
                         schema_node_id: self.schema_node_id,
                     });
                     return;
@@ -131,6 +135,7 @@ impl<'a, 'doc, 's> ArrayValidator<'a, 'doc, 's> {
         &self,
         items: &[eure_document::document::NodeId],
         contains_schema: SchemaNodeId,
+        array_node_id: eure_document::document::NodeId,
     ) {
         for &item_id in items {
             // Fork state for trial validation
@@ -152,7 +157,7 @@ impl<'a, 'doc, 's> ArrayValidator<'a, 'doc, 's> {
         self.ctx
             .record_error(ValidationError::ArrayMissingContains {
                 path: self.ctx.path(),
-                node_id: self.ctx.document.get_root_id(), // TODO: better node_id
+                node_id: array_node_id,
                 schema_node_id: self.schema_node_id,
             });
     }
@@ -224,7 +229,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for MapValidator<'a, 'doc, 's> {
         // Validate each entry
         for (key, val_id) in entries {
             // Validate key type
-            self.validate_key_type(&key);
+            self.validate_key_type(&key, node_id);
 
             // Validate value using SchemaValidator
             self.ctx.push_path_key(key);
@@ -244,7 +249,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for MapValidator<'a, 'doc, 's> {
 }
 
 impl<'a, 'doc, 's> MapValidator<'a, 'doc, 's> {
-    fn validate_key_type(&self, key: &ObjectKey) {
+    fn validate_key_type(&self, key: &ObjectKey, map_node_id: eure_document::document::NodeId) {
         let schema_content = self.ctx.resolve_schema_content(self.schema.key);
         let valid = match (key, schema_content) {
             (ObjectKey::String(_), SchemaNodeContent::Text(_)) => true,
@@ -258,7 +263,7 @@ impl<'a, 'doc, 's> MapValidator<'a, 'doc, 's> {
         if !valid {
             self.ctx.record_error(ValidationError::InvalidKeyType {
                 path: self.ctx.path(),
-                node_id: self.ctx.document.get_root_id(), // TODO: better node_id
+                node_id: map_node_id,
                 schema_node_id: self.schema_node_id,
             });
         }

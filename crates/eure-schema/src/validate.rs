@@ -122,10 +122,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
         // Dispatch to type-specific validator
         match &schema_node.content {
             SchemaNodeContent::Any => {
-                let mut v = AnyValidator {
-                    ctx: self.ctx,
-                    schema_node_id: self.schema_node_id,
-                };
+                let mut v = AnyValidator;
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Text(s) => {
