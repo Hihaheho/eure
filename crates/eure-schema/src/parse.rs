@@ -23,7 +23,9 @@ use std::collections::HashMap;
 use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
-use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use eure_document::parse::{
+    DocumentParserExt as _, ParseContext, ParseDocument, ParseError, ParseErrorKind,
+};
 use num_bigint::BigInt;
 use regex::Regex;
 
@@ -58,14 +60,8 @@ impl ParseDocument<'_> for Description {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         use eure_document::data_model::VariantRepr;
         ctx.parse_union(VariantRepr::default())?
-            .variant("string", |ctx| {
-                let text: String = ctx.parse()?;
-                Ok(Description::String(text))
-            })
-            .variant("markdown", |ctx| {
-                let text: String = ctx.parse()?;
-                Ok(Description::Markdown(text))
-            })
+            .variant("string", String::parse.map(Description::String))
+            .variant("markdown", String::parse.map(Description::Markdown))
             .parse()
     }
 }

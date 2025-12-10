@@ -11,6 +11,7 @@ use crate::data_model::VariantRepr;
 use crate::document::node::NodeValue;
 use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
+use crate::parse::DocumentParser;
 use crate::value::ObjectKey;
 
 use super::variant_path::VariantPath;
@@ -135,7 +136,7 @@ fn try_extract_adjacent(
 /// ```ignore
 /// impl<'doc> ParseDocument<'doc> for Description {
 ///     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-///         ctx.parse_union::<TestEnum, ParseError>(VariantRepr::default())?
+///         ctx.parse_union(VariantRepr::default())?
 ///             .variant("string", |ctx| {
 ///                 let text: String = ctx.parse()?;
 ///                 Ok(Description::String(text))
@@ -304,11 +305,12 @@ where
     ///
     /// Priority variants are tried in registration order.
     /// When a priority variant matches (in Untagged mode), parsing short-circuits.
-    pub fn variant<F>(mut self, name: &str, f: F) -> Self
-    where
-        F: Fn(&ParseContext<'doc>) -> Result<T, E>,
-    {
-        self.try_variant(name, &f, true);
+    pub fn variant<P: DocumentParser<'doc, Output = T, Error = E>>(
+        mut self,
+        name: &str,
+        f: P,
+    ) -> Self {
+        self.try_variant(name, f, true);
         self
     }
 
@@ -316,24 +318,27 @@ where
     ///
     /// Non-priority variants are only tried if no priority variant matches.
     /// All non-priority variants are tried to detect ambiguity.
-    pub fn other<F>(mut self, name: &str, f: F) -> Self
-    where
-        F: Fn(&ParseContext<'doc>) -> Result<T, E>,
-    {
-        self.try_variant(name, &f, false);
+    pub fn other<P: DocumentParser<'doc, Output = T, Error = E>>(
+        mut self,
+        name: &str,
+        f: P,
+    ) -> Self {
+        self.try_variant(name, f, false);
         self
     }
 
     /// Internal helper for variant/other logic.
-    fn try_variant<F>(&mut self, name: &str, f: &F, is_priority: bool)
-    where
-        F: Fn(&ParseContext<'doc>) -> Result<T, E>,
-    {
+    fn try_variant<P: DocumentParser<'doc, Output = T, Error = E>>(
+        &mut self,
+        name: &str,
+        mut f: P,
+        is_priority: bool,
+    ) {
         // 1. If variant is determined, only try matching variant
         if let Some((ref v_name, ref v_ctx, ref rest)) = self.variant {
             if v_name == name && self.variant_result.is_none() {
                 let child_ctx = v_ctx.with_variant_rest(rest.clone());
-                self.variant_result = Some(f(&child_ctx));
+                self.variant_result = Some(f.parse(&child_ctx));
             }
             return;
         }
@@ -346,7 +351,7 @@ where
         }
 
         let child_ctx = self.ctx.with_variant_rest(None);
-        match f(&child_ctx) {
+        match f.parse(&child_ctx) {
             Ok(value) => {
                 if is_priority {
                     self.priority_result = Some(value);
@@ -418,6 +423,9 @@ mod tests {
     use super::*;
     use crate::document::EureDocument;
     use crate::document::node::NodeValue;
+    use crate::parse::AlwaysParser;
+    use crate::parse::DocumentParserExt as _;
+    use crate::parse::ParseDocument as _;
     use crate::text::Text;
     use crate::value::PrimitiveValue;
 
@@ -425,7 +433,7 @@ mod tests {
         s.parse().unwrap()
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     enum TestEnum {
         Foo,
         Bar,
@@ -466,9 +474,9 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: TestEnum = ctx
-            .parse_union::<TestEnum, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("foo", |ctx| {
+            .variant("foo", |ctx: &ParseContext<'_>| {
                 let s: &str = ctx.parse()?;
                 if s == "foo" {
                     Ok(TestEnum::Foo)
@@ -479,7 +487,7 @@ mod tests {
                     })
                 }
             })
-            .variant("bar", |ctx| {
+            .variant("bar", |ctx: &ParseContext<'_>| {
                 let s: &str = ctx.parse()?;
                 if s == "bar" {
                     Ok(TestEnum::Bar)
@@ -504,10 +512,10 @@ mod tests {
 
         // Both variants would match, but first one wins due to priority
         let result: String = ctx
-            .parse_union::<String, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("first", |ctx| ctx.parse::<String>())
-            .variant("second", |ctx| ctx.parse::<String>())
+            .variant("first", String::parse)
+            .variant("second", String::parse)
             .parse()
             .unwrap();
 
@@ -521,9 +529,9 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: Result<TestEnum, ParseError> = ctx
-            .parse_union::<TestEnum, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("foo", |ctx| {
+            .variant("foo", |ctx: &ParseContext<'_>| {
                 let s: &str = ctx.parse()?;
                 if s == "foo" {
                     Ok(TestEnum::Foo)
@@ -550,10 +558,13 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: TestEnum = ctx
-            .parse_union::<TestEnum, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("foo", |_| Ok(TestEnum::Foo))
-            .other("baz", |_| Ok(TestEnum::Bar))
+            .variant(
+                "foo",
+                AlwaysParser::<TestEnum, ParseError>::new(TestEnum::Foo),
+            )
+            .other("baz", AlwaysParser::new(TestEnum::Bar))
             .parse()
             .unwrap();
 
@@ -568,11 +579,11 @@ mod tests {
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
-        let err = ctx
-            .parse_union::<TestEnum, ParseError>(VariantRepr::default())
+        let err: ParseError = ctx
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("foo", |_| Ok(TestEnum::Foo))
-            .other("baz", |_| Ok(TestEnum::Bar))
+            .variant("foo", AlwaysParser::new(TestEnum::Foo))
+            .other("baz", AlwaysParser::new(TestEnum::Bar))
             .parse()
             .unwrap_err();
 
@@ -591,10 +602,10 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let err = ctx
-            .parse_union::<TestEnum, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("foo", |_| Ok(TestEnum::Foo))
-            .other("baz", |ctx| {
+            .variant("foo", AlwaysParser::new(TestEnum::Foo))
+            .other("baz", |ctx: &ParseContext<'_>| {
                 Err(ParseError {
                     node_id: ctx.node_id(),
                     kind: ParseErrorKind::MissingField("test".to_string()),
@@ -610,13 +621,13 @@ mod tests {
 
     // --- nested variant tests ---
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     enum Outer {
         A(Inner),
         B(i32),
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     enum Inner {
         X,
         Y,
@@ -625,8 +636,8 @@ mod tests {
     fn parse_inner(ctx: &ParseContext<'_>) -> Result<Inner, ParseError> {
         ctx.parse_union(VariantRepr::default())
             .unwrap()
-            .variant("x", |_| Ok(Inner::X))
-            .variant("y", |_| Ok(Inner::Y))
+            .variant("x", AlwaysParser::new(Inner::X))
+            .variant("y", AlwaysParser::new(Inner::Y))
             .parse()
     }
 
@@ -638,10 +649,10 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: Outer = ctx
-            .parse_union::<Outer, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
-            .variant("b", |_| Ok(Outer::B(42)))
+            .variant("a", parse_inner.map(Outer::A))
+            .variant("b", AlwaysParser::new(Outer::B(42)))
             .parse()
             .unwrap();
 
@@ -656,10 +667,10 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: Outer = ctx
-            .parse_union::<Outer, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
-            .variant("b", |_| Ok(Outer::B(42)))
+            .variant("a", parse_inner.map(Outer::A))
+            .variant("b", AlwaysParser::new(Outer::B(42)))
             .parse()
             .unwrap();
 
@@ -674,10 +685,10 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let err = ctx
-            .parse_union::<Outer, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
-            .variant("b", |_| Ok(Outer::B(42)))
+            .variant("a", parse_inner.map(Outer::A))
+            .variant("b", AlwaysParser::new(Outer::B(42)))
             .parse()
             .unwrap_err();
 
@@ -698,10 +709,10 @@ mod tests {
         // The simple parser Ok(Outer::B(42)) doesn't check variant path,
         // but a proper impl would use ctx.parse_primitive() which errors
         let err = ctx
-            .parse_union::<Outer, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("a", |ctx| parse_inner(ctx).map(Outer::A))
-            .variant("b", |ctx| {
+            .variant("a", parse_inner.map(Outer::A))
+            .variant("b", |ctx: &ParseContext<'_>| {
                 // Simulate parsing a primitive that checks variant path
                 ctx.parse_primitive()?;
                 Ok(Outer::B(42))
@@ -821,13 +832,13 @@ mod tests {
         repr: VariantRepr,
     ) -> Result<ReprTestEnum, ParseError> {
         ctx.parse_union(repr)?
-            .variant("a", |ctx| {
+            .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
-            .variant("b", |ctx| {
+            .variant("b", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
@@ -1018,17 +1029,17 @@ mod tests {
 
         // Should succeed and use repr's context (tag excluded)
         let result = ctx
-            .parse_union::<ReprTestEnum, ParseError>(VariantRepr::Internal {
+            .parse_union::<_, ParseError>(VariantRepr::Internal {
                 tag: "type".to_string(),
             })
             .unwrap()
-            .variant("a", |ctx| {
+            .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.deny_unknown_fields()?; // Should work - "type" is excluded
                 Ok(ReprTestEnum::A { value })
             })
-            .variant("b", |ctx| {
+            .variant("b", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
@@ -1071,15 +1082,15 @@ mod tests {
 
         // External repr won't match (2 keys), so Untagged will try each variant
         let result = ctx
-            .parse_union::<ReprTestEnum, ParseError>(VariantRepr::External)
+            .parse_union::<_, ParseError>(VariantRepr::External)
             .unwrap()
-            .variant("a", |ctx| {
+            .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 // Don't deny_unknown_fields - we have "extra"
                 Ok(ReprTestEnum::A { value })
             })
-            .variant("b", |ctx| {
+            .variant("b", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
@@ -1100,16 +1111,16 @@ mod tests {
 
         // External repr extracts "value" as variant name
         // Since "value" is not a registered variant, we get UnknownVariant
-        let err = ctx
-            .parse_union::<ReprTestEnum, ParseError>(VariantRepr::External)
+        let err: ParseError = ctx
+            .parse_union(VariantRepr::External)
             .unwrap()
-            .variant("a", |ctx| {
+            .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
-            .variant("b", |ctx| {
+            .variant("b", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
@@ -1174,18 +1185,18 @@ mod tests {
 
         // Adjacent repr won't match (no "content" key), so Untagged parsing
         let result = ctx
-            .parse_union::<ReprTestEnum, ParseError>(VariantRepr::Adjacent {
+            .parse_union::<_, ParseError>(VariantRepr::Adjacent {
                 tag: "type".to_string(),
                 content: "content".to_string(),
             })
             .unwrap()
-            .variant("a", |ctx| {
+            .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 // Don't deny_unknown_fields - we have "type"
                 Ok(ReprTestEnum::A { value })
             })
-            .variant("b", |ctx| {
+            .variant("b", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
@@ -1226,16 +1237,16 @@ mod tests {
         // External repr won't match (key is not string), but since it has 1 key,
         // it will still try External extraction which fails due to non-string key,
         // then fall back to Untagged parsing which also fails (no matching variant)
-        let err = ctx
-            .parse_union::<ReprTestEnum, ParseError>(VariantRepr::External)
+        let err: ParseError = ctx
+            .parse_union(VariantRepr::External)
             .unwrap()
-            .variant("a", |ctx| {
+            .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
-            .variant("b", |ctx| {
+            .variant("b", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
@@ -1294,10 +1305,10 @@ mod tests {
 
         // With empty variant_path, should use Untagged parsing
         let result: String = child_ctx
-            .parse_union::<String, ParseError>(VariantRepr::default())
+            .parse_union(VariantRepr::default())
             .unwrap()
-            .variant("first", |ctx| ctx.parse::<String>())
-            .variant("second", |ctx| ctx.parse::<String>())
+            .variant("first", String::parse)
+            .variant("second", String::parse)
             .parse()
             .unwrap();
 

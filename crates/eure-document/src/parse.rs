@@ -17,6 +17,7 @@ pub use variant_path::VariantPath;
 use alloc::format;
 use num_bigint::BigInt;
 
+use core::marker::PhantomData;
 use std::collections::HashSet;
 
 use crate::{
@@ -346,8 +347,15 @@ impl ParseErrorKind {
 impl<'doc> EureDocument {
     /// Parse a value of type T from the given node.
     pub fn parse<T: ParseDocument<'doc>>(&'doc self, node_id: NodeId) -> Result<T, T::Error> {
-        let ctx = ParseContext::new(self, node_id);
-        T::parse(&ctx)
+        self.parse_with(node_id, T::parse)
+    }
+
+    pub fn parse_with<T: DocumentParser<'doc>>(
+        &'doc self,
+        node_id: NodeId,
+        mut parser: T,
+    ) -> Result<T::Output, T::Error> {
+        parser.parse(&self.parse_context(node_id))
     }
 
     /// Create a parse context at the given node.
@@ -717,8 +725,8 @@ where
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         ctx.parse_union::<Option<T>, T::Error>(VariantRepr::default())?
-            .variant("some", |ctx| ctx.parse::<T>().map(Some))
-            .variant("none", |ctx| {
+            .variant("some", (T::parse).map(Some))
+            .variant("none", |ctx: &ParseContext<'_>| {
                 if ctx.is_null() {
                     Ok(None)
                 } else {
@@ -750,9 +758,9 @@ where
     type Error = Err;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        ctx.parse_union::<Self, Err>(VariantRepr::default())?
-            .variant("ok", |ctx| ctx.parse::<T>().map(Ok))
-            .variant("err", |ctx| ctx.parse::<E>().map(Err))
+        ctx.parse_union::<Self, Self::Error>(VariantRepr::default())?
+            .variant("ok", (T::parse).map(Ok))
+            .variant("err", (E::parse).map(Err))
             .parse()
     }
 }
@@ -798,74 +806,125 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
 }
 
 pub trait DocumentParser<'doc> {
-    type Output: 'doc;
-    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError>;
+    type Output;
+    type Error;
+    fn parse(&mut self, ctx: &ParseContext<'doc>) -> Result<Self::Output, Self::Error>;
 }
 
-impl<'doc, T: 'doc, F> DocumentParser<'doc> for F
+pub struct AlwaysParser<T, E>(T, PhantomData<E>);
+
+impl<T, E> AlwaysParser<T, E> {
+    pub fn new(value: T) -> AlwaysParser<T, E> {
+        Self(value, PhantomData)
+    }
+}
+
+impl<'doc, T, E> DocumentParser<'doc> for AlwaysParser<T, E>
 where
-    F: FnOnce(&'doc EureDocument, NodeId) -> Result<T, ParseError>,
+    T: Clone,
 {
     type Output = T;
-    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
-        self(doc, node_id)
+    type Error = E;
+    fn parse(&mut self, _ctx: &ParseContext<'doc>) -> Result<Self::Output, Self::Error> {
+        Ok(self.0.clone())
+    }
+}
+
+impl<'doc, T, F, E> DocumentParser<'doc> for F
+where
+    F: FnMut(&ParseContext<'doc>) -> Result<T, E>,
+{
+    type Output = T;
+    type Error = E;
+    fn parse(&mut self, ctx: &ParseContext<'doc>) -> Result<Self::Output, Self::Error> {
+        (*self)(ctx)
     }
 }
 
 pub struct LiteralParser<T>(T);
 
-impl<'doc, T> DocumentParser<'doc> for LiteralParser<T>
+impl<'doc, T, E> DocumentParser<'doc> for LiteralParser<T>
 where
-    T: 'doc + ParseDocument<'doc> + PartialEq + core::fmt::Debug,
-    T::Error: From<ParseError> + Into<ParseError>,
+    T: ParseDocument<'doc, Error = E> + PartialEq + core::fmt::Debug,
+    E: From<ParseError>,
 {
     type Output = T;
-    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
-        let value: T = doc.parse(node_id).map_err(Into::into)?;
+    type Error = E;
+    fn parse(&mut self, ctx: &ParseContext<'doc>) -> Result<Self::Output, Self::Error> {
+        let value: T = ctx.parse::<T>()?;
         if value == self.0 {
             Ok(value)
         } else {
             Err(ParseError {
-                node_id,
+                node_id: ctx.node_id(),
                 kind: ParseErrorKind::LiteralMismatch {
                     expected: format!("{:?}", self.0),
                     actual: format!("{:?}", value),
                 },
-            })
+            }
+            .into())
         }
     }
 }
 
-pub struct MappedParser<T, F> {
+pub struct MapParser<T, F> {
     parser: T,
     mapper: F,
 }
 
-impl<'doc, T, O, F> DocumentParser<'doc> for MappedParser<T, F>
+impl<'doc, T, O, F> DocumentParser<'doc> for MapParser<T, F>
 where
     T: DocumentParser<'doc>,
-    F: Fn(T::Output) -> Result<O, ParseError>,
-    O: 'doc,
+    F: FnMut(T::Output) -> O,
 {
     type Output = O;
-    fn parse(self, doc: &'doc EureDocument, node_id: NodeId) -> Result<Self::Output, ParseError> {
-        let value = self.parser.parse(doc, node_id)?;
+    type Error = T::Error;
+    fn parse(&mut self, ctx: &ParseContext<'doc>) -> Result<Self::Output, Self::Error> {
+        self.parser.parse(ctx).map(|value| (self.mapper)(value))
+    }
+}
+
+pub struct AndThenParser<T, F> {
+    parser: T,
+    mapper: F,
+}
+
+impl<'doc, T, O, F, E> DocumentParser<'doc> for AndThenParser<T, F>
+where
+    T: DocumentParser<'doc, Error = E>,
+    F: Fn(T::Output) -> Result<O, E>,
+{
+    type Output = O;
+    type Error = E;
+    fn parse(&mut self, ctx: &ParseContext<'doc>) -> Result<Self::Output, Self::Error> {
+        let value = self.parser.parse(ctx)?;
         (self.mapper)(value)
     }
 }
 
 pub trait DocumentParserExt<'doc>: DocumentParser<'doc> + Sized {
-    fn map<O, F>(self, mapper: F) -> MappedParser<Self, F>
+    fn map<O, F>(self, mapper: F) -> MapParser<Self, F>
     where
-        F: Fn(Self::Output) -> Result<O, ParseError>,
-        O: 'doc,
+        F: Fn(Self::Output) -> O,
     {
-        MappedParser {
+        MapParser {
+            parser: self,
+            mapper,
+        }
+    }
+
+    fn and_then<O, F>(self, mapper: F) -> AndThenParser<Self, F>
+    where
+        F: Fn(Self::Output) -> Result<O, Self::Error>,
+    {
+        AndThenParser {
             parser: self,
             mapper,
         }
     }
 }
+
+impl<'doc, T> DocumentParserExt<'doc> for T where T: DocumentParser<'doc> {}
 
 #[cfg(test)]
 mod tests {
