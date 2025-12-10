@@ -262,6 +262,7 @@ impl<'a, 'doc, 's> MapValidator<'a, 'doc, 's> {
 
         if !valid {
             self.ctx.record_error(ValidationError::InvalidKeyType {
+                key: key.clone(),
                 path: self.ctx.path(),
                 node_id: map_node_id,
                 schema_node_id: self.schema_node_id,

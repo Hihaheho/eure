@@ -16,7 +16,7 @@ use eure_schema::validate::ValidationError;
 use eure_tree::prelude::{Cst, CstNodeId};
 use eure_tree::tree::InputSpan;
 
-use crate::document::{DocumentConstructionError, NodeOriginMap};
+use crate::document::{DocumentConstructionError, OriginMap};
 
 // ============================================================================
 // File Registry
@@ -332,8 +332,8 @@ pub struct DocumentReportContext<'a> {
     pub file: FileId,
     /// CST for span resolution.
     pub cst: &'a Cst,
-    /// NodeId -> NodeOrigin mapping.
-    pub origins: &'a NodeOriginMap,
+    /// Origin map with precise key origins.
+    pub origins: &'a OriginMap,
 }
 
 /// Context for converting schema validation errors to ErrorReports.
@@ -345,8 +345,8 @@ pub struct SchemaReportContext<'a> {
     pub schema_file: FileId,
     /// Schema CST.
     pub schema_cst: &'a Cst,
-    /// Schema NodeOriginMap.
-    pub schema_origins: &'a NodeOriginMap,
+    /// Schema OriginMap.
+    pub schema_origins: &'a OriginMap,
     /// SchemaNodeId -> NodeId mapping.
     pub schema_source_map: &'a SchemaSourceMap,
 }
@@ -430,13 +430,17 @@ pub fn report_schema_validation_errors(
 fn report_validation_error(error: &ValidationError, ctx: &SchemaReportContext<'_>) -> ErrorReport {
     let (doc_node_id, schema_node_id) = error.node_ids();
 
-    // Resolve document origin
-    let resolved_span = ctx
-        .doc
-        .origins
-        .get(&doc_node_id)
-        .and_then(|origins| origins.first())
-        .and_then(|o| o.get_span(ctx.doc.cst));
+    // For InvalidKeyType, try to get precise key span
+    let resolved_span = if let ValidationError::InvalidKeyType { key, node_id, .. } = error {
+        // Try to get precise key span first
+        ctx.doc
+            .origins
+            .get_key_span(*node_id, key, ctx.doc.cst)
+            .or_else(|| ctx.doc.origins.get_node_span(doc_node_id, ctx.doc.cst))
+    } else {
+        // Standard node span resolution
+        ctx.doc.origins.get_node_span(doc_node_id, ctx.doc.cst)
+    };
 
     let (doc_span, is_fallback) = match resolved_span {
         Some(span) => (span, false),
@@ -491,10 +495,9 @@ fn resolve_schema_span(
 ) -> Option<InputSpan> {
     // SchemaNodeId -> NodeId (from schema source map)
     let doc_node_id = ctx.schema_source_map.get(&schema_id)?;
-    // NodeId -> NodeOrigins
-    let origins = ctx.schema_origins.get(doc_node_id)?;
-    // NodeOrigin -> InputSpan
-    origins.first().and_then(|o| o.get_span(ctx.schema_cst))
+    // Use OriginMap for span resolution
+    ctx.schema_origins
+        .get_node_span(*doc_node_id, ctx.schema_cst)
 }
 
 /// Convert a schema conversion error to an ErrorReport.
@@ -507,9 +510,7 @@ pub fn report_conversion_error(
             // ParseError contains a NodeId, resolve it
             let span = ctx
                 .origins
-                .get(&parse_error.node_id)
-                .and_then(|origins| origins.first())
-                .and_then(|o| o.get_span(ctx.cst))
+                .get_node_span(parse_error.node_id, ctx.cst)
                 .unwrap_or(InputSpan::EMPTY);
 
             let origin = Origin::with_hints(

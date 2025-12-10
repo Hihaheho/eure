@@ -15,102 +15,59 @@ use eure_tree::tree::InputSpan;
 use std::collections::HashMap;
 use thiserror::Error;
 
-// ============================================================================
-// NodeOrigin - Semantic tracking of how nodes are created
-// ============================================================================
+use eure_document::value::ObjectKey;
 
-/// Describes the syntactic origin of a document node.
-/// Stores typed `*Handle` wrappers for type safety.
-/// Spans are resolved lazily by calling `get_span(cst)`.
-#[derive(Debug, Clone, Copy)]
-pub enum NodeOrigin {
-    /// Node created via section header (@ key.path)
-    SectionKey(SectionHandle),
-    /// Node created via binding key (key = value)
-    BindingKey(BindingHandle),
-    /// Node created via key in Keys path
-    IntermediateKey(KeyHandle),
-    /// Node created as bound integer value
-    BoundInteger(IntegerHandle),
-    /// Node created as bound float value
-    BoundFloat(FloatHandle),
-    /// Node created as bound strings value
-    BoundStrings(StringsHandle),
-    /// Node created as bound inline code (single backtick)
-    BoundInlineCode1(InlineCode1Handle),
-    /// Node created as bound inline code (double backtick)
-    BoundInlineCode2(InlineCode2Handle),
-    /// Node created as bound code block
-    BoundCodeBlock(CodeBlockHandle),
-    /// Node created as bound null
-    BoundNull(NullHandle),
-    /// Node created as bound true
-    BoundTrue(TrueHandle),
-    /// Node created as bound false
-    BoundFalse(FalseHandle),
-    /// Node created as bound hole (!)
-    BoundHole(HoleHandle),
-    /// Node created as array container
-    ArrayContainer(ArrayHandle),
-    /// Node created as array element
-    ArrayElement { index: usize, array: ArrayHandle },
-    /// Node created as tuple container
-    TupleContainer(TupleHandle),
-    /// Node created as tuple element
-    TupleElement { index: u8, tuple: TupleHandle },
-    /// Node created as object/map container
-    ObjectContainer(ObjectHandle),
-    /// Node created as object/map entry
-    ObjectEntry(KeysHandle),
-    /// Node created for extension binding ($ext = value)
-    ExtensionBinding(KeyHandle),
-    /// Node created via text binding (key: text content)
-    TextBinding(TextBindingHandle),
-    /// Node created via section binding (key { ... })
-    SectionBinding(SectionBindingHandle),
-    /// Node created via value binding ({ = value })
-    ValueBinding(ValueBindingHandle),
+/// Origin tracking for document nodes and map keys.
+///
+/// This structure provides span resolution for error reporting:
+/// - `node`: Maps document NodeId to CST origins (for general node spans)
+/// - `key`: Maps (MapNodeId, ObjectKey) to the key's CstNodeId (for precise key spans)
+#[derive(Debug, Clone, Default)]
+pub struct OriginMap {
+    /// NodeId -> CstNodeId origins.
+    /// A node can have multiple origins (e.g., created via key + value).
+    pub node: HashMap<NodeId, Vec<CstNodeId>>,
+    /// (MapNodeId, ObjectKey) -> key's CstNodeId.
+    /// Used for precise error spans on map keys.
+    pub key: HashMap<(NodeId, ObjectKey), CstNodeId>,
 }
 
-impl NodeOrigin {
-    /// Get the CstNodeId for this origin
-    pub fn node_id(&self) -> CstNodeId {
-        match self {
-            NodeOrigin::SectionKey(h) => h.node_id(),
-            NodeOrigin::BindingKey(h) => h.node_id(),
-            NodeOrigin::IntermediateKey(h) => h.node_id(),
-            NodeOrigin::BoundInteger(h) => h.node_id(),
-            NodeOrigin::BoundFloat(h) => h.node_id(),
-            NodeOrigin::BoundStrings(h) => h.node_id(),
-            NodeOrigin::BoundInlineCode1(h) => h.node_id(),
-            NodeOrigin::BoundInlineCode2(h) => h.node_id(),
-            NodeOrigin::BoundCodeBlock(h) => h.node_id(),
-            NodeOrigin::BoundNull(h) => h.node_id(),
-            NodeOrigin::BoundTrue(h) => h.node_id(),
-            NodeOrigin::BoundFalse(h) => h.node_id(),
-            NodeOrigin::BoundHole(h) => h.node_id(),
-            NodeOrigin::ArrayContainer(h) => h.node_id(),
-            NodeOrigin::ArrayElement { array, .. } => array.node_id(),
-            NodeOrigin::TupleContainer(h) => h.node_id(),
-            NodeOrigin::TupleElement { tuple, .. } => tuple.node_id(),
-            NodeOrigin::ObjectContainer(h) => h.node_id(),
-            NodeOrigin::ObjectEntry(h) => h.node_id(),
-            NodeOrigin::ExtensionBinding(h) => h.node_id(),
-            NodeOrigin::TextBinding(h) => h.node_id(),
-            NodeOrigin::SectionBinding(h) => h.node_id(),
-            NodeOrigin::ValueBinding(h) => h.node_id(),
-        }
+impl OriginMap {
+    /// Create a new empty OriginMap.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Get the input span for this origin from the CST
-    pub fn get_span(&self, cst: &Cst) -> Option<InputSpan> {
-        cst.span(self.node_id())
+    /// Record a node origin.
+    pub fn record_node(&mut self, node_id: NodeId, cst_node_id: CstNodeId) {
+        self.node.entry(node_id).or_default().push(cst_node_id);
+    }
+
+    /// Record a map key origin.
+    pub fn record_key(&mut self, map_node_id: NodeId, key: ObjectKey, cst_node_id: CstNodeId) {
+        self.key.insert((map_node_id, key), cst_node_id);
+    }
+
+    /// Get the first origin span for a node.
+    pub fn get_node_span(&self, node_id: NodeId, cst: &Cst) -> Option<InputSpan> {
+        self.node
+            .get(&node_id)
+            .and_then(|origins| origins.first())
+            .and_then(|&cst_node_id| cst.span(cst_node_id))
+    }
+
+    /// Get the span for a specific map key.
+    pub fn get_key_span(
+        &self,
+        map_node_id: NodeId,
+        key: &ObjectKey,
+        cst: &Cst,
+    ) -> Option<InputSpan> {
+        self.key
+            .get(&(map_node_id, key.clone()))
+            .and_then(|&cst_node_id| cst.span(cst_node_id))
     }
 }
-
-/// Mapping from document NodeId to its syntactic origins.
-/// A node can have multiple origins (e.g., created via key + value).
-pub type NodeOriginMap = HashMap<NodeId, Vec<NodeOrigin>>;
 
 #[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum InlineCodeError {
@@ -208,13 +165,16 @@ pub fn cst_to_document(input: &str, cst: &Cst) -> Result<EureDocument, DocumentC
 }
 
 /// Parse CST to document and collect origin information for span resolution.
-pub fn cst_to_document_and_origins(
+///
+/// Returns `OriginMap` which includes both node origins and map key origins
+/// for precise error reporting.
+pub fn cst_to_document_and_origin_map(
     input: &str,
     cst: &Cst,
-) -> Result<(EureDocument, NodeOriginMap), DocumentConstructionError> {
+) -> Result<(EureDocument, OriginMap), DocumentConstructionError> {
     let mut visitor = ValueVisitor::new(input);
     visitor.visit_root_handle(cst.root_handle(), cst)?;
-    Ok(visitor.into_document_and_origins())
+    Ok(visitor.into_document_and_origin_map())
 }
 
 #[cfg(test)]

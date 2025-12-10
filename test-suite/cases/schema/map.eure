@@ -49,6 +49,10 @@ data {
 @ cases.invalid-key-type
 input_eure = ```eure
 data = { "string-key" => 1 }
+outer = {
+  data."string-key".inner => 1
+  data.ident-key.inner => 1
+}
 ```
 
 schema = ```eure
@@ -57,14 +61,21 @@ data {
   key = `integer`
   value = `integer`
 }
+outer {
+  data {
+    $variant = "map"
+    key = `integer`
+    value = { inner => `integer` }
+  }
+}
 ```
 
 schema_errors[] = ```text
 error: Invalid key type at path data
- --> <input>:1:1
+ --> <input>:1:10
   |
 1 | data = { "string-key" => 1 }
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Invalid key type at path data
+  |          ^^^^^^^^^^^^ Invalid key type at path data
   |
 note: constraint defined here
  --> <schema>:1:1
@@ -75,4 +86,40 @@ note: constraint defined here
 4 | |   value = `integer`
 5 | | }
   | |_- constraint defined here
+```
+
+schema_errors[] = ```text
+error: Invalid key type at path outer.data
+  --> <input>:3:8
+   |
+ 3 |   data."string-key".inner => 1
+   |        ^^^^^^^^^^^^ Invalid key type at path outer.data
+   |
+note: constraint defined here
+  --> <schema>:7:3
+   |
+ 7 | /   data {
+ 8 | |     $variant = "map"
+ 9 | |     key = `integer`
+10 | |     value = { inner => `integer` }
+11 | |   }
+   | |___- constraint defined here
+```
+
+schema_errors[] = ```text
+error: Invalid key type at path outer.data
+  --> <input>:4:8
+   |
+ 4 |   data.ident-key.inner => 1
+   |        ^^^^^^^^^ Invalid key type at path outer.data
+   |
+note: constraint defined here
+  --> <schema>:7:3
+   |
+ 7 | /   data {
+ 8 | |     $variant = "map"
+ 9 | |     key = `integer`
+10 | |     value = { inner => `integer` }
+11 | |   }
+   | |___- constraint defined here
 ```

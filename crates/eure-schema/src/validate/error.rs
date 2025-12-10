@@ -7,6 +7,7 @@
 use eure_document::document::NodeId;
 use eure_document::parse::ParseError;
 use eure_document::path::EurePath;
+use eure_document::value::ObjectKey;
 use thiserror::Error;
 
 use crate::SchemaNodeId;
@@ -213,6 +214,8 @@ pub enum ValidationError {
 
     #[error("Invalid key type at path {path}")]
     InvalidKeyType {
+        /// The key that has the wrong type
+        key: ObjectKey,
         path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,

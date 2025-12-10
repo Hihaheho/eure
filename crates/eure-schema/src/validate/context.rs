@@ -146,7 +146,10 @@ impl ValidationState {
     }
 
     /// Consume and produce final output.
-    pub fn finish(self) -> ValidationOutput {
+    pub fn finish(mut self) -> ValidationOutput {
+        // Sort errors by input span (node_id) for deterministic output
+        self.errors.sort_by_key(|e| e.node_ids().0.0);
+
         ValidationOutput {
             is_valid: self.errors.is_empty(),
             is_complete: self.errors.is_empty() && !self.has_holes,

@@ -13,9 +13,7 @@ use num_bigint::BigInt;
 use regex::Regex;
 use std::sync::LazyLock;
 
-use crate::document::{
-    CodeBlockError, DocumentConstructionError, InlineCodeError, NodeOrigin, NodeOriginMap,
-};
+use crate::document::{CodeBlockError, DocumentConstructionError, InlineCodeError, OriginMap};
 
 #[derive(Debug, Clone, Default)]
 struct TerminalTokens {
@@ -126,8 +124,8 @@ pub struct ValueVisitor<'a> {
     code_start: Option<CodeStart>,
     // Stack for collecting ObjectKeys when processing KeyTuple
     collecting_object_keys: Vec<Vec<ObjectKey>>,
-    // Collect node origins during visitation for span resolution
-    node_origins: NodeOriginMap,
+    // Origin tracking for error span resolution
+    origins: OriginMap,
     // Pending code origin - set by parent visitor, used by start visitor
     pending_code_origin: Option<CodeOrigin>,
 }
@@ -139,7 +137,7 @@ impl<'a> ValueVisitor<'a> {
             document: DocumentConstructor::new(),
             code_start: None,
             collecting_object_keys: vec![],
-            node_origins: std::collections::HashMap::new(),
+            origins: OriginMap::new(),
             pending_code_origin: None,
         }
     }
@@ -201,13 +199,23 @@ impl<'a> ValueVisitor<'a> {
         self.document.finish()
     }
 
-    pub fn into_document_and_origins(self) -> (EureDocument, NodeOriginMap) {
-        (self.document.finish(), self.node_origins)
+    pub fn into_document_and_origin_map(self) -> (EureDocument, OriginMap) {
+        (self.document.finish(), self.origins)
     }
 
-    /// Record an origin for the current node
-    fn record_origin(&mut self, node_id: eure_document::document::NodeId, origin: NodeOrigin) {
-        self.node_origins.entry(node_id).or_default().push(origin);
+    /// Record an origin for a node
+    fn record_origin(&mut self, node_id: eure_document::document::NodeId, cst_node_id: CstNodeId) {
+        self.origins.record_node(node_id, cst_node_id);
+    }
+
+    /// Record a map key origin for precise error spans.
+    fn record_key_origin(
+        &mut self,
+        map_node_id: eure_document::document::NodeId,
+        key: ObjectKey,
+        cst_node_id: CstNodeId,
+    ) {
+        self.origins.record_key(map_node_id, key, cst_node_id);
     }
 
     fn get_terminal_str<T: TerminalHandle>(
@@ -306,7 +314,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         // Record the object container origin
         let container_id = self.document.current_node_id();
-        self.record_origin(container_id, NodeOrigin::ObjectContainer(handle));
+        self.record_origin(container_id, handle.node_id());
 
         // Check if there's a value binding (new syntax: { = value, ... })
         let has_value_binding = if let Some(object_opt_view) = view.object_opt.get_view(tree)? {
@@ -337,7 +345,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 })?;
 
                 // Record origin for this object entry
-                self.record_origin(node_id, NodeOrigin::ObjectEntry(item.keys));
+                self.record_origin(node_id, item.keys.node_id());
 
                 // Visit the value
                 self.visit_value_handle(item.value, tree)?;
@@ -368,7 +376,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         // Record the array container origin
         let container_id = self.document.current_node_id();
-        self.record_origin(container_id, NodeOrigin::ArrayContainer(handle));
+        self.record_origin(container_id, handle.node_id());
 
         // Process array elements
         if let Some(elements_handle) = view.array_opt.get_view(tree)? {
@@ -390,13 +398,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     })?;
 
                 // Record origin for this array element
-                self.record_origin(
-                    node_id,
-                    NodeOrigin::ArrayElement {
-                        index,
-                        array: handle,
-                    },
-                );
+                self.record_origin(node_id, handle.node_id());
 
                 // Visit the value at this index
                 self.visit_value_handle(elem_view.value, tree)?;
@@ -434,7 +436,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         // Record the tuple container origin
         let container_id = self.document.current_node_id();
-        self.record_origin(container_id, NodeOrigin::TupleContainer(handle));
+        self.record_origin(container_id, handle.node_id());
 
         // Process tuple elements (similar to array but with TupleIndex path segment)
         if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
@@ -456,13 +458,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                     })?;
 
                 // Record origin for this tuple element
-                self.record_origin(
-                    node_id,
-                    NodeOrigin::TupleElement {
-                        index,
-                        tuple: handle,
-                    },
-                );
+                self.record_origin(node_id, handle.node_id());
 
                 // Visit the value at this index
                 self.visit_value_handle(elem_view.value, tree)?;
@@ -496,21 +492,34 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         // 1. KeyBase から PathSegment を構築
         let key_base_view = view.key_base.get_view(tree)?;
 
-        let segment = match key_base_view {
+        // Capture container node ID before navigation (for key origin tracking)
+        let container_id = self.document.current_node_id();
+
+        // Build segment and optionally capture key origin info for ObjectKey-based keys
+        let (segment, key_origin_info) = match key_base_view {
             KeyBaseView::KeyIdent(ident_handle) => {
                 let ident_str = self.get_key_ident_str(tree, ident_handle)?;
                 let identifier: Identifier = ident_str.parse()?;
-                PathSegment::Ident(identifier)
+                // Record key origin as string key (identifiers become string keys in maps)
+                let object_key = ObjectKey::String(ident_str.to_string());
+                (
+                    PathSegment::Ident(identifier),
+                    Some((object_key, ident_handle.node_id())),
+                )
             }
             KeyBaseView::ExtensionNameSpace(ext_handle) => {
                 let ext_view = ext_handle.get_view(tree)?;
                 let ident_str = self.get_key_ident_str(tree, ext_view.key_ident)?;
                 let identifier: Identifier = ident_str.parse()?;
-                PathSegment::Extension(identifier)
+                (PathSegment::Extension(identifier), None)
             }
             KeyBaseView::Str(str_handle) => {
                 let string = self.parse_str_terminal(str_handle, tree)?;
-                PathSegment::Value(ObjectKey::String(string))
+                let object_key = ObjectKey::String(string);
+                (
+                    PathSegment::Value(object_key.clone()),
+                    Some((object_key, str_handle.node_id())),
+                )
             }
             KeyBaseView::Integer(int_handle) => {
                 let int_view = int_handle.get_view(tree)?;
@@ -518,7 +527,11 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let big_int: BigInt = str
                     .parse()
                     .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
-                PathSegment::Value(ObjectKey::Number(big_int))
+                let object_key = ObjectKey::Number(big_int);
+                (
+                    PathSegment::Value(object_key.clone()),
+                    Some((object_key, int_handle.node_id())),
+                )
             }
             KeyBaseView::KeyTuple(tuple_handle) => {
                 // Use visitor pattern to collect ObjectKeys
@@ -527,7 +540,11 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 let keys = self.collecting_object_keys.pop().expect(
                     "collecting_object_keys stack should not be empty after visiting KeyTuple",
                 );
-                PathSegment::Value(ObjectKey::Tuple(Tuple(keys)))
+                let object_key = ObjectKey::Tuple(Tuple(keys));
+                (
+                    PathSegment::Value(object_key.clone()),
+                    Some((object_key, tuple_handle.node_id())),
+                )
             }
             KeyBaseView::TupleIndex(tuple_index_handle) => {
                 let tuple_index_view = tuple_index_handle.get_view(tree)?;
@@ -539,9 +556,14 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                             node_id: tuple_index_handle.node_id(),
                             value: str.to_string(),
                         })?;
-                PathSegment::TupleIndex(length)
+                (PathSegment::TupleIndex(length), None)
             }
         };
+
+        // Record key origin for ObjectKey-based segments (for precise error spans)
+        if let Some((object_key, key_cst_node_id)) = key_origin_info {
+            self.record_key_origin(container_id, object_key, key_cst_node_id);
+        }
 
         // 2. Navigate to this segment
         self.document
@@ -644,7 +666,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 node_id: handle.node_id(),
             })?;
 
-        self.record_origin(node_id, NodeOrigin::BindingKey(handle));
+        self.record_origin(node_id, handle.node_id());
         self.visit_binding_rhs_handle(view.binding_rhs, tree)?;
         self.document.end_scope(scope)?;
         Ok(())
@@ -667,7 +689,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
         self.visit_keys_handle(keys, tree)?;
 
         let node_id = self.document.current_node_id();
-        self.record_origin(node_id, NodeOrigin::SectionKey(handle));
+        self.record_origin(node_id, handle.node_id());
         self.visit_section_body_handle(section_body, tree)?;
         self.document.end_scope(scope)?;
         Ok(())
@@ -722,7 +744,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundNull(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -739,7 +761,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundTrue(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -756,7 +778,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundFalse(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -779,7 +801,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundInteger(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -802,7 +824,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundFloat(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -829,7 +851,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundHole(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -854,7 +876,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundInlineCode1(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -916,7 +938,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::InlineCode2(inline_handle)) = code_start.origin {
-                self.record_origin(node_id, NodeOrigin::BoundInlineCode2(inline_handle));
+                self.record_origin(node_id, inline_handle.node_id());
             }
         }
         Ok(())
@@ -976,7 +998,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, NodeOrigin::BoundCodeBlock(block_handle));
+                self.record_origin(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1022,7 +1044,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, NodeOrigin::BoundCodeBlock(block_handle));
+                self.record_origin(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1068,7 +1090,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, NodeOrigin::BoundCodeBlock(block_handle));
+                self.record_origin(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1114,7 +1136,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, NodeOrigin::BoundCodeBlock(block_handle));
+                self.record_origin(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1141,7 +1163,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::TextBinding(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 
@@ -1175,7 +1197,7 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, NodeOrigin::BoundStrings(handle));
+        self.record_origin(node_id, handle.node_id());
         Ok(())
     }
 

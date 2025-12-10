@@ -1,14 +1,13 @@
 //! Error formatting utilities for Eure.
 //!
-//! This module provides backward-compatible functions that use the new
-//! `report` module internally.
+//! This module provides functions that use the `report` module internally.
 
 use eure_parol::EureParseError;
 use eure_schema::convert::SchemaSourceMap;
 use eure_schema::validate::ValidationError;
 use eure_tree::prelude::Cst;
 
-use crate::document::{DocumentConstructionError, NodeOriginMap};
+use crate::document::{DocumentConstructionError, OriginMap};
 use crate::report::{
     DocumentReportContext, FileRegistry, SchemaReportContext, format_error_report,
     format_error_reports, report_document_error_simple, report_parse_error,
@@ -26,16 +25,16 @@ pub struct SchemaErrorContext<'a> {
     pub doc_path: &'a str,
     /// CST of the document (for span resolution)
     pub doc_cst: &'a Cst,
-    /// Origin mapping for document nodes (NodeId → NodeOrigin → span)
-    pub doc_origins: &'a NodeOriginMap,
+    /// Origin map with precise key origins
+    pub doc_origins: &'a OriginMap,
     /// Source text of the schema
     pub schema_source: &'a str,
     /// File path of the schema (for display)
     pub schema_path: &'a str,
     /// CST of the schema (for span resolution)
     pub schema_cst: &'a Cst,
-    /// Origin mapping for schema document nodes
-    pub schema_origins: &'a NodeOriginMap,
+    /// Origin map for schema
+    pub schema_origins: &'a OriginMap,
     /// Mapping from schema node IDs to document node IDs
     pub schema_source_map: &'a SchemaSourceMap,
 }

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use eure::document::cst_to_document_and_origins;
+use eure::document::cst_to_document_and_origin_map;
 use eure::error::{format_document_error, format_parse_error_color, format_schema_error, SchemaErrorContext};
 use eure_schema::SchemaRef;
 use eure_schema::convert::document_to_schema;
@@ -47,7 +47,7 @@ pub fn run(args: Args) {
     };
 
     // Convert to document with origins (keep CST for span resolution)
-    let (document, doc_origins) = match cst_to_document_and_origins(&doc_contents, &doc_cst) {
+    let (document, doc_origins) = match cst_to_document_and_origin_map(&doc_contents, &doc_cst) {
         Ok(result) => result,
         Err(e) => {
             eprintln!(
@@ -92,7 +92,7 @@ pub fn run(args: Args) {
     };
 
     // Convert schema to document with origins
-    let (schema_doc, schema_origins) = match cst_to_document_and_origins(&schema_contents, &schema_cst) {
+    let (schema_doc, schema_origins) = match cst_to_document_and_origin_map(&schema_contents, &schema_cst) {
         Ok(result) => result,
         Err(e) => {
             eprintln!(

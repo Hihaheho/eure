@@ -4,7 +4,7 @@ use crate::{
     theme::Theme,
 };
 use dioxus::prelude::*;
-use eure::document::{NodeOriginMap, cst_to_document, cst_to_document_and_origins};
+use eure::document::{OriginMap, cst_to_document, cst_to_document_and_origin_map};
 use eure::error::format_parse_error_plain;
 use eure::tree::Cst;
 use eure_editor_support::semantic_token::{SemanticToken, semantic_tokens};
@@ -56,19 +56,17 @@ impl AllErrors {
     }
 }
 
-/// Convert a validation error to an ErrorSpan using the node origin map
+/// Convert a validation error to an ErrorSpan using the origin map
 fn validation_error_to_span(
     error: &ValidationError,
     cst: &Cst,
-    origins: &NodeOriginMap,
+    origins: &OriginMap,
 ) -> ErrorSpan {
     let message = error.to_string();
     let (node_id, _schema_node_id) = error.node_ids();
 
     // Try to get span from node_id via origin map
-    let span = origins
-        .get(&node_id)
-        .and_then(|origins_list| origins_list.first().and_then(|origin| origin.get_span(cst)));
+    let span = origins.get_node_span(node_id, cst);
 
     match span {
         Some(s) => ErrorSpan {
@@ -180,7 +178,7 @@ fn parse_schema(input: &str) -> ParsedSchemaData {
     let mut schema_errors = Vec::new();
     let mut schema_validation_errors = Vec::new();
 
-    let schema_valid = match cst_to_document_and_origins(input, &cst) {
+    let schema_valid = match cst_to_document_and_origin_map(input, &cst) {
         Ok((doc, origins)) => {
             // Always validate against meta-schema if parse succeeded
             if let Some(meta_schema) = load_meta_schema() {
@@ -236,7 +234,7 @@ fn compute_validation_errors(doc_input: &str, schema_input: &str) -> Vec<ErrorSp
         None => return Vec::new(),
     };
 
-    match cst_to_document_and_origins(doc_input, &doc_cst) {
+    match cst_to_document_and_origin_map(doc_input, &doc_cst) {
         Ok((doc, origins)) => {
             let validation_result = validate(&doc, &schema);
             validation_result
