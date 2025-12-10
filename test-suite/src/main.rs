@@ -28,6 +28,10 @@ struct Args {
     /// Show short error summaries instead of detailed output
     #[arg(short, long)]
     short: bool,
+
+    /// Treat unimplemented cases as failures instead of TODOs
+    #[arg(short, long)]
+    all: bool,
 }
 
 /// ANSI color codes
@@ -243,10 +247,12 @@ fn run(args: &Args) -> i32 {
                     if is_multi_case {
                         // Calculate aggregate status for multi-case file header
                         // Priority: FAIL > TODO > PASS
-                        let has_fail = cases
-                            .iter()
-                            .any(|c| c.unimplemented.is_none() && !c.result.all_passed());
-                        let has_todo = cases.iter().any(|c| c.unimplemented.is_some());
+                        // In strict mode (--all), unimplemented cases are treated as regular cases
+                        let has_fail = cases.iter().any(|c| {
+                            let is_unimpl = !args.all && c.unimplemented.is_some();
+                            !is_unimpl && !c.result.all_passed()
+                        });
+                        let has_todo = !args.all && cases.iter().any(|c| c.unimplemented.is_some());
 
                         let (header_status, header_color) = if has_fail {
                             ("FAIL", colors::RED)
@@ -271,6 +277,7 @@ fn run(args: &Args) -> i32 {
                                 case_outcome,
                                 file_name,
                                 true, // nested
+                                args.all,
                                 &mut total_passed,
                                 &mut total_failed,
                                 &mut total_scenarios_passed,
@@ -285,6 +292,7 @@ fn run(args: &Args) -> i32 {
                             case_outcome,
                             file_name,
                             false, // not nested
+                            args.all,
                             &mut total_passed,
                             &mut total_failed,
                             &mut total_scenarios_passed,
@@ -404,6 +412,7 @@ fn display_case_outcome(
     case_outcome: &CaseOutcome,
     file_name: &str,
     nested: bool,
+    strict_mode: bool,
     total_passed: &mut usize,
     total_failed: &mut usize,
     total_scenarios_passed: &mut usize,
@@ -438,9 +447,15 @@ fn display_case_outcome(
         file_name.to_string()
     };
 
+    // In strict mode (--all), treat unimplemented cases as regular cases
+    let effective_unimplemented = if strict_mode {
+        None
+    } else {
+        case_outcome.unimplemented.as_ref()
+    };
+
     // Determine status
-    let (status_text, color, unimpl_annotation) = if let Some(reason) = &case_outcome.unimplemented
-    {
+    let (status_text, color, unimpl_annotation) = if let Some(reason) = effective_unimplemented {
         let annotation = if reason.is_empty() {
             String::new()
         } else {
@@ -471,7 +486,7 @@ fn display_case_outcome(
     );
 
     // Track for summary
-    if case_outcome.unimplemented.is_some() {
+    if effective_unimplemented.is_some() {
         unimplemented_cases.push((case_id.clone(), case_outcome.result.all_passed()));
     } else if case_outcome.result.all_passed() {
         *total_passed += 1;
