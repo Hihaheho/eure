@@ -25,6 +25,7 @@ cargo clippy
 cargo test
 cargo fmt --check
 cargo run -p test-suite
+cargo run --bin eure -- check --all
 ```
 
 **Individual Crate Development:**
