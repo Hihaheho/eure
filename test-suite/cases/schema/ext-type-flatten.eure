@@ -1,0 +1,173 @@
+// Test cases for extension type flatten behavior through References
+//
+// When a schema uses a type reference like `a = `$types.some-type``, extensions
+// can be defined at two places:
+// - Use-site: Extensions defined on the reference node (a.$ext-type.b)
+// - Definition-site: Extensions defined on the resolved type ($types.some-type.$ext-type.a)
+//
+// Both should be valid for document nodes.
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: Use-site extension only
+// ============================================================================
+
+@ cases.use-site-only
+input_eure = ```eure
+a = "hello"
+a.$b = "from use-site"
+```
+
+schema = ```eure
+$types.my-type = `text`
+
+a = `$types.my-type`
+a.$ext-type.b = `text`
+a.$ext-type.b.$optional = true
+```
+
+// ============================================================================
+// Test Case 2: Definition-site extension only
+// ============================================================================
+
+@ cases.definition-site-only
+input_eure = ```eure
+a = "hello"
+a.$a = 42
+```
+
+schema = ```eure
+$types.my-type = `text`
+$types.my-type.$ext-type.a = `integer`
+$types.my-type.$ext-type.a.$optional = true
+
+a = `$types.my-type`
+```
+
+// ============================================================================
+// Test Case 3: Both use-site and definition-site extensions
+// ============================================================================
+
+@ cases.both-extensions
+input_eure = ```eure
+a = "hello"
+a.$a = 1
+a.$b = "use-site ext"
+```
+
+schema = ```eure
+$types.my-type = `text`
+$types.my-type.$ext-type.a = `integer`
+$types.my-type.$ext-type.a.$optional = true
+
+a = `$types.my-type`
+a.$ext-type.b = `text`
+a.$ext-type.b.$optional = true
+```
+
+// ============================================================================
+// Test Case 4: Required extension at use-site
+// ============================================================================
+
+@ cases.use-site-required
+input_eure = ```eure
+a = "hello"
+a.$required = true
+```
+
+schema = ```eure
+$types.my-type = `text`
+
+a = `$types.my-type`
+a.$ext-type.required = `boolean`
+```
+
+// ============================================================================
+// Test Case 5: Required extension at definition-site
+// ============================================================================
+
+@ cases.definition-site-required
+input_eure = ```eure
+a = "hello"
+a.$required = true
+```
+
+schema = ```eure
+$types.my-type = `text`
+$types.my-type.$ext-type.required = `boolean`
+
+a = `$types.my-type`
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 6: Missing required extension at use-site
+// ============================================================================
+
+@ cases.missing-use-site-required
+input_eure = ```eure
+a = "hello"
+```
+
+schema = ```eure
+$types.my-type = `text`
+
+a = `$types.my-type`
+a.$ext-type.required = `boolean`
+```
+
+schema_errors = [
+  ```
+error: Missing required extension 'required' at path a
+ --> <input>:1:1
+  |
+1 | a = "hello"
+  | ^^^^^^^^^^^ Missing required extension 'required' at path a
+  |
+note: constraint defined here
+ --> <schema>:3:1
+  |
+3 | a = `$types.my-type`
+  | -------------------- constraint defined here
+```
+]
+
+// ============================================================================
+// Test Case 7: Type mismatch at definition-site
+// ============================================================================
+
+@ cases.type-mismatch-definition-site
+input_eure = ```eure
+a = "hello"
+a.$a = "not an integer"
+```
+
+schema = ```eure
+$types.my-type = `text`
+$types.my-type.$ext-type.a = `integer`
+$types.my-type.$ext-type.a.$optional = true
+
+a = `$types.my-type`
+```
+
+schema_errors = [
+  ```
+error: Type mismatch: expected integer, got text at path a.$a
+ --> <input>:2:1
+  |
+2 | a.$a = "not an integer"
+  | ^^^^^^^^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path a.$a
+  |
+note: constraint defined here
+ --> <schema>:2:1
+  |
+2 | $types.my-type.$ext-type.a = `integer`
+  | -------------------------------------- constraint defined here
+```
+]
