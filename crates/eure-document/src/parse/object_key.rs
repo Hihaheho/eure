@@ -75,12 +75,14 @@ impl ParseObjectKey<'_> for ObjectKey {
 
 // ============================================================================
 // Implementation for bool (type-constrained)
+// Parses from String keys "true" or "false"
 // ============================================================================
 
 impl ParseObjectKey<'_> for bool {
     fn from_object_key(key: &ObjectKey) -> Result<Self, ParseErrorKind> {
         match key {
-            ObjectKey::Bool(b) => Ok(*b),
+            ObjectKey::String(s) if s == "true" => Ok(true),
+            ObjectKey::String(s) if s == "false" => Ok(false),
             _ => Err(ParseErrorKind::TypeMismatch {
                 expected: crate::value::ValueKind::Bool,
                 actual: key_to_value_kind(key),
@@ -127,7 +129,6 @@ impl ParseObjectKey<'_> for String {
 
 fn key_to_value_kind(key: &ObjectKey) -> crate::value::ValueKind {
     match key {
-        ObjectKey::Bool(_) => crate::value::ValueKind::Bool,
         ObjectKey::Number(_) => crate::value::ValueKind::Integer,
         ObjectKey::String(_) => crate::value::ValueKind::Text,
         ObjectKey::Tuple(_) => crate::value::ValueKind::Tuple,
@@ -148,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_parse_object_key_owned() {
-        let key = ObjectKey::Bool(true);
+        let key = ObjectKey::String("test".into());
         let owned: ObjectKey = ParseObjectKey::from_object_key(&key).unwrap();
         assert_eq!(owned, key);
     }
@@ -163,9 +164,13 @@ mod tests {
     #[test]
     #[allow(clippy::bool_assert_comparison)]
     fn test_parse_bool_key() {
-        let key = ObjectKey::Bool(true);
+        let key = ObjectKey::String("true".into());
         let b: bool = ParseObjectKey::from_object_key(&key).unwrap();
         assert_eq!(b, true);
+
+        let key_false = ObjectKey::String("false".into());
+        let b_false: bool = ParseObjectKey::from_object_key(&key_false).unwrap();
+        assert_eq!(b_false, false);
     }
 
     #[test]
@@ -184,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_parse_bigint_key_type_mismatch() {
-        let key = ObjectKey::Bool(false);
+        let key = ObjectKey::String("not a number".into());
         let result: Result<BigInt, _> = ParseObjectKey::from_object_key(&key);
         assert!(result.is_err());
     }

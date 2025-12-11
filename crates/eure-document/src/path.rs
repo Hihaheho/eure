@@ -167,8 +167,9 @@ mod tests {
 
     #[test]
     fn test_display_bool_key() {
-        let path = EurePath(vec![PathSegment::Value(ObjectKey::Bool(true))]);
-        assert_eq!(format!("{}", path), "true");
+        // Boolean identifiers in key position become string keys
+        let path = EurePath(vec![PathSegment::Value(ObjectKey::String("true".into()))]);
+        assert_eq!(format!("{}", path), "\"true\"");
     }
 
     #[test]

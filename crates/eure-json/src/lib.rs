@@ -212,7 +212,6 @@ fn convert_node_content_only(
 
 fn convert_object_key(key: &ObjectKey) -> Result<String, EureToJsonError> {
     match key {
-        ObjectKey::Bool(b) => Ok(b.to_string()),
         ObjectKey::Number(n) => Ok(n.to_string()),
         ObjectKey::String(s) => Ok(s.clone()),
         ObjectKey::Tuple(tuple) => {

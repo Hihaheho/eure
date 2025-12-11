@@ -433,7 +433,6 @@ fn primitive_to_json(val: &PrimitiveValue) -> Result<serde_json::Value, Conversi
 fn object_key_to_string(key: &ObjectKey) -> Result<String, ConversionError> {
     match key {
         ObjectKey::String(s) => Ok(s.clone()),
-        ObjectKey::Bool(b) => Ok(b.to_string()),
         ObjectKey::Number(n) => Ok(n.to_string()),
         ObjectKey::Tuple(_) => Err(ConversionError::NonStringMapKeysNotSupported),
     }
