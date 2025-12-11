@@ -84,7 +84,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for ArrayValidator<'a, 'doc, 's> {
         for (i, item_id) in items.iter().enumerate() {
             self.ctx.push_path_index(i);
 
-            let item_ctx = self.ctx.document.parse_context(*item_id);
+            let item_ctx = self.ctx.parse_context(*item_id);
             let child_validator = SchemaValidator {
                 ctx: self.ctx,
                 schema_node_id: self.schema.item,
@@ -140,10 +140,14 @@ impl<'a, 'doc, 's> ArrayValidator<'a, 'doc, 's> {
         for &item_id in items {
             // Fork state for trial validation
             let forked_state = self.ctx.fork_state();
-            let trial_ctx =
-                ValidationContext::with_state(self.ctx.document, self.ctx.schema, forked_state);
+            let trial_ctx = ValidationContext::with_state_and_mode(
+                self.ctx.document,
+                self.ctx.schema,
+                forked_state,
+                self.ctx.union_tag_mode,
+            );
 
-            let item_parse_ctx = self.ctx.document.parse_context(item_id);
+            let item_parse_ctx = trial_ctx.parse_context(item_id);
             let child_validator = SchemaValidator {
                 ctx: &trial_ctx,
                 schema_node_id: contains_schema,
@@ -234,7 +238,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for MapValidator<'a, 'doc, 's> {
             // Validate value using SchemaValidator
             self.ctx.push_path_key(key);
 
-            let val_ctx = self.ctx.document.parse_context(val_id);
+            let val_ctx = self.ctx.parse_context(val_id);
             let child_validator = SchemaValidator {
                 ctx: self.ctx,
                 schema_node_id: self.schema.value,
@@ -325,7 +329,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for TupleValidator<'a, 'doc, 's> {
         {
             self.ctx.push_path_tuple_index(i as u8);
 
-            let elem_ctx = self.ctx.document.parse_context(*item_id);
+            let elem_ctx = self.ctx.parse_context(*item_id);
             let child_validator = SchemaValidator {
                 ctx: self.ctx,
                 schema_node_id: elem_schema,

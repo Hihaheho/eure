@@ -9,6 +9,7 @@
 // ============================================================================
 
 @ cases.external-valid
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   success {
@@ -32,7 +33,7 @@ value {
 // ============================================================================
 
 @ cases.internal-valid
-
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   type = "success"
@@ -55,7 +56,7 @@ value {
 // ============================================================================
 
 @ cases.adjacent-valid
-
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   kind = "success"
@@ -99,6 +100,7 @@ value {
 // ============================================================================
 
 @ cases.external-nested
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   outer {
@@ -129,6 +131,7 @@ value {
 // ============================================================================
 
 @ cases.internal-nested
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   type = "wrapper"
@@ -157,6 +160,7 @@ value {
 // ============================================================================
 
 @ cases.variant-agrees
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   $variant = "success"
@@ -180,6 +184,7 @@ value {
 // ============================================================================
 
 @ cases.mixed-repr-nested
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   outer {
@@ -209,6 +214,7 @@ value {
 // ============================================================================
 
 @ cases.variant-path-nested
+input_union_tag_mode = "repr"
 
 input_eure = ```eure
 value {
@@ -242,8 +248,12 @@ value {
 // ============================================================================
 // Test Case 10: Conflicting variant tags ($variant differs from repr extraction)
 // ============================================================================
+// In Repr mode, $variant extension is ignored. Only repr pattern is used.
+// Here the Internal repr extracts "success" from the "type" field, and
+// $variant = "error" is simply ignored - no conflict occurs.
 
-@ cases.conflicting-tags
+@ cases.repr-ignores-variant-extension
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   $variant = "error"
@@ -259,34 +269,14 @@ value {
   variants.error.code = `integer`
 }
 ```
-schema_errors[] = ```text
-error: Conflicting variant tags: $variant = error, repr = success at path value
- --> <input>:1:1
-  |
-1 | / value {
-2 | |   $variant = "error"
-3 | |   type = "success"
-4 | |   message = "ok"
-5 | | }
-  | |_^ Conflicting variant tags: $variant = error, repr = success at path value
-  |
-note: constraint defined here
- --> <schema>:1:1
-  |
-1 | / value {
-2 | |   $variant = "union"
-3 | |   $variant-repr { tag = "type" }
-4 | |   variants.success.message = `text`
-5 | |   variants.error.code = `integer`
-6 | | }
-  | |_- constraint defined here
-```
+// No errors - $variant is ignored in Repr mode, validation uses "success" variant
 
 // ============================================================================
 // Test Case 11: Invalid variant tag (variant name doesn't exist)
 // ============================================================================
 
 @ cases.invalid-variant-name
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   unknown {
@@ -371,6 +361,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.external-missing-wrapper
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   message = "direct content without wrapper"
@@ -453,6 +444,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.nested-invalid-inner
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   outer {
@@ -530,6 +522,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.repr-edge-external-tag-exists-type-matches
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   a = "hello"
@@ -553,6 +546,7 @@ value {
 // ============================================================================
 
 @ cases.repr-edge-external-tag-exists-type-mismatches
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   a {
@@ -594,6 +588,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.repr-edge-external-tag-not-in-variants
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   unknown = "hello"
@@ -637,6 +632,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.repr-edge-internal-tag-exists-type-matches
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   type = "a"
@@ -660,6 +656,7 @@ value {
 // ============================================================================
 
 @ cases.repr-edge-internal-tag-exists-type-mismatches
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   type = "a"
@@ -697,6 +694,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.repr-edge-internal-tag-not-in-variants
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   type = "unknown"
@@ -741,6 +739,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.repr-edge-internal-no-tag-field
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   data = "hello"
@@ -781,6 +780,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.repr-edge-adjacent-tag-exists-type-matches
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   kind = "a"
@@ -800,6 +800,7 @@ value {
 // No errors - should match variants.a
 
 @ cases.repr-edge-adjacent-tag-not-in-variants
+input_union_tag_mode = "repr"
 input_eure = ```eure
 value {
   kind = "unknown"

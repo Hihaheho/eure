@@ -10,6 +10,7 @@ use std::cell::RefCell;
 
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
+use eure_document::parse::UnionTagMode;
 use eure_document::path::{EurePath, PathSegment};
 use eure_document::value::ObjectKey;
 
@@ -171,15 +172,27 @@ pub struct ValidationContext<'a> {
     pub document: &'a EureDocument,
     /// Mutable state (errors, warnings, path, holes)
     pub state: RefCell<ValidationState>,
+    /// Union tag mode for this validation context.
+    pub union_tag_mode: UnionTagMode,
 }
 
 impl<'a> ValidationContext<'a> {
-    /// Create a new validation context.
+    /// Create a new validation context with default (Eure) mode.
     pub fn new(document: &'a EureDocument, schema: &'a SchemaDocument) -> Self {
+        Self::with_mode(document, schema, UnionTagMode::default())
+    }
+
+    /// Create a new validation context with specified union tag mode.
+    pub fn with_mode(
+        document: &'a EureDocument,
+        schema: &'a SchemaDocument,
+        union_tag_mode: UnionTagMode,
+    ) -> Self {
         Self {
             schema,
             document,
             state: RefCell::new(ValidationState::new()),
+            union_tag_mode,
         }
     }
 
@@ -189,10 +202,21 @@ impl<'a> ValidationContext<'a> {
         schema: &'a SchemaDocument,
         state: ValidationState,
     ) -> Self {
+        Self::with_state_and_mode(document, schema, state, UnionTagMode::default())
+    }
+
+    /// Create a context with existing state and mode (for fork/merge).
+    pub fn with_state_and_mode(
+        document: &'a EureDocument,
+        schema: &'a SchemaDocument,
+        state: ValidationState,
+        union_tag_mode: UnionTagMode,
+    ) -> Self {
         Self {
             schema,
             document,
             state: RefCell::new(state),
+            union_tag_mode,
         }
     }
 
@@ -287,6 +311,18 @@ impl<'a> ValidationContext<'a> {
             }
         }
         &self.schema.node(current_id).content
+    }
+
+    /// Create a ParseContext for the given node with this context's union tag mode.
+    pub fn parse_context(
+        &self,
+        node_id: eure_document::document::NodeId,
+    ) -> eure_document::parse::ParseContext<'a> {
+        eure_document::parse::ParseContext::with_union_tag_mode(
+            self.document,
+            node_id,
+            self.union_tag_mode,
+        )
     }
 
     /// Consume context and produce final output.
