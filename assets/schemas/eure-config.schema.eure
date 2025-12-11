@@ -1,0 +1,30 @@
+/// Eure configuration schema for Eure.eure files.
+///
+/// This schema defines the structure of project configuration files.
+/// Configuration files are named `Eure.eure` and placed at project roots.
+
+$schema = "eure-schema.schema.eure"
+
+/// Check targets map (target name -> target definition)
+@ targets
+$variant: map
+key = `text`
+value = `$types.target`
+
+/// CLI-specific configuration
+@ cli
+$optional = true
+default-targets = [`text`]
+default-targets.$optional = true
+
+/// Language server configuration
+@ ls
+$optional = true
+format-on-save = `boolean`
+format-on-save.$optional = true
+
+/// A check target definition
+@ $types.target
+globs = [`text`]
+schema = `text`
+schema.$optional = true

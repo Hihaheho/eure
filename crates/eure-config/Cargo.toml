@@ -1,0 +1,22 @@
+[package]
+name = "eure-config"
+version = "0.1.0"
+edition = "2024"
+description = "Configuration types for Eure tools (CLI, LSP)"
+readme = "README.md"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+license = "MIT OR Apache-2.0"
+keywords = ["eure", "config", "configuration"]
+
+[dependencies]
+eure = { workspace = true }
+eure-document = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
+lint = []
+ls = []
+cli = ["lint", "ls"]
+all = ["cli"]
