@@ -35,19 +35,7 @@
 ///    - $types.unknown-fields-policy: Policy for unknown fields in records
 ///    - $types.binding-style: How document paths are represented
 ///
-/// 4. $cascade-ext-types = { foo = <type>, ... }
-///    Extensions that cascade down the document tree.
-///    Unlike $ext-type, these are available at any nesting level.
-///    Defined inside $types.type in this schema.
-///
-///    Cascading extensions:
-///    - cascade-ext-types: Allows users to define custom cascading extensions
-///    - description: Field documentation (plain text or markdown)
-///    - deprecated: Marks a field as deprecated
-///    - default: Default value for optional fields
-///    - examples: Example values in Eure code format
-///
-/// 5. Type Variants (inside $types.type)
+/// 4. Type Variants (inside $types.type)
 ///    All types are variants of a union type:
 ///
 ///    Primitives:
@@ -138,13 +126,13 @@
 ///    - Unknown extensions: valid but emit a warning
 ///
 /// 9. Documentation Extensions:
-///    Types support documentation via cascading extensions:
+///    Types support documentation via $ext-type on $types.type:
 ///    - $description: plain text or markdown
 ///    - $deprecated: marks as deprecated
 ///    - $default: default value
 ///    - $examples: example values in Eure code
 ///
-/// 7. Cross-Schema Type References:
+/// 10. Cross-Schema Type References:
 ///    Schemas can import types from other schemas using $import.
 ///
 ///    $import = { common => "common.schema.eure" }
@@ -366,19 +354,6 @@ variants {
   name.$optional = true
 }
 
-/// Codegen settings for cascade-ext-types.
-@ $types.cascade-ext-type-codegen {
-  $flatten = [`$types.base-codegen`]
-  /// Group multiple fields into a composite struct.
-  /// Key is struct name (kebab-case), value specifies fields to include.
-  structs {
-    $variant: map
-    key = `$types.ident`
-    value.fields = [`$types.ident`]
-  }
-  structs.$optional = true
-}
-
 /// Root-level codegen settings.
 @ $types.root-codegen {
   /// The root type name for the generated code.
@@ -412,39 +387,26 @@ variants {
   }
 
   // $optional is not here because it's a record variant's extension.
-  $cascade-ext-types {
-    // Allows users to define or override cascading extensions at any level.
-    // Example: section.$cascade-ext-types = { custom-field => .text }
-    cascade-ext-types {
-      $variant: map
-      key = `$types.ident`
-      value = `$types.type`
-    }
 
-    // Field description (supports both plain text via text binding and rich markdown).
-    description {
-      $variant: union
-      variants.string = `text`
-      variants.markdown = `text.markdown`
-    }
-    description.$optional = true
-
-    // Marks the field as deprecated.
-    deprecated = `boolean`
-    deprecated.$optional = true
-
-    // Default value for the field (if omitted in the data).
-    default = `any`
-    default.$optional = true
-
-    // Example values in Eure code format.
-    examples = [`text.eure`]
-    examples.$optional = true
-
-    // Generate composite type for the schema metadata.
-    @ $codegen
-    structs.schema-metadata.fields = ["description", "deprecated", "default", "examples"]
+  // Field description (supports both plain text via text binding and rich markdown).
+  $ext-type.description {
+    $variant: union
+    variants.string = `text`
+    variants.markdown = `text.markdown`
   }
+  $ext-type.description.$optional = true
+
+  // Marks the field as deprecated.
+  $ext-type.deprecated = `boolean`
+  $ext-type.deprecated.$optional = true
+
+  // Default value for the field (if omitted in the data).
+  $ext-type.default = `any`
+  $ext-type.default.$optional = true
+
+  // Example values in Eure code format.
+  $ext-type.examples = [`text.eure`]
+  $ext-type.examples.$optional = true
 
   /// Text type with optional language and length/pattern constraints.
   /// Use for both plain text and code with language tags.

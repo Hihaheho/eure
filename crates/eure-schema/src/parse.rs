@@ -552,7 +552,7 @@ impl ParseDocument<'_> for ParsedExtTypeSchema {
     }
 }
 
-/// Parsed schema metadata - cascading metadata from $cascade-ext-types.
+/// Parsed schema metadata - extension metadata via $ext-type on $types.type.
 #[derive(Debug, Clone, Default)]
 pub struct ParsedSchemaMetadata {
     /// Documentation/description

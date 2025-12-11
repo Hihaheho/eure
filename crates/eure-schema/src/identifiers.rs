@@ -1,7 +1,6 @@
 use eure_document::identifier::Identifier;
 
 pub const SCHEMA: Identifier = Identifier::new_unchecked("schema");
-pub const CASCADE_TYPE: Identifier = Identifier::new_unchecked("cascade-type");
 pub const RENAME: Identifier = Identifier::new_unchecked("rename");
 pub const RENAME_ALL: Identifier = Identifier::new_unchecked("rename-all");
 pub const VARIANTS: Identifier = Identifier::new_unchecked("variants");
