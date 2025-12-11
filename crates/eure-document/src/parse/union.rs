@@ -1045,7 +1045,7 @@ mod tests {
             .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
-                rec.allow_unknown_fields();
+                rec.allow_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
@@ -1298,7 +1298,7 @@ mod tests {
             .variant("a", |ctx: &ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
-                rec.allow_unknown_fields();
+                rec.allow_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
