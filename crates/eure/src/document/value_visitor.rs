@@ -618,8 +618,8 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
             KeyValueView::Boolean(bool_handle) => {
                 let bool_view = bool_handle.get_view(tree)?;
                 match bool_view {
-                    BooleanView::True(_) => ObjectKey::Bool(true),
-                    BooleanView::False(_) => ObjectKey::Bool(false),
+                    BooleanView::True(_) => ObjectKey::String("true".to_string()),
+                    BooleanView::False(_) => ObjectKey::String("false".to_string()),
                 }
             }
             KeyValueView::Str(str_handle) => {

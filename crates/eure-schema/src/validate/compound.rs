@@ -258,7 +258,6 @@ impl<'a, 'doc, 's> MapValidator<'a, 'doc, 's> {
         let valid = match (key, schema_content) {
             (ObjectKey::String(_), SchemaNodeContent::Text(_)) => true,
             (ObjectKey::Number(_), SchemaNodeContent::Integer(_)) => true,
-            (ObjectKey::Bool(_), SchemaNodeContent::Boolean) => true,
             (ObjectKey::Tuple(_), SchemaNodeContent::Tuple(_)) => true,
             (_, SchemaNodeContent::Any) => true, // Any accepts any key type
             _ => false,

@@ -78,8 +78,8 @@ impl PrimitiveValue {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Key-comparable value which implements `Eq` and `Hash`.
 ///
-/// Eure restricts map keys to four types — `String`, `Bool`, `Integer`,
-/// and `Tuple<Key...>` — for practical and predictable behavior.
+/// Eure restricts map keys to three types — `String`, `Number` (BigInt),
+/// and `Tuple<ObjectKey>` — for practical and predictable behavior.
 ///
 /// - **Deterministic equality:**
 ///   These types provide stable, well-defined equality and hashing.
@@ -88,14 +88,16 @@ impl PrimitiveValue {
 ///
 /// - **Reliable round-tripping:**
 ///   Keys must serialize and deserialize without losing meaning.
-///   Strings, booleans, integers, and tuples have canonical and
-///   unambiguous textual forms.
+///   Strings, integers, and tuples have canonical and unambiguous textual forms.
 ///
 /// - **Tooling-friendly:**
 ///   This set balances expressiveness and simplicity, making keys easy
 ///   to validate, index, and reason about across implementations.
+///
+/// Note: In key position, `true`, `false`, and `null` are parsed as string
+/// identifiers, not as boolean/null values. For example, `a.true = true`
+/// creates a key `"true"` with boolean value `true`.
 pub enum ObjectKey {
-    Bool(bool),
     Number(BigInt),
     String(String),
     Tuple(Tuple<ObjectKey>),
@@ -104,7 +106,6 @@ pub enum ObjectKey {
 impl core::fmt::Display for ObjectKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            ObjectKey::Bool(b) => write!(f, "{}", b),
             ObjectKey::Number(n) => write!(f, "{}", n),
             ObjectKey::String(s) => {
                 write!(f, "\"")?;
@@ -136,7 +137,7 @@ impl From<String> for ObjectKey {
 
 impl From<bool> for ObjectKey {
     fn from(b: bool) -> Self {
-        ObjectKey::Bool(b)
+        ObjectKey::String(if b { "true" } else { "false" }.to_string())
     }
 }
 
