@@ -506,3 +506,49 @@ note: constraint defined here
 12 | |     }
    | |_____- constraint defined here
 ```
+
+// ============================================================================
+// Test Case 16: External Repr with map variant - false positive issue
+// When a variant has a map type whose key matches another variant name,
+// external repr incorrectly extracts the map key as variant tag.
+//
+// Data: { a { x = "hello" } }
+// Schema: variants.a = `integer`, variants.b.a.x = `text`
+//
+// External repr extracts "a" as variant name, tries to match variants.a (integer),
+// but content is a map. The data should actually match variants.b.
+// ============================================================================
+
+@ cases.external-map-variant-false-positive
+input_eure = ```eure
+value {
+  a {
+    x = "hello"
+  }
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.a = `integer`
+  variants.b.a.x = `text`
+}
+```
+
+schema_errors[] = ```text
+error: Type mismatch: expected integer, got map at path value
+ --> <input>:2:3
+  |
+2 | /   a {
+3 | |     x = "hello"
+4 | |   }
+  | |___^ Type mismatch: expected integer, got map at path value
+  |
+note: constraint defined here
+ --> <schema>:4:3
+  |
+4 |   variants.a = `integer`
+  |   ---------------------- constraint defined here
+```
