@@ -10,11 +10,7 @@
 //! - [`UnionCodegen`] - Codegen settings for union types
 //! - [`RecordCodegen`] - Codegen settings for record types
 //! - [`FieldCodegen`] - Codegen settings for individual record fields
-//! - [`CascadeExtTypeCodegen`] - Codegen settings for cascade-ext-types
 
-use std::collections::HashMap;
-
-use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseContext, ParseDocument, ParseError};
 
 // ============================================================================
@@ -238,121 +234,6 @@ impl ParseDocument<'_> for FieldCodegen {
     }
 }
 
-// ============================================================================
-// Cascade Ext-Type Codegen Types
-// ============================================================================
-
-/// Struct configuration for grouping cascade-ext-type fields.
-///
-/// Used within [`CascadeExtTypeCodegen`] to define composite structs
-/// that group multiple extension fields together.
-///
-/// # Example
-///
-/// ```eure
-/// $cascade-ext-types {
-///   $codegen {
-///     structs.schema-metadata.fields = ["description", "deprecated", "default", "examples"]
-///   }
-///   description = `text`
-///   deprecated = `boolean`
-///   default = `any`
-///   examples = [`text`]
-/// }
-/// ```
-#[derive(Debug, Clone)]
-pub struct CodegenStruct {
-    /// List of field identifiers to include in this struct.
-    pub fields: Vec<Identifier>,
-}
-
-impl ParseDocument<'_> for CodegenStruct {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
-
-        let fields = rec.parse_field::<Vec<Identifier>>("fields")?;
-
-        rec.deny_unknown_fields()?;
-
-        Ok(CodegenStruct { fields })
-    }
-}
-
-/// Codegen settings for cascade-ext-types sections.
-///
-/// Corresponds to `$types.cascade-ext-type-codegen` in the schema.
-/// Used via `$codegen` on `$cascade-ext-types` definitions.
-/// Includes flattened fields from `$types.base-codegen`.
-///
-/// # Example
-///
-/// ```eure
-/// $cascade-ext-types {
-///   $codegen {
-///     type = "SchemaMetadata"
-///     structs.metadata.fields = ["description", "deprecated"]
-///   }
-///   description = `text`
-///   description.$optional = true
-///   deprecated = `boolean`
-///   deprecated.$optional = true
-/// }
-/// ```
-#[derive(Debug, Clone, Default)]
-pub struct CascadeExtTypeCodegen {
-    /// Override the generated type name (from base-codegen).
-    pub type_name: Option<String>,
-    /// Override the list of derive macros (from base-codegen).
-    pub derive: Option<Vec<String>>,
-    /// Group multiple fields into composite structs.
-    /// Key is struct name (kebab-case), value specifies fields to include.
-    pub structs: Option<HashMap<Identifier, CodegenStruct>>,
-}
-
-impl ParseDocument<'_> for CascadeExtTypeCodegen {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        use eure_document::parse::ParseErrorKind;
-
-        let mut rec = ctx.parse_record()?;
-
-        // Parse base-codegen fields (flattened)
-        let type_name = rec.parse_field_optional::<String>("type")?;
-        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
-
-        // Parse cascade-ext-type-specific fields
-        // Parse structs map manually since Identifier doesn't implement ParseObjectKey
-        let structs: Option<HashMap<Identifier, CodegenStruct>> =
-            match rec.field_record_optional("structs")? {
-                Some(structs_rec) => {
-                    let mut result = HashMap::new();
-
-                    for (name, field_ctx) in structs_rec.unknown_fields() {
-                        let ident: Identifier = name.parse().map_err(|e| ParseError {
-                            node_id: structs_rec.node_id(),
-                            kind: ParseErrorKind::InvalidIdentifier(e),
-                        })?;
-                        let codegen_struct: CodegenStruct = field_ctx.parse()?;
-                        result.insert(ident, codegen_struct);
-                    }
-
-                    structs_rec.allow_unknown_fields()?;
-                    Some(result)
-                }
-                None => None,
-            };
-
-        rec.deny_unknown_fields()?;
-
-        Ok(CascadeExtTypeCodegen {
-            type_name,
-            derive,
-            structs,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,16 +296,5 @@ mod tests {
 
         let result: FieldCodegen = doc.parse(node_id).unwrap();
         assert!(result.name.is_none());
-    }
-
-    #[test]
-    fn test_cascade_ext_type_codegen_empty() {
-        let mut doc = EureDocument::new();
-        let node_id = create_empty_map_node(&mut doc);
-
-        let result: CascadeExtTypeCodegen = doc.parse(node_id).unwrap();
-        assert!(result.type_name.is_none());
-        assert!(result.derive.is_none());
-        assert!(result.structs.is_none());
     }
 }

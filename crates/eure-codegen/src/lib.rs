@@ -19,8 +19,6 @@
 //! - [`UnionCodegen`] - Codegen settings for union types
 //! - [`RecordCodegen`] - Codegen settings for record types
 //! - [`FieldCodegen`] - Codegen settings for individual record fields
-//! - [`CascadeExtTypeCodegen`] - Codegen settings for cascade-ext-types
-//! - [`CodegenStruct`] - Field grouping configuration
 
 mod config;
 mod parse;
