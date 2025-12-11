@@ -1,0 +1,79 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0005-arrow-syntax-for-map-entries"
+title = "Arrow Syntax (=>) for Map Entries"
+status = "accepted"
+decision-date = `2025-11-26`
+tags = ["syntax", "grammar", "map", "object"]
+
+context = ```markdown
+Nested blocks (section syntax) and objects (map literals) were visually indistinguishable
+in Eure.
+
+Before this change:
+- Nested block: `key { nested = value }`
+- Object: `key = { nested = value }`
+
+Both used `{ key = value }` syntax, making them look very similar. However, they have
+significant semantic differences:
+
+- **Nested block (Section binding)**: Supports text bindings (`key: text`) and section
+  syntax (`@section`)
+- **Object**: These syntaxes are not available. Only pure key-value mappings are allowed.
+
+This semantic difference was not reflected in the syntax, which could confuse users.
+```
+
+decision = ````markdown
+Changed map entry syntax from `=` to `=>`.
+
+**New syntax:**
+- Binding: `key = value`
+- Map entry: `key => value`
+
+**Example:**
+```eure
+// Binding (text bindings and sections are available within section bindings)
+config {
+  name = "example"
+  description: This is a text binding
+  @nested.section
+  value = 42
+}
+
+// Object (pure key-value map)
+metadata = {
+  name => "example",
+  version => "1.0.0",
+}
+```
+
+This makes binding syntax and map entry syntax visually distinct.
+````
+
+consequences = ```markdown
+**Positive:**
+- Nested blocks and objects are now visually distinguishable
+- Semantic differences in syntax are now reflected in appearance
+- `=>` is familiar as map syntax in many languages (Perl, PHP, Scala, Elixir, etc.)
+
+**Negative:**
+- All existing Eure files require updates (breaking change)
+- Syntax diverges slightly more from JSON
+
+**Neutral:**
+- Breaking changes are acceptable in the current development phase, so migration cost
+  is within acceptable range
+```
+
+alternatives-considered = [
+  ```markdown
+  **`->` (arrow)**: Considered for map entries. Rejected because `->` is widely used
+  for function return types, making it less natural in a map context than `=>`.
+  ```,
+  ```markdown
+  **`:` (colon)**: Similar to JSON and YAML syntax. Rejected because `:` is already
+  used for text bindings (`key: text content`) in Eure, and we wanted to avoid
+  syntax conflicts.
+  ```,
+]
