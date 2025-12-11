@@ -105,6 +105,32 @@ impl DiagnosticsScenario {
     }
 }
 
+/// Union tag mode for validation tests.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum InputUnionTagMode {
+    /// Use `$variant` extension or untagged matching (default for native Eure)
+    #[default]
+    Eure,
+    /// Use only `VariantRepr` patterns (for JSON/YAML imports)
+    Repr,
+}
+
+impl ParseDocument<'_> for InputUnionTagMode {
+    type Error = DocumentParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+        let s: &str = ctx.parse()?;
+        match s {
+            "eure" => Ok(InputUnionTagMode::Eure),
+            "repr" => Ok(InputUnionTagMode::Repr),
+            _ => Err(DocumentParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::UnknownVariant(s.to_string()),
+            }),
+        }
+    }
+}
+
 /// A single test case's data fields
 #[derive(Debug, Clone, Default)]
 pub struct CaseData {
@@ -118,6 +144,8 @@ pub struct CaseData {
     pub output_json_schema: Option<Text>,
     pub json_schema_errors: Vec<Text>,
     pub unimplemented: Option<String>,
+    /// Union tag mode for validation (default: eure)
+    pub input_union_tag_mode: InputUnionTagMode,
     // Editor scenarios
     pub completions_scenario: Option<CompletionsScenario>,
     pub diagnostics_scenario: Option<DiagnosticsScenario>,
@@ -162,6 +190,9 @@ impl ParseDocument<'_> for CaseData {
             .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
+        let input_union_tag_mode = rec
+            .parse_field_optional::<InputUnionTagMode>("input_union_tag_mode")?
+            .unwrap_or_default();
 
         // Parse editor scenario fields
         let editor = rec.parse_field_optional::<Text>("editor")?;
@@ -202,6 +233,7 @@ impl ParseDocument<'_> for CaseData {
             output_json_schema,
             json_schema_errors,
             unimplemented,
+            input_union_tag_mode,
             completions_scenario,
             diagnostics_scenario,
         })
@@ -292,6 +324,9 @@ impl ParseDocument<'_> for CaseFile {
             .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
         let unimplemented = parse_unimplemented_field(&mut rec)?;
+        let input_union_tag_mode = rec
+            .parse_field_optional::<InputUnionTagMode>("input_union_tag_mode")?
+            .unwrap_or_default();
 
         // Parse editor scenario fields
         let editor = rec.parse_field_optional::<Text>("editor")?;
@@ -348,6 +383,7 @@ impl ParseDocument<'_> for CaseFile {
                 output_json_schema,
                 json_schema_errors,
                 unimplemented,
+                input_union_tag_mode,
                 completions_scenario,
                 diagnostics_scenario,
             },

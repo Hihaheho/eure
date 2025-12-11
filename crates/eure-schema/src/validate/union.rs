@@ -150,7 +150,12 @@ fn validate_variant<'doc>(
 ) -> Result<(), ValidatorError> {
     // Fork state for trial validation
     let forked_state = ctx.fork_state();
-    let trial_ctx = ValidationContext::with_state(ctx.document, ctx.schema, forked_state);
+    let trial_ctx = ValidationContext::with_state_and_mode(
+        ctx.document,
+        ctx.schema,
+        forked_state,
+        ctx.union_tag_mode,
+    );
 
     let child_validator = SchemaValidator {
         ctx: &trial_ctx,

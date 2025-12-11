@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::prelude_internal::*;
 use crate::{document::node::NodeMap, parse::DocumentParser};
 
-use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind, UnionTagMode};
 
 /// Helper for parsing record (map with string keys) from Eure documents.
 ///
@@ -34,13 +34,20 @@ pub struct RecordParser<'doc> {
     accessed: HashSet<String>,
     /// Fields to exclude from parsing (used for Internal repr flatten).
     excluded: HashSet<String>,
+    /// Union tag mode inherited from context.
+    union_tag_mode: UnionTagMode,
 }
 
 impl<'doc> RecordParser<'doc> {
     /// Create a new RecordParser for the given context.
     pub(crate) fn new(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
         let excluded = ctx.excluded_fields().cloned().unwrap_or_else(HashSet::new);
-        Self::from_doc_and_node_with_excluded(ctx.doc(), ctx.node_id(), excluded)
+        Self::from_doc_and_node_with_excluded_and_mode(
+            ctx.doc(),
+            ctx.node_id(),
+            excluded,
+            ctx.union_tag_mode(),
+        )
     }
 
     /// Create a new RecordParser from document and node ID directly.
@@ -48,14 +55,20 @@ impl<'doc> RecordParser<'doc> {
         doc: &'doc EureDocument,
         node_id: NodeId,
     ) -> Result<Self, ParseError> {
-        Self::from_doc_and_node_with_excluded(doc, node_id, HashSet::new())
+        Self::from_doc_and_node_with_excluded_and_mode(
+            doc,
+            node_id,
+            HashSet::new(),
+            UnionTagMode::default(),
+        )
     }
 
-    /// Create a new RecordParser with excluded fields.
-    fn from_doc_and_node_with_excluded(
+    /// Create a new RecordParser with excluded fields and mode.
+    fn from_doc_and_node_with_excluded_and_mode(
         doc: &'doc EureDocument,
         node_id: NodeId,
         excluded: HashSet<String>,
+        union_tag_mode: UnionTagMode,
     ) -> Result<Self, ParseError> {
         let node = doc.node(node_id);
         match &node.content {
@@ -65,6 +78,7 @@ impl<'doc> RecordParser<'doc> {
                 map,
                 accessed: HashSet::new(),
                 excluded,
+                union_tag_mode,
             }),
             NodeValue::Hole(_) => Err(ParseError {
                 node_id,
@@ -120,7 +134,7 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        let ctx = ParseContext::new(self.doc, field_node_id);
+        let ctx = ParseContext::with_union_tag_mode(self.doc, field_node_id, self.union_tag_mode);
         parser.parse(&ctx)
     }
 
@@ -151,7 +165,8 @@ impl<'doc> RecordParser<'doc> {
         }
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => {
-                let ctx = ParseContext::new(self.doc, field_node_id);
+                let ctx =
+                    ParseContext::with_union_tag_mode(self.doc, field_node_id, self.union_tag_mode);
                 Ok(Some(parser.parse(&ctx)?))
             }
             None => Ok(None),
@@ -178,7 +193,11 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        Ok(ParseContext::new(self.doc, field_node_id))
+        Ok(ParseContext::with_union_tag_mode(
+            self.doc,
+            field_node_id,
+            self.union_tag_mode,
+        ))
     }
 
     /// Get the parse context for an optional field without parsing it.
@@ -193,7 +212,9 @@ impl<'doc> RecordParser<'doc> {
         }
         self.map
             .get(&ObjectKey::String(name.to_string()))
-            .map(|node_id| ParseContext::new(self.doc, node_id))
+            .map(|node_id| {
+                ParseContext::with_union_tag_mode(self.doc, node_id, self.union_tag_mode)
+            })
     }
 
     /// Get a field as a nested record parser.
@@ -215,7 +236,12 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        RecordParser::from_doc_and_node(self.doc, field_node_id)
+        RecordParser::from_doc_and_node_with_excluded_and_mode(
+            self.doc,
+            field_node_id,
+            HashSet::new(),
+            self.union_tag_mode,
+        )
     }
 
     /// Get an optional field as a nested record parser.
@@ -231,10 +257,14 @@ impl<'doc> RecordParser<'doc> {
             return Ok(None);
         }
         match self.map.get(&ObjectKey::String(name.to_string())) {
-            Some(field_node_id) => Ok(Some(RecordParser::from_doc_and_node(
-                self.doc,
-                field_node_id,
-            )?)),
+            Some(field_node_id) => Ok(Some(
+                RecordParser::from_doc_and_node_with_excluded_and_mode(
+                    self.doc,
+                    field_node_id,
+                    HashSet::new(),
+                    self.union_tag_mode,
+                )?,
+            )),
             None => Ok(None),
         }
     }
@@ -294,12 +324,16 @@ impl<'doc> RecordParser<'doc> {
     /// Excluded fields are not included.
     pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
+        let mode = self.union_tag_mode;
         self.map.iter().filter_map(move |(key, &node_id)| {
             if let ObjectKey::String(name) = key
                 && !self.accessed.contains(name.as_str())
                 && !self.excluded.contains(name.as_str())
             {
-                return Some((name.as_str(), ParseContext::new(doc, node_id)));
+                return Some((
+                    name.as_str(),
+                    ParseContext::with_union_tag_mode(doc, node_id, mode),
+                ));
             }
             None
         })
@@ -311,7 +345,12 @@ impl<'doc> RecordParser<'doc> {
     /// where the tag field is accessed and the remaining fields should be
     /// parsed by the variant parser.
     pub fn flatten_context(self) -> ParseContext<'doc> {
-        ParseContext::with_excluded_fields(self.doc, self.node_id, self.accessed)
+        ParseContext::with_excluded_fields(
+            self.doc,
+            self.node_id,
+            self.accessed,
+            self.union_tag_mode,
+        )
     }
 }
 
@@ -332,6 +371,8 @@ pub struct ExtParser<'doc> {
     node_id: NodeId,
     extensions: &'doc Map<Identifier, NodeId>,
     accessed: HashSet<Identifier>,
+    /// Union tag mode inherited from context.
+    union_tag_mode: UnionTagMode,
 }
 
 impl<'doc> ExtParser<'doc> {
@@ -340,12 +381,14 @@ impl<'doc> ExtParser<'doc> {
         doc: &'doc EureDocument,
         node_id: NodeId,
         extensions: &'doc Map<Identifier, NodeId>,
+        union_tag_mode: UnionTagMode,
     ) -> Self {
         Self {
             doc,
             node_id,
             extensions,
             accessed: HashSet::new(),
+            union_tag_mode,
         }
     }
 
@@ -379,7 +422,7 @@ impl<'doc> ExtParser<'doc> {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingExtension(name.to_string()),
         })?;
-        let ctx = ParseContext::new(self.doc, *ext_node_id);
+        let ctx = ParseContext::with_union_tag_mode(self.doc, *ext_node_id, self.union_tag_mode);
         parser.parse(&ctx)
     }
 
@@ -413,7 +456,8 @@ impl<'doc> ExtParser<'doc> {
         self.accessed.insert(ident.clone());
         match self.extensions.get(&ident) {
             Some(ext_node_id) => {
-                let ctx = ParseContext::new(self.doc, *ext_node_id);
+                let ctx =
+                    ParseContext::with_union_tag_mode(self.doc, *ext_node_id, self.union_tag_mode);
                 Ok(Some(parser.parse(&ctx)?))
             }
             None => Ok(None),
@@ -438,7 +482,11 @@ impl<'doc> ExtParser<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingExtension(name.to_string()),
             })?;
-        Ok(ParseContext::new(self.doc, ext_node_id))
+        Ok(ParseContext::with_union_tag_mode(
+            self.doc,
+            ext_node_id,
+            self.union_tag_mode,
+        ))
     }
 
     /// Get the parse context for an optional extension field without parsing it.
@@ -448,9 +496,9 @@ impl<'doc> ExtParser<'doc> {
     pub fn ext_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
         let ident: Identifier = name.parse().ok()?;
         self.accessed.insert(ident.clone());
-        self.extensions
-            .get(&ident)
-            .map(|&node_id| ParseContext::new(self.doc, node_id))
+        self.extensions.get(&ident).map(|&node_id| {
+            ParseContext::with_union_tag_mode(self.doc, node_id, self.union_tag_mode)
+        })
     }
 
     /// Finish parsing with Deny policy (error if unknown extensions exist).
@@ -478,9 +526,10 @@ impl<'doc> ExtParser<'doc> {
         &self,
     ) -> impl Iterator<Item = (&'doc Identifier, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
+        let mode = self.union_tag_mode;
         self.extensions.iter().filter_map(move |(ident, &node_id)| {
             if !self.accessed.contains(ident) {
-                Some((ident, ParseContext::new(doc, node_id)))
+                Some((ident, ParseContext::with_union_tag_mode(doc, node_id, mode)))
             } else {
                 None
             }

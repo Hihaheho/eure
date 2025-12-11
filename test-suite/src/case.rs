@@ -11,7 +11,7 @@ use eure::{
 use eure_schema::SchemaDocument;
 use eure_schema::convert::SchemaSourceMap;
 
-use crate::parser::{CompletionsScenario, DiagnosticsScenario};
+use crate::parser::{CompletionsScenario, DiagnosticsScenario, InputUnionTagMode};
 
 // ============================================================================
 // Meta Schema Loader
@@ -335,6 +335,8 @@ pub struct PreprocessedCase {
     pub meta_schema_errors: Vec<String>,
     pub output_json_schema: Option<serde_json::Value>,
     pub json_schema_errors: Vec<String>,
+    /// Union tag mode for validation (default: eure)
+    pub input_union_tag_mode: InputUnionTagMode,
     // Editor scenarios
     pub completions_scenario: Option<CompletionsScenario>,
     pub diagnostics_scenario: Option<DiagnosticsScenario>,
@@ -607,6 +609,7 @@ impl Case {
             meta_schema_errors,
             output_json_schema,
             json_schema_errors,
+            input_union_tag_mode: self.data.input_union_tag_mode,
             completions_scenario: self.data.completions_scenario.clone(),
             diagnostics_scenario: self.data.diagnostics_scenario.clone(),
         })
@@ -719,6 +722,7 @@ impl JsonToEureScenario<'_> {
 pub struct SchemaValidationScenario<'a> {
     input: &'a PreprocessedEure,
     schema: &'a PreprocessedEure,
+    union_tag_mode: InputUnionTagMode,
 }
 
 impl SchemaValidationScenario<'_> {
@@ -766,8 +770,14 @@ impl SchemaValidationScenario<'_> {
                 message: format!("{}", e),
             })?;
 
-        // Validate document directly
-        let result = eure_schema::validate::validate(input_doc, &schema);
+        // Convert union tag mode
+        let mode = match self.union_tag_mode {
+            InputUnionTagMode::Eure => eure_schema::validate::UnionTagMode::Eure,
+            InputUnionTagMode::Repr => eure_schema::validate::UnionTagMode::Repr,
+        };
+
+        // Validate document with specified mode
+        let result = eure_schema::validate::validate_with_mode(input_doc, &schema, mode);
 
         if !result.is_valid {
             // Format errors with source spans (using V2 for precise key spans)
@@ -800,6 +810,7 @@ pub struct SchemaErrorValidationScenario<'a> {
     input: &'a PreprocessedEure,
     schema: &'a PreprocessedEure,
     expected_errors: &'a [String],
+    union_tag_mode: InputUnionTagMode,
 }
 
 impl SchemaErrorValidationScenario<'_> {
@@ -847,8 +858,14 @@ impl SchemaErrorValidationScenario<'_> {
                 message: format!("{}", e),
             })?;
 
-        // Validate document directly
-        let result = eure_schema::validate::validate(input_doc, &schema);
+        // Convert union tag mode
+        let mode = match self.union_tag_mode {
+            InputUnionTagMode::Eure => eure_schema::validate::UnionTagMode::Eure,
+            InputUnionTagMode::Repr => eure_schema::validate::UnionTagMode::Repr,
+        };
+
+        // Validate document with specified mode
+        let result = eure_schema::validate::validate_with_mode(input_doc, &schema, mode);
 
         // Should have errors
         if result.is_valid {
@@ -1226,6 +1243,7 @@ impl PreprocessedCase {
                 scenarios.push(Scenario::SchemaValidation(SchemaValidationScenario {
                     input,
                     schema,
+                    union_tag_mode: self.input_union_tag_mode,
                 }));
             } else {
                 // Expected errors - validation should fail with specific errors
@@ -1234,6 +1252,7 @@ impl PreprocessedCase {
                         input,
                         schema,
                         expected_errors: &self.schema_errors,
+                        union_tag_mode: self.input_union_tag_mode,
                     },
                 ));
             }

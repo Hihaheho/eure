@@ -13,6 +13,7 @@ pub use record::{ExtParser, RecordParser};
 pub use tuple::TupleParser;
 pub use union::UnionParser;
 pub use variant_path::VariantPath;
+// UnionTagMode is defined in this module and exported automatically
 
 use alloc::format;
 use num_bigint::BigInt;
@@ -29,6 +30,37 @@ use crate::{
 };
 
 // =============================================================================
+// UnionTagMode
+// =============================================================================
+
+/// Mode for union tag resolution.
+///
+/// This determines how variant tags are resolved during union parsing:
+/// - `Eure`: Use `$variant` extension and untagged matching (for native Eure documents)
+/// - `Repr`: Use only `VariantRepr` patterns (for JSON/YAML imports)
+///
+/// These modes are mutually exclusive to avoid false positives.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum UnionTagMode {
+    /// Eure mode: Use `$variant` extension or untagged matching.
+    ///
+    /// This is the default mode for native Eure documents.
+    /// - If `$variant` extension is present, use it to determine the variant
+    /// - Otherwise, use untagged matching (try all variants)
+    /// - `VariantRepr` is ignored in this mode
+    #[default]
+    Eure,
+
+    /// Repr mode: Use only `VariantRepr` patterns.
+    ///
+    /// This mode is for documents imported from JSON/YAML.
+    /// - Extract variant tag using `VariantRepr` (External, Internal, Adjacent)
+    /// - `$variant` extension is ignored in this mode
+    /// - If repr doesn't extract a tag, error (no untagged fallback)
+    Repr,
+}
+
+// =============================================================================
 // ParseContext
 // =============================================================================
 
@@ -43,6 +75,8 @@ pub struct ParseContext<'doc> {
     variant_path: Option<VariantPath>,
     /// Fields to exclude from record parsing (used for Internal repr flatten).
     excluded_fields: Option<HashSet<String>>,
+    /// Mode for union tag resolution.
+    union_tag_mode: UnionTagMode,
 }
 
 impl<'doc> ParseContext<'doc> {
@@ -53,6 +87,22 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             excluded_fields: None,
+            union_tag_mode: UnionTagMode::default(),
+        }
+    }
+
+    /// Create a new parse context with the specified union tag mode.
+    pub fn with_union_tag_mode(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        mode: UnionTagMode,
+    ) -> Self {
+        Self {
+            doc,
+            node_id,
+            variant_path: None,
+            excluded_fields: None,
+            union_tag_mode: mode,
         }
     }
 
@@ -61,12 +111,14 @@ impl<'doc> ParseContext<'doc> {
         doc: &'doc EureDocument,
         node_id: NodeId,
         excluded: HashSet<String>,
+        mode: UnionTagMode,
     ) -> Self {
         Self {
             doc,
             node_id,
             variant_path: None,
             excluded_fields: Some(excluded),
+            union_tag_mode: mode,
         }
     }
 
@@ -97,7 +149,13 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             excluded_fields: None,
+            union_tag_mode: self.union_tag_mode,
         }
+    }
+
+    /// Get the union tag mode.
+    pub fn union_tag_mode(&self) -> UnionTagMode {
+        self.union_tag_mode
     }
 
     /// Parse the current node as type T.
@@ -159,7 +217,12 @@ impl<'doc> ParseContext<'doc> {
     /// Get an ExtParser for parsing extension types on the current node.
     pub fn parse_extension(&self) -> ExtParser<'doc> {
         let node = self.node();
-        ExtParser::new(self.doc, self.node_id, &node.extensions)
+        ExtParser::new(
+            self.doc,
+            self.node_id,
+            &node.extensions,
+            self.union_tag_mode,
+        )
     }
 
     /// Check if the current node is null.
@@ -177,6 +240,7 @@ impl<'doc> ParseContext<'doc> {
             node_id: self.node_id,
             variant_path: rest,
             excluded_fields: self.excluded_fields.clone(),
+            union_tag_mode: self.union_tag_mode,
         }
     }
 
@@ -382,7 +446,7 @@ impl<'doc> EureDocument {
     /// Convenience method equivalent to `doc.parse_context(node_id).parse_extension()`.
     pub fn parse_extension(&'doc self, node_id: NodeId) -> ExtParser<'doc> {
         let node = self.node(node_id);
-        ExtParser::new(self, node_id, &node.extensions)
+        ExtParser::new(self, node_id, &node.extensions, UnionTagMode::default())
     }
 
     /// Parse a node as a tuple.

@@ -30,6 +30,9 @@ mod union;
 pub use context::{ValidationContext, ValidationOutput, ValidationState};
 pub use error::{ValidationError, ValidationWarning, ValidatorError};
 
+// Re-export UnionTagMode for convenience
+pub use eure_document::parse::UnionTagMode;
+
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::parse::{DocumentParser, ParseContext};
@@ -51,6 +54,8 @@ use union::UnionValidator;
 
 /// Validate a document against a schema.
 ///
+/// Uses the default `Eure` union tag mode.
+///
 /// # Example
 ///
 /// ```ignore
@@ -64,19 +69,55 @@ use union::UnionValidator;
 /// }
 /// ```
 pub fn validate(document: &EureDocument, schema: &SchemaDocument) -> ValidationOutput {
+    validate_with_mode(document, schema, UnionTagMode::default())
+}
+
+/// Validate a document against a schema with the specified union tag mode.
+///
+/// # Arguments
+///
+/// * `document` - The document to validate
+/// * `schema` - The schema to validate against
+/// * `mode` - The union tag mode to use:
+///   - `UnionTagMode::Eure`: Use `$variant` extension or untagged matching (native Eure documents)
+///   - `UnionTagMode::Repr`: Use only `VariantRepr` patterns (JSON/YAML imports)
+pub fn validate_with_mode(
+    document: &EureDocument,
+    schema: &SchemaDocument,
+    mode: UnionTagMode,
+) -> ValidationOutput {
     let root_id = document.get_root_id();
-    validate_node(document, schema, root_id, schema.root)
+    validate_node_with_mode(document, schema, root_id, schema.root, mode)
 }
 
 /// Validate a specific node against a schema node.
+///
+/// Uses the default `Eure` union tag mode.
 pub fn validate_node(
     document: &EureDocument,
     schema: &SchemaDocument,
     node_id: NodeId,
     schema_id: SchemaNodeId,
 ) -> ValidationOutput {
-    let ctx = ValidationContext::new(document, schema);
-    let parse_ctx = document.parse_context(node_id);
+    validate_node_with_mode(
+        document,
+        schema,
+        node_id,
+        schema_id,
+        UnionTagMode::default(),
+    )
+}
+
+/// Validate a specific node against a schema node with the specified union tag mode.
+pub fn validate_node_with_mode(
+    document: &EureDocument,
+    schema: &SchemaDocument,
+    node_id: NodeId,
+    schema_id: SchemaNodeId,
+    mode: UnionTagMode,
+) -> ValidationOutput {
+    let ctx = ValidationContext::with_mode(document, schema, mode);
+    let parse_ctx = ctx.parse_context(node_id);
 
     let validator = SchemaValidator {
         ctx: &ctx,
