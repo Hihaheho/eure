@@ -1,0 +1,123 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0004-eure-config-with-feature-flags"
+title = "Centralized Configuration in eure-config with Feature Flags"
+status = "proposed"
+decision-date = `2025-12-11`
+tags = ["architecture", "configuration", "eure-config", "feature-flags"]
+
+context = ```markdown
+Eure needs a unified configuration system for CLI (`eure`), Language Server
+(`eurels`), and other tools. The configuration should be written in Eure format
+itself (self-hosting) in a file named `Eure.eure`.
+
+Configuration includes:
+- Default schema for `.eure` files in a directory
+- File exclusion patterns (e.g., `vendor/**`, `generated/**`)
+- Schema mappings by glob patterns
+- Lint rules and settings
+- LSP-specific settings (format-on-save, etc.)
+- Future tool-specific settings
+
+The key design question is how to organize the configuration types across crates.
+
+**Alternatives considered:**
+
+1. **eure-config ← eure-lint**: Lint config defined in eure-config, eure-lint
+   depends on it. Problem: eure-config becomes a dependency of everything,
+   and changes to lint config require modifying the core crate.
+
+2. **eure-config → eure-lint**: eure-config depends on eure-lint for LintConfig.
+   Problem: Creates coupling where the core config crate depends on a specific
+   tool crate. Also problematic if eure-ls wants to provide lint diagnostics.
+
+3. **Loose coupling with `any`**: Use `lint = any` in eure-config schema and
+   let eure-lint parse/validate independently. Problem: LSP cannot provide
+   autocompletion for lint config without knowing its structure.
+
+4. **Feature flags (chosen)**: All config types live in eure-config, controlled
+   by Cargo feature flags. Each tool enables only the features it needs.
+```
+
+decision = ````markdown
+Create a new `eure-config` crate that contains all configuration types, with
+Cargo feature flags controlling which tool-specific configs are included.
+
+**Crate structure:**
+- `eure-config` with features: `lint`, `ls`, `cli`, `all`
+- Default feature includes only base config (default-schema, exclude, schemas)
+- Each tool enables its required features
+
+**Dependency graph:**
+```
+eure-lint -> eure-config (features = ["lint"])
+eure-ls   -> eure-config (features = ["ls", "lint"])
+eure-cli  -> eure-config (features = ["all"])
+```
+
+**Configuration file:**
+- Filename: `Eure.eure` (capital E, like `Cargo.toml`)
+- Schema: `assets/schemas/eure-config.schema.eure`
+- Located at project root, searched upward from current directory
+
+**Schema organization:**
+- `eure-config.schema.eure` - full schema with `$import` for tool schemas
+- `eure-lint.schema.eure` - lint-specific types (can be used standalone)
+- `eure-ls.schema.eure` - LSP-specific types
+
+**Type structure:**
+```rust
+pub struct EureConfig {
+    pub default_schema: Option<String>,
+    pub exclude: Vec<String>,
+    pub schemas: Vec<SchemaMapping>,
+
+    #[cfg(feature = "lint")]
+    pub lint: Option<lint::LintConfig>,
+
+    #[cfg(feature = "ls")]
+    pub ls: Option<ls::LsConfig>,
+}
+```
+````
+
+consequences = ```markdown
+**Positive:**
+- Single source of truth for all configuration types
+- Type-safe configuration with full IDE support (completion, validation)
+- Compile-time feature selection reduces binary size for minimal tools
+- Schema imports allow modular schema organization while unified validation
+- LSP can provide autocompletion for all config sections
+- Natural fit for future codegen from schema
+
+**Negative:**
+- Adding new lint rules may require touching eure-config (though rule names
+  are strings, so type changes are rare)
+- Feature flag combinations need testing
+- Slightly larger eure-config crate (mitigated by features)
+
+**Neutral:**
+- Tool-specific config modules live in eure-config, not their respective crates
+- Schema and Rust types must be kept in sync (future codegen can help)
+```
+
+alternatives-considered = [
+  ```markdown
+  **Loose coupling with `any` type**: Define `lint = any` in the schema and let
+  eure-lint parse the configuration independently. This was rejected because:
+  - LSP cannot provide autocompletion without knowing the schema
+  - No compile-time type safety for config access
+  - Validation errors would come from eure-lint, not schema validation
+  ```,
+  ```markdown
+  **Separate config crates per tool**: Each tool defines its own config crate
+  (eure-lint-config, eure-ls-config). This was rejected because:
+  - Fragmented configuration experience
+  - Harder to maintain consistent config file format
+  - More crates to manage
+  ```,
+]
+
+related-links = [
+  url`https://doc.rust-lang.org/cargo/reference/features.html`
+]
