@@ -282,7 +282,7 @@ $ext-type.codegen-defaults.$optional = true
 /// - Interval notation: "[0, 100]", "[0, 100)", "(0, 100]", "(0, 100)", "[0, )", "(, 100]"
 @ $types.range-string {
   $variant: text
-  pattern = `^((-?\\d+(\\.\\d+)?)?\\.\\.=?(-?\\d+(\\.\\d+)?)?|[\\[\\(](-?\\d+(\\.\\d+)?)?, *(-?\\d+(\\.\\d+)?)?[\\]\\)])$`
+  pattern = `^((-?\d+(\.\d+)?)?\.\.=?(-?\d+(\.\d+)?)?|[\[\(](-?\d+(\.\d+)?)?, *(-?\d+(\.\d+)?)?[\]\)])$`
 }
 
 /// Which way to represent a document path in a document.
