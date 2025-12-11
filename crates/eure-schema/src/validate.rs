@@ -371,6 +371,7 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
             // Codegen extensions
             || ident.as_ref() == "codegen"
             || ident.as_ref() == "codegen-defaults"
+            // FIXME: This seems not builtin so must be properly handled.
             || ident.as_ref() == "flatten"
     }
 }
