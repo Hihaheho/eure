@@ -1,0 +1,15 @@
+// Eure project configuration
+
+@ targets.adr
+globs = ["docs/adrs/**/*.eure"]
+schema = "assets/schemas/eure-adr.schema.eure"
+
+@ targets.schemas
+globs = ["assets/schemas/**/*.eure"]
+schema = "assets/schemas/eure-schema.schema.eure"
+
+@ targets.examples
+globs = ["assets/examples/**/*.eure"]
+
+@ cli
+default-targets = ["adr", "schemas"]
