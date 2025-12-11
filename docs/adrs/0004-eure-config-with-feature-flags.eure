@@ -51,7 +51,7 @@ Cargo feature flags controlling which tool-specific configs are included.
 **Dependency graph:**
 ```
 eure-lint -> eure-config (features = ["lint"])
-eure-ls   -> eure-config (features = ["ls", "lint"])
+eure-ls   -> eure-config (features = ["all"])
 eure-cli  -> eure-config (features = ["all"])
 ```
 
