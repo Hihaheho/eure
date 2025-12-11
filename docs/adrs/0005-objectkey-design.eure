@@ -1,0 +1,130 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0005-objectkey-design"
+title = "ObjectKey Type Design: Restricted Key Types for Reliable Maps"
+status = "accepted"
+decision-date = `2025-12-11`
+tags = ["data-model", "breaking-change", "simplification", "json-compatibility"]
+
+context = ```markdown
+EURE needs to define what types can be used as map keys (`ObjectKey`). The design
+must balance expressiveness, implementation simplicity, and interoperability with
+JSON/YAML.
+
+Initially, many key types were considered:
+- `null`, `bool`, `i64`, `u64`, `string`, `unit`, `tuple`, `hole`, and even floats
+
+Each candidate has trade-offs:
+
+**Float keys** are problematic due to:
+- NaN != NaN in IEEE 754, making equality unreliable
+- -0.0 vs +0.0 ambiguity
+- Platform-dependent Hash/Eq implementations
+- Serialization rounding (1.0 → "1" or scientific notation)
+
+**Null keys** are semantically awkward:
+- "A value representing absence" as a key is counterintuitive
+- `{ null: 1, "null": 2 }` creates confusion
+
+**Bool keys** provide little value:
+- `{ true: X, false: Y }` is rarely useful in practice
+- `"true"` and `"false"` as string keys cover all real use cases
+- Introduces syntactic ambiguity: is `a.true` a boolean key or string key?
+
+**Unit keys** are too niche:
+- Only one possible value, so effectively a single-element map
+- Limited practical use cases
+
+**Hole keys** are inappropriate:
+- Holes are meta-level markers for incomplete values
+- Equality between holes is undefined (are two holes at different positions equal?)
+
+**Separate i64/u64** creates complexity:
+- Boundary conditions between signed/unsigned
+- JSON round-trip issues with large integers
+- Is `1i64` the same key as `1u64`?
+```
+
+decision = ````markdown
+**ObjectKey is defined with exactly three variants:**
+
+```rust
+pub enum ObjectKey {
+    Number(BigInt),
+    String(String),
+    Tuple(Tuple<ObjectKey>),
+}
+```
+
+**Design principles:**
+
+1. **Keys represent names, not arbitrary values**
+   - String is the primary key type (JSON-compatible)
+   - Integer keys are useful for array-like access patterns
+   - Tuple keys enable multi-dimensional/composite keys
+
+2. **Use BigInt for integers**
+   - Eliminates i64/u64 boundary problems
+   - No overflow concerns
+   - Clean specification: "Integer = arbitrary precision"
+   - Implementations may optimize small integers internally
+
+3. **Reserved words in key position are identifiers**
+   - `true`, `false`, `null` in key position become string keys
+   - Grammar: `KeyIdent: Ident | True | False | Null`
+   - Example: `a.true = true` means key `"true"` with boolean value `true`
+   - No quoting needed: `a.true` instead of `a."true"`
+
+4. **Tuple keys are recursive**
+   - Tuple elements must also be valid ObjectKey types
+   - Enables structured keys like `(x, y)` for coordinates
+   - Equality is lexicographical element comparison
+````
+
+consequences = ```markdown
+**Positive:**
+- Simple, predictable equality and hashing
+- Clean JSON round-trip (all keys become strings in JSON)
+- No edge cases with NaN, ±0, or integer overflow
+- Grammar is unambiguous: key position vs value position
+- Tuple keys provide expressive power for composite keys
+- BigInt future-proofs against 64-bit limitations
+
+**Negative:**
+- Users wanting float keys must stringify them explicitly
+- Bool keys require string form `"true"`/`"false"` (but `true`/`false` work in key position as identifiers)
+- BigInt has slight performance overhead vs native integers
+
+**Migration:**
+- Previous `KeyCmpValue` type with `U64` variant is replaced
+- Code using `ObjectKey::Bool` should use `ObjectKey::String("true".into())` instead
+- The `Bool` variant in current implementation is deprecated and should be removed
+```
+
+alternatives-considered = [
+  ```markdown
+  **Include Bool as a key type**: Rejected because:
+  - `"true"`/`"false"` strings cover all practical use cases
+  - Avoids ambiguity between `a.true` (bool key) vs `a."true"` (string key)
+  - Simplifies JSON round-trip (no bool-to-string conversion needed)
+  ```,
+  ```markdown
+  **Separate i64/u64 key types**: Rejected because:
+  - Creates boundary confusion (is `-1i64` different from `u64::MAX`?)
+  - JSON cannot distinguish integer types
+  - BigInt unifies all integers cleanly
+  ```,
+  ```markdown
+  **Allow null as key**: Rejected because:
+  - Semantically confusing ("absence" as a key?)
+  - Most languages don't allow null keys in maps
+  - No practical use case justifies the complexity
+  ```,
+  ```markdown
+  **Allow float keys**: Rejected because:
+  - NaN != NaN breaks map invariants
+  - ±0 comparison is platform-dependent
+  - Serialization can change key identity (1.0 → "1")
+  - Users can use string representation if needed
+  ```,
+]
