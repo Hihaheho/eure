@@ -75,6 +75,8 @@ pub struct ParseContext<'doc> {
     variant_path: Option<VariantPath>,
     /// Fields to exclude from record parsing (used for Internal repr flatten).
     excluded_fields: Option<HashSet<String>>,
+    /// Extensions to exclude from extension parsing (used for Reference type flatten).
+    excluded_extensions: Option<HashSet<Identifier>>,
     /// Mode for union tag resolution.
     union_tag_mode: UnionTagMode,
 }
@@ -87,6 +89,7 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             excluded_fields: None,
+            excluded_extensions: None,
             union_tag_mode: UnionTagMode::default(),
         }
     }
@@ -102,6 +105,7 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             excluded_fields: None,
+            excluded_extensions: None,
             union_tag_mode: mode,
         }
     }
@@ -118,6 +122,24 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             excluded_fields: Some(excluded),
+            excluded_extensions: None,
+            union_tag_mode: mode,
+        }
+    }
+
+    /// Create a context with excluded extensions (for Reference type flatten).
+    pub fn with_excluded_extensions(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        excluded: HashSet<Identifier>,
+        mode: UnionTagMode,
+    ) -> Self {
+        Self {
+            doc,
+            node_id,
+            variant_path: None,
+            excluded_fields: None,
+            excluded_extensions: Some(excluded),
             union_tag_mode: mode,
         }
     }
@@ -125,6 +147,11 @@ impl<'doc> ParseContext<'doc> {
     /// Get the excluded fields.
     pub(crate) fn excluded_fields(&self) -> Option<&HashSet<String>> {
         self.excluded_fields.as_ref()
+    }
+
+    /// Get the excluded extensions.
+    pub fn excluded_extensions(&self) -> Option<&HashSet<Identifier>> {
+        self.excluded_extensions.as_ref()
     }
 
     /// Get the current node ID.
@@ -142,13 +169,14 @@ impl<'doc> ParseContext<'doc> {
         self.doc.node(self.node_id)
     }
 
-    /// Create a new context at a different node (clears variant path and excluded fields).
+    /// Create a new context at a different node (clears variant path, excluded fields, and excluded extensions).
     pub(crate) fn at(&self, node_id: NodeId) -> Self {
         Self {
             doc: self.doc,
             node_id,
             variant_path: None,
             excluded_fields: None,
+            excluded_extensions: None,
             union_tag_mode: self.union_tag_mode,
         }
     }
@@ -217,12 +245,22 @@ impl<'doc> ParseContext<'doc> {
     /// Get an ExtParser for parsing extension types on the current node.
     pub fn parse_extension(&self) -> ExtParser<'doc> {
         let node = self.node();
-        ExtParser::new(
-            self.doc,
-            self.node_id,
-            &node.extensions,
-            self.union_tag_mode,
-        )
+        if let Some(excluded) = &self.excluded_extensions {
+            ExtParser::with_excluded(
+                self.doc,
+                self.node_id,
+                &node.extensions,
+                excluded.clone(),
+                self.union_tag_mode,
+            )
+        } else {
+            ExtParser::new(
+                self.doc,
+                self.node_id,
+                &node.extensions,
+                self.union_tag_mode,
+            )
+        }
     }
 
     /// Check if the current node is null.
@@ -240,6 +278,7 @@ impl<'doc> ParseContext<'doc> {
             node_id: self.node_id,
             variant_path: rest,
             excluded_fields: self.excluded_fields.clone(),
+            excluded_extensions: self.excluded_extensions.clone(),
             union_tag_mode: self.union_tag_mode,
         }
     }

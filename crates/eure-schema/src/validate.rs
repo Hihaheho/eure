@@ -35,7 +35,7 @@ pub use eure_document::parse::UnionTagMode;
 
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
-use eure_document::parse::{DocumentParser, ParseContext};
+use eure_document::parse::{DocumentParser, ExtParser, ParseContext};
 
 use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId};
 
@@ -157,16 +157,18 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
 
         let schema_node = self.ctx.schema.node(self.schema_node_id);
 
-        // Validate extensions first
-        self.validate_extensions(parse_ctx)?;
+        // Validate extensions first (but don't warn about unknown yet)
+        let ext_parser = self.validate_extensions(parse_ctx)?;
 
         // Dispatch to type-specific validator
         match &schema_node.content {
             SchemaNodeContent::Any => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = AnyValidator;
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Text(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = TextValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -175,6 +177,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Integer(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = IntegerValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -183,6 +186,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Float(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = FloatValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -191,6 +195,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Boolean => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = BooleanValidator {
                     ctx: self.ctx,
                     schema_node_id: self.schema_node_id,
@@ -198,6 +203,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Null => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = NullValidator {
                     ctx: self.ctx,
                     schema_node_id: self.schema_node_id,
@@ -205,6 +211,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Literal(expected) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = LiteralValidator {
                     ctx: self.ctx,
                     expected,
@@ -213,6 +220,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Array(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = ArrayValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -221,6 +229,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Map(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = MapValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -229,6 +238,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Record(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = RecordValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -237,6 +247,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Tuple(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = TupleValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -245,6 +256,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Union(s) => {
+                self.warn_unknown_extensions(&ext_parser);
                 let mut v = UnionValidator {
                     ctx: self.ctx,
                     schema: s,
@@ -253,29 +265,42 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
                 v.parse(parse_ctx)
             }
             SchemaNodeContent::Reference(type_ref) => {
+                // For Reference types, use flatten to pass validated extensions to child
+                let flattened_ctx = ext_parser.flatten_context();
                 let mut v = ReferenceValidator {
                     ctx: self.ctx,
                     type_ref,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&flattened_ctx)
             }
         }
     }
 }
 
 impl<'a, 'doc> SchemaValidator<'a, 'doc> {
-    /// Validate extensions on the current node.
-    fn validate_extensions(&self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
-        use crate::identifiers;
-
+    /// Validate extensions on the current node and return the ext_parser.
+    ///
+    /// This validates required and present extensions but does NOT warn about
+    /// unknown extensions. The caller should either:
+    /// - Call `warn_unknown_extensions()` for terminal types
+    /// - Call `ext_parser.flatten_context()` for Reference types to pass to child
+    fn validate_extensions(
+        &self,
+        parse_ctx: &ParseContext<'doc>,
+    ) -> Result<ExtParser<'doc>, ValidatorError> {
         let schema_node = self.ctx.schema.node(self.schema_node_id);
         let ext_types = &schema_node.ext_types;
         let node = parse_ctx.node();
         let node_id = parse_ctx.node_id();
 
-        // Check for missing required extensions
+        // Check for missing required extensions (skip excluded extensions from flatten)
+        let excluded = parse_ctx.excluded_extensions();
         for (ext_ident, ext_schema) in ext_types {
+            // Don't require excluded extensions (they were handled at the use-site)
+            if excluded.is_some_and(|e| e.contains(ext_ident)) {
+                continue;
+            }
             if !ext_schema.optional && !node.extensions.contains_key(ext_ident) {
                 self.ctx
                     .record_error(ValidationError::MissingRequiredExtension {
@@ -304,21 +329,49 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
             }
         }
 
-        // Warn about unknown extensions (except $variant)
-        for (ext_ident, _) in &node.extensions {
-            if ext_ident == &identifiers::VARIANT {
+        Ok(ext_parser)
+    }
+
+    /// Warn about unknown extensions at terminal types.
+    ///
+    /// Extensions that are:
+    /// - Not accessed (not in schema's ext_types)
+    /// - Not excluded (not handled by a parent Reference)
+    /// - Not built-in ($variant, $schema, $ext-type, etc.)
+    fn warn_unknown_extensions(&self, ext_parser: &ExtParser<'doc>) {
+        for (ext_ident, _) in ext_parser.unknown_extensions() {
+            // Skip built-in extensions used by the schema system
+            if Self::is_builtin_extension(ext_ident) {
                 continue;
             }
-            if !ext_types.contains_key(ext_ident) {
-                self.ctx
-                    .record_warning(ValidationWarning::UnknownExtension {
-                        name: ext_ident.to_string(),
-                        path: self.ctx.path(),
-                    });
-            }
+            self.ctx
+                .record_warning(ValidationWarning::UnknownExtension {
+                    name: ext_ident.to_string(),
+                    path: self.ctx.path(),
+                });
         }
+    }
 
-        Ok(())
+    /// Check if an extension is a built-in schema system extension.
+    ///
+    /// Built-in extensions are always allowed and not warned about:
+    /// - $variant: used by union types
+    /// - $schema: used to specify the schema for a document
+    /// - $ext-type: used to define extension types in schemas
+    /// - $codegen: used for code generation hints
+    /// - $codegen-defaults: used for default codegen settings
+    /// - $flatten: used for record field flattening
+    fn is_builtin_extension(ident: &eure_document::identifier::Identifier) -> bool {
+        use crate::identifiers;
+
+        // Core schema extensions
+        ident == &identifiers::VARIANT
+            || ident == &identifiers::SCHEMA
+            || ident == &identifiers::EXT_TYPE
+            // Codegen extensions
+            || ident.as_ref() == "codegen"
+            || ident.as_ref() == "codegen-defaults"
+            || ident.as_ref() == "flatten"
     }
 }
 

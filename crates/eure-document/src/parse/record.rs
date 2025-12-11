@@ -371,6 +371,8 @@ pub struct ExtParser<'doc> {
     node_id: NodeId,
     extensions: &'doc Map<Identifier, NodeId>,
     accessed: HashSet<Identifier>,
+    /// Extensions to exclude from parsing (used for Reference type flatten).
+    excluded: HashSet<Identifier>,
     /// Union tag mode inherited from context.
     union_tag_mode: UnionTagMode,
 }
@@ -388,6 +390,25 @@ impl<'doc> ExtParser<'doc> {
             node_id,
             extensions,
             accessed: HashSet::new(),
+            excluded: HashSet::new(),
+            union_tag_mode,
+        }
+    }
+
+    /// Create a new ExtParser with excluded extensions (from flatten).
+    pub(crate) fn with_excluded(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        extensions: &'doc Map<Identifier, NodeId>,
+        excluded: HashSet<Identifier>,
+        union_tag_mode: UnionTagMode,
+    ) -> Self {
+        Self {
+            doc,
+            node_id,
+            extensions,
+            accessed: HashSet::new(),
+            excluded,
             union_tag_mode,
         }
     }
@@ -521,19 +542,47 @@ impl<'doc> ExtParser<'doc> {
 
     /// Get an iterator over unknown extensions (for custom handling).
     ///
-    /// Returns (identifier, context) pairs for extensions that haven't been accessed.
+    /// Returns (identifier, context) pairs for extensions that haven't been accessed
+    /// and are not excluded.
     pub fn unknown_extensions(
         &self,
     ) -> impl Iterator<Item = (&'doc Identifier, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
         let mode = self.union_tag_mode;
         self.extensions.iter().filter_map(move |(ident, &node_id)| {
-            if !self.accessed.contains(ident) {
+            if !self.accessed.contains(ident) && !self.excluded.contains(ident) {
                 Some((ident, ParseContext::with_union_tag_mode(doc, node_id, mode)))
             } else {
                 None
             }
         })
+    }
+
+    /// Create a context with accessed extensions marked as excluded.
+    ///
+    /// This is used for Reference type flatten pattern,
+    /// where extensions accessed at the Reference node should be
+    /// excluded from further processing at the resolved type.
+    pub fn flatten_context(self) -> ParseContext<'doc> {
+        // Merge accessed and excluded into the new excluded set
+        let mut new_excluded = self.excluded;
+        new_excluded.extend(self.accessed);
+        ParseContext::with_excluded_extensions(
+            self.doc,
+            self.node_id,
+            new_excluded,
+            self.union_tag_mode,
+        )
+    }
+
+    /// Get the set of accessed extension identifiers.
+    pub fn accessed_extensions(&self) -> &HashSet<Identifier> {
+        &self.accessed
+    }
+
+    /// Get the set of excluded extension identifiers.
+    pub fn excluded_extensions(&self) -> &HashSet<Identifier> {
+        &self.excluded
     }
 }
 
