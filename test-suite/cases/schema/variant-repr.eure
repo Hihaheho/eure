@@ -508,18 +508,51 @@ note: constraint defined here
 ```
 
 // ============================================================================
-// Test Case 16: External Repr with map variant - false positive issue
-// When a variant has a map type whose key matches another variant name,
-// external repr incorrectly extracts the map key as variant tag.
+// Variant Repr Edge Cases - Pattern Exploration
+// ============================================================================
 //
-// Data: { a { x = "hello" } }
-// Schema: variants.a = `integer`, variants.b.a.x = `text`
+// These test cases explore edge cases to determine the best specification
+// for variant tag extraction and matching behavior.
 //
-// External repr extracts "a" as variant name, tries to match variants.a (integer),
-// but content is a map. The data should actually match variants.b.
+// Key questions:
+// 1. Should repr-extracted tag be treated as "priority" or "other"?
+// 2. What happens when extracted tag exists in variants but type mismatches?
+// 3. What happens when extracted tag doesn't exist in variants?
+//
+// Current behavior (to be validated/changed):
+// - Tag is extracted eagerly regardless of whether it exists in variants
+// - If tag exists but type mismatches → error (no fallback)
+// - If tag doesn't exist → error (no fallback)
+
+// ============================================================================
+// Test Case 16: External - tag exists in variants, type matches
+// Expected: Match the variant (clear case)
 // ============================================================================
 
-@ cases.external-map-variant-false-positive
+@ cases.repr-edge-external-tag-exists-type-matches
+input_eure = ```eure
+value {
+  a = "hello"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.a = `text`
+  variants.b = `integer`
+}
+```
+
+// No errors - should match variants.a
+
+// ============================================================================
+// Test Case 17: External - tag exists in variants, type mismatches
+// Question: Should this error, or fallback to try other variants?
+// ============================================================================
+
+@ cases.repr-edge-external-tag-exists-type-mismatches
 input_eure = ```eure
 value {
   a {
@@ -537,6 +570,8 @@ value {
 }
 ```
 
+// Current: Error - type mismatch on variants.a
+// Alternative: Could try variants.b and succeed
 schema_errors[] = ```text
 error: Type mismatch: expected integer, got map at path value
  --> <input>:2:3
@@ -551,4 +586,254 @@ note: constraint defined here
   |
 4 |   variants.a = `integer`
   |   ---------------------- constraint defined here
+```
+
+// ============================================================================
+// Test Case 18: External - tag does NOT exist in variants
+// Question: Should this error immediately, or fallback to untagged?
+// ============================================================================
+
+@ cases.repr-edge-external-tag-not-in-variants
+input_eure = ```eure
+value {
+  unknown = "hello"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = "external"
+  variants.a = `text`
+  variants.b = `integer`
+}
+```
+
+// Current: Error - Invalid variant tag 'unknown'
+// Alternative: Could fallback to untagged (but would fail anyway here)
+schema_errors[] = ```text
+error: Invalid variant tag 'unknown' at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   unknown = "hello"
+3 | | }
+  | |_^ Invalid variant tag 'unknown' at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   $variant-repr = "external"
+4 | |   variants.a = `text`
+5 | |   variants.b = `integer`
+6 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 19: Internal - tag field value exists in variants, type matches
+// ============================================================================
+
+@ cases.repr-edge-internal-tag-exists-type-matches
+input_eure = ```eure
+value {
+  type = "a"
+  data = "hello"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.a.data = `text`
+  variants.b.data = `integer`
+}
+```
+
+// No errors - should match variants.a
+
+// ============================================================================
+// Test Case 20: Internal - tag field value exists in variants, type mismatches
+// ============================================================================
+
+@ cases.repr-edge-internal-tag-exists-type-mismatches
+input_eure = ```eure
+value {
+  type = "a"
+  data = 42
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.a.data = `text`
+  variants.b.data = `integer`
+}
+```
+
+// Current: Error - type mismatch
+// The tag says "a" but data is integer (matches b's structure)
+schema_errors[] = ```text
+error: Type mismatch: expected text, got integer at path value.data
+ --> <input>:3:3
+  |
+3 |   data = 42
+  |   ^^^^^^^^^ Type mismatch: expected text, got integer at path value.data
+  |
+note: constraint defined here
+ --> <schema>:4:3
+  |
+4 |   variants.a.data = `text`
+  |   ------------------------ constraint defined here
+```
+
+// ============================================================================
+// Test Case 21: Internal - tag field value does NOT exist in variants
+// ============================================================================
+
+@ cases.repr-edge-internal-tag-not-in-variants
+input_eure = ```eure
+value {
+  type = "unknown"
+  data = "hello"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.a.data = `text`
+  variants.b.data = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: Invalid variant tag 'unknown' at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   type = "unknown"
+3 | |   data = "hello"
+4 | | }
+  | |_^ Invalid variant tag 'unknown' at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   $variant-repr { tag = "type" }
+4 | |   variants.a.data = `text`
+5 | |   variants.b.data = `integer`
+6 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 22: Internal - tag field does not exist (no type field)
+// Falls back to untagged mode
+// ============================================================================
+
+@ cases.repr-edge-internal-no-tag-field
+input_eure = ```eure
+value {
+  data = "hello"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr { tag = "type" }
+  variants.a.data = `text`
+  variants.b.data = `integer`
+}
+```
+
+// No tag field "type" → falls back to untagged
+// In untagged mode, both variants are tried:
+// - variants.a.data = `text` would match (data is text)
+// - variants.b.data = `integer` would not match
+// Current behavior: Error because variants.b is tried first (HashMap order)
+// This shows the issue with untagged fallback - order matters
+schema_errors[] = ```text
+error: Type mismatch: expected integer, got text at path value.data
+ --> <input>:2:3
+  |
+2 |   data = "hello"
+  |   ^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path value.data
+  |
+note: constraint defined here
+ --> <schema>:5:3
+  |
+5 |   variants.b.data = `integer`
+  |   --------------------------- constraint defined here
+```
+
+// ============================================================================
+// Test Case 23: Adjacent - similar patterns
+// ============================================================================
+
+@ cases.repr-edge-adjacent-tag-exists-type-matches
+input_eure = ```eure
+value {
+  kind = "a"
+  content = "hello"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = { "tag" => "kind", "content" => "content" }
+  variants.a = `text`
+  variants.b = `integer`
+}
+```
+
+// No errors - should match variants.a
+
+@ cases.repr-edge-adjacent-tag-not-in-variants
+input_eure = ```eure
+value {
+  kind = "unknown"
+  content = "hello"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  $variant-repr = { "tag" => "kind", "content" => "content" }
+  variants.a = `text`
+  variants.b = `integer`
+}
+```
+
+schema_errors[] = ```text
+error: Invalid variant tag 'unknown' at path value
+ --> <input>:1:1
+  |
+1 | / value {
+2 | |   kind = "unknown"
+3 | |   content = "hello"
+4 | | }
+  | |_^ Invalid variant tag 'unknown' at path value
+  |
+note: constraint defined here
+ --> <schema>:1:1
+  |
+1 | / value {
+2 | |   $variant = "union"
+3 | |   $variant-repr = { "tag" => "kind", "content" => "content" }
+4 | |   variants.a = `text`
+5 | |   variants.b = `integer`
+6 | | }
+  | |_- constraint defined here
 ```
