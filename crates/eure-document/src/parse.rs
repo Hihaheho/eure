@@ -16,6 +16,8 @@ pub use variant_path::VariantPath;
 // UnionTagMode is defined in this module and exported automatically
 
 use alloc::format;
+use alloc::rc::Rc;
+use core::cell::RefCell;
 use num_bigint::BigInt;
 
 use core::marker::PhantomData;
@@ -61,6 +63,79 @@ pub enum UnionTagMode {
 }
 
 // =============================================================================
+// FlattenContext
+// =============================================================================
+
+/// Context for flatten parsing - holds shared reference to accessed sets.
+///
+/// When parsing flattened types, all levels share a single `accessed` set owned
+/// by the root parser. Child parsers add to this shared set, and only the root
+/// parser actually validates with `deny_unknown_fields()`.
+///
+/// Uses `Rc<RefCell<...>>` for interior mutability, allowing ParseContext to
+/// remain Clone while still sharing mutable state.
+///
+/// # Example
+///
+/// ```ignore
+/// // Root parser owns the accessed set
+/// let mut rec1 = ctx.parse_record()?;  // accessed = {} (owned)
+/// rec1.field("a");  // accessed = {a}
+///
+/// // Child parser shares and adds to the same set
+/// let ctx2 = rec1.flatten();
+/// let mut rec2 = ctx2.parse_record()?;  // shares accessed via Rc
+/// rec2.field("b");  // accessed = {a, b}
+/// rec2.deny_unknown_fields()?;  // NO-OP (child)
+///
+/// rec1.field("c");  // accessed = {a, b, c}
+/// rec1.deny_unknown_fields()?;  // VALIDATES (root)
+/// ```
+#[derive(Debug, Clone)]
+pub struct FlattenContext {
+    /// Shared accessed fields (via Rc<RefCell<...>> for interior mutability)
+    pub accessed_fields: Rc<RefCell<HashSet<String>>>,
+    /// Shared accessed extensions (via Rc<RefCell<...>> for interior mutability)
+    pub accessed_exts: Rc<RefCell<HashSet<Identifier>>>,
+}
+
+impl FlattenContext {
+    /// Create a new FlattenContext with empty accessed sets.
+    pub fn new() -> Self {
+        Self {
+            accessed_fields: Rc::new(RefCell::new(HashSet::new())),
+            accessed_exts: Rc::new(RefCell::new(HashSet::new())),
+        }
+    }
+
+    /// Add a field to the accessed set.
+    pub fn add_field(&self, field: impl Into<String>) {
+        self.accessed_fields.borrow_mut().insert(field.into());
+    }
+
+    /// Add an extension to the accessed set.
+    pub fn add_ext(&self, ext: Identifier) {
+        self.accessed_exts.borrow_mut().insert(ext);
+    }
+
+    /// Check if a field has been accessed.
+    pub fn has_field(&self, field: &str) -> bool {
+        self.accessed_fields.borrow().contains(field)
+    }
+
+    /// Check if an extension has been accessed.
+    pub fn has_ext(&self, ext: &Identifier) -> bool {
+        self.accessed_exts.borrow().contains(ext)
+    }
+}
+
+impl Default for FlattenContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
 // ParseContext
 // =============================================================================
 
@@ -73,10 +148,10 @@ pub struct ParseContext<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
     variant_path: Option<VariantPath>,
-    /// Fields to exclude from record parsing (used for Internal repr flatten).
-    excluded_fields: Option<HashSet<String>>,
-    /// Extensions to exclude from extension parsing (used for Reference type flatten).
-    excluded_extensions: Option<HashSet<Identifier>>,
+    /// Flatten context for tracking shared accessed fields/extensions.
+    /// If Some, this context is a flattened child - deny_unknown_* is no-op.
+    /// If None, this is a root context.
+    flatten_ctx: Option<FlattenContext>,
     /// Mode for union tag resolution.
     union_tag_mode: UnionTagMode,
 }
@@ -88,8 +163,7 @@ impl<'doc> ParseContext<'doc> {
             doc,
             node_id,
             variant_path: None,
-            excluded_fields: None,
-            excluded_extensions: None,
+            flatten_ctx: None,
             union_tag_mode: UnionTagMode::default(),
         }
     }
@@ -104,54 +178,41 @@ impl<'doc> ParseContext<'doc> {
             doc,
             node_id,
             variant_path: None,
-            excluded_fields: None,
-            excluded_extensions: None,
+            flatten_ctx: None,
             union_tag_mode: mode,
         }
     }
 
-    /// Create a context with excluded fields (for Internal repr flatten).
-    pub(crate) fn with_excluded_fields(
+    /// Create a context with a flatten context (for flatten parsing).
+    ///
+    /// When a flatten context is present:
+    /// - `deny_unknown_fields()` and `deny_unknown_extensions()` become no-ops
+    /// - All field/extension accesses are recorded in the shared `FlattenContext`
+    pub fn with_flatten_ctx(
         doc: &'doc EureDocument,
         node_id: NodeId,
-        excluded: HashSet<String>,
+        flatten_ctx: FlattenContext,
         mode: UnionTagMode,
     ) -> Self {
         Self {
             doc,
             node_id,
             variant_path: None,
-            excluded_fields: Some(excluded),
-            excluded_extensions: None,
+            flatten_ctx: Some(flatten_ctx),
             union_tag_mode: mode,
         }
     }
 
-    /// Create a context with excluded extensions (for Reference type flatten).
-    pub fn with_excluded_extensions(
-        doc: &'doc EureDocument,
-        node_id: NodeId,
-        excluded: HashSet<Identifier>,
-        mode: UnionTagMode,
-    ) -> Self {
-        Self {
-            doc,
-            node_id,
-            variant_path: None,
-            excluded_fields: None,
-            excluded_extensions: Some(excluded),
-            union_tag_mode: mode,
-        }
+    /// Get the flatten context, if present.
+    pub fn flatten_ctx(&self) -> Option<&FlattenContext> {
+        self.flatten_ctx.as_ref()
     }
 
-    /// Get the excluded fields.
-    pub(crate) fn excluded_fields(&self) -> Option<&HashSet<String>> {
-        self.excluded_fields.as_ref()
-    }
-
-    /// Get the excluded extensions.
-    pub fn excluded_extensions(&self) -> Option<&HashSet<Identifier>> {
-        self.excluded_extensions.as_ref()
+    /// Check if this context is flattened (has a flatten context).
+    ///
+    /// When flattened, `deny_unknown_fields()` and `deny_unknown_extensions()` are no-ops.
+    pub fn is_flattened(&self) -> bool {
+        self.flatten_ctx.is_some()
     }
 
     /// Get the current node ID.
@@ -169,14 +230,13 @@ impl<'doc> ParseContext<'doc> {
         self.doc.node(self.node_id)
     }
 
-    /// Create a new context at a different node (clears variant path, excluded fields, and excluded extensions).
+    /// Create a new context at a different node (clears variant path and flatten context).
     pub(crate) fn at(&self, node_id: NodeId) -> Self {
         Self {
             doc: self.doc,
             node_id,
             variant_path: None,
-            excluded_fields: None,
-            excluded_extensions: None,
+            flatten_ctx: None,
             union_tag_mode: self.union_tag_mode,
         }
     }
@@ -245,22 +305,13 @@ impl<'doc> ParseContext<'doc> {
     /// Get an ExtParser for parsing extension types on the current node.
     pub fn parse_extension(&self) -> ExtParser<'doc> {
         let node = self.node();
-        if let Some(excluded) = &self.excluded_extensions {
-            ExtParser::with_excluded(
-                self.doc,
-                self.node_id,
-                &node.extensions,
-                excluded.clone(),
-                self.union_tag_mode,
-            )
-        } else {
-            ExtParser::new(
-                self.doc,
-                self.node_id,
-                &node.extensions,
-                self.union_tag_mode,
-            )
-        }
+        ExtParser::new(
+            self.doc,
+            self.node_id,
+            &node.extensions,
+            self.flatten_ctx.clone(),
+            self.union_tag_mode,
+        )
     }
 
     /// Check if the current node is null.
@@ -277,8 +328,7 @@ impl<'doc> ParseContext<'doc> {
             doc: self.doc,
             node_id: self.node_id,
             variant_path: rest,
-            excluded_fields: self.excluded_fields.clone(),
-            excluded_extensions: self.excluded_extensions.clone(),
+            flatten_ctx: self.flatten_ctx.clone(),
             union_tag_mode: self.union_tag_mode,
         }
     }
@@ -485,7 +535,13 @@ impl<'doc> EureDocument {
     /// Convenience method equivalent to `doc.parse_context(node_id).parse_extension()`.
     pub fn parse_extension(&'doc self, node_id: NodeId) -> ExtParser<'doc> {
         let node = self.node(node_id);
-        ExtParser::new(self, node_id, &node.extensions, UnionTagMode::default())
+        ExtParser::new(
+            self,
+            node_id,
+            &node.extensions,
+            None,
+            UnionTagMode::default(),
+        )
     }
 
     /// Parse a node as a tuple.

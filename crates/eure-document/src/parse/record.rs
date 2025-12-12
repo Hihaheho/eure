@@ -3,16 +3,30 @@
 extern crate alloc;
 
 use alloc::format;
+use alloc::rc::Rc;
+use core::cell::RefCell;
 use std::collections::HashSet;
 
 use crate::prelude_internal::*;
 use crate::{document::node::NodeMap, parse::DocumentParser};
 
-use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind, UnionTagMode};
+use super::{
+    FlattenContext, ParseContext, ParseDocument, ParseError, ParseErrorKind, UnionTagMode,
+};
 
 /// Helper for parsing record (map with string keys) from Eure documents.
 ///
 /// Tracks accessed fields for unknown field checking.
+///
+/// # Flatten Context
+///
+/// When `flatten_ctx` is `Some`, this parser is part of a flattened chain:
+/// - Field accesses are recorded in the shared `FlattenContext`
+/// - `deny_unknown_fields()` is a no-op (root parser validates)
+///
+/// When `flatten_ctx` is `None`, this is a root parser:
+/// - Field accesses are recorded in local `accessed` set
+/// - `deny_unknown_fields()` actually validates
 ///
 /// # Example
 ///
@@ -31,9 +45,12 @@ pub struct RecordParser<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
     map: &'doc NodeMap,
-    accessed: HashSet<String>,
-    /// Fields to exclude from parsing (used for Internal repr flatten).
-    excluded: HashSet<String>,
+    /// Accessed fields - always Rc<RefCell> for sharing.
+    /// Root creates new Rc, children clone from FlattenContext.
+    accessed: Rc<RefCell<HashSet<String>>>,
+    /// Flatten context - None for root, Some for children.
+    /// When Some, deny_unknown_fields is no-op.
+    flatten_ctx: Option<FlattenContext>,
     /// Union tag mode inherited from context.
     union_tag_mode: UnionTagMode,
 }
@@ -41,11 +58,10 @@ pub struct RecordParser<'doc> {
 impl<'doc> RecordParser<'doc> {
     /// Create a new RecordParser for the given context.
     pub(crate) fn new(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        let excluded = ctx.excluded_fields().cloned().unwrap_or_else(HashSet::new);
-        Self::from_doc_and_node_with_excluded_and_mode(
+        Self::from_doc_and_node_with_flatten_ctx(
             ctx.doc(),
             ctx.node_id(),
-            excluded,
+            ctx.flatten_ctx().cloned(),
             ctx.union_tag_mode(),
         )
     }
@@ -55,29 +71,30 @@ impl<'doc> RecordParser<'doc> {
         doc: &'doc EureDocument,
         node_id: NodeId,
     ) -> Result<Self, ParseError> {
-        Self::from_doc_and_node_with_excluded_and_mode(
-            doc,
-            node_id,
-            HashSet::new(),
-            UnionTagMode::default(),
-        )
+        Self::from_doc_and_node_with_flatten_ctx(doc, node_id, None, UnionTagMode::default())
     }
 
-    /// Create a new RecordParser with excluded fields and mode.
-    fn from_doc_and_node_with_excluded_and_mode(
+    /// Create a new RecordParser with flatten context and mode.
+    pub(crate) fn from_doc_and_node_with_flatten_ctx(
         doc: &'doc EureDocument,
         node_id: NodeId,
-        excluded: HashSet<String>,
+        flatten_ctx: Option<FlattenContext>,
         union_tag_mode: UnionTagMode,
     ) -> Result<Self, ParseError> {
+        // Create or clone accessed set
+        let accessed = match &flatten_ctx {
+            Some(fc) => Rc::clone(&fc.accessed_fields),
+            None => Rc::new(RefCell::new(HashSet::new())),
+        };
+
         let node = doc.node(node_id);
         match &node.content {
             NodeValue::Map(map) => Ok(Self {
                 doc,
                 node_id,
                 map,
-                accessed: HashSet::new(),
-                excluded,
+                accessed,
+                flatten_ctx,
                 union_tag_mode,
             }),
             NodeValue::Hole(_) => Err(ParseError {
@@ -95,6 +112,11 @@ impl<'doc> RecordParser<'doc> {
                     .unwrap_or(ParseErrorKind::UnexpectedHole),
             }),
         }
+    }
+
+    /// Mark a field as accessed.
+    fn mark_accessed(&mut self, name: &str) {
+        self.accessed.borrow_mut().insert(name.to_string());
     }
 
     /// Get the node ID being parsed.
@@ -118,15 +140,7 @@ impl<'doc> RecordParser<'doc> {
         T: DocumentParser<'doc>,
         T::Error: From<ParseError>,
     {
-        self.accessed.insert(name.to_string());
-        // Excluded fields are treated as missing
-        if self.excluded.contains(name) {
-            return Err(ParseError {
-                node_id: self.node_id,
-                kind: ParseErrorKind::MissingField(name.to_string()),
-            }
-            .into());
-        }
+        self.mark_accessed(name);
         let field_node_id = self
             .map
             .get(&ObjectKey::String(name.to_string()))
@@ -148,7 +162,7 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get an optional field.
     ///
-    /// Returns `Ok(None)` if the field is not present or is excluded.
+    /// Returns `Ok(None)` if the field is not present.
     pub fn parse_field_optional_with<T>(
         &mut self,
         name: &str,
@@ -158,11 +172,7 @@ impl<'doc> RecordParser<'doc> {
         T: DocumentParser<'doc>,
         T::Error: From<ParseError>,
     {
-        self.accessed.insert(name.to_string());
-        // Excluded fields are treated as missing
-        if self.excluded.contains(name) {
-            return Ok(None);
-        }
+        self.mark_accessed(name);
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => {
                 let ctx =
@@ -176,16 +186,9 @@ impl<'doc> RecordParser<'doc> {
     /// Get the parse context for a field without parsing it.
     ///
     /// Use this when you need access to the field's NodeId or want to defer parsing.
-    /// Returns `ParseErrorKind::MissingField` if the field is not present or is excluded.
+    /// Returns `ParseErrorKind::MissingField` if the field is not present.
     pub fn field(&mut self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
-        self.accessed.insert(name.to_string());
-        // Excluded fields are treated as missing
-        if self.excluded.contains(name) {
-            return Err(ParseError {
-                node_id: self.node_id,
-                kind: ParseErrorKind::MissingField(name.to_string()),
-            });
-        }
+        self.mark_accessed(name);
         let field_node_id = self
             .map
             .get(&ObjectKey::String(name.to_string()))
@@ -203,13 +206,9 @@ impl<'doc> RecordParser<'doc> {
     /// Get the parse context for an optional field without parsing it.
     ///
     /// Use this when you need access to the field's NodeId or want to defer parsing.
-    /// Returns `None` if the field is not present or is excluded.
+    /// Returns `None` if the field is not present.
     pub fn field_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
-        self.accessed.insert(name.to_string());
-        // Excluded fields are treated as missing
-        if self.excluded.contains(name) {
-            return None;
-        }
+        self.mark_accessed(name);
         self.map
             .get(&ObjectKey::String(name.to_string()))
             .map(|node_id| {
@@ -219,16 +218,9 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get a field as a nested record parser.
     ///
-    /// Returns `ParseErrorKind::MissingField` if the field is not present or is excluded.
+    /// Returns `ParseErrorKind::MissingField` if the field is not present.
     pub fn field_record(&mut self, name: &str) -> Result<RecordParser<'doc>, ParseError> {
-        self.accessed.insert(name.to_string());
-        // Excluded fields are treated as missing
-        if self.excluded.contains(name) {
-            return Err(ParseError {
-                node_id: self.node_id,
-                kind: ParseErrorKind::MissingField(name.to_string()),
-            });
-        }
+        self.mark_accessed(name);
         let field_node_id = self
             .map
             .get(&ObjectKey::String(name.to_string()))
@@ -236,35 +228,29 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        RecordParser::from_doc_and_node_with_excluded_and_mode(
+        RecordParser::from_doc_and_node_with_flatten_ctx(
             self.doc,
             field_node_id,
-            HashSet::new(),
+            None,
             self.union_tag_mode,
         )
     }
 
     /// Get an optional field as a nested record parser.
     ///
-    /// Returns `Ok(None)` if the field is not present or is excluded.
+    /// Returns `Ok(None)` if the field is not present.
     pub fn field_record_optional(
         &mut self,
         name: &str,
     ) -> Result<Option<RecordParser<'doc>>, ParseError> {
-        self.accessed.insert(name.to_string());
-        // Excluded fields are treated as missing
-        if self.excluded.contains(name) {
-            return Ok(None);
-        }
+        self.mark_accessed(name);
         match self.map.get(&ObjectKey::String(name.to_string())) {
-            Some(field_node_id) => Ok(Some(
-                RecordParser::from_doc_and_node_with_excluded_and_mode(
-                    self.doc,
-                    field_node_id,
-                    HashSet::new(),
-                    self.union_tag_mode,
-                )?,
-            )),
+            Some(field_node_id) => Ok(Some(RecordParser::from_doc_and_node_with_flatten_ctx(
+                self.doc,
+                field_node_id,
+                None,
+                self.union_tag_mode,
+            )?)),
             None => Ok(None),
         }
     }
@@ -273,16 +259,21 @@ impl<'doc> RecordParser<'doc> {
     ///
     /// This also errors if the map contains non-string keys, as records
     /// should only have string-keyed fields.
-    /// Excluded fields are not considered unknown.
+    ///
+    /// **Flatten behavior**: If this parser has a flatten_ctx (i.e., is a child
+    /// in a flatten chain), this is a no-op. Only root parsers validate.
     pub fn deny_unknown_fields(self) -> Result<(), ParseError> {
+        // If child (has flatten_ctx), no-op - parent will validate
+        if self.flatten_ctx.is_some() {
+            return Ok(());
+        }
+
+        // Root parser - validate using accessed set
+        let accessed = self.accessed.borrow();
         for (key, _) in self.map.iter() {
             match key {
                 ObjectKey::String(name) => {
-                    // Excluded fields are not considered unknown
-                    if self.excluded.contains(name.as_str()) {
-                        continue;
-                    }
-                    if !self.accessed.contains(name.as_str()) {
+                    if !accessed.contains(name.as_str()) {
                         return Err(ParseError {
                             node_id: self.node_id,
                             kind: ParseErrorKind::UnknownField(name.clone()),
@@ -321,14 +312,14 @@ impl<'doc> RecordParser<'doc> {
     /// Get an iterator over unknown fields (for Schema policy or custom handling).
     ///
     /// Returns (field_name, context) pairs for fields that haven't been accessed.
-    /// Excluded fields are not included.
     pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
         let mode = self.union_tag_mode;
+        // Clone the accessed set for use in the iterator
+        let accessed = self.accessed.borrow().clone();
         self.map.iter().filter_map(move |(key, &node_id)| {
             if let ObjectKey::String(name) = key
-                && !self.accessed.contains(name.as_str())
-                && !self.excluded.contains(name.as_str())
+                && !accessed.contains(name.as_str())
             {
                 return Some((
                     name.as_str(),
@@ -339,18 +330,29 @@ impl<'doc> RecordParser<'doc> {
         })
     }
 
-    /// Create a context with accessed fields excluded.
+    /// Create a flatten context for child parsers.
     ///
-    /// This is used for Internal variant representation flatten pattern,
-    /// where the tag field is accessed and the remaining fields should be
-    /// parsed by the variant parser.
-    pub fn flatten_context(self) -> ParseContext<'doc> {
-        ParseContext::with_excluded_fields(
-            self.doc,
-            self.node_id,
-            self.accessed,
-            self.union_tag_mode,
-        )
+    /// This creates a FlattenContext initialized with the current accessed fields,
+    /// and returns a ParseContext that children can use. Children created from this
+    /// context will:
+    /// - Add their accessed fields to the shared FlattenContext
+    /// - Have deny_unknown_fields() be a no-op
+    ///
+    /// The root parser should call deny_unknown_fields() after all children are done.
+    pub fn flatten(&mut self) -> ParseContext<'doc> {
+        // Create or reuse flatten context - DON'T mutate self
+        let flatten_ctx = match &self.flatten_ctx {
+            Some(fc) => fc.clone(),
+            None => {
+                // Root: create new FlattenContext wrapping our Rc
+                FlattenContext {
+                    accessed_fields: Rc::clone(&self.accessed),
+                    accessed_exts: Rc::new(RefCell::new(HashSet::new())),
+                }
+            }
+        };
+
+        ParseContext::with_flatten_ctx(self.doc, self.node_id, flatten_ctx, self.union_tag_mode)
     }
 }
 
@@ -370,9 +372,12 @@ pub struct ExtParser<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
     extensions: &'doc Map<Identifier, NodeId>,
-    accessed: HashSet<Identifier>,
-    /// Extensions to exclude from parsing (used for Reference type flatten).
-    excluded: HashSet<Identifier>,
+    /// Accessed extensions - always Rc<RefCell> for sharing.
+    accessed: Rc<RefCell<HashSet<Identifier>>>,
+    /// Flatten context - None for root, Some for children.
+    /// - None: root parser, validates on deny_unknown_extensions
+    /// - Some: child parser, no-op on deny_unknown_extensions (parent validates)
+    flatten_ctx: Option<FlattenContext>,
     /// Union tag mode inherited from context.
     union_tag_mode: UnionTagMode,
 }
@@ -383,32 +388,19 @@ impl<'doc> ExtParser<'doc> {
         doc: &'doc EureDocument,
         node_id: NodeId,
         extensions: &'doc Map<Identifier, NodeId>,
+        flatten_ctx: Option<FlattenContext>,
         union_tag_mode: UnionTagMode,
     ) -> Self {
+        let accessed = match &flatten_ctx {
+            Some(fc) => Rc::clone(&fc.accessed_exts),
+            None => Rc::new(RefCell::new(HashSet::new())),
+        };
         Self {
             doc,
             node_id,
             extensions,
-            accessed: HashSet::new(),
-            excluded: HashSet::new(),
-            union_tag_mode,
-        }
-    }
-
-    /// Create a new ExtParser with excluded extensions (from flatten).
-    pub(crate) fn with_excluded(
-        doc: &'doc EureDocument,
-        node_id: NodeId,
-        extensions: &'doc Map<Identifier, NodeId>,
-        excluded: HashSet<Identifier>,
-        union_tag_mode: UnionTagMode,
-    ) -> Self {
-        Self {
-            doc,
-            node_id,
-            extensions,
-            accessed: HashSet::new(),
-            excluded,
+            accessed,
+            flatten_ctx,
             union_tag_mode,
         }
     }
@@ -416,6 +408,11 @@ impl<'doc> ExtParser<'doc> {
     /// Get the node ID being parsed.
     pub fn node_id(&self) -> NodeId {
         self.node_id
+    }
+
+    /// Mark an extension as accessed.
+    fn mark_accessed(&mut self, ident: Identifier) {
+        self.accessed.borrow_mut().insert(ident);
     }
 
     /// Get a required extension field.
@@ -438,7 +435,7 @@ impl<'doc> ExtParser<'doc> {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
         })?;
-        self.accessed.insert(ident.clone());
+        self.mark_accessed(ident.clone());
         let ext_node_id = self.extensions.get(&ident).ok_or_else(|| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingExtension(name.to_string()),
@@ -474,7 +471,7 @@ impl<'doc> ExtParser<'doc> {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
         })?;
-        self.accessed.insert(ident.clone());
+        self.mark_accessed(ident.clone());
         match self.extensions.get(&ident) {
             Some(ext_node_id) => {
                 let ctx =
@@ -494,7 +491,7 @@ impl<'doc> ExtParser<'doc> {
             node_id: self.node_id,
             kind: ParseErrorKind::InvalidIdentifier(e),
         })?;
-        self.accessed.insert(ident.clone());
+        self.mark_accessed(ident.clone());
         let ext_node_id = self
             .extensions
             .get(&ident)
@@ -516,16 +513,26 @@ impl<'doc> ExtParser<'doc> {
     /// Returns `None` if the extension is not present.
     pub fn ext_optional(&mut self, name: &str) -> Option<ParseContext<'doc>> {
         let ident: Identifier = name.parse().ok()?;
-        self.accessed.insert(ident.clone());
+        self.mark_accessed(ident.clone());
         self.extensions.get(&ident).map(|&node_id| {
             ParseContext::with_union_tag_mode(self.doc, node_id, self.union_tag_mode)
         })
     }
 
     /// Finish parsing with Deny policy (error if unknown extensions exist).
+    ///
+    /// **Flatten behavior**: If this parser has a flatten_ctx (i.e., is a child
+    /// in a flatten chain), this is a no-op. Only root parsers validate.
     pub fn deny_unknown_extensions(self) -> Result<(), ParseError> {
+        // If child (has flatten_ctx), no-op - parent will validate
+        if self.flatten_ctx.is_some() {
+            return Ok(());
+        }
+
+        // Root parser - validate using accessed set
+        let accessed = self.accessed.borrow();
         for (ident, _) in self.extensions.iter() {
-            if !self.accessed.contains(ident) {
+            if !accessed.contains(ident) {
                 return Err(ParseError {
                     node_id: self.node_id,
                     kind: ParseErrorKind::UnknownField(format!("$ext-type.{}", ident)),
@@ -542,15 +549,16 @@ impl<'doc> ExtParser<'doc> {
 
     /// Get an iterator over unknown extensions (for custom handling).
     ///
-    /// Returns (identifier, context) pairs for extensions that haven't been accessed
-    /// and are not excluded.
+    /// Returns (identifier, context) pairs for extensions that haven't been accessed.
     pub fn unknown_extensions(
         &self,
     ) -> impl Iterator<Item = (&'doc Identifier, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
         let mode = self.union_tag_mode;
+        // Clone the accessed set for use in the iterator
+        let accessed = self.accessed.borrow().clone();
         self.extensions.iter().filter_map(move |(ident, &node_id)| {
-            if !self.accessed.contains(ident) && !self.excluded.contains(ident) {
+            if !accessed.contains(ident) {
                 Some((ident, ParseContext::with_union_tag_mode(doc, node_id, mode)))
             } else {
                 None
@@ -558,31 +566,29 @@ impl<'doc> ExtParser<'doc> {
         })
     }
 
-    /// Create a context with accessed extensions marked as excluded.
+    /// Create a flatten context for child parsers.
     ///
-    /// This is used for Reference type flatten pattern,
-    /// where extensions accessed at the Reference node should be
-    /// excluded from further processing at the resolved type.
-    pub fn flatten_context(self) -> ParseContext<'doc> {
-        // Merge accessed and excluded into the new excluded set
-        let mut new_excluded = self.excluded;
-        new_excluded.extend(self.accessed);
-        ParseContext::with_excluded_extensions(
-            self.doc,
-            self.node_id,
-            new_excluded,
-            self.union_tag_mode,
-        )
-    }
+    /// This creates a FlattenContext initialized with the current accessed extensions,
+    /// and returns a ParseContext that children can use. Children created from this
+    /// context will:
+    /// - Add their accessed extensions to the shared FlattenContext
+    /// - Have deny_unknown_extensions() be a no-op
+    ///
+    /// The root parser should call deny_unknown_extensions() after all children are done.
+    pub fn flatten(&mut self) -> ParseContext<'doc> {
+        // Create or reuse flatten context - DON'T mutate self
+        let flatten_ctx = match &self.flatten_ctx {
+            Some(fc) => fc.clone(),
+            None => {
+                // Root: create new FlattenContext wrapping our Rc
+                FlattenContext {
+                    accessed_fields: Rc::new(RefCell::new(HashSet::new())),
+                    accessed_exts: Rc::clone(&self.accessed),
+                }
+            }
+        };
 
-    /// Get the set of accessed extension identifiers.
-    pub fn accessed_extensions(&self) -> &HashSet<Identifier> {
-        &self.accessed
-    }
-
-    /// Get the set of excluded extension identifiers.
-    pub fn excluded_extensions(&self) -> &HashSet<Identifier> {
-        &self.excluded
+        ParseContext::with_flatten_ctx(self.doc, self.node_id, flatten_ctx, self.union_tag_mode)
     }
 }
 
@@ -776,5 +782,99 @@ mod tests {
         let mut ext = doc.parse_extension(root_id);
         let optional: Option<bool> = ext.parse_ext_optional("optional").unwrap();
         assert_eq!(optional, None);
+    }
+
+    /// Helper struct for testing three-level nested flatten pattern.
+    /// Parses: { a, b, c, d, e } with three-level flatten.
+    #[derive(Debug, PartialEq)]
+    struct ThreeLevelFlatten {
+        a: i32,
+        b: i32,
+        c: i32,
+        d: i32,
+        e: i32,
+    }
+
+    impl<'doc> ParseDocument<'doc> for ThreeLevelFlatten {
+        type Error = ParseError;
+
+        fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+            // Level 1
+            let mut rec1 = ctx.parse_record()?;
+            let a = rec1.parse_field("a")?;
+            let ctx2 = rec1.flatten();
+
+            // Level 2
+            let mut rec2 = ctx2.parse_record()?;
+            let b = rec2.parse_field("b")?;
+            let c = rec2.parse_field("c")?;
+            let ctx3 = rec2.flatten();
+
+            // Level 3
+            let mut rec3 = ctx3.parse_record()?;
+            let d = rec3.parse_field("d")?;
+            let e = rec3.parse_field("e")?;
+            rec3.deny_unknown_fields()?;
+
+            // Level 2 deny (no-op since child)
+            rec2.deny_unknown_fields()?;
+
+            // Level 1 deny (root - validates all)
+            rec1.deny_unknown_fields()?;
+
+            Ok(Self { a, b, c, d, e })
+        }
+    }
+
+    #[test]
+    fn test_nested_flatten_preserves_consumed_fields() {
+        // Document: { a = 1, b = 2, c = 3, d = 4, e = 5 }
+        //
+        // Parsing structure:
+        // Level 1: parse_record(), field(a), flatten() →
+        //   Level 2: field(b), field(c), flatten() →
+        //     Level 3: field(d), field(e), deny_unknown_fields()
+        //   Level 2: deny_unknown_fields()
+        // Level 1: deny_unknown_fields()
+        //
+        // Expected: All deny_unknown_fields() should succeed
+        use crate::eure;
+
+        let doc = eure!({ a = 1, b = 2, c = 3, d = 4, e = 5 });
+        let result: ThreeLevelFlatten = doc.parse(doc.get_root_id()).unwrap();
+
+        assert_eq!(
+            result,
+            ThreeLevelFlatten {
+                a: 1,
+                b: 2,
+                c: 3,
+                d: 4,
+                e: 5
+            }
+        );
+    }
+
+    #[test]
+    fn test_nested_flatten_catches_unaccessed_field() {
+        // Document: { a = 1, b = 2, c = 3, d = 4, e = 5, f = 6 }
+        //
+        // Parsing structure (NOT accessing f):
+        // Level 1: field(a), flatten() →
+        //   Level 2: field(b), field(c), flatten() →
+        //     Level 3: field(d), field(e), deny_unknown_fields()
+        //   Level 2: deny_unknown_fields()
+        // Level 1: deny_unknown_fields() <- Should FAIL because f is not accessed
+        //
+        // Expected: Level 1's deny_unknown_fields() should fail with UnknownField("f")
+        use crate::eure;
+
+        let doc = eure!({ a = 1, b = 2, c = 3, d = 4, e = 5, f = 6 });
+        let result: Result<ThreeLevelFlatten, _> = doc.parse(doc.get_root_id());
+
+        assert_eq!(
+            result.unwrap_err().kind,
+            ParseErrorKind::UnknownField("f".to_string())
+        );
     }
 }

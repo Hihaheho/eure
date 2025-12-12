@@ -277,15 +277,25 @@ where
         content_node_id: NodeId,
     ) -> ParseContext<'doc> {
         match repr {
-            // Internal repr: exclude tag field from the same node
-            // Inherit parent's excluded_fields for nested Internal reprs
+            // Internal repr: mark tag field as accessed in shared context
+            // This way deny_unknown_fields won't complain about the tag
             VariantRepr::Internal { tag } => {
-                let mut excluded = ctx.excluded_fields().cloned().unwrap_or_default();
-                excluded.insert(tag.clone());
-                ParseContext::with_excluded_fields(
+                // Get or create flatten context, add tag to accessed fields
+                let flatten_ctx = match ctx.flatten_ctx() {
+                    Some(fc) => {
+                        fc.add_field(tag);
+                        fc.clone()
+                    }
+                    None => {
+                        let fc = super::FlattenContext::new();
+                        fc.add_field(tag);
+                        fc
+                    }
+                };
+                ParseContext::with_flatten_ctx(
                     ctx.doc(),
                     content_node_id,
-                    excluded,
+                    flatten_ctx,
                     ctx.union_tag_mode(),
                 )
             }

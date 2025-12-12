@@ -158,7 +158,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
         let schema_node = self.ctx.schema.node(self.schema_node_id);
 
         // Validate extensions first (but don't warn about unknown yet)
-        let ext_parser = self.validate_extensions(parse_ctx)?;
+        let mut ext_parser = self.validate_extensions(parse_ctx)?;
 
         // Dispatch to type-specific validator
         match &schema_node.content {
@@ -266,7 +266,7 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
             }
             SchemaNodeContent::Reference(type_ref) => {
                 // For Reference types, use flatten to pass validated extensions to child
-                let flattened_ctx = ext_parser.flatten_context();
+                let flattened_ctx = ext_parser.flatten();
                 let mut v = ReferenceValidator {
                     ctx: self.ctx,
                     type_ref,
@@ -294,13 +294,8 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
         let node = parse_ctx.node();
         let node_id = parse_ctx.node_id();
 
-        // Check for missing required extensions (skip excluded extensions from flatten)
-        let excluded = parse_ctx.excluded_extensions();
+        // Check for missing required extensions
         for (ext_ident, ext_schema) in ext_types {
-            // Don't require excluded extensions (they were handled at the use-site)
-            if excluded.is_some_and(|e| e.contains(ext_ident)) {
-                continue;
-            }
             if !ext_schema.optional && !node.extensions.contains_key(ext_ident) {
                 self.ctx
                     .record_error(ValidationError::MissingRequiredExtension {
