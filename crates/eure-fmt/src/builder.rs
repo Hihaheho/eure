@@ -54,6 +54,12 @@ struct FormatVisitor<'a> {
     pending_newline: bool,
     /// Context stack for nested structures (array, object, etc.)
     context: Vec<FormatContext>,
+    /// Track if we just opened an object brace (need space before first content)
+    object_needs_leading_space: bool,
+    /// Track doc count after opening brace (to detect empty objects)
+    object_open_doc_count: Option<usize>,
+    /// Track doc index where section binding content starts (for indentation)
+    section_binding_content_start: Option<usize>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -62,6 +68,8 @@ enum FormatContext {
     Eure,
     Binding,
     ValueBinding,
+    SectionBinding,
+    SectionBody,
     Object,
     Array,
     Tuple,
@@ -83,6 +91,9 @@ impl<'a> FormatVisitor<'a> {
             at_start: true,
             pending_newline: false,
             context: vec![FormatContext::Root],
+            object_needs_leading_space: false,
+            object_open_doc_count: None,
+            section_binding_content_start: None,
         }
     }
 
@@ -96,6 +107,22 @@ impl<'a> FormatVisitor<'a> {
 
     fn current_context(&self) -> FormatContext {
         self.context.last().copied().unwrap_or(FormatContext::Root)
+    }
+
+    fn in_object(&self) -> bool {
+        self.current_context() == FormatContext::Object
+    }
+
+    fn in_section_binding(&self) -> bool {
+        self.current_context() == FormatContext::SectionBinding
+    }
+
+    fn in_section_body(&self) -> bool {
+        self.current_context() == FormatContext::SectionBody
+    }
+
+    fn in_block(&self) -> bool {
+        self.in_section_binding() || self.in_section_body()
     }
 
     fn push_context(&mut self, ctx: FormatContext) {
@@ -123,6 +150,7 @@ impl<'a> FormatVisitor<'a> {
         let text = self.get_text(data);
         if !text.is_empty() {
             self.flush_newline();
+            self.emit_object_leading_space();
             self.docs.push(Doc::text(text));
             self.at_start = false;
         }
@@ -163,10 +191,19 @@ impl<'a> FormatVisitor<'a> {
         }
     }
 
+    /// Emit leading space for object content if needed
+    fn emit_object_leading_space(&mut self) {
+        if self.object_needs_leading_space {
+            self.docs.push(Doc::text(" "));
+            self.object_needs_leading_space = false;
+        }
+    }
+
     /// Output a document fragment
     fn emit(&mut self, doc: Doc) {
         if !matches!(doc, Doc::Nil) {
             self.flush_newline();
+            self.emit_object_leading_space();
             self.docs.push(doc);
             self.at_start = false;
         }
@@ -177,6 +214,7 @@ impl<'a> FormatVisitor<'a> {
         let text: String = text.into();
         if !text.is_empty() {
             self.flush_newline();
+            self.emit_object_leading_space();
             self.docs.push(Doc::text(text));
             self.at_start = false;
         }
@@ -357,6 +395,42 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
+    fn visit_object(
+        &mut self,
+        handle: ObjectHandle,
+        view: ObjectView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.push_context(FormatContext::Object);
+        self.visit_object_super(handle, view, tree)?;
+        self.pop_context();
+        Ok(())
+    }
+
+    fn visit_section_binding(
+        &mut self,
+        handle: SectionBindingHandle,
+        view: SectionBindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.push_context(FormatContext::SectionBinding);
+        self.visit_section_binding_super(handle, view, tree)?;
+        self.pop_context();
+        Ok(())
+    }
+
+    fn visit_section_body(
+        &mut self,
+        handle: SectionBodyHandle,
+        view: SectionBodyView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.push_context(FormatContext::SectionBody);
+        self.visit_section_body_super(handle, view, tree)?;
+        self.pop_context();
+        Ok(())
+    }
+
     // === Terminal handling ===
 
     fn visit_bind_terminal(
@@ -403,8 +477,24 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        self.emit_text("{");
-        self.mark_content(data);
+        if self.in_block() {
+            // Block (section binding or section body): space before, mark where content starts for indentation
+            self.emit_text(" {");
+            self.mark_content(data);
+            self.section_binding_content_start = Some(self.docs.len());
+            // Reset at_start so first binding doesn't add leading newline
+            self.at_start = true;
+            self.pending_newline = false;
+        } else if self.in_object() {
+            self.emit_text("{");
+            // Mark that we need a space before first content (if any)
+            self.object_needs_leading_space = true;
+            self.object_open_doc_count = Some(self.docs.len());
+            self.mark_content(data);
+        } else {
+            self.emit_text("{");
+            self.mark_content(data);
+        }
         Ok(())
     }
 
@@ -414,7 +504,37 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        self.emit_text("}");
+        if self.in_block() {
+            // Block: wrap content in indent, add hardlines
+            if let Some(start_idx) = self.section_binding_content_start.take() {
+                // Extract content docs since the opening brace
+                let content_docs: Vec<Doc> = self.docs.drain(start_idx..).collect();
+                if !content_docs.is_empty() {
+                    // Wrap content: indent(hardline + content) + hardline
+                    // The hardline must be inside indent to get indentation after newline
+                    let content = Doc::concat_all(content_docs);
+                    self.docs.push(Doc::indent(Doc::hardline().concat(content)));
+                    self.docs.push(Doc::hardline());
+                }
+            }
+            self.emit_text("}");
+        } else if self.in_object() {
+            // Check if object has content (doc count increased since open brace)
+            let has_content = self
+                .object_open_doc_count
+                .map(|count| self.docs.len() > count)
+                .unwrap_or(false);
+            // Clear flags BEFORE emit_text to avoid spurious leading space
+            self.object_needs_leading_space = false;
+            self.object_open_doc_count = None;
+            if has_content {
+                self.emit_text(" }");
+            } else {
+                self.emit_text("}");
+            }
+        } else {
+            self.emit_text("}");
+        }
         self.mark_content(data);
         Ok(())
     }
@@ -898,9 +1018,9 @@ mod tests {
 
     #[test]
     fn test_object_binding() {
-        let input = "= { b => 1 }";
+        let input = "= {b => 1}";
         let output = format(input);
-        assert_eq!(output, "= {b => 1}\n");
+        assert_eq!(output, "= { b => 1 }\n");
     }
 
     #[test]
@@ -908,6 +1028,23 @@ mod tests {
         let input = "@ foo\na = 1";
         let output = format(input);
         assert_eq!(output, "@ foo\na = 1\n");
+    }
+
+    #[test]
+    fn test_section_binding_block() {
+        // Section binding with block syntax should always be multiline
+        let input = "a { b = 1 }";
+        let output = format(input);
+        // Block should be multiline with indentation
+        assert_eq!(output, "a {\n  b = 1\n}\n");
+    }
+
+    #[test]
+    fn test_section_with_block() {
+        // Section with block syntax should also be multiline
+        let input = "@ a { b = 1 }";
+        let output = format(input);
+        assert_eq!(output, "@ a {\n  b = 1\n}\n");
     }
 
     #[test]
@@ -927,9 +1064,9 @@ mod tests {
     #[test]
     fn test_object_inline_with_commas() {
         // Multiple object entries should have commas when inline
-        let input = "= { a => 1, b => 2 }";
+        let input = "= {a => 1, b => 2}";
         let output = format(input);
-        assert_eq!(output, "= {a => 1, b => 2}\n");
+        assert_eq!(output, "= { a => 1, b => 2 }\n");
     }
 
     #[test]
