@@ -18,14 +18,10 @@ cargo run -p test-suite # Run Eure test suite
 
 **Local checks**
 
-You must ensure those commands succeeds before commit.
+You must ensure this command succeeds before commit.
 
 ```bash
-cargo clippy
-cargo test
-cargo fmt --check
-cargo run -p test-suite
-cargo run --bin eure -- check --all
+make check
 ```
 
 **Individual Crate Development:**
