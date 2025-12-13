@@ -1,0 +1,84 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0006-codeblock-attributes-via-extensions"
+title = "Code Block Attributes via Extension Syntax"
+status = "accepted"
+decision-date = `2025-12-13`
+tags = ["syntax", "code-block", "extensions", "simplicity"]
+
+context = ```markdown
+Code blocks in Eure support a language tag (e.g., triple-backtick followed by `rust`), but
+there was a question about how to add additional metadata such as:
+
+- Flags like `ignore`, `no_run`, `should_panic` (common in Rust doctest)
+- File metadata like `filename="a.rs"`
+- Other attributes for tooling or rendering
+
+Two approaches were considered:
+
+1. **Inline attributes** in the code fence (e.g., `rust,ignore,filename="a.rs"`)
+2. **Extension syntax** on the binding (e.g., `code.$ignore = true`)
+
+The inline approach is familiar to users of Rust mdBook and similar tools, but would
+require grammar changes to the code block start patterns.
+```
+
+decision = ````markdown
+Use the existing extension syntax for code block attributes instead of adding inline
+attributes to the code fence syntax.
+
+**Example:**
+```eure
+code = ```rust
+fn main() {}
+```
+code.$ignore = true
+code.$filename = "a.rs"
+```
+
+The code fence syntax remains simple with only a language tag:
+```
+CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
+```
+````
+
+consequences = ```markdown
+**Positive:**
+- No grammar changes required
+- Consistent with Eure's extension philosophy
+- More flexible for complex attribute values (not limited to strings)
+- Keeps the grammar simple and maintainable
+- Extensions can be validated via schema
+
+**Negative:**
+- Less familiar to users coming from Rust/mdBook ecosystem
+- Attributes are syntactically separate from the code block
+- Requires naming the code block to attach attributes
+
+**Neutral:**
+- This aligns with Eure's general philosophy that metadata belongs in extensions
+- The `$no-final-newline` extension mentioned in decision-records.md follows this pattern
+```
+
+alternatives-considered = [
+  `````markdown
+  **Inline comma-separated flags** (e.g., `rust,ignore,no_run`)
+
+  Would require grammar changes:
+  ```
+  CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*(,[a-zA-Z0-9-_]+)*[\s--\r\n]*(\r\n|\r|\n)/;
+  ```
+
+  Rejected because:
+  - Adds complexity to the grammar for a marginal ergonomic benefit
+  - Key-value pairs (e.g., `filename="a.rs"`) would further complicate the regex
+  - Inconsistent with how other metadata is handled in Eure
+  `````,
+  ```markdown
+  **Inline key-value attributes** (e.g., `rust,ignore,filename="a.rs"`)
+
+  Would require significant grammar changes to parse key-value pairs within the
+  scanner mode. Rejected for the same reasons as simple flags, with additional
+  complexity concerns.
+  ```,
+]
