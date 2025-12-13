@@ -151,7 +151,7 @@ mod tests {
         let doc = EureDocument::new_primitive(PrimitiveValue::Integer(BigInt::from(42)));
         assert_eq!(synth(&doc, doc.get_root_id()), SynthType::Integer);
 
-        let doc = EureDocument::new_primitive(PrimitiveValue::F64(3.14));
+        let doc = EureDocument::new_primitive(PrimitiveValue::F64(2.5));
         assert_eq!(synth(&doc, doc.get_root_id()), SynthType::Float);
 
         let doc = EureDocument::new_primitive(PrimitiveValue::Text(Text::plaintext("hello")));

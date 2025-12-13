@@ -2056,6 +2056,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)] // Testing parse_field deserialization returns correct value
     fn test_eure_variable_mixed_with_literals() {
         // Test mixing variables and literals
         let username = "bob";

@@ -303,15 +303,16 @@ mod tests {
         let inner = SynthUnion::from_variants([SynthType::Integer, SynthType::Boolean]);
         let outer = SynthUnion::from_variants([inner, SynthType::Text(None)]);
 
-        match outer {
-            SynthType::Union(u) => {
-                assert_eq!(u.variants.len(), 3);
-                assert!(u.variants.contains(&SynthType::Integer));
-                assert!(u.variants.contains(&SynthType::Boolean));
-                assert!(u.variants.contains(&SynthType::Text(None)));
-            }
-            _ => panic!("Expected Union"),
-        }
+        assert_eq!(
+            outer,
+            SynthType::Union(SynthUnion {
+                variants: vec![
+                    SynthType::Integer,
+                    SynthType::Boolean,
+                    SynthType::Text(None)
+                ]
+            })
+        );
     }
 
     #[test]
@@ -319,12 +320,12 @@ mod tests {
         let union =
             SynthUnion::from_variants([SynthType::Integer, SynthType::Integer, SynthType::Boolean]);
 
-        match union {
-            SynthType::Union(u) => {
-                assert_eq!(u.variants.len(), 2);
-            }
-            _ => panic!("Expected Union"),
-        }
+        assert_eq!(
+            union,
+            SynthType::Union(SynthUnion {
+                variants: vec![SynthType::Integer, SynthType::Boolean]
+            })
+        );
     }
 
     #[test]
