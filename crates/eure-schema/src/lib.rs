@@ -441,17 +441,8 @@ pub enum BindingStyle {
 
 /// Type reference (local or cross-schema)
 ///
-/// Spec: lines 506-510
-/// ```eure
-/// @variants.ref
-/// $variant: path
-/// starts-with = .$types
-/// length-min = 2
-/// length-max = 3
-/// ```
-///
-/// - Local reference (path length 2): `.$types.my-type`
-/// - Cross-schema reference (path length 3): `.$types.namespace.type-name`
+/// - Local reference: `$types.my-type`
+/// - Cross-schema reference: `$types.namespace.type-name`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeReference {
     /// Namespace for cross-schema references (None for local refs)
