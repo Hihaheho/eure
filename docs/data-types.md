@@ -29,7 +29,6 @@ Eure recommends **2-space indentation** for nested structures.
 - `tuple`
 - `unit`
 - `null`
-- `path`
 
 ## Officially Provided Types
 
@@ -174,10 +173,3 @@ The dot notation follows Eure's standard path syntax, making it consistent with 
 ## Null
 
 ## Datetime
-
-## Path
-
-Same syntax as section path and binding path.
-
-Notation as value: `path = .0.a.b.c`
-Notation as type: `"path"`

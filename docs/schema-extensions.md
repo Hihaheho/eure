@@ -176,22 +176,6 @@ url = `text.url`
 
 **Shorthand:** `text`, `text.rust`, `text.email`, etc.
 
-### Path Type
-
-Path type for document path values.
-
-```eure
-reference = `path`
-
-// With constraints
-@ ref {
-  $variant: path
-  starts-with = `config`
-  min-length = 2
-  max-length = 10
-}
-```
-
 ---
 
 ## Container Types
