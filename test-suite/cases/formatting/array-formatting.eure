@@ -1,0 +1,9 @@
+// Test array formatting
+
+input_eure = ```eure
+items=[1,2,3,4,5]
+```
+
+formatted_input = ```eure
+items = [1, 2, 3, 4, 5]
+```

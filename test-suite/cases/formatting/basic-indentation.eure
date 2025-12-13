@@ -1,0 +1,13 @@
+// Test basic indentation formatting
+
+input_eure = ```eure
+name="Alice"
+age=30
+items=[1,2,3]
+```
+
+formatted_input = ```eure
+name = "Alice"
+age = 30
+items = [1, 2, 3]
+```
