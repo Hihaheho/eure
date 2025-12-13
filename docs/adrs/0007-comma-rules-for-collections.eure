@@ -1,0 +1,96 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0007-comma-rules-for-collections"
+title = "Comma Rules: Optional in Objects, Required in Arrays/Tuples"
+status = "accepted"
+decision-date = `2025-12-13`
+tags = ["syntax", "grammar", "comma", "object", "array", "tuple"]
+
+context = ```markdown
+Eure needs consistent rules for element separators in collection types. The key question
+is whether commas should be required, optional, or forbidden between elements.
+
+Three collection types exist in Eure:
+- **Objects**: Key-value maps using `=>` syntax: `{ key => value }`
+- **Arrays**: Ordered sequences: `[1, 2, 3]`
+- **Tuples**: Fixed-size sequences: `(1, 2, 3)`
+
+Each type has different use patterns:
+- Objects are **key-centric**: users think "which keys are available?" and access by name
+- Arrays/Tuples are **position-centric**: users think "how many elements?" and access by index
+
+Additionally, objects have built-in visual delimiters (`=>`) between entries, while
+arrays and tuples do not.
+```
+
+decision = ````markdown
+**Commas are optional in objects but required in arrays and tuples.**
+
+**Grammar rules:**
+- Objects: `{ Keys MapBind Value [ Comma ] }` — comma is optional after each entry
+- Arrays: `ArrayElementsTail: Comma [ ArrayElements ]` — comma required between elements
+- Tuples: `TupleElementsTail: Comma [ TupleElements ]` — comma required between elements
+
+**Examples:**
+```eure
+// Object: commas optional (both valid)
+config = { name => "app" version => "1.0" }
+config = { name => "app", version => "1.0" }
+
+// Array: commas required
+numbers = [1, 2, 3]
+// NOT valid: [1 2 3]
+
+// Tuple: commas required
+point = (10, 20)
+// NOT valid: (10 20)
+```
+
+Trailing commas are allowed in all collection types for easier editing.
+````
+
+consequences = ```markdown
+**Positive:**
+- Objects remain concise and readable without comma clutter
+- Commas in arrays/tuples serve as visual "tick marks" that aid counting elements
+- Consistent with top-level binding syntax (which is comma-free)
+- The `=>` token provides natural visual separation in objects, making commas redundant
+- Users can count `=>` tokens to verify object entry counts when needed
+
+**Negative:**
+- Slight inconsistency between collection types may increase cognitive load
+- Users familiar with JSON's uniform comma rules may find this surprising
+
+**Neutral:**
+- Both comma styles in objects remain valid, giving users flexibility
+- Trailing commas are permitted everywhere for consistent editing experience
+```
+
+alternatives-considered = [
+  ```markdown
+  **Commas optional everywhere**: Harms readability in position-centric collections.
+  Arrays and tuples are count-centric — users ask "how many elements?" and access by
+  index. Commas serve as visual "tick marks" that aid counting:
+  - `[1, 2, 3, 4, 5]` — easy to count (5 elements)
+  - `[1 2 3 4 5]` — elements blur together when scanning
+  Objects don't need this because users scan for keys via `=>`, not count entries.
+  ```,
+  ````markdown
+  **Commas required everywhere**: Objects are conceptually similar to top-level bindings
+  — both are key-value mappings. Top-level bindings use `=` without commas:
+  ```
+  name = "Alice"
+  age = 30
+  ```
+  Object entries use `=>` to distinguish them from bindings. If commas were also required,
+  that would create two differences instead of one, making objects feel unnecessarily
+  foreign. The `=>` alone is sufficient visual distinction.
+  ````,
+  ```markdown
+  **Different separator (semicolons, newlines)**: Would diverge from familiar syntax
+  conventions. Most languages use commas in arrays/tuples. Newline-as-separator would
+  conflict with Eure's flexible whitespace handling.
+  ```,
+]
+
+related-adrs = ["0005-arrow-syntax-for-map-entries"]
