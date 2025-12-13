@@ -2000,9 +2000,7 @@ mod tests {
         // Test using a variable for Text value
         use crate::text::Text;
         let code = Text::inline_implicit("fn main() {}");
-        let doc = eure!({
-            snippet = code
-        });
+        let doc = eure!({ snippet = code });
 
         let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let snippet_ctx = root.field("snippet").unwrap();
@@ -2018,9 +2016,7 @@ mod tests {
         let first = "one";
         let second = "two";
         let third = "three";
-        let doc = eure!({
-            items = [first, second, third]
-        });
+        let doc = eure!({ items = [first, second, third] });
 
         let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let items = root.parse_field::<Vec<&str>>("items").unwrap();
@@ -2032,9 +2028,7 @@ mod tests {
         // Test using variables in tuple literals
         let x = 1.5;
         let y = 2.5;
-        let doc = eure!({
-            point = (x, y)
-        });
+        let doc = eure!({ point = (x, y) });
 
         let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let point = root.parse_field::<(f64, f64)>("point").unwrap();
@@ -2062,6 +2056,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)] // Testing parse_field deserialization returns correct value
     fn test_eure_variable_mixed_with_literals() {
         // Test mixing variables and literals
         let username = "bob";
@@ -2132,9 +2127,7 @@ mod tests {
         // Test using PrimitiveValue::Null from a variable
         use crate::value::PrimitiveValue;
         let null_value = PrimitiveValue::Null;
-        let doc = eure!({
-            optional = null_value
-        });
+        let doc = eure!({ optional = null_value });
 
         let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let optional_ctx = root.field("optional").unwrap();
