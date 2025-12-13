@@ -18,7 +18,6 @@ use eure_document::document::EureDocument;
 use eure_document::eure;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseError, ParseErrorKind};
-use eure_document::text::Text;
 use eure_document::value::ObjectKey;
 use eure_schema::convert::{ConversionError, document_to_schema};
 use eure_schema::{
@@ -632,7 +631,7 @@ where
 #[test]
 fn test_string_type() {
     let doc = eure!({
-        name = Text::inline_implicit("text"),
+        name = @code("text"),
     });
     let schema = convert(&doc);
 
@@ -642,7 +641,7 @@ fn test_string_type() {
 #[test]
 fn test_float_type() {
     let doc = eure!({
-        count = Text::inline_implicit("float"),
+        count = @code("float"),
     });
     let schema = convert(&doc);
 
@@ -652,7 +651,7 @@ fn test_float_type() {
 #[test]
 fn test_integer_type() {
     let doc = eure!({
-        age = Text::inline_implicit("integer"),
+        age = @code("integer"),
     });
     let schema = convert(&doc);
 
@@ -662,7 +661,7 @@ fn test_integer_type() {
 #[test]
 fn test_boolean_type() {
     let doc = eure!({
-        active = Text::inline_implicit("boolean"),
+        active = @code("boolean"),
     });
     let schema = convert(&doc);
 
@@ -676,7 +675,7 @@ fn test_boolean_type() {
 #[test]
 fn test_null_type() {
     let doc = eure!({
-        deleted = Text::inline_implicit("null"),
+        deleted = @code("null"),
     });
     let schema = convert(&doc);
 
@@ -690,7 +689,7 @@ fn test_null_type() {
 #[test]
 fn test_any_type() {
     let doc = eure!({
-        data = Text::inline_implicit("any"),
+        data = @code("any"),
     });
     let schema = convert(&doc);
 
@@ -705,7 +704,7 @@ fn test_any_type() {
 fn test_text_type() {
     // .text accepts any language (no constraint)
     let doc = eure!({
-        content = Text::inline_implicit("text"),
+        content = @code("text"),
     });
     let schema = convert(&doc);
 
@@ -720,7 +719,7 @@ fn test_text_type() {
 fn test_text_with_language() {
     // .text.rust requires rust language
     let doc = eure!({
-        code = Text::inline_implicit("text.rust"),
+        code = @code("text.rust"),
     });
     let schema = convert(&doc);
 
@@ -736,7 +735,7 @@ fn test_text_with_constraints() {
     // Text with length and pattern constraints
     let doc = eure!({
         username {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             language = "plaintext",
             "min-length" = 3,
             "max-length" = 20,
@@ -766,7 +765,7 @@ fn test_text_with_constraints() {
 #[test]
 fn test_array_shorthand() {
     let doc = eure!({
-        tags = [Text::inline_implicit("text")],
+        tags = [@code("text")],
     });
     let schema = convert(&doc);
 
@@ -781,8 +780,8 @@ fn test_array_shorthand() {
 fn test_array_with_constraints() {
     let doc = eure!({
         tags {
-            %variant = Text::inline_implicit("array"),
-            item = Text::inline_implicit("text"),
+            %variant = @code("array"),
+            item = @code("text"),
             "min-length" = 1,
             "max-length" = 10,
             unique = true,
@@ -810,7 +809,7 @@ fn test_array_with_constraints() {
 #[test]
 fn test_tuple_shorthand() {
     let doc = eure!({
-        point = (Text::inline_implicit("float"), Text::inline_implicit("float")),
+        point = (@code("float"), @code("float")),
     });
     let schema = convert(&doc);
 
@@ -826,7 +825,7 @@ fn test_tuple_shorthand() {
 #[test]
 fn test_tuple_mixed_types() {
     let doc = eure!({
-        entry = (Text::inline_implicit("text"), Text::inline_implicit("integer"), Text::inline_implicit("boolean")),
+        entry = (@code("text"), @code("integer"), @code("boolean")),
     });
     let schema = convert(&doc);
 
@@ -847,8 +846,8 @@ fn test_tuple_mixed_types() {
 fn test_record_basic() {
     let doc = eure!({
         user {
-            name = Text::inline_implicit("text"),
-            age = Text::inline_implicit("integer"),
+            name = @code("text"),
+            age = @code("integer"),
         },
     });
     let schema = convert(&doc);
@@ -870,9 +869,9 @@ fn test_record_basic() {
 fn test_union_type() {
     let doc = eure!({
         value {
-            %variant = Text::inline_implicit("union"),
-            variants.string = Text::inline_implicit("text"),
-            variants.float = Text::inline_implicit("float"),
+            %variant = @code("union"),
+            variants.string = @code("text"),
+            variants.float = @code("float"),
         },
     });
     let schema = convert(&doc);
@@ -890,11 +889,11 @@ fn test_union_type() {
 fn test_union_with_multiple_types() {
     let doc = eure!({
         data {
-            %variant = Text::inline_implicit("union"),
-            variants.string = Text::inline_implicit("text"),
-            variants.float = Text::inline_implicit("float"),
-            variants.boolean = Text::inline_implicit("boolean"),
-            variants.null = Text::inline_implicit("null"),
+            %variant = @code("union"),
+            variants.string = @code("text"),
+            variants.float = @code("float"),
+            variants.boolean = @code("boolean"),
+            variants.null = @code("null"),
         },
     });
     let schema = convert(&doc);
@@ -919,9 +918,9 @@ fn test_union_with_multiple_types() {
 fn test_union_with_record_variants() {
     let doc = eure!({
         %types.action {
-            %variant = Text::inline_implicit("union"),
-            variants.click = { "x" => Text::inline_implicit("float"), "y" => Text::inline_implicit("float") },
-            variants.hover = { "element" => Text::inline_implicit("text") },
+            %variant = @code("union"),
+            variants.click = { "x" => @code("float"), "y" => @code("float") },
+            variants.hover = { "element" => @code("text") },
         },
     });
     let schema = convert(&doc);
@@ -945,10 +944,10 @@ fn test_union_with_record_variants() {
 fn test_union_with_untagged_repr() {
     let doc = eure!({
         %types.response {
-            %variant = Text::inline_implicit("union"),
+            %variant = @code("union"),
             %"variant-repr" = "untagged",
-            variants.success = { "data" => Text::inline_implicit("any") },
-            variants.error = { "message" => Text::inline_implicit("text") },
+            variants.success = { "data" => @code("any") },
+            variants.error = { "message" => @code("text") },
         },
     });
     let schema = convert(&doc);
@@ -975,10 +974,10 @@ fn test_union_with_untagged_repr() {
 fn test_union_with_internal_tag() {
     let doc = eure!({
         %types.message {
-            %variant = Text::inline_implicit("union"),
+            %variant = @code("union"),
             %"variant-repr" = { "tag" => "type" },
-            variants.text = { "content" => Text::inline_implicit("text") },
-            variants.image = { "url" => Text::inline_implicit("text") },
+            variants.text = { "content" => @code("text") },
+            variants.image = { "url" => @code("text") },
         },
     });
     let schema = convert(&doc);
@@ -998,10 +997,10 @@ fn test_union_with_internal_tag() {
 fn test_union_with_adjacent_tag() {
     let doc = eure!({
         %types.event {
-            %variant = Text::inline_implicit("union"),
+            %variant = @code("union"),
             %"variant-repr" = { "tag" => "kind", "content" => "data" },
-            variants.login = { "username" => Text::inline_implicit("text") },
-            variants.logout = { "reason" => Text::inline_implicit("text") },
+            variants.login = { "username" => @code("text") },
+            variants.logout = { "reason" => @code("text") },
         },
     });
     let schema = convert(&doc);
@@ -1022,9 +1021,9 @@ fn test_union_with_adjacent_tag() {
 fn test_union_default_untagged() {
     let doc = eure!({
         %types.status {
-            %variant = Text::inline_implicit("union"),
-            variants.pending = { "message" => Text::inline_implicit("text") },
-            variants.active = { "started_at" => Text::inline_implicit("integer") },
+            %variant = @code("union"),
+            variants.pending = { "message" => @code("text") },
+            variants.active = { "started_at" => @code("integer") },
         },
     });
     let schema = convert(&doc);
@@ -1045,10 +1044,10 @@ fn test_union_default_untagged() {
 fn test_union_with_three_variants() {
     let doc = eure!({
         %types."traffic-light" {
-            %variant = Text::inline_implicit("union"),
-            variants.red = { "duration" => Text::inline_implicit("integer") },
-            variants.yellow = { "duration" => Text::inline_implicit("integer") },
-            variants.green = { "duration" => Text::inline_implicit("integer") },
+            %variant = @code("union"),
+            variants.red = { "duration" => @code("integer") },
+            variants.yellow = { "duration" => @code("integer") },
+            variants.green = { "duration" => @code("integer") },
         },
     });
     let schema = convert(&doc);
@@ -1078,9 +1077,9 @@ fn test_union_with_three_variants() {
 fn test_custom_type_definition() {
     // Note: bindings must come before sections in Eure
     let doc = eure!({
-        user = Text::inline_implicit("$types.username"),
+        user = @code("$types.username"),
         %types.username {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             "min-length" = 3,
             "max-length" = 20,
         },
@@ -1104,7 +1103,7 @@ fn test_custom_type_definition() {
 fn test_string_with_length() {
     let doc = eure!({
         username {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             "min-length" = 3,
             "max-length" = 20,
         },
@@ -1127,7 +1126,7 @@ fn test_string_with_length() {
 fn test_string_with_pattern() {
     let doc = eure!({
         email {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             pattern = "^[a-z]+@[a-z]+\\.[a-z]+$",
         },
     });
@@ -1152,7 +1151,7 @@ fn test_string_with_pattern() {
 fn test_integer_with_range() {
     let doc = eure!({
         age {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "[0, 150]",
         },
     });
@@ -1174,7 +1173,7 @@ fn test_integer_with_range() {
 fn test_integer_with_multiple_of() {
     let doc = eure!({
         even {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             "multiple-of" = 2,
         },
     });
@@ -1199,7 +1198,7 @@ fn test_integer_with_multiple_of() {
 fn test_float_with_range() {
     let doc = eure!({
         probability {
-            %variant = Text::inline_implicit("float"),
+            %variant = @code("float"),
             range = "[0.0, 1.0]",
         },
     });
@@ -1225,9 +1224,9 @@ fn test_float_with_range() {
 fn test_map_type() {
     let doc = eure!({
         headers {
-            %variant = Text::inline_implicit("map"),
-            key = Text::inline_implicit("text"),
-            value = Text::inline_implicit("text"),
+            %variant = @code("map"),
+            key = @code("text"),
+            value = @code("text"),
         },
     });
     let schema = convert(&doc);
@@ -1245,9 +1244,9 @@ fn test_map_type() {
 fn test_map_with_constraints() {
     let doc = eure!({
         settings {
-            %variant = Text::inline_implicit("map"),
-            key = Text::inline_implicit("text"),
-            value = Text::inline_implicit("any"),
+            %variant = @code("map"),
+            key = @code("text"),
+            value = @code("any"),
             "min-size" = 1,
             "max-size" = 100,
         },
@@ -1274,8 +1273,8 @@ fn test_map_with_constraints() {
 fn test_array_with_contains() {
     let doc = eure!({
         tags {
-            %variant = Text::inline_implicit("array"),
-            item = Text::inline_implicit("text"),
+            %variant = @code("array"),
+            item = @code("text"),
             contains = "required",
         },
     });
@@ -1303,8 +1302,8 @@ fn test_array_with_contains() {
 fn test_nested_record() {
     let doc = eure!({
         user.profile {
-            name = Text::inline_implicit("text"),
-            bio = Text::inline_implicit("text"),
+            name = @code("text"),
+            bio = @code("text"),
         },
     });
     let schema = convert(&doc);
@@ -1338,7 +1337,7 @@ fn test_integer_range_rust_style_inclusive() {
     // Rust-style: ..= means inclusive end
     let doc = eure!({
         age {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "0..=150",
         },
     });
@@ -1361,7 +1360,7 @@ fn test_integer_range_rust_style_exclusive() {
     // Rust-style: .. means exclusive end
     let doc = eure!({
         index {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "0..100",
         },
     });
@@ -1384,7 +1383,7 @@ fn test_integer_range_min_only() {
     // Rust-style: min only
     let doc = eure!({
         positive {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "1..",
         },
     });
@@ -1407,7 +1406,7 @@ fn test_integer_range_max_only() {
     // Rust-style: max only (exclusive)
     let doc = eure!({
         small {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "..100",
         },
     });
@@ -1430,7 +1429,7 @@ fn test_integer_range_max_only_inclusive() {
     // Rust-style: max only (inclusive with ..=)
     let doc = eure!({
         small {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "..=100",
         },
     });
@@ -1453,7 +1452,7 @@ fn test_integer_range_interval_exclusive() {
     // Interval notation: both exclusive
     let doc = eure!({
         value {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "(0, 100)",
         },
     });
@@ -1476,7 +1475,7 @@ fn test_integer_range_interval_mixed() {
     // Interval notation: left exclusive, right inclusive
     let doc = eure!({
         value {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "(0, 100]",
         },
     });
@@ -1503,7 +1502,7 @@ fn test_float_range_interval_half_open() {
     // Interval notation: left inclusive, right exclusive
     let doc = eure!({
         probability {
-            %variant = Text::inline_implicit("float"),
+            %variant = @code("float"),
             range = "[0.0, 1.0)",
         },
     });
@@ -1526,7 +1525,7 @@ fn test_float_range_rust_style() {
     // Rust-style: min only
     let doc = eure!({
         positive {
-            %variant = Text::inline_implicit("float"),
+            %variant = @code("float"),
             range = "0.0..",
         },
     });
@@ -1551,8 +1550,8 @@ fn test_float_range_rust_style() {
 #[test]
 fn test_optional_field() {
     let doc = eure!({
-        name = Text::inline_implicit("text"),
-        bio = Text::inline_implicit("text"),
+        name = @code("text"),
+        bio = @code("text"),
         bio.%optional = true,
     });
     let schema = convert(&doc);
@@ -1564,8 +1563,8 @@ fn test_optional_field() {
 #[test]
 fn test_metadata_description() {
     let doc = eure!({
-        user = Text::inline_implicit("any"),
-        user.%description = Text::inline_implicit("User information"),
+        user = @code("any"),
+        user.%description = @code("User information"),
     });
     let schema = convert(&doc);
 
@@ -1584,7 +1583,7 @@ fn test_metadata_description() {
 #[test]
 fn test_metadata_deprecated() {
     let doc = eure!({
-        old_field = Text::inline_implicit("text"),
+        old_field = @code("text"),
         old_field.%deprecated = true,
     });
     let schema = convert(&doc);
@@ -1604,7 +1603,7 @@ fn test_metadata_deprecated() {
 #[test]
 fn test_metadata_default_value() {
     let doc = eure!({
-        timeout = Text::inline_implicit("integer"),
+        timeout = @code("integer"),
         timeout.%default = 30,
     });
     let schema = convert(&doc);
@@ -1630,7 +1629,7 @@ fn test_unknown_fields_policy_allow() {
     let doc = eure!({
         config {
             %"unknown-fields" = "allow",
-            host = Text::inline_implicit("text"),
+            host = @code("text"),
         },
     });
     let schema = convert(&doc);
@@ -1652,7 +1651,7 @@ fn test_unknown_fields_policy_deny() {
     let doc = eure!({
         config {
             %"unknown-fields" = "deny",
-            host = Text::inline_implicit("text"),
+            host = @code("text"),
         },
     });
     let schema = convert(&doc);
@@ -1673,8 +1672,8 @@ fn test_unknown_fields_policy_deny() {
 fn test_unknown_fields_policy_schema() {
     let doc = eure!({
         config {
-            %"unknown-fields" = Text::inline_implicit("text"),
-            host = Text::inline_implicit("text"),
+            %"unknown-fields" = @code("text"),
+            host = @code("text"),
         },
     });
     let schema = convert(&doc);
@@ -1702,9 +1701,9 @@ fn test_unknown_fields_policy_schema() {
 #[test]
 fn test_text_language_variants() {
     let doc = eure!({
-        rust = Text::inline_implicit("text.rust"),
-        python = Text::inline_implicit("text.python"),
-        sql = Text::inline_implicit("text.sql"),
+        rust = @code("text.rust"),
+        python = @code("text.python"),
+        sql = @code("text.sql"),
     });
     let schema = convert(&doc);
 
@@ -1724,8 +1723,8 @@ fn test_text_language_variants() {
 #[test]
 fn test_type_reference() {
     let doc = eure!({
-        %types.email = Text::inline_implicit("text.email"),
-        contact = Text::inline_implicit("$types.email"),
+        %types.email = @code("text.email"),
+        contact = @code("$types.email"),
     });
     let schema = convert(&doc);
 
@@ -1740,9 +1739,9 @@ fn test_type_reference() {
 fn test_external_type_reference() {
     // External type reference: `$types.namespace.typename`
     let doc = eure!({
-        user = Text::inline_implicit("$types.common.User"),
+        user = @code("$types.common.User"),
         %types.common.User {
-            name = Text::inline_implicit("text"),
+            name = @code("text"),
         },
     });
     let schema = convert(&doc);
@@ -1759,9 +1758,9 @@ fn test_external_type_reference() {
 #[test]
 fn test_circular_type_reference_is_valid() {
     let doc = eure!({
-        %types.a = Text::inline_implicit("$types.b"),
-        %types.b = Text::inline_implicit("$types.a"),
-        data = Text::inline_implicit("$types.a"),
+        %types.a = @code("$types.b"),
+        %types.b = @code("$types.a"),
+        data = @code("$types.a"),
     });
     let schema = convert(&doc);
 
@@ -1788,16 +1787,16 @@ fn test_type_reference_chain() {
     // Note: bindings must come before sections in Eure
     // Also: type definitions must use @ $types.name section syntax
     let doc = eure!({
-        data = Text::inline_implicit("$types.user"),
+        data = @code("$types.user"),
         %types."base-string" {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             "min-length" = 1,
             "max-length" = 100,
         },
-        %types.username = Text::inline_implicit("$types.base-string"),
+        %types.username = @code("$types.base-string"),
         %types.user {
-            username = Text::inline_implicit("$types.username"),
-            email = Text::inline_implicit("text.email"),
+            username = @code("$types.username"),
+            email = @code("text.email"),
         },
     });
     let schema = convert(&doc);
@@ -1834,24 +1833,24 @@ fn test_complex_user_schema() {
     // For literal union variants, just use the literal value directly
     let doc = eure!({
         %types.username {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             "min-length" = 3,
             "max-length" = 20,
             pattern = "^[a-z0-9_]+$",
         },
         %types.role {
-            %variant = Text::inline_implicit("union"),
+            %variant = @code("union"),
             variants.admin = "admin",
             variants.user = "user",
             variants.guest = "guest",
         },
         %types.user {
-            username = Text::inline_implicit("$types.username"),
-            email = Text::inline_implicit("text.email"),
-            age = Text::inline_implicit("integer"),
+            username = @code("$types.username"),
+            email = @code("text.email"),
+            age = @code("integer"),
             age.%optional = true,
-            tags = [Text::inline_implicit("text")],
-            role = Text::inline_implicit("$types.role"),
+            tags = [@code("text")],
+            role = @code("$types.role"),
         },
     });
     let schema = convert(&doc);
@@ -1878,7 +1877,7 @@ fn test_complex_api_schema() {
     // For literal union variants, just use the literal value directly
     let doc = eure!({
         %types."http-method" {
-            %variant = Text::inline_implicit("union"),
+            %variant = @code("union"),
             variants.GET = "GET",
             variants.POST = "POST",
             variants.PUT = "PUT",
@@ -1886,18 +1885,18 @@ fn test_complex_api_schema() {
             variants.PATCH = "PATCH",
         },
         %types."api-request" {
-            method = Text::inline_implicit("$types.http-method"),
-            path = Text::inline_implicit("text"),
-            headers = Text::inline_implicit("any"),
+            method = @code("$types.http-method"),
+            path = @code("text"),
+            headers = @code("any"),
             headers.%optional = true,
-            body = Text::inline_implicit("any"),
+            body = @code("any"),
             body.%optional = true,
         },
         %types."api-response" {
-            %variant = Text::inline_implicit("union"),
+            %variant = @code("union"),
             %"variant-repr" = "untagged",
-            variants.success = { "status" => Text::inline_implicit("integer"), "data" => Text::inline_implicit("any") },
-            variants.error = { "status" => Text::inline_implicit("integer"), "message" => Text::inline_implicit("text") },
+            variants.success = { "status" => @code("integer"), "data" => @code("any") },
+            variants.error = { "status" => @code("integer"), "message" => @code("text") },
         },
     });
     let schema = convert(&doc);
@@ -1940,15 +1939,15 @@ fn test_complex_api_schema() {
 fn test_nested_types_and_arrays() {
     let doc = eure!({
         %types.address {
-            street = Text::inline_implicit("text"),
-            city = Text::inline_implicit("text"),
-            zip = Text::inline_implicit("text"),
+            street = @code("text"),
+            city = @code("text"),
+            zip = @code("text"),
         },
         %types.person {
-            name = Text::inline_implicit("text"),
+            name = @code("text"),
             addresses {
-                %variant = Text::inline_implicit("array"),
-                item = Text::inline_implicit("$types.address"),
+                %variant = @code("array"),
+                item = @code("$types.address"),
                 "min-length" = 1,
             },
         },
@@ -1978,15 +1977,15 @@ fn test_nested_types_and_arrays() {
 fn test_array_of_custom_types_complex() {
     // Note: bindings must come before sections in Eure
     let doc = eure!({
-        data = Text::inline_implicit("$types.collection"),
+        data = @code("$types.collection"),
         %types.item {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             "min-length" = 1,
             "max-length" = 100,
         },
         %types.collection {
-            %variant = Text::inline_implicit("array"),
-            item = Text::inline_implicit("$types.item"),
+            %variant = @code("array"),
+            item = @code("$types.item"),
             "min-length" = 1,
             unique = true,
         },
@@ -2023,14 +2022,14 @@ fn test_array_of_custom_types_complex() {
 fn test_map_with_complex_types() {
     let doc = eure!({
         %types.address {
-            %variant = Text::inline_implicit("text"),
+            %variant = @code("text"),
             "min-length" = 1,
             "max-length" = 100,
         },
         locations {
-            %variant = Text::inline_implicit("map"),
-            key = Text::inline_implicit("text"),
-            value = Text::inline_implicit("$types.address"),
+            %variant = @code("map"),
+            key = @code("text"),
+            value = @code("$types.address"),
         },
     });
     let schema = convert(&doc);
@@ -2050,12 +2049,12 @@ fn test_map_with_complex_types() {
 fn test_nested_maps() {
     let doc = eure!({
         nested {
-            %variant = Text::inline_implicit("map"),
-            key = Text::inline_implicit("text"),
+            %variant = @code("map"),
+            key = @code("text"),
             value {
-                %variant = Text::inline_implicit("map"),
-                key = Text::inline_implicit("text"),
-                value = Text::inline_implicit("integer"),
+                %variant = @code("map"),
+                key = @code("text"),
+                value = @code("integer"),
             },
         },
     });
@@ -2080,13 +2079,13 @@ fn test_nested_maps() {
 fn test_nested_union_types() {
     let doc = eure!({
         value {
-            %variant = Text::inline_implicit("union"),
-            variants.string = Text::inline_implicit("text"),
-            variants.integer = Text::inline_implicit("integer"),
+            %variant = @code("union"),
+            variants.string = @code("text"),
+            variants.integer = @code("integer"),
             variants.array[] {
-                %variant = Text::inline_implicit("union"),
-                variants.boolean = Text::inline_implicit("boolean"),
-                variants.null = Text::inline_implicit("null"),
+                %variant = @code("union"),
+                variants.boolean = @code("boolean"),
+                variants.null = @code("null"),
             },
         },
     });
@@ -2149,7 +2148,7 @@ fn test_empty_section_creates_empty_record() {
 fn test_empty_array_schema() {
     // Array must have an item type
     let doc = eure!({
-        items = [Text::inline_implicit("any")],
+        items = [@code("any")],
     });
     let schema = convert(&doc);
 
@@ -2169,7 +2168,7 @@ fn test_empty_array_schema() {
 #[test]
 fn test_invalid_type_reference() {
     let doc = eure!({
-        user = Text::inline_implicit("$types.nonexistent"),
+        user = @code("$types.nonexistent"),
     });
     let result = document_to_schema(&doc);
 
@@ -2187,7 +2186,7 @@ fn test_invalid_type_reference() {
 fn test_error_unknown_variant_type() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("unknown_type"),
+            %variant = @code("unknown_type"),
         },
     });
     let result = document_to_schema(&doc);
@@ -2205,7 +2204,7 @@ fn test_error_unknown_variant_type() {
 fn test_error_invalid_integer_range_format() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "not a range",
         },
     });
@@ -2221,7 +2220,7 @@ fn test_error_invalid_integer_range_format() {
 fn test_error_invalid_float_range_format() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("float"),
+            %variant = @code("float"),
             range = "invalid",
         },
     });
@@ -2236,7 +2235,7 @@ fn test_error_invalid_float_range_format() {
 #[test]
 fn test_error_invalid_type_path() {
     let doc = eure!({
-        field = Text::inline_implicit("unknown_primitive"),
+        field = @code("unknown_primitive"),
     });
     let result = document_to_schema(&doc);
 
@@ -2252,7 +2251,7 @@ fn test_error_invalid_type_path() {
 #[test]
 fn test_error_invalid_extension_path() {
     let doc = eure!({
-        field = Text::inline_implicit("$unknown.type"),
+        field = @code("$unknown.type"),
     });
     let result = document_to_schema(&doc);
 
@@ -2269,8 +2268,8 @@ fn test_error_invalid_extension_path() {
 fn test_error_map_missing_key() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("map"),
-            value = Text::inline_implicit("text"),
+            %variant = @code("map"),
+            value = @code("text"),
         },
     });
     let result = document_to_schema(&doc);
@@ -2288,8 +2287,8 @@ fn test_error_map_missing_key() {
 fn test_error_map_missing_value() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("map"),
-            key = Text::inline_implicit("text"),
+            %variant = @code("map"),
+            key = @code("text"),
         },
     });
     let result = document_to_schema(&doc);
@@ -2307,7 +2306,7 @@ fn test_error_map_missing_value() {
 fn test_error_array_missing_item() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("array"),
+            %variant = @code("array"),
             "min-length" = 1,
         },
     });
@@ -2326,9 +2325,9 @@ fn test_error_array_missing_item() {
 fn test_error_invalid_variant_repr() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("union"),
+            %variant = @code("union"),
             %"variant-repr" = "invalid_repr",
-            variants.a = Text::inline_implicit("text"),
+            variants.a = @code("text"),
         },
     });
     let result = document_to_schema(&doc);
@@ -2346,8 +2345,8 @@ fn test_error_invalid_variant_repr() {
 fn test_error_adjacent_repr_missing_tag() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("union"),
-            variants.a = Text::inline_implicit("text"),
+            %variant = @code("union"),
+            variants.a = @code("text"),
             %"variant-repr" {
                 content = "data",
             },
@@ -2370,7 +2369,7 @@ fn test_error_invalid_unknown_fields_policy() {
     let doc = eure!({
         record {
             %"unknown-fields" = "invalid_policy",
-            name = Text::inline_implicit("text"),
+            name = @code("text"),
         },
     });
     let result = document_to_schema(&doc);
@@ -2387,7 +2386,7 @@ fn test_error_invalid_unknown_fields_policy() {
 #[test]
 fn test_error_array_with_multiple_items() {
     let doc = eure!({
-        field = [Text::inline_implicit("text"), Text::inline_implicit("integer")],
+        field = [@code("text"), @code("integer")],
     });
     let result = document_to_schema(&doc);
 
@@ -2404,7 +2403,7 @@ fn test_error_array_with_multiple_items() {
 fn test_error_invalid_range_interval_format() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("integer"),
+            %variant = @code("integer"),
             range = "[1, 2, 3]",
         },
     });
@@ -2420,7 +2419,7 @@ fn test_error_invalid_range_interval_format() {
 fn test_error_literal_missing_value() {
     let doc = eure!({
         field {
-            %variant = Text::inline_implicit("literal"),
+            %variant = @code("literal"),
             other = "something",
         },
     });
@@ -2452,7 +2451,7 @@ fn test_error_types_not_map() {
 fn test_error_invalid_type_path_extra_segment() {
     // `integer.foo` is invalid - only `text` supports .X language suffix
     let doc = eure!({
-        field = Text::inline_implicit("integer.foo"),
+        field = @code("integer.foo"),
     });
     let result = document_to_schema(&doc);
 
@@ -2473,7 +2472,7 @@ fn test_error_nested_variant_path() {
     let doc = eure!({
         response {
             %variant = "ok.ok.err",
-            error_code = Text::inline_implicit("integer"),
+            error_code = @code("integer"),
         },
     });
     let result = document_to_schema(&doc);
@@ -2533,7 +2532,7 @@ fn test_error_variant_string_unknown() {
 fn test_error_types_non_string_key() {
     // Type names in $types must be strings (identifiers), not tuples
     let doc = eure!({
-        %types.("a", "b") = Text::inline_implicit("text"),
+        %types.("a", "b") = @code("text"),
     });
     let result = document_to_schema(&doc);
 
@@ -2549,7 +2548,7 @@ fn test_error_types_integer_key() {
     // Type names in $types must be strings (identifiers), not integers
     // Note: This syntax currently fails to parse because .0 is lexed as a Float token
     let doc = eure!({
-        %types.0 = Text::inline_implicit("text"),
+        %types.0 = @code("text"),
     });
     let result = document_to_schema(&doc);
 

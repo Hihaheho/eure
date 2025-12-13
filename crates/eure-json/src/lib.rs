@@ -486,14 +486,16 @@ mod tests {
 
     #[test]
     fn test_f64_nan_error() {
-        let eure = eure!({ = f64::NAN });
+        let nan_value = f64::NAN;
+        let eure = eure!({ = nan_value });
         let result = document_to_value(&eure, &Config::default());
         assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
     }
 
     #[test]
     fn test_f64_infinity_error() {
-        let eure = eure!({ = f64::INFINITY });
+        let inf_value = f64::INFINITY;
+        let eure = eure!({ = inf_value });
         let result = document_to_value(&eure, &Config::default());
         assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
     }

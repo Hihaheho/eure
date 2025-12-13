@@ -916,8 +916,8 @@ mod tests {
     #[test]
     fn literal_variant_parsed_from_eure() {
         let doc = eure!({
-            = Text::inline_implicit("any"),
-            %variant = "literal",
+            = @code("any")
+            %variant = "literal"
         });
 
         let (schema, _source_map) =

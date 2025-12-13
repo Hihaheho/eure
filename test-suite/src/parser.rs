@@ -131,13 +131,48 @@ impl ParseDocument<'_> for InputUnionTagMode {
     }
 }
 
+/// JSON input configuration for test cases.
+///
+/// Represents mutually exclusive modes for specifying JSON test data.
+#[derive(Debug, Clone)]
+pub enum JsonInput {
+    /// Both input and output use the same JSON value (via `json` field)
+    Both(Text),
+
+    /// Only input_json specified (JSON→Eure tests)
+    InputOnly(Text),
+
+    /// Only output_json specified (Eure→JSON tests)
+    OutputOnly(Text),
+
+    /// Both specified separately (different values for input and output)
+    Separate { input: Text, output: Text },
+}
+
+impl JsonInput {
+    pub fn input_json(&self) -> Option<&Text> {
+        match self {
+            JsonInput::Both(text) | JsonInput::InputOnly(text) => Some(text),
+            JsonInput::Separate { input, .. } => Some(input),
+            JsonInput::OutputOnly(_) => None,
+        }
+    }
+
+    pub fn output_json(&self) -> Option<&Text> {
+        match self {
+            JsonInput::Both(text) | JsonInput::OutputOnly(text) => Some(text),
+            JsonInput::Separate { output, .. } => Some(output),
+            JsonInput::InputOnly(_) => None,
+        }
+    }
+}
+
 /// A single test case's data fields
 #[derive(Debug, Clone, Default)]
 pub struct CaseData {
     pub input_eure: Option<Text>,
-    pub input_json: Option<Text>,
+    pub json_input: Option<JsonInput>,
     pub normalized: Option<Text>,
-    pub output_json: Option<Text>,
     pub schema: Option<Text>,
     pub schema_errors: Vec<Text>,
     pub meta_schema_errors: Vec<Text>,
@@ -155,9 +190,8 @@ impl CaseData {
     /// Check if this case has any meaningful content
     pub fn is_empty(&self) -> bool {
         self.input_eure.is_none()
-            && self.input_json.is_none()
+            && self.json_input.is_none()
             && self.normalized.is_none()
-            && self.output_json.is_none()
             && self.schema.is_none()
             && self.schema_errors.is_empty()
             && self.meta_schema_errors.is_empty()
@@ -168,6 +202,35 @@ impl CaseData {
     }
 }
 
+/// Parse JSON fields and construct JsonInput with mutual exclusion validation.
+fn parse_json_input(
+    rec: &mut RecordParser<'_>,
+    ctx: &ParseContext<'_>,
+) -> Result<Option<JsonInput>, DocumentParseError> {
+    let json = rec.parse_field_optional::<Text>("json")?;
+    let input_json = rec.parse_field_optional::<Text>("input_json")?;
+    let output_json = rec.parse_field_optional::<Text>("output_json")?;
+
+    match (json, input_json, output_json) {
+        (Some(text), None, None) => Ok(Some(JsonInput::Both(text))),
+        (None, Some(input), None) => Ok(Some(JsonInput::InputOnly(input))),
+        (None, None, Some(output)) => Ok(Some(JsonInput::OutputOnly(output))),
+        (None, Some(input), Some(output)) => Ok(Some(JsonInput::Separate { input, output })),
+
+        // Mutual exclusion violation
+        (Some(_), Some(_), _) | (Some(_), _, Some(_)) => Err(DocumentParseError {
+            node_id: ctx.node_id(),
+            kind: ParseErrorKind::InvalidPattern {
+                pattern: "Either 'json' alone, or 'input_json'/'output_json' separately"
+                    .to_string(),
+                value: "Field 'json' cannot be used with 'input_json' or 'output_json'".to_string(),
+            },
+        }),
+
+        (None, None, None) => Ok(None),
+    }
+}
+
 impl ParseDocument<'_> for CaseData {
     type Error = DocumentParseError;
 
@@ -175,9 +238,8 @@ impl ParseDocument<'_> for CaseData {
         let mut rec = ctx.parse_record()?;
 
         let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
-        let input_json = rec.parse_field_optional::<Text>("input_json")?;
+        let json_input = parse_json_input(&mut rec, ctx)?;
         let normalized = rec.parse_field_optional::<Text>("normalized")?;
-        let output_json = rec.parse_field_optional::<Text>("output_json")?;
         let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
             .parse_field_optional::<Vec<Text>>("schema_errors")?
@@ -224,9 +286,8 @@ impl ParseDocument<'_> for CaseData {
 
         Ok(CaseData {
             input_eure,
-            input_json,
+            json_input,
             normalized,
-            output_json,
             schema,
             schema_errors,
             meta_schema_errors,
@@ -309,9 +370,8 @@ impl ParseDocument<'_> for CaseFile {
 
         // Parse root-level fields as default case
         let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
-        let input_json = rec.parse_field_optional::<Text>("input_json")?;
+        let json_input = parse_json_input(&mut rec, ctx)?;
         let normalized = rec.parse_field_optional::<Text>("normalized")?;
-        let output_json = rec.parse_field_optional::<Text>("output_json")?;
         let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
             .parse_field_optional::<Vec<Text>>("schema_errors")?
@@ -374,9 +434,8 @@ impl ParseDocument<'_> for CaseFile {
             path: PathBuf::new(), // Set by caller
             default_case: CaseData {
                 input_eure,
-                input_json,
+                json_input,
                 normalized,
-                output_json,
                 schema,
                 schema_errors,
                 meta_schema_errors,

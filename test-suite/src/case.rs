@@ -539,33 +539,38 @@ impl Case {
     }
     pub fn preprocess(&self) -> Result<PreprocessedCase, PreprocessError> {
         let input_eure = self.data.input_eure.as_ref().map(Self::preprocess_eure);
-        let input_json = self
-            .data
-            .input_json
-            .as_ref()
-            .map(|code| {
-                serde_json::from_str(code.as_str()).map_err(|source| {
-                    PreprocessError::JsonParseError {
-                        field: "input_json",
-                        source,
-                    }
-                })
-            })
-            .transpose()?;
         let normalized = self.data.normalized.as_ref().map(Self::preprocess_eure);
-        let output_json = self
-            .data
-            .output_json
-            .as_ref()
-            .map(|code| {
-                serde_json::from_str(code.as_str()).map_err(|source| {
-                    PreprocessError::JsonParseError {
-                        field: "output_json",
-                        source,
-                    }
+
+        // Expand JsonInput into separate input_json and output_json
+        let (input_json, output_json) = if let Some(ref json_input) = self.data.json_input {
+            let input = json_input
+                .input_json()
+                .map(|text| {
+                    serde_json::from_str(text.as_str()).map_err(|source| {
+                        PreprocessError::JsonParseError {
+                            field: "json (as input)",
+                            source,
+                        }
+                    })
                 })
-            })
-            .transpose()?;
+                .transpose()?;
+
+            let output = json_input
+                .output_json()
+                .map(|text| {
+                    serde_json::from_str(text.as_str()).map_err(|source| {
+                        PreprocessError::JsonParseError {
+                            field: "json (as output)",
+                            source,
+                        }
+                    })
+                })
+                .transpose()?;
+
+            (input, output)
+        } else {
+            (None, None)
+        };
         let schema = self.data.schema.as_ref().map(Self::preprocess_eure);
         let schema_errors = self
             .data
