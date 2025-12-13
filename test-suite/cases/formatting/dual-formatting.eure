@@ -18,5 +18,5 @@ items = [1, 2, 3]
 ```
 
 formatted_normalized = ```eure
-= { name => "Bob", items => [1, 2, 3],  }
+= { name => "Bob", items => [1, 2, 3] }
 ```
