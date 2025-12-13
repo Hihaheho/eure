@@ -15,6 +15,7 @@ use crate::doc::Doc;
 /// Builder that converts CST to Doc IR using CstVisitor.
 pub struct FormatBuilder<'a> {
     input: &'a str,
+    #[allow(dead_code)] // Will be used for configurable indent, etc.
     config: &'a FormatConfig,
     line_numbers: LineNumbers<'a>,
 }
@@ -31,7 +32,7 @@ impl<'a> FormatBuilder<'a> {
 
     /// Build the Doc IR from the CST.
     pub fn build(&self, tree: &Cst) -> Doc {
-        let mut visitor = FormatVisitor::new(self.input, self.config, &self.line_numbers);
+        let mut visitor = FormatVisitor::new(self.input, &self.line_numbers);
         let _ = tree.visit_from_root(&mut visitor);
         visitor.finish()
     }
@@ -40,7 +41,6 @@ impl<'a> FormatBuilder<'a> {
 /// Visitor state for building Doc IR.
 struct FormatVisitor<'a> {
     input: &'a str,
-    config: &'a FormatConfig,
     line_numbers: &'a LineNumbers<'a>,
     /// Stack of document fragments being built
     docs: Vec<Doc>,
@@ -71,19 +71,14 @@ enum FormatContext {
     SectionBinding,
     SectionBody,
     Object,
-    Array,
-    Tuple,
     Section,
     Keys,
-    CodeBlock,
-    Text,
 }
 
 impl<'a> FormatVisitor<'a> {
-    fn new(input: &'a str, config: &'a FormatConfig, line_numbers: &'a LineNumbers<'a>) -> Self {
+    fn new(input: &'a str, line_numbers: &'a LineNumbers<'a>) -> Self {
         Self {
             input,
-            config,
             line_numbers,
             docs: Vec::new(),
             seen_newline: true, // Start as if we're on a new line
