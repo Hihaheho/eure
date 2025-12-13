@@ -1,6 +1,6 @@
 $schema: ../../assets/schemas/eure-adr.schema.eure
 
-id = "0006-codeblock-attributes-via-extensions"
+id = "0007-codeblock-attributes-via-extensions"
 title = "Code Block Attributes via Extension Syntax"
 status = "accepted"
 decision-date = `2025-12-13`

@@ -1,6 +1,6 @@
 $schema: ../../assets/schemas/eure-adr.schema.eure
 
-id = "0005-objectkey-design"
+id = "0006-objectkey-design"
 title = "ObjectKey Type Design: Restricted Key Types for Reliable Maps"
 status = "accepted"
 decision-date = `2025-12-11`

@@ -1,6 +1,6 @@
 $schema: ../../assets/schemas/eure-adr.schema.eure
 
-id = "0007-codeblock-indentation-stripping"
+id = "0008-codeblock-indentation-stripping"
 title = "Code Block Indentation Stripping Based on Closing Delimiter"
 status = "accepted"
 decision-date = `2025-12-13`

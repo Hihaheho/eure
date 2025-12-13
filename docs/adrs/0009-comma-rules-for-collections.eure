@@ -1,6 +1,6 @@
 $schema: ../../assets/schemas/eure-adr.schema.eure
 
-id = "0007-comma-rules-for-collections"
+id = "0009-comma-rules-for-collections"
 title = "Comma Rules: Optional in Objects, Required in Arrays/Tuples"
 status = "accepted"
 decision-date = `2025-12-13`
