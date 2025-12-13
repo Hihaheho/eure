@@ -6,7 +6,7 @@ status = "accepted"
 decision-date = `2025-12-13`
 tags = ["syntax", "code-block", "indentation", "whitespace"]
 
-context = ```markdown
+context = ````markdown
 Code blocks in Eure can be indented within documents for readability, but the indentation
 used for visual alignment should not become part of the code block content. A mechanism
 is needed to strip "structural" indentation while preserving "intentional" indentation
@@ -29,7 +29,7 @@ were only meant for document formatting, not as part of the bash script content.
 
 1. **Minimum of all lines** - Strip `min(indent of each line)` from all lines
 2. **First line's indentation** - Use the first content line's indent as the base
-3. **Closing delimiter's indentation** - Use the closing ``` position as the base
+3. **Closing delimiter's indentation** - Use the closing backticks position as the base
 4. **Opening key's indentation** - Use the indentation of the key (e.g., `script`) as base
 
 Each approach produces different results. Given:
@@ -44,14 +44,14 @@ Each approach produces different results. Given:
 |----------|------|---------------|---------------|
 | 1. min(all) | 8 | `let x = 1;` | `    let y = 2;` |
 | 2. first line | 8 | `let x = 1;` | `    let y = 2;` |
-| 3. closing ``` | 6 | `  let x = 1;` | `      let y = 2;` |
+| 3. closing backticks | 6 | `  let x = 1;` | `      let y = 2;` |
 | 4. opening key | 4 | `    let x = 1;` | `        let y = 2;` |
-```
+````
 
-decision = ````markdown
+decision = `````markdown
 **Use the closing delimiter's indentation as the base for stripping.**
 
-The column position of the closing ``` (or ```` etc.) defines the "margin" for the
+The column position of the closing backticks (3 or more) defines the "margin" for the
 code block. All content lines have this many leading spaces removed.
 
 **Specification:**
@@ -71,9 +71,9 @@ code block. All content lines have this many leading spaces removed.
       ```
 ```
 
-Closing ``` has 6 spaces of indentation, so:
-- `        let x = 1;` (8 spaces) → `  let x = 1;` (2 spaces)
-- `            let y = 2;` (12 spaces) → `      let y = 2;` (6 spaces)
+Closing backticks have 6 spaces of indentation, so:
+- `        let x = 1;` (8 spaces) becomes `  let x = 1;` (2 spaces)
+- `            let y = 2;` (12 spaces) becomes `      let y = 2;` (6 spaces)
 
 **Error handling:**
 
@@ -89,12 +89,12 @@ this is an **indentation error**. The parser should report:
       ```
 ```
 Error: Line 1 has 2 spaces but closing delimiter requires at least 6 spaces.
-````
+`````
 
-consequences = ```markdown
+consequences = ````markdown
 **Positive:**
 - **Explicit author control** - The closing delimiter position is an intentional choice
-- **Visual margin marker** - The closing ``` clearly shows where content "begins"
+- **Visual margin marker** - The closing backticks clearly show where content "begins"
 - **Precedent** - Swift and Nix multi-line strings use this approach successfully
 - **Error detection** - Under-indented lines are caught as likely mistakes
 - **Predictable** - Authors can always determine the result by looking at closing delimiter
@@ -108,11 +108,11 @@ consequences = ```markdown
 - Infrastructure already exists: `Text::parse_indented_block()` in `eure-document/src/text.rs`
 - Integration point: `visit_code_block_end_*` methods in `value_visitor.rs`
 - The closing delimiter's column must be captured during parsing and passed to indent stripping
-```
+````
 
 alternatives-considered = [
-  ```markdown
-  **Option 1: Minimum of all lines (`min-indent`)**
+  ````markdown
+  **Option 1: Minimum of all lines (min-indent)**
 
   Strip `min(indent of each non-empty line)` from all lines.
 
@@ -125,8 +125,8 @@ alternatives-considered = [
   - A single under-indented line shifts the entire content unexpectedly
   - Less predictable - result depends on all lines, not a single reference point
   - Author intent is implicit rather than explicit
-  ```,
-  ```markdown
+  ````,
+  ````markdown
   **Option 2: First line's indentation**
 
   Use the first content line's indentation as the base.
@@ -139,8 +139,8 @@ alternatives-considered = [
   - Often produces same result as min-indent (first line is typically least indented)
   - If first line is unusually indented, subsequent lines may error
   - Less explicit than closing delimiter approach
-  ```,
-  ```markdown
+  ````,
+  ````markdown
   **Option 4: Opening key's indentation**
 
   Use the indentation of the key binding (e.g., `script = `) as the base.
@@ -154,5 +154,5 @@ alternatives-considered = [
   - Opening line may have variable indentation due to key length
   - Harder to determine base indent at a glance
   - Content indentation relative to key is less intuitive than relative to closing
-  ```,
+  ````,
 ]
