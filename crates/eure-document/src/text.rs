@@ -3,7 +3,7 @@
 //! This module provides the [`Text`] type which represents all text values in Eure,
 //! whether they originated from string syntax (`"..."`) or code syntax (`` `...` ``).
 
-use alloc::{borrow::Cow, string::String};
+use alloc::{borrow::Cow, string::String, vec::Vec};
 use core::iter::Peekable;
 use thiserror::Error;
 
@@ -291,7 +291,7 @@ impl Text {
 }
 
 /// Errors that can occur when parsing text.
-#[derive(Debug, PartialEq, Clone, Error)]
+#[derive(Debug, PartialEq, Eq, Clone, Error)]
 pub enum TextParseError {
     /// Invalid escape sequence encountered.
     #[error("Invalid escape sequence: {0}")]
@@ -339,17 +339,39 @@ impl Text {
     }
 
     /// Parse an indented code block, removing base indentation.
+    ///
+    /// The base indentation is auto-detected from trailing whitespace in the content.
+    /// If the content ends with `\n` followed by spaces, those spaces represent
+    /// the closing delimiter's indentation and determine how much to strip.
     pub fn parse_indented_block(
         language: Language,
         content: String,
-        base_indent: usize,
         syntax_hint: SyntaxHint,
     ) -> Result<Self, TextParseError> {
-        let total_lines = content.lines().count();
-        let expected_whitespace_removals = base_indent * total_lines;
+        // Detect base_indent from trailing whitespace after last newline
+        let base_indent = if let Some(last_newline_pos) = content.rfind('\n') {
+            let trailing = &content[last_newline_pos + 1..];
+            if trailing.chars().all(|c| c == ' ') {
+                trailing.len()
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        // Collect lines, excluding the trailing whitespace line (delimiter indent)
+        let lines: Vec<&str> = content.lines().collect();
+        let line_count = if base_indent > 0 && !content.ends_with('\n') && lines.len() > 1 {
+            lines.len() - 1
+        } else {
+            lines.len()
+        };
+
+        let expected_whitespace_removals = base_indent * line_count;
         let mut result = String::with_capacity(content.len() - expected_whitespace_removals);
 
-        for (line_number, line) in content.lines().enumerate() {
+        for (line_number, line) in lines.iter().take(line_count).enumerate() {
             // Empty lines (including whitespace-only lines) are allowed and don't need to match the indent
             if line.trim_start().is_empty() {
                 result.push('\n');
@@ -586,11 +608,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_single_line() {
-            let content = "    hello".to_string();
+            // 4 spaces trailing = base_indent of 4
+            let content = "    hello\n    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             )
             .unwrap();
@@ -600,11 +622,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_multiple_lines() {
-            let content = "    line1\n    line2\n    line3".to_string();
+            // 4 spaces trailing = base_indent of 4
+            let content = "    line1\n    line2\n    line3\n    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             )
             .unwrap();
@@ -613,11 +635,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_with_empty_lines() {
-            let content = "    line1\n    \n    line2".to_string();
+            // 4 spaces trailing = base_indent of 4
+            let content = "    line1\n\n    line2\n    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             )
             .unwrap();
@@ -626,11 +648,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_whitespace_only_line() {
-            let content = "    line1\n        \n    line2".to_string();
+            // 3 spaces trailing = base_indent of 3
+            let content = "    line1\n        \n    line2\n   ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                3,
                 SyntaxHint::Block3,
             )
             .unwrap();
@@ -639,22 +661,23 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_empty_content() {
+            // Just trailing whitespace, no actual content lines
             let content = "    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             )
             .unwrap();
+            // No newline in content, so it's treated as single empty line
             assert_eq!(result.content, "\n");
         }
 
         #[test]
         fn test_parse_indented_block_implicit_language() {
-            let content = "    hello".to_string();
+            let content = "    hello\n    ".to_string();
             let result =
-                Text::parse_indented_block(Language::Implicit, content, 4, SyntaxHint::Block3)
+                Text::parse_indented_block(Language::Implicit, content, SyntaxHint::Block3)
                     .unwrap();
             assert_eq!(result.language, Language::Implicit);
             assert_eq!(result.content, "hello\n");
@@ -662,11 +685,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_insufficient_indent() {
-            let content = "    line1\n  line2".to_string();
+            // 4 spaces trailing = base_indent of 4, but line2 only has 2
+            let content = "    line1\n  line2\n    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             );
             assert_eq!(
@@ -681,11 +704,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_no_indent() {
-            let content = "line1\n    line2".to_string();
+            // 4 spaces trailing = base_indent of 4, but line1 has 0
+            let content = "line1\n    line2\n    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             );
             assert_eq!(
@@ -704,7 +727,6 @@ mod tests {
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             );
             assert!(result.is_ok());
@@ -712,11 +734,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_zero_indent() {
-            let content = "line1\nline2".to_string();
+            // No trailing whitespace = base_indent of 0
+            let content = "line1\nline2\n".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                0,
                 SyntaxHint::Block3,
             )
             .unwrap();
@@ -725,24 +747,25 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_empty_line_only() {
+            // 4 spaces trailing = base_indent of 4
             let content = "    \n    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             )
             .unwrap();
-            assert_eq!(result.content, "\n\n");
+            // First line is whitespace-only, treated as empty
+            assert_eq!(result.content, "\n");
         }
 
         #[test]
         fn test_parse_indented_block_whitespace_only_line_insufficient_indent() {
-            let content = "    line1\n  \n    line2".to_string();
+            // 4 spaces trailing = base_indent of 4
+            let content = "    line1\n  \n    line2\n    ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                4,
                 SyntaxHint::Block3,
             )
             .unwrap();
@@ -752,11 +775,11 @@ mod tests {
 
         #[test]
         fn test_parse_indented_block_whitespace_only_line_no_indent() {
-            let content = "    line1\n\n    line2".to_string();
+            // 3 spaces trailing = base_indent of 3
+            let content = "    line1\n\n    line2\n   ".to_string();
             let result = Text::parse_indented_block(
                 Language::Other("text".into()),
                 content,
-                3,
                 SyntaxHint::Block3,
             )
             .unwrap();

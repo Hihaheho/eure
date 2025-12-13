@@ -1,0 +1,84 @@
+// Test code block indentation stripping (ADR 0007)
+
+// Test 1: No indentation (closing ``` at column 0)
+// When closing ``` is at column 0, no stripping occurs
+input_eure = ````eure
+no_indent = ```text
+hello
+world
+```
+````
+
+normalized = ````eure
+={ no_indent => ```text
+hello
+world
+``` }
+````
+
+output_json = json`{ "no_indent": "hello\nworld\n" }`
+
+// Test 2: With indentation (closing ``` at column 2)
+// Content has 4 spaces, closing ``` at column 2, so 2 spaces stripped leaving 2
+@ cases.with-indent
+input_eure = ````eure
+config {
+  code = ```bash
+    echo "hello"
+    echo "world"
+  ```
+}
+````
+
+normalized = ````eure
+={ config => { code => ```bash
+  echo "hello"
+  echo "world"
+``` } }
+````
+
+output_json = json`{ "config": { "code": "  echo \"hello\"\n  echo \"world\"\n" } }`
+
+// Test 3: Empty lines are preserved
+// Content has 4 spaces, closing ``` at column 2, so 2 spaces stripped leaving 2
+@ cases.empty-lines
+input_eure = ````eure
+config {
+  code = ```text
+    line1
+
+    line3
+  ```
+}
+````
+
+normalized = ````eure
+={ config => { code => ```text
+  line1
+
+  line3
+``` } }
+````
+
+output_json = json`{ "config": { "code": "  line1\n\n  line3\n" } }`
+
+// Test 4: Extra indentation is preserved
+// Content has 6/8 spaces, closing ``` at column 2, so 2 spaces stripped leaving 4/6
+@ cases.extra-indent
+input_eure = ````eure
+config {
+  code = ```text
+      deeply
+        indented
+  ```
+}
+````
+
+normalized = ````eure
+={ config => { code => ```text
+    deeply
+      indented
+``` } }
+````
+
+output_json = json`{ "config": { "code": "    deeply\n      indented\n" } }`
