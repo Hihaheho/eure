@@ -31,6 +31,7 @@
 pub mod convert;
 pub mod identifiers;
 pub mod parse;
+pub mod synth;
 pub mod validate;
 
 use eure_document::data_model::VariantRepr;
