@@ -1,6 +1,6 @@
 $schema: ../../assets/schemas/eure-adr.schema.eure
 
-id = "0007-eure-fmt-ir-based-architecture"
+id = "0010-eure-fmt-ir-based-architecture"
 title = "IR-Based Architecture for eure-fmt"
 status = "proposed"
 decision-date = `2025-12-13`
