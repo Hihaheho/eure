@@ -35,3 +35,6 @@ alternatives-considered.$optional = true
 
 tags = [`text`]
 tags.$optional = true
+
+authors = [`text`]
+authors.$optional = true
