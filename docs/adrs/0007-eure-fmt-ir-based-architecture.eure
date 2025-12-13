@@ -1,0 +1,186 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0007-eure-fmt-ir-based-architecture"
+title = "IR-Based Architecture for eure-fmt"
+status = "proposed"
+decision-date = `2025-12-13`
+tags = ["formatter", "architecture", "eure-fmt", "pretty-printing"]
+
+context = ```markdown
+The `eure-fmt` crate needs a complete redesign. The current state is essentially unimplemented,
+with only an "unformatter" (for testing) that randomly destroys formatting.
+
+**Requirements:**
+
+1. `eure fmt` - format files in place
+2. `eure fmt --check` - dry-run mode (exit 1 if changes needed)
+3. LSP formatting support via `eure-ls`
+4. Respect `max_width` constraint (inline vs multiline decisions)
+5. Preserve comments and trivia
+
+**Design considerations explored:**
+
+1. **Mutation commands** - Visitor collects CST mutation commands, apply atomically
+   - Problem: Complex to track, hard to reason about final output, difficult line-width decisions
+
+2. **Token stream** - Emit accepted tokens + inserted whitespace directly
+   - Problem: Reinvents layout engine for nested constructs, brittle with comments
+
+3. **IR-based (Wadler/Prettier style)** - CST → Doc IR → String
+   - Proven approach used by Prettier, gofmt-style formatters, and academic literature
+   - Clean separation of concerns
+   - Natural handling of line-width backtracking
+
+The mutation command approach was attempted previously and led to significant complexity.
+```
+
+decision = `````markdown
+Adopt an **IR-based architecture** following Wadler's "A Prettier Printer" algorithm,
+similar to Prettier and other modern formatters.
+
+## Core Pipeline
+
+```
+Parse → CST (with trivia) → Doc IR → String
+```
+
+## Doc IR Definition
+
+```rust
+pub enum Doc {
+    /// Literal text (no line breaks allowed within)
+    Text(String),
+
+    /// Line break: becomes space if group fits, newline if breaks
+    Line,
+
+    /// Soft line: becomes empty if group fits, newline if breaks
+    SoftLine,
+
+    /// Always a line break
+    HardLine,
+
+    /// Increase indent for nested content
+    Indent(Box<Doc>),
+
+    /// Concatenate docs
+    Concat(Vec<Doc>),
+
+    /// Try to fit on one line; if exceeds width, break at Line/SoftLine
+    Group(Box<Doc>),
+}
+```
+
+## Module Structure
+
+```
+crates/eure-fmt/
+├── src/
+│   ├── lib.rs           # Public API
+│   ├── doc.rs           # Doc IR enum + builder helpers
+│   ├── printer.rs       # Wadler algorithm (Doc → String)
+│   ├── builder.rs       # CST → Doc (uses CstVisitor)
+│   ├── trivia.rs        # Comment attachment model
+│   └── config.rs        # FormatConfig (max_width, indent, etc.)
+```
+
+## Public API
+
+```rust
+/// Format Eure source code
+pub fn format(input: &str, config: &FormatConfig) -> Result<String, FormatError>;
+
+/// Check if source is already formatted (for --check mode)
+pub fn check(input: &str, config: &FormatConfig) -> FormatCheckResult;
+
+/// For LSP: format and return text edits
+pub fn format_edits(input: &str, config: &FormatConfig) -> Result<Vec<TextEdit>, FormatError>;
+```
+
+## Trivia Attachment Model
+
+Comments attach deterministically:
+- **Leading trivia**: comments/blank lines before a token belong to that token
+- **Trailing trivia**: end-of-line comments belong to the preceding token
+
+## Formatting Policy
+
+- **Break-all-once-broken**: Once a structure goes multiline, all elements get their own line
+- **Trailing commas**: Add in multiline mode for stable diffs
+- **Treat max_width as guideline**: Long tokens (URLs, strings) may overflow
+`````
+
+consequences = ```markdown
+**Positive:**
+
+- Clean separation of concerns (parsing, IR building, rendering)
+- Line-width decisions handled naturally by the printer's backtracking
+- `--check` mode is simple string comparison
+- Easy to test: snapshot tests on Doc IR and final output
+- Well-studied algorithm with academic backing
+- Estimated ~2k lines vs rustfmt's ~50k (appropriate for data format complexity)
+- LSP integration straightforward via diff-based TextEdit generation
+
+**Negative:**
+
+- Requires implementing Wadler's algorithm (moderate complexity in printer)
+- Two-pass approach (build IR, then render) vs single-pass emit
+- Doc IR is an additional abstraction layer to understand
+
+**Neutral:**
+
+- Different from rustfmt's heuristic approach (justified: Eure is simpler than Rust)
+- No CST mutation needed (simpler, but means formatter is "stateless")
+
+**Stability Properties to Maintain:**
+
+1. **Idempotence**: `format(format(x)) == format(x)`
+2. **Round-trip**: `parse(format(x))` succeeds for valid inputs
+3. **Comment preservation**: All comments appear in output
+4. **Determinism**: Same input always produces same output
+```
+
+alternatives-considered = [
+  ```markdown
+  **CST Mutation Commands**
+
+  Original design idea: `fn format(&Cst) -> FormatSuggestions` where suggestions
+  include mutation commands to transform the CST.
+
+  Rejected because:
+  - Two representations to track (CST state + pending mutations)
+  - Commands may conflict or have ordering dependencies
+  - Hard to reason about final output until commands are applied
+  - Difficult to handle line-width decisions (need to simulate/predict)
+  - Previous implementation attempt showed significant complexity
+  ```,
+  ```markdown
+  **Token Stream Emission**
+
+  Walk CST, emit tokens directly to output buffer, inserting whitespace as needed.
+
+  Rejected because:
+  - Reinvents layout engine once nested constructs need optional line breaks
+  - Difficult to handle max_width without lookahead or backtracking
+  - Brittle with comments attached at various positions
+  - Essentially a less principled version of the IR approach
+  ```,
+  ```markdown
+  **Rustfmt-style Heuristic Approach**
+
+  Ad-hoc `rewrite_*` methods per node type, passing `(indent, width)` budget down,
+  returning `Option<String>`.
+
+  Rejected because:
+  - Designed for programming language complexity (Rust has macros, generics, etc.)
+  - Eure is a simple data format where algorithmic approach suffices
+  - Heuristic approach produces more code for marginal benefit
+  - Budget-passing creates complex retry logic at every call site
+  ```,
+]
+
+related-links = [
+  url`https://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf`,
+  url`https://prettier.io/docs/plugins.html`,
+  url`https://github.com/rust-lang/rustfmt/blob/master/Design.md`,
+]
