@@ -10,7 +10,7 @@ check: clippy test fmt-check test-suite eure-check
 	@echo "All checks passed."
 
 clippy:
-	cargo clippy
+	cargo clippy -- -D warnings
 
 test:
 	cargo test
