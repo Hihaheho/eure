@@ -1372,16 +1372,10 @@ impl PreprocessedCase {
 
         // Formatting scenarios
         if let (Some(input), Some(expected)) = (&self.input_eure, &self.formatted_input) {
-            scenarios.push(Scenario::Formatting(FormattingScenario {
-                input,
-                expected,
-            }));
+            scenarios.push(Scenario::Formatting(FormattingScenario { input, expected }));
         }
         if let (Some(input), Some(expected)) = (&self.normalized, &self.formatted_normalized) {
-            scenarios.push(Scenario::Formatting(FormattingScenario {
-                input,
-                expected,
-            }));
+            scenarios.push(Scenario::Formatting(FormattingScenario { input, expected }));
         }
 
         // Editor scenarios
