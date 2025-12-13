@@ -81,6 +81,8 @@ pub enum InlineCodeError {
 pub enum CodeBlockError {
     #[error("Does not match CodeBlockStart pattern")]
     InvalidCodeBlockStartPattern,
+    #[error(transparent)]
+    ContentError(#[from] TextParseError),
 }
 
 #[derive(Debug, Error, Clone)]

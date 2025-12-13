@@ -988,7 +988,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
+            let text =
+                Text::parse_indented_block(code_start.language, content, code_start.syntax_hint)
+                    .map_err(|e| DocumentConstructionError::InvalidCodeBlock {
+                        node_id: handle.node_id(),
+                        error: CodeBlockError::from(e),
+                    })?;
             let node_id = self.document.current_node_id();
             self.document
                 .bind_primitive(PrimitiveValue::Text(text))
@@ -1034,7 +1039,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
+            let text =
+                Text::parse_indented_block(code_start.language, content, code_start.syntax_hint)
+                    .map_err(|e| DocumentConstructionError::InvalidCodeBlock {
+                        node_id: handle.node_id(),
+                        error: CodeBlockError::from(e),
+                    })?;
             let node_id = self.document.current_node_id();
             self.document
                 .bind_primitive(PrimitiveValue::Text(text))
@@ -1080,7 +1090,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
+            let text =
+                Text::parse_indented_block(code_start.language, content, code_start.syntax_hint)
+                    .map_err(|e| DocumentConstructionError::InvalidCodeBlock {
+                        node_id: handle.node_id(),
+                        error: CodeBlockError::from(e),
+                    })?;
             let node_id = self.document.current_node_id();
             self.document
                 .bind_primitive(PrimitiveValue::Text(text))
@@ -1126,7 +1141,12 @@ impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
             let content = code_start.terminals.into_string(self.input, tree)?;
-            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
+            let text =
+                Text::parse_indented_block(code_start.language, content, code_start.syntax_hint)
+                    .map_err(|e| DocumentConstructionError::InvalidCodeBlock {
+                        node_id: handle.node_id(),
+                        error: CodeBlockError::from(e),
+                    })?;
             let node_id = self.document.current_node_id();
             self.document
                 .bind_primitive(PrimitiveValue::Text(text))

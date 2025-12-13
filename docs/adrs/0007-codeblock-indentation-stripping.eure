@@ -1,0 +1,158 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0007-codeblock-indentation-stripping"
+title = "Code Block Indentation Stripping Based on Closing Delimiter"
+status = "accepted"
+decision-date = `2025-12-13`
+tags = ["syntax", "code-block", "indentation", "whitespace"]
+
+context = ````markdown
+Code blocks in Eure can be indented within documents for readability, but the indentation
+used for visual alignment should not become part of the code block content. A mechanism
+is needed to strip "structural" indentation while preserving "intentional" indentation
+within the code.
+
+**Example problem:**
+```eure
+    config {
+        script = ```bash
+            echo "hello"
+                echo "indented"
+            ```
+    }
+```
+
+Without indentation stripping, `script` would contain leading spaces on every line that
+were only meant for document formatting, not as part of the bash script content.
+
+**Four approaches were considered:**
+
+1. **Minimum of all lines** - Strip `min(indent of each line)` from all lines
+2. **First line's indentation** - Use the first content line's indent as the base
+3. **Closing delimiter's indentation** - Use the closing backticks position as the base
+4. **Opening key's indentation** - Use the indentation of the key (e.g., `script`) as base
+
+Each approach produces different results. Given:
+```eure
+    a = ```rust
+        let x = 1;
+            let y = 2;
+      ```
+```
+
+| Approach | Base | Line 1 result | Line 2 result |
+|----------|------|---------------|---------------|
+| 1. min(all) | 8 | `let x = 1;` | `    let y = 2;` |
+| 2. first line | 8 | `let x = 1;` | `    let y = 2;` |
+| 3. closing backticks | 6 | `  let x = 1;` | `      let y = 2;` |
+| 4. opening key | 4 | `    let x = 1;` | `        let y = 2;` |
+````
+
+decision = `````markdown
+**Use the closing delimiter's indentation as the base for stripping.**
+
+The column position of the closing backticks (3 or more) defines the "margin" for the
+code block. All content lines have this many leading spaces removed.
+
+**Specification:**
+
+1. **Base indent** = number of leading spaces/tabs before the closing delimiter
+2. **For each content line:**
+   - If the line has fewer characters than base indent, it must be empty or whitespace-only
+   - Otherwise, remove exactly `base_indent` characters from the start
+3. **Empty lines** (containing only whitespace) are preserved as empty lines
+4. **A trailing newline** is always added to block content (for consistency)
+
+**Example:**
+```eure
+    a = ```rust
+        let x = 1;
+            let y = 2;
+      ```
+```
+
+Closing backticks have 6 spaces of indentation, so:
+- `        let x = 1;` (8 spaces) becomes `  let x = 1;` (2 spaces)
+- `            let y = 2;` (12 spaces) becomes `      let y = 2;` (6 spaces)
+
+**Error handling:**
+
+If a non-empty content line has fewer leading spaces than the closing delimiter,
+this is an **indentation error**. The parser should report:
+- Line number within the code block
+- Actual indentation found
+- Expected minimum indentation (closing delimiter's column)
+
+```eure
+    a = ```rust
+  let x = 1;
+      ```
+```
+Error: Line 1 has 2 spaces but closing delimiter requires at least 6 spaces.
+`````
+
+consequences = ````markdown
+**Positive:**
+- **Explicit author control** - The closing delimiter position is an intentional choice
+- **Visual margin marker** - The closing backticks clearly show where content "begins"
+- **Precedent** - Swift and Nix multi-line strings use this approach successfully
+- **Error detection** - Under-indented lines are caught as likely mistakes
+- **Predictable** - Authors can always determine the result by looking at closing delimiter
+
+**Negative:**
+- **Requires intentional placement** - Authors must think about closing delimiter position
+- **Stricter than min-indent** - Cannot have content lines less indented than closing
+- **Migration** - Existing code blocks may need adjustment if closing delimiter moves
+
+**Implementation notes:**
+- Infrastructure already exists: `Text::parse_indented_block()` in `eure-document/src/text.rs`
+- Integration point: `visit_code_block_end_*` methods in `value_visitor.rs`
+- The closing delimiter's column must be captured during parsing and passed to indent stripping
+````
+
+alternatives-considered = [
+  ````markdown
+  **Option 1: Minimum of all lines (min-indent)**
+
+  Strip `min(indent of each non-empty line)` from all lines.
+
+  Pros:
+  - Guarantees at least one line is flush-left
+  - Tolerant of inconsistent indentation
+  - Used by Python's `textwrap.dedent()`
+
+  Rejected because:
+  - A single under-indented line shifts the entire content unexpectedly
+  - Less predictable - result depends on all lines, not a single reference point
+  - Author intent is implicit rather than explicit
+  ````,
+  ````markdown
+  **Option 2: First line's indentation**
+
+  Use the first content line's indentation as the base.
+
+  Pros:
+  - Predictable based on first line
+  - Simple mental model
+
+  Rejected because:
+  - Often produces same result as min-indent (first line is typically least indented)
+  - If first line is unusually indented, subsequent lines may error
+  - Less explicit than closing delimiter approach
+  ````,
+  ````markdown
+  **Option 4: Opening key's indentation**
+
+  Use the indentation of the key binding (e.g., `script = `) as the base.
+
+  Pros:
+  - Structural/semantic basis
+  - Natural for nested structures
+
+  Rejected because:
+  - Less visually obvious than closing delimiter
+  - Opening line may have variable indentation due to key length
+  - Harder to determine base indent at a glance
+  - Content indentation relative to key is less intuitive than relative to closing
+  ````,
+]
