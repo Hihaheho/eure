@@ -1,0 +1,22 @@
+// Test formatting both input and normalized forms
+
+input_eure = ```eure
+name="Bob"
+items=[1,2,3]
+```
+
+normalized = ```eure
+= {
+  name => "Bob",
+  items => [1, 2, 3],
+}
+```
+
+formatted_input = ```eure
+name = "Bob"
+items = [1, 2, 3]
+```
+
+formatted_normalized = ```eure
+= { name => "Bob", items => [1, 2, 3],  }
+```

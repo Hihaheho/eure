@@ -91,6 +91,14 @@ pub enum ScenarioError {
     PreprocessingError { message: String },
     /// Scenario is not yet implemented
     Unimplemented { scenario_name: String },
+    /// Formatter output mismatch
+    FormattingMismatch {
+        input: String,
+        expected: String,
+        actual: String,
+    },
+    /// Formatting error
+    FormattingError { message: String },
 }
 
 /// Format helper for displaying expected error not found with actual errors list
@@ -203,6 +211,20 @@ impl std::fmt::Display for ScenarioError {
             ScenarioError::Unimplemented { scenario_name } => {
                 write!(f, "Scenario '{}' is not yet implemented", scenario_name)
             }
+            ScenarioError::FormattingMismatch {
+                input,
+                expected,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "Formatting mismatch.\nInput:\n{}\n\nExpected:\n{}\n\nActual:\n{}",
+                    input, expected, actual
+                )
+            }
+            ScenarioError::FormattingError { message } => {
+                write!(f, "Formatting error: {}", message)
+            }
         }
     }
 }
@@ -286,6 +308,7 @@ pub enum Scenario<'a> {
     MetaSchema(MetaSchemaScenario<'a>),
     EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario<'a>),
     EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario<'a>),
+    Formatting(FormattingScenario<'a>),
     Completions(&'a CompletionsScenario),
     Diagnostics(&'a DiagnosticsScenario),
 }
@@ -303,6 +326,7 @@ impl Scenario<'_> {
             Scenario::EureSchemaToJsonSchemaError(_) => {
                 "eure_schema_to_json_schema_error".to_string()
             }
+            Scenario::Formatting(_) => "formatting".to_string(),
             Scenario::Completions(_) => "completions".to_string(),
             Scenario::Diagnostics(_) => "diagnostics".to_string(),
         }
@@ -318,6 +342,7 @@ impl Scenario<'_> {
             Scenario::MetaSchema(s) => s.run(),
             Scenario::EureSchemaToJsonSchema(s) => s.run(),
             Scenario::EureSchemaToJsonSchemaError(s) => s.run(),
+            Scenario::Formatting(s) => s.run(),
             Scenario::Completions(s) => s.run(),
             Scenario::Diagnostics(s) => s.run(),
         }
@@ -337,6 +362,9 @@ pub struct PreprocessedCase {
     pub json_schema_errors: Vec<String>,
     /// Union tag mode for validation (default: eure)
     pub input_union_tag_mode: InputUnionTagMode,
+    // Formatter testing fields - expected formatted outputs
+    pub formatted_input: Option<String>,
+    pub formatted_normalized: Option<String>,
     // Editor scenarios
     pub completions_scenario: Option<CompletionsScenario>,
     pub diagnostics_scenario: Option<DiagnosticsScenario>,
@@ -604,6 +632,18 @@ impl Case {
             .map(|e| e.as_str().to_string())
             .collect();
 
+        // Formatter testing fields
+        let formatted_input = self
+            .data
+            .formatted_input
+            .as_ref()
+            .map(|text| text.as_str().to_string());
+        let formatted_normalized = self
+            .data
+            .formatted_normalized
+            .as_ref()
+            .map(|text| text.as_str().to_string());
+
         Ok(PreprocessedCase {
             input_eure,
             input_json,
@@ -615,6 +655,8 @@ impl Case {
             output_json_schema,
             json_schema_errors,
             input_union_tag_mode: self.data.input_union_tag_mode,
+            formatted_input,
+            formatted_normalized,
             completions_scenario: self.data.completions_scenario.clone(),
             diagnostics_scenario: self.data.diagnostics_scenario.clone(),
         })
@@ -655,6 +697,39 @@ impl NormalizationScenario<'_> {
             return Err(ScenarioError::NormalizationMismatch {
                 input_debug: format!("{:#?}", input_doc),
                 normalized_debug: format!("{:#?}", normalized_doc),
+            });
+        }
+        Ok(())
+    }
+}
+
+pub struct FormattingScenario<'a> {
+    input: &'a PreprocessedEure,
+    expected: &'a str,
+}
+
+impl FormattingScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        // Get the CST from the preprocessed input
+        let cst = self
+            .input
+            .cst()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+
+        let input_str = self.input.input();
+
+        // Format the input using eure-fmt with default config
+        let config = eure_fmt::FormatConfig::default();
+        let formatted = eure_fmt::format_cst(input_str, cst, &config);
+
+        // Compare formatted output with expected
+        if formatted != self.expected {
+            return Err(ScenarioError::FormattingMismatch {
+                input: input_str.to_string(),
+                expected: self.expected.to_string(),
+                actual: formatted,
             });
         }
         Ok(())
@@ -1293,6 +1368,20 @@ impl PreprocessedCase {
                     },
                 ));
             }
+        }
+
+        // Formatting scenarios
+        if let (Some(input), Some(expected)) = (&self.input_eure, &self.formatted_input) {
+            scenarios.push(Scenario::Formatting(FormattingScenario {
+                input,
+                expected,
+            }));
+        }
+        if let (Some(input), Some(expected)) = (&self.normalized, &self.formatted_normalized) {
+            scenarios.push(Scenario::Formatting(FormattingScenario {
+                input,
+                expected,
+            }));
         }
 
         // Editor scenarios

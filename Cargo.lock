@@ -3754,6 +3754,7 @@ dependencies = [
  "clap",
  "eros",
  "eure",
+ "eure-fmt",
  "eure-json",
  "eure-json-schema",
  "eure-schema",

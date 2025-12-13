@@ -181,6 +181,9 @@ pub struct CaseData {
     pub unimplemented: Option<String>,
     /// Union tag mode for validation (default: eure)
     pub input_union_tag_mode: InputUnionTagMode,
+    // Formatter testing fields
+    pub formatted_input: Option<Text>,
+    pub formatted_normalized: Option<Text>,
     // Editor scenarios
     pub completions_scenario: Option<CompletionsScenario>,
     pub diagnostics_scenario: Option<DiagnosticsScenario>,
@@ -197,6 +200,8 @@ impl CaseData {
             && self.meta_schema_errors.is_empty()
             && self.output_json_schema.is_none()
             && self.json_schema_errors.is_empty()
+            && self.formatted_input.is_none()
+            && self.formatted_normalized.is_none()
             && self.completions_scenario.is_none()
             && self.diagnostics_scenario.is_none()
     }
@@ -256,6 +261,10 @@ impl ParseDocument<'_> for CaseData {
             .parse_field_optional::<InputUnionTagMode>("input_union_tag_mode")?
             .unwrap_or_default();
 
+        // Parse formatter testing fields
+        let formatted_input = rec.parse_field_optional::<Text>("formatted_input")?;
+        let formatted_normalized = rec.parse_field_optional::<Text>("formatted_normalized")?;
+
         // Parse editor scenario fields
         let editor = rec.parse_field_optional::<Text>("editor")?;
         let completions = rec.parse_field_optional::<Vec<CompletionItem>>("completions")?;
@@ -295,6 +304,8 @@ impl ParseDocument<'_> for CaseData {
             json_schema_errors,
             unimplemented,
             input_union_tag_mode,
+            formatted_input,
+            formatted_normalized,
             completions_scenario,
             diagnostics_scenario,
         })
@@ -388,6 +399,10 @@ impl ParseDocument<'_> for CaseFile {
             .parse_field_optional::<InputUnionTagMode>("input_union_tag_mode")?
             .unwrap_or_default();
 
+        // Parse formatter testing fields
+        let formatted_input = rec.parse_field_optional::<Text>("formatted_input")?;
+        let formatted_normalized = rec.parse_field_optional::<Text>("formatted_normalized")?;
+
         // Parse editor scenario fields
         let editor = rec.parse_field_optional::<Text>("editor")?;
         let completions = rec.parse_field_optional::<Vec<CompletionItem>>("completions")?;
@@ -443,6 +458,8 @@ impl ParseDocument<'_> for CaseFile {
                 json_schema_errors,
                 unimplemented,
                 input_union_tag_mode,
+                formatted_input,
+                formatted_normalized,
                 completions_scenario,
                 diagnostics_scenario,
             },

@@ -1,0 +1,9 @@
+// Test nested object formatting with map syntax
+
+input_eure = ```eure
+user={name=>"Alice",profile=>{age=>30,location=>"NYC"}}
+```
+
+formatted_input = ```eure
+user = { name => "Alice", profile => { age => 30, location => "NYC" }}
+```
