@@ -58,6 +58,8 @@ struct FormatVisitor<'a> {
     object_needs_leading_space: bool,
     /// Track doc count after opening brace (to detect empty objects)
     object_open_doc_count: Option<usize>,
+    /// Track if we need a comma before the next object entry
+    object_needs_comma_before_next: bool,
     /// Track doc index where section binding content starts (for indentation)
     section_binding_content_start: Option<usize>,
 }
@@ -88,6 +90,7 @@ impl<'a> FormatVisitor<'a> {
             context: vec![FormatContext::Root],
             object_needs_leading_space: false,
             object_open_doc_count: None,
+            object_needs_comma_before_next: false,
             section_binding_content_start: None,
         }
     }
@@ -186,9 +189,12 @@ impl<'a> FormatVisitor<'a> {
         }
     }
 
-    /// Emit leading space for object content if needed
+    /// Emit leading space or comma for object content if needed
     fn emit_object_leading_space(&mut self) {
-        if self.object_needs_leading_space {
+        if self.object_needs_comma_before_next {
+            self.docs.push(Doc::text(", "));
+            self.object_needs_comma_before_next = false;
+        } else if self.object_needs_leading_space {
             self.docs.push(Doc::text(" "));
             self.object_needs_leading_space = false;
         }
@@ -519,9 +525,10 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
                 .object_open_doc_count
                 .map(|count| self.docs.len() > count)
                 .unwrap_or(false);
-            // Clear flags BEFORE emit_text to avoid spurious leading space
+            // Clear all object flags BEFORE emit_text to avoid spurious leading space/comma
             self.object_needs_leading_space = false;
             self.object_open_doc_count = None;
+            self.object_needs_comma_before_next = false;
             if has_content {
                 self.emit_text(" }");
             } else {
@@ -584,7 +591,12 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        self.emit_text(", ");
+        // For objects, defer comma output to avoid trailing commas
+        if self.in_object() {
+            self.object_needs_comma_before_next = true;
+        } else {
+            self.emit_text(", ");
+        }
         self.mark_content(data);
         Ok(())
     }
@@ -1062,6 +1074,22 @@ mod tests {
         let input = "= {a => 1, b => 2}";
         let output = format(input);
         assert_eq!(output, "= { a => 1, b => 2 }\n");
+    }
+
+    #[test]
+    fn test_object_with_trailing_comma() {
+        // Trailing commas should be removed
+        let input = "= { a => 1, b => 2, }";
+        let output = format(input);
+        assert_eq!(output, "= { a => 1, b => 2 }\n");
+    }
+
+    #[test]
+    fn test_object_with_array_value_trailing_comma() {
+        // Complex case from dual-formatting test
+        let input = "= {\n  name => \"Bob\",\n  items => [1, 2, 3],\n}";
+        let output = format(input);
+        assert_eq!(output, "= { name => \"Bob\", items => [1, 2, 3] }\n");
     }
 
     #[test]
