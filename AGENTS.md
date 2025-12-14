@@ -73,6 +73,11 @@ let name_id = doc.node(root_id).as_map().unwrap().get(&"name".into()).unwrap();
 assert_eq!(doc.node(name_id).as_primitive().unwrap().as_str(), Some("Alice"));
 ```
 
+**Error Handling**
+
+- MUST handle errors properly, and NEVER ignore or fallback errors or invalid states.
+- Error data must be enum with thiserror, never use String. 
+
 **ParseDocument API:**
 - Use `ParseDocument` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.
 - Primitives: `doc.parse::<&str>(node_id)`, `doc.parse::<i32>(node_id)`, `doc.parse::<bool>(node_id)`
