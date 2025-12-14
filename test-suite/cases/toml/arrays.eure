@@ -1,0 +1,33 @@
+// TOML array and array-of-tables conversion tests
+
+@ cases.simple_array {
+  input_toml = ```toml
+ports = [8080, 8081, 8082]
+```
+
+  input_eure = ```eure
+ports = [8080, 8081, 8082]
+```
+}
+
+@ cases.array_of_tables {
+  input_toml = ```toml
+[[servers]]
+name = "alpha"
+port = 8080
+
+[[servers]]
+name = "beta"
+port = 8081
+```
+
+  input_eure = ```eure
+@ servers[]
+name = "alpha"
+port = 8080
+
+@ servers[]
+name = "beta"
+port = 8081
+```
+}

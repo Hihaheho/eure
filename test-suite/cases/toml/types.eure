@@ -1,0 +1,69 @@
+// TOML data types conversion tests
+
+@ cases.positive_integers {
+  input_toml = ```toml
+a = 42
+b = 1_000_000
+```
+
+  input_eure = ```eure
+a = 42
+b = 1_000_000
+```
+}
+
+@ cases.positive_floats {
+  input_toml = ```toml
+a = 3.14
+b = 1e10
+```
+
+  input_eure = ```eure
+a = 3.14
+b = 1e10
+```
+}
+
+@ cases.booleans {
+  input_toml = ```toml
+enabled = true
+disabled = false
+```
+
+  input_eure = ```eure
+enabled = true
+disabled = false
+```
+}
+
+@ cases.strings {
+  input_toml = ```toml
+name = "hello world"
+path = "C:\\Users\\name"
+```
+
+  input_eure = ```eure
+name = "hello world"
+path = "C:\\Users\\name"
+```
+}
+
+@ cases.inline_table {
+  input_toml = ```toml
+point = { x = 1, y = 2 }
+```
+
+  input_eure = ```eure
+point = { x => 1, y => 2 }
+```
+}
+
+@ cases.inline_array {
+  input_toml = ```toml
+colors = ["red", "green", "blue"]
+```
+
+  input_eure = ```eure
+colors = ["red", "green", "blue"]
+```
+}

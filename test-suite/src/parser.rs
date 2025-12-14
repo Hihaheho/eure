@@ -171,6 +171,7 @@ impl JsonInput {
 #[derive(Debug, Clone, Default)]
 pub struct CaseData {
     pub input_eure: Option<Text>,
+    pub input_toml: Option<Text>,
     pub json_input: Option<JsonInput>,
     pub normalized: Option<Text>,
     pub schema: Option<Text>,
@@ -193,6 +194,7 @@ impl CaseData {
     /// Check if this case has any meaningful content
     pub fn is_empty(&self) -> bool {
         self.input_eure.is_none()
+            && self.input_toml.is_none()
             && self.json_input.is_none()
             && self.normalized.is_none()
             && self.schema.is_none()
@@ -243,6 +245,7 @@ impl ParseDocument<'_> for CaseData {
         let mut rec = ctx.parse_record()?;
 
         let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
+        let input_toml = rec.parse_field_optional::<Text>("input_toml")?;
         let json_input = parse_json_input(&mut rec, ctx)?;
         let normalized = rec.parse_field_optional::<Text>("normalized")?;
         let schema = rec.parse_field_optional::<Text>("schema")?;
@@ -295,6 +298,7 @@ impl ParseDocument<'_> for CaseData {
 
         Ok(CaseData {
             input_eure,
+            input_toml,
             json_input,
             normalized,
             schema,
@@ -381,6 +385,7 @@ impl ParseDocument<'_> for CaseFile {
 
         // Parse root-level fields as default case
         let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
+        let input_toml = rec.parse_field_optional::<Text>("input_toml")?;
         let json_input = parse_json_input(&mut rec, ctx)?;
         let normalized = rec.parse_field_optional::<Text>("normalized")?;
         let schema = rec.parse_field_optional::<Text>("schema")?;
@@ -449,6 +454,7 @@ impl ParseDocument<'_> for CaseFile {
             path: PathBuf::new(), // Set by caller
             default_case: CaseData {
                 input_eure,
+                input_toml,
                 json_input,
                 normalized,
                 schema,

@@ -3760,13 +3760,16 @@ dependencies = [
  "clap",
  "eros",
  "eure",
+ "eure-document",
  "eure-fmt",
  "eure-json",
  "eure-json-schema",
  "eure-schema",
+ "eure-toml",
  "rayon",
  "serde_json",
  "thiserror 2.0.17",
+ "toml_edit 0.22.27",
 ]
 
 [[package]]

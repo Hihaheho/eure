@@ -22,8 +22,8 @@ mod error;
 
 pub use error::TomlToEureError;
 
-use eure_document::document::constructor::DocumentConstructor;
 use eure_document::document::NodeId;
+use eure_document::document::constructor::DocumentConstructor;
 use eure_document::identifier::Identifier;
 use eure_document::path::PathSegment;
 use eure_document::source::{
@@ -80,7 +80,7 @@ impl Converter {
             Item::Value(value) => {
                 // Simple key = value at root level
                 let identifier = self.parse_identifier(key)?;
-                let node_id = self.bind_value_at_path(&[identifier.clone()], value)?;
+                let node_id = self.bind_value_at_path(std::slice::from_ref(&identifier), value)?;
                 let trailing_comment = self.extract_trailing_comment(value.decor());
 
                 self.layout.push(LayoutItem::Binding {
@@ -147,8 +147,7 @@ impl Converter {
                 let identifier = self.parse_identifier(key)?;
 
                 for table in array.iter() {
-                    let path =
-                        vec![SourcePathSegment::ident(identifier.clone()).with_array_push()];
+                    let path = vec![SourcePathSegment::ident(identifier.clone()).with_array_push()];
 
                     // Navigate and push to array
                     let scope = self.constructor.begin_scope();
