@@ -531,6 +531,291 @@ fn extract_comment_text(raw: &str) -> Option<String> {
     None
 }
 
+// ============================================================================
+// Source Document Formatter
+// ============================================================================
+
+/// Format a SourceDocument to Eure source string.
+///
+/// This produces output that can be parsed back to an equivalent EureDocument.
+/// Comments and section ordering from the Layout are preserved.
+pub fn format_source_document(source: &SourceDocument) -> String {
+    let mut formatter = SourceFormatter::new(&source.document);
+    formatter.format_layout(&source.layout);
+    formatter.finish()
+}
+
+struct SourceFormatter<'a> {
+    doc: &'a eure_document::document::EureDocument,
+    output: String,
+}
+
+impl<'a> SourceFormatter<'a> {
+    fn new(doc: &'a eure_document::document::EureDocument) -> Self {
+        Self {
+            doc,
+            output: String::new(),
+        }
+    }
+
+    fn finish(self) -> String {
+        self.output
+    }
+
+    fn format_layout(&mut self, layout: &Layout) {
+        for item in layout.items.iter() {
+            self.format_item(item, 0);
+        }
+    }
+
+    fn format_item(&mut self, item: &LayoutItem, indent: usize) {
+        match item {
+            LayoutItem::Comment(comment) => {
+                self.write_indent(indent);
+                match comment {
+                    Comment::Line(s) => {
+                        self.output.push_str("// ");
+                        self.output.push_str(s);
+                        self.output.push('\n');
+                    }
+                    Comment::Block(s) => {
+                        self.output.push_str("/* ");
+                        self.output.push_str(s);
+                        self.output.push_str(" */\n");
+                    }
+                }
+            }
+            LayoutItem::BlankLine => {
+                self.output.push('\n');
+            }
+            LayoutItem::Binding {
+                path,
+                node,
+                trailing_comment,
+            } => {
+                self.write_indent(indent);
+                self.format_path(path);
+                self.output.push_str(" = ");
+                self.format_value(*node);
+                if let Some(comment) = trailing_comment {
+                    self.output.push_str(" // ");
+                    self.output.push_str(comment);
+                }
+                self.output.push('\n');
+            }
+            LayoutItem::Section {
+                path,
+                trailing_comment,
+                body,
+            } => {
+                // Add blank line before section (unless at start)
+                if !self.output.is_empty() && !self.output.ends_with("\n\n") {
+                    self.output.push('\n');
+                }
+                self.write_indent(indent);
+                self.output.push_str("@ ");
+                self.format_path(path);
+                if let Some(comment) = trailing_comment {
+                    self.output.push_str(" // ");
+                    self.output.push_str(comment);
+                }
+                match body {
+                    SectionBody::Items(items) => {
+                        self.output.push('\n');
+                        for item in items {
+                            self.format_item(item, indent);
+                        }
+                    }
+                    SectionBody::Block(items) => {
+                        self.output.push_str(" {\n");
+                        for item in items {
+                            self.format_item(item, indent + 1);
+                        }
+                        self.write_indent(indent);
+                        self.output.push_str("}\n");
+                    }
+                }
+            }
+        }
+    }
+
+    fn write_indent(&mut self, level: usize) {
+        for _ in 0..level {
+            self.output.push_str("  ");
+        }
+    }
+
+    fn format_path(&mut self, path: &[SourcePathSegment]) {
+        for (i, segment) in path.iter().enumerate() {
+            if i > 0 {
+                self.output.push('.');
+            }
+            self.format_key(&segment.key);
+            if let Some(index) = &segment.array {
+                self.output.push('[');
+                if let Some(n) = index {
+                    self.output.push_str(&n.to_string());
+                }
+                self.output.push(']');
+            }
+        }
+    }
+
+    fn format_key(&mut self, key: &eure_document::source::SourceKey) {
+        use eure_document::source::SourceKey;
+        match key {
+            SourceKey::Ident(s) => self.output.push_str(s.as_ref()),
+            SourceKey::Extension(s) => {
+                self.output.push('$');
+                self.output.push_str(s.as_ref());
+            }
+            SourceKey::String(s) => {
+                self.output.push('"');
+                self.output.push_str(&escape_string(s));
+                self.output.push('"');
+            }
+            SourceKey::Integer(n) => self.output.push_str(&n.to_string()),
+            SourceKey::Tuple(keys) => {
+                self.output.push('(');
+                for (i, k) in keys.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.format_key(k);
+                }
+                self.output.push(')');
+            }
+            SourceKey::TupleIndex(n) => {
+                self.output.push('#');
+                self.output.push_str(&n.to_string());
+            }
+        }
+    }
+
+    fn format_value(&mut self, node_id: NodeId) {
+        use eure_document::document::node::NodeValue;
+        use eure_document::value::PrimitiveValue;
+
+        let node = self.doc.node(node_id);
+        match &node.content {
+            NodeValue::Hole(_) => {
+                self.output.push_str("null");
+            }
+            NodeValue::Primitive(prim) => match prim {
+                PrimitiveValue::Null => self.output.push_str("null"),
+                PrimitiveValue::Bool(b) => self.output.push_str(if *b { "true" } else { "false" }),
+                PrimitiveValue::Integer(n) => self.output.push_str(&n.to_string()),
+                PrimitiveValue::F64(f) => {
+                    if f.is_nan() {
+                        self.output.push_str("nan");
+                    } else if f.is_infinite() {
+                        if f.is_sign_positive() {
+                            self.output.push_str("inf");
+                        } else {
+                            self.output.push_str("-inf");
+                        }
+                    } else {
+                        let s = f.to_string();
+                        // Ensure float representation includes decimal point
+                        if !s.contains('.') && !s.contains('e') && !s.contains('E') {
+                            self.output.push_str(&s);
+                            self.output.push_str(".0");
+                        } else {
+                            self.output.push_str(&s);
+                        }
+                    }
+                }
+                PrimitiveValue::Text(text) => {
+                    self.output.push('"');
+                    self.output.push_str(&escape_string(&text.content));
+                    self.output.push('"');
+                }
+                PrimitiveValue::F32(f) => {
+                    if f.is_nan() {
+                        self.output.push_str("nan");
+                    } else if f.is_infinite() {
+                        if f.is_sign_positive() {
+                            self.output.push_str("inf");
+                        } else {
+                            self.output.push_str("-inf");
+                        }
+                    } else {
+                        self.output.push_str(&f.to_string());
+                    }
+                }
+            },
+            NodeValue::Array(arr) => {
+                self.output.push('[');
+                for (i, &child_id) in arr.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.format_value(child_id);
+                }
+                self.output.push(']');
+            }
+            NodeValue::Tuple(tuple) => {
+                self.output.push('(');
+                for (i, &child_id) in tuple.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.format_value(child_id);
+                }
+                self.output.push(')');
+            }
+            NodeValue::Map(map) => {
+                self.output.push_str("{ ");
+                let mut first = true;
+                for (key, &child_id) in map.iter() {
+                    if !first {
+                        self.output.push_str(", ");
+                    }
+                    first = false;
+                    self.format_object_key(key);
+                    self.output.push_str(" => ");
+                    self.format_value(child_id);
+                }
+                self.output.push_str(" }");
+            }
+        }
+    }
+
+    fn format_object_key(&mut self, key: &eure_document::value::ObjectKey) {
+        use eure_document::value::ObjectKey;
+        match key {
+            ObjectKey::String(s) => self.output.push_str(s),
+            ObjectKey::Number(n) => self.output.push_str(&n.to_string()),
+            ObjectKey::Tuple(keys) => {
+                self.output.push('(');
+                for (i, k) in keys.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.format_object_key(k);
+                }
+                self.output.push(')');
+            }
+        }
+    }
+}
+
+/// Escape a string for Eure output
+fn escape_string(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '"' => result.push_str("\\\""),
+            '\\' => result.push_str("\\\\"),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\t' => result.push_str("\\t"),
+            _ => result.push(c),
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

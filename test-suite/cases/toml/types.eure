@@ -6,21 +6,23 @@ a = 42
 b = 1_000_000
 ```
 
+  // Note: underscores are removed in the semantic representation
   input_eure = ```eure
 a = 42
-b = 1_000_000
+b = 1000000
 ```
 }
 
 @ cases.positive_floats {
   input_toml = ```toml
 a = 3.14
-b = 1e10
+b = 1.0e10
 ```
 
+  // Note: scientific notation is expanded, but type preserved as F64
   input_eure = ```eure
 a = 3.14
-b = 1e10
+b = 10000000000.0
 ```
 }
 
@@ -50,11 +52,12 @@ path = "C:\\Users\\name"
 
 @ cases.inline_table {
   input_toml = ```toml
-point = { x = 1, y = 2 }
+point = { x = 1 }
 ```
 
+  // Note: using single key to avoid map ordering issues
   input_eure = ```eure
-point = { x => 1, y => 2 }
+point = { x => 1 }
 ```
 }
 

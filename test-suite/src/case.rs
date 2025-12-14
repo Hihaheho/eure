@@ -108,6 +108,8 @@ pub enum ScenarioError {
         expected_debug: String,
         actual_debug: String,
     },
+    /// TOML to Eure source mismatch
+    TomlToEureSourceMismatch { expected: String, actual: String },
 }
 
 /// Format helper for displaying expected error not found with actual errors list
@@ -250,6 +252,13 @@ impl std::fmt::Display for ScenarioError {
                     expected_debug, actual_debug
                 )
             }
+            ScenarioError::TomlToEureSourceMismatch { expected, actual } => {
+                write!(
+                    f,
+                    "TOML to Eure source mismatch.\nExpected:\n{}\nActual:\n{}",
+                    expected, actual
+                )
+            }
         }
     }
 }
@@ -330,6 +339,7 @@ pub enum Scenario<'a> {
     JsonToEure(JsonToEureScenario<'a>),
     TomlToEureDocument(TomlToEureDocumentScenario<'a>),
     TomlToJson(TomlToJsonScenario<'a>),
+    TomlToEureSource(TomlToEureSourceScenario<'a>),
     SchemaValidation(SchemaValidationScenario<'a>),
     SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
     MetaSchema(MetaSchemaScenario<'a>),
@@ -348,6 +358,7 @@ impl Scenario<'_> {
             Scenario::JsonToEure(s) => format!("json_to_eure({})", s.source),
             Scenario::TomlToEureDocument(_) => "toml_to_eure_document".to_string(),
             Scenario::TomlToJson(_) => "toml_to_json".to_string(),
+            Scenario::TomlToEureSource(_) => "toml_to_eure_source".to_string(),
             Scenario::SchemaValidation(_) => "schema_validation".to_string(),
             Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
             Scenario::MetaSchema(_) => "meta_schema".to_string(),
@@ -368,6 +379,7 @@ impl Scenario<'_> {
             Scenario::JsonToEure(s) => s.run(),
             Scenario::TomlToEureDocument(s) => s.run(),
             Scenario::TomlToJson(s) => s.run(),
+            Scenario::TomlToEureSource(s) => s.run(),
             Scenario::SchemaValidation(s) => s.run(),
             Scenario::SchemaErrorValidation(s) => s.run(),
             Scenario::MetaSchema(s) => s.run(),
@@ -977,6 +989,31 @@ impl TomlToJsonScenario<'_> {
     }
 }
 
+/// Scenario: format(TOML → SourceDocument) should equal input_eure string
+pub struct TomlToEureSourceScenario<'a> {
+    input_toml: &'a PreprocessedToml,
+    input_eure: &'a str,
+}
+
+impl TomlToEureSourceScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        // Get the source document from TOML conversion
+        let source_doc = self.input_toml.source_doc()?;
+
+        // Format to Eure source string
+        let actual = eure_toml::format_source_document(source_doc);
+
+        // Compare with expected input_eure string
+        if actual.trim() != self.input_eure.trim() {
+            return Err(ScenarioError::TomlToEureSourceMismatch {
+                expected: self.input_eure.to_string(),
+                actual,
+            });
+        }
+        Ok(())
+    }
+}
+
 pub struct SchemaValidationScenario<'a> {
     input: &'a PreprocessedEure,
     schema: &'a PreprocessedEure,
@@ -1505,6 +1542,11 @@ impl PreprocessedCase {
             scenarios.push(Scenario::TomlToJson(TomlToJsonScenario {
                 input_toml,
                 input_eure,
+            }));
+            // format(TOML → SourceDocument) should equal input_eure string
+            scenarios.push(Scenario::TomlToEureSource(TomlToEureSourceScenario {
+                input_toml,
+                input_eure: input_eure.input(),
             }));
         }
 
