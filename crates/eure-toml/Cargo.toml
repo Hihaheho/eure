@@ -10,3 +10,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["conversion", "eure", "serialization", "toml"]
 
 [dependencies]
+eure-document = { workspace = true }
+num-bigint = { workspace = true }
+thiserror = { workspace = true }
+toml_edit = "0.22"

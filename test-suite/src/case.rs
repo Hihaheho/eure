@@ -99,6 +99,17 @@ pub enum ScenarioError {
     },
     /// Formatting error
     FormattingError { message: String },
+    /// TOML parse error
+    TomlParseError { message: String },
+    /// TOML to Eure conversion error
+    TomlToEureError { message: String },
+    /// TOML to Eure document mismatch
+    TomlToEureDocumentMismatch {
+        expected_debug: String,
+        actual_debug: String,
+    },
+    /// TOML to Eure source mismatch
+    TomlToEureSourceMismatch { expected: String, actual: String },
 }
 
 /// Format helper for displaying expected error not found with actual errors list
@@ -225,6 +236,29 @@ impl std::fmt::Display for ScenarioError {
             ScenarioError::FormattingError { message } => {
                 write!(f, "Formatting error: {}", message)
             }
+            ScenarioError::TomlParseError { message } => {
+                write!(f, "TOML parse error: {}", message)
+            }
+            ScenarioError::TomlToEureError { message } => {
+                write!(f, "TOML to Eure conversion error: {}", message)
+            }
+            ScenarioError::TomlToEureDocumentMismatch {
+                expected_debug,
+                actual_debug,
+            } => {
+                write!(
+                    f,
+                    "TOML to Eure document mismatch.\nExpected:\n{}\nActual:\n{}",
+                    expected_debug, actual_debug
+                )
+            }
+            ScenarioError::TomlToEureSourceMismatch { expected, actual } => {
+                write!(
+                    f,
+                    "TOML to Eure source mismatch.\nExpected:\n{}\nActual:\n{}",
+                    expected, actual
+                )
+            }
         }
     }
 }
@@ -303,6 +337,9 @@ pub enum Scenario<'a> {
     Normalization(NormalizationScenario<'a>),
     EureToJson(EureToJsonScenario<'a>),
     JsonToEure(JsonToEureScenario<'a>),
+    TomlToEureDocument(TomlToEureDocumentScenario<'a>),
+    TomlToJson(TomlToJsonScenario<'a>),
+    TomlToEureSource(TomlToEureSourceScenario<'a>),
     SchemaValidation(SchemaValidationScenario<'a>),
     SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
     MetaSchema(MetaSchemaScenario<'a>),
@@ -319,6 +356,9 @@ impl Scenario<'_> {
             Scenario::Normalization(_) => "normalization".to_string(),
             Scenario::EureToJson(s) => format!("eure_to_json({})", s.source),
             Scenario::JsonToEure(s) => format!("json_to_eure({})", s.source),
+            Scenario::TomlToEureDocument(_) => "toml_to_eure_document".to_string(),
+            Scenario::TomlToJson(_) => "toml_to_json".to_string(),
+            Scenario::TomlToEureSource(_) => "toml_to_eure_source".to_string(),
             Scenario::SchemaValidation(_) => "schema_validation".to_string(),
             Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
             Scenario::MetaSchema(_) => "meta_schema".to_string(),
@@ -337,6 +377,9 @@ impl Scenario<'_> {
             Scenario::Normalization(s) => s.run(),
             Scenario::EureToJson(s) => s.run(),
             Scenario::JsonToEure(s) => s.run(),
+            Scenario::TomlToEureDocument(s) => s.run(),
+            Scenario::TomlToJson(s) => s.run(),
+            Scenario::TomlToEureSource(s) => s.run(),
             Scenario::SchemaValidation(s) => s.run(),
             Scenario::SchemaErrorValidation(s) => s.run(),
             Scenario::MetaSchema(s) => s.run(),
@@ -352,6 +395,7 @@ impl Scenario<'_> {
 #[derive(Default)]
 pub struct PreprocessedCase {
     pub input_eure: Option<PreprocessedEure>,
+    pub input_toml: Option<PreprocessedToml>,
     pub input_json: Option<serde_json::Value>,
     pub normalized: Option<PreprocessedEure>,
     pub output_json: Option<serde_json::Value>,
@@ -510,6 +554,61 @@ impl PreprocessedEure {
     }
 }
 
+/// Preprocessed TOML input ready for testing
+pub enum PreprocessedToml {
+    Ok {
+        input: String,
+        source_doc: eure_document::source::SourceDocument,
+    },
+    ErrParse {
+        input: String,
+        error: String,
+    },
+    ErrConvert {
+        input: String,
+        error: eure_toml::TomlToEureError,
+    },
+}
+
+impl Default for PreprocessedToml {
+    fn default() -> Self {
+        PreprocessedToml::ErrParse {
+            input: String::new(),
+            error: "No TOML input provided".to_string(),
+        }
+    }
+}
+
+impl PreprocessedToml {
+    pub fn status(&self) -> String {
+        match self {
+            PreprocessedToml::Ok { .. } => "OK".to_string(),
+            PreprocessedToml::ErrParse { .. } => "PARSE_ERROR".to_string(),
+            PreprocessedToml::ErrConvert { .. } => "CONVERT_ERROR".to_string(),
+        }
+    }
+
+    pub fn is_ok(&self) -> bool {
+        matches!(self, PreprocessedToml::Ok { .. })
+    }
+
+    pub fn source_doc(&self) -> Result<&eure_document::source::SourceDocument, ScenarioError> {
+        match self {
+            PreprocessedToml::Ok { source_doc, .. } => Ok(source_doc),
+            PreprocessedToml::ErrParse { error, .. } => Err(ScenarioError::TomlParseError {
+                message: error.clone(),
+            }),
+            PreprocessedToml::ErrConvert { error, .. } => Err(ScenarioError::TomlToEureError {
+                message: error.to_string(),
+            }),
+        }
+    }
+
+    pub fn doc(&self) -> Result<&EureDocument, ScenarioError> {
+        self.source_doc().map(|s| &s.document)
+    }
+}
+
 impl Case {
     /// Create a Case from a CaseData with path and name
     pub fn new(path: PathBuf, name: String, data: CaseData) -> Self {
@@ -565,8 +664,30 @@ impl Case {
             Err(e) => PreprocessedEure::ErrParol { input, error: e },
         }
     }
+
+    fn preprocess_toml(code: &Text) -> PreprocessedToml {
+        let input = code.content.clone();
+
+        // Parse TOML
+        let toml_doc: toml_edit::DocumentMut = match input.parse() {
+            Ok(doc) => doc,
+            Err(e) => {
+                return PreprocessedToml::ErrParse {
+                    input,
+                    error: e.to_string(),
+                };
+            }
+        };
+
+        // Convert to SourceDocument
+        match eure_toml::to_source_document(&toml_doc) {
+            Ok(source_doc) => PreprocessedToml::Ok { input, source_doc },
+            Err(e) => PreprocessedToml::ErrConvert { input, error: e },
+        }
+    }
     pub fn preprocess(&self) -> Result<PreprocessedCase, PreprocessError> {
         let input_eure = self.data.input_eure.as_ref().map(Self::preprocess_eure);
+        let input_toml = self.data.input_toml.as_ref().map(Self::preprocess_toml);
         let normalized = self.data.normalized.as_ref().map(Self::preprocess_eure);
 
         // Expand JsonInput into separate input_json and output_json
@@ -646,6 +767,7 @@ impl Case {
 
         Ok(PreprocessedCase {
             input_eure,
+            input_toml,
             input_json,
             normalized,
             output_json,
@@ -793,6 +915,99 @@ impl JsonToEureScenario<'_> {
             return Err(ScenarioError::JsonToEureMismatch {
                 expected_debug: format!("{:#?}", expected_doc),
                 actual_debug: format!("{:#?}", actual_doc),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Scenario: TOML → EureDocument should equal input_eure → EureDocument
+pub struct TomlToEureDocumentScenario<'a> {
+    input_toml: &'a PreprocessedToml,
+    input_eure: &'a PreprocessedEure,
+}
+
+impl TomlToEureDocumentScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        // Get the expected document from input_eure
+        let expected_doc =
+            self.input_eure
+                .doc()
+                .map_err(|e| ScenarioError::PreprocessingError {
+                    message: format!("{}", e),
+                })?;
+
+        // Get the actual document from TOML conversion
+        let actual_doc = self.input_toml.doc()?;
+
+        // Compare documents
+        if actual_doc != expected_doc {
+            return Err(ScenarioError::TomlToEureDocumentMismatch {
+                expected_debug: format!("{:#?}", expected_doc),
+                actual_debug: format!("{:#?}", actual_doc),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Scenario: TOML → JSON should equal input_eure → JSON
+pub struct TomlToJsonScenario<'a> {
+    input_toml: &'a PreprocessedToml,
+    input_eure: &'a PreprocessedEure,
+}
+
+impl TomlToJsonScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        // Get the expected JSON from input_eure
+        let eure_doc = self
+            .input_eure
+            .doc()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+        let expected_json = eure_json::document_to_value(eure_doc, &eure_json::Config::default())
+            .map_err(|e| ScenarioError::EureToJsonConversionError {
+            message: format!("{}", e),
+        })?;
+
+        // Get the actual JSON from TOML conversion
+        let toml_doc = self.input_toml.doc()?;
+        let actual_json = eure_json::document_to_value(toml_doc, &eure_json::Config::default())
+            .map_err(|e| ScenarioError::EureToJsonConversionError {
+                message: format!("{}", e),
+            })?;
+
+        // Compare JSON values
+        if actual_json != expected_json {
+            return Err(ScenarioError::EureToJsonMismatch {
+                expected: expected_json,
+                actual: actual_json,
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Scenario: format(TOML → SourceDocument) should equal input_eure string
+pub struct TomlToEureSourceScenario<'a> {
+    input_toml: &'a PreprocessedToml,
+    input_eure: &'a str,
+}
+
+impl TomlToEureSourceScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        // Get the source document from TOML conversion
+        let source_doc = self.input_toml.source_doc()?;
+
+        // Format to Eure source string
+        let actual = eure_toml::format_source_document(source_doc);
+
+        // Compare with expected input_eure string
+        if actual.trim() != self.input_eure.trim() {
+            return Err(ScenarioError::TomlToEureSourceMismatch {
+                expected: self.input_eure.to_string(),
+                actual,
             });
         }
         Ok(())
@@ -1313,6 +1528,25 @@ impl PreprocessedCase {
                 input_json,
                 expected: normalized,
                 source: "normalized",
+            }));
+        }
+
+        // TOML-to-Eure scenarios
+        if let (Some(input_toml), Some(input_eure)) = (&self.input_toml, &self.input_eure) {
+            // TOML → EureDocument should equal input_eure → EureDocument
+            scenarios.push(Scenario::TomlToEureDocument(TomlToEureDocumentScenario {
+                input_toml,
+                input_eure,
+            }));
+            // TOML → JSON should equal input_eure → JSON
+            scenarios.push(Scenario::TomlToJson(TomlToJsonScenario {
+                input_toml,
+                input_eure,
+            }));
+            // format(TOML → SourceDocument) should equal input_eure string
+            scenarios.push(Scenario::TomlToEureSource(TomlToEureSourceScenario {
+                input_toml,
+                input_eure: input_eure.input(),
             }));
         }
 

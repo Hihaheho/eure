@@ -1,0 +1,47 @@
+// Basic TOML to Eure conversion test cases
+
+@ cases.simple_key_value {
+  input_toml = ```toml
+name = "example"
+version = "1.0.0"
+```
+
+  input_eure = ```eure
+name = "example"
+version = "1.0.0"
+```
+}
+
+@ cases.nested_table {
+  input_toml = ```toml
+[package]
+name = "my-app"
+version = "0.1.0"
+```
+
+  input_eure = ```eure
+@ package
+name = "my-app"
+version = "0.1.0"
+```
+}
+
+@ cases.multiple_sections {
+  input_toml = ```toml
+[server]
+host = "localhost"
+port = 8080
+
+[database]
+url = "postgres://localhost/db"
+```
+
+  input_eure = ```eure
+@ server
+host = "localhost"
+port = 8080
+
+@ database
+url = "postgres://localhost/db"
+```
+}
