@@ -877,7 +877,7 @@ key = "value"
 
         let source = result.expect("conversion should succeed");
         // Should have comment + binding
-        assert!(source.layout.items.len() >= 1);
+        assert!(!source.layout.items.len().is_empty());
     }
 
     #[test]
