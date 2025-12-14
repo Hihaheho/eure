@@ -86,7 +86,7 @@ impl Layout {
 }
 
 /// An item in the layout.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LayoutItem {
     /// A comment (line or block)
     Comment(Comment),
@@ -116,7 +116,7 @@ pub enum LayoutItem {
 }
 
 /// The body of a section.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SectionBody {
     /// Items following the section header (newline-separated)
     /// ```eure
@@ -153,17 +153,17 @@ pub struct SourcePathSegment {
 
 impl SourcePathSegment {
     /// Create a simple identifier segment without array marker.
-    pub fn ident(name: impl Into<String>) -> Self {
+    pub fn ident(name: Identifier) -> Self {
         Self {
-            key: SourceKey::Ident(name.into()),
+            key: SourceKey::Ident(name),
             array: None,
         }
     }
 
     /// Create an extension segment without array marker.
-    pub fn extension(name: impl Into<String>) -> Self {
+    pub fn extension(name: Identifier) -> Self {
         Self {
-            key: SourceKey::Extension(name.into()),
+            key: SourceKey::Extension(name),
             array: None,
         }
     }
@@ -187,10 +187,10 @@ impl SourcePathSegment {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SourceKey {
     /// Bare identifier: `foo`, `bar_baz`
-    Ident(String),
+    Ident(Identifier),
 
     /// Extension namespace: `$variant`, `$eure`
-    Extension(String),
+    Extension(Identifier),
 
     /// Quoted string key: `"hello world"`
     String(String),
@@ -205,15 +205,9 @@ pub enum SourceKey {
     TupleIndex(u8),
 }
 
-impl From<&str> for SourceKey {
-    fn from(s: &str) -> Self {
-        SourceKey::Ident(s.into())
-    }
-}
-
-impl From<String> for SourceKey {
-    fn from(s: String) -> Self {
-        SourceKey::Ident(s)
+impl From<Identifier> for SourceKey {
+    fn from(id: Identifier) -> Self {
+        SourceKey::Ident(id)
     }
 }
 
@@ -313,76 +307,71 @@ impl LayoutItem {
     }
 }
 
-/// Helper to build a source path from segments.
-#[macro_export]
-macro_rules! source_path {
-    ($($segment:expr),* $(,)?) => {
-        vec![$($crate::source::SourcePathSegment::ident($segment)),*]
-    };
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_source_path_segment_ident() {
-        let seg = SourcePathSegment::ident("foo");
-        assert_eq!(seg.key, SourceKey::Ident("foo".into()));
-        assert_eq!(seg.array, None);
+        let actual = SourcePathSegment::ident(Identifier::new_unchecked("foo"));
+        let expected = SourcePathSegment {
+            key: SourceKey::Ident(Identifier::new_unchecked("foo")),
+            array: None,
+        };
+        assert_eq!(actual, expected);
     }
 
     #[test]
-    fn test_source_path_segment_with_array() {
-        let seg = SourcePathSegment::ident("items").with_array_push();
-        assert_eq!(seg.array, Some(None));
+    fn test_source_path_segment_with_array_push() {
+        let actual = SourcePathSegment::ident(Identifier::new_unchecked("items")).with_array_push();
+        let expected = SourcePathSegment {
+            key: SourceKey::Ident(Identifier::new_unchecked("items")),
+            array: Some(None),
+        };
+        assert_eq!(actual, expected);
+    }
 
-        let seg = SourcePathSegment::ident("items").with_array_index(0);
-        assert_eq!(seg.array, Some(Some(0)));
+    #[test]
+    fn test_source_path_segment_with_array_index() {
+        let actual =
+            SourcePathSegment::ident(Identifier::new_unchecked("items")).with_array_index(0);
+        let expected = SourcePathSegment {
+            key: SourceKey::Ident(Identifier::new_unchecked("items")),
+            array: Some(Some(0)),
+        };
+        assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_layout_item_binding() {
-        let node = NodeId(0);
-        let path = vec![SourcePathSegment::ident("foo")];
-        let item = LayoutItem::binding(path.clone(), node);
-
-        match item {
-            LayoutItem::Binding {
-                path: p,
-                node: n,
-                trailing_comment,
-            } => {
-                assert_eq!(p, path);
-                assert_eq!(n, node);
-                assert_eq!(trailing_comment, None);
-            }
-            _ => panic!("Expected Binding"),
-        }
+        let path = vec![SourcePathSegment::ident(Identifier::new_unchecked("foo"))];
+        let actual = LayoutItem::binding(path.clone(), NodeId(0));
+        let expected = LayoutItem::Binding {
+            path,
+            node: NodeId(0),
+            trailing_comment: None,
+        };
+        assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_layout_item_section_with_comment() {
-        let path = vec![SourcePathSegment::ident("config")];
-        let item = LayoutItem::section_with_comment(path.clone(), "this is config", vec![]);
-
-        match item {
-            LayoutItem::Section {
-                path: p,
-                trailing_comment,
-                body: SectionBody::Items(items),
-            } => {
-                assert_eq!(p, path);
-                assert_eq!(trailing_comment, Some("this is config".into()));
-                assert!(items.is_empty());
-            }
-            _ => panic!("Expected Section"),
-        }
+        let path = vec![SourcePathSegment::ident(Identifier::new_unchecked(
+            "config",
+        ))];
+        let actual = LayoutItem::section_with_comment(path.clone(), "this is config", vec![]);
+        let expected = LayoutItem::Section {
+            path,
+            trailing_comment: Some("this is config".into()),
+            body: SectionBody::Items(vec![]),
+        };
+        assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_source_document_empty() {
         let doc = SourceDocument::empty();
-        assert!(doc.layout.items.is_empty());
+        let expected_layout = Layout { items: vec![] };
+        assert_eq!(doc.layout.items, expected_layout.items);
     }
 }
