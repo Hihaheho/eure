@@ -34,6 +34,12 @@ pub mod parse;
 /// Trait for writing Rust types to Eure documents.
 pub mod write;
 
+/// Source-level document representation with layout metadata.
+///
+/// Used for programmatic construction of Eure documents with preserved
+/// formatting information (comments, section ordering, etc.).
+pub mod source;
+
 /// Macro for building Eure documents.
 mod eure_macro;
 
