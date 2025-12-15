@@ -2827,6 +2827,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54ec451836679aaa55158b454b441e21446a111ea34aa1917eba29245bafe4b8"
 
 [[package]]
+name = "parol-walker"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "parol-walker-gen"
+version = "0.1.0"
+dependencies = [
+ "convert_case 0.8.0",
+ "parol",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "parol_runtime"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
