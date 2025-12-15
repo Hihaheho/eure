@@ -10,7 +10,7 @@ use crate::{SchemaNodeId, UnionSchema};
 
 use super::SchemaValidator;
 use super::context::ValidationContext;
-use super::error::{ValidationError, ValidatorError};
+use super::error::{BestVariantMatch, ValidationError, ValidatorError};
 
 // =============================================================================
 // UnionValidator
@@ -102,7 +102,11 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
 
         // Execute union parsing/validation
         match builder.parse() {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                // Success - clear any accumulated variant errors
+                self.ctx.clear_variant_errors();
+                Ok(())
+            }
             Err(e) => {
                 // Skip adding error if inner errors were already propagated
                 if matches!(e, ValidatorError::InnerErrorsPropagated) {
@@ -119,10 +123,13 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
                         error: parse_error.clone(),
                     });
                 } else {
-                    // Fallback: generic no-match error
+                    // Untagged union failed - create NoVariantMatched with best match info
+                    let variant_errors = self.ctx.take_variant_errors();
+                    let best_match = select_best_variant_match(variant_errors).map(Box::new);
+
                     self.ctx.record_error(ValidationError::NoVariantMatched {
                         path: self.ctx.path(),
-                        variant_errors: Vec::new(),
+                        best_match,
                         node_id: parse_ctx.node_id(),
                         schema_node_id: self.schema_node_id,
                     });
@@ -139,8 +146,8 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
 /// Returns Err if validation fails (so UnionParser can try other variants).
 ///
 /// `propagate_errors`: When true (tagged mode), propagate nested errors to parent context
-/// so they are reported with correct node positions. When false (untagged mode), discard
-/// errors from failed attempts to avoid confusing multiple error messages.
+/// so they are reported with correct node positions. When false (untagged mode), store
+/// errors for later analysis to find the best matching variant.
 fn validate_variant<'doc>(
     ctx: &ValidationContext<'doc>,
     parse_ctx: &ParseContext<'doc>,
@@ -170,17 +177,77 @@ fn validate_variant<'doc>(
         Ok(())
     } else {
         // Validation failed
-        // In tagged mode, propagate nested errors so they are reported with correct positions
-        // In untagged mode, discard errors to avoid confusing output from failed attempts
-        if propagate_errors && trial_ctx.has_errors() {
-            ctx.merge_state(trial_ctx.state.into_inner());
+        let trial_state = trial_ctx.state.into_inner();
+
+        if propagate_errors && !trial_state.errors.is_empty() {
+            // Tagged mode: propagate errors to parent context
+            ctx.merge_state(trial_state);
             // Signal that inner errors were propagated - no additional error needed
             Err(ValidatorError::InnerErrorsPropagated)
         } else {
+            // Untagged mode: store errors for later analysis
+            if !trial_state.errors.is_empty() {
+                ctx.record_variant_errors(variant_name.to_string(), trial_state.errors);
+            }
             Err(ValidatorError::InvalidVariantTag {
                 tag: variant_name.to_string(),
                 reason: "type mismatch".to_string(),
             })
         }
     }
+}
+
+/// Select the best matching variant from collected errors.
+///
+/// The "best" variant is selected based on:
+/// 1. **Depth** (primary): Errors deeper in the structure indicate better match
+/// 2. **Error count** (secondary): Fewer errors indicate closer match
+/// 3. **Error priority** (tertiary): Higher priority errors indicate clearer mismatch
+///
+/// Returns None if no variants were tried or all had empty errors.
+fn select_best_variant_match(
+    variant_errors: Vec<(String, Vec<ValidationError>)>,
+) -> Option<BestVariantMatch> {
+    if variant_errors.is_empty() {
+        return None;
+    }
+
+    // Find the best match based on metrics
+    let best = variant_errors
+        .into_iter()
+        .filter(|(_, errors)| !errors.is_empty())
+        .max_by_key(|(_, errors)| {
+            // Calculate metrics
+            let max_depth = errors.iter().map(|e| e.depth()).max().unwrap_or(0);
+            let error_count = errors.len();
+            let max_priority = errors.iter().map(|e| e.priority_score()).max().unwrap_or(0);
+
+            // Return tuple for comparison: (depth, -count, priority)
+            // Higher depth = better (got further)
+            // Lower count = better (fewer issues), so we use MAX - count
+            // Higher priority = better (more significant mismatch)
+            (max_depth, usize::MAX - error_count, max_priority)
+        });
+
+    best.map(|(variant_name, mut errors)| {
+        let depth = errors.iter().map(|e| e.depth()).max().unwrap_or(0);
+        let error_count = errors.len();
+
+        // Select primary error (highest priority, or deepest if tied)
+        errors.sort_by_key(|e| {
+            (
+                std::cmp::Reverse(e.priority_score()),
+                std::cmp::Reverse(e.depth()),
+            )
+        });
+        let primary_error = errors.first().cloned().unwrap();
+
+        BestVariantMatch {
+            variant_name,
+            error: Box::new(primary_error),
+            all_errors: errors,
+            depth,
+            error_count,
+        }
+    })
 }

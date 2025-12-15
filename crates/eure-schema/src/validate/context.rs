@@ -52,6 +52,9 @@ pub struct ValidationState {
     pub errors: Vec<ValidationError>,
     /// Accumulated warnings
     pub warnings: Vec<ValidationWarning>,
+    /// Temporary storage for variant errors during union validation.
+    /// Each entry is (variant_name, errors_from_that_variant).
+    pub(crate) variant_errors: Vec<(String, Vec<ValidationError>)>,
 }
 
 impl Default for ValidationState {
@@ -61,6 +64,7 @@ impl Default for ValidationState {
             has_holes: false,
             errors: Vec::new(),
             warnings: Vec::new(),
+            variant_errors: Vec::new(),
         }
     }
 }
@@ -136,6 +140,7 @@ impl ValidationState {
             has_holes: self.has_holes,
             errors: Vec::new(),
             warnings: Vec::new(),
+            variant_errors: Vec::new(), // Don't inherit variant errors
         }
     }
 
@@ -154,6 +159,25 @@ impl ValidationState {
             errors: self.errors,
             warnings: self.warnings,
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Variant error collection (for union validation)
+    // -------------------------------------------------------------------------
+
+    /// Record variant attempt errors (for union validation).
+    pub fn record_variant_errors(&mut self, variant_name: String, errors: Vec<ValidationError>) {
+        self.variant_errors.push((variant_name, errors));
+    }
+
+    /// Take collected variant errors (for union error construction).
+    pub fn take_variant_errors(&mut self) -> Vec<(String, Vec<ValidationError>)> {
+        std::mem::take(&mut self.variant_errors)
+    }
+
+    /// Clear variant errors without taking (for successful variant match).
+    pub fn clear_variant_errors(&mut self) {
+        self.variant_errors.clear();
     }
 }
 
@@ -323,6 +347,27 @@ impl<'a> ValidationContext<'a> {
             node_id,
             self.union_tag_mode,
         )
+    }
+
+    // -------------------------------------------------------------------------
+    // Variant error collection (for union validation)
+    // -------------------------------------------------------------------------
+
+    /// Record variant attempt errors during union validation.
+    pub fn record_variant_errors(&self, variant_name: String, errors: Vec<ValidationError>) {
+        self.state
+            .borrow_mut()
+            .record_variant_errors(variant_name, errors);
+    }
+
+    /// Take collected variant errors.
+    pub fn take_variant_errors(&self) -> Vec<(String, Vec<ValidationError>)> {
+        self.state.borrow_mut().take_variant_errors()
+    }
+
+    /// Clear variant errors.
+    pub fn clear_variant_errors(&self) {
+        self.state.borrow_mut().clear_variant_errors();
     }
 
     /// Consume context and produce final output.

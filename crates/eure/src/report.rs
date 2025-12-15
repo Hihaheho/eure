@@ -496,15 +496,17 @@ fn report_validation_error(error: &ValidationError, ctx: &SchemaReportContext<'_
         });
     }
 
-    // Handle nested errors (e.g., NoVariantMatched)
-    if let ValidationError::NoVariantMatched { variant_errors, .. } = error {
-        for (variant_name, variant_error) in variant_errors {
-            let nested = report_validation_error(variant_error, ctx);
-            report = report.with_element(Element::Nested {
-                title: format!("variant '{}' did not match", variant_name).into(),
-                children: nested.elements,
-            });
-        }
+    // Handle nested errors (e.g., NoVariantMatched with best match info)
+    if let ValidationError::NoVariantMatched {
+        best_match: Some(best),
+        ..
+    } = error
+    {
+        let nested = report_validation_error(&best.error, ctx);
+        report = report.with_element(Element::Nested {
+            title: format!("most close variant '{}' failed with", best.variant_name).into(),
+            children: nested.elements,
+        });
     }
 
     report

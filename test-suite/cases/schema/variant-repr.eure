@@ -337,13 +337,13 @@ value {
 ```
 
 schema_errors[] = ```text
-error: No variant matched for union at path value
+error: No variant matched for union at path value, most close variant is 'b': Missing required field 'code' at path value (and 1 more errors)
  --> <input>:1:1
   |
 1 | / value {
 2 | |   unknown_field = "test"
 3 | | }
-  | |_^ No variant matched for union at path value
+  | |_^ No variant matched for union at path value, most close variant is 'b': Missing required field 'code' at path value (and 1 more errors)
   |
 note: constraint defined here
  --> <schema>:1:1
@@ -354,6 +354,11 @@ note: constraint defined here
 4 | |   variants.b.code = `integer`
 5 | | }
   | |_- constraint defined here
+note: most close variant 'b' failed with
+ --> <input>:1:1
+  |
+1 | value {
+  | -
 ```
 
 // ============================================================================

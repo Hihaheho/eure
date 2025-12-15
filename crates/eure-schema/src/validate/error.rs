@@ -58,6 +58,42 @@ impl ValidatorError {
 }
 
 // =============================================================================
+// BestVariantMatch (for union error reporting)
+// =============================================================================
+
+/// Information about the best matching variant in a failed union validation.
+///
+/// When an untagged union validation fails, this structure captures detailed
+/// information about which variant came closest to matching, enabling better
+/// error diagnostics.
+///
+/// # Selection Criteria
+///
+/// The "best" variant is selected based on:
+/// 1. **Depth**: Errors deeper in the structure indicate better match (got further before failing)
+/// 2. **Error count**: Fewer errors indicate closer match
+/// 3. **Error priority**: Higher priority errors (like MissingRequiredField) indicate clearer mismatches
+///
+/// # Nested Unions
+///
+/// For nested unions like `Result<Option<T>, E>`, the error field itself may be a
+/// `NoVariantMatched` error, creating a hierarchical error structure that shows
+/// the full path of variant attempts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BestVariantMatch {
+    /// Name of the variant that matched best
+    pub variant_name: String,
+    /// Primary error from this variant (may be nested NoVariantMatched)
+    pub error: Box<ValidationError>,
+    /// All errors collected from this variant attempt
+    pub all_errors: Vec<ValidationError>,
+    /// Depth metric (path length of deepest error)
+    pub depth: usize,
+    /// Number of errors
+    pub error_count: usize,
+}
+
+// =============================================================================
 // ValidationError (accumulated type errors)
 // =============================================================================
 
@@ -161,10 +197,19 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
-    #[error("No variant matched for union at path {path}")]
+    /// No variant matched in an untagged union validation.
+    ///
+    /// This error occurs when all variants of a union are tried and none succeeds.
+    /// When available, `best_match` provides detailed information about which variant
+    /// came closest to matching and why it failed.
+    ///
+    /// For tagged unions (with `$variant` or `VariantRepr`), validation errors are
+    /// reported directly instead of wrapping them in `NoVariantMatched`.
+    #[error("{}", format_no_variant_matched(path, best_match))]
     NoVariantMatched {
         path: EurePath,
-        variant_errors: Vec<(String, ValidationError)>,
+        /// Best matching variant (None if no variants were tried)
+        best_match: Option<Box<BestVariantMatch>>,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
     },
@@ -274,6 +319,26 @@ fn format_parse_error(path: &EurePath, error: &eure_document::parse::ParseError)
         }
         // For other parse errors, use the default display
         _ => format!("{} at path {}", error.kind, path),
+    }
+}
+
+/// Format NoVariantMatched error with best match information.
+fn format_no_variant_matched(
+    path: &EurePath,
+    best_match: &Option<Box<BestVariantMatch>>,
+) -> String {
+    match best_match {
+        Some(best) => {
+            let mut msg = format!(
+                "No variant matched for union at path {path}, most close variant is '{}': {}",
+                best.variant_name, best.error
+            );
+            if best.all_errors.len() > 1 {
+                msg.push_str(&format!(" (and {} more errors)", best.all_errors.len() - 1));
+            }
+            msg
+        }
+        None => format!("No variant matched for union at path {path}"),
     }
 }
 
@@ -391,6 +456,68 @@ impl ValidationError {
                 schema_node_id,
                 ..
             } => (*node_id, *schema_node_id),
+        }
+    }
+
+    /// Calculate the depth of this error (path length).
+    ///
+    /// Deeper errors indicate that validation got further into the structure
+    /// before failing, suggesting a better match.
+    pub fn depth(&self) -> usize {
+        match self {
+            Self::TypeMismatch { path, .. }
+            | Self::MissingRequiredField { path, .. }
+            | Self::UnknownField { path, .. }
+            | Self::OutOfRange { path, .. }
+            | Self::StringLengthOutOfBounds { path, .. }
+            | Self::PatternMismatch { path, .. }
+            | Self::ArrayLengthOutOfBounds { path, .. }
+            | Self::MapSizeOutOfBounds { path, .. }
+            | Self::TupleLengthMismatch { path, .. }
+            | Self::ArrayNotUnique { path, .. }
+            | Self::ArrayMissingContains { path, .. }
+            | Self::NoVariantMatched { path, .. }
+            | Self::AmbiguousUnion { path, .. }
+            | Self::InvalidVariantTag { path, .. }
+            | Self::ConflictingVariantTags { path, .. }
+            | Self::LiteralMismatch { path, .. }
+            | Self::LanguageMismatch { path, .. }
+            | Self::InvalidKeyType { path, .. }
+            | Self::NotMultipleOf { path, .. }
+            | Self::UndefinedTypeReference { path, .. }
+            | Self::MissingRequiredExtension { path, .. }
+            | Self::ParseError { path, .. } => path.0.len(),
+        }
+    }
+
+    /// Get priority score for error type (higher = more indicative of mismatch).
+    ///
+    /// Used for selecting the "best" variant error when multiple variants fail
+    /// with similar depth and error counts.
+    pub fn priority_score(&self) -> u8 {
+        match self {
+            Self::MissingRequiredField { .. } => 90,
+            Self::TypeMismatch { .. } => 80,
+            Self::TupleLengthMismatch { .. } => 70,
+            Self::LiteralMismatch { .. } => 70,
+            Self::InvalidVariantTag { .. } => 65,
+            Self::NoVariantMatched { .. } => 60, // Nested union mismatch
+            Self::UnknownField { .. } => 50,
+            Self::MissingRequiredExtension { .. } => 50,
+            Self::ParseError { .. } => 40, // Medium priority
+            Self::OutOfRange { .. } => 30,
+            Self::StringLengthOutOfBounds { .. } => 30,
+            Self::PatternMismatch { .. } => 30,
+            Self::ArrayLengthOutOfBounds { .. } => 30,
+            Self::MapSizeOutOfBounds { .. } => 30,
+            Self::NotMultipleOf { .. } => 30,
+            Self::ArrayNotUnique { .. } => 25,
+            Self::ArrayMissingContains { .. } => 25,
+            Self::InvalidKeyType { .. } => 20,
+            Self::LanguageMismatch { .. } => 20,
+            Self::AmbiguousUnion { .. } => 0, // Not a mismatch
+            Self::ConflictingVariantTags { .. } => 0, // Configuration error
+            Self::UndefinedTypeReference { .. } => 0, // Configuration error
         }
     }
 }
