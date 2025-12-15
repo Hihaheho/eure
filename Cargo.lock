@@ -2831,6 +2831,7 @@ name = "parol-walker"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "parol_runtime",
  "thiserror 2.0.17",
 ]
 
@@ -2840,6 +2841,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "parol",
+ "parol-walker",
  "parol-walker-gen",
  "parol_runtime",
  "scnr2",

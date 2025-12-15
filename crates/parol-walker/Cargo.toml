@@ -11,3 +11,4 @@ categories = ["parser-implementations", "development-tools"]
 [dependencies]
 ahash.workspace = true
 thiserror.workspace = true
+parol_runtime = "4"

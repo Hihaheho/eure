@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 parol_runtime = "4"
+parol-walker = { path = "../../crates/parol-walker" }
 scnr2 = "0.3"
 thiserror = "2"
 ahash = "0.8"

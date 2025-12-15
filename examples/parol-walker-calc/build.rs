@@ -28,17 +28,26 @@ fn main() {
     let grammar_trait_path = out_path.join("grammar_trait.rs");
     let content = std::fs::read_to_string(&grammar_trait_path).unwrap();
     let fixed_content = content
-        .replace("#![allow(clippy::enum_variant_names)]", "#[allow(clippy::enum_variant_names)]")
-        .replace("#![allow(clippy::large_enum_variant)]", "#[allow(clippy::large_enum_variant)]")
-        .replace("#![allow(clippy::upper_case_acronyms)]", "#[allow(clippy::upper_case_acronyms)]");
+        .replace(
+            "#![allow(clippy::enum_variant_names)]",
+            "#[allow(clippy::enum_variant_names)]",
+        )
+        .replace(
+            "#![allow(clippy::large_enum_variant)]",
+            "#[allow(clippy::large_enum_variant)]",
+        )
+        .replace(
+            "#![allow(clippy::upper_case_acronyms)]",
+            "#[allow(clippy::upper_case_acronyms)]",
+        );
     std::fs::write(&grammar_trait_path, fixed_content).unwrap();
 
     // Configure parol-walker code generation
-    // Use crate::tree for runtime types (local definitions, not parol-walker crate)
+    // Use parol_walker crate for runtime types
     let config = WalkerConfig {
         naming: NamingConfig::default(),
         imports: ImportPaths {
-            runtime_crate: "crate::tree".into(),
+            runtime_crate: "parol_walker".into(),
             node_kind_module: "crate::node_kind".into(),
             nodes_module: "crate::nodes".into(),
         },

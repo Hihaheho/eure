@@ -53,7 +53,7 @@ impl AstTypeGenerator {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
             pub struct #struct_name(pub(crate) CstNodeId);
 
-            impl TerminalHandle for #struct_name {
+            impl TerminalHandle<TerminalKind> for #struct_name {
                 fn node_id(&self) -> CstNodeId {
                     self.0
                 }
@@ -82,23 +82,13 @@ impl AstTypeGenerator {
 
         // BuiltinTerminalVisitor is generated in visitor module, not in runtime
         // Derive visitor module path from nodes_module (they're siblings)
-        let visitor_module = self
-            .config
-            .imports
-            .nodes_module
-            .rsplit_once("::")
-            .map(|(prefix, _)| format!("{}::visitor", prefix))
-            .unwrap_or("crate::visitor".to_string());
-        let visitor_use = syn::parse_str::<syn::Path>(&visitor_module).unwrap();
-
         quote! {
             #header
             use #runtime_use::{
                 TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId,
                 CstFacade, CstConstructError, ViewConstructionError,
-                NodeKind,
+                NodeKind, BuiltinTerminalVisitor, BuiltinTerminalKind,
             };
-            use #visitor_use::BuiltinTerminalVisitor;
             use #node_kind_use::{TerminalKind, NonTerminalKind};
         }
     }
@@ -171,14 +161,14 @@ impl AstTypeGenerator {
         );
         let kind_method = self.generate_handle_kind_method(quote!(NonTerminalKind::#variant_name));
         let item_impl = parse_quote! {
-            impl NonTerminalHandle for #handle_name {
+            impl NonTerminalHandle<TerminalKind, NonTerminalKind> for #handle_name {
                 type View = #view_name;
                 fn node_id(&self) -> CstNodeId {
                     self.0
                 }
                 #new_method
                 #kind_method
-                fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+                fn get_view_with_visit<'v, F: CstFacade<TerminalKind, NonTerminalKind>, V: BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>, O, E>(
                     &self,
                     tree: &F,
                     mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
@@ -426,11 +416,7 @@ impl AstTypeGenerator {
             };
         };
         let unexpected_node_error = quote! {
-            Err(ViewConstructionError::UnexpectedNode {
-                node: child,
-                data: child_data,
-                expected_kind: child_data.node_kind(),
-            }.into())
+            Err(ViewConstructionError::UnexpectedNode { node: child }.into())
         };
 
         // Generate get_view_with_visit body
@@ -461,14 +447,14 @@ impl AstTypeGenerator {
         };
 
         let item_impl: syn::ItemImpl = parse_quote! {
-            impl NonTerminalHandle for #handle_name {
+            impl NonTerminalHandle<TerminalKind, NonTerminalKind> for #handle_name {
                 type View = #view_name;
                 fn node_id(&self) -> CstNodeId {
                     self.0
                 }
                 #new_method
                 #kind_method
-                fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+                fn get_view_with_visit<'v, F: CstFacade<TerminalKind, NonTerminalKind>, V: BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>, O, E>(
                     &self,
                     tree: &F,
                     mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
@@ -527,14 +513,14 @@ impl AstTypeGenerator {
         );
         let kind_method = self.generate_handle_kind_method(quote!(NonTerminalKind::#variant_name));
         let item_impl: syn::ItemImpl = parse_quote! {
-            impl NonTerminalHandle for #handle_name {
+            impl NonTerminalHandle<TerminalKind, NonTerminalKind> for #handle_name {
                 type View = Option<#view_name>;
                 fn node_id(&self) -> CstNodeId {
                     self.0
                 }
                 #new_method
                 #kind_method
-                fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+                fn get_view_with_visit<'v, F: CstFacade<TerminalKind, NonTerminalKind>, V: BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>, O, E>(
                     &self,
                     tree: &F,
                     mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
@@ -574,9 +560,9 @@ impl AstTypeGenerator {
             None
         };
         let view_impl: syn::ItemImpl = parse_quote! {
-            impl<F: CstFacade> RecursiveView<F> for #view_name {
+            impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, NonTerminalKind, F> for #view_name {
                 type Item = #item_name;
-                fn get_all_with_visit<E>(&self, tree: &F, visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+                fn get_all_with_visit<E>(&self, tree: &F, visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>) -> Result<Vec<Self::Item>, CstConstructError<E>> {
                     let mut items = Vec::new();
                     let mut current_view = Some(*self);
                     while let Some(item) = current_view {
@@ -644,14 +630,14 @@ impl AstTypeGenerator {
                 self.generate_handle_kind_method(quote!(NonTerminalKind::#variant_name));
 
             let item_impl: syn::ItemImpl = parse_quote! {
-                impl NonTerminalHandle for #handle_name {
+                impl NonTerminalHandle<TerminalKind, NonTerminalKind> for #handle_name {
                     type View = Option<#view_name>;
                     fn node_id(&self) -> CstNodeId {
                         self.0
                     }
                     #new_method
                     #kind_method
-                    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+                    fn get_view_with_visit<'v, F: CstFacade<TerminalKind, NonTerminalKind>, V: BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>, O, E>(
                         &self,
                         tree: &F,
                         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
@@ -707,14 +693,14 @@ impl AstTypeGenerator {
         let kind_method = self.generate_handle_kind_method(quote!(NonTerminalKind::#variant_name));
 
         let item_impl: syn::ItemImpl = parse_quote! {
-            impl NonTerminalHandle for #handle_name {
+            impl NonTerminalHandle<TerminalKind, NonTerminalKind> for #handle_name {
                 type View = Option<#child_handle_name>;
                 fn node_id(&self) -> CstNodeId {
                     self.0
                 }
                 #new_method
                 #kind_method
-                fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+                fn get_view_with_visit<'v, F: CstFacade<TerminalKind, NonTerminalKind>, V: BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>, O, E>(
                     &self,
                     tree: &F,
                     mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
@@ -745,7 +731,7 @@ impl AstTypeGenerator {
 
     fn generate_handle_new_method(&self, node_kind: TokenStream) -> proc_macro2::TokenStream {
         parse_quote! {
-            fn new_with_visit<F: CstFacade, E>(index: CstNodeId, tree: &F, visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>) -> Result<Self, CstConstructError<E>> {
+            fn new_with_visit<F: CstFacade<TerminalKind, NonTerminalKind>, E>(index: CstNodeId, tree: &F, visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>) -> Result<Self, CstConstructError<E>> {
                 tree.collect_nodes(index, [#node_kind], |[index], visit| Ok((Self(index), visit)), visit_ignored)
             }
         }
