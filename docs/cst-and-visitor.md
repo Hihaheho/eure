@@ -200,13 +200,13 @@ fn visit(cst: &Cst) -> Result<(), CstConstructError> {
 
 The combination of auto-generated, type-safe node access (`Handle` and `View`) and the flexible `CstVisitor` trait provides a powerful foundation for interacting with Eure CSTs.
 
-## ValueVisitor: Extracting Values from CST
+## CstInterpreter: Extracting Values from CST
 
-While the `CstVisitor` trait provides a generic way to traverse the CST, the `ValueVisitor` struct (in `value_visitor.rs`) provides a specialized implementation for extracting structured data from Eure documents.
+While the `CstVisitor` trait provides a generic way to traverse the CST, the `CstInterpreter` struct (in `value_visitor.rs`) provides a specialized implementation for extracting structured data from Eure documents.
 
 ### Overview
 
-`ValueVisitor` implements `CstVisitor` to build an `EureDocument` - a path-based document structure that represents the hierarchical data in your Eure file. The key architectural point is that **`ValueVisitor` produces `EureDocument`, not `Value` directly**. This design preserves CST handles for span tracking and error reporting.
+`CstInterpreter` implements `CstVisitor` to build an `EureDocument` - a path-based document structure that represents the hierarchical data in your Eure file. The key architectural point is that **`CstInterpreter` produces `EureDocument`, not `Value` directly**. This design preserves CST handles for span tracking and error reporting.
 
 The visitor handles all the complexity of:
 
@@ -221,7 +221,7 @@ The visitor handles all the complexity of:
 
 The correct data flow is:
 
-1. **ValueVisitor traverses the CST** and builds an `EureDocument`
+1. **CstInterpreter traverses the CST** and builds an `EureDocument`
 2. **EureDocument preserves CST handles** for span tracking and diagnostics
 3. **EureDocument can be converted to Value** when spans aren't needed
 
@@ -233,10 +233,10 @@ This architecture ensures that:
 ### Basic Usage
 
 ```rust
-use eure_tree::value_visitor::ValueVisitor;
+use eure_tree::value_visitor::CstInterpreter;
 
 // Create a visitor with your input text
-let mut visitor = ValueVisitor::new(input);
+let mut visitor = CstInterpreter::new(input);
 
 // Visit the CST (typically done by the parser)
 visitor.visit_eure(eure_handle, eure_view, &tree)?;
@@ -253,7 +253,7 @@ schema_validator.validate(&document); // Can report exact error locations
 
 ### Key Features
 
-1. **Path-Based Construction**: Instead of manually building nested structures, `ValueVisitor` uses `EureDocument`'s path-based API:
+1. **Path-Based Construction**: Instead of manually building nested structures, `CstInterpreter` uses `EureDocument`'s path-based API:
    ```rust
    // Internally, bindings like `user.name = "Alice"` become:
    document.insert_node(vec![PathSegment::Ident("user"), PathSegment::Ident("name")], Value::String("Alice"))
@@ -279,16 +279,16 @@ schema_validator.validate(&document); // Can report exact error locations
 
 ### Implementation Details
 
-The new `ValueVisitor` is significantly simpler than previous implementations:
+The new `CstInterpreter` is significantly simpler than previous implementations:
 
-- **Single Struct Design**: Everything is contained in `ValueVisitor` - no separate `Values` struct
+- **Single Struct Design**: Everything is contained in `CstInterpreter` - no separate `Values` struct
 - **Direct Document Building**: Uses `EureDocument::insert_node()` for all insertions
 - **Minimal State**: Only caches values when needed for references
 - **No Post-Processing**: Variants and extensions are handled during traversal
 
 ### Comparison with Direct CstVisitor Implementation
 
-While you could implement `CstVisitor` directly for value extraction, `ValueVisitor` provides:
+While you could implement `CstVisitor` directly for value extraction, `CstInterpreter` provides:
 
 - Pre-built path segment construction from keys
 - Automatic handling of array syntax
@@ -296,7 +296,7 @@ While you could implement `CstVisitor` directly for value extraction, `ValueVisi
 - Value type conversion (strings, numbers, arrays, etc.)
 - Extension and variant handling
 
-This makes `ValueVisitor` the recommended approach for extracting structured data from Eure documents.
+This makes `CstInterpreter` the recommended approach for extracting structured data from Eure documents.
 
 ### Advanced Use Case: Custom Facade and Dependency Graphs
 

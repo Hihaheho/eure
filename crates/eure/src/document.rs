@@ -1,4 +1,4 @@
-mod value_visitor;
+mod interpreter;
 
 use eros::Union as _;
 use eure_document::document::constructor::ScopeError;
@@ -9,7 +9,7 @@ pub use eure_document::parse;
 use eure_document::text::TextParseError;
 use eure_parol::EureParseError;
 
-use crate::document::value_visitor::ValueVisitor;
+use crate::document::interpreter::CstInterpreter;
 use eure_tree::prelude::*;
 use eure_tree::tree::InputSpan;
 use std::collections::HashMap;
@@ -161,7 +161,7 @@ pub fn parse_to_document(
 }
 
 pub fn cst_to_document(input: &str, cst: &Cst) -> Result<EureDocument, DocumentConstructionError> {
-    let mut visitor = ValueVisitor::new(input);
+    let mut visitor = CstInterpreter::new(input);
     visitor.visit_root_handle(cst.root_handle(), cst)?;
     Ok(visitor.into_document())
 }
@@ -174,7 +174,7 @@ pub fn cst_to_document_and_origin_map(
     input: &str,
     cst: &Cst,
 ) -> Result<(EureDocument, OriginMap), DocumentConstructionError> {
-    let mut visitor = ValueVisitor::new(input);
+    let mut visitor = CstInterpreter::new(input);
     visitor.visit_root_handle(cst.root_handle(), cst)?;
     Ok(visitor.into_document_and_origin_map())
 }

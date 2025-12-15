@@ -117,7 +117,7 @@ impl CodeStart {
     }
 }
 
-pub struct ValueVisitor<'a> {
+pub struct CstInterpreter<'a> {
     input: &'a str,
     // Main document being built
     document: DocumentConstructor,
@@ -130,7 +130,7 @@ pub struct ValueVisitor<'a> {
     pending_code_origin: Option<CodeOrigin>,
 }
 
-impl<'a> ValueVisitor<'a> {
+impl<'a> CstInterpreter<'a> {
     pub fn new(input: &'a str) -> Self {
         Self {
             input,
@@ -282,7 +282,7 @@ impl<'a> ValueVisitor<'a> {
     }
 }
 
-impl<F: CstFacade> CstVisitor<F> for ValueVisitor<'_> {
+impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
     type Error = DocumentConstructionError;
 
     fn visit_eure(
@@ -1266,7 +1266,7 @@ mod tests {
 
         #[test]
         fn test_simple_code_without_language() {
-            let result = ValueVisitor::parse_inline_code_1("`hello`");
+            let result = CstInterpreter::parse_inline_code_1("`hello`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
             assert_eq!(language, Language::Implicit);
@@ -1275,7 +1275,7 @@ mod tests {
 
         #[test]
         fn test_code_with_language() {
-            let result = ValueVisitor::parse_inline_code_1("rust`fn main() {}`");
+            let result = CstInterpreter::parse_inline_code_1("rust`fn main() {}`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
             assert_eq!(language, Language::Other("rust".to_string()));
@@ -1284,7 +1284,7 @@ mod tests {
 
         #[test]
         fn test_empty_code() {
-            let result = ValueVisitor::parse_inline_code_1("``");
+            let result = CstInterpreter::parse_inline_code_1("``");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
             assert_eq!(language, Language::Implicit);
@@ -1293,7 +1293,7 @@ mod tests {
 
         #[test]
         fn test_code_with_special_chars() {
-            let result = ValueVisitor::parse_inline_code_1("`hello world!@#$%`");
+            let result = CstInterpreter::parse_inline_code_1("`hello world!@#$%`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
             assert_eq!(language, Language::Implicit);
@@ -1302,7 +1302,7 @@ mod tests {
 
         #[test]
         fn test_language_with_hyphen_and_underscore() {
-            let result = ValueVisitor::parse_inline_code_1("foo-bar_123`content`");
+            let result = CstInterpreter::parse_inline_code_1("foo-bar_123`content`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
             assert_eq!(language, Language::Other("foo-bar_123".to_string()));
@@ -1311,7 +1311,7 @@ mod tests {
 
         #[test]
         fn test_no_backticks() {
-            let result = ValueVisitor::parse_inline_code_1("no backticks");
+            let result = CstInterpreter::parse_inline_code_1("no backticks");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1321,7 +1321,7 @@ mod tests {
 
         #[test]
         fn test_single_backtick() {
-            let result = ValueVisitor::parse_inline_code_1("`");
+            let result = CstInterpreter::parse_inline_code_1("`");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1336,28 +1336,28 @@ mod tests {
 
         #[test]
         fn test_no_language() {
-            let result = ValueVisitor::parse_inline_code_start_2("``");
+            let result = CstInterpreter::parse_inline_code_start_2("``");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Implicit);
         }
 
         #[test]
         fn test_with_language() {
-            let result = ValueVisitor::parse_inline_code_start_2("rust``");
+            let result = CstInterpreter::parse_inline_code_start_2("rust``");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_with_complex_language() {
-            let result = ValueVisitor::parse_inline_code_start_2("foo-bar_123``");
+            let result = CstInterpreter::parse_inline_code_start_2("foo-bar_123``");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("foo-bar_123".to_string()));
         }
 
         #[test]
         fn test_no_backticks() {
-            let result = ValueVisitor::parse_inline_code_start_2("rust");
+            let result = CstInterpreter::parse_inline_code_start_2("rust");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1374,42 +1374,42 @@ mod tests {
 
         #[test]
         fn test_no_language_3_backticks() {
-            let result = ValueVisitor::parse_code_block_start("```\n");
+            let result = CstInterpreter::parse_code_block_start("```\n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Implicit);
         }
 
         #[test]
         fn test_with_language_3_backticks() {
-            let result = ValueVisitor::parse_code_block_start("```rust\n");
+            let result = CstInterpreter::parse_code_block_start("```rust\n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_with_language_4_backticks() {
-            let result = ValueVisitor::parse_code_block_start("````python\n");
+            let result = CstInterpreter::parse_code_block_start("````python\n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("python".to_string()));
         }
 
         #[test]
         fn test_with_language_5_backticks() {
-            let result = ValueVisitor::parse_code_block_start("`````javascript\n");
+            let result = CstInterpreter::parse_code_block_start("`````javascript\n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("javascript".to_string()));
         }
 
         #[test]
         fn test_with_language_6_backticks() {
-            let result = ValueVisitor::parse_code_block_start("``````typescript\n");
+            let result = CstInterpreter::parse_code_block_start("``````typescript\n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("typescript".to_string()));
         }
 
         #[test]
         fn test_language_with_trailing_whitespace() {
-            let result = ValueVisitor::parse_code_block_start("```rust  \n");
+            let result = CstInterpreter::parse_code_block_start("```rust  \n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
@@ -1418,7 +1418,7 @@ mod tests {
         fn test_language_with_leading_whitespace_is_invalid() {
             // Leading whitespace before language tag with non-whitespace after is grammar violation
             // Pattern: ```[a-zA-Z0-9_-]*[ \t]*\n but this has ``` [ \t]+ [a-z]+ which doesn't match
-            let result = ValueVisitor::parse_code_block_start("```  rust\n");
+            let result = CstInterpreter::parse_code_block_start("```  rust\n");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1428,28 +1428,28 @@ mod tests {
 
         #[test]
         fn test_language_with_carriage_return() {
-            let result = ValueVisitor::parse_code_block_start("```rust\r\n");
+            let result = CstInterpreter::parse_code_block_start("```rust\r\n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_language_with_only_carriage_return() {
-            let result = ValueVisitor::parse_code_block_start("```rust\r");
+            let result = CstInterpreter::parse_code_block_start("```rust\r");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
         }
 
         #[test]
         fn test_empty_language_with_spaces() {
-            let result = ValueVisitor::parse_code_block_start("```   \n");
+            let result = CstInterpreter::parse_code_block_start("```   \n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Implicit);
         }
 
         #[test]
         fn test_no_newline() {
-            let result = ValueVisitor::parse_code_block_start("```rust");
+            let result = CstInterpreter::parse_code_block_start("```rust");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
@@ -1459,7 +1459,7 @@ mod tests {
 
         #[test]
         fn test_complex_language_tag() {
-            let result = ValueVisitor::parse_code_block_start("```foo-bar_123\n");
+            let result = CstInterpreter::parse_code_block_start("```foo-bar_123\n");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("foo-bar_123".to_string()));
         }

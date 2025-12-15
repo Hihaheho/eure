@@ -107,8 +107,8 @@ enum CompletionPosition {
 
 ```rust
 // CompletionVisitor is specialized for finding completion contexts
-// For full value extraction, use the new ValueVisitor API:
-//   let mut visitor = ValueVisitor::new(input);
+// For full value extraction, use the new CstInterpreter API:
+//   let mut visitor = CstInterpreter::new(input);
 //   visitor.visit_eure(handle, view, tree)?;
 //   let document: EureDocument = visitor.into_document();
 //
@@ -146,7 +146,7 @@ struct CompletionVisitor<'a> {
 }
 
 // Note: This implements CstVisitor for completion-specific traversal
-// The new ValueVisitor uses similar path building with build_path_segments()
+// The new CstInterpreter uses similar path building with build_path_segments()
 impl<'a> CstVisitor for CompletionVisitor<'a> {
     fn visit_section(&mut self, handle: SectionHandle, view: SectionView, tree: &Cst) -> Result<(), Self::Error> {
         let span = self.get_span(handle, tree);

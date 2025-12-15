@@ -157,7 +157,7 @@ Converting from `Value` to `EureDocument` requires synthetic handle creation:
 // This is typically done during parsing, not direct conversion
 // Values are built into EureDocument during the parsing phase
 let tree = parse(input)?;
-let mut visitor = ValueVisitor::new(input);
+let mut visitor = CstInterpreter::new(input);
 tree.visit_from_root(&mut visitor)?;
 let document = visitor.into_document();
 ```
@@ -200,7 +200,7 @@ let document = visitor.into_document();
 // Using EureDocument for rich error reporting
 pub fn validate_with_diagnostics(input: &str) -> Vec<Diagnostic> {
     let tree = parse(input)?;
-    let mut visitor = ValueVisitor::new(input);
+    let mut visitor = CstInterpreter::new(input);
     tree.visit_from_root(&mut visitor)?;
     let document = visitor.into_document();
 
@@ -323,7 +323,7 @@ pub struct EureProcessor {
 impl EureProcessor {
     pub fn new(input: &str) -> Result<Self, Error> {
         let tree = parse(input)?;
-        let mut visitor = ValueVisitor::new(input);
+        let mut visitor = CstInterpreter::new(input);
         tree.visit_from_root(&mut visitor)?;
         let document = visitor.into_document();
         let value = document.to_value();
