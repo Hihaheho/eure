@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use eure::{
     Map,
+    data_model::VariantRepr,
     document::{
         DocumentConstructionError, NodeValue,
         parse::{
@@ -131,39 +132,77 @@ impl ParseDocument<'_> for InputUnionTagMode {
     }
 }
 
-/// JSON input configuration for test cases.
-///
-/// Represents mutually exclusive modes for specifying JSON test data.
 #[derive(Debug, Clone)]
-pub enum JsonInput {
-    /// Both input and output use the same JSON value (via `json` field)
+pub enum JsonData {
     Both(Text),
-
-    /// Only input_json specified (JSON→Eure tests)
-    InputOnly(Text),
-
-    /// Only output_json specified (Eure→JSON tests)
-    OutputOnly(Text),
-
-    /// Both specified separately (different values for input and output)
-    Separate { input: Text, output: Text },
+    Separate {
+        input: Option<Text>,
+        output: Option<Text>,
+    },
 }
 
-impl JsonInput {
+impl JsonData {
+    pub fn is_empty(&self) -> bool {
+        matches!(
+            self,
+            JsonData::Separate {
+                input: None,
+                output: None
+            }
+        )
+    }
+
     pub fn input_json(&self) -> Option<&Text> {
         match self {
-            JsonInput::Both(text) | JsonInput::InputOnly(text) => Some(text),
-            JsonInput::Separate { input, .. } => Some(input),
-            JsonInput::OutputOnly(_) => None,
+            JsonData::Both(text) => Some(text),
+            JsonData::Separate {
+                input: Some(input),
+                output: _,
+            } => Some(input),
+            _ => None,
         }
     }
 
     pub fn output_json(&self) -> Option<&Text> {
         match self {
-            JsonInput::Both(text) | JsonInput::OutputOnly(text) => Some(text),
-            JsonInput::Separate { output, .. } => Some(output),
-            JsonInput::InputOnly(_) => None,
+            JsonData::Both(text) => Some(text),
+            JsonData::Separate {
+                input: _,
+                output: Some(output),
+            } => Some(output),
+            _ => None,
         }
+    }
+}
+
+impl Default for JsonData {
+    fn default() -> Self {
+        JsonData::Separate {
+            input: None,
+            output: None,
+        }
+    }
+}
+
+impl ParseDocument<'_> for JsonData {
+    type Error = DocumentParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+        ctx.parse_union(VariantRepr::default())?
+            .variant("Both", |ctx: &ParseContext<'_>| {
+                let mut rec = ctx.parse_record()?;
+                let text = rec.parse_field("json")?;
+                rec.deny_unknown_fields()?;
+                Ok(JsonData::Both(text))
+            })
+            .variant("Separate", |ctx: &ParseContext<'_>| {
+                let mut rec = ctx.parse_record()?;
+                let input = rec.parse_field_optional("input_json")?;
+                let output = rec.parse_field_optional("output_json")?;
+                rec.deny_unknown_fields()?;
+                Ok(JsonData::Separate { input, output })
+            })
+            .parse()
     }
 }
 
@@ -172,7 +211,7 @@ impl JsonInput {
 pub struct CaseData {
     pub input_eure: Option<Text>,
     pub input_toml: Option<Text>,
-    pub json_input: Option<JsonInput>,
+    pub json: JsonData,
     pub normalized: Option<Text>,
     pub schema: Option<Text>,
     pub schema_errors: Vec<Text>,
@@ -195,7 +234,7 @@ impl CaseData {
     pub fn is_empty(&self) -> bool {
         self.input_eure.is_none()
             && self.input_toml.is_none()
-            && self.json_input.is_none()
+            && self.json.is_empty()
             && self.normalized.is_none()
             && self.schema.is_none()
             && self.schema_errors.is_empty()
@@ -209,35 +248,6 @@ impl CaseData {
     }
 }
 
-/// Parse JSON fields and construct JsonInput with mutual exclusion validation.
-fn parse_json_input(
-    rec: &mut RecordParser<'_>,
-    ctx: &ParseContext<'_>,
-) -> Result<Option<JsonInput>, DocumentParseError> {
-    let json = rec.parse_field_optional::<Text>("json")?;
-    let input_json = rec.parse_field_optional::<Text>("input_json")?;
-    let output_json = rec.parse_field_optional::<Text>("output_json")?;
-
-    match (json, input_json, output_json) {
-        (Some(text), None, None) => Ok(Some(JsonInput::Both(text))),
-        (None, Some(input), None) => Ok(Some(JsonInput::InputOnly(input))),
-        (None, None, Some(output)) => Ok(Some(JsonInput::OutputOnly(output))),
-        (None, Some(input), Some(output)) => Ok(Some(JsonInput::Separate { input, output })),
-
-        // Mutual exclusion violation
-        (Some(_), Some(_), _) | (Some(_), _, Some(_)) => Err(DocumentParseError {
-            node_id: ctx.node_id(),
-            kind: ParseErrorKind::InvalidPattern {
-                pattern: "Either 'json' alone, or 'input_json'/'output_json' separately"
-                    .to_string(),
-                value: "Field 'json' cannot be used with 'input_json' or 'output_json'".to_string(),
-            },
-        }),
-
-        (None, None, None) => Ok(None),
-    }
-}
-
 impl ParseDocument<'_> for CaseData {
     type Error = DocumentParseError;
 
@@ -246,7 +256,7 @@ impl ParseDocument<'_> for CaseData {
 
         let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
         let input_toml = rec.parse_field_optional::<Text>("input_toml")?;
-        let json_input = parse_json_input(&mut rec, ctx)?;
+        let json = rec.flatten().parse::<JsonData>()?;
         let normalized = rec.parse_field_optional::<Text>("normalized")?;
         let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
@@ -299,7 +309,7 @@ impl ParseDocument<'_> for CaseData {
         Ok(CaseData {
             input_eure,
             input_toml,
-            json_input,
+            json,
             normalized,
             schema,
             schema_errors,
@@ -386,7 +396,7 @@ impl ParseDocument<'_> for CaseFile {
         // Parse root-level fields as default case
         let input_eure = rec.parse_field_optional::<Text>("input_eure")?;
         let input_toml = rec.parse_field_optional::<Text>("input_toml")?;
-        let json_input = parse_json_input(&mut rec, ctx)?;
+        let json = rec.flatten().parse::<JsonData>()?;
         let normalized = rec.parse_field_optional::<Text>("normalized")?;
         let schema = rec.parse_field_optional::<Text>("schema")?;
         let schema_errors = rec
@@ -455,7 +465,7 @@ impl ParseDocument<'_> for CaseFile {
             default_case: CaseData {
                 input_eure,
                 input_toml,
-                json_input,
+                json,
                 normalized,
                 schema,
                 schema_errors,
