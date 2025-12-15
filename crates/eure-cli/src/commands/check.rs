@@ -1,13 +1,14 @@
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use eure::document::cst_to_document_and_origin_map;
 use eure::error::{
-    format_document_error, format_parse_error_color, format_schema_error, SchemaErrorContext,
+    SchemaErrorContext, format_document_error, format_parse_error_color, format_schema_error,
 };
-use eure_config::{EureConfig, Target, CONFIG_FILENAME};
-use eure_schema::convert::document_to_schema;
-use eure_schema::validate::{validate, ValidationOutput, ValidationWarning};
+use eure_config::{CONFIG_FILENAME, EureConfig, Target};
 use eure_schema::SchemaRef;
+use eure_schema::convert::document_to_schema;
+use eure_schema::validate::{ValidationOutput, ValidationWarning, validate};
 use nu_ansi_term::Color;
 
 use crate::util::{display_path, read_input};
@@ -22,6 +23,11 @@ pub struct Args {
     /// Path to schema file (overrides $schema in document)
     #[arg(short, long)]
     pub schema: Option<String>,
+
+    /// Quiet mode: suppress per-file/per-target output on success (prints a single summary line).
+    /// Warnings are treated as errors.
+    #[arg(short, long)]
+    pub quiet: bool,
 
     /// Run all targets defined in Eure.eure
     #[arg(long)]
@@ -51,6 +57,8 @@ pub fn run(args: Args) {
 }
 
 fn run_project_mode(args: Args, config_path: &Path) {
+    let start = Instant::now();
+
     let config = match EureConfig::load(config_path) {
         Ok(c) => c,
         Err(e) => {
@@ -69,7 +77,11 @@ fn run_project_mode(args: Args, config_path: &Path) {
         config.target_names().collect()
     } else if args.files_or_targets.is_empty() {
         // Use default targets
-        config.default_targets().iter().map(|s| s.as_str()).collect()
+        config
+            .default_targets()
+            .iter()
+            .map(|s| s.as_str())
+            .collect()
     } else {
         // Check if arguments are target names or files
         let first = &args.files_or_targets[0];
@@ -94,7 +106,8 @@ fn run_project_mode(args: Args, config_path: &Path) {
         std::process::exit(0);
     }
 
-    let mut total_errors = 0;
+    let mut total_error_files = 0;
+    let mut total_warnings = 0;
     let mut total_files = 0;
 
     for target_name in &target_names {
@@ -113,42 +126,77 @@ fn run_project_mode(args: Args, config_path: &Path) {
             }
         };
 
-        let (files_checked, errors) = run_target(target_name, target, config_dir, &args);
+        let (files_checked, error_files, warnings) =
+            run_target(target_name, target, config_dir, &args);
         total_files += files_checked;
-        total_errors += errors;
+        total_error_files += error_files;
+        total_warnings += warnings;
     }
 
     // Print summary
-    println!();
-    if total_errors == 0 {
-        println!(
-            "{} Checked {} file(s) in {} target(s) - all valid",
-            Color::Green.bold().paint("✓"),
-            total_files,
-            target_names.len()
-        );
-        std::process::exit(0);
+    let duration = start.elapsed();
+    let duration_s = duration.as_secs_f64();
+
+    let errors_with_warnings = total_error_files + if args.quiet { total_warnings } else { 0 };
+    if args.quiet {
+        if errors_with_warnings == 0 {
+            println!(
+                "eure check: {} file(s), {} target(s), ok in {:.2}s",
+                total_files,
+                target_names.len(),
+                duration_s
+            );
+            std::process::exit(0);
+        } else {
+            println!(
+                "eure check: {} file(s), {} target(s), {} error(s) in {:.2}s",
+                total_files,
+                target_names.len(),
+                errors_with_warnings,
+                duration_s
+            );
+            std::process::exit(1);
+        }
     } else {
-        println!(
-            "{} Checked {} file(s) in {} target(s) - {} error(s)",
-            Color::Red.bold().paint("✗"),
-            total_files,
-            target_names.len(),
-            total_errors
-        );
-        std::process::exit(1);
+        println!();
+        if total_error_files == 0 {
+            println!(
+                "{} Checked {} file(s) in {} target(s) - all valid",
+                Color::Green.bold().paint("✓"),
+                total_files,
+                target_names.len()
+            );
+            std::process::exit(0);
+        } else {
+            println!(
+                "{} Checked {} file(s) in {} target(s) - {} error(s)",
+                Color::Red.bold().paint("✗"),
+                total_files,
+                target_names.len(),
+                total_error_files
+            );
+            std::process::exit(1);
+        }
     }
 }
 
-fn run_target(name: &str, target: &Target, config_dir: &Path, args: &Args) -> (usize, usize) {
-    println!(
-        "\n{} Checking target: {}",
-        Color::Blue.bold().paint("→"),
-        Color::Cyan.paint(name)
-    );
+fn run_target(
+    name: &str,
+    target: &Target,
+    config_dir: &Path,
+    args: &Args,
+) -> (usize, usize, usize) {
+    if !args.quiet {
+        println!(
+            "\n{} Checking target: {}",
+            Color::Blue.bold().paint("→"),
+            Color::Cyan.paint(name)
+        );
+    }
 
     let mut files_checked = 0;
-    let mut errors = 0;
+    let mut error_files = 0;
+    let mut warnings = 0;
 
     // Expand globs
     let mut files: Vec<PathBuf> = Vec::new();
@@ -183,11 +231,13 @@ fn run_target(name: &str, target: &Target, config_dir: &Path, args: &Args) -> (u
     }
 
     if files.is_empty() {
-        println!(
-            "  {}",
-            Color::Yellow.paint(format!("No files matched for target '{}'", name))
-        );
-        return (0, 0);
+        if !args.quiet {
+            println!(
+                "  {}",
+                Color::Yellow.paint(format!("No files matched for target '{}'", name))
+            );
+        }
+        return (0, 0, 0);
     }
 
     // Resolve schema path
@@ -202,13 +252,14 @@ fn run_target(name: &str, target: &Target, config_dir: &Path, args: &Args) -> (u
         files_checked += 1;
         let file_str = file.to_string_lossy().to_string();
 
-        let result = check_single_file(&file_str, schema_path.as_deref());
-        if !result {
-            errors += 1;
+        let result = check_single_file(&file_str, schema_path.as_deref(), args.quiet);
+        warnings += result.warning_count;
+        if result.has_error {
+            error_files += 1;
         }
     }
 
-    (files_checked, errors)
+    (files_checked, error_files, warnings)
 }
 
 fn run_file_mode(args: Args) {
@@ -217,19 +268,49 @@ fn run_file_mode(args: Args) {
         std::process::exit(1);
     }
 
-    // Check first file (original behavior)
-    let file = &args.files_or_targets[0];
-    let success = check_single_file_verbose(file, args.schema.as_deref());
+    let start = Instant::now();
 
-    if success {
+    // Check first file
+    let file = &args.files_or_targets[0];
+    let (hard_error, warning_count) = if args.quiet {
+        let res = check_single_file(file, args.schema.as_deref(), true);
+        (res.has_error, res.warning_count)
+    } else {
+        (!check_single_file_verbose(file, args.schema.as_deref()), 0)
+    };
+
+    if args.quiet {
+        let duration_s = start.elapsed().as_secs_f64();
+        let error_count = (hard_error as usize) + warning_count;
+        if error_count == 0 {
+            println!("eure check: 1 file, ok in {:.2}s", duration_s);
+        } else {
+            println!(
+                "eure check: 1 file, {} error(s) in {:.2}s",
+                error_count, duration_s
+            );
+        }
+    }
+
+    if !hard_error && warning_count == 0 {
         std::process::exit(0);
     } else {
         std::process::exit(1);
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct SingleFileCheckResult {
+    has_error: bool,
+    warning_count: usize,
+}
+
 /// Check a single file, returning true if valid
-fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
+fn check_single_file(
+    file: &str,
+    schema_override: Option<&str>,
+    quiet: bool,
+) -> SingleFileCheckResult {
     let file_opt = if file == "-" { None } else { Some(file) };
 
     let doc_contents = match read_input(file_opt) {
@@ -241,7 +322,10 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
                 file,
                 Color::Red.paint(e.to_string())
             );
-            return false;
+            return SingleFileCheckResult {
+                has_error: true,
+                warning_count: 0,
+            };
         }
     };
 
@@ -254,7 +338,10 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
                 "{}",
                 format_parse_error_color(&e, &doc_contents, display_path(file_opt))
             );
-            return false;
+            return SingleFileCheckResult {
+                has_error: true,
+                warning_count: 0,
+            };
         }
     };
 
@@ -267,7 +354,10 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
                 "{}",
                 format_document_error(&e, &doc_contents, display_path(file_opt), &doc_cst)
             );
-            return false;
+            return SingleFileCheckResult {
+                has_error: true,
+                warning_count: 0,
+            };
         }
     };
 
@@ -276,8 +366,13 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
         Ok(path) => path,
         Err(_) => {
             // No schema - just syntax check passed
-            println!("  {} {} (syntax only)", Color::Green.paint("✓"), file);
-            return true;
+            if !quiet {
+                println!("  {} {} (syntax only)", Color::Green.paint("✓"), file);
+            }
+            return SingleFileCheckResult {
+                has_error: false,
+                warning_count: 0,
+            };
         }
     };
 
@@ -285,13 +380,11 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
     let schema_contents = match std::fs::read_to_string(&schema_path) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!(
-                "  {} {}: schema error: {}",
-                Color::Red.paint("✗"),
-                file,
-                e
-            );
-            return false;
+            eprintln!("  {} {}: schema error: {}", Color::Red.paint("✗"), file, e);
+            return SingleFileCheckResult {
+                has_error: true,
+                warning_count: 0,
+            };
         }
     };
 
@@ -303,7 +396,10 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
                 "{}",
                 format_parse_error_color(&e, &schema_contents, &schema_path)
             );
-            return false;
+            return SingleFileCheckResult {
+                has_error: true,
+                warning_count: 0,
+            };
         }
     };
 
@@ -320,7 +416,10 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
                     "{}",
                     format_document_error(&e, &schema_contents, &schema_path, &schema_cst)
                 );
-                return false;
+                return SingleFileCheckResult {
+                    has_error: true,
+                    warning_count: 0,
+                };
             }
         };
 
@@ -333,7 +432,10 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
                 file,
                 e
             );
-            return false;
+            return SingleFileCheckResult {
+                has_error: true,
+                warning_count: 0,
+            };
         }
     };
 
@@ -352,24 +454,34 @@ fn check_single_file(file: &str, schema_override: Option<&str>) -> bool {
     };
 
     if result.is_valid {
-        let status = if result.is_complete {
-            Color::Green.paint("✓")
-        } else {
-            Color::Yellow.paint("!")
-        };
-        println!("  {} {}", status, file);
+        if !quiet {
+            let status = if result.is_complete {
+                Color::Green.paint("✓")
+            } else {
+                Color::Yellow.paint("!")
+            };
+            println!("  {} {}", status, file);
+        }
 
         // Print warnings inline
         for warning in &result.warnings {
             print_warning_inline(warning);
         }
-        true
+
+        let warning_count = result.warnings.len();
+        SingleFileCheckResult {
+            has_error: false,
+            warning_count,
+        }
     } else {
         eprintln!("  {} {}", Color::Red.paint("✗"), file);
         for error in &result.errors {
             eprintln!("{}", format_schema_error(error, &context));
         }
-        false
+        SingleFileCheckResult {
+            has_error: true,
+            warning_count: result.warnings.len(),
+        }
     }
 }
 

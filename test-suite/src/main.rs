@@ -6,6 +6,7 @@
 
 use std::path::Path;
 use std::sync::mpsc;
+use std::time::Instant;
 
 use clap::Parser;
 use rayon::prelude::*;
@@ -20,6 +21,10 @@ struct Args {
     /// Enable trace output for debugging
     #[arg(short, long)]
     trace: bool,
+
+    /// Quiet mode: suppress per-case output on success (prints a single summary line).
+    #[arg(short, long)]
+    quiet: bool,
 
     /// Filter tests by name pattern (substring match)
     #[arg(short, long)]
@@ -88,16 +93,19 @@ fn main() {
 }
 
 fn run(args: &Args) -> i32 {
+    let start = Instant::now();
     let config = RunConfig { trace: args.trace };
 
-    println!(
-        "\n{}{}Eure Test Suite{}",
-        colors::BOLD,
-        colors::CYAN,
-        colors::RESET
-    );
-    println!("{}{}", colors::DIM, "=".repeat(50));
-    println!("{}\n", colors::RESET);
+    if !args.quiet {
+        println!(
+            "\n{}{}Eure Test Suite{}",
+            colors::BOLD,
+            colors::CYAN,
+            colors::RESET
+        );
+        println!("{}{}", colors::DIM, "=".repeat(50));
+        println!("{}\n", colors::RESET);
+    }
 
     let cases_base_dir = cases_dir();
     let cases = match collect_cases() {
@@ -133,17 +141,19 @@ fn run(args: &Args) -> i32 {
     };
 
     if cases.is_empty() {
-        println!(
-            "{}{}Warning:{} No test cases found{}",
-            colors::BOLD,
-            colors::YELLOW,
-            colors::RESET,
-            if args.filter.is_some() {
-                " matching filter"
-            } else {
-                ""
-            }
-        );
+        if !args.quiet {
+            println!(
+                "{}{}Warning:{} No test cases found{}",
+                colors::BOLD,
+                colors::YELLOW,
+                colors::RESET,
+                if args.filter.is_some() {
+                    " matching filter"
+                } else {
+                    ""
+                }
+            );
+        }
         return 0;
     }
 
@@ -270,14 +280,16 @@ fn run(args: &Args) -> i32 {
                         };
 
                         // Nested display for multi-case files
-                        println!(
-                            "  {}{}{}{} {}",
-                            colors::BOLD,
-                            header_color,
-                            header_status,
-                            colors::RESET,
-                            file_name
-                        );
+                        if !args.quiet {
+                            println!(
+                                "  {}{}{}{} {}",
+                                colors::BOLD,
+                                header_color,
+                                header_status,
+                                colors::RESET,
+                                file_name
+                            );
+                        }
 
                         for case_outcome in cases {
                             display_case_outcome(
@@ -285,6 +297,7 @@ fn run(args: &Args) -> i32 {
                                 file_name,
                                 true, // nested
                                 args.all,
+                                args.quiet,
                                 &mut total_passed,
                                 &mut total_failed,
                                 &mut total_scenarios_passed,
@@ -300,6 +313,7 @@ fn run(args: &Args) -> i32 {
                             file_name,
                             false, // not nested
                             args.all,
+                            args.quiet,
                             &mut total_passed,
                             &mut total_failed,
                             &mut total_scenarios_passed,
@@ -310,13 +324,15 @@ fn run(args: &Args) -> i32 {
                     }
                 }
                 TestFileOutcome::ParseError { file_name, error } => {
-                    println!(
-                        "  {}{}PARSE ERROR{} {}",
-                        colors::BOLD,
-                        colors::RED,
-                        colors::RESET,
-                        file_name
-                    );
+                    if !args.quiet {
+                        println!(
+                            "  {}{}PARSE ERROR{} {}",
+                            colors::BOLD,
+                            colors::RED,
+                            colors::RESET,
+                            file_name
+                        );
+                    }
                     total_failed += 1;
                     failures.push((
                         file_name.clone(),
@@ -329,7 +345,31 @@ fn run(args: &Args) -> i32 {
             }
         }
 
-        // Print summary
+        let duration_s = start.elapsed().as_secs_f64();
+        let total_cases = total_passed + total_failed + unimplemented_cases.len();
+
+        // Show error for fully passing unimplemented cases (stale markers)
+        let fully_passing_unimpl: Vec<_> = unimplemented_cases
+            .iter()
+            .filter(|(_, all_passed)| *all_passed)
+            .collect();
+        let stale_unimpl_count = fully_passing_unimpl.len();
+
+        if args.quiet && total_failed == 0 && stale_unimpl_count == 0 {
+            println!(
+                "test-suite: {} passed, {} failed, {} unimplemented, {} total; scenarios: {}/{} passed in {:.2}s",
+                total_passed,
+                total_failed,
+                unimplemented_cases.len(),
+                total_cases,
+                total_scenarios_passed,
+                total_scenarios,
+                duration_s
+            );
+            return 0;
+        }
+
+        // Print summary (verbose mode, or quiet mode when there are failures)
         println!("\n{}{}Summary{}", colors::BOLD, colors::CYAN, colors::RESET);
         println!("{}{}", colors::DIM, "-".repeat(50));
         println!("{}", colors::RESET);
@@ -339,7 +379,7 @@ fn run(args: &Args) -> i32 {
             total_passed,
             total_failed,
             unimplemented_cases.len(),
-            total_passed + total_failed + unimplemented_cases.len()
+            total_cases
         );
         println!(
             "  Scenarios: {} passed, {} failed, {} total",
@@ -349,12 +389,6 @@ fn run(args: &Args) -> i32 {
         );
 
         // Show error for fully passing unimplemented cases (stale markers)
-        let fully_passing_unimpl: Vec<_> = unimplemented_cases
-            .iter()
-            .filter(|(_, all_passed)| *all_passed)
-            .collect();
-        let stale_unimpl_count = fully_passing_unimpl.len();
-
         if stale_unimpl_count > 0 {
             println!(
                 "\n{}{}Stale Unimplemented Markers{}",
@@ -432,6 +466,7 @@ fn display_case_outcome(
     file_name: &str,
     nested: bool,
     strict_mode: bool,
+    quiet: bool,
     total_passed: &mut usize,
     total_failed: &mut usize,
     total_scenarios_passed: &mut usize,
@@ -489,20 +524,22 @@ fn display_case_outcome(
 
     // Print with appropriate indentation
     let indent = if nested { "    " } else { "  " };
-    println!(
-        "{}{}{}{}{} {} {}{}/{}{}{}",
-        indent,
-        colors::BOLD,
-        color,
-        status_text,
-        colors::RESET,
-        display_name,
-        colors::DIM,
-        passed,
-        total,
-        colors::RESET,
-        unimpl_annotation
-    );
+    if !quiet {
+        println!(
+            "{}{}{}{}{} {} {}{}/{}{}{}",
+            indent,
+            colors::BOLD,
+            color,
+            status_text,
+            colors::RESET,
+            display_name,
+            colors::DIM,
+            passed,
+            total,
+            colors::RESET,
+            unimpl_annotation
+        );
+    }
 
     // Track for summary
     if effective_unimplemented.is_some() {
