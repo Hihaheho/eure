@@ -49,10 +49,15 @@ impl ConstructorGenerator {
 
     fn generate_imports(&self) -> TokenStream {
         let header = crate::generate_header_comment();
+        let node_kind_module = &self.config.imports.node_kind_module;
+
+        // Parse module path to create proper use statement
+        let node_kind_use = syn::parse_str::<syn::Path>(node_kind_module).unwrap();
+
         quote! {
             #header
             use crate::builder::{CstBuilder, BuilderNodeId};
-            use crate::node_kind::{NonTerminalKind, TerminalKind};
+            use #node_kind_use::{NonTerminalKind, TerminalKind};
         }
     }
 
