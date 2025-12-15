@@ -2835,6 +2835,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "parol-walker-calc"
+version = "0.1.0"
+dependencies = [
+ "parol",
+ "parol-walker-gen",
+ "parol_runtime",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "parol-walker-gen"
 version = "0.1.0"
 dependencies = [

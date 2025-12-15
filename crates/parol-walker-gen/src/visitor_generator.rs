@@ -59,25 +59,23 @@ impl VisitorGenerator {
 
     fn generate_imports(&self) -> TokenStream {
         let header = crate::generate_header_comment();
-        let runtime_crate =
-            format_ident!("{}", self.config.imports.runtime_crate.replace('-', "_"));
         let node_kind_module = &self.config.imports.node_kind_module;
         let nodes_module = &self.config.imports.nodes_module;
 
         // Parse module paths to create proper use statements
+        let runtime_use = syn::parse_str::<syn::Path>(&self.config.imports.runtime_crate).unwrap();
         let node_kind_use = syn::parse_str::<syn::Path>(node_kind_module).unwrap();
         let nodes_use = syn::parse_str::<syn::Path>(nodes_module).unwrap();
 
         quote! {
             #header
-            use #runtime_crate::{
+            use #runtime_use::{
                 CstNodeId, TerminalData, NonTerminalData, CstFacade,
                 TerminalHandle as _, NonTerminalHandle as _, BuiltinTerminalVisitor,
-                CstConstructError, NodeKind, RecursiveView,
+                CstConstructError, NodeKind, RecursiveView, ViewConstructionError,
             };
             use #node_kind_use::{TerminalKind, NonTerminalKind};
             use #nodes_use::*;
-            use crate::{Cst, CstNode};
         }
     }
 

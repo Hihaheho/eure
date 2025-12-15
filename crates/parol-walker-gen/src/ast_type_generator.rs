@@ -74,19 +74,17 @@ impl AstTypeGenerator {
 
     pub fn generate_imports(&self) -> proc_macro2::TokenStream {
         let header = crate::generate_header_comment();
-        let runtime_crate =
-            format_ident!("{}", self.config.imports.runtime_crate.replace('-', "_"));
         let node_kind_module = &self.config.imports.node_kind_module;
 
-        // Parse module path to create proper use statement
+        // Parse module paths to create proper use statements
+        let runtime_use = syn::parse_str::<syn::Path>(&self.config.imports.runtime_crate).unwrap();
         let node_kind_use = syn::parse_str::<syn::Path>(node_kind_module).unwrap();
 
         quote! {
             #header
-            #![allow(unused_variables)]
-            use #runtime_crate::{
+            use #runtime_use::{
                 TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId,
-                CstFacade, CstConstructError, BuiltinTerminalVisitor,
+                CstFacade, CstConstructError, BuiltinTerminalVisitor, ViewConstructionError,
             };
             use #node_kind_use::{TerminalKind, NonTerminalKind, NodeKind};
         }

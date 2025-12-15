@@ -1,0 +1,15 @@
+[package]
+name = "parol-walker-calc"
+version = "0.1.0"
+edition = "2021"
+description = "Example calculator using parol-walker"
+publish = false
+
+[dependencies]
+parol_runtime = "4"
+scnr2 = "0.1"
+thiserror = "2"
+
+[build-dependencies]
+parol = "4.2"
+parol-walker-gen = { path = "../../crates/parol-walker-gen" }

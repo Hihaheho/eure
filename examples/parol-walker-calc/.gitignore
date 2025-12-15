@@ -1,0 +1,9 @@
+# Build artifacts are generated in OUT_DIR (inside target/), which is already ignored.
+# This file exists for documentation purposes.
+
+# If any files are generated directly in src/, add them here:
+# src/parser.rs
+# src/grammar_trait.rs
+# src/node_kind.rs
+# src/visitor.rs
+# src/nodes.rs

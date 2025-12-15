@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "test-suite"]
+members = ["crates/*", "test-suite", "examples/parol-walker-calc"]
+default-members = ["crates/*", "test-suite"]
 
 [workspace.dependencies]
 ahash = { version = "0.8.11", default-features = false }
