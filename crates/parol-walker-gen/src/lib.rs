@@ -70,6 +70,7 @@ pub struct NamingConfig {
     pub constructor_suffix: String,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for NamingConfig {
     fn default() -> Self {
         Self {

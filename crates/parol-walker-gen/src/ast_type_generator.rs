@@ -51,9 +51,9 @@ impl AstTypeGenerator {
 
         quote! {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-            pub struct #struct_name(pub(crate) super::tree::CstNodeId);
+            pub struct #struct_name(pub(crate) CstNodeId);
 
-            impl TerminalHandle for #struct_name {
+            impl TerminalHandle<TerminalKind> for #struct_name {
                 fn node_id(&self) -> CstNodeId {
                     self.0
                 }
@@ -74,13 +74,21 @@ impl AstTypeGenerator {
 
     pub fn generate_imports(&self) -> proc_macro2::TokenStream {
         let header = crate::generate_header_comment();
+        let runtime_crate =
+            format_ident!("{}", self.config.imports.runtime_crate.replace('-', "_"));
+        let node_kind_module = &self.config.imports.node_kind_module;
+
+        // Parse module path to create proper use statement
+        let node_kind_use = syn::parse_str::<syn::Path>(node_kind_module).unwrap();
+
         quote! {
             #header
             #![allow(unused_variables)]
-            use super::tree::{TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId, ViewConstructionError, CstFacade};
-            use super::visitor::BuiltinTerminalVisitor;
-            use crate::CstConstructError;
-            use super::node_kind::{TerminalKind, NonTerminalKind, NodeKind};
+            use #runtime_crate::{
+                TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId,
+                CstFacade, CstConstructError, BuiltinTerminalVisitor,
+            };
+            use #node_kind_use::{TerminalKind, NonTerminalKind, NodeKind};
         }
     }
 
