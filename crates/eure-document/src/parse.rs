@@ -63,17 +63,131 @@ pub enum UnionTagMode {
 }
 
 // =============================================================================
+// AccessedSet
+// =============================================================================
+
+/// Snapshot of accessed state (fields, extensions).
+pub type AccessedSnapshot = (HashSet<String>, HashSet<Identifier>);
+
+/// Tracks accessed fields and extensions with snapshot/rollback support for union parsing.
+///
+/// The internal state is a stack where the last item is always the current working state.
+/// Items before it are snapshots (save points) for rollback.
+///
+/// Invariant: stack is never empty.
+///
+/// # Stack visualization
+/// ```text
+/// Initial:        [current]
+/// push_snapshot:  [snapshot, current]  (snapshot = copy of current)
+/// modify:         [snapshot, current'] (current' has changes)
+/// restore:        [snapshot, snapshot] (current reset to snapshot)
+/// pop_restore:    [snapshot]           (current removed, snapshot is new current)
+/// pop_no_restore: [current']           (snapshot removed, keep modified current)
+/// ```
+#[derive(Debug, Clone)]
+pub struct AccessedSet(Rc<RefCell<Vec<AccessedSnapshot>>>);
+
+impl AccessedSet {
+    /// Create a new empty set.
+    pub fn new() -> Self {
+        // Start with one empty state (the current working state)
+        Self(Rc::new(RefCell::new(vec![(
+            HashSet::new(),
+            HashSet::new(),
+        )])))
+    }
+
+    /// Add a field to the accessed set.
+    pub fn add_field(&self, field: impl Into<String>) {
+        self.0
+            .borrow_mut()
+            .last_mut()
+            .unwrap()
+            .0
+            .insert(field.into());
+    }
+
+    /// Add an extension to the accessed set.
+    pub fn add_ext(&self, ext: Identifier) {
+        self.0.borrow_mut().last_mut().unwrap().1.insert(ext);
+    }
+
+    /// Check if a field has been accessed.
+    pub fn has_field(&self, field: &str) -> bool {
+        self.0.borrow().last().unwrap().0.contains(field)
+    }
+
+    /// Check if an extension has been accessed.
+    pub fn has_ext(&self, ext: &Identifier) -> bool {
+        self.0.borrow().last().unwrap().1.contains(ext)
+    }
+
+    /// Push a snapshot (call at start of union parsing).
+    /// Inserts a copy of current BEFORE current, so current can be modified.
+    pub fn push_snapshot(&self) {
+        let mut stack = self.0.borrow_mut();
+        let snapshot = stack.last().unwrap().clone();
+        let len = stack.len();
+        stack.insert(len - 1, snapshot);
+        // Stack: [..., current] → [..., snapshot, current]
+    }
+
+    /// Restore current to the snapshot (call when variant fails).
+    /// Resets current (last) to match the snapshot (second-to-last).
+    pub fn restore_to_current_snapshot(&self) {
+        let mut stack = self.0.borrow_mut();
+        if stack.len() >= 2 {
+            let snapshot = stack[stack.len() - 2].clone();
+            *stack.last_mut().unwrap() = snapshot;
+        }
+    }
+
+    /// Capture the current state (for non-priority variants).
+    pub fn capture_current_state(&self) -> AccessedSnapshot {
+        self.0.borrow().last().unwrap().clone()
+    }
+
+    /// Restore to a previously captured state.
+    pub fn restore_to_state(&self, state: AccessedSnapshot) {
+        *self.0.borrow_mut().last_mut().unwrap() = state;
+    }
+
+    /// Pop and restore (call when union fails/ambiguous).
+    /// Removes current, snapshot becomes new current.
+    pub fn pop_and_restore(&self) {
+        let mut stack = self.0.borrow_mut();
+        if stack.len() >= 2 {
+            stack.pop(); // Remove current, snapshot is now current
+        }
+    }
+
+    /// Pop without restore (call when union succeeds).
+    /// Removes the snapshot, keeps current.
+    pub fn pop_without_restore(&self) {
+        let mut stack = self.0.borrow_mut();
+        if stack.len() >= 2 {
+            let snapshot_idx = stack.len() - 2;
+            stack.remove(snapshot_idx); // Remove snapshot, keep current
+        }
+    }
+}
+
+impl Default for AccessedSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
 // FlattenContext
 // =============================================================================
 
-/// Context for flatten parsing - holds shared reference to accessed sets.
+/// Context for flatten parsing - wraps AccessedSet with snapshot/rollback support.
 ///
-/// When parsing flattened types, all levels share a single `accessed` set owned
+/// When parsing flattened types, all levels share a single `AccessedSet` owned
 /// by the root parser. Child parsers add to this shared set, and only the root
 /// parser actually validates with `deny_unknown_fields()`.
-///
-/// Uses `Rc<RefCell<...>>` for interior mutability, allowing ParseContext to
-/// remain Clone while still sharing mutable state.
 ///
 /// # Example
 ///
@@ -91,47 +205,75 @@ pub enum UnionTagMode {
 /// rec1.field("c");  // accessed = {a, b, c}
 /// rec1.deny_unknown_fields()?;  // VALIDATES (root)
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FlattenContext {
-    /// Shared accessed fields (via Rc<RefCell<...>> for interior mutability)
-    pub accessed_fields: Rc<RefCell<HashSet<String>>>,
-    /// Shared accessed extensions (via Rc<RefCell<...>> for interior mutability)
-    pub accessed_exts: Rc<RefCell<HashSet<Identifier>>>,
+    accessed: AccessedSet,
 }
 
 impl FlattenContext {
     /// Create a new FlattenContext with empty accessed sets.
     pub fn new() -> Self {
-        Self {
-            accessed_fields: Rc::new(RefCell::new(HashSet::new())),
-            accessed_exts: Rc::new(RefCell::new(HashSet::new())),
-        }
+        Self::default()
+    }
+
+    /// Create a FlattenContext from an existing AccessedSet.
+    pub fn from_accessed_set(accessed: AccessedSet) -> Self {
+        Self { accessed }
+    }
+
+    /// Get the underlying AccessedSet (for sharing with RecordParser).
+    pub fn accessed_set(&self) -> &AccessedSet {
+        &self.accessed
     }
 
     /// Add a field to the accessed set.
     pub fn add_field(&self, field: impl Into<String>) {
-        self.accessed_fields.borrow_mut().insert(field.into());
+        self.accessed.add_field(field);
     }
 
     /// Add an extension to the accessed set.
     pub fn add_ext(&self, ext: Identifier) {
-        self.accessed_exts.borrow_mut().insert(ext);
+        self.accessed.add_ext(ext);
     }
 
     /// Check if a field has been accessed.
     pub fn has_field(&self, field: &str) -> bool {
-        self.accessed_fields.borrow().contains(field)
+        self.accessed.has_field(field)
     }
 
     /// Check if an extension has been accessed.
     pub fn has_ext(&self, ext: &Identifier) -> bool {
-        self.accessed_exts.borrow().contains(ext)
+        self.accessed.has_ext(ext)
     }
-}
 
-impl Default for FlattenContext {
-    fn default() -> Self {
-        Self::new()
+    /// Push snapshot (at start of union parsing).
+    pub fn push_snapshot(&self) {
+        self.accessed.push_snapshot();
+    }
+
+    /// Restore to current snapshot (when variant fails).
+    pub fn restore_to_current_snapshot(&self) {
+        self.accessed.restore_to_current_snapshot();
+    }
+
+    /// Capture current state (for non-priority variants).
+    pub fn capture_current_state(&self) -> AccessedSnapshot {
+        self.accessed.capture_current_state()
+    }
+
+    /// Restore to a captured state (when selecting a non-priority variant).
+    pub fn restore_to_state(&self, state: AccessedSnapshot) {
+        self.accessed.restore_to_state(state);
+    }
+
+    /// Pop and restore (when union fails/ambiguous).
+    pub fn pop_and_restore(&self) {
+        self.accessed.pop_and_restore();
+    }
+
+    /// Pop without restore (when union succeeds).
+    pub fn pop_without_restore(&self) {
+        self.accessed.pop_without_restore();
     }
 }
 

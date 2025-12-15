@@ -3,15 +3,13 @@
 extern crate alloc;
 
 use alloc::format;
-use alloc::rc::Rc;
-use core::cell::RefCell;
-use std::collections::HashSet;
 
 use crate::prelude_internal::*;
 use crate::{document::node::NodeMap, parse::DocumentParser};
 
 use super::{
-    FlattenContext, ParseContext, ParseDocument, ParseError, ParseErrorKind, UnionTagMode,
+    AccessedSet, FlattenContext, ParseContext, ParseDocument, ParseError, ParseErrorKind,
+    UnionTagMode,
 };
 
 /// Helper for parsing record (map with string keys) from Eure documents.
@@ -45,9 +43,9 @@ pub struct RecordParser<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
     map: &'doc NodeMap,
-    /// Accessed fields - always Rc<RefCell> for sharing.
-    /// Root creates new Rc, children clone from FlattenContext.
-    accessed: Rc<RefCell<HashSet<String>>>,
+    /// Accessed fields and extensions - shared via AccessedSet.
+    /// Root creates new AccessedSet, children clone from FlattenContext.
+    accessed: AccessedSet,
     /// Flatten context - None for root, Some for children.
     /// When Some, deny_unknown_fields is no-op.
     flatten_ctx: Option<FlattenContext>,
@@ -83,8 +81,8 @@ impl<'doc> RecordParser<'doc> {
     ) -> Result<Self, ParseError> {
         // Create or clone accessed set
         let accessed = match &flatten_ctx {
-            Some(fc) => Rc::clone(&fc.accessed_fields),
-            None => Rc::new(RefCell::new(HashSet::new())),
+            Some(fc) => fc.accessed_set().clone(),
+            None => AccessedSet::new(),
         };
 
         let node = doc.node(node_id);
@@ -116,7 +114,7 @@ impl<'doc> RecordParser<'doc> {
 
     /// Mark a field as accessed.
     fn mark_accessed(&mut self, name: &str) {
-        self.accessed.borrow_mut().insert(name.to_string());
+        self.accessed.add_field(name);
     }
 
     /// Get the node ID being parsed.
@@ -269,11 +267,10 @@ impl<'doc> RecordParser<'doc> {
         }
 
         // Root parser - validate using accessed set
-        let accessed = self.accessed.borrow();
         for (key, _) in self.map.iter() {
             match key {
                 ObjectKey::String(name) => {
-                    if !accessed.contains(name.as_str()) {
+                    if !self.accessed.has_field(name.as_str()) {
                         return Err(ParseError {
                             node_id: self.node_id,
                             kind: ParseErrorKind::UnknownField(name.clone()),
@@ -315,11 +312,11 @@ impl<'doc> RecordParser<'doc> {
     pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
         let mode = self.union_tag_mode;
-        // Clone the accessed set for use in the iterator
-        let accessed = self.accessed.borrow().clone();
+        // Clone the accessed set for filtering - we need the current state
+        let accessed = self.accessed.clone();
         self.map.iter().filter_map(move |(key, &node_id)| {
             if let ObjectKey::String(name) = key
-                && !accessed.contains(name.as_str())
+                && !accessed.has_field(name.as_str())
             {
                 return Some((
                     name.as_str(),
@@ -344,11 +341,8 @@ impl<'doc> RecordParser<'doc> {
         let flatten_ctx = match &self.flatten_ctx {
             Some(fc) => fc.clone(),
             None => {
-                // Root: create new FlattenContext wrapping our Rc
-                FlattenContext {
-                    accessed_fields: Rc::clone(&self.accessed),
-                    accessed_exts: Rc::new(RefCell::new(HashSet::new())),
-                }
+                // Root: create new FlattenContext wrapping our AccessedSet
+                FlattenContext::from_accessed_set(self.accessed.clone())
             }
         };
 
@@ -372,8 +366,9 @@ pub struct ExtParser<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
     extensions: &'doc Map<Identifier, NodeId>,
-    /// Accessed extensions - always Rc<RefCell> for sharing.
-    accessed: Rc<RefCell<HashSet<Identifier>>>,
+    /// Accessed fields and extensions - shared via AccessedSet.
+    /// Root creates new AccessedSet, children clone from FlattenContext.
+    accessed: AccessedSet,
     /// Flatten context - None for root, Some for children.
     /// - None: root parser, validates on deny_unknown_extensions
     /// - Some: child parser, no-op on deny_unknown_extensions (parent validates)
@@ -391,9 +386,10 @@ impl<'doc> ExtParser<'doc> {
         flatten_ctx: Option<FlattenContext>,
         union_tag_mode: UnionTagMode,
     ) -> Self {
+        // Create or clone accessed set
         let accessed = match &flatten_ctx {
-            Some(fc) => Rc::clone(&fc.accessed_exts),
-            None => Rc::new(RefCell::new(HashSet::new())),
+            Some(fc) => fc.accessed_set().clone(),
+            None => AccessedSet::new(),
         };
         Self {
             doc,
@@ -412,7 +408,7 @@ impl<'doc> ExtParser<'doc> {
 
     /// Mark an extension as accessed.
     fn mark_accessed(&mut self, ident: Identifier) {
-        self.accessed.borrow_mut().insert(ident);
+        self.accessed.add_ext(ident);
     }
 
     /// Get a required extension field.
@@ -530,9 +526,8 @@ impl<'doc> ExtParser<'doc> {
         }
 
         // Root parser - validate using accessed set
-        let accessed = self.accessed.borrow();
         for (ident, _) in self.extensions.iter() {
-            if !accessed.contains(ident) {
+            if !self.accessed.has_ext(ident) {
                 return Err(ParseError {
                     node_id: self.node_id,
                     kind: ParseErrorKind::UnknownField(format!("$ext-type.{}", ident)),
@@ -555,10 +550,10 @@ impl<'doc> ExtParser<'doc> {
     ) -> impl Iterator<Item = (&'doc Identifier, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
         let mode = self.union_tag_mode;
-        // Clone the accessed set for use in the iterator
-        let accessed = self.accessed.borrow().clone();
+        // Clone the accessed set for filtering - we need the current state
+        let accessed = self.accessed.clone();
         self.extensions.iter().filter_map(move |(ident, &node_id)| {
-            if !accessed.contains(ident) {
+            if !accessed.has_ext(ident) {
                 Some((ident, ParseContext::with_union_tag_mode(doc, node_id, mode)))
             } else {
                 None
@@ -580,11 +575,8 @@ impl<'doc> ExtParser<'doc> {
         let flatten_ctx = match &self.flatten_ctx {
             Some(fc) => fc.clone(),
             None => {
-                // Root: create new FlattenContext wrapping our Rc
-                FlattenContext {
-                    accessed_fields: Rc::new(RefCell::new(HashSet::new())),
-                    accessed_exts: Rc::clone(&self.accessed),
-                }
+                // Root: create new FlattenContext wrapping our AccessedSet
+                FlattenContext::from_accessed_set(self.accessed.clone())
             }
         };
 
@@ -875,6 +867,75 @@ mod tests {
         assert_eq!(
             result.unwrap_err().kind,
             ParseErrorKind::UnknownField("f".to_string())
+        );
+    }
+
+    #[test]
+    fn test_flatten_union_reverts_accessed_fields_on_failure() {
+        use crate::eure;
+
+        let doc = eure!({
+            a = 1
+            b = 2
+            c = 3
+            d = 4
+        });
+
+        // Define enum with two variants
+        #[derive(Debug, PartialEq)]
+        enum TestOption {
+            A { a: i32, c: i32, e: i32 },
+            B { a: i32, b: i32 },
+        }
+
+        impl<'doc> ParseDocument<'doc> for TestOption {
+            type Error = ParseError;
+
+            fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+                ctx.parse_union(VariantRepr::default())?
+                    .variant("A", |ctx: &ParseContext<'_>| {
+                        let mut rec = ctx.parse_record()?;
+                        let a = rec.parse_field("a")?;
+                        let c = rec.parse_field("c")?;
+                        let e = rec.parse_field("e")?; // Will fail - field doesn't exist
+                        rec.deny_unknown_fields()?;
+                        Ok(TestOption::A { a, c, e })
+                    })
+                    .variant("B", |ctx: &ParseContext<'_>| {
+                        let mut rec = ctx.parse_record()?;
+                        let a = rec.parse_field("a")?;
+                        let b = rec.parse_field("b")?;
+                        rec.deny_unknown_fields()?;
+                        Ok(TestOption::B { a, b })
+                    })
+                    .parse()
+            }
+        }
+
+        // Parse with flatten
+        let root_id = doc.get_root_id();
+        let root_ctx = ParseContext::new(&doc, root_id);
+        let mut record = root_ctx.parse_record().unwrap();
+
+        // Parse union - should succeed with VariantB
+        let option = record.flatten().parse::<TestOption>().unwrap();
+        assert_eq!(option, TestOption::B { a: 1, b: 2 });
+
+        // Access field d
+        let d: i32 = record.parse_field("d").unwrap();
+        assert_eq!(d, 4);
+
+        // BUG: This should FAIL because field 'c' was never accessed by VariantB
+        // (the successful variant), but it SUCCEEDS because VariantA tried 'c'
+        // before failing
+        let result = record.deny_unknown_fields();
+
+        assert_eq!(
+            result.unwrap_err(),
+            ParseError {
+                node_id: root_id,
+                kind: ParseErrorKind::UnknownField("c".to_string()),
+            }
         );
     }
 }

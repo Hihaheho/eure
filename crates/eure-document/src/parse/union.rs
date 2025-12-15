@@ -15,7 +15,9 @@ use crate::parse::DocumentParser;
 use crate::value::ObjectKey;
 
 use super::variant_path::VariantPath;
-use super::{ParseContext, ParseError, ParseErrorKind, UnionTagMode};
+use super::{
+    AccessedSnapshot, FlattenContext, ParseContext, ParseError, ParseErrorKind, UnionTagMode,
+};
 
 /// The `$variant` extension identifier.
 pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
@@ -160,10 +162,13 @@ pub struct UnionParser<'doc, 'ctx, T, E = ParseError> {
     variant_result: Option<Result<T, E>>,
     /// First matching priority variant (short-circuit result)
     priority_result: Option<T>,
-    /// Matching non-priority variants
-    other_results: Vec<(String, T)>,
+    /// Matching non-priority variants, with their captured accessed state.
+    /// The AccessedSnapshot is captured after successful parse, before restoring.
+    other_results: Vec<(String, T, AccessedSnapshot)>,
     /// Failed variants (for error reporting)
     failures: Vec<(String, E)>,
+    /// Flatten context for snapshot/rollback (if flattened parsing).
+    flatten_ctx: Option<FlattenContext>,
 }
 
 impl<'doc, 'ctx, T, E> UnionParser<'doc, 'ctx, T, E>
@@ -181,6 +186,12 @@ where
     ) -> Result<Self, ParseError> {
         let variant = Self::resolve_variant(ctx, &repr)?;
 
+        // Push snapshot for rollback if flatten context exists
+        let flatten_ctx = ctx.flatten_ctx().cloned();
+        if let Some(ref fc) = flatten_ctx {
+            fc.push_snapshot();
+        }
+
         Ok(Self {
             ctx,
             variant,
@@ -188,6 +199,7 @@ where
             priority_result: None,
             other_results: Vec::new(),
             failures: Vec::new(),
+            flatten_ctx,
         })
     }
 
@@ -367,7 +379,10 @@ where
         if let Some((ref v_name, ref v_ctx, ref rest)) = self.variant {
             if v_name == name && self.variant_result.is_none() {
                 let child_ctx = v_ctx.with_variant_rest(rest.clone());
-                self.variant_result = Some(f.parse(&child_ctx));
+                let result = f.parse(&child_ctx);
+                // Variant explicitly specified - no rollback needed on failure,
+                // error propagates directly. Changes kept if success.
+                self.variant_result = Some(result);
             }
             return;
         }
@@ -383,12 +398,31 @@ where
         match f.parse(&child_ctx) {
             Ok(value) => {
                 if is_priority {
+                    // Priority variant succeeded - keep the changes
+                    // (snapshot will be popped in parse())
                     self.priority_result = Some(value);
                 } else {
-                    self.other_results.push((name.to_string(), value));
+                    // Other variant succeeded - capture state before restoring
+                    // We need to try more variants, so restore for next attempt
+                    if let Some(ref fc) = self.flatten_ctx {
+                        let captured = fc.capture_current_state();
+                        fc.restore_to_current_snapshot();
+                        self.other_results.push((name.to_string(), value, captured));
+                    } else {
+                        // No flatten context - no state to capture
+                        self.other_results.push((
+                            name.to_string(),
+                            value,
+                            (Default::default(), Default::default()),
+                        ));
+                    }
                 }
             }
             Err(e) => {
+                // Variant failed - restore to snapshot
+                if let Some(ref fc) = self.flatten_ctx {
+                    fc.restore_to_current_snapshot();
+                }
                 self.failures.push((name.to_string(), e));
             }
         }
@@ -399,35 +433,68 @@ where
         let node_id = self.ctx.node_id();
 
         // 1. Variant determined - return its result
+        // When variant is explicitly specified via $variant, we don't use snapshot/rollback.
+        // The accessed fields from parsing are kept (success) or don't matter (error propagates).
         if let Some((v_name, _, _)) = self.variant {
-            return self.variant_result.unwrap_or_else(|| {
+            let result = self.variant_result.unwrap_or_else(|| {
                 Err(ParseError {
                     node_id,
                     kind: ParseErrorKind::UnknownVariant(v_name),
                 }
                 .into())
             });
+            // Pop the snapshot - if success, keep changes; if error, doesn't matter
+            if let Some(ref fc) = self.flatten_ctx {
+                match &result {
+                    Ok(_) => fc.pop_without_restore(),
+                    Err(_) => fc.pop_and_restore(),
+                }
+            }
+            return result;
         }
 
-        // 2. Priority result
+        // 2. Priority result - success, keep changes
         if let Some(value) = self.priority_result {
+            if let Some(ref fc) = self.flatten_ctx {
+                fc.pop_without_restore();
+            }
             return Ok(value);
         }
 
         // 3. Check other_results
         match self.other_results.len() {
-            0 => Err(self.no_match_error(node_id)),
-            1 => Ok(self.other_results.into_iter().next().unwrap().1),
-            _ => Err(ParseError {
-                node_id,
-                kind: ParseErrorKind::AmbiguousUnion(
-                    self.other_results
-                        .into_iter()
-                        .map(|(name, _)| name)
-                        .collect(),
-                ),
+            0 => {
+                // No match - rollback and return error
+                if let Some(ref fc) = self.flatten_ctx {
+                    fc.pop_and_restore();
+                }
+                Err(self.no_match_error(node_id))
             }
-            .into()),
+            1 => {
+                // Single match - restore to captured state (from successful variant)
+                let (_, value, captured_state) = self.other_results.into_iter().next().unwrap();
+                if let Some(ref fc) = self.flatten_ctx {
+                    fc.restore_to_state(captured_state);
+                    fc.pop_without_restore();
+                }
+                Ok(value)
+            }
+            _ => {
+                // Ambiguous - rollback all changes
+                if let Some(ref fc) = self.flatten_ctx {
+                    fc.pop_and_restore();
+                }
+                Err(ParseError {
+                    node_id,
+                    kind: ParseErrorKind::AmbiguousUnion(
+                        self.other_results
+                            .into_iter()
+                            .map(|(name, _, _)| name)
+                            .collect(),
+                    ),
+                }
+                .into())
+            }
         }
     }
 
