@@ -71,8 +71,9 @@ impl VisitorGenerator {
             #header
             use #runtime_use::{
                 CstNodeId, TerminalData, NonTerminalData, CstFacade,
-                TerminalHandle as _, NonTerminalHandle as _, BuiltinTerminalVisitor,
+                TerminalHandle as _, NonTerminalHandle as _,
                 CstConstructError, NodeKind, RecursiveView, ViewConstructionError,
+                CstNode, Cst,
             };
             use #node_kind_use::{TerminalKind, NonTerminalKind};
             use #nodes_use::*;

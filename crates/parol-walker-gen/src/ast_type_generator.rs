@@ -53,7 +53,7 @@ impl AstTypeGenerator {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
             pub struct #struct_name(pub(crate) CstNodeId);
 
-            impl TerminalHandle<TerminalKind> for #struct_name {
+            impl TerminalHandle for #struct_name {
                 fn node_id(&self) -> CstNodeId {
                     self.0
                 }
@@ -80,13 +80,26 @@ impl AstTypeGenerator {
         let runtime_use = syn::parse_str::<syn::Path>(&self.config.imports.runtime_crate).unwrap();
         let node_kind_use = syn::parse_str::<syn::Path>(node_kind_module).unwrap();
 
+        // BuiltinTerminalVisitor is generated in visitor module, not in runtime
+        // Derive visitor module path from nodes_module (they're siblings)
+        let visitor_module = self
+            .config
+            .imports
+            .nodes_module
+            .rsplit_once("::")
+            .map(|(prefix, _)| format!("{}::visitor", prefix))
+            .unwrap_or("crate::visitor".to_string());
+        let visitor_use = syn::parse_str::<syn::Path>(&visitor_module).unwrap();
+
         quote! {
             #header
             use #runtime_use::{
                 TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId,
-                CstFacade, CstConstructError, BuiltinTerminalVisitor, ViewConstructionError,
+                CstFacade, CstConstructError, ViewConstructionError,
+                NodeKind,
             };
-            use #node_kind_use::{TerminalKind, NonTerminalKind, NodeKind};
+            use #visitor_use::BuiltinTerminalVisitor;
+            use #node_kind_use::{TerminalKind, NonTerminalKind};
         }
     }
 
@@ -406,10 +419,10 @@ impl AstTypeGenerator {
         let children_preamble = quote! {
             let mut children = tree.children(self.0);
             let Some(child) = children.next() else {
-                return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+                return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
             };
             let Some(child_data) = tree.node_data(child) else {
-                return Err(ViewConstructionError::NodeIdNotFound { node: child });
+                return Err(ViewConstructionError::NodeIdNotFound { node: child }.into());
             };
         };
         let unexpected_node_error = quote! {
@@ -417,7 +430,7 @@ impl AstTypeGenerator {
                 node: child,
                 data: child_data,
                 expected_kind: child_data.node_kind(),
-            })
+            }.into())
         };
 
         // Generate get_view_with_visit body
@@ -441,7 +454,7 @@ impl AstTypeGenerator {
                 };
                 let (result, _visit) = visit(variant, visit_ignored);
                 if let Some(extra_child) = children.next() {
-                    return Err(ViewConstructionError::UnexpectedExtraNode { node: extra_child });
+                    return Err(ViewConstructionError::UnexpectedExtraNode { node: extra_child }.into());
                 }
                 Ok(result)
             }

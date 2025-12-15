@@ -1,0 +1,28 @@
+%start Calc
+%title "Calculator"
+%grammar_type 'LL(k)'
+
+%%
+
+// Entry point: an expression
+Calc: Expr;
+
+// Addition and subtraction (lowest precedence)
+Expr: Term { AddOp Term };
+AddOp: Plus | Minus;
+
+// Multiplication and division (higher precedence)
+Term: Factor { MulOp Factor };
+MulOp: Star | Slash;
+
+// Factors: numbers or parenthesized expressions
+Factor: Number | LParen Expr RParen;
+
+// Terminals
+Number: /[0-9]+/;
+Plus: '+';
+Minus: '-';
+Star: '*';
+Slash: '/';
+LParen: '(';
+RParen: ')';

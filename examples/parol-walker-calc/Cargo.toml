@@ -7,8 +7,9 @@ publish = false
 
 [dependencies]
 parol_runtime = "4"
-scnr2 = "0.1"
+scnr2 = "0.3"
 thiserror = "2"
+ahash = "0.8"
 
 [build-dependencies]
 parol = "4.2"

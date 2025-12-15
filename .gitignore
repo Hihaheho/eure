@@ -22,6 +22,10 @@
 
 !crates/eure-parol/eure.par
 
+!examples/**/*.rs
+!examples/**/*.par
+!examples/**/.gitignore
+
 !Eure.eure
 !example.eure
 !example.schema.eure
