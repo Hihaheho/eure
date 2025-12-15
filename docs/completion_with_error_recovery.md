@@ -92,8 +92,8 @@ impl ErrorBasedCompletion {
     }
     
     fn extract_path_from_cst(&self, cst: &Cst, error_loc: Location) -> PathContext {
-        // Use ValueVisitor to extract paths from the CST
-        // The new ValueVisitor builds paths directly using PathSegment
+        // Use CstInterpreter to extract paths from the CST
+        // The new CstInterpreter builds paths directly using PathSegment
         let mut visitor = PathExtractorVisitor {
             target_location: error_loc,
             current_path: vec![],
@@ -136,7 +136,7 @@ impl ErrorBasedCompletion {
 }
 
 // PathExtractorVisitor is a specialized visitor for error recovery
-// It's separate from ValueVisitor which is used for complete value extraction
+// It's separate from CstInterpreter which is used for complete value extraction
 struct PathExtractorVisitor {
     target_location: Location,
     current_path: Vec<String>,
@@ -147,15 +147,15 @@ struct PathExtractorVisitor {
 }
 
 // Note: This implements CstVisitor directly for error recovery purposes
-// For complete value extraction, use the new ValueVisitor API:
-//   let mut visitor = ValueVisitor::new(input);
+// For complete value extraction, use the new CstInterpreter API:
+//   let mut visitor = CstInterpreter::new(input);
 //   visitor.visit_eure(handle, view, tree)?;
 //   let document = visitor.into_document();
 impl CstVisitor for PathExtractorVisitor {
     fn visit_section(&mut self, section: &Section) {
         self.in_section = true;
         // Extract path from section keys
-        // ValueVisitor would use build_path_segments() for this
+        // CstInterpreter would use build_path_segments() for this
         let keys_path = self.extract_keys_path(&section.keys);
         self.current_path = keys_path;
         
