@@ -36,22 +36,13 @@ use std::path::Path;
 use thiserror::Error;
 
 /// Configuration for code generation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct WalkerConfig {
     /// Naming conventions for generated code
     pub naming: NamingConfig,
 
     /// Import paths for dependencies
     pub imports: ImportPaths,
-}
-
-impl Default for WalkerConfig {
-    fn default() -> Self {
-        Self {
-            naming: NamingConfig::default(),
-            imports: ImportPaths::default(),
-        }
-    }
 }
 
 /// Naming conventions for generated code
@@ -70,14 +61,13 @@ pub struct NamingConfig {
     pub constructor_suffix: String,
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for NamingConfig {
     fn default() -> Self {
         Self {
-            visitor_trait: "CstVisitor".to_string(),
-            handle_suffix: "Handle".to_string(),
-            view_suffix: "View".to_string(),
-            constructor_suffix: "Constructor".to_string(),
+            visitor_trait: "CstVisitor".into(),
+            handle_suffix: "Handle".into(),
+            view_suffix: "View".into(),
+            constructor_suffix: "Constructor".into(),
         }
     }
 }
@@ -98,9 +88,9 @@ pub struct ImportPaths {
 impl Default for ImportPaths {
     fn default() -> Self {
         Self {
-            runtime_crate: "parol_walker".to_string(),
-            node_kind_module: "crate::node_kind".to_string(),
-            nodes_module: "crate::nodes".to_string(),
+            runtime_crate: "parol_walker".into(),
+            node_kind_module: "crate::node_kind".into(),
+            nodes_module: "crate::nodes".into(),
         }
     }
 }
