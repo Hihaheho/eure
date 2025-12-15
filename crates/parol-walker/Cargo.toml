@@ -1,0 +1,13 @@
+[package]
+name = "parol-walker"
+version = "0.1.0"
+edition = "2021"
+description = "Type-safe visitor pattern generator for Parol parsers - runtime library"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/hihaheho/parol-walker"
+keywords = ["parol", "parser", "visitor", "ast"]
+categories = ["parser-implementations", "development-tools"]
+
+[dependencies]
+ahash.workspace = true
+thiserror.workspace = true
