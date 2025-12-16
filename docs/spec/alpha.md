@@ -12,9 +12,10 @@
 5. [Composite Values](#5-composite-values)
 6. [Keys and Paths](#6-keys-and-paths)
 7. [Document Structure](#7-document-structure)
-8. [Extensions](#8-extensions)
-9. [Data Model](#9-data-model)
-10. [Formal Grammar](#10-formal-grammar)
+8. [Document Interpretation](#8-document-interpretation)
+9. [Extensions](#9-extensions)
+10. [Data Model](#10-data-model)
+11. [Formal Grammar](#11-formal-grammar)
 
 ---
 
@@ -39,7 +40,7 @@ A conforming implementation MAY:
 
 This specification uses the following conventions:
 
-- **EBNF notation** for grammar rules (see [Section 10](#10-formal-grammar))
+- **EBNF notation** for grammar rules (see [Section 11](#11-formal-grammar))
 - **Regular expressions** enclosed in `/slashes/` using Unicode-aware regex syntax
 - `monospace` for literal syntax elements
 - *italics* for terms being defined
@@ -439,7 +440,7 @@ Paths navigate through document structure using dot notation:
 user.name = "Alice"
 ```
 
-**Extension**: Extension namespace (see [Section 8](#8-extensions))
+**Extension**: Extension namespace (see [Section 9](#9-extensions))
 ```eure
 $eure.version = "1.0"
 ```
@@ -601,9 +602,303 @@ This creates an array with two objects.
 
 ---
 
-## 8. Extensions
+## 8. Document Interpretation
 
-### 8.1 Extension Syntax
+This section defines the operational semantics of Eure documents using abstract interpretation actions.
+
+### 8.1 Interpretation State
+
+Document interpretation maintains:
+
+1. **Document tree**: A tree of nodes, each either unbound (a *hole*) or bound to a value
+2. **Cursor**: The current position within the tree, starting at the root
+3. **Scope stack**: A stack of saved cursor positions
+
+### 8.2 Interpretation Actions
+
+The following primitive actions define document interpretation:
+
+| Action | Description |
+|--------|-------------|
+| `begin_scope()` | Save the current cursor position onto the scope stack |
+| `end_scope()` | Restore the cursor to the most recently saved position (pop from stack) |
+| `navigate(segment)` | Move cursor to a child node identified by segment; create the node if absent |
+| `assert_unbound()` | Verify the current position is a hole; error if already bound |
+| `bind(value)` | Assign a value to the current position |
+
+**Constraints:**
+
+- `bind(value)` MUST only succeed when the current position is unbound
+- `end_scope()` MUST be called in LIFO order (most recent scope first)
+- `navigate(segment)` implicitly creates intermediate nodes as needed
+
+### 8.3 Navigate Segments
+
+The `navigate(segment)` action accepts different segment types:
+
+| Segment | Syntax | Description |
+|---------|--------|-------------|
+| Identifier | `navigate("key")` | Navigate to a string key (from identifier or quoted string) |
+| Extension | `navigate($ext)` | Navigate to an extension namespace |
+| Integer key | `navigate(42)` | Navigate to a numeric key |
+| Tuple key | `navigate((1, "a"))` | Navigate to a composite tuple key |
+| Tuple index | `navigate(#0)` | Navigate to a tuple element by position (0-255) |
+| Array append | `navigate([])` | Append a new element to an array |
+| Array index | `navigate([0])` | Navigate to a specific array index |
+
+### 8.4 Interpretation Examples
+
+#### Simple Binding
+
+```eure
+key = 1
+```
+
+```
+begin_scope()
+  navigate("key") assert_unbound() bind(1)
+end_scope()
+```
+
+#### Nested Path Binding
+
+```eure
+key1.key2 = 1
+```
+
+```
+begin_scope()
+  navigate("key1") navigate("key2") assert_unbound() bind(1)
+end_scope()
+```
+
+#### Map Literal
+
+```eure
+x = {
+  "a" => 1
+}
+```
+
+```
+begin_scope()
+  navigate("x") assert_unbound()
+  // Map construction begins at current position
+  begin_scope()
+    navigate("a") assert_unbound() bind(1)
+  end_scope()
+end_scope()
+```
+
+#### Section
+
+```eure
+@ server
+host = "localhost"
+port = 8080
+```
+
+```
+begin_scope()
+  navigate("server")  // No assert_unbound() - sections allow additive binding
+  begin_scope()
+    navigate("host") assert_unbound() bind("localhost")
+  end_scope()
+  begin_scope()
+    navigate("port") assert_unbound() bind(8080)
+  end_scope()
+end_scope()
+```
+
+#### Array Append
+
+```eure
+@ items[]
+value = 1
+
+@ items[]
+value = 2
+```
+
+```
+// First array element
+begin_scope()
+  navigate("items") navigate([])  // [] appends new element
+  begin_scope()
+    navigate("value") assert_unbound() bind(1)
+  end_scope()
+end_scope()
+
+// Second array element
+begin_scope()
+  navigate("items") navigate([])  // [] appends another element
+  begin_scope()
+    navigate("value") assert_unbound() bind(2)
+  end_scope()
+end_scope()
+```
+
+#### Block Section
+
+```eure
+@ config {
+  = "default"
+  $tag: meta
+}
+```
+
+```
+begin_scope()
+  navigate("config")  // Block section creates sub-document context
+  assert_unbound() bind("default")  // Value binding
+  begin_scope()
+    navigate($tag) assert_unbound() bind("meta")  // Extension binding
+  end_scope()
+end_scope()
+```
+
+#### Extension Binding
+
+```eure
+$variant: success
+field = 42
+```
+
+```
+begin_scope()
+  navigate($variant) assert_unbound() bind("success")
+end_scope()
+begin_scope()
+  navigate("field") assert_unbound() bind(42)
+end_scope()
+```
+
+#### Text Binding
+
+```eure
+title: Hello World
+```
+
+```
+begin_scope()
+  navigate("title") assert_unbound() bind("Hello World")
+end_scope()
+```
+
+#### Section Binding (Inline Block)
+
+```eure
+config = {
+  name = "app"
+  version = "1.0"
+}
+```
+
+```
+begin_scope()
+  navigate("config") assert_unbound()  // SectionBinding creates sub-document context
+  begin_scope()
+    navigate("name") assert_unbound() bind("app")
+  end_scope()
+  begin_scope()
+    navigate("version") assert_unbound() bind("1.0")
+  end_scope()
+end_scope()
+```
+
+#### Array Literal
+
+```eure
+numbers = [1, 2, 3]
+```
+
+```
+begin_scope()
+  navigate("numbers") assert_unbound()  // Array construction
+  begin_scope()
+    navigate([0]) assert_unbound() bind(1)
+  end_scope()
+  begin_scope()
+    navigate([1]) assert_unbound() bind(2)
+  end_scope()
+  begin_scope()
+    navigate([2]) assert_unbound() bind(3)
+  end_scope()
+end_scope()
+```
+
+#### Tuple Literal
+
+```eure
+point = (10, 20)
+```
+
+```
+begin_scope()
+  navigate("point") assert_unbound()  // Tuple construction
+  begin_scope()
+    navigate(#0) assert_unbound() bind(10)
+  end_scope()
+  begin_scope()
+    navigate(#1) assert_unbound() bind(20)
+  end_scope()
+end_scope()
+```
+
+#### Special Key Types
+
+```eure
+"key with space" = 1
+0 = "first"
+(1, 2) = "point"
+point.#0 = 10
+items[0] = "specific"
+```
+
+```
+// String key
+begin_scope()
+  navigate("key with space") assert_unbound() bind(1)
+end_scope()
+// Integer key
+begin_scope()
+  navigate(0) assert_unbound() bind("first")
+end_scope()
+// Tuple key
+begin_scope()
+  navigate((1, 2)) assert_unbound() bind("point")
+end_scope()
+// Tuple index
+begin_scope()
+  navigate("point") navigate(#0) assert_unbound() bind(10)
+end_scope()
+// Specific array index
+begin_scope()
+  navigate("items") navigate([0]) assert_unbound() bind("specific")
+end_scope()
+```
+
+#### Hole
+
+```eure
+placeholder = !
+named = !todo
+```
+
+```
+begin_scope()
+  navigate("placeholder") assert_unbound() bind(!)
+end_scope()
+begin_scope()
+  navigate("named") assert_unbound() bind(!todo)
+end_scope()
+```
+
+---
+
+## 9. Extensions
+
+### 9.1 Extension Syntax
 
 *Extensions* provide metadata separate from data values. They use the `$` prefix:
 
@@ -623,7 +918,7 @@ $variant: ok           // Extension: sets variant metadata
 "$variant" => "text"   // Map entry: key is the string "$variant"
 ```
 
-### 8.2 Extension Bindings
+### 9.2 Extension Bindings
 
 Extensions can be bound like regular values:
 
@@ -635,11 +930,11 @@ $metadata {
 }
 ```
 
-### 8.3 Storage Model
+### 9.3 Storage Model
 
 Extensions are stored separately from data values. They do not appear in the serialized output unless explicitly handled by the implementation.
 
-### 8.4 Language-Defined Extension
+### 9.4 Language-Defined Extension
 
 The following extension is defined by this specification:
 
@@ -661,15 +956,15 @@ $variant: ok              // Single level
 $variant: ok.ok.err       // Nested variants (three levels)
 ```
 
-### 8.5 Application-Level Extensions
+### 9.5 Application-Level Extensions
 
 Other extensions like `$eure`, `$local`, `$license`, etc. are **application-level conventions**, not part of this language specification. Applications and tools may define their own extension semantics.
 
 ---
 
-## 9. Data Model
+## 10. Data Model
 
-### 9.1 JSON Compatibility
+### 10.1 JSON Compatibility
 
 Eure's data model is a superset of JSON. The following JSON types map directly:
 
@@ -683,7 +978,7 @@ Eure's data model is a superset of JSON. The following JSON types map directly:
 | array | array |
 | object | map |
 
-### 9.2 Extensions Beyond JSON
+### 10.2 Extensions Beyond JSON
 
 Eure extends the JSON data model with:
 
@@ -697,7 +992,7 @@ Eure extends the JSON data model with:
 
 5. **Extension metadata**: Separate metadata channel
 
-### 9.3 Type Coercion
+### 10.3 Type Coercion
 
 When converting to formats with fewer types (like JSON):
 
@@ -710,11 +1005,11 @@ When converting to formats with fewer types (like JSON):
 
 ---
 
-## 10. Formal Grammar
+## 11. Formal Grammar
 
 This section presents the complete grammar in EBNF notation.
 
-### 10.1 Notation
+### 11.1 Notation
 
 ```
 rule = definition ;          // Rule definition
@@ -726,7 +1021,7 @@ rule = definition ;          // Rule definition
 a | b                        // Alternative
 ```
 
-### 10.2 Document Structure
+### 11.2 Document Structure
 
 ```ebnf
 Document = [ ValueBinding ] { Binding } { Section } ;
@@ -741,7 +1036,7 @@ Section = "@" Keys SectionBody ;
 SectionBody = [ ValueBinding ] { Binding } | "{" Document "}" ;
 ```
 
-### 10.3 Keys and Paths
+### 11.3 Keys and Paths
 
 ```ebnf
 Keys = Key { "." Key } ;
@@ -754,7 +1049,7 @@ KeyTuple = "(" [ KeyValue { "," KeyValue } [ "," ] ] ")" ;
 KeyValue = Integer | Boolean | String | KeyTuple ;
 ```
 
-### 10.4 Values
+### 11.4 Values
 
 ```ebnf
 Value = Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | InlineCode ;
@@ -770,7 +1065,7 @@ Hole = "!" [ Identifier ] ;
 Strings = String { "\\" String } ;
 ```
 
-### 10.5 Lexical Elements
+### 11.5 Lexical Elements
 
 ```ebnf
 Identifier = /[\p{XID_Start}_][\p{XID_Continue}-]*/ ;
@@ -794,7 +1089,7 @@ LineComment = "//" /[^\r\n]*/ ;
 BlockComment = "/*" { /[^*]/ | "*" /[^/]/ } "*/" ;
 ```
 
-### 10.6 Lexical Contexts
+### 11.6 Lexical Contexts
 
 The lexer operates in different contexts where whitespace, newlines, and comments are handled differently:
 
