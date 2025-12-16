@@ -2,9 +2,10 @@
 
 use catppuccin::{FlavorColors, Hex, PALETTE};
 use eure_editor_support::semantic_token::SemanticTokenType;
+use serde::{Deserialize, Serialize};
 
 /// Theme variants: Dark (Mocha) and Light (Latte).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum Theme {
     #[default]
     Dark,

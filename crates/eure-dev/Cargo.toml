@@ -19,3 +19,5 @@ serde_json = { workspace = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 tracing = { workspace = true }
 dioxus-free-icons = { version = "0.10.0", features = ["bootstrap"] }
+dioxus-sdk-storage = "0.7.0"
+serde = { workspace = true, features = ["derive"] }

@@ -1,11 +1,12 @@
 use dioxus::prelude::*;
 use dioxus_free_icons::{Icon, icons::bs_icons::BsGithub};
+use dioxus_sdk_storage::new_persistent;
 
 use crate::{Route, theme::Theme};
 
 #[component]
 pub fn Layout() -> Element {
-    let mut theme = use_context_provider(|| Signal::new(Theme::default()));
+    let mut theme = use_context_provider(|| new_persistent("theme", Theme::default));
     let theme_val = theme();
     let page_bg_color = theme_val.page_bg_color();
     let text_color = theme_val.text_color();
