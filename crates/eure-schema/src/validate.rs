@@ -380,12 +380,13 @@ mod tests {
     use super::*;
     use crate::{
         ArraySchema, Bound, IntegerSchema, RecordFieldSchema, RecordSchema, TextSchema,
-        UnknownFieldsPolicy,
+        UnionSchema, UnknownFieldsPolicy,
     };
+    use eure_document::data_model::VariantRepr;
     use eure_document::text::Text;
     use eure_document::value::{ObjectKey, PrimitiveValue};
     use num_bigint::BigInt;
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap, HashSet};
 
     fn create_simple_schema(content: SchemaNodeContent) -> (SchemaDocument, SchemaNodeId) {
         let mut schema = SchemaDocument {
@@ -546,5 +547,162 @@ mod tests {
         let result = validate(&doc, &schema);
         assert!(result.is_valid);
         assert!(!result.is_complete);
+    }
+
+    /// Helper to create a literal schema from an EureDocument
+    fn create_literal_schema(
+        schema: &mut SchemaDocument,
+        literal_doc: EureDocument,
+    ) -> SchemaNodeId {
+        schema.create_node(SchemaNodeContent::Literal(literal_doc))
+    }
+
+    #[test]
+    fn test_validate_union_deny_untagged_without_tag() {
+        use eure_document::eure;
+
+        // Create a union with a literal variant that has deny_untagged = true
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+
+        // Create literal schema for "active"
+        let literal_schema_id = create_literal_schema(&mut schema, eure!({ = "active" }));
+
+        // Create union with literal variant that requires explicit tagging
+        let mut variants = BTreeMap::new();
+        variants.insert("literal".to_string(), literal_schema_id);
+
+        let mut deny_untagged = HashSet::new();
+        deny_untagged.insert("literal".to_string());
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
+            variants,
+            priority: None,
+            repr: VariantRepr::Untagged,
+            deny_untagged,
+        });
+
+        // Create document with literal value but NO $variant tag
+        let doc = eure!({ = "active" });
+
+        // Validation should fail with RequiresExplicitVariant error
+        let result = validate(&doc, &schema);
+        assert!(!result.is_valid);
+        assert!(result.errors.iter().any(|e| matches!(
+            e,
+            ValidationError::RequiresExplicitVariant { variant, .. } if variant == "literal"
+        )));
+    }
+
+    #[test]
+    fn test_validate_union_deny_untagged_with_tag() {
+        use eure_document::eure;
+
+        // Create a union with a literal variant that has deny_untagged = true
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+
+        // Create literal schema for "active"
+        let literal_schema_id = create_literal_schema(&mut schema, eure!({ = "active" }));
+
+        // Create union with literal variant that requires explicit tagging
+        let mut variants = BTreeMap::new();
+        variants.insert("literal".to_string(), literal_schema_id);
+
+        let mut deny_untagged = HashSet::new();
+        deny_untagged.insert("literal".to_string());
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
+            variants,
+            priority: None,
+            repr: VariantRepr::Untagged,
+            deny_untagged,
+        });
+
+        // Create document with literal value WITH $variant tag
+        let doc = eure!({
+            = "active"
+            %variant = "literal"
+        });
+
+        // Validation should succeed
+        let result = validate(&doc, &schema);
+        assert!(
+            result.is_valid,
+            "Expected valid, got errors: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
+    fn test_validate_union_mixed_deny_untagged() {
+        use eure_document::eure;
+
+        // Test that non-deny-untagged variants can still match via untagged
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+
+        // Create literal schema for "active" (deny_untagged)
+        let literal_active_id = create_literal_schema(&mut schema, eure!({ = "active" }));
+
+        // Create text schema (not deny_untagged)
+        let text_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+
+        // Create union where literal requires explicit tag but text doesn't
+        let mut variants = BTreeMap::new();
+        variants.insert("literal".to_string(), literal_active_id);
+        variants.insert("text".to_string(), text_schema_id);
+
+        let mut deny_untagged = HashSet::new();
+        deny_untagged.insert("literal".to_string());
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
+            variants,
+            priority: Some(vec!["literal".to_string(), "text".to_string()]),
+            repr: VariantRepr::Untagged,
+            deny_untagged,
+        });
+
+        // Create document with value "active" but no tag
+        // This should fail because "literal" matches but requires explicit tag
+        let doc = eure!({ = "active" });
+
+        let result = validate(&doc, &schema);
+        assert!(!result.is_valid);
+        assert!(result.errors.iter().any(|e| matches!(
+            e,
+            ValidationError::RequiresExplicitVariant { variant, .. } if variant == "literal"
+        )));
+
+        // Create document with value "other text" - should match text variant via untagged
+        let doc2 = eure!({ = "other text" });
+
+        let result2 = validate(&doc2, &schema);
+        assert!(
+            result2.is_valid,
+            "Expected valid for text match, got errors: {:?}",
+            result2.errors
+        );
+    }
+
+    #[test]
+    fn test_validate_literal_with_inline_code() {
+        use eure_document::eure;
+
+        // Test that Literal comparison works correctly with inline code (Language::Implicit)
+        let mut schema = SchemaDocument::new();
+
+        // Create literal schema using inline code (like meta-schema does)
+        let literal_doc = eure!({ = @code("boolean") });
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Literal(literal_doc);
+
+        // Create document with inline code "boolean"
+        let doc = eure!({ = @code("boolean") });
+
+        // Validation should succeed
+        let result = validate(&doc, &schema);
+        assert!(
+            result.is_valid,
+            "Expected valid, got errors: {:?}",
+            result.errors
+        );
     }
 }

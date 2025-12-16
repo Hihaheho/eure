@@ -4,6 +4,7 @@
 
 use std::collections::HashSet;
 
+use eure_document::parse::union::{VARIANT, extract_repr_variant};
 use eure_document::parse::{DocumentParser, ParseContext};
 
 use crate::{SchemaNodeId, UnionSchema};
@@ -73,6 +74,22 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
             eure_document::data_model::VariantRepr::Untagged
         );
 
+        // Check if this value has explicit variant tagging ($variant extension or repr pattern)
+        // This is used to enforce deny_untagged: variants in deny_untagged must have explicit tags
+        let has_explicit_tag = {
+            // Check for $variant extension
+            let has_variant_ext = parse_ctx.node().extensions.contains_key(&VARIANT);
+            // Check if repr pattern matches (for non-Untagged reprs)
+            let has_repr_tag =
+                extract_repr_variant(self.ctx.document, parse_ctx.node_id(), &self.schema.repr)
+                    .ok()
+                    .flatten()
+                    .is_some();
+            has_variant_ext || has_repr_tag
+        };
+
+        let deny_untagged = &self.schema.deny_untagged;
+
         // Register priority variants first
         if let Some(priority) = &self.schema.priority {
             for name in priority {
@@ -80,8 +97,17 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
                     let ctx = self.ctx;
                     let schema_node_id = variant_schema_id;
                     let variant_name = name.clone();
+                    let requires_explicit = deny_untagged.contains(name);
                     builder = builder.variant(name, move |parse_ctx: &ParseContext<'_>| {
-                        validate_variant(ctx, parse_ctx, schema_node_id, is_tagged, &variant_name)
+                        validate_variant(
+                            ctx,
+                            parse_ctx,
+                            schema_node_id,
+                            is_tagged,
+                            &variant_name,
+                            requires_explicit,
+                            has_explicit_tag,
+                        )
                     });
                 }
             }
@@ -95,8 +121,17 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
             let ctx = self.ctx;
             let schema_node_id = variant_schema_id;
             let variant_name = name.clone();
+            let requires_explicit = deny_untagged.contains(name);
             builder = builder.other(name, move |parse_ctx: &ParseContext<'_>| {
-                validate_variant(ctx, parse_ctx, schema_node_id, is_tagged, &variant_name)
+                validate_variant(
+                    ctx,
+                    parse_ctx,
+                    schema_node_id,
+                    is_tagged,
+                    &variant_name,
+                    requires_explicit,
+                    has_explicit_tag,
+                )
             });
         }
 
@@ -148,12 +183,17 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
 /// `propagate_errors`: When true (tagged mode), propagate nested errors to parent context
 /// so they are reported with correct node positions. When false (untagged mode), store
 /// errors for later analysis to find the best matching variant.
+///
+/// `requires_explicit_tag`: When true, this variant is in deny_untagged and requires explicit tagging.
+/// `has_explicit_tag`: Whether the value has an explicit variant tag ($variant or repr pattern).
 fn validate_variant<'doc>(
     ctx: &ValidationContext<'doc>,
     parse_ctx: &ParseContext<'doc>,
     schema_node_id: SchemaNodeId,
     propagate_errors: bool,
     variant_name: &str,
+    requires_explicit_tag: bool,
+    has_explicit_tag: bool,
 ) -> Result<(), ValidatorError> {
     // Fork state for trial validation
     let forked_state = ctx.fork_state();
@@ -172,6 +212,18 @@ fn validate_variant<'doc>(
     let result = parse_ctx.parse_with(child_validator);
 
     if result.is_ok() && !trial_ctx.has_errors() {
+        // Check deny_untagged constraint: variant requires explicit tag but none was provided
+        if requires_explicit_tag && !has_explicit_tag {
+            ctx.record_error(ValidationError::RequiresExplicitVariant {
+                variant: variant_name.to_string(),
+                path: ctx.path(),
+                node_id: parse_ctx.node_id(),
+                schema_node_id,
+            });
+            // Signal that inner errors were propagated - no additional error needed
+            return Err(ValidatorError::InnerErrorsPropagated);
+        }
+
         // Success - merge any warnings/holes from trial
         ctx.merge_state(trial_ctx.state.into_inner());
         Ok(())
