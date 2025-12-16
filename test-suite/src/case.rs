@@ -87,6 +87,8 @@ pub enum ScenarioError {
     },
     /// Expected JSON Schema conversion to fail but it succeeded
     ExpectedJsonSchemaConversionToFail { expected_errors: Vec<String> },
+    /// Expected schema conversion (document_to_schema) to fail but it succeeded
+    ExpectedSchemaConversionToFail { expected_errors: Vec<String> },
     /// Preprocessing error (parse error, file read error, etc.)
     PreprocessingError { message: String },
     /// Scenario is not yet implemented
@@ -208,6 +210,18 @@ impl std::fmt::Display for ScenarioError {
                 writeln!(
                     f,
                     "Expected JSON Schema conversion to fail, but conversion succeeded."
+                )?;
+                writeln!(f, "Expected errors ({}):", expected_errors.len())?;
+                for (i, error) in expected_errors.iter().enumerate() {
+                    writeln!(f, "\n--- Expected Error {} ---", i + 1)?;
+                    write!(f, "{}", error)?;
+                }
+                Ok(())
+            }
+            ScenarioError::ExpectedSchemaConversionToFail { expected_errors } => {
+                writeln!(
+                    f,
+                    "Expected schema conversion to fail, but conversion succeeded."
                 )?;
                 writeln!(f, "Expected errors ({}):", expected_errors.len())?;
                 for (i, error) in expected_errors.iter().enumerate() {
@@ -342,6 +356,7 @@ pub enum Scenario<'a> {
     TomlToEureSource(TomlToEureSourceScenario<'a>),
     SchemaValidation(SchemaValidationScenario<'a>),
     SchemaErrorValidation(SchemaErrorValidationScenario<'a>),
+    SchemaConversionError(SchemaConversionErrorScenario<'a>),
     MetaSchema(MetaSchemaScenario<'a>),
     EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario<'a>),
     EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario<'a>),
@@ -361,6 +376,7 @@ impl Scenario<'_> {
             Scenario::TomlToEureSource(_) => "toml_to_eure_source".to_string(),
             Scenario::SchemaValidation(_) => "schema_validation".to_string(),
             Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
+            Scenario::SchemaConversionError(_) => "schema_conversion_error".to_string(),
             Scenario::MetaSchema(_) => "meta_schema".to_string(),
             Scenario::EureSchemaToJsonSchema(_) => "eure_schema_to_json_schema".to_string(),
             Scenario::EureSchemaToJsonSchemaError(_) => {
@@ -382,6 +398,7 @@ impl Scenario<'_> {
             Scenario::TomlToEureSource(s) => s.run(),
             Scenario::SchemaValidation(s) => s.run(),
             Scenario::SchemaErrorValidation(s) => s.run(),
+            Scenario::SchemaConversionError(s) => s.run(),
             Scenario::MetaSchema(s) => s.run(),
             Scenario::EureSchemaToJsonSchema(s) => s.run(),
             Scenario::EureSchemaToJsonSchemaError(s) => s.run(),
@@ -401,6 +418,7 @@ pub struct PreprocessedCase {
     pub output_json: Option<serde_json::Value>,
     pub schema: Option<PreprocessedEure>,
     pub schema_errors: Vec<String>,
+    pub schema_conversion_error: Option<String>,
     pub meta_schema_errors: Vec<String>,
     pub output_json_schema: Option<serde_json::Value>,
     pub json_schema_errors: Vec<String>,
@@ -725,6 +743,11 @@ impl Case {
             .iter()
             .map(|e| e.as_str().to_string())
             .collect();
+        let schema_conversion_error = self
+            .data
+            .schema_conversion_error
+            .as_ref()
+            .map(|e| e.as_str().to_string());
         let meta_schema_errors = self
             .data
             .meta_schema_errors
@@ -771,6 +794,7 @@ impl Case {
             output_json,
             schema,
             schema_errors,
+            schema_conversion_error,
             meta_schema_errors,
             output_json_schema,
             json_schema_errors,
@@ -1223,6 +1247,63 @@ impl SchemaErrorValidationScenario<'_> {
     }
 }
 
+// ============================================================================
+// Schema Conversion Error Scenario
+// ============================================================================
+
+/// Tests schema conversion (document_to_schema).
+/// If expected_error is None, conversion should succeed.
+/// If expected_error is Some, conversion should fail with that error.
+pub struct SchemaConversionErrorScenario<'a> {
+    schema: &'a PreprocessedEure,
+    expected_error: Option<&'a String>,
+}
+
+impl SchemaConversionErrorScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        let schema_doc = self
+            .schema
+            .doc()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+
+        // Attempt to convert schema document to SchemaDocument
+        let result = eure_schema::convert::document_to_schema(schema_doc);
+
+        match &self.expected_error {
+            None => {
+                // Expect success
+                result.map_err(|e| ScenarioError::SchemaConversionError {
+                    message: format!("{}", e),
+                })?;
+                Ok(())
+            }
+            Some(expected) => {
+                // Expect failure with specific error
+                match result {
+                    Ok(_) => Err(ScenarioError::ExpectedSchemaConversionToFail {
+                        expected_errors: vec![expected.trim().to_string()],
+                    }),
+                    Err(e) => {
+                        let actual_error = e.to_string();
+                        let expected_trimmed = expected.trim();
+                        let actual_trimmed = actual_error.trim();
+                        if actual_trimmed == expected_trimmed {
+                            Ok(())
+                        } else {
+                            Err(ScenarioError::ExpectedErrorNotFound {
+                                expected: expected_trimmed.to_string(),
+                                actual_errors: vec![actual_error],
+                            })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub struct EureSchemaToJsonSchemaScenario<'a> {
     schema: &'a PreprocessedEure,
     output_json_schema: &'a serde_json::Value,
@@ -1570,11 +1651,20 @@ impl PreprocessedCase {
             }
         }
 
+        // Schema conversion scenario
+        // Validate schema conversion (document_to_schema)
+        if let Some(schema) = &self.schema {
+            scenarios.push(Scenario::SchemaConversionError(
+                SchemaConversionErrorScenario {
+                    schema,
+                    expected_error: self.schema_conversion_error.as_ref(),
+                },
+            ));
+        }
+
         // Meta schema validation scenario
-        // When schema is present but input_eure is not, validate schema against meta-schema
-        if let Some(schema) = &self.schema
-            && self.input_eure.is_none()
-        {
+        // Validate all schemas against the meta-schema
+        if let Some(schema) = &self.schema {
             scenarios.push(Scenario::MetaSchema(MetaSchemaScenario {
                 schema,
                 expected_errors: &self.meta_schema_errors,

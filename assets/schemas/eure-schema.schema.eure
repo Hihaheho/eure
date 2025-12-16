@@ -466,7 +466,6 @@ variants {
   /// Example: status.$type = "active" will only accept the string "active".
   @variants.literal
   = `any`
-  $deny-untagged = true
 
   /// Record type with fixed, named fields.
   /// Each field has a specific name and type defined in the schema.

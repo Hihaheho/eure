@@ -102,17 +102,13 @@ note: constraint defined here
 ```
 ]
 
-@cases.imvalid-type-name
-umimplemented = "All inline code should be validated as type name, but the current union system interprets it as literal type."
+@ cases.invalid-type-name
+// Test that typos like `texte` (instead of `text`) are caught as invalid type names
 
 schema = ```eure
-name = `invalid-type-name`
+name = `texte`
 ```
 
-meta_schema_errors[] = ```
-error: Invalid type name 'invalid-type-name' at path name
- --> <schema>:1:1
-  |
-1 | name = `invalid-type-name`
-  | ---------------------------- constraint defined here
+schema_conversion_error = ```
+Parse error: parse error: invalid pattern: expected type reference (e.g., 'text', 'integer', '$types.name'), got texte
 ```

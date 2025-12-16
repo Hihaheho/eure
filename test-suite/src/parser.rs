@@ -215,6 +215,7 @@ pub struct CaseData {
     pub normalized: Option<Text>,
     pub schema: Option<Text>,
     pub schema_errors: Vec<Text>,
+    pub schema_conversion_error: Option<Text>,
     pub meta_schema_errors: Vec<Text>,
     pub output_json_schema: Option<Text>,
     pub json_schema_errors: Vec<Text>,
@@ -238,6 +239,7 @@ impl CaseData {
             && self.normalized.is_none()
             && self.schema.is_none()
             && self.schema_errors.is_empty()
+            && self.schema_conversion_error.is_none()
             && self.meta_schema_errors.is_empty()
             && self.output_json_schema.is_none()
             && self.json_schema_errors.is_empty()
@@ -262,6 +264,8 @@ impl ParseDocument<'_> for CaseData {
         let schema_errors = rec
             .parse_field_optional::<Vec<Text>>("schema_errors")?
             .unwrap_or_default();
+        let schema_conversion_error =
+            rec.parse_field_optional::<Text>("schema_conversion_error")?;
         let meta_schema_errors = rec
             .parse_field_optional::<Vec<Text>>("meta_schema_errors")?
             .unwrap_or_default();
@@ -313,6 +317,7 @@ impl ParseDocument<'_> for CaseData {
             normalized,
             schema,
             schema_errors,
+            schema_conversion_error,
             meta_schema_errors,
             output_json_schema,
             json_schema_errors,
@@ -402,6 +407,8 @@ impl ParseDocument<'_> for CaseFile {
         let schema_errors = rec
             .parse_field_optional::<Vec<Text>>("schema_errors")?
             .unwrap_or_default();
+        let schema_conversion_error =
+            rec.parse_field_optional::<Text>("schema_conversion_error")?;
         let meta_schema_errors = rec
             .parse_field_optional::<Vec<Text>>("meta_schema_errors")?
             .unwrap_or_default();
@@ -469,6 +476,7 @@ impl ParseDocument<'_> for CaseFile {
                 normalized,
                 schema,
                 schema_errors,
+                schema_conversion_error,
                 meta_schema_errors,
                 output_json_schema,
                 json_schema_errors,
