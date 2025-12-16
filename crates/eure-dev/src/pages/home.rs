@@ -6,6 +6,7 @@ use crate::{
 use dioxus::prelude::*;
 use eure::document::{OriginMap, cst_to_document, cst_to_document_and_origin_map};
 use eure::error::format_parse_error_plain;
+use eure::report::{DocumentReportContext, FileRegistry, format_error_report, report_conversion_error};
 use eure::tree::Cst;
 use eure_editor_support::semantic_token::{SemanticToken, semantic_tokens};
 use eure_json::{Config as JsonConfig, document_to_value};
@@ -27,9 +28,9 @@ struct ParsedData {
 struct ParsedSchemaData {
     tokens: Vec<SemanticToken>,
     parser_errors: Vec<ErrorSpan>,
-    schema_errors: Vec<String>, // Schema conversion errors (no span info)
-    schema_validation_errors: Vec<ErrorSpan>, // Meta-schema validation errors (with spans)
-    schema_valid: bool,         // Whether schema is valid (for document validation)
+    schema_errors: Vec<ErrorSpan>,             // Schema conversion errors (with spans)
+    schema_validation_errors: Vec<ErrorSpan>,  // Meta-schema validation errors (with spans)
+    schema_valid: bool,                        // Whether schema is valid (for document validation)
 }
 
 /// All errors organized by category for display
@@ -37,7 +38,7 @@ struct ParsedSchemaData {
 struct AllErrors {
     doc_parser_errors: Vec<ErrorSpan>,
     schema_parser_errors: Vec<ErrorSpan>,
-    schema_errors: Vec<String>, // Schema conversion errors (no span info)
+    schema_errors: Vec<ErrorSpan>,            // Schema conversion errors (with spans)
     schema_validation_errors: Vec<ErrorSpan>, // Meta-schema validation errors
     validation_errors: Vec<ErrorSpan>,
 }
@@ -197,9 +198,22 @@ fn parse_schema(input: &str) -> ParsedSchemaData {
                 match document_to_schema(&doc) {
                     Ok(_) => true,
                     Err(e) => {
-                        // This shouldn't happen if meta-schema validation passed,
-                        // but record it just in case
-                        schema_errors.push(format!("Schema conversion: {}", e));
+                        // Format conversion error with source spans
+                        let mut files = FileRegistry::new();
+                        let file_id = files.register("schema.eure", input);
+                        let ctx = DocumentReportContext {
+                            file: file_id,
+                            cst: &cst,
+                            origins: &origins,
+                        };
+                        let report = report_conversion_error(&e, &ctx);
+                        let span = report.primary_origin.span;
+                        let message = format_error_report(&report, &files, false);
+                        schema_errors.push(ErrorSpan {
+                            start: span.start,
+                            end: span.end,
+                            message,
+                        });
                         false
                     }
                 }
@@ -208,7 +222,12 @@ fn parse_schema(input: &str) -> ParsedSchemaData {
             }
         }
         Err(e) => {
-            schema_errors.push(format!("Document construction: {}", e));
+            // Document construction errors don't have spans
+            schema_errors.push(ErrorSpan {
+                start: 0,
+                end: 1,
+                message: format!("Document construction: {}", e),
+            });
             false
         }
     };
@@ -411,13 +430,12 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
     let schema_parsed = use_memo(move || parse_schema(&schema_content()));
     let schema_tokens = use_memo(move || schema_parsed().tokens);
 
-    // Combined schema errors for the schema editor (parser + meta-schema validation)
-    // Note: schema_errors (conversion errors) are excluded because they lack span info.
-    // They are still visible in the Errors tab.
+    // Combined schema errors for the schema editor (parser + meta-schema validation + conversion)
     let combined_schema_errors = use_memo(move || {
         let data = schema_parsed();
         let mut combined = data.parser_errors.clone();
         combined.extend(data.schema_validation_errors.clone());
+        combined.extend(data.schema_errors.clone());
         combined
     });
 
@@ -636,7 +654,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                                 div {
                                                     class: "mb-2 p-2 rounded border",
                                                     style: "border-color: {border_color}",
-                                                    pre { class: "whitespace-pre-wrap", "{error}" }
+                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
                                                 }
                                             }
                                         }
