@@ -463,13 +463,10 @@ impl<'a> Converter<'a> {
             }
         };
 
-        // Collect extension info, filtering out schema metadata extensions like $variant
-        let extensions_to_copy: Vec<_> = src_node
-            .extensions
-            .iter()
-            .filter(|(k, _)| k.as_ref() != "variant")
-            .map(|(k, &v)| (k.clone(), v))
-            .collect();
+        // Skip ALL extensions during literal value copying.
+        // Extensions are schema metadata (like $variant, $deny-untagged, $optional, etc.)
+        // and should not be part of the literal value comparison.
+        // Literal types compare only the data structure, not metadata.
 
         // Now copy children based on the type
         let src_node = self.doc.node(src_node_id);
@@ -502,15 +499,6 @@ impl<'a> Converter<'a> {
                 }
             }
             _ => {}
-        }
-
-        // Copy extensions
-        for (ext_name, ext_node_id) in extensions_to_copy {
-            let new_ext_id = dest
-                .add_extension(ext_name, dest_node_id)
-                .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
-                .node_id;
-            self.copy_node_to(dest, new_ext_id, ext_node_id)?;
         }
 
         Ok(())

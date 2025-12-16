@@ -460,22 +460,13 @@ pub(crate) fn node_subtree_to_document(doc: &EureDocument, node_id: NodeId) -> E
 }
 
 fn copy_subtree(src: &EureDocument, src_id: NodeId, dst: &mut EureDocument, dst_id: NodeId) {
-    use crate::identifiers::VARIANT;
-
     let src_node = src.node(src_id);
     dst.node_mut(dst_id).content = src_node.content.clone();
 
-    // Copy extensions (except $variant which is metadata for union discrimination)
-    for (ext_ident, &ext_src_id) in &src_node.extensions {
-        // Skip $variant extension as it's union metadata, not actual data
-        if ext_ident == &VARIANT {
-            continue;
-        }
-        if let Ok(result) = dst.add_extension(ext_ident.clone(), dst_id) {
-            let child_dst_id = result.node_id;
-            copy_subtree(src, ext_src_id, dst, child_dst_id);
-        }
-    }
+    // Skip ALL extensions during literal comparison.
+    // Extensions are schema metadata (like $variant, $deny-untagged, $optional, etc.)
+    // and should not be part of the literal value comparison.
+    // Literal types compare only the data structure, not metadata.
 
     // Copy children based on content type
     match &src_node.content {
