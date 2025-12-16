@@ -18,11 +18,7 @@
 //! SchemaDocument, SchemaNode, ArraySchema, ...
 //! ```
 
-<<<<<<< HEAD
-use std::collections::{BTreeMap, HashMap};
-=======
-use std::collections::{HashMap, HashSet};
->>>>>>> 208a11c (Add deny-untagged to schema parser)
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
@@ -530,6 +526,22 @@ impl ParseDocument<'_> for ParsedUnionSchema {
 
         // Parse priority
         let priority = rec.parse_field_optional::<Vec<String>>("priority")?;
+
+        // Validate that all priority variants exist
+        if let Some(ref priority_list) = priority {
+            for variant_name in priority_list {
+                if !variants.contains_key(variant_name) {
+                    return Err(ParseError {
+                        node_id: ctx.node_id(),
+                        kind: ParseErrorKind::UnknownVariant(format!(
+                            "priority list contains non-existing variant: {}",
+                            variant_name
+                        )),
+                    });
+                }
+            }
+        }
+
         rec.allow_unknown_fields()?;
 
         // Parse $variant-repr extension

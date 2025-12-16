@@ -379,7 +379,7 @@ variants {
 
 @ $types.type {
   $variant: union
-  priority = ["text", "integer", "float", "boolean", "null", "any", "ref", "record", "array", "tuple", "array-shorthand", "tuple-shorthand", "map", "union", "text-shorthand", "integer-shorthand", "float-shorthand", "boolean-shorthand", "null-shorthand", "any-shorthand"]
+  priority = ["text", "integer", "float", "boolean", "null", "any", "ref", "record", "array", "tuple", "array-shorthand", "tuple-shorthand", "map", "union", "text-shorthand", "integer-shorthand", "float-shorthand"]
 
   $codegen {
     variant-types = true // Generate type for each variant instead of struct-like variant
