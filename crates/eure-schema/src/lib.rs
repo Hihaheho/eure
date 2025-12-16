@@ -39,7 +39,7 @@ use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use num_bigint::BigInt;
 use regex::Regex;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashSet};
 
 // ============================================================================
 // Schema Document
@@ -402,6 +402,8 @@ pub struct UnionSchema {
     pub priority: Option<Vec<String>>,
     /// Variant representation strategy (default: External)
     pub repr: VariantRepr,
+    /// Variants that deny untagged matching (require explicit $variant)
+    pub deny_untagged: HashSet<String>,
 }
 
 // ============================================================================

@@ -39,6 +39,7 @@ use super::{
 ///     }
 /// }
 /// ```
+#[must_use]
 pub struct RecordParser<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
@@ -362,6 +363,7 @@ impl<'doc> RecordParser<'doc> {
 /// let binding_style = ext.ext_optional::<BindingStyle>("binding-style")?;
 /// ext.allow_unknown_extensions();
 /// ```
+#[must_use]
 pub struct ExtParser<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,

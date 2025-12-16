@@ -464,7 +464,9 @@ variants {
   /// Literal type accepts a constant value.
   /// The schema matches only that exact value.
   /// Example: status.$type = "active" will only accept the string "active".
-  @variants.literal = `any`
+  @variants.literal
+  = `any`
+  $deny-untagged = true
 
   /// Record type with fixed, named fields.
   /// Each field has a specific name and type defined in the schema.
@@ -493,7 +495,13 @@ variants {
   /// Requires exactly one variant to match (oneOf semantics).
   /// Use priority to resolve ambiguity in untagged unions.
   @variants.union
-  variants = { $variant => "map", key => `$types.ident`, value => `$types.type` }
+  variants {
+    $variant: map
+    key = `$types.ident`
+    value = `$types.type`
+    value.$ext-type.deny-untagged = `boolean`
+    value.$ext-type.deny-untagged.$optional = true
+  }
   /// Priority order for variant matching (used when multiple variants match).
   /// Only relevant for untagged unions. First matching variant in priority wins.
   /// Example: priority = ["specific", "general"]

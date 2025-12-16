@@ -239,6 +239,14 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
+    #[error("Variant '{variant}' requires explicit $variant tag at path {path}")]
+    RequiresExplicitVariant {
+        variant: String,
+        path: EurePath,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
+    },
+
     #[error("Literal value mismatch at path {path}")]
     LiteralMismatch {
         expected: String,
@@ -421,6 +429,11 @@ impl ValidationError {
                 schema_node_id,
                 ..
             }
+            | Self::RequiresExplicitVariant {
+                node_id,
+                schema_node_id,
+                ..
+            }
             | Self::LiteralMismatch {
                 node_id,
                 schema_node_id,
@@ -480,6 +493,7 @@ impl ValidationError {
             | Self::AmbiguousUnion { path, .. }
             | Self::InvalidVariantTag { path, .. }
             | Self::ConflictingVariantTags { path, .. }
+            | Self::RequiresExplicitVariant { path, .. }
             | Self::LiteralMismatch { path, .. }
             | Self::LanguageMismatch { path, .. }
             | Self::InvalidKeyType { path, .. }
@@ -518,6 +532,7 @@ impl ValidationError {
             Self::AmbiguousUnion { .. } => 0, // Not a mismatch
             Self::ConflictingVariantTags { .. } => 0, // Configuration error
             Self::UndefinedTypeReference { .. } => 0, // Configuration error
+            Self::RequiresExplicitVariant { .. } => 0, // Configuration error
         }
     }
 }

@@ -691,7 +691,7 @@ mod tests {
         Bound, IntegerSchema as EureIntegerSchema, RecordFieldSchema, RecordSchema, SchemaDocument,
         SchemaNodeContent, UnknownFieldsPolicy,
     };
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::{BTreeMap, HashSet};
 
     #[test]
     fn test_convert_simple_text() {
@@ -792,6 +792,7 @@ mod tests {
             variants,
             priority: None,
             repr: VariantRepr::Untagged,
+            deny_untagged: HashSet::new(),
         }));
 
         let result = eure_to_json_schema(&doc).unwrap();
@@ -818,6 +819,7 @@ mod tests {
             variants,
             priority: None,
             repr: VariantRepr::External,
+            deny_untagged: HashSet::new(),
         }));
 
         let result = eure_to_json_schema(&doc).unwrap();

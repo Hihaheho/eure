@@ -357,6 +357,7 @@ impl<'a> Converter<'a> {
             variants,
             priority: parsed.priority,
             repr: parsed.repr,
+            deny_untagged: parsed.deny_untagged,
         })
     }
 

@@ -18,7 +18,11 @@
 //! SchemaDocument, SchemaNode, ArraySchema, ...
 //! ```
 
+<<<<<<< HEAD
 use std::collections::{BTreeMap, HashMap};
+=======
+use std::collections::{HashMap, HashSet};
+>>>>>>> 208a11c (Add deny-untagged to schema parser)
 
 use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
@@ -494,6 +498,8 @@ pub struct ParsedUnionSchema {
     pub priority: Option<Vec<String>>,
     /// Variant representation strategy
     pub repr: VariantRepr,
+    /// Variants that deny untagged matching (require explicit $variant)
+    pub deny_untagged: HashSet<String>,
 }
 
 impl ParseDocument<'_> for ParsedUnionSchema {
@@ -501,12 +507,24 @@ impl ParseDocument<'_> for ParsedUnionSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
         let mut variants = BTreeMap::new();
+        let mut deny_untagged = HashSet::new();
 
         // Check for variants = { ... } field
         if let Some(variants_ctx) = rec.field_optional("variants") {
             let variants_rec = variants_ctx.parse_record()?;
             for (name, var_ctx) in variants_rec.unknown_fields() {
                 variants.insert(name.to_string(), var_ctx.node_id());
+
+                // Parse extensions on the variant value
+                let mut ext = var_ctx.parse_extension();
+                if ext
+                    .parse_ext_optional::<bool>("deny-untagged")?
+                    .unwrap_or(false)
+                {
+                    deny_untagged.insert(name.to_string());
+                }
+                // There may other extensions to be parsed on the later stage. like $variant, $ext-type, etc.
+                ext.allow_unknown_extensions();
             }
         }
 
@@ -525,6 +543,7 @@ impl ParseDocument<'_> for ParsedUnionSchema {
             variants,
             priority,
             repr,
+            deny_untagged,
         })
     }
 }
