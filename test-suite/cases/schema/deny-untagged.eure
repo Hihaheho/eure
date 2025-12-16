@@ -1,0 +1,87 @@
+// Test cases for $deny-untagged union variant constraint
+// When a variant has $deny-untagged = true, values must have explicit $variant tag
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: Explicit $variant tag provided for deny-untagged variant
+// ============================================================================
+
+@ cases.with-explicit-tag
+input_eure = ```eure
+value {
+  = "active"
+  $variant = "literal"
+}
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  variants.literal = "active"
+  variants.literal.$deny-untagged = true
+  variants.text = `text`
+}
+```
+
+// No errors - explicit $variant tag provided
+
+// ============================================================================
+// Test Case 2: Non-deny-untagged variant matched without tag
+// ============================================================================
+
+@ cases.non-deny-untagged-variant
+input_eure = ```eure
+value = "other"
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  variants.literal = "active"
+  variants.literal.$deny-untagged = true
+  variants.text = `text`
+  priority = ["literal", "text"]
+}
+```
+
+// No errors - "other" doesn't match literal, falls through to text variant
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 3: Deny-untagged variant matched without explicit tag
+// ============================================================================
+
+@ cases.without-explicit-tag
+input_eure = ```eure
+value = "active"
+```
+
+schema = ```eure
+value {
+  $variant = "union"
+  variants.literal = "active"
+  variants.literal.$deny-untagged = true
+  variants.text = `text`
+  priority = ["literal", "text"]
+}
+```
+
+schema_errors[] = ```text
+error: Variant 'literal' requires explicit $variant tag at path value
+ --> <input>:1:1
+  |
+1 | value = "active"
+  | ^^^^^^^^^^^^^^^^ Variant 'literal' requires explicit $variant tag at path value
+  |
+note: constraint defined here
+ --> <schema>:3:3
+  |
+3 |   variants.literal = "active"
+  |   --------------------------- constraint defined here
+```
