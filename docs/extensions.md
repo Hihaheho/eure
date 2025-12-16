@@ -27,12 +27,12 @@ This separation ensures extensions don't interfere with data serialization or de
 For third-party extensions, use proper namespacing to avoid conflicts:
 
 ```eure
-# Good: Properly namespaced extensions
+// Good: Properly namespaced extensions
 key1.$my-extension.is-awesome = true
 key2.$my-extension.is-awesome = false
 
-# Bad: Unnamespaced custom extensions
-key1.$is-awesome = true  # Could conflict with other extensions
+// Bad: Unnamespaced custom extensions
+key1.$is-awesome = true  // Could conflict with other extensions
 ```
 
 ## Nested Extensions
@@ -53,17 +53,17 @@ Note: Extensions within extensions don't use the `$` syntax again.
 Extension types can be defined using the `$ext-type` namespace to provide type information and validation for extensions:
 
 ```eure
-# Define that $optional extension must be a boolean
-$ext-type.optional = .boolean
+// Define that $optional extension must be a boolean
+$ext-type.optional = `boolean`
 
-# Define structure for $validation extension
+// Define structure for $validation extension
 $ext-type.validation {
-  min = .number
-  max = .number
-  pattern = .text
+  min = `number`
+  max = `number`
+  pattern = `text`
 }
 
-# Now these extensions follow the defined schemas
+// Now these extensions follow the defined schemas
 field {
   $optional = true
   $validation {
@@ -93,7 +93,7 @@ Indicates variant selection in sum types:
 
 ```eure
 @ user {
-  $variant = "premium"
+  $variant: premium
   subscription_level = "gold"
   benefits = ["priority-support", "advanced-features"]
 }
@@ -103,34 +103,34 @@ The `$variant` extension is metadata that helps identify which variant of a sum 
 
 #### Nested Variants
 
-For nested variant types (similar to `Result<Result<T, E>, E>` in Rust), you can use dot notation to specify the variant path:
+For nested variant types (similar to `Result<Result<T, E>, E>` in Rust), use dot notation within the variant path string:
 
 ```eure
 @ response {
-  $variant = .ok.ok.err
+  $variant: ok.ok.err
   error_message = "Invalid input"
 }
 ```
 
 This corresponds to Rust's `Ok(Ok(Err(value)))` structure, where:
-- The first `.ok` selects the outer `Ok` variant
-- The second `.ok` selects the middle `Ok` variant
-- The `.err` selects the inner `Err` variant
+- `ok` selects the outer `Ok` variant
+- The second `ok` selects the middle `Ok` variant
+- `err` selects the inner `Err` variant
 
 Each segment in the path represents one level of variant nesting:
 
 ```eure
-# Simple variant
-$variant = "success"  # or $variant = .success
+// Simple variant
+$variant: success
 
-# Nested variants (2 levels)
-$variant = .ok.value
+// Nested variants (2 levels)
+$variant: ok.value
 
-# Deeply nested variants (3 levels)
-$variant = .ok.ok.err
+// Deeply nested variants (3 levels)
+$variant: ok.ok.err
 
-# Any depth is supported
-$variant = .a.b.c.d.e
+// Any depth is supported
+$variant: a.b.c.d.e
 ```
 
 ### $local
@@ -142,7 +142,7 @@ Provides document-local metadata storage:
   $local.last-modified = "2024-01-15"
   $local.author = "system"
 
-  # Actual configuration data
+  // Actual configuration data
   timeout = 30
   retries = 3
 }
@@ -153,17 +153,17 @@ Provides document-local metadata storage:
 Specifies license information using SPDX License IDs for root or sub-document objects:
 
 ```eure
-# Root-level license
+// Root-level license
 @ $license = "MIT"
 
-# Object-level license
+// Object-level license
 @ library {
   $license = "Apache-2.0"
   name = "my-library"
   version = "1.0.0"
 }
 
-# Sub-document with different license
+// Sub-document with different license
 @ component {
   $license = "GPL-3.0"
   name = "gpl-component"
@@ -194,11 +194,11 @@ The `$` symbol is part of the Eure grammar, not a string prefix:
 To use a literal `$` in a key name (not as an extension), quote it:
 
 ```eure
-# This is an extension (metadata)
-$variant = "type-a"
+// This is an extension (metadata)
+$variant: type-a
 
-# This is a data field with a literal $ in the name
-"$price" = 99.99
+// This is a data field with a literal $ in the name
+"$price" => 99.99
 ```
 
 
