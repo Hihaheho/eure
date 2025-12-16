@@ -56,7 +56,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
                 let field_schema_node = self.ctx.schema.node(field_schema.schema);
                 if field_schema_node.metadata.deprecated {
                     self.ctx.record_warning(ValidationWarning::DeprecatedField {
-                        field: field_name.clone(),
+                        field: field_name.to_string(),
                         path: self.ctx.path(),
                     });
                 }
@@ -66,7 +66,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
                     self.ctx.push_path_ident(ident);
                 } else {
                     self.ctx
-                        .push_path_key(ObjectKey::String(field_name.clone()));
+                        .push_path_key(ObjectKey::String(field_name.to_string()));
                 }
 
                 // Validate field value using parse_with() and SchemaValidator
@@ -81,7 +81,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
             } else if !field_schema.optional {
                 self.ctx
                     .record_error(ValidationError::MissingRequiredField {
-                        field: field_name.clone(),
+                        field: field_name.to_string(),
                         path: self.ctx.path(),
                         node_id,
                         schema_node_id: self.schema_node_id,

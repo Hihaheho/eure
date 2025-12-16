@@ -691,7 +691,7 @@ mod tests {
         Bound, IntegerSchema as EureIntegerSchema, RecordFieldSchema, RecordSchema, SchemaDocument,
         SchemaNodeContent, UnknownFieldsPolicy,
     };
-    use std::collections::{BTreeMap, HashSet};
+    use std::collections::{BTreeMap, HashMap, HashSet};
 
     #[test]
     fn test_convert_simple_text() {

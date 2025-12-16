@@ -39,7 +39,7 @@ use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use num_bigint::BigInt;
 use regex::Regex;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ============================================================================
 // Schema Document
