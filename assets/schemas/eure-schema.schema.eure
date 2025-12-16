@@ -425,7 +425,7 @@ variants {
   /// For constraints, use the full form with $variant: text
   @variants.text-shorthand
   $variant: text
-  pattern = `^text(\\.[a-zA-Z0-9-]+)?$`
+  pattern = `^text(\.[a-zA-Z0-9-]+)?$`
 
   /// Integer type with optional range and multiple-of constraints.
   @variants.integer
@@ -558,7 +558,7 @@ variants {
   $ext-type.binding-style.$optional = true
 
   /// Shorthand for tuple types using parenthesis syntax.
-  /// Example: field.$type = (.text, .integer, .boolean)
+  /// Example: field.$type = (`text`, `integer`, `boolean`)
   /// Supports tuples with 1 to 16 elements.
   /// For tuples with more than 16 elements, use the full tuple variant.
   @variants.tuple-shorthand
@@ -586,5 +586,5 @@ variants {
   /// - `$types.common.username` - external type reference (from imported schema)
   @variants.ref
   $variant: text
-  pattern = `^\\$types\\.[a-zA-Z_][a-zA-Z0-9_-]*(\\.[a-zA-Z_][a-zA-Z0-9_-]*)?$`
+  pattern = `^\$types\.[a-zA-Z_][a-zA-Z0-9_-]*(\.[a-zA-Z_][a-zA-Z0-9_-]*)?$`
 }
