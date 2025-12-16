@@ -4,7 +4,7 @@ schema = ```eure
 field.$variant = "text"
 field.min-length = 3
 field.max-length = 20
-field.pattern = "^[a-z]+$"
+field.pattern = `^[a-z]+$`
 ```
 
 output_json_schema = ```json
