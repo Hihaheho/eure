@@ -110,5 +110,9 @@ name = `texte`
 ```
 
 schema_conversion_error = ```
-Parse error: parse error: invalid pattern: expected type reference (e.g., 'text', 'integer', '$types.name'), got texte
+error: Parse error: parse error: invalid pattern: expected type reference (e.g., 'text', 'integer', '$types.name'), got texte
+ --> <schema>:1:1
+  |
+1 | name = `texte`
+  | ^^^^^^^^^^^^^^ Parse error: parse error: invalid pattern: expected type reference (e.g., 'text', 'integer', '$types.name'), got texte
 ```

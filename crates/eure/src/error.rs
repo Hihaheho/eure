@@ -3,15 +3,15 @@
 //! This module provides functions that use the `report` module internally.
 
 use eure_parol::EureParseError;
-use eure_schema::convert::SchemaSourceMap;
+use eure_schema::convert::{ConversionError, SchemaSourceMap};
 use eure_schema::validate::ValidationError;
 use eure_tree::prelude::Cst;
 
 use crate::document::{DocumentConstructionError, OriginMap};
 use crate::report::{
     DocumentReportContext, FileRegistry, SchemaReportContext, format_error_report,
-    format_error_reports, report_document_error_simple, report_parse_error,
-    report_schema_validation_errors,
+    format_error_reports, report_conversion_error, report_document_error_simple,
+    report_parse_error, report_schema_validation_errors,
 };
 
 /// Context for formatting schema validation errors with source spans.
@@ -107,4 +107,37 @@ fn format_schema_error_impl(
     let mut reports = report_schema_validation_errors(std::slice::from_ref(error), &report_ctx);
     reports.sort_by_span();
     format_error_reports(&reports, &files, styled)
+}
+
+/// Context for formatting schema conversion errors with source spans.
+///
+/// This holds all the information needed to resolve spans for the schema
+/// being converted (the source of the conversion error).
+pub struct ConversionErrorContext<'a> {
+    /// Source text of the schema
+    pub schema_source: &'a str,
+    /// File path of the schema (for display)
+    pub schema_path: &'a str,
+    /// CST of the schema (for span resolution)
+    pub schema_cst: &'a Cst,
+    /// Origin map for schema
+    pub schema_origins: &'a OriginMap,
+}
+
+/// Format a schema conversion error with annotated source locations (plain text).
+pub fn format_conversion_error_plain(
+    error: &ConversionError,
+    context: &ConversionErrorContext<'_>,
+) -> String {
+    let mut files = FileRegistry::new();
+    let file_id = files.register(context.schema_path, context.schema_source);
+
+    let ctx = DocumentReportContext {
+        file: file_id,
+        cst: context.schema_cst,
+        origins: context.schema_origins,
+    };
+
+    let report = report_conversion_error(error, &ctx);
+    format_error_report(&report, &files, false)
 }

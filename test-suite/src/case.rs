@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 
 use eure::{
     document::{DocumentConstructionError, EureDocument, OriginMap},
-    error::format_parse_error_color,
+    error::{ConversionErrorContext, format_conversion_error_plain, format_parse_error_color},
     parol::EureParseError,
     tree::Cst,
     value::{Language, Text},
@@ -1267,6 +1267,18 @@ impl SchemaConversionErrorScenario<'_> {
             .map_err(|e| ScenarioError::PreprocessingError {
                 message: format!("{}", e),
             })?;
+        let schema_cst = self
+            .schema
+            .cst()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+        let schema_origins =
+            self.schema
+                .origins()
+                .map_err(|e| ScenarioError::PreprocessingError {
+                    message: format!("{}", e),
+                })?;
 
         // Attempt to convert schema document to SchemaDocument
         let result = eure_schema::convert::document_to_schema(schema_doc);
@@ -1286,7 +1298,15 @@ impl SchemaConversionErrorScenario<'_> {
                         expected_errors: vec![expected.trim().to_string()],
                     }),
                     Err(e) => {
-                        let actual_error = e.to_string();
+                        // Format the error with source spans
+                        let context = ConversionErrorContext {
+                            schema_source: self.schema.input(),
+                            schema_path: "<schema>",
+                            schema_cst,
+                            schema_origins,
+                        };
+                        let actual_error = format_conversion_error_plain(&e, &context);
+
                         let expected_trimmed = expected.trim();
                         let actual_trimmed = actual_error.trim();
                         if actual_trimmed == expected_trimmed {
