@@ -39,7 +39,7 @@ use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use num_bigint::BigInt;
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 // ============================================================================
 // Schema Document
@@ -396,7 +396,7 @@ pub struct TupleSchema {
 #[derive(Debug, Clone)]
 pub struct UnionSchema {
     /// Variant definitions (variant name -> schema)
-    pub variants: HashMap<String, SchemaNodeId>,
+    pub variants: BTreeMap<String, SchemaNodeId>,
     /// Priority order for variant matching in untagged unions
     /// First matching variant in priority order wins when multiple match
     pub priority: Option<Vec<String>>,

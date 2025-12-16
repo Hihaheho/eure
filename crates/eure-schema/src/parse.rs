@@ -18,7 +18,7 @@
 //! SchemaDocument, SchemaNode, ArraySchema, ...
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
@@ -489,7 +489,7 @@ impl ParseDocument<'_> for ParsedTupleSchema {
 #[derive(Debug, Clone)]
 pub struct ParsedUnionSchema {
     /// Variant definitions (variant name -> schema NodeId)
-    pub variants: HashMap<String, NodeId>,
+    pub variants: BTreeMap<String, NodeId>,
     /// Priority order for variant matching in untagged unions
     pub priority: Option<Vec<String>>,
     /// Variant representation strategy
@@ -500,7 +500,7 @@ impl ParseDocument<'_> for ParsedUnionSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
-        let mut variants = HashMap::new();
+        let mut variants = BTreeMap::new();
 
         // Check for variants = { ... } field
         if let Some(variants_ctx) = rec.field_optional("variants") {

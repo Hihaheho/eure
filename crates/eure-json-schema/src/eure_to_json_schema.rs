@@ -691,7 +691,7 @@ mod tests {
         Bound, IntegerSchema as EureIntegerSchema, RecordFieldSchema, RecordSchema, SchemaDocument,
         SchemaNodeContent, UnknownFieldsPolicy,
     };
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
 
     #[test]
     fn test_convert_simple_text() {
@@ -784,7 +784,7 @@ mod tests {
         let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
-        let mut variants = HashMap::new();
+        let mut variants = BTreeMap::new();
         variants.insert("TextVariant".to_string(), text_id);
         variants.insert("IntVariant".to_string(), int_id);
 
@@ -810,7 +810,7 @@ mod tests {
         let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
-        let mut variants = HashMap::new();
+        let mut variants = BTreeMap::new();
         variants.insert("A".to_string(), text_id);
         variants.insert("B".to_string(), int_id);
 

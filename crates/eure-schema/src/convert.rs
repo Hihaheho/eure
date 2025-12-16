@@ -58,7 +58,7 @@ use eure_document::identifier::Identifier;
 use eure_document::parse::ParseError;
 use eure_document::value::ObjectKey;
 use num_bigint::BigInt;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use thiserror::Error;
 
 /// Errors that can occur during document to schema conversion
@@ -346,7 +346,7 @@ impl<'a> Converter<'a> {
         &mut self,
         parsed: ParsedUnionSchema,
     ) -> Result<UnionSchema, ConversionError> {
-        let mut variants = HashMap::new();
+        let mut variants = BTreeMap::new();
 
         for (variant_name, variant_node_id) in parsed.variants {
             let schema = self.convert_node(variant_node_id)?;
