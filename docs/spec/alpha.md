@@ -700,7 +700,7 @@ port = 8080
 
 ```
 begin_scope()
-  navigate("server")  // No assert_unbound() - sections allow additive binding
+  navigate("server") assert_unbound()
   begin_scope()
     navigate("host") assert_unbound() bind("localhost")
   end_scope()
@@ -723,7 +723,7 @@ value = 2
 ```
 // First array element
 begin_scope()
-  navigate("items") navigate([])  // [] appends new element
+  navigate("items") navigate([]) assert_unbound()  // [] appends new element
   begin_scope()
     navigate("value") assert_unbound() bind(1)
   end_scope()
@@ -731,7 +731,7 @@ end_scope()
 
 // Second array element
 begin_scope()
-  navigate("items") navigate([])  // [] appends another element
+  navigate("items") navigate([]) assert_unbound()  // [] appends another element
   begin_scope()
     navigate("value") assert_unbound() bind(2)
   end_scope()
@@ -749,8 +749,8 @@ end_scope()
 
 ```
 begin_scope()
-  navigate("config")  // Block section creates sub-document context
-  assert_unbound() bind("default")  // Value binding
+  navigate("config") assert_unbound()
+  bind("default")  // Value binding
   begin_scope()
     navigate($tag) assert_unbound() bind("meta")  // Extension binding
   end_scope()

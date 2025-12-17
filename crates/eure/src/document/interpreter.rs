@@ -685,10 +685,18 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         } = view;
         let scope = self.document.begin_scope();
 
-        // Navigate through the keys (no require_hole for sections)
+        // Navigate through the keys
         self.visit_keys_handle(keys, tree)?;
 
+        // Validate section target is unbound
         let node_id = self.document.current_node_id();
+        self.document
+            .require_hole()
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+
         self.record_origin(node_id, handle.node_id());
         self.visit_section_body_handle(section_body, tree)?;
         self.document.end_scope(scope)?;
