@@ -57,40 +57,7 @@ impl LineNumbers<'_> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-/// A span that is only valid within the context of the input text.
-pub struct InputSpan {
-    /// The start of the span.
-    pub start: u32,
-    /// The end of the span.
-    pub end: u32,
-}
-
-impl InputSpan {
-    pub const EMPTY: Self = Self {
-        start: u32::MAX,
-        end: 0,
-    };
-
-    pub fn new(start: u32, end: u32) -> Self {
-        Self { start, end }
-    }
-
-    pub fn merge(self, other: Self) -> Self {
-        Self {
-            start: self.start.min(other.start),
-            end: self.end.max(other.end),
-        }
-    }
-
-    pub fn merge_many(self, others: impl IntoIterator<Item = Self>) -> Self {
-        others.into_iter().fold(self, |acc, other| acc.merge(other))
-    }
-
-    pub fn as_str<'a>(&self, input: &'a str) -> &'a str {
-        &input[self.start as usize..self.end as usize]
-    }
-}
+// InputSpan is now re-exported from parol-walker via tree.rs
 
 #[cfg(test)]
 mod tests {

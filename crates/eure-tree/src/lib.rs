@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 
 use node_kind::{NonTerminalKind, TerminalKind};
-use tree::{ConcreteSyntaxTree, ViewConstructionError};
+use tree::{ConcreteSyntaxTree, EureViewConstructionError};
 
 pub mod action;
 pub mod builder;
@@ -15,7 +15,7 @@ pub mod visitor;
 pub type Cst = ConcreteSyntaxTree<TerminalKind, NonTerminalKind>;
 pub type CstNode = tree::CstNodeData<TerminalKind, NonTerminalKind>;
 pub type CstConstructError<E = Infallible> =
-    ViewConstructionError<TerminalKind, NonTerminalKind, E>;
+    EureViewConstructionError<TerminalKind, NonTerminalKind, E>;
 pub type NodeKind = node_kind::NodeKind<TerminalKind, NonTerminalKind>;
 
 pub mod prelude {

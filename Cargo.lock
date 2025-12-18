@@ -1680,6 +1680,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "bon",
+ "parol-walker",
  "thiserror 2.0.17",
  "thisisplural",
 ]

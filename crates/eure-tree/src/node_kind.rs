@@ -546,8 +546,5 @@ impl std::fmt::Display for NonTerminalKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum NodeKind<T, Nt> {
-    Terminal(T),
-    NonTerminal(Nt),
-}
+// NodeKind is re-exported from parol-walker via tree.rs
+pub use crate::tree::NodeKind;

@@ -170,6 +170,27 @@ pub enum CstNodeData<T, Nt> {
 }
 
 impl<T, Nt> CstNodeData<T, Nt> {
+    /// Create a new terminal node
+    pub fn new_terminal(kind: T, data: TerminalData) -> Self {
+        Self::Terminal { kind, data }
+    }
+
+    /// Create a new non-terminal node
+    pub fn new_non_terminal(kind: Nt, data: NonTerminalData) -> Self {
+        Self::NonTerminal { kind, data }
+    }
+
+    /// Check if this is a terminal node
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, CstNodeData::Terminal { .. })
+    }
+
+    /// Check if this is a non-terminal node
+    pub fn is_non_terminal(&self) -> bool {
+        matches!(self, CstNodeData::NonTerminal { .. })
+    }
+
+    /// Get the node kind (terminal or non-terminal)
     pub fn node_kind(&self) -> NodeKind<T, Nt>
     where
         T: Copy,
