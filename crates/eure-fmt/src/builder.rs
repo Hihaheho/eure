@@ -52,6 +52,9 @@ struct FormatVisitor<'a> {
     at_start: bool,
     /// Track if we just added a hardline (to avoid duplicates)
     pending_newline: bool,
+    /// Track consecutive newlines for blank line preservation
+    /// (2+ means there's at least one blank line)
+    newline_count: u32,
     /// Context stack for nested structures (array, object, etc.)
     context: Vec<FormatContext>,
     /// Track if we just opened an object brace (need space before first content)
@@ -87,6 +90,7 @@ impl<'a> FormatVisitor<'a> {
             last_content_end: None,
             at_start: true,
             pending_newline: false,
+            newline_count: 0,
             context: vec![FormatContext::Root],
             object_needs_leading_space: false,
             object_open_doc_count: None,
@@ -181,12 +185,27 @@ impl<'a> FormatVisitor<'a> {
         }
     }
 
+    /// Check if there's a pending blank line (2+ consecutive newlines seen)
+    fn has_pending_blank_line(&self) -> bool {
+        self.newline_count >= 2
+    }
+
+    /// Reset newline count after content is emitted
+    fn reset_newline_count(&mut self) {
+        self.newline_count = 0;
+    }
+
     /// Flush any pending newline before emitting content
     fn flush_newline(&mut self) {
         if self.pending_newline {
+            // If there were 2+ consecutive newlines, add an extra blank line
+            if self.has_pending_blank_line() {
+                self.docs.push(Doc::hardline());
+            }
             self.docs.push(Doc::hardline());
             self.pending_newline = false;
         }
+        self.reset_newline_count();
     }
 
     /// Emit leading space or comma for object content if needed
@@ -269,6 +288,7 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         _tree: &F,
     ) -> Result<(), Self::Error> {
         self.seen_newline = true;
+        self.newline_count += 1;
         Ok(())
     }
 

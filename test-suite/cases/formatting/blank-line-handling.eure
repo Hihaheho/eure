@@ -1,0 +1,30 @@
+// Test blank line preservation between bindings
+// Single blank lines should be preserved, multiple blank lines normalized to one
+
+// Basic: single blank line between bindings should be preserved
+input_eure = ```eure
+name = "Alice"
+
+age = 30
+```
+
+formatted_input = ```eure
+name = "Alice"
+
+age = 30
+```
+
+// Multiple consecutive blank lines should be normalized to one
+normalized = ```eure
+name = "Alice"
+
+
+
+age = 30
+```
+
+formatted_normalized = ```eure
+name = "Alice"
+
+age = 30
+```
