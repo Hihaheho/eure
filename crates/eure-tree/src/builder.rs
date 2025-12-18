@@ -125,6 +125,7 @@ impl CstBuilder {
 mod tests {
     use super::*;
     use crate::tree::{CstNodeData, DynamicTokenId, TerminalData};
+    use parol_walker::CstFacade;
 
     #[test]
     fn test_builder_basic() {

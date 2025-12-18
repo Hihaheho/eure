@@ -67,13 +67,16 @@ impl VisitorGenerator {
         let node_kind_use = syn::parse_str::<syn::Path>(node_kind_module).unwrap();
         let nodes_use = syn::parse_str::<syn::Path>(nodes_module).unwrap();
 
+        // Import from runtime - use parol_walker::CstFacade, and import BuiltinTerminalVisitor for adapter
         quote! {
             #header
+            #[allow(unused_imports)]
             use #runtime_use::{
-                CstNodeId, TerminalData, NonTerminalData, CstFacade,
+                CstNodeId, TerminalData, NonTerminalData,
                 TerminalHandle as _, NonTerminalHandle as _,
-                CstConstructError, NodeKind, RecursiveView, ViewConstructionError,
-                CstNodeData, BuiltinTerminalVisitor,
+                CstConstructError, NodeKind,
+                CstNodeData, CstFacade,
+                BuiltinTerminalVisitor as PwBuiltinTerminalVisitor,
             };
             use #node_kind_use::{TerminalKind, NonTerminalKind};
             use #nodes_use::*;
@@ -221,6 +224,7 @@ impl VisitorGenerator {
 
         quote! {
             mod private {
+                #[allow(unused_imports)]
                 use super::*;
                 pub trait Sealed<F> {}
             }
@@ -256,7 +260,7 @@ impl VisitorGenerator {
 
         quote! {
             impl<V: CstVisitor<F>, F: CstFacade<TerminalKind, NonTerminalKind>> private::Sealed<F> for V {}
-            impl<V: CstVisitor<F> + BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, V::Error, F>, F: CstFacade<TerminalKind, NonTerminalKind>> CstVisitorSuper<F, V::Error> for V {
+            impl<V: CstVisitor<F> + BuiltinTerminalVisitor<V::Error, F>, F: CstFacade<TerminalKind, NonTerminalKind>> CstVisitorSuper<F, V::Error> for V {
                 #(#visit_handle_impls)*
                 #(#visit_super_impls)*
                 #(#terminal_visit_super_impls)*
@@ -298,13 +302,13 @@ impl VisitorGenerator {
         let on_view = match &nt_info.structure {
             NonTerminalStructure::Sequence(_) | NonTerminalStructure::OneOf(_) => {
                 quote! {
-                    visit.#visitor_method_name(handle, view, tree)
+                    visit.0.#visitor_method_name(handle, view, tree)
                 }
             }
             NonTerminalStructure::Option(_) | NonTerminalStructure::Recursion(_) => {
                 quote! {
                     if let Some(view) = view {
-                        visit.#visitor_method_name(handle, view, tree)
+                        visit.0.#visitor_method_name(handle, view, tree)
                     } else {
                         Ok(())
                     }
@@ -331,12 +335,13 @@ impl VisitorGenerator {
                     }
                 };
                 self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-                let result = match handle.get_view_with_visit(tree, |view, visit: &mut Self| (#on_view, visit), self) {
+                let mut adapter = BuiltinVisitorAdapter(self);
+                let result = match handle.get_view_with_visit(tree, |view, visit: &mut BuiltinVisitorAdapter<'_, Self>| (#on_view, visit), &mut adapter) {
                     Ok(Ok(())) => Ok(()),
                     Ok(Err(e)) => Err(e),
-                    Err(e) => self.then_construct_error(Some(CstNode::NonTerminal { kind: handle.kind(), data: nt_data }), handle.node_id(), NodeKind::NonTerminal(handle.kind()), e, tree),
+                    Err(e) => adapter.0.then_construct_error(Some(CstNode::NonTerminal { kind: handle.kind(), data: nt_data }), handle.node_id(), NodeKind::NonTerminal(handle.kind()), e, tree),
                 };
-                self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+                adapter.0.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
                 result
             }
         }
@@ -648,8 +653,125 @@ impl VisitorGenerator {
     }
 
     fn generate_builtin_terminal_visitor(&self) -> TokenStream {
-        // Note: We don't generate a blanket impl here due to orphan rules.
-        // Users should implement BuiltinTerminalVisitor for their visitor types directly in their crate.
-        quote! {}
+        // Generate local BuiltinTerminalVisitor trait and an adapter wrapper.
+        // The adapter bridges local CstVisitor implementations to parol_walker::BuiltinTerminalVisitor.
+        quote! {
+            /// Trait for visiting builtin terminal tokens (whitespace, newline, comments).
+            /// This is a grammar-specific version to avoid orphan rule issues.
+            pub trait BuiltinTerminalVisitor<E, F: CstFacade<TerminalKind, NonTerminalKind>> {
+                fn visit_builtin_whitespace_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), E>;
+
+                fn visit_builtin_new_line_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), E>;
+
+                fn visit_builtin_line_comment_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), E>;
+
+                fn visit_builtin_block_comment_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), E>;
+            }
+
+            // Blanket impl that delegates BuiltinTerminalVisitor methods to CstVisitor methods.
+            impl<V: CstVisitor<F>, F: CstFacade<TerminalKind, NonTerminalKind>> BuiltinTerminalVisitor<V::Error, F> for V {
+                fn visit_builtin_whitespace_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.visit_whitespace_terminal(Whitespace(node), data, tree)
+                }
+
+                fn visit_builtin_new_line_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.visit_new_line_terminal(NewLine(node), data, tree)
+                }
+
+                fn visit_builtin_line_comment_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.visit_line_comment_terminal(LineComment(node), data, tree)
+                }
+
+                fn visit_builtin_block_comment_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.visit_block_comment_terminal(BlockComment(node), data, tree)
+                }
+            }
+
+            /// Wrapper adapter that bridges local CstVisitor to parol_walker::BuiltinTerminalVisitor.
+            /// This is needed because we can't directly impl the foreign trait for generic V due to orphan rules.
+            #[repr(transparent)]
+            pub struct BuiltinVisitorAdapter<'a, V>(pub &'a mut V);
+
+            impl<'a, V: CstVisitor<F>, F: CstFacade<TerminalKind, NonTerminalKind>>
+                PwBuiltinTerminalVisitor<TerminalKind, NonTerminalKind, V::Error, F>
+                for BuiltinVisitorAdapter<'a, V>
+            {
+                fn visit_builtin_whitespace_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.0.visit_whitespace_terminal(Whitespace(node), data, tree)
+                }
+
+                fn visit_builtin_new_line_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.0.visit_new_line_terminal(NewLine(node), data, tree)
+                }
+
+                fn visit_builtin_line_comment_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.0.visit_line_comment_terminal(LineComment(node), data, tree)
+                }
+
+                fn visit_builtin_block_comment_terminal(
+                    &mut self,
+                    node: CstNodeId,
+                    data: TerminalData,
+                    tree: &F,
+                ) -> Result<(), V::Error> {
+                    self.0.visit_block_comment_terminal(BlockComment(node), data, tree)
+                }
+            }
+        }
     }
 }

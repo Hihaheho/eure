@@ -84,6 +84,7 @@ impl AstTypeGenerator {
         // Derive visitor module path from nodes_module (they're siblings)
         quote! {
             #header
+            #[allow(unused_imports)]
             use #runtime_use::{
                 TerminalHandle, NonTerminalHandle, RecursiveView, CstNodeId,
                 CstFacade, CstConstructError, ViewConstructionError,

@@ -1,25 +1,35 @@
 mod span;
 
 use ahash::HashMap;
-use std::{collections::BTreeMap, convert::Infallible};
-use thiserror::Error;
+use std::collections::BTreeMap;
 
-// Re-export common types from parol-walker
+// Re-export types from parol-walker
 pub use parol_walker::{
-    CstNodeData, CstNodeId, DynamicTokenId, InputSpan, NodeKind, NonTerminalData, TerminalData,
+    BuiltinTerminalKind, CstNodeData, CstNodeId, DynamicTokenId, InputSpan, NodeKind,
+    NonTerminalData, TerminalData, ViewConstructionError,
 };
 
-// Type alias for backwards compatibility with generated code
-pub type ViewConstructionError<T, Nt, E = Infallible> = EureViewConstructionError<T, Nt, E>;
+// Re-export traits from parol-walker for use by generated code
+pub use parol_walker::{CstFacade, NonTerminalHandle, RecursiveView, TerminalHandle};
+
+// Re-export CstConstructError from parol-walker
+pub use parol_walker::CstConstructError;
+
+// Re-export BuiltinTerminalVisitor from visitor module (local trait to avoid orphan rules)
+pub use crate::visitor::BuiltinTerminalVisitor;
+
+// Import parol_walker's BuiltinTerminalVisitor for use in CstFacade impl
+use parol_walker::BuiltinTerminalVisitor as PwBuiltinTerminalVisitor;
 
 pub use span::{CharInfo, LineNumbers};
 
-use crate::{
-    CstConstructError,
-    node_kind::{NonTerminalKind, TerminalKind},
-    nodes::{BlockComment, LineComment, NewLine, RootHandle, Whitespace},
-    visitor::{BuiltinTerminalVisitor, CstVisitor},
-};
+use crate::node_kind::{NonTerminalKind, TerminalKind};
+
+/// Type alias for CstNodeData with grammar-specific types
+pub type CstNode = CstNodeData<TerminalKind, NonTerminalKind>;
+
+/// Type alias for the CST - used by generated code
+pub type Cst = ConcreteSyntaxTree<TerminalKind, NonTerminalKind>;
 
 /// Extension trait for CstNodeData with Eure-specific validation methods
 pub trait CstNodeDataExt<T, Nt> {
@@ -28,14 +38,14 @@ pub trait CstNodeDataExt<T, Nt> {
         &self,
         node: CstNodeId,
         expected: T,
-    ) -> Result<(T, TerminalData), EureViewConstructionError<T, Nt>>;
+    ) -> Result<(T, TerminalData), ViewConstructionError>;
 
     /// Check if this node is a non-terminal of the expected kind, returning an error if not
     fn expected_non_terminal_or_error(
         &self,
         node: CstNodeId,
         expected: Nt,
-    ) -> Result<(Nt, NonTerminalData), EureViewConstructionError<T, Nt>>;
+    ) -> Result<(Nt, NonTerminalData), ViewConstructionError>;
 }
 
 impl<T, Nt> CstNodeDataExt<T, Nt> for CstNodeData<T, Nt>
@@ -47,14 +57,10 @@ where
         &self,
         node: CstNodeId,
         expected: T,
-    ) -> Result<(T, TerminalData), EureViewConstructionError<T, Nt>> {
+    ) -> Result<(T, TerminalData), ViewConstructionError> {
         match self {
             CstNodeData::Terminal { kind, data } if *kind == expected => Ok((*kind, *data)),
-            _ => Err(EureViewConstructionError::UnexpectedNode {
-                node,
-                data: *self,
-                expected_kind: NodeKind::Terminal(expected),
-            }),
+            _ => Err(ViewConstructionError::UnexpectedNode { node }),
         }
     }
 
@@ -62,14 +68,10 @@ where
         &self,
         node: CstNodeId,
         expected: Nt,
-    ) -> Result<(Nt, NonTerminalData), EureViewConstructionError<T, Nt>> {
+    ) -> Result<(Nt, NonTerminalData), ViewConstructionError> {
         match self {
             CstNodeData::NonTerminal { kind, data } if *kind == expected => Ok((*kind, *data)),
-            _ => Err(EureViewConstructionError::UnexpectedNode {
-                node,
-                data: *self,
-                expected_kind: NodeKind::NonTerminal(expected),
-            }),
+            _ => Err(ViewConstructionError::UnexpectedNode { node }),
         }
     }
 }
@@ -146,24 +148,27 @@ where
         self.parent.insert(child, parent);
     }
 
-    pub fn has_no_children(&self, node: CstNodeId) -> bool {
+    pub fn has_no_children_impl(&self, node: CstNodeId) -> bool {
         self.children
             .get(&node)
             .is_none_or(|children| children.is_empty())
     }
 
-    pub fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId> + '_ {
+    pub fn children_impl(
+        &self,
+        node: CstNodeId,
+    ) -> impl DoubleEndedIterator<Item = CstNodeId> + '_ {
         self.children
             .get(&node)
             .into_iter()
             .flat_map(|children| children.iter().copied())
     }
 
-    pub fn parent(&self, node: CstNodeId) -> Option<CstNodeId> {
+    pub fn parent_impl(&self, node: CstNodeId) -> Option<CstNodeId> {
         self.parent.get(&node).copied()
     }
 
-    pub fn get_str<'a: 'c, 'b: 'c, 'c>(
+    pub fn get_str_impl<'a: 'c, 'b: 'c, 'c>(
         &'a self,
         terminal: TerminalData,
         input: &'b str,
@@ -230,7 +235,7 @@ where
     T: Copy,
     Nt: Copy,
 {
-    pub fn node_data(&self, node: CstNodeId) -> Option<CstNodeData<T, Nt>> {
+    pub fn node_data_impl(&self, node: CstNodeId) -> Option<CstNodeData<T, Nt>> {
         self.nodes.get(node.0).copied()
     }
 
@@ -258,41 +263,66 @@ impl TerminalKind {
     }
 }
 
-impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
-    pub fn get_non_terminal(
-        &self,
-        id: CstNodeId,
-        kind: NonTerminalKind,
-    ) -> Result<NonTerminalData, CstConstructError> {
-        let node_data = self
-            .node_data(id)
-            .ok_or(EureViewConstructionError::NodeIdNotFound { node: id })?;
-        let (_, data) = node_data.expected_non_terminal_or_error(id, kind)?;
-        Ok(data)
+// Implement parol_walker's CstFacade trait
+impl CstFacade<TerminalKind, NonTerminalKind>
+    for ConcreteSyntaxTree<TerminalKind, NonTerminalKind>
+{
+    fn get_str<'a: 'c, 'b: 'c, 'c>(
+        &'a self,
+        terminal: TerminalData,
+        input: &'b str,
+    ) -> Option<&'c str> {
+        self.get_str_impl(terminal, input)
     }
 
-    pub fn get_terminal(
+    fn node_data(&self, node: CstNodeId) -> Option<CstNodeData<TerminalKind, NonTerminalKind>> {
+        self.node_data_impl(node)
+    }
+
+    fn has_no_children(&self, node: CstNodeId) -> bool {
+        self.has_no_children_impl(node)
+    }
+
+    fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId> {
+        self.children_impl(node)
+    }
+
+    fn get_terminal(
         &self,
-        id: CstNodeId,
+        node: CstNodeId,
         kind: TerminalKind,
-    ) -> Result<TerminalData, CstConstructError> {
+    ) -> Result<TerminalData, ViewConstructionError> {
         let node_data = self
-            .node_data(id)
-            .ok_or(EureViewConstructionError::NodeIdNotFound { node: id })?;
-        let (_, data) = node_data.expected_terminal_or_error(id, kind)?;
+            .node_data_impl(node)
+            .ok_or(ViewConstructionError::NodeIdNotFound { node })?;
+        let (_, data) = node_data.expected_terminal_or_error(node, kind)?;
         Ok(data)
     }
 
-    pub fn collect_nodes<
+    fn get_non_terminal(
+        &self,
+        node: CstNodeId,
+        kind: NonTerminalKind,
+    ) -> Result<NonTerminalData, ViewConstructionError> {
+        let node_data = self
+            .node_data_impl(node)
+            .ok_or(ViewConstructionError::NodeIdNotFound { node })?;
+        let (_, data) = node_data.expected_non_terminal_or_error(node, kind)?;
+        Ok(data)
+    }
+
+    fn parent(&self, node: CstNodeId) -> Option<CstNodeId> {
+        self.parent_impl(node)
+    }
+
+    fn collect_nodes<
         'v,
         const N: usize,
-        V: BuiltinTerminalVisitor<E, F>,
+        V: PwBuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, Self>,
         O,
         E,
-        F: CstFacade,
     >(
         &self,
-        facade: &F,
         parent: CstNodeId,
         nodes: [NodeKind<TerminalKind, NonTerminalKind>; N],
         mut visitor: impl FnMut(
@@ -301,15 +331,15 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
         ) -> Result<(O, &'v mut V), CstConstructError<E>>,
         visit_ignored: &'v mut V,
     ) -> Result<O, CstConstructError<E>> {
-        let children = self.children(parent).collect::<Vec<_>>();
+        let children = self.children_impl(parent).collect::<Vec<_>>();
         let mut children = children.into_iter();
         let mut result = Vec::with_capacity(N);
         let mut ignored = Vec::with_capacity(N);
         'outer: for expected_kind in nodes {
             'inner: for (idx, child) in children.by_ref().enumerate() {
                 let child_data = self
-                    .node_data(child)
-                    .ok_or(EureViewConstructionError::NodeIdNotFound { node: child })?;
+                    .node_data_impl(child)
+                    .ok_or(ViewConstructionError::NodeIdNotFound { node: child })?;
                 match child_data {
                     CstNodeData::Terminal { kind, data } => {
                         if NodeKind::Terminal(kind) == expected_kind {
@@ -317,11 +347,9 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
                             continue 'outer;
                         } else if kind.is_builtin_whitespace() || kind.is_builtin_new_line() {
                             if kind.auto_ws_is_off(idx) {
-                                return Err(EureViewConstructionError::UnexpectedNode {
-                                    node: child,
-                                    data: child_data,
-                                    expected_kind,
-                                });
+                                return Err(
+                                    ViewConstructionError::UnexpectedNode { node: child }.into()
+                                );
                             }
                             ignored.push((child, kind, data));
                             continue 'inner;
@@ -330,11 +358,9 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
                             ignored.push((child, kind, data));
                             continue 'inner;
                         } else {
-                            return Err(EureViewConstructionError::UnexpectedNode {
-                                node: child,
-                                data: child_data,
-                                expected_kind,
-                            });
+                            return Err(
+                                ViewConstructionError::UnexpectedNode { node: child }.into()
+                            );
                         }
                     }
                     CstNodeData::NonTerminal { kind, .. } => {
@@ -342,37 +368,29 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
                             result.push(child);
                             continue 'outer;
                         } else {
-                            return Err(EureViewConstructionError::UnexpectedNode {
-                                node: child,
-                                data: child_data,
-                                expected_kind,
-                            });
+                            return Err(
+                                ViewConstructionError::UnexpectedNode { node: child }.into()
+                            );
                         }
                     }
                 }
             }
-            return Err(EureViewConstructionError::UnexpectedEndOfChildren { parent });
+            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent }.into());
         }
         for (child, kind, data) in ignored {
             match kind {
-                TerminalKind::Whitespace => visit_ignored.visit_builtin_whitespace_terminal(
-                    Whitespace(child),
-                    data,
-                    facade,
-                )?,
-                TerminalKind::NewLine => {
-                    visit_ignored.visit_builtin_new_line_terminal(NewLine(child), data, facade)?
-                }
-                TerminalKind::LineComment => visit_ignored.visit_builtin_line_comment_terminal(
-                    LineComment(child),
-                    data,
-                    facade,
-                )?,
-                TerminalKind::BlockComment => visit_ignored.visit_builtin_block_comment_terminal(
-                    BlockComment(child),
-                    data,
-                    facade,
-                )?,
+                TerminalKind::Whitespace => visit_ignored
+                    .visit_builtin_whitespace_terminal(child, data, self)
+                    .map_err(CstConstructError::Visitor)?,
+                TerminalKind::NewLine => visit_ignored
+                    .visit_builtin_new_line_terminal(child, data, self)
+                    .map_err(CstConstructError::Visitor)?,
+                TerminalKind::LineComment => visit_ignored
+                    .visit_builtin_line_comment_terminal(child, data, self)
+                    .map_err(CstConstructError::Visitor)?,
+                TerminalKind::BlockComment => visit_ignored
+                    .visit_builtin_block_comment_terminal(child, data, self)
+                    .map_err(CstConstructError::Visitor)?,
                 _ => unreachable!(),
             }
         }
@@ -384,115 +402,49 @@ impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
         )?;
         for child in children.by_ref() {
             let child_data = self
-                .node_data(child)
-                .ok_or(EureViewConstructionError::NodeIdNotFound { node: child })?;
+                .node_data_impl(child)
+                .ok_or(ViewConstructionError::NodeIdNotFound { node: child })?;
             match child_data {
                 CstNodeData::Terminal { kind, data } => {
                     if kind.is_builtin_terminal() {
                         match kind {
                             TerminalKind::Whitespace => visit_ignored
-                                .visit_builtin_whitespace_terminal(
-                                    Whitespace(child),
-                                    data,
-                                    facade,
-                                )?,
+                                .visit_builtin_whitespace_terminal(child, data, self)
+                                .map_err(CstConstructError::Visitor)?,
                             TerminalKind::NewLine => visit_ignored
-                                .visit_builtin_new_line_terminal(NewLine(child), data, facade)?,
+                                .visit_builtin_new_line_terminal(child, data, self)
+                                .map_err(CstConstructError::Visitor)?,
                             TerminalKind::LineComment => visit_ignored
-                                .visit_builtin_line_comment_terminal(
-                                    LineComment(child),
-                                    data,
-                                    facade,
-                                )?,
+                                .visit_builtin_line_comment_terminal(child, data, self)
+                                .map_err(CstConstructError::Visitor)?,
                             TerminalKind::BlockComment => visit_ignored
-                                .visit_builtin_block_comment_terminal(
-                                    BlockComment(child),
-                                    data,
-                                    facade,
-                                )?,
+                                .visit_builtin_block_comment_terminal(child, data, self)
+                                .map_err(CstConstructError::Visitor)?,
                             _ => unreachable!(),
                         }
                     } else {
-                        return Err(EureViewConstructionError::UnexpectedNode {
-                            node: child,
-                            data: child_data,
-                            expected_kind: NodeKind::Terminal(kind),
-                        });
+                        return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
                     }
                 }
-                CstNodeData::NonTerminal { kind, .. } => {
-                    return Err(EureViewConstructionError::UnexpectedNode {
-                        node: child,
-                        data: child_data,
-                        expected_kind: NodeKind::NonTerminal(kind),
-                    });
+                CstNodeData::NonTerminal { .. } => {
+                    return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
                 }
             }
         }
         Ok(result)
     }
-
-    pub fn root_handle(&self) -> RootHandle {
-        RootHandle(self.root())
-    }
-
-    pub fn visit_from_root<V: CstVisitor<Self>>(&self, visitor: &mut V) -> Result<(), V::Error> {
-        visitor.visit_root_handle(self.root_handle(), self)
-    }
 }
 
-/// Trait for accessing CST structure with Eure-specific methods
-pub trait CstFacade: Sized {
-    /// Get the string slice for a terminal node
-    fn get_str<'a: 'c, 'b: 'c, 'c>(
-        &'a self,
-        terminal: TerminalData,
-        input: &'b str,
-    ) -> Option<&'c str>;
-
-    /// Get node data for a given node ID
-    fn node_data(&self, node: CstNodeId) -> Option<CstNodeData<TerminalKind, NonTerminalKind>>;
-
-    /// Check if a node has no children
-    fn has_no_children(&self, node: CstNodeId) -> bool;
-
-    /// Get an iterator over a node's children
-    fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId>;
-
-    /// Get data for a terminal node of specific kind
-    fn get_terminal(
-        &self,
-        node: CstNodeId,
-        kind: TerminalKind,
-    ) -> Result<TerminalData, CstConstructError>;
-
-    /// Get data for a non-terminal node of specific kind
-    fn get_non_terminal(
-        &self,
-        node: CstNodeId,
-        kind: NonTerminalKind,
-    ) -> Result<NonTerminalData, CstConstructError>;
-
-    /// Get parent of a node
-    fn parent(&self, node: CstNodeId) -> Option<CstNodeId>;
-
-    /// Collect child nodes matching expected kinds, skipping builtin terminals
-    fn collect_nodes<'v, const N: usize, V: BuiltinTerminalVisitor<E, Self>, O, E>(
-        &self,
-        parent: CstNodeId,
-        nodes: [NodeKind<TerminalKind, NonTerminalKind>; N],
-        visitor: impl FnMut([CstNodeId; N], &'v mut V) -> Result<(O, &'v mut V), CstConstructError<E>>,
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>>;
-
+/// Extension trait for Eure-specific CST methods
+pub trait CstFacadeExt: CstFacade<TerminalKind, NonTerminalKind> {
     /// Get the content of a dynamic token
     fn dynamic_token(&self, id: DynamicTokenId) -> Option<&str>;
 
     /// Get the root handle
-    fn root_handle(&self) -> RootHandle;
+    fn root_handle(&self) -> crate::nodes::RootHandle;
 
     /// Returns the string representation of a terminal. Returns None if the terminal is a dynamic token and not found.
-    fn get_terminal_str<'a: 'c, 'b: 'c, 'c, T: TerminalHandle>(
+    fn get_terminal_str<'a: 'c, 'b: 'c, 'c, T: TerminalHandle<TerminalKind>>(
         &'a self,
         input: &'b str,
         handle: T,
@@ -507,34 +459,16 @@ pub trait CstFacade: Sized {
     }
 
     /// Returns a span that excludes leading and trailing trivia (whitespace, newlines, comments).
-    ///
-    /// For terminal nodes:
-    /// - Always returns the input span (even for trivia terminals like whitespace/comments)
-    /// - Returns None only for dynamic terminals
-    ///
-    /// For non-terminal nodes:
-    /// - Recursively finds the first and last non-trivia descendant spans
-    /// - Returns the merged span of those two endpoints
-    /// - Falls back to the original span if all descendants are trivia
-    ///
-    /// This is useful when you want to get the "meaningful" span of a syntax node,
-    /// excluding any surrounding whitespace or comments.
     fn span(&self, node_id: CstNodeId) -> Option<InputSpan> {
         match self.node_data(node_id)? {
-            CstNodeData::Terminal { data, .. } => {
-                // Always return the span for terminals (including trivia)
-                match data {
-                    TerminalData::Input(span) => Some(span),
-                    TerminalData::Dynamic(_) => None,
-                }
-            }
+            CstNodeData::Terminal { data, .. } => match data {
+                TerminalData::Input(span) => Some(span),
+                TerminalData::Dynamic(_) => None,
+            },
             CstNodeData::NonTerminal { data, .. } => {
-                // Find first non-trivia span
                 let first_span = self
                     .children(node_id)
                     .find_map(|child| self.find_first_non_trivia_span(child));
-
-                // Find last non-trivia span
                 let last_span = self
                     .children(node_id)
                     .rev()
@@ -543,13 +477,10 @@ pub trait CstFacade: Sized {
                 match (first_span, last_span) {
                     (Some(first), Some(last)) => Some(first.merge(last)),
                     (Some(span), None) | (None, Some(span)) => Some(span),
-                    (None, None) => {
-                        // All children are trivia or no children - fall back to original span
-                        match data {
-                            NonTerminalData::Input(span) if span != InputSpan::EMPTY => Some(span),
-                            _ => None,
-                        }
-                    }
+                    (None, None) => match data {
+                        NonTerminalData::Input(span) if span != InputSpan::EMPTY => Some(span),
+                        _ => None,
+                    },
                 }
             }
         }
@@ -610,296 +541,21 @@ pub trait CstFacade: Sized {
     }
 }
 
-impl CstFacade for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
-    fn get_str<'a: 'c, 'b: 'c, 'c>(
-        &'a self,
-        terminal: TerminalData,
-        input: &'b str,
-    ) -> Option<&'c str> {
-        ConcreteSyntaxTree::get_str(self, terminal, input)
-    }
-
-    fn node_data(&self, node: CstNodeId) -> Option<CstNodeData<TerminalKind, NonTerminalKind>> {
-        ConcreteSyntaxTree::node_data(self, node)
-    }
-
-    fn has_no_children(&self, node: CstNodeId) -> bool {
-        ConcreteSyntaxTree::has_no_children(self, node)
-    }
-
-    fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId> {
-        ConcreteSyntaxTree::children(self, node)
-    }
-
-    fn get_terminal(
-        &self,
-        node: CstNodeId,
-        kind: TerminalKind,
-    ) -> Result<TerminalData, CstConstructError> {
-        ConcreteSyntaxTree::get_terminal(self, node, kind)
-    }
-
-    fn get_non_terminal(
-        &self,
-        node: CstNodeId,
-        kind: NonTerminalKind,
-    ) -> Result<NonTerminalData, CstConstructError> {
-        ConcreteSyntaxTree::get_non_terminal(self, node, kind)
-    }
-
-    fn collect_nodes<'v, const N: usize, V: BuiltinTerminalVisitor<E, Self>, O, E>(
-        &self,
-        parent: CstNodeId,
-        nodes: [NodeKind<TerminalKind, NonTerminalKind>; N],
-        visitor: impl FnMut([CstNodeId; N], &'v mut V) -> Result<(O, &'v mut V), CstConstructError<E>>,
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        ConcreteSyntaxTree::collect_nodes(self, self, parent, nodes, visitor, visit_ignored)
-    }
-
+impl CstFacadeExt for ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
     fn dynamic_token(&self, id: DynamicTokenId) -> Option<&str> {
         ConcreteSyntaxTree::dynamic_token(self, id)
     }
 
-    fn parent(&self, node: CstNodeId) -> Option<CstNodeId> {
-        ConcreteSyntaxTree::parent(self, node)
-    }
-
-    fn root_handle(&self) -> RootHandle {
-        ConcreteSyntaxTree::root_handle(self)
+    fn root_handle(&self) -> crate::nodes::RootHandle {
+        crate::nodes::RootHandle(self.root())
     }
 }
 
-#[derive(Debug, Clone, Error)]
-/// Error that occurs when constructing a view from a [NonTerminalHandle].
-pub enum EureViewConstructionError<T, Nt, E = Infallible> {
-    /// Expected a specific kind of terminal node, but got an invalid node
-    #[error("Unexpected node for expected kind: {expected_kind:?} but got {data:?}")]
-    UnexpectedNode {
-        /// The index of the node.
-        node: CstNodeId,
-        /// The data of the node.
-        data: CstNodeData<T, Nt>,
-        /// The expected kind.
-        expected_kind: NodeKind<T, Nt>,
-    },
-    /// Expected an extra node, but got an invalid node
-    #[error("Unexpected extra node")]
-    UnexpectedExtraNode {
-        /// The index of the node.
-        node: CstNodeId,
-    },
-    /// Unexpected end of children
-    #[error("Unexpected end of children")]
-    UnexpectedEndOfChildren {
-        /// The index of the node.
-        parent: CstNodeId,
-    },
-    /// Unexpected empty children for a non-terminal
-    #[error("Unexpected empty children for a non-terminal: {node}")]
-    UnexpectedEmptyChildren {
-        /// The index of the node.
-        node: CstNodeId,
-    },
-    /// The node ID not found in the tree
-    #[error("Node ID not found in the tree: {node}")]
-    NodeIdNotFound {
-        /// The index of the node.
-        node: CstNodeId,
-    },
-    /// Error that occurs when constructing a view from a [NonTerminalHandle].
-    #[error(transparent)]
-    Error(#[from] E),
-}
-
-impl<T, Nt, E> EureViewConstructionError<T, Nt, E> {
-    pub fn extract_error(self) -> Result<E, EureViewConstructionError<T, Nt, Infallible>> {
-        match self {
-            EureViewConstructionError::Error(e) => Ok(e),
-            EureViewConstructionError::UnexpectedNode {
-                node,
-                data,
-                expected_kind,
-            } => Err(EureViewConstructionError::UnexpectedNode {
-                node,
-                data,
-                expected_kind,
-            }),
-            EureViewConstructionError::UnexpectedExtraNode { node } => {
-                Err(EureViewConstructionError::UnexpectedExtraNode { node })
-            }
-            EureViewConstructionError::UnexpectedEndOfChildren { parent } => {
-                Err(EureViewConstructionError::UnexpectedEndOfChildren { parent })
-            }
-            EureViewConstructionError::UnexpectedEmptyChildren { node } => {
-                Err(EureViewConstructionError::UnexpectedEmptyChildren { node })
-            }
-            EureViewConstructionError::NodeIdNotFound { node } => {
-                Err(EureViewConstructionError::NodeIdNotFound { node })
-            }
-        }
-    }
-}
-
-impl<T, Nt> EureViewConstructionError<T, Nt, Infallible> {
-    pub fn into_any_error<E>(self) -> EureViewConstructionError<T, Nt, E> {
-        match self {
-            EureViewConstructionError::UnexpectedNode {
-                node,
-                data,
-                expected_kind,
-            } => EureViewConstructionError::UnexpectedNode {
-                node,
-                data,
-                expected_kind,
-            },
-            EureViewConstructionError::UnexpectedExtraNode { node } => {
-                EureViewConstructionError::UnexpectedExtraNode { node }
-            }
-            EureViewConstructionError::UnexpectedEndOfChildren { parent } => {
-                EureViewConstructionError::UnexpectedEndOfChildren { parent }
-            }
-            EureViewConstructionError::UnexpectedEmptyChildren { node } => {
-                EureViewConstructionError::UnexpectedEmptyChildren { node }
-            }
-            EureViewConstructionError::NodeIdNotFound { node } => {
-                EureViewConstructionError::NodeIdNotFound { node }
-            }
-        }
-    }
-}
-
-impl<T, Nt> EureViewConstructionError<T, Nt, Infallible>
-where
-    T: Copy,
-    Nt: Copy,
-{
-    pub fn unexpected_node(&self) -> Option<UnexpectedNode<T, Nt>> {
-        match self {
-            EureViewConstructionError::UnexpectedNode {
-                node,
-                data,
-                expected_kind,
-            } => Some(UnexpectedNode {
-                node: *node,
-                data: *data,
-                expected_kind: *expected_kind,
-            }),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UnexpectedNode<T, Nt> {
-    node: CstNodeId,
-    data: CstNodeData<T, Nt>,
-    expected_kind: NodeKind<T, Nt>,
-}
-
-struct DummyTerminalVisitor;
-
-impl<F: CstFacade> CstVisitor<F> for DummyTerminalVisitor {
-    type Error = Infallible;
-    fn visit_new_line_terminal(
-        &mut self,
-        _terminal: crate::nodes::NewLine,
-        _data: TerminalData,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    fn visit_whitespace_terminal(
-        &mut self,
-        _terminal: crate::nodes::Whitespace,
-        _data: TerminalData,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    fn visit_line_comment_terminal(
-        &mut self,
-        _terminal: crate::nodes::LineComment,
-        _data: TerminalData,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    fn visit_block_comment_terminal(
-        &mut self,
-        _terminal: crate::nodes::BlockComment,
-        _data: TerminalData,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        Ok(())
-    }
-}
-
-pub trait TerminalHandle {
-    /// Node ID of the terminal.
-    fn node_id(&self) -> CstNodeId;
-    /// Kind of the terminal.
-    fn kind(&self) -> TerminalKind;
-    /// Data of the terminal.
-    fn get_data<F: CstFacade>(&self, tree: &F) -> Result<TerminalData, CstConstructError> {
-        tree.get_terminal(self.node_id(), self.kind())
-    }
-}
-
-/// A trait that all generated non-terminal handles implements.
-pub trait NonTerminalHandle: Sized {
-    /// The type of the view for this non-terminal.
-    type View;
-
-    /// Node ID of the non-terminal.
-    fn node_id(&self) -> CstNodeId;
-
-    /// Create a new non-terminal handle from a node.
-    fn new<F: CstFacade>(index: CstNodeId, tree: &F) -> Result<Self, CstConstructError> {
-        Self::new_with_visit(index, tree, &mut DummyTerminalVisitor)
-    }
-
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>>;
-
-    /// Get the view of the non-terminal.
-    fn get_view<C: CstFacade>(&self, tree: &C) -> Result<Self::View, CstConstructError> {
-        self.get_view_with_visit(
-            tree,
-            |view, visit_ignored| (view, visit_ignored),
-            &mut DummyTerminalVisitor,
-        )
-    }
-
-    /// Get the view of the non-terminal.
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+impl ConcreteSyntaxTree<TerminalKind, NonTerminalKind> {
+    pub fn visit_from_root<V: crate::visitor::CstVisitor<Self>>(
         &self,
-        tree: &F,
-        visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>>;
-
-    /// Get the kind of the non-terminal.
-    fn kind(&self) -> NonTerminalKind;
-}
-
-/// A trait that generated recursive views implements.
-pub trait RecursiveView<F: CstFacade> {
-    /// The type of the item in the view.
-    type Item;
-    fn get_all(&self, tree: &F) -> Result<Vec<Self::Item>, CstConstructError> {
-        self.get_all_with_visit(tree, &mut DummyTerminalVisitor)
+        visitor: &mut V,
+    ) -> Result<(), V::Error> {
+        visitor.visit_root_handle(self.root_handle(), self)
     }
-
-    fn get_all_with_visit<E>(
-        &self,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>>;
 }

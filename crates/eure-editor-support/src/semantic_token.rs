@@ -3,8 +3,9 @@
 //! This module provides types and functions for extracting semantic tokens
 //! from Eure source code, suitable for use with LSP semantic token features.
 
+use eure_tree::node_kind::{NonTerminalKind, TerminalKind};
 use eure_tree::prelude::*;
-use eure_tree::tree::InputSpan;
+use eure_tree::tree::{CstFacade, InputSpan};
 
 /// Semantic token types specific to Eure.
 ///
@@ -373,7 +374,7 @@ impl<'a> SemanticTokenVisitor<'a> {
     }
 }
 
-impl<F: CstFacade> CstVisitor<F> for SemanticTokenVisitor<'_> {
+impl<F: CstFacade<TerminalKind, NonTerminalKind>> CstVisitor<F> for SemanticTokenVisitor<'_> {
     type Error = std::convert::Infallible;
 
     fn then_construct_error(
@@ -381,7 +382,7 @@ impl<F: CstFacade> CstVisitor<F> for SemanticTokenVisitor<'_> {
         node_data: Option<CstNode>,
         parent: CstNodeId,
         kind: NodeKind,
-        _error: CstConstructError,
+        _error: CstConstructError<Self::Error>,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.recover_error(node_data, parent, kind, tree)

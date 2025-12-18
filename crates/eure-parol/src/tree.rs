@@ -1,7 +1,10 @@
 use eure_tree::{
     Cst,
     node_kind::{NonTerminalKind, TerminalKind},
-    tree::{ConcreteSyntaxTree, CstNodeData, CstNodeId, InputSpan, NonTerminalData, TerminalData},
+    tree::{
+        ConcreteSyntaxTree, CstFacade, CstNodeData, CstNodeId, InputSpan, NonTerminalData,
+        TerminalData,
+    },
 };
 use parol_runtime::{ParolError, Token, parser::parse_tree_type::TreeConstruct};
 

@@ -1,6 +1,8 @@
 use std::convert::Infallible;
 
+use eure_tree::node_kind::{NonTerminalKind, TerminalKind};
 use eure_tree::prelude::*;
+use eure_tree::tree::CstFacade;
 use rand::prelude::*;
 
 pub fn unformat(tree: &mut Cst) {
@@ -62,7 +64,7 @@ impl Default for Unformatter {
     }
 }
 
-impl<F: CstFacade> CstVisitor<F> for Unformatter {
+impl<F: CstFacade<TerminalKind, NonTerminalKind>> CstVisitor<F> for Unformatter {
     type Error = Infallible;
 
     fn visit_str(&mut self, handle: StrHandle, view: StrView, tree: &F) -> Result<(), Self::Error> {

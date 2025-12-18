@@ -7,8 +7,11 @@ use eure_document::{
     value::ObjectKey,
     value::PrimitiveValue,
 };
-use eure_tree::tree::{InputSpan, RecursiveView};
-use eure_tree::{prelude::*, tree::TerminalHandle};
+use eure_tree::node_kind::{NonTerminalKind, TerminalKind};
+use eure_tree::prelude::*;
+use eure_tree::tree::{
+    CstConstructError, CstFacade, CstFacadeExt, InputSpan, RecursiveView, TerminalHandle,
+};
 use num_bigint::BigInt;
 use regex::Regex;
 use std::sync::LazyLock;
@@ -50,7 +53,7 @@ impl TerminalTokens {
     pub fn into_string(
         self,
         input: &str,
-        cst: &impl CstFacade,
+        cst: &impl CstFacadeExt,
     ) -> Result<String, DocumentConstructionError> {
         let mut string = String::new();
         for token in self.terminals {
@@ -218,14 +221,18 @@ impl<'a> CstInterpreter<'a> {
         self.origins.record_key(map_node_id, key, cst_node_id);
     }
 
-    fn get_terminal_str<T: TerminalHandle>(
+    fn get_terminal_str<T: TerminalHandle<TerminalKind>>(
         &'a self,
-        tree: &'a impl CstFacade,
+        tree: &'a impl CstFacadeExt,
         handle: T,
     ) -> Result<&'a str, DocumentConstructionError> {
-        match tree.get_terminal_str(self.input, handle)? {
-            Ok(str) => Ok(str),
-            Err(id) => Err(DocumentConstructionError::DynamicTokenNotFound(id)),
+        match tree.get_terminal_str(self.input, handle) {
+            Ok(Ok(str)) => Ok(str),
+            Ok(Err(id)) => Err(DocumentConstructionError::DynamicTokenNotFound(id)),
+            Err(CstConstructError::ViewConstruction(e)) => {
+                Err(DocumentConstructionError::CstError(e))
+            }
+            Err(CstConstructError::Visitor(e)) => Err(DocumentConstructionError::CstError(e)),
         }
     }
 
@@ -233,7 +240,7 @@ impl<'a> CstInterpreter<'a> {
     fn parse_str_terminal(
         &self,
         str_handle: StrHandle,
-        tree: &impl CstFacade,
+        tree: &impl CstFacadeExt,
     ) -> Result<String, DocumentConstructionError> {
         let str_view = str_handle.get_view(tree)?;
         let str_with_quotes = self.get_terminal_str(tree, str_view.str)?;
@@ -260,7 +267,7 @@ impl<'a> CstInterpreter<'a> {
 
     fn get_key_ident_str(
         &'a self,
-        tree: &'a impl CstFacade,
+        tree: &'a impl CstFacadeExt,
         ident_handle: KeyIdentHandle,
     ) -> Result<&'a str, DocumentConstructionError> {
         let ident_view = ident_handle.get_view(tree)?;
@@ -282,7 +289,9 @@ impl<'a> CstInterpreter<'a> {
     }
 }
 
-impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
+impl<F: CstFacade<TerminalKind, NonTerminalKind> + CstFacadeExt> CstVisitor<F>
+    for CstInterpreter<'_>
+{
     type Error = DocumentConstructionError;
 
     fn visit_eure(
@@ -1240,10 +1249,13 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         _node_data: Option<CstNode>,
         _parent: CstNodeId,
         _kind: NodeKind,
-        error: CstConstructError,
+        error: CstConstructError<Self::Error>,
         _tree: &F,
     ) -> Result<(), Self::Error> {
-        Err(DocumentConstructionError::CstError(error))
+        match error {
+            CstConstructError::ViewConstruction(e) => Err(DocumentConstructionError::CstError(e)),
+            CstConstructError::Visitor(e) => Err(e),
+        }
     }
 }
 

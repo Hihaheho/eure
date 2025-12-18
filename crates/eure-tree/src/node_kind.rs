@@ -548,3 +548,19 @@ impl std::fmt::Display for NonTerminalKind {
 
 // NodeKind is re-exported from parol-walker via tree.rs
 pub use crate::tree::NodeKind;
+
+// Implement BuiltinTerminalKind for CstFacade::collect_nodes requirement
+impl parol_walker::BuiltinTerminalKind for TerminalKind {
+    fn is_builtin_whitespace(&self) -> bool {
+        TerminalKind::is_builtin_whitespace(self)
+    }
+    fn is_builtin_new_line(&self) -> bool {
+        TerminalKind::is_builtin_new_line(self)
+    }
+    fn is_builtin_line_comment(&self) -> bool {
+        TerminalKind::is_builtin_line_comment(self)
+    }
+    fn is_builtin_block_comment(&self) -> bool {
+        TerminalKind::is_builtin_block_comment(self)
+    }
+}

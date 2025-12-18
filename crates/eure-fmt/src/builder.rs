@@ -6,8 +6,9 @@
 
 use std::convert::Infallible;
 
+use eure_tree::node_kind::{NonTerminalKind, TerminalKind};
 use eure_tree::prelude::*;
-use eure_tree::tree::{LineNumbers, TerminalData};
+use eure_tree::tree::{CstFacade, LineNumbers, TerminalData};
 
 use crate::config::FormatConfig;
 use crate::doc::Doc;
@@ -257,7 +258,7 @@ impl<'a> FormatVisitor<'a> {
     }
 }
 
-impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
+impl<F: CstFacade<TerminalKind, NonTerminalKind>> CstVisitor<F> for FormatVisitor<'_> {
     type Error = Infallible;
 
     // === Trivia handling ===

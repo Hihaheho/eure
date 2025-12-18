@@ -75,7 +75,7 @@ impl InputSpan {
 }
 
 /// Errors that can occur during view construction
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum ViewConstructionError {
     #[error("Node ID not found: {node}")]
     NodeIdNotFound { node: CstNodeId },
@@ -269,6 +269,57 @@ pub trait NonTerminalHandle<T, Nt>: Sized {
         visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
     ) -> Result<O, CstConstructError<E>>;
+
+    /// Get the view without visiting ignored nodes
+    fn get_view<F: CstFacade<T, Nt>>(&self, tree: &F) -> Result<Self::View, ViewConstructionError>
+    where
+        T: BuiltinTerminalKind,
+    {
+        struct NoOpVisitor;
+        impl<T, Nt, F: CstFacade<T, Nt>> BuiltinTerminalVisitor<T, Nt, std::convert::Infallible, F>
+            for NoOpVisitor
+        {
+            fn visit_builtin_new_line_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+            fn visit_builtin_whitespace_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+            fn visit_builtin_line_comment_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+            fn visit_builtin_block_comment_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+        }
+
+        let mut visitor = NoOpVisitor;
+        match self.get_view_with_visit(tree, |view, v| (view, v), &mut visitor) {
+            Ok(view) => Ok(view),
+            Err(CstConstructError::ViewConstruction(e)) => Err(e),
+            Err(CstConstructError::Visitor(e)) => match e {},
+        }
+    }
 }
 
 /// Trait for visiting builtin terminals (whitespace, comments, etc.)
@@ -314,6 +365,57 @@ pub trait RecursiveView<T, Nt, F: CstFacade<T, Nt>>: Copy {
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<T, Nt, E, F>,
     ) -> Result<Vec<Self::Item>, CstConstructError<E>>;
+
+    /// Get all items from this recursive view, ignoring trivia
+    fn get_all(&self, tree: &F) -> Result<Vec<Self::Item>, ViewConstructionError>
+    where
+        T: BuiltinTerminalKind,
+    {
+        struct NoOpVisitor;
+        impl<T, Nt, F: CstFacade<T, Nt>> BuiltinTerminalVisitor<T, Nt, std::convert::Infallible, F>
+            for NoOpVisitor
+        {
+            fn visit_builtin_new_line_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+            fn visit_builtin_whitespace_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+            fn visit_builtin_line_comment_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+            fn visit_builtin_block_comment_terminal(
+                &mut self,
+                _terminal: CstNodeId,
+                _data: TerminalData,
+                _tree: &F,
+            ) -> Result<(), std::convert::Infallible> {
+                Ok(())
+            }
+        }
+
+        let mut visitor = NoOpVisitor;
+        match self.get_all_with_visit(tree, &mut visitor) {
+            Ok(items) => Ok(items),
+            Err(CstConstructError::ViewConstruction(e)) => Err(e),
+            Err(CstConstructError::Visitor(e)) => match e {},
+        }
+    }
 }
 
 /// Generic concrete syntax tree implementation

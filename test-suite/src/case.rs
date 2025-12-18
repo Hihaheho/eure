@@ -5,7 +5,7 @@ use eure::{
     document::{DocumentConstructionError, EureDocument, OriginMap},
     error::format_parse_error_color,
     parol::EureParseError,
-    tree::Cst,
+    tree::{Cst, CstFacade, ViewConstructionError},
     value::{Language, Text},
 };
 use eure_schema::SchemaDocument;
@@ -462,24 +462,17 @@ impl PreprocessedEure {
             PreprocessedEure::ErrDocument { input, cst, error } => {
                 // Get node_id and node_data for better debugging
                 let node_info = match error {
-                    DocumentConstructionError::CstError(cst_error) => {
-                        use eure::tree::CstConstructError;
-                        match cst_error {
-                            CstConstructError::UnexpectedExtraNode { node } => {
-                                let data = cst.node_data(*node);
-                                Some(format!("node_id={}, data={:?}", node, data))
-                            }
-                            CstConstructError::UnexpectedNode {
-                                node,
-                                data,
-                                expected_kind,
-                            } => Some(format!(
-                                "node_id={}, expected={:?}, got={:?}",
-                                node, expected_kind, data
-                            )),
-                            _ => None,
+                    DocumentConstructionError::CstError(view_error) => match view_error {
+                        ViewConstructionError::UnexpectedExtraNode { node } => {
+                            let data = cst.node_data(*node);
+                            Some(format!("node_id={}, data={:?}", node, data))
                         }
-                    }
+                        ViewConstructionError::UnexpectedNode { node } => {
+                            let data = cst.node_data(*node);
+                            Some(format!("node_id={}, data={:?}", node, data))
+                        }
+                        _ => None,
+                    },
                     _ => None,
                 };
                 let msg = if let Some(info) = node_info {

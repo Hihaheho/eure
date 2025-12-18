@@ -1,3 +1,5 @@
+use eure_tree::node_kind::{NonTerminalKind, TerminalKind};
+use eure_tree::tree::{CstFacade, CstFacadeExt};
 use eure_tree::{prelude::*, tree::LineNumbers};
 
 use crate::tree::{WriteError, get_error_position_from_error};
@@ -20,14 +22,16 @@ impl<'f, 't> InspectVisitor<'f, 't> {
     }
 }
 
-impl<F: CstFacade> CstVisitor<F> for InspectVisitor<'_, '_> {
+impl<F: CstFacade<TerminalKind, NonTerminalKind> + CstFacadeExt> CstVisitor<F>
+    for InspectVisitor<'_, '_>
+{
     type Error = WriteError;
     fn then_construct_error(
         &mut self,
         node_data: Option<CstNode>,
         parent: CstNodeId,
         kind: NodeKind,
-        error: CstConstructError,
+        error: CstConstructError<Self::Error>,
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some((line, column)) =

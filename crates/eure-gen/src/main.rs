@@ -1,15 +1,7 @@
-mod ast_type_generator;
-mod constructor_generator;
-mod visitor_generator;
-
 use std::{path::Path, process::Command};
 
-use ast_type_generator::AstTypeGenerator;
-use constructor_generator::ConstructorGenerator;
-use convert_case::{Case, Casing as _};
 use parol::generators::export_node_types::{Child, NodeName, NodeTypesInfo, NonTerminalStructure};
-use quote::format_ident;
-use visitor_generator::VisitorGenerator;
+use parol_walker_gen::{ImportPaths, NamingConfig, WalkerConfig};
 
 pub fn generate_header_comment() -> proc_macro2::TokenStream {
     quote::quote! {
@@ -38,15 +30,41 @@ fn main() {
 
     format_node_info(&node_info);
     rename_non_terminal_names(&mut node_info);
-    let mut ast_type_generator =
-        AstTypeGenerator::new(Path::new("crates/eure-tree/src/nodes.rs").into());
-    ast_type_generator.generate(&node_info);
-    let visitor_generator =
-        VisitorGenerator::new(Path::new("crates/eure-tree/src/visitor.rs").into());
-    visitor_generator.generate(&node_info);
-    let constructor_generator =
-        ConstructorGenerator::new(Path::new("crates/eure-tree/src/constructors.rs").into());
-    constructor_generator.generate(&node_info);
+
+    // Configure parol-walker-gen for eure-tree
+    let config = WalkerConfig {
+        naming: NamingConfig::default(),
+        imports: ImportPaths {
+            runtime_crate: "parol_walker".into(),
+            node_kind_module: "crate::node_kind".into(),
+            nodes_module: "crate::nodes".into(),
+        },
+    };
+
+    // Generate nodes.rs using parol-walker-gen
+    parol_walker_gen::generate_nodes(
+        &node_info,
+        &config,
+        Path::new("crates/eure-tree/src/nodes.rs"),
+    )
+    .unwrap();
+
+    // Generate visitor.rs using parol-walker-gen
+    parol_walker_gen::generate_visitor(
+        &node_info,
+        &config,
+        Path::new("crates/eure-tree/src/visitor.rs"),
+    )
+    .unwrap();
+
+    // Generate constructors.rs using parol-walker-gen
+    parol_walker_gen::generate_constructors(
+        &node_info,
+        &config,
+        Path::new("crates/eure-tree/src/constructors.rs"),
+    )
+    .unwrap();
+
     generate_node_kind("crates/eure-tree/src/node_kind.rs");
 
     Command::new("cargo").args(["fmt"]).output().unwrap();
@@ -102,16 +120,6 @@ fn rename_non_terminal_name(name: &mut String) {
     }
 }
 
-fn format_snake_case(name: &str) -> syn::Ident {
-    let name = name.from_case(Case::Camel).to_case(Case::Snake);
-    match name.as_str() {
-        "true" => format_ident!("r#true"),
-        "false" => format_ident!("r#false"),
-        "continue" => format_ident!("r#continue"),
-        _ => format_ident!("{}", name),
-    }
-}
-
 fn rename_child_non_terminal_name(child: &mut Child) {
     if let NodeName::NonTerminal(name) = &mut child.name {
         rename_non_terminal_name(&mut name.0);
@@ -151,8 +159,30 @@ fn generate_node_kind(path: &str) {
     // Re-export NodeKind from parol-walker via tree.rs
     let node_kind_reexport = "\n// NodeKind is re-exported from parol-walker via tree.rs\npub use crate::tree::NodeKind;\n";
 
-    // Combine header + existing content + re-export
-    let final_content = format!("{}{}{}", header_str, existing_content, node_kind_reexport);
+    // Implement BuiltinTerminalKind trait for TerminalKind
+    let builtin_terminal_kind_impl = r#"
+// Implement BuiltinTerminalKind for CstFacade::collect_nodes requirement
+impl parol_walker::BuiltinTerminalKind for TerminalKind {
+    fn is_builtin_whitespace(&self) -> bool {
+        TerminalKind::is_builtin_whitespace(self)
+    }
+    fn is_builtin_new_line(&self) -> bool {
+        TerminalKind::is_builtin_new_line(self)
+    }
+    fn is_builtin_line_comment(&self) -> bool {
+        TerminalKind::is_builtin_line_comment(self)
+    }
+    fn is_builtin_block_comment(&self) -> bool {
+        TerminalKind::is_builtin_block_comment(self)
+    }
+}
+"#;
+
+    // Combine header + existing content + re-export + trait impl
+    let final_content = format!(
+        "{}{}{}{}",
+        header_str, existing_content, node_kind_reexport, builtin_terminal_kind_impl
+    );
 
     // Write the complete file
     std::fs::write(path, final_content).unwrap();
