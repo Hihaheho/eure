@@ -26,8 +26,6 @@ eure-template = { path = "crates/eure-template", version = "0.1.0" }
 eure-toml = { path = "crates/eure-toml", version = "0.1.0" }
 eure-tree = { path = "crates/eure-tree", version = "0.1.0" }
 eure-yaml = { path = "crates/eure-yaml", version = "0.1.0" }
-parol-walker = { path = "crates/parol-walker", version = "0.1.0" }
-parol-walker-gen = { path = "crates/parol-walker-gen", version = "0.1.0" }
 indexmap = "2"
 lsp-types = "0.97.0"
 num-bigint = "0.4"
