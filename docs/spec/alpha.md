@@ -99,13 +99,13 @@ Block comments do not nest.
 An *identifier* is a sequence of characters matching the pattern:
 
 ```
-/[\p{XID_Start}_][\p{XID_Continue}-]*/
+/[\p{XID_Start}_][\p{XID_Continue}]*(-[\p{XID_Continue}]+)*/
 ```
 
 Where:
 - `\p{XID_Start}` matches Unicode characters with the XID_Start property
 - `\p{XID_Continue}` matches Unicode characters with the XID_Continue property
-- Hyphens (`-`) are allowed after the first character
+- Hyphens (`-`) are allowed as separators between segments (kebab-case)
 
 Examples of valid identifiers:
 - `name`
@@ -1068,7 +1068,7 @@ Strings = String { "\\" String } ;
 ### 11.5 Lexical Elements
 
 ```ebnf
-Identifier = /[\p{XID_Start}_][\p{XID_Continue}-]*/ ;
+Identifier = /[\p{XID_Start}_][\p{XID_Continue}]*(-[\p{XID_Continue}]+)*/ ;
 Integer = /\d[\d_]*/ ;
 Float = /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
 String = /"([^"\\]|\\.)*"/ ;

@@ -104,7 +104,7 @@ scanner! {
             token r"," => 45; // "Comma"
             token r"\\\\" => 46; // "Continue"
             token r":" => 47; // "TextStart"
-            token r"[\p{XID_Start}_][\p{XID_Continue}-]*" => 48; // "Ident"
+            token r"[\p{XID_Start}_][\p{XID_Continue}]*(-[\p{XID_Continue}]+)*" => 48; // "Ident"
             token r"." => 49; // "Error"
             on 16 enter InInlineCode2;
             on 17 enter InCodeBlock3;
@@ -2182,7 +2182,7 @@ pub const PRODUCTIONS: &[Production; 176] = &[
         lhs: 101,
         production: &[ParseType::T(47)],
     },
-    // 175 - Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;
+    // 175 - Ident: /[\p{XID_Start}_][\p{XID_Continue}]*(-[\p{XID_Continue}]+)*/;
     Production {
         lhs: 56,
         production: &[ParseType::T(48)],
