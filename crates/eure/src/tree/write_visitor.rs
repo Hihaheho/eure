@@ -30,7 +30,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind> + CstFacadeExt> CstVisitor<F>
         node_data: Option<CstNode>,
         parent: CstNodeId,
         kind: NodeKind,
-        error: CstConstructError<Self::Error>,
+        error: CstConstructError<TerminalKind, NonTerminalKind, Self::Error>,
         tree: &F,
     ) -> Result<(), WriteError> {
         if let Some((line, column)) =

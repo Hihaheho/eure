@@ -229,10 +229,7 @@ impl<'a> CstInterpreter<'a> {
         match tree.get_terminal_str(self.input, handle) {
             Ok(Ok(str)) => Ok(str),
             Ok(Err(id)) => Err(DocumentConstructionError::DynamicTokenNotFound(id)),
-            Err(CstConstructError::ViewConstruction(e)) => {
-                Err(DocumentConstructionError::CstError(e))
-            }
-            Err(CstConstructError::Visitor(e)) => Err(DocumentConstructionError::CstError(e)),
+            Err(e) => Err(DocumentConstructionError::CstError(e)),
         }
     }
 
@@ -1249,7 +1246,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind> + CstFacadeExt> CstVisitor<F>
         _node_data: Option<CstNode>,
         _parent: CstNodeId,
         _kind: NodeKind,
-        error: CstConstructError<Self::Error>,
+        error: CstConstructError<TerminalKind, NonTerminalKind, Self::Error>,
         _tree: &F,
     ) -> Result<(), Self::Error> {
         match error {

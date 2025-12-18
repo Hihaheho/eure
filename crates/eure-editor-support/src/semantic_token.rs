@@ -382,7 +382,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> CstVisitor<F> for SemanticToke
         node_data: Option<CstNode>,
         parent: CstNodeId,
         kind: NodeKind,
-        _error: CstConstructError<Self::Error>,
+        _error: CstConstructError<TerminalKind, NonTerminalKind, Self::Error>,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.recover_error(node_data, parent, kind, tree)

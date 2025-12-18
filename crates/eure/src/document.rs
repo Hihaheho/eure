@@ -10,10 +10,14 @@ use eure_document::text::TextParseError;
 use eure_parol::EureParseError;
 
 use crate::document::interpreter::CstInterpreter;
+use eure_tree::node_kind::{NonTerminalKind, TerminalKind};
 use eure_tree::prelude::*;
 use eure_tree::tree::{InputSpan, ViewConstructionError};
 use std::collections::HashMap;
 use thiserror::Error;
+
+/// Type alias for ViewConstructionError with Eure-specific types
+pub type EureViewConstructionError = ViewConstructionError<TerminalKind, NonTerminalKind>;
 
 use eure_document::value::ObjectKey;
 
@@ -88,7 +92,7 @@ pub enum CodeBlockError {
 #[derive(Debug, Error, Clone)]
 pub enum DocumentConstructionError {
     #[error(transparent)]
-    CstError(#[from] ViewConstructionError),
+    CstError(#[from] EureViewConstructionError),
     #[error("Invalid identifier: {0}")]
     InvalidIdentifier(#[from] IdentifierError),
     #[error("Failed to parse integer: {0}")]
@@ -132,13 +136,8 @@ impl DocumentConstructionError {
     pub fn span(&self, cst: &Cst) -> Option<InputSpan> {
         match self {
             DocumentConstructionError::CstError(view_error) => {
-                let node_id = match view_error {
-                    ViewConstructionError::UnexpectedNode { node, .. } => Some(*node),
-                    ViewConstructionError::UnexpectedExtraNode { node } => Some(*node),
-                    ViewConstructionError::UnexpectedEndOfChildren { parent } => Some(*parent),
-                    ViewConstructionError::NodeIdNotFound { node } => Some(*node),
-                };
-                node_id.and_then(|id| cst.span(id))
+                let node_id = view_error.node_id();
+                cst.span(node_id)
             }
             DocumentConstructionError::DocumentInsert { node_id, .. } => cst.span(*node_id),
             DocumentConstructionError::InvalidInlineCode { node_id, .. } => cst.span(*node_id),

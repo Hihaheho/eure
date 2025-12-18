@@ -75,8 +75,11 @@ impl InputSpan {
 }
 
 /// Errors that can occur during view construction
+///
+/// Generic over `T` (terminal kind) and `Nt` (non-terminal kind) to carry
+/// rich error context including the actual node data and expected kind.
 #[derive(Debug, Clone, Error)]
-pub enum ViewConstructionError {
+pub enum ViewConstructionError<T = (), Nt = ()> {
     #[error("Node ID not found: {node}")]
     NodeIdNotFound { node: CstNodeId },
 
@@ -86,29 +89,104 @@ pub enum ViewConstructionError {
     #[error("Unexpected extra node: {node}")]
     UnexpectedExtraNode { node: CstNodeId },
 
-    #[error("Unexpected node: {node}")]
-    UnexpectedNode { node: CstNodeId },
+    #[error("Unexpected node for expected kind: {expected_kind:?} but got {data:?}")]
+    UnexpectedNode {
+        /// The index of the node.
+        node: CstNodeId,
+        /// The data of the node.
+        data: CstNodeData<T, Nt>,
+        /// The expected kind.
+        expected_kind: NodeKind<T, Nt>,
+    },
+
+    /// Simpler variant when we don't have the expected kind information
+    /// (e.g., when checking alternatives where any of several kinds would be valid)
+    #[error("Unexpected node: {node}, got {data:?}")]
+    UnexpectedNodeData {
+        /// The index of the node.
+        node: CstNodeId,
+        /// The data of the node.
+        data: CstNodeData<T, Nt>,
+    },
+
+    #[error("Unexpected empty children for a non-terminal: {node}")]
+    UnexpectedEmptyChildren { node: CstNodeId },
 }
 
-impl ViewConstructionError {
-    /// Create an UnexpectedNode error, ignoring extra fields for compatibility
-    pub fn unexpected_node(node: CstNodeId) -> Self {
-        Self::UnexpectedNode { node }
+impl<T, Nt> ViewConstructionError<T, Nt> {
+    /// Convert to a simpler error type that only carries node IDs
+    pub fn into_simple(self) -> ViewConstructionError<(), ()> {
+        match self {
+            ViewConstructionError::NodeIdNotFound { node } => {
+                ViewConstructionError::NodeIdNotFound { node }
+            }
+            ViewConstructionError::UnexpectedEndOfChildren { parent } => {
+                ViewConstructionError::UnexpectedEndOfChildren { parent }
+            }
+            ViewConstructionError::UnexpectedExtraNode { node } => {
+                ViewConstructionError::UnexpectedExtraNode { node }
+            }
+            ViewConstructionError::UnexpectedNode { node, .. } => {
+                ViewConstructionError::UnexpectedNode {
+                    node,
+                    data: CstNodeData::Terminal {
+                        kind: (),
+                        data: TerminalData::Dynamic(DynamicTokenId(0)),
+                    },
+                    expected_kind: NodeKind::Terminal(()),
+                }
+            }
+            ViewConstructionError::UnexpectedNodeData { node, .. } => {
+                ViewConstructionError::UnexpectedNodeData {
+                    node,
+                    data: CstNodeData::Terminal {
+                        kind: (),
+                        data: TerminalData::Dynamic(DynamicTokenId(0)),
+                    },
+                }
+            }
+            ViewConstructionError::UnexpectedEmptyChildren { node } => {
+                ViewConstructionError::UnexpectedEmptyChildren { node }
+            }
+        }
+    }
+
+    /// Get the node ID associated with this error
+    pub fn node_id(&self) -> CstNodeId {
+        match self {
+            ViewConstructionError::NodeIdNotFound { node } => *node,
+            ViewConstructionError::UnexpectedEndOfChildren { parent } => *parent,
+            ViewConstructionError::UnexpectedExtraNode { node } => *node,
+            ViewConstructionError::UnexpectedNode { node, .. } => *node,
+            ViewConstructionError::UnexpectedNodeData { node, .. } => *node,
+            ViewConstructionError::UnexpectedEmptyChildren { node } => *node,
+        }
     }
 }
 
 /// Errors that can occur during CST construction
+///
+/// Generic over:
+/// - `T`: terminal kind
+/// - `Nt`: non-terminal kind
+/// - `E`: visitor error type
 #[derive(Debug, Error)]
-pub enum CstConstructError<E = ViewConstructionError> {
+pub enum CstConstructError<T = (), Nt = (), E = std::convert::Infallible> {
     #[error("View construction error: {0}")]
-    ViewConstruction(#[from] ViewConstructionError),
+    ViewConstruction(ViewConstructionError<T, Nt>),
 
     #[error("Visitor error: {0}")]
     Visitor(E),
 }
 
-impl<E> CstConstructError<E> {
-    pub fn extract_error(self) -> Result<ViewConstructionError, E> {
+impl<T, Nt, E> From<ViewConstructionError<T, Nt>> for CstConstructError<T, Nt, E> {
+    fn from(e: ViewConstructionError<T, Nt>) -> Self {
+        CstConstructError::ViewConstruction(e)
+    }
+}
+
+impl<T, Nt, E> CstConstructError<T, Nt, E> {
+    pub fn extract_error(self) -> Result<ViewConstructionError<T, Nt>, E> {
         match self {
             CstConstructError::ViewConstruction(e) => Ok(e),
             CstConstructError::Visitor(e) => Err(e),
@@ -119,7 +197,11 @@ impl<E> CstConstructError<E> {
 /// Trait for accessing CST structure (implemented by generated code)
 ///
 /// The generic parameters `T` and `Nt` represent terminal and non-terminal kinds respectively.
-pub trait CstFacade<T, Nt>: Sized {
+pub trait CstFacade<T, Nt>: Sized
+where
+    T: Copy,
+    Nt: Copy,
+{
     /// Get the string slice for a terminal node
     fn get_str<'a: 'c, 'b: 'c, 'c>(
         &'a self,
@@ -137,15 +219,18 @@ pub trait CstFacade<T, Nt>: Sized {
     fn children(&self, node: CstNodeId) -> impl DoubleEndedIterator<Item = CstNodeId>;
 
     /// Get data for a terminal node of specific kind
-    fn get_terminal(&self, node: CstNodeId, kind: T)
-        -> Result<TerminalData, ViewConstructionError>;
+    fn get_terminal(
+        &self,
+        node: CstNodeId,
+        kind: T,
+    ) -> Result<TerminalData, ViewConstructionError<T, Nt>>;
 
     /// Get data for a non-terminal node of specific kind
     fn get_non_terminal(
         &self,
         node: CstNodeId,
         kind: Nt,
-    ) -> Result<NonTerminalData, ViewConstructionError>;
+    ) -> Result<NonTerminalData, ViewConstructionError<T, Nt>>;
 
     /// Get parent of a node
     fn parent(&self, node: CstNodeId) -> Option<CstNodeId>;
@@ -155,9 +240,12 @@ pub trait CstFacade<T, Nt>: Sized {
         &self,
         parent: CstNodeId,
         expected_kinds: [NodeKind<T, Nt>; N],
-        visitor: impl FnMut([CstNodeId; N], &'v mut V) -> Result<(O, &'v mut V), CstConstructError<E>>,
+        visitor: impl FnMut(
+            [CstNodeId; N],
+            &'v mut V,
+        ) -> Result<(O, &'v mut V), CstConstructError<T, Nt, E>>,
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>>
+    ) -> Result<O, CstConstructError<T, Nt, E>>
     where
         T: BuiltinTerminalKind;
 }
@@ -228,7 +316,7 @@ pub trait BuiltinTerminalKind: Copy + PartialEq {
 }
 
 /// Trait for terminal node handles (implemented by generated code)
-pub trait TerminalHandle<T> {
+pub trait TerminalHandle<T: Copy> {
     /// Get the node ID
     fn node_id(&self) -> CstNodeId;
 
@@ -236,16 +324,16 @@ pub trait TerminalHandle<T> {
     fn kind(&self) -> T;
 
     /// Get the terminal data from the tree
-    fn get_data<F: CstFacade<T, Nt>, Nt>(
+    fn get_data<F: CstFacade<T, Nt>, Nt: Copy>(
         &self,
         tree: &F,
-    ) -> Result<TerminalData, ViewConstructionError> {
+    ) -> Result<TerminalData, ViewConstructionError<T, Nt>> {
         tree.get_terminal(self.node_id(), self.kind())
     }
 }
 
 /// Trait for non-terminal node handles (implemented by generated code)
-pub trait NonTerminalHandle<T, Nt>: Sized {
+pub trait NonTerminalHandle<T: Copy, Nt: Copy>: Sized {
     /// The view type for this non-terminal
     type View;
 
@@ -260,7 +348,7 @@ pub trait NonTerminalHandle<T, Nt>: Sized {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<T, Nt, E, F>,
-    ) -> Result<Self, CstConstructError<E>>;
+    ) -> Result<Self, CstConstructError<T, Nt, E>>;
 
     /// Get the view and call visitor on it
     fn get_view_with_visit<'v, F: CstFacade<T, Nt>, V: BuiltinTerminalVisitor<T, Nt, E, F>, O, E>(
@@ -268,16 +356,19 @@ pub trait NonTerminalHandle<T, Nt>: Sized {
         tree: &F,
         visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>>;
+    ) -> Result<O, CstConstructError<T, Nt, E>>;
 
     /// Get the view without visiting ignored nodes
-    fn get_view<F: CstFacade<T, Nt>>(&self, tree: &F) -> Result<Self::View, ViewConstructionError>
+    fn get_view<F: CstFacade<T, Nt>>(
+        &self,
+        tree: &F,
+    ) -> Result<Self::View, ViewConstructionError<T, Nt>>
     where
         T: BuiltinTerminalKind,
     {
         struct NoOpVisitor;
-        impl<T, Nt, F: CstFacade<T, Nt>> BuiltinTerminalVisitor<T, Nt, std::convert::Infallible, F>
-            for NoOpVisitor
+        impl<T: Copy, Nt: Copy, F: CstFacade<T, Nt>>
+            BuiltinTerminalVisitor<T, Nt, std::convert::Infallible, F> for NoOpVisitor
         {
             fn visit_builtin_new_line_terminal(
                 &mut self,
@@ -325,7 +416,7 @@ pub trait NonTerminalHandle<T, Nt>: Sized {
 /// Trait for visiting builtin terminals (whitespace, comments, etc.)
 ///
 /// This is implemented by the main CstVisitor trait to delegate to specific visit methods.
-pub trait BuiltinTerminalVisitor<T, Nt, E, F: CstFacade<T, Nt>> {
+pub trait BuiltinTerminalVisitor<T: Copy, Nt: Copy, E, F: CstFacade<T, Nt>> {
     fn visit_builtin_new_line_terminal(
         &mut self,
         terminal: CstNodeId,
@@ -356,7 +447,7 @@ pub trait BuiltinTerminalVisitor<T, Nt, E, F: CstFacade<T, Nt>> {
 }
 
 /// Trait for views of recursive non-terminals (lists)
-pub trait RecursiveView<T, Nt, F: CstFacade<T, Nt>>: Copy {
+pub trait RecursiveView<T: Copy, Nt: Copy, F: CstFacade<T, Nt>>: Copy {
     type Item;
 
     /// Get all items from this recursive view
@@ -364,16 +455,16 @@ pub trait RecursiveView<T, Nt, F: CstFacade<T, Nt>>: Copy {
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<T, Nt, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>>;
+    ) -> Result<Vec<Self::Item>, CstConstructError<T, Nt, E>>;
 
     /// Get all items from this recursive view, ignoring trivia
-    fn get_all(&self, tree: &F) -> Result<Vec<Self::Item>, ViewConstructionError>
+    fn get_all(&self, tree: &F) -> Result<Vec<Self::Item>, ViewConstructionError<T, Nt>>
     where
         T: BuiltinTerminalKind,
     {
         struct NoOpVisitor;
-        impl<T, Nt, F: CstFacade<T, Nt>> BuiltinTerminalVisitor<T, Nt, std::convert::Infallible, F>
-            for NoOpVisitor
+        impl<T: Copy, Nt: Copy, F: CstFacade<T, Nt>>
+            BuiltinTerminalVisitor<T, Nt, std::convert::Infallible, F> for NoOpVisitor
         {
             fn visit_builtin_new_line_terminal(
                 &mut self,
@@ -554,13 +645,17 @@ impl<T: Copy + PartialEq, Nt: Copy + PartialEq> CstFacade<T, Nt> for ConcreteSyn
         &self,
         node: CstNodeId,
         kind: T,
-    ) -> Result<TerminalData, ViewConstructionError> {
+    ) -> Result<TerminalData, ViewConstructionError<T, Nt>> {
         let node_data = self
             .node_data(node)
             .ok_or(ViewConstructionError::NodeIdNotFound { node })?;
         match node_data {
             CstNodeData::Terminal { kind: k, data } if k == kind => Ok(data),
-            _ => Err(ViewConstructionError::UnexpectedNode { node }),
+            _ => Err(ViewConstructionError::UnexpectedNode {
+                node,
+                data: node_data,
+                expected_kind: NodeKind::Terminal(kind),
+            }),
         }
     }
 
@@ -568,13 +663,17 @@ impl<T: Copy + PartialEq, Nt: Copy + PartialEq> CstFacade<T, Nt> for ConcreteSyn
         &self,
         node: CstNodeId,
         kind: Nt,
-    ) -> Result<NonTerminalData, ViewConstructionError> {
+    ) -> Result<NonTerminalData, ViewConstructionError<T, Nt>> {
         let node_data = self
             .node_data(node)
             .ok_or(ViewConstructionError::NodeIdNotFound { node })?;
         match node_data {
             CstNodeData::NonTerminal { kind: k, data } if k == kind => Ok(data),
-            _ => Err(ViewConstructionError::UnexpectedNode { node }),
+            _ => Err(ViewConstructionError::UnexpectedNode {
+                node,
+                data: node_data,
+                expected_kind: NodeKind::NonTerminal(kind),
+            }),
         }
     }
 
@@ -586,9 +685,12 @@ impl<T: Copy + PartialEq, Nt: Copy + PartialEq> CstFacade<T, Nt> for ConcreteSyn
         &self,
         parent: CstNodeId,
         expected_kinds: [NodeKind<T, Nt>; N],
-        visitor: impl FnMut([CstNodeId; N], &'v mut V) -> Result<(O, &'v mut V), CstConstructError<E>>,
+        visitor: impl FnMut(
+            [CstNodeId; N],
+            &'v mut V,
+        ) -> Result<(O, &'v mut V), CstConstructError<T, Nt, E>>,
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>>
+    ) -> Result<O, CstConstructError<T, Nt, E>>
     where
         T: BuiltinTerminalKind,
     {
@@ -611,9 +713,9 @@ impl<T: BuiltinTerminalKind, Nt: Copy + PartialEq> ConcreteSyntaxTree<T, Nt> {
         mut visitor: impl FnMut(
             [CstNodeId; N],
             &'v mut V,
-        ) -> Result<(O, &'v mut V), CstConstructError<E>>,
+        ) -> Result<(O, &'v mut V), CstConstructError<T, Nt, E>>,
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<T, Nt, E>> {
         let children_vec: Vec<_> = self.children(parent).collect();
         let mut children = children_vec.into_iter();
         let mut result = Vec::with_capacity(N);
@@ -633,9 +735,12 @@ impl<T: BuiltinTerminalKind, Nt: Copy + PartialEq> ConcreteSyntaxTree<T, Nt> {
                             ignored.push((child, kind, data));
                             continue 'inner;
                         } else {
-                            return Err(
-                                ViewConstructionError::UnexpectedNode { node: child }.into()
-                            );
+                            return Err(ViewConstructionError::UnexpectedNode {
+                                node: child,
+                                data: child_data,
+                                expected_kind,
+                            }
+                            .into());
                         }
                     }
                     CstNodeData::NonTerminal { kind, .. } => {
@@ -643,9 +748,12 @@ impl<T: BuiltinTerminalKind, Nt: Copy + PartialEq> ConcreteSyntaxTree<T, Nt> {
                             result.push(child);
                             continue 'outer;
                         } else {
-                            return Err(
-                                ViewConstructionError::UnexpectedNode { node: child }.into()
-                            );
+                            return Err(ViewConstructionError::UnexpectedNode {
+                                node: child,
+                                data: child_data,
+                                expected_kind,
+                            }
+                            .into());
                         }
                     }
                 }

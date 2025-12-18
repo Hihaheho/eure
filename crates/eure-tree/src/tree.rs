@@ -38,14 +38,14 @@ pub trait CstNodeDataExt<T, Nt> {
         &self,
         node: CstNodeId,
         expected: T,
-    ) -> Result<(T, TerminalData), ViewConstructionError>;
+    ) -> Result<(T, TerminalData), ViewConstructionError<T, Nt>>;
 
     /// Check if this node is a non-terminal of the expected kind, returning an error if not
     fn expected_non_terminal_or_error(
         &self,
         node: CstNodeId,
         expected: Nt,
-    ) -> Result<(Nt, NonTerminalData), ViewConstructionError>;
+    ) -> Result<(Nt, NonTerminalData), ViewConstructionError<T, Nt>>;
 }
 
 impl<T, Nt> CstNodeDataExt<T, Nt> for CstNodeData<T, Nt>
@@ -57,10 +57,14 @@ where
         &self,
         node: CstNodeId,
         expected: T,
-    ) -> Result<(T, TerminalData), ViewConstructionError> {
+    ) -> Result<(T, TerminalData), ViewConstructionError<T, Nt>> {
         match self {
             CstNodeData::Terminal { kind, data } if *kind == expected => Ok((*kind, *data)),
-            _ => Err(ViewConstructionError::UnexpectedNode { node }),
+            _ => Err(ViewConstructionError::UnexpectedNode {
+                node,
+                data: *self,
+                expected_kind: NodeKind::Terminal(expected),
+            }),
         }
     }
 
@@ -68,10 +72,14 @@ where
         &self,
         node: CstNodeId,
         expected: Nt,
-    ) -> Result<(Nt, NonTerminalData), ViewConstructionError> {
+    ) -> Result<(Nt, NonTerminalData), ViewConstructionError<T, Nt>> {
         match self {
             CstNodeData::NonTerminal { kind, data } if *kind == expected => Ok((*kind, *data)),
-            _ => Err(ViewConstructionError::UnexpectedNode { node }),
+            _ => Err(ViewConstructionError::UnexpectedNode {
+                node,
+                data: *self,
+                expected_kind: NodeKind::NonTerminal(expected),
+            }),
         }
     }
 }
@@ -291,7 +299,7 @@ impl CstFacade<TerminalKind, NonTerminalKind>
         &self,
         node: CstNodeId,
         kind: TerminalKind,
-    ) -> Result<TerminalData, ViewConstructionError> {
+    ) -> Result<TerminalData, ViewConstructionError<TerminalKind, NonTerminalKind>> {
         let node_data = self
             .node_data_impl(node)
             .ok_or(ViewConstructionError::NodeIdNotFound { node })?;
@@ -303,7 +311,7 @@ impl CstFacade<TerminalKind, NonTerminalKind>
         &self,
         node: CstNodeId,
         kind: NonTerminalKind,
-    ) -> Result<NonTerminalData, ViewConstructionError> {
+    ) -> Result<NonTerminalData, ViewConstructionError<TerminalKind, NonTerminalKind>> {
         let node_data = self
             .node_data_impl(node)
             .ok_or(ViewConstructionError::NodeIdNotFound { node })?;
@@ -328,9 +336,12 @@ impl CstFacade<TerminalKind, NonTerminalKind>
         mut visitor: impl FnMut(
             [CstNodeId; N],
             &'v mut V,
-        ) -> Result<(O, &'v mut V), CstConstructError<E>>,
+        ) -> Result<
+            (O, &'v mut V),
+            CstConstructError<TerminalKind, NonTerminalKind, E>,
+        >,
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let children = self.children_impl(parent).collect::<Vec<_>>();
         let mut children = children.into_iter();
         let mut result = Vec::with_capacity(N);
@@ -347,9 +358,12 @@ impl CstFacade<TerminalKind, NonTerminalKind>
                             continue 'outer;
                         } else if kind.is_builtin_whitespace() || kind.is_builtin_new_line() {
                             if kind.auto_ws_is_off(idx) {
-                                return Err(
-                                    ViewConstructionError::UnexpectedNode { node: child }.into()
-                                );
+                                return Err(ViewConstructionError::UnexpectedNode {
+                                    node: child,
+                                    data: child_data,
+                                    expected_kind,
+                                }
+                                .into());
                             }
                             ignored.push((child, kind, data));
                             continue 'inner;
@@ -358,9 +372,12 @@ impl CstFacade<TerminalKind, NonTerminalKind>
                             ignored.push((child, kind, data));
                             continue 'inner;
                         } else {
-                            return Err(
-                                ViewConstructionError::UnexpectedNode { node: child }.into()
-                            );
+                            return Err(ViewConstructionError::UnexpectedNode {
+                                node: child,
+                                data: child_data,
+                                expected_kind,
+                            }
+                            .into());
                         }
                     }
                     CstNodeData::NonTerminal { kind, .. } => {
@@ -368,9 +385,12 @@ impl CstFacade<TerminalKind, NonTerminalKind>
                             result.push(child);
                             continue 'outer;
                         } else {
-                            return Err(
-                                ViewConstructionError::UnexpectedNode { node: child }.into()
-                            );
+                            return Err(ViewConstructionError::UnexpectedNode {
+                                node: child,
+                                data: child_data,
+                                expected_kind,
+                            }
+                            .into());
                         }
                     }
                 }
@@ -423,11 +443,13 @@ impl CstFacade<TerminalKind, NonTerminalKind>
                             _ => unreachable!(),
                         }
                     } else {
-                        return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                        return Err(
+                            ViewConstructionError::UnexpectedExtraNode { node: child }.into()
+                        );
                     }
                 }
                 CstNodeData::NonTerminal { .. } => {
-                    return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                    return Err(ViewConstructionError::UnexpectedExtraNode { node: child }.into());
                 }
             }
         }
@@ -448,7 +470,8 @@ pub trait CstFacadeExt: CstFacade<TerminalKind, NonTerminalKind> {
         &'a self,
         input: &'b str,
         handle: T,
-    ) -> Result<Result<&'c str, DynamicTokenId>, CstConstructError> {
+    ) -> Result<Result<&'c str, DynamicTokenId>, ViewConstructionError<TerminalKind, NonTerminalKind>>
+    {
         let data = self.get_terminal(handle.node_id(), handle.kind())?;
         match data {
             TerminalData::Input(input_span) => Ok(Ok(

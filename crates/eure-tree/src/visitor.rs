@@ -1309,7 +1309,7 @@ pub trait CstVisitor<F: CstFacade<TerminalKind, NonTerminalKind>>:
         node_data: Option<CstNode>,
         parent: CstNodeId,
         kind: NodeKind<TerminalKind, NonTerminalKind>,
-        error: CstConstructError<Self::Error>,
+        error: CstConstructError<TerminalKind, NonTerminalKind, Self::Error>,
         tree: &F,
     ) -> Result<(), Self::Error> {
         let _error = error;

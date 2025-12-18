@@ -467,8 +467,15 @@ impl PreprocessedEure {
                             let data = cst.node_data(*node);
                             Some(format!("node_id={}, data={:?}", node, data))
                         }
-                        ViewConstructionError::UnexpectedNode { node } => {
-                            let data = cst.node_data(*node);
+                        ViewConstructionError::UnexpectedNode {
+                            node,
+                            data,
+                            expected_kind,
+                        } => Some(format!(
+                            "node_id={}, expected={:?}, got={:?}",
+                            node, expected_kind, data
+                        )),
+                        ViewConstructionError::UnexpectedNodeData { node, data } => {
                             Some(format!("node_id={}, data={:?}", node, data))
                         }
                         _ => None,

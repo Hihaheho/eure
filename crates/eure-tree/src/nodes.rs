@@ -15,7 +15,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Array)],
@@ -37,7 +37,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -77,7 +77,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayBeginHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayBegin)],
@@ -99,7 +99,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayBeginHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::LBracket)],
@@ -131,7 +131,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayElements)],
@@ -153,7 +153,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -190,7 +190,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsOptHandle
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayElementsOpt)],
@@ -212,7 +212,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsOptHandle
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -238,7 +238,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsTailHandl
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayElementsTail)],
@@ -260,7 +260,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsTailHandl
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -299,7 +299,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsTailOptHa
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayElementsTailOpt)],
@@ -321,7 +321,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayElementsTailOptHa
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -347,7 +347,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayEndHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayEnd)],
@@ -369,7 +369,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayEndHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::RBracket)],
@@ -401,7 +401,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayMarkerHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayMarker)],
@@ -423,7 +423,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayMarkerHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -463,7 +463,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayMarkerOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayMarkerOpt)],
@@ -485,7 +485,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayMarkerOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -507,7 +507,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ArrayOpt)],
@@ -529,7 +529,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ArrayOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -555,7 +555,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for AtHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::At)],
@@ -577,7 +577,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for AtHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::At)],
@@ -602,7 +602,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick1Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Backtick1)],
@@ -624,7 +624,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick1Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Backtick1)],
@@ -656,7 +656,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick2Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Backtick2)],
@@ -678,7 +678,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick2Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Backtick2)],
@@ -710,7 +710,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick3Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Backtick3)],
@@ -732,7 +732,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick3Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Backtick3)],
@@ -764,7 +764,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick4Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Backtick4)],
@@ -786,7 +786,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick4Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Backtick4)],
@@ -818,7 +818,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick5Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Backtick5)],
@@ -840,7 +840,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for Backtick5Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Backtick5)],
@@ -872,7 +872,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BeginHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Begin)],
@@ -894,7 +894,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BeginHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::LBrace)],
@@ -926,7 +926,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BindHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Bind)],
@@ -948,7 +948,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BindHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Bind)],
@@ -973,7 +973,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BindingHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Binding)],
@@ -995,7 +995,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BindingHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -1032,7 +1032,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BindingRhsHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::BindingRhs)],
@@ -1054,7 +1054,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BindingRhsHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -1073,7 +1073,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BindingRhsHandle {
                 BindingRhsView::TextBinding(TextBindingHandle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -1101,7 +1105,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BooleanHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Boolean)],
@@ -1123,7 +1127,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BooleanHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -1135,7 +1139,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for BooleanHandle {
             NodeKind::NonTerminal(NonTerminalKind::True) => BooleanView::True(TrueHandle(child)),
             NodeKind::NonTerminal(NonTerminalKind::False) => BooleanView::False(FalseHandle(child)),
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -1162,7 +1170,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock)],
@@ -1184,7 +1192,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -1206,7 +1214,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockHandle {
                 CodeBlockView::CodeBlock6(CodeBlock6Handle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -1235,7 +1247,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock3Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock3)],
@@ -1257,7 +1269,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock3Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -1297,7 +1309,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock3ListHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock3List)],
@@ -1319,7 +1331,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock3ListHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -1355,7 +1367,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -1387,7 +1399,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock3ListGroupHan
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock3ListGroup)],
@@ -1409,7 +1421,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock3ListGroupHan
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -1425,7 +1437,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock3ListGroupHan
                 CodeBlock3ListGroupView::Backtick2(Backtick2Handle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -1452,7 +1468,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock4Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock4)],
@@ -1474,7 +1490,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock4Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -1514,7 +1530,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock4ListHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock4List)],
@@ -1536,7 +1552,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock4ListHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -1572,7 +1588,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -1604,7 +1620,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock4ListGroupHan
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock4ListGroup)],
@@ -1626,7 +1642,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock4ListGroupHan
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -1642,7 +1658,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock4ListGroupHan
                 CodeBlock4ListGroupView::Backtick3(Backtick3Handle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -1669,7 +1689,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock5Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock5)],
@@ -1691,7 +1711,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock5Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -1731,7 +1751,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock5ListHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock5List)],
@@ -1753,7 +1773,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock5ListHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -1789,7 +1809,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -1821,7 +1841,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock5ListGroupHan
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock5ListGroup)],
@@ -1843,7 +1863,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock5ListGroupHan
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -1859,7 +1879,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock5ListGroupHan
                 CodeBlock5ListGroupView::Backtick4(Backtick4Handle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -1886,7 +1910,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock6Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock6)],
@@ -1908,7 +1932,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock6Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -1948,7 +1972,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock6ListHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock6List)],
@@ -1970,7 +1994,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock6ListHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -2006,7 +2030,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -2038,7 +2062,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock6ListGroupHan
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlock6ListGroup)],
@@ -2060,7 +2084,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock6ListGroupHan
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -2076,7 +2100,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlock6ListGroupHan
                 CodeBlock6ListGroupView::Backtick5(Backtick5Handle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -2103,7 +2131,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd3Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd3)],
@@ -2125,7 +2153,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd3Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockEnd3)],
@@ -2157,7 +2185,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd4Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd4)],
@@ -2179,7 +2207,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd4Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockEnd4)],
@@ -2211,7 +2239,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd5Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd5)],
@@ -2233,7 +2261,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd5Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockEnd5)],
@@ -2265,7 +2293,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd6Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockEnd6)],
@@ -2287,7 +2315,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockEnd6Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockEnd6)],
@@ -2319,7 +2347,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart3Handle 
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart3)],
@@ -2341,7 +2369,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart3Handle 
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockStart3)],
@@ -2373,7 +2401,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart4Handle 
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart4)],
@@ -2395,7 +2423,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart4Handle 
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockStart4)],
@@ -2427,7 +2455,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart5Handle 
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart5)],
@@ -2449,7 +2477,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart5Handle 
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockStart5)],
@@ -2481,7 +2509,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart6Handle 
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::CodeBlockStart6)],
@@ -2503,7 +2531,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CodeBlockStart6Handle 
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::CodeBlockStart6)],
@@ -2535,7 +2563,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CommaHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Comma)],
@@ -2557,7 +2585,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for CommaHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Comma)],
@@ -2589,7 +2617,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ContinueHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Continue)],
@@ -2611,7 +2639,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ContinueHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Esc)],
@@ -2636,7 +2664,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for DotHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Dot)],
@@ -2658,7 +2686,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for DotHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Dot)],
@@ -2683,7 +2711,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EndHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::End)],
@@ -2705,7 +2733,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EndHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::RBrace)],
@@ -2737,7 +2765,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Eure)],
@@ -2759,7 +2787,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -2799,7 +2827,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureBindingsHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::EureList)],
@@ -2821,7 +2849,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureBindingsHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -2857,7 +2885,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -2886,7 +2914,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureSectionsHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::EureList0)],
@@ -2908,7 +2936,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureSectionsHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -2944,7 +2972,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -2973,7 +3001,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::EureOpt)],
@@ -2995,7 +3023,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for EureOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -3021,7 +3049,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ExtHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Ext)],
@@ -3043,7 +3071,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ExtHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Dollar)],
@@ -3075,7 +3103,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ExtensionNameSpaceHand
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ExtensionNameSpace)],
@@ -3097,7 +3125,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ExtensionNameSpaceHand
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -3134,7 +3162,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for FalseHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::False)],
@@ -3156,7 +3184,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for FalseHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::False)],
@@ -3188,7 +3216,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for FloatHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Float)],
@@ -3210,7 +3238,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for FloatHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Float)],
@@ -3242,7 +3270,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for GrammarNewlineHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::GrammarNewline)],
@@ -3264,7 +3292,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for GrammarNewlineHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::GrammarNewline)],
@@ -3296,7 +3324,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for HoleHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Hole)],
@@ -3318,7 +3346,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for HoleHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Hole)],
@@ -3343,7 +3371,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for IdentHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Ident)],
@@ -3365,7 +3393,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for IdentHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Ident)],
@@ -3397,7 +3425,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCodeHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::InlineCode)],
@@ -3419,7 +3447,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCodeHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -3435,7 +3463,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCodeHandle {
                 InlineCodeView::InlineCode1(InlineCode1Handle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -3462,7 +3494,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode1Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::InlineCode1)],
@@ -3484,7 +3516,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode1Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::InlineCode1)],
@@ -3516,7 +3548,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode2Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::InlineCode2)],
@@ -3538,7 +3570,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode2Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -3578,7 +3610,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode2ListHandle 
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::InlineCode2List)],
@@ -3600,7 +3632,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode2ListHandle 
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -3638,7 +3670,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -3670,7 +3702,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode2ListGroupHa
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::InlineCode2ListGroup)],
@@ -3692,7 +3724,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode2ListGroupHa
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -3708,7 +3740,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCode2ListGroupHa
                 InlineCode2ListGroupView::Backtick1(Backtick1Handle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -3735,7 +3771,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCodeEnd2Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::InlineCodeEnd2)],
@@ -3757,7 +3793,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCodeEnd2Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::InlineCodeEnd2)],
@@ -3789,7 +3825,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCodeStart2Handle
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::InlineCodeStart2)],
@@ -3811,7 +3847,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for InlineCodeStart2Handle
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::InlineCodeStart2)],
@@ -3843,7 +3879,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for IntegerHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Integer)],
@@ -3865,7 +3901,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for IntegerHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Integer)],
@@ -3897,7 +3933,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Key)],
@@ -3919,7 +3955,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -3956,7 +3992,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyBaseHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyBase)],
@@ -3978,7 +4014,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyBaseHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -4004,7 +4040,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyBaseHandle {
                 KeyBaseView::TupleIndex(TupleIndexHandle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -4035,7 +4075,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyIdentHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyIdent)],
@@ -4057,7 +4097,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyIdentHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -4075,7 +4115,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyIdentHandle {
             }
             NodeKind::NonTerminal(NonTerminalKind::Null) => KeyIdentView::Null(NullHandle(child)),
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -4104,7 +4148,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyOpt)],
@@ -4126,7 +4170,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -4152,7 +4196,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyTuple)],
@@ -4174,7 +4218,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -4214,7 +4258,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsHandle
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyTupleElements)],
@@ -4236,7 +4280,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsHandle
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -4273,7 +4317,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsOptHan
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyTupleElementsOpt)],
@@ -4295,7 +4339,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsOptHan
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -4321,7 +4365,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsTailHa
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyTupleElementsTail)],
@@ -4343,7 +4387,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsTailHa
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -4382,7 +4426,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsTailOp
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(
@@ -4406,7 +4450,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleElementsTailOp
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -4432,7 +4476,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyTupleOpt)],
@@ -4454,7 +4498,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyTupleOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -4480,7 +4524,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyValueHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeyValue)],
@@ -4502,7 +4546,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyValueHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -4522,7 +4566,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeyValueHandle {
                 KeyValueView::KeyTuple(KeyTupleHandle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -4551,7 +4599,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeysHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Keys)],
@@ -4573,7 +4621,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeysHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -4610,7 +4658,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeysListHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::KeysList)],
@@ -4632,7 +4680,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for KeysListHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -4671,7 +4719,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -4705,7 +4753,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for LParenHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::LParen)],
@@ -4727,7 +4775,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for LParenHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::LParen)],
@@ -4759,7 +4807,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for MapBindHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::MapBind)],
@@ -4781,7 +4829,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for MapBindHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::MapBind)],
@@ -4813,7 +4861,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for NoBacktickHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::NoBacktick)],
@@ -4835,7 +4883,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for NoBacktickHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::NoBacktick)],
@@ -4867,7 +4915,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for NoBacktickInlineHandle
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::NoBacktickInline)],
@@ -4889,7 +4937,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for NoBacktickInlineHandle
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::NoBacktickInline)],
@@ -4921,7 +4969,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for NullHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Null)],
@@ -4943,7 +4991,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for NullHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Null)],
@@ -4968,7 +5016,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Object)],
@@ -4990,7 +5038,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -5033,7 +5081,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectListHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ObjectList)],
@@ -5055,7 +5103,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectListHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -5100,7 +5148,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -5147,7 +5195,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ObjectOpt)],
@@ -5169,7 +5217,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -5208,7 +5256,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectOpt0Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ObjectOpt0)],
@@ -5230,7 +5278,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectOpt0Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -5252,7 +5300,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectOpt1Handle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ObjectOpt1)],
@@ -5274,7 +5322,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ObjectOpt1Handle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -5296,7 +5344,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for RParenHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::RParen)],
@@ -5318,7 +5366,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for RParenHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::RParen)],
@@ -5350,7 +5398,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Section)],
@@ -5372,7 +5420,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -5412,7 +5460,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBindingHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::SectionBinding)],
@@ -5434,7 +5482,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBindingHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -5474,7 +5522,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBodyHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::SectionBody)],
@@ -5496,7 +5544,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBodyHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -5541,7 +5589,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBodyHandle {
                 },
                 visit_ignored,
             ),
-            _ => Err(ViewConstructionError::UnexpectedNode { node: child }.into()),
+            _ => Err(ViewConstructionError::UnexpectedNodeData {
+                node: child,
+                data: child_data,
+            }
+            .into()),
         }
     }
 }
@@ -5573,7 +5625,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBodyListHandle 
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::SectionBodyList)],
@@ -5595,7 +5647,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBodyListHandle 
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -5631,7 +5683,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -5660,7 +5712,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBodyOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::SectionBodyOpt)],
@@ -5682,7 +5734,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for SectionBodyOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -5708,7 +5760,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for StrHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Str)],
@@ -5730,7 +5782,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for StrHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Str)],
@@ -5755,7 +5807,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for StringsHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Strings)],
@@ -5777,7 +5829,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for StringsHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -5814,7 +5866,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for StringsListHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::StringsList)],
@@ -5836,7 +5888,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for StringsListHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -5875,7 +5927,7 @@ impl<F: CstFacade<TerminalKind, NonTerminalKind>> RecursiveView<TerminalKind, No
         &self,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Vec<Self::Item>, CstConstructError<E>> {
+    ) -> Result<Vec<Self::Item>, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut items = Vec::new();
         let mut current_view = Some(*self);
         while let Some(item) = current_view {
@@ -5911,7 +5963,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Text)],
@@ -5933,7 +5985,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Text)],
@@ -5958,7 +6010,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextBindingHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TextBinding)],
@@ -5980,7 +6032,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextBindingHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -6023,7 +6075,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextBindingOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt)],
@@ -6045,7 +6097,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextBindingOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -6067,7 +6119,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextBindingOpt0Handle 
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt0)],
@@ -6089,7 +6141,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextBindingOpt0Handle 
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -6115,7 +6167,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextStartHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TextStart)],
@@ -6137,7 +6189,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TextStartHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::TextStart)],
@@ -6169,7 +6221,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TrueHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::True)],
@@ -6191,7 +6243,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TrueHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::True)],
@@ -6223,7 +6275,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Tuple)],
@@ -6245,7 +6297,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -6285,7 +6337,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TupleElements)],
@@ -6307,7 +6359,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -6344,7 +6396,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsOptHandle
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TupleElementsOpt)],
@@ -6366,7 +6418,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsOptHandle
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -6392,7 +6444,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsTailHandl
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TupleElementsTail)],
@@ -6414,7 +6466,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsTailHandl
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -6453,7 +6505,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsTailOptHa
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TupleElementsTailOpt)],
@@ -6475,7 +6527,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleElementsTailOptHa
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -6501,7 +6553,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleIndexHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TupleIndex)],
@@ -6523,7 +6575,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleIndexHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -6560,7 +6612,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleOptHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::TupleOpt)],
@@ -6582,7 +6634,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for TupleOptHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         if tree.has_no_children(self.0) {
             return Ok(visit(None, visit_ignored).0);
         }
@@ -6608,7 +6660,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ValueHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Value)],
@@ -6630,7 +6682,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ValueHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         let mut children = tree.children(self.0);
         let Some(child) = children.next() else {
             return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 }.into());
@@ -6663,7 +6715,11 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ValueHandle {
                 ValueView::InlineCode(InlineCodeHandle(child))
             }
             _ => {
-                return Err(ViewConstructionError::UnexpectedNode { node: child }.into());
+                return Err(ViewConstructionError::UnexpectedNodeData {
+                    node: child,
+                    data: child_data,
+                }
+                .into());
             }
         };
         let (result, _visit) = visit(variant, visit_ignored);
@@ -6699,7 +6755,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ValueBindingHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::ValueBinding)],
@@ -6721,7 +6777,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for ValueBindingHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [
@@ -6758,7 +6814,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for WsHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Ws)],
@@ -6780,7 +6836,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for WsHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::Terminal(TerminalKind::Ws)],
@@ -6805,7 +6861,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for RootHandle {
         index: CstNodeId,
         tree: &F,
         visit_ignored: &mut impl BuiltinTerminalVisitor<TerminalKind, NonTerminalKind, E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
+    ) -> Result<Self, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             index,
             [NodeKind::NonTerminal(NonTerminalKind::Root)],
@@ -6827,7 +6883,7 @@ impl NonTerminalHandle<TerminalKind, NonTerminalKind> for RootHandle {
         tree: &F,
         mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
         visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
+    ) -> Result<O, CstConstructError<TerminalKind, NonTerminalKind, E>> {
         tree.collect_nodes(
             self.0,
             [NodeKind::NonTerminal(NonTerminalKind::Eure)],

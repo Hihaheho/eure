@@ -1,18 +1,25 @@
 mod inspect_visitor;
 mod write_visitor;
 
+use eure_tree::node_kind::{NonTerminalKind as NtKind, TerminalKind as TKind};
 pub use eure_tree::prelude::*;
 pub use eure_tree::tree::ViewConstructionError;
 use thiserror::Error;
 
 use crate::tree::{inspect_visitor::InspectVisitor, write_visitor::WriteVisitor};
 
+/// Type alias for ViewConstructionError with Eure-specific types
+pub type EureViewConstructionError = ViewConstructionError<TKind, NtKind>;
+
+/// Type alias for CstConstructError with Eure-specific types
+pub type EureCstConstructError<E> = CstConstructError<TKind, NtKind, E>;
+
 #[derive(Error, Debug)]
 pub enum WriteError {
     #[error(transparent)]
     FmtError(#[from] std::fmt::Error),
     #[error(transparent)]
-    ViewConstructionError(#[from] ViewConstructionError),
+    ViewConstructionError(#[from] EureViewConstructionError),
     #[error("Dynamic token not found: {id:?}")]
     DynamicTokenNotFound { id: DynamicTokenId },
 }
@@ -33,7 +40,7 @@ pub fn inspect_cst(input: &str, cst: &Cst, w: &mut impl std::fmt::Write) -> Resu
 pub fn get_error_position_from_error<E>(
     line_numbers: &LineNumbers,
     node_data: &Option<CstNode>,
-    _error: &CstConstructError<E>,
+    _error: &EureCstConstructError<E>,
 ) -> Option<(u32, u32)> {
     // Try to get position from node_data
     if let Some(node) = node_data {

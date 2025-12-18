@@ -168,7 +168,7 @@ impl VisitorGenerator {
                 }
                 /// This method is called when a construct view fails.
                 /// If you return Ok(()), the error is not propagated.
-                fn then_construct_error(&mut self, node_data: Option<CstNode>, parent: CstNodeId, kind: NodeKind<TerminalKind, NonTerminalKind>, error: CstConstructError<Self::Error>, tree: &F) -> Result<(), Self::Error> {
+                fn then_construct_error(&mut self, node_data: Option<CstNode>, parent: CstNodeId, kind: NodeKind<TerminalKind, NonTerminalKind>, error: CstConstructError<TerminalKind, NonTerminalKind, Self::Error>, tree: &F) -> Result<(), Self::Error> {
                     let _error = error;
                     self.recover_error(node_data, parent, kind, tree)
                 }
