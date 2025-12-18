@@ -9,6 +9,6 @@ keywords = ["parol", "parser", "visitor", "ast"]
 categories = ["parser-implementations", "development-tools"]
 
 [dependencies]
-ahash.workspace = true
+ahash = { workspace = true, features = ["std", "runtime-rng"] }
 thiserror.workspace = true
 parol_runtime = "4"

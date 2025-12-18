@@ -4,6 +4,7 @@
 //! Use `parol-walker-gen` to generate visitor implementations from your Parol grammar.
 
 use ahash::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 use thiserror::Error;
 
@@ -17,18 +18,26 @@ impl fmt::Display for CstNodeId {
     }
 }
 
+/// Identifier for a dynamically created token (not from input source)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DynamicTokenId(pub u32);
+
 /// Data associated with a terminal node
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TerminalData {
-    /// Span in the input source
-    pub span: Option<InputSpan>,
+pub enum TerminalData {
+    /// Terminal from input source
+    Input(InputSpan),
+    /// Dynamically created terminal (e.g., for tree transformations)
+    Dynamic(DynamicTokenId),
 }
 
 /// Data associated with a non-terminal node
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NonTerminalData {
-    /// Span in the input source
-    pub span: Option<InputSpan>,
+pub enum NonTerminalData {
+    /// Non-terminal from input source
+    Input(InputSpan),
+    /// Dynamically created non-terminal
+    Dynamic,
 }
 
 /// Represents a span in the input source
@@ -39,7 +48,11 @@ pub struct InputSpan {
 }
 
 impl InputSpan {
-    pub const EMPTY: Self = Self { start: 0, end: 0 };
+    /// Empty span, useful as initial value for merging
+    pub const EMPTY: Self = Self {
+        start: u32::MAX,
+        end: 0,
+    };
 
     pub fn new(start: u32, end: u32) -> Self {
         Self { start, end }
@@ -54,6 +67,10 @@ impl InputSpan {
             start: self.start.min(other.start),
             end: self.end.max(other.end),
         }
+    }
+
+    pub fn merge_many(self, others: impl IntoIterator<Item = Self>) -> Self {
+        others.into_iter().fold(self, |acc, other| acc.merge(other))
     }
 }
 
@@ -284,6 +301,8 @@ pub struct ConcreteSyntaxTree<T, Nt> {
     nodes: Vec<CstNodeData<T, Nt>>,
     children: HashMap<CstNodeId, Vec<CstNodeId>>,
     parents: HashMap<CstNodeId, CstNodeId>,
+    dynamic_tokens: BTreeMap<DynamicTokenId, String>,
+    next_dynamic_token_id: u32,
     root: CstNodeId,
 }
 
@@ -296,8 +315,23 @@ impl<T: Copy + PartialEq, Nt: Copy + PartialEq> ConcreteSyntaxTree<T, Nt> {
             nodes,
             children: HashMap::default(),
             parents: HashMap::default(),
+            dynamic_tokens: BTreeMap::new(),
+            next_dynamic_token_id: 0,
             root,
         }
+    }
+
+    /// Insert a dynamic token and return its ID
+    pub fn insert_dynamic_terminal(&mut self, data: impl Into<String>) -> DynamicTokenId {
+        let id = DynamicTokenId(self.next_dynamic_token_id);
+        self.dynamic_tokens.insert(id, data.into());
+        self.next_dynamic_token_id += 1;
+        id
+    }
+
+    /// Get the content of a dynamic token
+    pub fn dynamic_token(&self, id: DynamicTokenId) -> Option<&str> {
+        self.dynamic_tokens.get(&id).map(|s| s.as_str())
     }
 
     /// Get the root node ID
@@ -370,7 +404,10 @@ impl<T: Copy + PartialEq, Nt: Copy + PartialEq> CstFacade<T, Nt> for ConcreteSyn
         terminal: TerminalData,
         input: &'b str,
     ) -> Option<&'c str> {
-        terminal.span.map(|span| span.as_str(input))
+        match terminal {
+            TerminalData::Input(span) => Some(span.as_str(input)),
+            TerminalData::Dynamic(id) => self.dynamic_token(id),
+        }
     }
 
     fn node_data(&self, node: CstNodeId) -> Option<CstNodeData<T, Nt>> {
@@ -603,7 +640,7 @@ where
     ) -> Self {
         let temp_root_data = CstNodeData::NonTerminal {
             kind: root_non_terminal,
-            data: NonTerminalData { span: None },
+            data: NonTerminalData::Dynamic,
         };
         Self {
             tree: ConcreteSyntaxTree::new(temp_root_data),
@@ -617,7 +654,7 @@ where
     fn add_terminal_node(&mut self, kind: T, span: InputSpan) -> CstNodeId {
         let node = self.tree.add_node(CstNodeData::Terminal {
             kind,
-            data: TerminalData { span: Some(span) },
+            data: TerminalData::Input(span),
         });
 
         let parent = self.node_stack.last_mut().expect("node stack is empty");
@@ -630,7 +667,7 @@ where
     fn open_non_terminal_node(&mut self, kind: Nt) -> CstNodeId {
         let node = self.tree.add_node(CstNodeData::NonTerminal {
             kind,
-            data: NonTerminalData { span: None },
+            data: NonTerminalData::Dynamic,
         });
 
         if let Some(parent) = self.node_stack.last_mut() {
@@ -654,15 +691,12 @@ where
             self.tree.update_children(parent, item.children.clone());
 
             if let Some(CstNodeData::NonTerminal { kind, .. }) = self.tree.node_data(parent) {
-                let span = if item.span == InputSpan::EMPTY {
-                    None
+                let data = if item.span == InputSpan::EMPTY {
+                    NonTerminalData::Dynamic
                 } else {
-                    Some(item.span)
+                    NonTerminalData::Input(item.span)
                 };
-                let updated_data = CstNodeData::NonTerminal {
-                    kind,
-                    data: NonTerminalData { span },
-                };
+                let updated_data = CstNodeData::NonTerminal { kind, data };
                 self.tree.update_node(parent, updated_data);
             }
 
