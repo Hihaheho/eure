@@ -78,7 +78,7 @@ scanner! {
             token r"/\*/?([^/]|[^*]/)*\*/" => 4; // "BlockComment"
             token r"\#" => 5; // "Hash"
             token r"=>" => 6; // "MapBind"
-            token r"\d[\d_]*" => 7; // "Integer"
+            token r"-?\d[\d_]*" => 7; // "Integer"
             token r"[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]" => 8; // "Float"
             token r"true" => 9; // "True"
             token r"false" => 10; // "False"
@@ -1797,7 +1797,7 @@ pub const PRODUCTIONS: &[Production; 176] = &[
         lhs: 107,
         production: &[],
     },
-    // 98 - Integer: /\d[\d_]*/;
+    // 98 - Integer: /-?\d[\d_]*/;
     Production {
         lhs: 64,
         production: &[ParseType::T(7)],
