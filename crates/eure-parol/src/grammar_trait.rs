@@ -2356,7 +2356,7 @@ impl ToSpan for InlineCodeStart2<'_> {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Integer<'t> {
-    pub integer: Token<'t>, /* \d[\d_]* */
+    pub integer: Token<'t>, /* -?\d[\d_]* */
 }
 
 impl ToSpan for Integer<'_> {
@@ -5359,7 +5359,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 98:
     ///
-    /// `Integer: /\d[\d_]*/;`
+    /// `Integer: /-?\d[\d_]*/;`
     ///
     #[parol_runtime::function_name::named]
     fn integer(&mut self, integer: &ParseTreeType<'t>) -> Result<()> {
