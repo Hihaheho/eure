@@ -48,9 +48,9 @@ use crate::parse::{
     ParsedSchemaNodeContent, ParsedTupleSchema, ParsedUnionSchema, ParsedUnknownFieldsPolicy,
 };
 use crate::{
-    ArraySchema, Bound, ExtTypeSchema, FloatSchema, IntegerSchema, MapSchema, RecordFieldSchema,
-    RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent, SchemaNodeId, TupleSchema,
-    UnionSchema, UnknownFieldsPolicy,
+    ArraySchema, Bound, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema, MapSchema,
+    RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent,
+    SchemaNodeId, TupleSchema, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
@@ -75,6 +75,9 @@ pub enum ConversionError {
 
     #[error("Invalid range string: {0}")]
     InvalidRangeString(String),
+
+    #[error("Invalid precision: {0} (expected \"f32\" or \"f64\")")]
+    InvalidPrecision(String),
 
     #[error("Undefined type reference: {0}")]
     UndefinedTypeReference(String),
@@ -253,10 +256,19 @@ impl<'a> Converter<'a> {
             (Bound::Unbounded, Bound::Unbounded)
         };
 
+        let precision = match parsed.precision.as_deref() {
+            Some("f32") => FloatPrecision::F32,
+            Some("f64") | None => FloatPrecision::F64,
+            Some(other) => {
+                return Err(ConversionError::InvalidPrecision(other.to_string()));
+            }
+        };
+
         Ok(FloatSchema {
             min,
             max,
             multiple_of: parsed.multiple_of,
+            precision,
         })
     }
 

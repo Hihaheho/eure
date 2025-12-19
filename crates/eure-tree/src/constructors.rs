@@ -70,6 +70,40 @@ impl From<FloatToken> for BuilderNodeId {
         token.node_id
     }
 }
+///Branded type for Inf terminal
+#[derive(Debug, Clone)]
+pub struct InfToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl InfToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<InfToken> for BuilderNodeId {
+    fn from(token: InfToken) -> Self {
+        token.node_id
+    }
+}
+///Branded type for NaN terminal
+#[derive(Debug, Clone)]
+pub struct NaNToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NaNToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NaNToken> for BuilderNodeId {
+    fn from(token: NaNToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for True terminal
 #[derive(Debug, Clone)]
 pub struct TrueToken {
@@ -1719,6 +1753,23 @@ impl From<IdentNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for Inf non-terminal
+#[derive(Debug, Clone)]
+pub struct InfNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl InfNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<InfNode> for BuilderNodeId {
+    fn from(node: InfNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for InlineCode non-terminal
 #[derive(Debug, Clone)]
 pub struct InlineCodeNode {
@@ -2110,6 +2161,23 @@ impl From<MapBindNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for NaN non-terminal
+#[derive(Debug, Clone)]
+pub struct NaNNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NaNNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NaNNode> for BuilderNodeId {
+    fn from(node: NaNNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for NoBacktick non-terminal
 #[derive(Debug, Clone)]
 pub struct NoBacktickNode {
@@ -2158,6 +2226,23 @@ impl NullNode {
 }
 impl From<NullNode> for BuilderNodeId {
     fn from(node: NullNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for Number non-terminal
+#[derive(Debug, Clone)]
+pub struct NumberNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NumberNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NumberNode> for BuilderNodeId {
+    fn from(node: NumberNode) -> Self {
         node.node_id
     }
 }
@@ -3558,6 +3643,18 @@ impl IdentConstructor {
         IdentNode { node_id, builder }
     }
 }
+#[derive(bon::Builder)]
+pub struct InfConstructor {
+    inf: InfToken,
+}
+impl InfConstructor {
+    pub fn build(self) -> InfNode {
+        let mut builder = CstBuilder::new();
+        let inf = builder.embed(self.inf.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::Inf, vec![inf]);
+        InfNode { node_id, builder }
+    }
+}
 pub enum InlineCodeConstructor {
     InlineCode2(InlineCode2Node),
     InlineCode1(InlineCode1Node),
@@ -3938,6 +4035,18 @@ impl MapBindConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct NaNConstructor {
+    na_n: NaNToken,
+}
+impl NaNConstructor {
+    pub fn build(self) -> NaNNode {
+        let mut builder = CstBuilder::new();
+        let na_n = builder.embed(self.na_n.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::NaN, vec![na_n]);
+        NaNNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct NoBacktickConstructor {
     no_backtick: NoBacktickToken,
 }
@@ -3972,6 +4081,25 @@ impl NullConstructor {
         let null = builder.embed(self.null.builder);
         let node_id = builder.non_terminal(NonTerminalKind::Null, vec![null]);
         NullNode { node_id, builder }
+    }
+}
+pub enum NumberConstructor {
+    Float(FloatNode),
+    Integer(IntegerNode),
+    Inf(InfNode),
+    NaN(NaNNode),
+}
+impl NumberConstructor {
+    pub fn build(self) -> NumberNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::Float(node) => builder.embed(node.builder),
+            Self::Integer(node) => builder.embed(node.builder),
+            Self::Inf(node) => builder.embed(node.builder),
+            Self::NaN(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::Number, vec![child_id]);
+        NumberNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4436,8 +4564,7 @@ pub enum ValueConstructor {
     Object(ObjectNode),
     Array(ArrayNode),
     Tuple(TupleNode),
-    Float(FloatNode),
-    Integer(IntegerNode),
+    Number(NumberNode),
     Boolean(BooleanNode),
     Null(NullNode),
     Strings(StringsNode),
@@ -4452,8 +4579,7 @@ impl ValueConstructor {
             Self::Object(node) => builder.embed(node.builder),
             Self::Array(node) => builder.embed(node.builder),
             Self::Tuple(node) => builder.embed(node.builder),
-            Self::Float(node) => builder.embed(node.builder),
-            Self::Integer(node) => builder.embed(node.builder),
+            Self::Number(node) => builder.embed(node.builder),
             Self::Boolean(node) => builder.embed(node.builder),
             Self::Null(node) => builder.embed(node.builder),
             Self::Strings(node) => builder.embed(node.builder),
@@ -4524,6 +4650,16 @@ pub mod terminals {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::Float, "");
         FloatToken { node_id, builder }
+    }
+    pub fn inf() -> InfToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::Inf, "");
+        InfToken { node_id, builder }
+    }
+    pub fn na_n() -> NaNToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::NaN, "");
+        NaNToken { node_id, builder }
     }
     pub fn r#true() -> TrueToken {
         let mut builder = CstBuilder::new();

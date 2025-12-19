@@ -216,6 +216,8 @@ pub struct ParsedFloatSchema {
     pub range: Option<String>,
     /// Multiple-of constraint
     pub multiple_of: Option<f64>,
+    /// Precision constraint ("f32" or "f64")
+    pub precision: Option<String>,
     /// Unknown fields (for future extensions like "flatten")
     pub unknown_fields: HashMap<String, NodeId>,
 }
@@ -227,6 +229,7 @@ impl ParseDocument<'_> for ParsedFloatSchema {
 
         let range = rec.parse_field_optional::<String>("range")?;
         let multiple_of = rec.parse_field_optional::<f64>("multiple-of")?;
+        let precision = rec.parse_field_optional::<String>("precision")?;
 
         // Collect unknown fields for future extensions
         let unknown_fields: HashMap<String, NodeId> = rec
@@ -238,6 +241,7 @@ impl ParseDocument<'_> for ParsedFloatSchema {
         Ok(ParsedFloatSchema {
             range,
             multiple_of,
+            precision,
             unknown_fields,
         })
     }
@@ -722,6 +726,7 @@ fn parse_type_reference_string(
         ["float"] => Ok(ParsedSchemaNodeContent::Float(ParsedFloatSchema {
             range: None,
             multiple_of: None,
+            precision: None,
             unknown_fields: HashMap::new(),
         })),
         ["boolean"] => Ok(ParsedSchemaNodeContent::Boolean),

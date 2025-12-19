@@ -798,13 +798,53 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
     ) -> Result<(), Self::Error> {
         let str = self.get_terminal_str(tree, view.integer)?;
 
-        let big_int: BigInt = str
+        // Remove underscores for parsing
+        let clean_str = str.replace('_', "");
+
+        let big_int: BigInt = clean_str
             .parse()
             .map_err(|_| DocumentConstructionError::InvalidBigInt(str.to_string()))?;
 
         let node_id = self.document.current_node_id();
         self.document
             .bind_primitive(PrimitiveValue::Integer(big_int))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+        self.record_origin(node_id, handle.node_id());
+        Ok(())
+    }
+
+    fn visit_inf(&mut self, handle: InfHandle, view: InfView, tree: &F) -> Result<(), Self::Error> {
+        let str = self.get_terminal_str(tree, view.inf)?;
+
+        let float = if str.starts_with('-') {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        };
+
+        let node_id = self.document.current_node_id();
+        self.document
+            .bind_primitive(PrimitiveValue::F64(float))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+        self.record_origin(node_id, handle.node_id());
+        Ok(())
+    }
+
+    fn visit_na_n(
+        &mut self,
+        handle: NaNHandle,
+        _view: NaNView,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let node_id = self.document.current_node_id();
+        self.document
+            .bind_primitive(PrimitiveValue::F64(f64::NAN))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
@@ -821,17 +861,37 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
     ) -> Result<(), Self::Error> {
         let str = self.get_terminal_str(tree, view.float)?;
 
-        let float: f64 = str
-            .parse()
-            .map_err(|_| DocumentConstructionError::InvalidFloat(str.to_string()))?;
+        // Check for f32/f64 suffix
+        let (num_str, is_f32) = if let Some(stripped) = str.strip_suffix("f32") {
+            (stripped, true)
+        } else if let Some(stripped) = str.strip_suffix("f64") {
+            (stripped, false)
+        } else {
+            (str, false)
+        };
+
+        // Remove underscores for parsing
+        let clean_str = num_str.replace('_', "");
 
         let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::F64(float))
-            .map_err(|e| DocumentConstructionError::DocumentInsert {
+        let primitive = if is_f32 {
+            let float: f32 = clean_str
+                .parse()
+                .map_err(|_| DocumentConstructionError::InvalidFloat(str.to_string()))?;
+            PrimitiveValue::F32(float)
+        } else {
+            let float: f64 = clean_str
+                .parse()
+                .map_err(|_| DocumentConstructionError::InvalidFloat(str.to_string()))?;
+            PrimitiveValue::F64(float)
+        };
+
+        self.document.bind_primitive(primitive).map_err(|e| {
+            DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
-            })?;
+            }
+        })?;
         self.record_origin(node_id, handle.node_id());
         Ok(())
     }

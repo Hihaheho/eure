@@ -239,6 +239,16 @@ pub struct IntegerSchema {
     pub multiple_of: Option<BigInt>,
 }
 
+/// Float precision specifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FloatPrecision {
+    /// 32-bit floating point (f32)
+    F32,
+    /// 64-bit floating point (f64) - default
+    #[default]
+    F64,
+}
+
 /// Float type constraints
 ///
 /// Spec: lines 371-375
@@ -246,6 +256,7 @@ pub struct IntegerSchema {
 /// @variants.float
 /// range = .$types.range-string (optional)
 /// multiple-of = .float (optional)
+/// precision = "f32" | "f64" (optional, default: "f64")
 /// ```
 ///
 /// Note: Range string is parsed in the converter to Bound<f64>
@@ -257,6 +268,8 @@ pub struct FloatSchema {
     pub max: Bound<f64>,
     /// Multiple-of constraint
     pub multiple_of: Option<f64>,
+    /// Float precision (f32 or f64)
+    pub precision: FloatPrecision,
 }
 
 // ============================================================================
