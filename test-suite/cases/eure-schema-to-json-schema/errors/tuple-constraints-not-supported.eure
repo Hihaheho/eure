@@ -1,8 +1,0 @@
-// Test error: Tuple constraints cannot be fully represented in JSON Schema
-
-schema = ```eure
-$variant = "tuple"
-elements = [`text`, `integer`]
-```
-
-json_schema_errors[] = "Tuple constraints not fully supported in JSON Schema"

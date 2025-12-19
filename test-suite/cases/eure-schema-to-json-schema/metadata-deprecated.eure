@@ -1,0 +1,17 @@
+// Test: Deprecated metadata conversion
+
+schema = ```eure
+old_field = `text`
+old_field.$deprecated = true
+```
+
+output_json_schema = ```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "old_field": {"type": "string", "deprecated": true}
+  },
+  "required": ["old_field"]
+}
+```

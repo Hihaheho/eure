@@ -206,6 +206,84 @@ impl ParseDocument<'_> for JsonData {
     }
 }
 
+/// JSON Schema data for test cases - supports bidirectional testing.
+/// Similar to JsonData, but for JSON Schema conversion tests.
+#[derive(Debug, Clone)]
+pub enum JsonSchemaData {
+    /// Same JSON Schema used for both input and output
+    Both(Text),
+    /// Separate input and output JSON Schema (for testing round-trip or asymmetric conversion)
+    Separate {
+        input: Option<Text>,
+        output: Option<Text>,
+    },
+}
+
+impl JsonSchemaData {
+    pub fn is_empty(&self) -> bool {
+        matches!(
+            self,
+            JsonSchemaData::Separate {
+                input: None,
+                output: None
+            }
+        )
+    }
+
+    pub fn input_json_schema(&self) -> Option<&Text> {
+        match self {
+            JsonSchemaData::Both(text) => Some(text),
+            JsonSchemaData::Separate {
+                input: Some(input),
+                output: _,
+            } => Some(input),
+            _ => None,
+        }
+    }
+
+    pub fn output_json_schema(&self) -> Option<&Text> {
+        match self {
+            JsonSchemaData::Both(text) => Some(text),
+            JsonSchemaData::Separate {
+                input: _,
+                output: Some(output),
+            } => Some(output),
+            _ => None,
+        }
+    }
+}
+
+impl Default for JsonSchemaData {
+    fn default() -> Self {
+        JsonSchemaData::Separate {
+            input: None,
+            output: None,
+        }
+    }
+}
+
+impl ParseDocument<'_> for JsonSchemaData {
+    type Error = DocumentParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+        ctx.parse_union(VariantRepr::default())?
+            .variant("Both", |ctx: &ParseContext<'_>| {
+                let mut rec = ctx.parse_record()?;
+                let text = rec.parse_field("json_schema")?;
+                rec.deny_unknown_fields()?;
+                Ok(JsonSchemaData::Both(text))
+            })
+            .variant("Separate", |ctx: &ParseContext<'_>| {
+                let mut rec = ctx.parse_record()?;
+                let input = rec.parse_field_optional("input_json_schema")?;
+                let output = rec.parse_field_optional("output_json_schema")?;
+                rec.deny_unknown_fields()?;
+                Ok(JsonSchemaData::Separate { input, output })
+            })
+            .parse()
+    }
+}
+
 /// A single test case's data fields
 #[derive(Debug, Clone, Default)]
 pub struct CaseData {
@@ -217,7 +295,7 @@ pub struct CaseData {
     pub schema_errors: Vec<Text>,
     pub schema_conversion_error: Option<Text>,
     pub meta_schema_errors: Vec<Text>,
-    pub output_json_schema: Option<Text>,
+    pub json_schema: JsonSchemaData,
     pub json_schema_errors: Vec<Text>,
     pub unimplemented: Option<String>,
     /// Union tag mode for validation (default: eure)
@@ -241,7 +319,7 @@ impl CaseData {
             && self.schema_errors.is_empty()
             && self.schema_conversion_error.is_none()
             && self.meta_schema_errors.is_empty()
-            && self.output_json_schema.is_none()
+            && self.json_schema.is_empty()
             && self.json_schema_errors.is_empty()
             && self.formatted_input.is_none()
             && self.formatted_normalized.is_none()
@@ -269,7 +347,7 @@ impl ParseDocument<'_> for CaseData {
         let meta_schema_errors = rec
             .parse_field_optional::<Vec<Text>>("meta_schema_errors")?
             .unwrap_or_default();
-        let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
+        let json_schema = rec.flatten().parse::<JsonSchemaData>()?;
         let json_schema_errors = rec
             .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
@@ -319,7 +397,7 @@ impl ParseDocument<'_> for CaseData {
             schema_errors,
             schema_conversion_error,
             meta_schema_errors,
-            output_json_schema,
+            json_schema,
             json_schema_errors,
             unimplemented,
             input_union_tag_mode,
@@ -412,7 +490,7 @@ impl ParseDocument<'_> for CaseFile {
         let meta_schema_errors = rec
             .parse_field_optional::<Vec<Text>>("meta_schema_errors")?
             .unwrap_or_default();
-        let output_json_schema = rec.parse_field_optional::<Text>("output_json_schema")?;
+        let json_schema = rec.flatten().parse::<JsonSchemaData>()?;
         let json_schema_errors = rec
             .parse_field_optional::<Vec<Text>>("json_schema_errors")?
             .unwrap_or_default();
@@ -478,7 +556,7 @@ impl ParseDocument<'_> for CaseFile {
                 schema_errors,
                 schema_conversion_error,
                 meta_schema_errors,
-                output_json_schema,
+                json_schema,
                 json_schema_errors,
                 unimplemented,
                 input_union_tag_mode,

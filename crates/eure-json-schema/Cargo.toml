@@ -10,7 +10,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["eure", "json-schema", "schema", "validation"]
 
 [dependencies]
+eure = { workspace = true }
 eure-document = { workspace = true }
+eure-json = { workspace = true }
+eure-parol = { workspace = true }
 eure-schema = { workspace = true }
 indexmap = { workspace = true }
 num-bigint = { workspace = true }

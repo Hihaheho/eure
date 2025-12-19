@@ -420,6 +420,7 @@ pub struct PreprocessedCase {
     pub schema_errors: Vec<String>,
     pub schema_conversion_error: Option<String>,
     pub meta_schema_errors: Vec<String>,
+    pub input_json_schema: Option<serde_json::Value>,
     pub output_json_schema: Option<serde_json::Value>,
     pub json_schema_errors: Vec<String>,
     /// Union tag mode for validation (default: eure)
@@ -754,10 +755,23 @@ impl Case {
             .iter()
             .map(|e| e.as_str().to_string())
             .collect();
+        let input_json_schema = self
+            .data
+            .json_schema
+            .input_json_schema()
+            .map(|code| {
+                serde_json::from_str(code.as_str()).map_err(|source| {
+                    PreprocessError::JsonParseError {
+                        field: "input_json_schema",
+                        source,
+                    }
+                })
+            })
+            .transpose()?;
         let output_json_schema = self
             .data
-            .output_json_schema
-            .as_ref()
+            .json_schema
+            .output_json_schema()
             .map(|code| {
                 serde_json::from_str(code.as_str()).map_err(|source| {
                     PreprocessError::JsonParseError {
@@ -796,6 +810,7 @@ impl Case {
             schema_errors,
             schema_conversion_error,
             meta_schema_errors,
+            input_json_schema,
             output_json_schema,
             json_schema_errors,
             input_union_tag_mode: self.data.input_union_tag_mode,

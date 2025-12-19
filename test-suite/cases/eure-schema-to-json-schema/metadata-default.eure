@@ -1,0 +1,17 @@
+// Test: Default value conversion in metadata
+
+schema = ```eure
+name = `text`
+name.$default = "anonymous"
+```
+
+output_json_schema = ```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {"type": "string", "default": "anonymous"}
+  },
+  "required": ["name"]
+}
+```

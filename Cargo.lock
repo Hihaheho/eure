@@ -1623,7 +1623,10 @@ dependencies = [
 name = "eure-json-schema"
 version = "0.1.0"
 dependencies = [
+ "eure",
  "eure-document",
+ "eure-json",
+ "eure-parol",
  "eure-schema",
  "indexmap",
  "num-bigint",

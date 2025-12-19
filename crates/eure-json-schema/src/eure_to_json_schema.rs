@@ -6,9 +6,8 @@
 
 use crate::json_schema::*;
 use eure_document::data_model::VariantRepr;
-use eure_document::document::node::NodeValue;
-use eure_document::document::{EureDocument, NodeId};
-use eure_document::value::{ObjectKey, PrimitiveValue};
+use eure_document::document::EureDocument;
+use eure_json::Config as JsonConfig;
 use eure_schema::{
     ArraySchema as EureArraySchema, Bound, Description, FloatSchema,
     IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
@@ -17,6 +16,12 @@ use eure_schema::{
 };
 use indexmap::IndexMap;
 use num_traits::ToPrimitive;
+
+/// Convert an EureDocument to a JSON value
+fn document_to_json(doc: &EureDocument) -> Result<serde_json::Value, ConversionError> {
+    eure_json::document_to_value(doc, &JsonConfig::default())
+        .map_err(|e| ConversionError::InvalidFloatValue(format!("JSON conversion error: {}", e)))
+}
 
 /// Errors that can occur during Eure Schema to JSON Schema conversion
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -48,10 +53,6 @@ pub enum ConversionError {
     /// Circular reference detected (not supported in JSON Schema)
     #[error("Circular reference detected: {0}")]
     CircularReference(String),
-
-    /// Tuple with more constraints than JSON Schema array tuple validation supports
-    #[error("Tuple constraints not fully supported in JSON Schema")]
-    TupleConstraintsNotSupported,
 }
 
 /// Conversion context to track state during conversion
@@ -165,9 +166,9 @@ fn convert_node(
 fn convert_schema_content(
     ctx: &mut ConversionContext,
     content: &SchemaNodeContent,
-    metadata: &EureMetadata,
+    eure_meta: &EureMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    let json_metadata = convert_metadata(metadata);
+    let json_metadata = convert_metadata(eure_meta);
 
     match content {
         SchemaNodeContent::Any => Ok(JsonSchema::Generic(GenericSchema {
@@ -175,13 +176,13 @@ fn convert_schema_content(
             ..Default::default()
         })),
 
-        SchemaNodeContent::Text(t) => convert_text_schema(t, json_metadata),
+        SchemaNodeContent::Text(t) => convert_text_schema(t, eure_meta, json_metadata),
 
-        SchemaNodeContent::Integer(i) => convert_integer_schema(i, json_metadata),
+        SchemaNodeContent::Integer(i) => convert_integer_schema(i, eure_meta, json_metadata),
 
-        SchemaNodeContent::Float(f) => convert_float_schema(f, json_metadata),
+        SchemaNodeContent::Float(f) => convert_float_schema(f, eure_meta, json_metadata),
 
-        SchemaNodeContent::Boolean => convert_boolean_schema(json_metadata),
+        SchemaNodeContent::Boolean => convert_boolean_schema(eure_meta, json_metadata),
 
         SchemaNodeContent::Null => Ok(JsonSchema::Typed(TypedSchema::Null(NullSchema {
             metadata: json_metadata,
@@ -214,12 +215,33 @@ fn convert_schema_content(
 
 /// Convert Eure metadata to JSON Schema metadata
 fn convert_metadata(eure_meta: &EureMetadata) -> SchemaMetadata {
+    // Convert examples: parse each Eure string and convert to JSON
+    // The examples are stored as Eure code strings that need to be parsed first
+    let examples = eure_meta.examples.as_ref().map(|examples| {
+        examples
+            .iter()
+            .filter_map(|s| {
+                // Parse the Eure string
+                let cst = eure_parol::parse(s).ok()?;
+                let doc = eure::document::cst_to_document(s, &cst).ok()?;
+                // Convert the document to JSON
+                eure_json::document_to_value(&doc, &JsonConfig::default()).ok()
+            })
+            .collect()
+    });
+
     SchemaMetadata {
         title: None, // Eure doesn't have title
         description: eure_meta.description.as_ref().map(|d| match d {
             Description::String(s) => s.clone(),
             Description::Markdown(s) => s.clone(),
         }),
+        deprecated: if eure_meta.deprecated {
+            Some(true)
+        } else {
+            None
+        },
+        examples,
     }
 }
 
@@ -252,6 +274,7 @@ const JSON_SCHEMA_FORMATS: &[&str] = &[
 /// If the language matches a known JSON Schema format, it's mapped to the format field.
 fn convert_text_schema(
     eure: &TextSchema,
+    eure_meta: &EureMetadata,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
     // Map language to format if it's a known JSON Schema format
@@ -263,12 +286,27 @@ fn convert_text_schema(
         }
     });
 
+    // Convert default value if present
+    let default = eure_meta
+        .default
+        .as_ref()
+        .map(|doc| {
+            let json_val = document_to_json(doc)?;
+            match json_val {
+                serde_json::Value::String(s) => Ok(s),
+                _ => Err(ConversionError::InvalidFloatValue(
+                    "default must be a string".to_string(),
+                )),
+            }
+        })
+        .transpose()?;
+
     Ok(JsonSchema::Typed(TypedSchema::String(StringSchema {
         min_length: eure.min_length,
         max_length: eure.max_length,
         pattern: eure.pattern.as_ref().map(|r| r.as_str().to_string()),
         format,
-        default: None,
+        default,
         metadata,
     })))
 }
@@ -276,6 +314,7 @@ fn convert_text_schema(
 /// Convert Eure Integer schema to JSON Schema
 fn convert_integer_schema(
     eure: &EureIntegerSchema,
+    eure_meta: &EureMetadata,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
     // Convert bounds
@@ -293,13 +332,28 @@ fn convert_integer_schema(
 
     let multiple_of = eure.multiple_of.as_ref().map(bigint_to_i64).transpose()?;
 
+    // Convert default value if present
+    let default = eure_meta
+        .default
+        .as_ref()
+        .map(|doc| {
+            let json_val = document_to_json(doc)?;
+            match json_val {
+                serde_json::Value::Number(n) if n.is_i64() => Ok(n.as_i64().unwrap()),
+                _ => Err(ConversionError::InvalidFloatValue(
+                    "default must be an integer".to_string(),
+                )),
+            }
+        })
+        .transpose()?;
+
     Ok(JsonSchema::Typed(TypedSchema::Integer(IntegerSchema {
         minimum,
         maximum,
         exclusive_minimum,
         exclusive_maximum,
         multiple_of,
-        default: None,
+        default,
         metadata,
     })))
 }
@@ -313,6 +367,7 @@ fn bigint_to_i64(val: &num_bigint::BigInt) -> Result<i64, ConversionError> {
 /// Convert Eure Float schema to JSON Schema
 fn convert_float_schema(
     eure: &FloatSchema,
+    eure_meta: &EureMetadata,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
     // Validate float values (no NaN or Infinity)
@@ -339,21 +394,59 @@ fn convert_float_schema(
 
     let multiple_of = eure.multiple_of.map(validate_float).transpose()?;
 
+    // Convert default value if present
+    let default = eure_meta
+        .default
+        .as_ref()
+        .map(|doc| {
+            let json_val = document_to_json(doc)?;
+            match json_val {
+                serde_json::Value::Number(n) => n
+                    .as_f64()
+                    .ok_or_else(|| {
+                        ConversionError::InvalidFloatValue("default must be a number".to_string())
+                    })
+                    .and_then(validate_float),
+                _ => Err(ConversionError::InvalidFloatValue(
+                    "default must be a number".to_string(),
+                )),
+            }
+        })
+        .transpose()?;
+
     Ok(JsonSchema::Typed(TypedSchema::Number(NumberSchema {
         minimum,
         maximum,
         exclusive_minimum,
         exclusive_maximum,
         multiple_of,
-        default: None,
+        default,
         metadata,
     })))
 }
 
 /// Convert Eure Boolean schema to JSON Schema
-fn convert_boolean_schema(metadata: SchemaMetadata) -> Result<JsonSchema, ConversionError> {
+fn convert_boolean_schema(
+    eure_meta: &EureMetadata,
+    metadata: SchemaMetadata,
+) -> Result<JsonSchema, ConversionError> {
+    // Convert default value if present
+    let default = eure_meta
+        .default
+        .as_ref()
+        .map(|doc| {
+            let json_val = document_to_json(doc)?;
+            match json_val {
+                serde_json::Value::Bool(b) => Ok(b),
+                _ => Err(ConversionError::InvalidFloatValue(
+                    "default must be a boolean".to_string(),
+                )),
+            }
+        })
+        .transpose()?;
+
     Ok(JsonSchema::Typed(TypedSchema::Boolean(BooleanSchema {
-        default: None,
+        default,
         metadata,
     })))
 }
@@ -375,76 +468,13 @@ fn convert_array_schema(
 
     Ok(JsonSchema::Typed(TypedSchema::Array(ArraySchema {
         items,
+        prefix_items: None, // Not used for regular arrays (only tuples use this)
         min_items: eure.min_length,
         max_items: eure.max_length,
         unique_items: if eure.unique { Some(true) } else { None },
         contains,
         metadata,
     })))
-}
-
-/// Convert EureDocument to JSON value
-fn document_to_json(doc: &EureDocument) -> Result<serde_json::Value, ConversionError> {
-    node_to_json(doc, doc.get_root_id())
-}
-
-/// Convert a node in EureDocument to JSON value
-fn node_to_json(doc: &EureDocument, node_id: NodeId) -> Result<serde_json::Value, ConversionError> {
-    let node = doc.node(node_id);
-    match &node.content {
-        NodeValue::Hole(_) => Err(ConversionError::HoleInLiteral),
-        NodeValue::Primitive(p) => primitive_to_json(p),
-        NodeValue::Array(arr) => {
-            let items: Result<Vec<_>, _> = arr.0.iter().map(|&id| node_to_json(doc, id)).collect();
-            Ok(serde_json::Value::Array(items?))
-        }
-        NodeValue::Tuple(tuple) => {
-            let items: Result<Vec<_>, _> =
-                tuple.0.iter().map(|&id| node_to_json(doc, id)).collect();
-            Ok(serde_json::Value::Array(items?))
-        }
-        NodeValue::Map(map) => {
-            let mut obj = serde_json::Map::new();
-            for (key, &value_id) in &map.0 {
-                let key_str = object_key_to_string(key)?;
-                obj.insert(key_str, node_to_json(doc, value_id)?);
-            }
-            Ok(serde_json::Value::Object(obj))
-        }
-    }
-}
-
-/// Convert Eure PrimitiveValue to JSON value
-fn primitive_to_json(val: &PrimitiveValue) -> Result<serde_json::Value, ConversionError> {
-    match val {
-        PrimitiveValue::Null => Ok(serde_json::Value::Null),
-        PrimitiveValue::Bool(b) => Ok(serde_json::Value::Bool(*b)),
-        PrimitiveValue::Integer(i) => {
-            let n = bigint_to_i64(i)?;
-            Ok(serde_json::Value::Number(n.into()))
-        }
-        PrimitiveValue::F32(f) => float_to_json(*f as f64),
-        PrimitiveValue::F64(f) => float_to_json(*f),
-        PrimitiveValue::Text(t) => Ok(serde_json::Value::String(t.as_str().to_string())),
-    }
-}
-
-/// Convert ObjectKey to string for JSON object keys
-fn object_key_to_string(key: &ObjectKey) -> Result<String, ConversionError> {
-    match key {
-        ObjectKey::String(s) => Ok(s.clone()),
-        ObjectKey::Number(n) => Ok(n.to_string()),
-        ObjectKey::Tuple(_) => Err(ConversionError::NonStringMapKeysNotSupported),
-    }
-}
-
-/// Convert float to JSON, rejecting NaN and Infinity
-fn float_to_json(f: f64) -> Result<serde_json::Value, ConversionError> {
-    if f.is_nan() || f.is_infinite() {
-        Err(ConversionError::InvalidFloatValue(f.to_string()))
-    } else {
-        Ok(serde_json::json!(f))
-    }
 }
 
 /// Convert Eure Map schema to JSON Schema
@@ -529,14 +559,32 @@ fn convert_record_schema(
 /// JSON Schema supports tuple validation via array with items as an array of schemas
 /// However, this is less well-supported, so we note this as a potential limitation
 fn convert_tuple_schema(
-    _ctx: &mut ConversionContext,
-    _eure: &TupleSchema,
-    _metadata: SchemaMetadata,
+    ctx: &mut ConversionContext,
+    eure: &TupleSchema,
+    metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    // JSON Schema Draft-07 supports tuple validation but it's complex
-    // For now, we return an error as it's not fully supported
-    // Future enhancement: use "items" as array and "additionalItems": false
-    Err(ConversionError::TupleConstraintsNotSupported)
+    // Convert each element schema to JSON Schema
+    let prefix_items: Vec<JsonSchema> = eure
+        .elements
+        .iter()
+        .map(|node_id| convert_node(ctx, *node_id))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Use prefixItems (JSON Schema 2020-12) for tuple validation
+    // Also set items: false to disallow additional elements
+    Ok(JsonSchema::Typed(TypedSchema::Array(ArraySchema {
+        items: Some(Box::new(JsonSchema::Boolean(false))),
+        prefix_items: if prefix_items.is_empty() {
+            None
+        } else {
+            Some(prefix_items)
+        },
+        min_items: Some(eure.elements.len() as u32),
+        max_items: Some(eure.elements.len() as u32),
+        unique_items: None,
+        contains: None,
+        metadata,
+    })))
 }
 
 /// Convert Eure Union to JSON Schema

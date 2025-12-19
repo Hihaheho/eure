@@ -1,0 +1,20 @@
+// Test: Tuple schema conversion to JSON Schema
+// Tuples are now supported using prefixItems (JSON Schema 2020-12)
+
+schema = ```eure
+$variant = "tuple"
+elements = [`text`, `integer`]
+```
+
+output_json_schema = ```json
+{
+  "type": "array",
+  "prefixItems": [
+    {"type": "string"},
+    {"type": "integer"}
+  ],
+  "items": false,
+  "minItems": 2,
+  "maxItems": 2
+}
+```

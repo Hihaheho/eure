@@ -15,6 +15,10 @@ pub struct SchemaMetadata {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub examples: Option<Vec<serde_json::Value>>,
 }
 
 /// JSON Schema root type
@@ -259,6 +263,11 @@ pub struct NullSchema {
 pub struct ArraySchema {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub items: Option<Box<JsonSchema>>,
+
+    /// Tuple validation: each element must match the corresponding schema (JSON Schema 2020-12)
+    /// In Draft-07, this was called "items" with an array value, but we use prefixItems for clarity
+    #[serde(rename = "prefixItems", skip_serializing_if = "Option::is_none")]
+    pub prefix_items: Option<Vec<JsonSchema>>,
 
     #[serde(rename = "minItems", skip_serializing_if = "Option::is_none")]
     pub min_items: Option<u32>,
@@ -650,6 +659,8 @@ mod tests {
             metadata: SchemaMetadata {
                 title: Some("Email".to_string()),
                 description: Some("User email address".to_string()),
+                deprecated: None,
+                examples: None,
             },
         }));
 
@@ -833,6 +844,8 @@ mod tests {
             metadata: SchemaMetadata {
                 title: Some("Age".to_string()),
                 description: Some("User's age in years".to_string()),
+                deprecated: None,
+                examples: None,
             },
         }));
 
@@ -894,6 +907,8 @@ mod tests {
             metadata: SchemaMetadata {
                 title: Some("User Reference".to_string()),
                 description: Some("Reference to User type".to_string()),
+                deprecated: None,
+                examples: None,
             },
         });
 
