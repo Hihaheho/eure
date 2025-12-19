@@ -298,7 +298,9 @@ impl<'a> SemanticTokenVisitor<'a> {
             }
 
             // Numbers
-            TerminalKind::Integer | TerminalKind::Float => Some(SemanticTokenType::Number),
+            TerminalKind::Integer | TerminalKind::Float | TerminalKind::Inf | TerminalKind::NaN => {
+                Some(SemanticTokenType::Number)
+            }
 
             // Strings
             TerminalKind::Str | TerminalKind::Text => Some(SemanticTokenType::String),

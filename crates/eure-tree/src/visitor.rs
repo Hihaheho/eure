@@ -447,6 +447,9 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_ident_super(handle, view, tree)
     }
+    fn visit_inf(&mut self, handle: InfHandle, view: InfView, tree: &F) -> Result<(), Self::Error> {
+        self.visit_inf_super(handle, view, tree)
+    }
     fn visit_inline_code(
         &mut self,
         handle: InlineCodeHandle,
@@ -626,6 +629,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_map_bind_super(handle, view, tree)
     }
+    fn visit_na_n(
+        &mut self,
+        handle: NaNHandle,
+        view: NaNView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_na_n_super(handle, view, tree)
+    }
     fn visit_no_backtick(
         &mut self,
         handle: NoBacktickHandle,
@@ -649,6 +660,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_null_super(handle, view, tree)
+    }
+    fn visit_number(
+        &mut self,
+        handle: NumberHandle,
+        view: NumberView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_number_super(handle, view, tree)
     }
     fn visit_object(
         &mut self,
@@ -951,6 +970,22 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_float_terminal_super(terminal, data, tree)
+    }
+    fn visit_inf_terminal(
+        &mut self,
+        terminal: Inf,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_inf_terminal_super(terminal, data, tree)
+    }
+    fn visit_na_n_terminal(
+        &mut self,
+        terminal: NaN,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_na_n_terminal_super(terminal, data, tree)
     }
     fn visit_true_terminal(
         &mut self,
@@ -1775,6 +1810,8 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: IdentView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_inf_handle(&mut self, handle: InfHandle, tree: &F) -> Result<(), E>;
+    fn visit_inf_super(&mut self, handle: InfHandle, view: InfView, tree: &F) -> Result<(), E>;
     fn visit_inline_code_handle(&mut self, handle: InlineCodeHandle, tree: &F) -> Result<(), E>;
     fn visit_inline_code_super(
         &mut self,
@@ -1958,6 +1995,8 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: MapBindView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_na_n_handle(&mut self, handle: NaNHandle, tree: &F) -> Result<(), E>;
+    fn visit_na_n_super(&mut self, handle: NaNHandle, view: NaNView, tree: &F) -> Result<(), E>;
     fn visit_no_backtick_handle(&mut self, handle: NoBacktickHandle, tree: &F) -> Result<(), E>;
     fn visit_no_backtick_super(
         &mut self,
@@ -1978,6 +2017,13 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     ) -> Result<(), E>;
     fn visit_null_handle(&mut self, handle: NullHandle, tree: &F) -> Result<(), E>;
     fn visit_null_super(&mut self, handle: NullHandle, view: NullView, tree: &F) -> Result<(), E>;
+    fn visit_number_handle(&mut self, handle: NumberHandle, tree: &F) -> Result<(), E>;
+    fn visit_number_super(
+        &mut self,
+        handle: NumberHandle,
+        view: NumberView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_object_handle(&mut self, handle: ObjectHandle, tree: &F) -> Result<(), E>;
     fn visit_object_super(
         &mut self,
@@ -2252,6 +2298,18 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_float_terminal_super(
         &mut self,
         terminal: Float,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_inf_terminal_super(
+        &mut self,
+        terminal: Inf,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_na_n_terminal_super(
+        &mut self,
+        terminal: NaN,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -4863,6 +4921,42 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_inf_handle(&mut self, handle: InfHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_inf(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_inline_code_handle(
         &mut self,
         handle: InlineCodeHandle,
@@ -5807,6 +5901,42 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_na_n_handle(&mut self, handle: NaNHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_na_n(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_no_backtick_handle(
         &mut self,
         handle: NoBacktickHandle,
@@ -5907,6 +6037,42 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_null(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_number_handle(&mut self, handle: NumberHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_number(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -8312,6 +8478,29 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_ident_terminal(ident, data, tree)?;
         Ok(())
     }
+    fn visit_inf_super(
+        &mut self,
+        handle: InfHandle,
+        view_param: InfView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let InfView { inf } = view_param;
+        let data = match inf.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    inf.0,
+                    NodeKind::Terminal(inf.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_inf_terminal(inf, data, tree)?;
+        Ok(())
+    }
     fn visit_inline_code_super(
         &mut self,
         handle: InlineCodeHandle,
@@ -8721,6 +8910,29 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_map_bind_terminal(map_bind, data, tree)?;
         Ok(())
     }
+    fn visit_na_n_super(
+        &mut self,
+        handle: NaNHandle,
+        view_param: NaNView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let NaNView { na_n } = view_param;
+        let data = match na_n.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    na_n.0,
+                    NodeKind::Terminal(na_n.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_na_n_terminal(na_n, data, tree)?;
+        Ok(())
+    }
     fn visit_no_backtick_super(
         &mut self,
         handle: NoBacktickHandle,
@@ -8788,6 +9000,29 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
         };
         self.visit_null_terminal(null, data, tree)?;
+        Ok(())
+    }
+    fn visit_number_super(
+        &mut self,
+        handle: NumberHandle,
+        view_param: NumberView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            NumberView::Float(item) => {
+                self.visit_float_handle(item, tree)?;
+            }
+            NumberView::Integer(item) => {
+                self.visit_integer_handle(item, tree)?;
+            }
+            NumberView::Inf(item) => {
+                self.visit_inf_handle(item, tree)?;
+            }
+            NumberView::NaN(item) => {
+                self.visit_na_n_handle(item, tree)?;
+            }
+        }
         Ok(())
     }
     fn visit_object_super(
@@ -9246,11 +9481,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             ValueView::Tuple(item) => {
                 self.visit_tuple_handle(item, tree)?;
             }
-            ValueView::Float(item) => {
-                self.visit_float_handle(item, tree)?;
-            }
-            ValueView::Integer(item) => {
-                self.visit_integer_handle(item, tree)?;
+            ValueView::Number(item) => {
+                self.visit_number_handle(item, tree)?;
             }
             ValueView::Boolean(item) => {
                 self.visit_boolean_handle(item, tree)?;
@@ -9385,6 +9617,24 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     fn visit_float_terminal_super(
         &mut self,
         terminal: Float,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_inf_terminal_super(
+        &mut self,
+        terminal: Inf,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_na_n_terminal_super(
+        &mut self,
+        terminal: NaN,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -10030,6 +10280,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = IdentHandle(id);
                     self.visit_ident_handle(handle, tree)?;
                 }
+                NonTerminalKind::Inf => {
+                    let handle = InfHandle(id);
+                    self.visit_inf_handle(handle, tree)?;
+                }
                 NonTerminalKind::InlineCode => {
                     let handle = InlineCodeHandle(id);
                     self.visit_inline_code_handle(handle, tree)?;
@@ -10122,6 +10376,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = MapBindHandle(id);
                     self.visit_map_bind_handle(handle, tree)?;
                 }
+                NonTerminalKind::NaN => {
+                    let handle = NaNHandle(id);
+                    self.visit_na_n_handle(handle, tree)?;
+                }
                 NonTerminalKind::NoBacktick => {
                     let handle = NoBacktickHandle(id);
                     self.visit_no_backtick_handle(handle, tree)?;
@@ -10133,6 +10391,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 NonTerminalKind::Null => {
                     let handle = NullHandle(id);
                     self.visit_null_handle(handle, tree)?;
+                }
+                NonTerminalKind::Number => {
+                    let handle = NumberHandle(id);
+                    self.visit_number_handle(handle, tree)?;
                 }
                 NonTerminalKind::Object => {
                     let handle = ObjectHandle(id);
@@ -10291,6 +10553,14 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 TerminalKind::Float => {
                     let terminal = Float(id);
                     self.visit_float_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Inf => {
+                    let terminal = Inf(id);
+                    self.visit_inf_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::NaN => {
+                    let terminal = NaN(id);
+                    self.visit_na_n_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::True => {
                     let terminal = True(id);

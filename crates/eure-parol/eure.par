@@ -50,7 +50,7 @@ Section: At Keys SectionBody ;
   // In the key context, true, false, and null are valid identifiers.
   KeyIdent: Ident | True | False | Null ;
 
-Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hole | CodeBlock | InlineCode ;
+Value: Object | Array | Tuple | Number | Boolean | Null | Strings | Hole | CodeBlock | InlineCode ;
   Object: Begin [ ValueBinding [ Comma ] ] { Keys MapBind Value [ Comma ] } End ;
   MapBind: '=>' ;
   Array: ArrayBegin [ ArrayElements ] ArrayEnd ;
@@ -59,8 +59,15 @@ Value: Object | Array | Tuple | Float | Integer | Boolean | Null | Strings | Hol
   Tuple: LParen [ TupleElements ] RParen ;
   TupleElements: Value [ TupleElementsTail ] ;
   TupleElementsTail: Comma [ TupleElements ] ;
-  Integer: /-?\d[\d_]*/ ;
-  Float: /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
+  // Number: unified numeric type (Float before Integer for longest match)
+  Number: Float | Integer | Inf | NaN ;
+  // Integer: optional sign, digits with underscores
+  Integer: /[-+]?\d[\d_]*/ ;
+  // Float: requires decimal point or exponent, optional f32/f64 suffix
+  Float: /[-+]?\d[\d_]*\.\d*([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/ ;
+  // Infinity and NaN as separate tokens
+  Inf: /[-+]?[Ii]nf/ ;
+  NaN: /[Nn]a[Nn]/ ;
   Boolean: True | False ;
   True: 'true' ;
   False: 'false';
