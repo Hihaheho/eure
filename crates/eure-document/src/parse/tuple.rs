@@ -23,6 +23,7 @@ use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
 /// tuple.finish()?; // Ensures no extra elements
 /// ```
 #[derive(Debug)]
+#[must_use]
 pub struct TupleParser<'doc> {
     doc: &'doc EureDocument,
     node_id: NodeId,
