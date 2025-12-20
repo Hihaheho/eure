@@ -11,7 +11,7 @@ use crate::data_model::VariantRepr;
 use crate::document::node::NodeValue;
 use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
-use crate::parse::DocumentParser;
+use crate::parse::{DocumentParser, ParseDocument};
 use crate::value::ObjectKey;
 
 use super::variant_path::VariantPath;
@@ -355,6 +355,22 @@ where
         self
     }
 
+    pub fn parse_variant<V: ParseDocument<'doc, Error = E>>(
+        mut self,
+        name: &str,
+        mut then: impl FnMut(V) -> Result<T, E>,
+    ) -> Self {
+        self.try_variant(
+            name,
+            move |ctx: &ParseContext<'doc>| {
+                let v = V::parse(ctx)?;
+                then(v)
+            },
+            true,
+        );
+        self
+    }
+
     /// Register a non-priority variant.
     ///
     /// Non-priority variants are only tried if no priority variant matches.
@@ -521,7 +537,6 @@ mod tests {
     use crate::document::node::NodeValue;
     use crate::parse::AlwaysParser;
     use crate::parse::DocumentParserExt as _;
-    use crate::parse::ParseDocument as _;
     use crate::text::Text;
     use crate::value::PrimitiveValue;
 
