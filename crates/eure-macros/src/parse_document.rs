@@ -3,7 +3,7 @@ mod parse_union;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput};
+use syn::Data;
 
 use crate::context::MacroContext;
 

@@ -1692,17 +1692,12 @@ dependencies = [
 name = "eure-macros"
 version = "0.1.0"
 dependencies = [
+ "automod",
  "convert_case 0.10.0",
  "darling 0.23.0",
- "eure-document",
- "eure-parol",
- "eure-schema",
- "eure-tree",
- "indexmap",
+ "eure",
  "proc-macro2",
  "quote",
- "serde",
- "serde_json",
  "syn",
 ]
 
