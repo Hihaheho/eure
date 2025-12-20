@@ -1121,6 +1121,13 @@ impl<'doc> ParseDocument<'doc> for () {
     }
 }
 
+impl<'doc> ParseDocument<'doc> for NodeId {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        Ok(ctx.node_id())
+    }
+}
+
 pub trait DocumentParser<'doc> {
     type Output;
     type Error;
