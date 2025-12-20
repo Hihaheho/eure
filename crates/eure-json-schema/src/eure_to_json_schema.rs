@@ -1,4 +1,4 @@
-//! Conversion from Eure Schema to JSON Schema (Draft-07)
+//! Conversion from Eure Schema to JSON Schema (2020-12)
 //!
 //! This module provides functionality to convert Eure Schema documents to JSON Schema format.
 //! Since Eure Schema is a superset of JSON Schema with additional features, some constructs
@@ -19,8 +19,7 @@ use num_traits::ToPrimitive;
 
 /// Convert an EureDocument to a JSON value
 fn document_to_json(doc: &EureDocument) -> Result<serde_json::Value, ConversionError> {
-    eure_json::document_to_value(doc, &JsonConfig::default())
-        .map_err(|e| ConversionError::InvalidFloatValue(format!("JSON conversion error: {}", e)))
+    Ok(eure_json::document_to_value(doc, &JsonConfig::default())?)
 }
 
 /// Errors that can occur during Eure Schema to JSON Schema conversion
@@ -53,6 +52,17 @@ pub enum ConversionError {
     /// Circular reference detected (not supported in JSON Schema)
     #[error("Circular reference detected: {0}")]
     CircularReference(String),
+
+    /// JSON conversion error (from eure-json)
+    #[error(transparent)]
+    JsonConversion(#[from] eure_json::EureToJsonError),
+
+    /// Invalid default value type
+    #[error("Invalid default value: expected {expected}, got {actual}")]
+    InvalidDefaultValue {
+        expected: &'static str,
+        actual: String,
+    },
 }
 
 /// Conversion context to track state during conversion
@@ -168,7 +178,7 @@ fn convert_schema_content(
     content: &SchemaNodeContent,
     eure_meta: &EureMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    let json_metadata = convert_metadata(eure_meta);
+    let json_metadata = convert_metadata(eure_meta)?;
 
     match content {
         SchemaNodeContent::Any => Ok(JsonSchema::Generic(GenericSchema {
@@ -214,23 +224,19 @@ fn convert_schema_content(
 }
 
 /// Convert Eure metadata to JSON Schema metadata
-fn convert_metadata(eure_meta: &EureMetadata) -> SchemaMetadata {
-    // Convert examples: parse each Eure string and convert to JSON
-    // The examples are stored as Eure code strings that need to be parsed first
-    let examples = eure_meta.examples.as_ref().map(|examples| {
-        examples
-            .iter()
-            .filter_map(|s| {
-                // Parse the Eure string
-                let cst = eure_parol::parse(s).ok()?;
-                let doc = eure::document::cst_to_document(s, &cst).ok()?;
-                // Convert the document to JSON
-                eure_json::document_to_value(&doc, &JsonConfig::default()).ok()
-            })
-            .collect()
-    });
+fn convert_metadata(eure_meta: &EureMetadata) -> Result<SchemaMetadata, ConversionError> {
+    let examples = eure_meta
+        .examples
+        .as_ref()
+        .map(|examples| {
+            examples
+                .iter()
+                .map(document_to_json)
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?;
 
-    SchemaMetadata {
+    Ok(SchemaMetadata {
         title: None, // Eure doesn't have title
         description: eure_meta.description.as_ref().map(|d| match d {
             Description::String(s) => s.clone(),
@@ -242,7 +248,7 @@ fn convert_metadata(eure_meta: &EureMetadata) -> SchemaMetadata {
             None
         },
         examples,
-    }
+    })
 }
 
 /// Known JSON Schema format names (Draft 2020-12)
@@ -294,9 +300,10 @@ fn convert_text_schema(
             let json_val = document_to_json(doc)?;
             match json_val {
                 serde_json::Value::String(s) => Ok(s),
-                _ => Err(ConversionError::InvalidFloatValue(
-                    "default must be a string".to_string(),
-                )),
+                other => Err(ConversionError::InvalidDefaultValue {
+                    expected: "string",
+                    actual: format!("{:?}", other),
+                }),
             }
         })
         .transpose()?;
@@ -340,9 +347,10 @@ fn convert_integer_schema(
             let json_val = document_to_json(doc)?;
             match json_val {
                 serde_json::Value::Number(n) if n.is_i64() => Ok(n.as_i64().unwrap()),
-                _ => Err(ConversionError::InvalidFloatValue(
-                    "default must be an integer".to_string(),
-                )),
+                other => Err(ConversionError::InvalidDefaultValue {
+                    expected: "integer",
+                    actual: format!("{:?}", other),
+                }),
             }
         })
         .transpose()?;
@@ -403,13 +411,15 @@ fn convert_float_schema(
             match json_val {
                 serde_json::Value::Number(n) => n
                     .as_f64()
-                    .ok_or_else(|| {
-                        ConversionError::InvalidFloatValue("default must be a number".to_string())
+                    .ok_or_else(|| ConversionError::InvalidDefaultValue {
+                        expected: "number",
+                        actual: format!("{:?}", n),
                     })
                     .and_then(validate_float),
-                _ => Err(ConversionError::InvalidFloatValue(
-                    "default must be a number".to_string(),
-                )),
+                other => Err(ConversionError::InvalidDefaultValue {
+                    expected: "number",
+                    actual: format!("{:?}", other),
+                }),
             }
         })
         .transpose()?;
@@ -438,9 +448,10 @@ fn convert_boolean_schema(
             let json_val = document_to_json(doc)?;
             match json_val {
                 serde_json::Value::Bool(b) => Ok(b),
-                _ => Err(ConversionError::InvalidFloatValue(
-                    "default must be a boolean".to_string(),
-                )),
+                other => Err(ConversionError::InvalidDefaultValue {
+                    expected: "boolean",
+                    actual: format!("{:?}", other),
+                }),
             }
         })
         .transpose()?;

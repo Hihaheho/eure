@@ -490,7 +490,7 @@ pub enum Description {
 /// description => union { string, .text.markdown } (optional)
 /// deprecated => .boolean (optional)
 /// default => .any (optional)
-/// examples => [.text.eure] (optional)
+/// examples => [`any`] (optional)
 /// ```
 ///
 /// Note: `optional` and `binding_style` are per-field extensions stored in `RecordFieldSchema`
@@ -502,8 +502,8 @@ pub struct SchemaMetadata {
     pub deprecated: bool,
     /// Default value for optional fields
     pub default: Option<EureDocument>,
-    /// Example values in Eure code format
-    pub examples: Option<Vec<String>>,
+    /// Example values as Eure documents
+    pub examples: Option<Vec<EureDocument>>,
 }
 
 // ============================================================================

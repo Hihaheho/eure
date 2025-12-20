@@ -596,8 +596,8 @@ pub struct ParsedSchemaMetadata {
     pub deprecated: bool,
     /// Default value (NodeId reference, not Value)
     pub default: Option<NodeId>,
-    /// Example values in Eure code format
-    pub examples: Option<Vec<String>>,
+    /// Example values as NodeId references
+    pub examples: Option<Vec<NodeId>>,
 }
 
 impl ParsedSchemaMetadata {
@@ -610,7 +610,7 @@ impl ParsedSchemaMetadata {
             .parse_ext_optional::<bool>("deprecated")?
             .unwrap_or(false);
         let default = ext.ext_optional("default").map(|ctx| ctx.node_id());
-        let examples = ext.parse_ext_optional::<Vec<String>>("examples")?;
+        let examples = ext.parse_ext_optional::<Vec<NodeId>>("examples")?;
 
         // Allow other extensions (codegen, etc.)
         ext.allow_unknown_extensions();

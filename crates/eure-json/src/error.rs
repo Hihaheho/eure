@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Clone, Error, PartialEq)]
 pub enum EureToJsonError {
     #[error("Hole (uninitialized value) is not supported in JSON")]
     HoleNotSupported,

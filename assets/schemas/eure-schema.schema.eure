@@ -404,8 +404,8 @@ variants {
   $ext-type.default = `any`
   $ext-type.default.$optional = true
 
-  // Example values in Eure code format.
-  $ext-type.examples = [`text.eure`]
+  // Example values as Eure values.
+  $ext-type.examples = [`any`]
   $ext-type.examples.$optional = true
 
   /// Text type with optional language and length/pattern constraints.

@@ -398,11 +398,20 @@ impl<'a> Converter<'a> {
             .map(|id| self.node_to_document(id))
             .transpose()?;
 
+        let examples = parsed
+            .examples
+            .map(|ids| {
+                ids.into_iter()
+                    .map(|id| self.node_to_document(id))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?;
+
         Ok(SchemaMetadata {
             description: parsed.description,
             deprecated: parsed.deprecated,
             default,
-            examples: parsed.examples,
+            examples,
         })
     }
 
