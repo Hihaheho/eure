@@ -64,14 +64,13 @@ scene: scenes/room_a.scn.ron
 - [x] eure-schema: Eure Schema specification
 - [ ] serde-eure: Serde support
 - [x] eure-dev: Making the landing page on <https://eure.dev>
-- [ ] eure-fmt: Make the formatter
+- [x] eure-fmt: Make the formatter
 - [ ] eure-cli: command to convert Eure to other formats
-- [ ] eure-check: Eure files validator
 - [ ] eure-lint: Some lint rules
 - [ ] eure-template: Templating extension for Eure files
 - [ ] eure-editor-support: Editor support for Eure files
 - [ ] eure-toml: TOML conversion support
-- [ ] eure-json: JSON conversion support
+- [x] eure-json: JSON conversion support
 - [ ] eure-yaml: YAML conversion support
 - [x] eure-document: Type-safe data-type of Eure data-model
 

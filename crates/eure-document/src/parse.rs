@@ -1114,6 +1114,13 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
     }
 }
 
+impl<'doc> ParseDocument<'doc> for () {
+    type Error = ParseError;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        ctx.parse_tuple()?.finish()
+    }
+}
+
 pub trait DocumentParser<'doc> {
     type Output;
     type Error;

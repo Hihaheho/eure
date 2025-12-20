@@ -3064,6 +3064,47 @@ pub struct IdentView {
 }
 impl IdentView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InfHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for InfHandle {
+    type View = InfView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Inf)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Inf
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::Inf)],
+            |[inf], visit_ignored| Ok(visit(InfView { inf: Inf(inf) }, visit_ignored)),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InfView {
+    pub inf: Inf,
+}
+impl InfView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InlineCodeHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for InlineCodeHandle {
     type View = InlineCodeView;
@@ -4358,6 +4399,47 @@ pub struct MapBindView {
 }
 impl MapBindView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NaNHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for NaNHandle {
+    type View = NaNView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::NaN)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::NaN
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::NaN)],
+            |[na_n], visit_ignored| Ok(visit(NaNView { na_n: NaN(na_n) }, visit_ignored)),
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NaNView {
+    pub na_n: NaN,
+}
+impl NaNView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NoBacktickHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for NoBacktickHandle {
     type View = NoBacktickView;
@@ -4494,6 +4576,71 @@ pub struct NullView {
     pub null: Null,
 }
 impl NullView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NumberHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for NumberHandle {
+    type View = NumberView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::Number)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::Number
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound { node: child });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::Float) => NumberView::Float(FloatHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::Integer) => {
+                NumberView::Integer(IntegerHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::Inf) => NumberView::Inf(InfHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::NaN) => NumberView::NaN(NaNHandle(child)),
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(extra_child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode { node: extra_child });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NumberView {
+    Float(FloatHandle),
+    Integer(IntegerHandle),
+    Inf(InfHandle),
+    NaN(NaNHandle),
+}
+impl NumberView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for ObjectHandle {
@@ -6011,9 +6158,8 @@ impl NonTerminalHandle for ValueHandle {
             }
             NodeKind::NonTerminal(NonTerminalKind::Array) => ValueView::Array(ArrayHandle(child)),
             NodeKind::NonTerminal(NonTerminalKind::Tuple) => ValueView::Tuple(TupleHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::Float) => ValueView::Float(FloatHandle(child)),
-            NodeKind::NonTerminal(NonTerminalKind::Integer) => {
-                ValueView::Integer(IntegerHandle(child))
+            NodeKind::NonTerminal(NonTerminalKind::Number) => {
+                ValueView::Number(NumberHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::Boolean) => {
                 ValueView::Boolean(BooleanHandle(child))
@@ -6049,8 +6195,7 @@ pub enum ValueView {
     Object(ObjectHandle),
     Array(ArrayHandle),
     Tuple(TupleHandle),
-    Float(FloatHandle),
-    Integer(IntegerHandle),
+    Number(NumberHandle),
     Boolean(BooleanHandle),
     Null(NullHandle),
     Strings(StringsHandle),
@@ -6279,6 +6424,26 @@ impl TerminalHandle for Float {
     }
     fn kind(&self) -> TerminalKind {
         TerminalKind::Float
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Inf(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Inf {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::Inf
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NaN(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for NaN {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::NaN
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
