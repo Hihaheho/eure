@@ -1520,6 +1520,7 @@ dependencies = [
  "annotate-snippets",
  "eros",
  "eure-document",
+ "eure-macros",
  "eure-parol",
  "eure-schema",
  "eure-tree",

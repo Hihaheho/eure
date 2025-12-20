@@ -1,6 +1,7 @@
 mod interpreter;
 
 use eros::Union as _;
+pub use eure_document::data_model;
 use eure_document::document::constructor::ScopeError;
 pub use eure_document::document::node::NodeValue;
 pub use eure_document::document::*;
