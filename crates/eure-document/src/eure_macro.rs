@@ -271,6 +271,19 @@ macro_rules! eure {
     }};
 
     // ========================================================================
+    // Object key helper (@object_key)
+    //
+    // Converts a key token to a value suitable for ObjectKey::from().
+    // Identifiers are stringified, literals are used as-is.
+    // ========================================================================
+
+    // Object key: identifier -> stringify to string
+    (@object_key $key:ident) => { stringify!($key) };
+
+    // Object key: literal or other token -> use as-is
+    (@object_key $key:tt) => { $key };
+
+    // ========================================================================
     // Object items helper (@object_items)
     //
     // Processes object literal items (k => v syntax) using the DocumentConstructor.
@@ -287,7 +300,7 @@ macro_rules! eure {
     // Object items: k => @code(content)
     (@object_items $c:ident; $key:tt => @ code ($content:literal) $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
+        $c.navigate($crate::path::PathSegment::Value($crate::eure!(@object_key $key).into())).unwrap();
         $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
         $c.end_scope(scope).unwrap();
         $crate::eure!(@object_items $c; $($rest)*);
@@ -296,7 +309,7 @@ macro_rules! eure {
     // Object items: k => @code(lang, content)
     (@object_items $c:ident; $key:tt => @ code ($lang:literal, $content:literal) $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
+        $c.navigate($crate::path::PathSegment::Value($crate::eure!(@object_key $key).into())).unwrap();
         $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
         $c.end_scope(scope).unwrap();
         $crate::eure!(@object_items $c; $($rest)*);
@@ -305,7 +318,7 @@ macro_rules! eure {
     // Object items: k => [array]
     (@object_items $c:ident; $key:tt => [$($inner:tt)*] $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
+        $c.navigate($crate::path::PathSegment::Value($crate::eure!(@object_key $key).into())).unwrap();
         $c.bind_empty_array().unwrap();
         $crate::eure!(@array_items $c; $($inner)*);
         $c.end_scope(scope).unwrap();
@@ -315,7 +328,7 @@ macro_rules! eure {
     // Object items: k => (tuple)
     (@object_items $c:ident; $key:tt => ($($inner:tt)*) $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
+        $c.navigate($crate::path::PathSegment::Value($crate::eure!(@object_key $key).into())).unwrap();
         $c.bind_empty_tuple().unwrap();
         $crate::eure!(@tuple_items $c 0; $($inner)*);
         $c.end_scope(scope).unwrap();
@@ -325,7 +338,7 @@ macro_rules! eure {
     // Object items: k => primitive
     (@object_items $c:ident; $key:tt => $val:tt $($rest:tt)*) => {{
         let scope = $c.begin_scope();
-        $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
+        $c.navigate($crate::path::PathSegment::Value($crate::eure!(@object_key $key).into())).unwrap();
         $c.bind_from($crate::eure!(@value_tt $val)).unwrap();
         $c.end_scope(scope).unwrap();
         $crate::eure!(@object_items $c; $($rest)*);
