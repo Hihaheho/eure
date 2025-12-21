@@ -1,0 +1,129 @@
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::parse_quote;
+
+fn generate(input: syn::DeriveInput) -> TokenStream {
+    crate::parse_document::derive(crate::create_context(input))
+}
+
+#[test]
+fn test_named_fields_struct() {
+    let input = generate(parse_quote! {
+        struct User {
+            name: String,
+            age: i32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let value = User {
+                        name: rec.parse_field("name")?,
+                        age: rec.parse_field("age")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_unit_struct() {
+    let input = generate(parse_quote! {
+        struct Unit;
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Unit<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse::<()>()?;
+                    Ok(Unit)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_tuple_struct() {
+    let input = generate(parse_quote! {
+        struct Point(i32, i32);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Point<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let (field_0, field_1,) = ctx.parse::<(i32, i32,)>()?;
+                    Ok(Point(field_0, field_1))
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_newtype_struct() {
+    let input = generate(parse_quote! {
+        struct Name(String);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Name<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let field_0 = ctx.parse::<String>()?;
+                    Ok(Name(field_0))
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_named_fields_struct_with_custom_crate() {
+    let input = generate(parse_quote! {
+        #[eure(crate = ::eure_document)]
+        struct User {
+            name: String,
+            age: i32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure_document::parse::ParseDocument<'doc> for User<> {
+                type Error = ::eure_document::parse::ParseError;
+
+                fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let value = User {
+                        name: rec.parse_field("name")?,
+                        age: rec.parse_field("age")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
