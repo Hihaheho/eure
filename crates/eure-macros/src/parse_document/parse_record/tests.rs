@@ -187,3 +187,63 @@ fn test_named_fields_struct_with_rename_all_kebab_case() {
         .to_string()
     );
 }
+
+#[test]
+fn test_parse_ext_basic() {
+    let input = generate(parse_quote! {
+        #[eure(parse_ext)]
+        struct ExtFields {
+            optional: bool,
+            deprecated: bool,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for ExtFields<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut ext = ctx.parse_extension();
+                    let value = ExtFields {
+                        optional: ext.parse_ext("optional")?,
+                        deprecated: ext.parse_ext("deprecated")?
+                    };
+                    ext.allow_unknown_extensions();
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_parse_ext_with_rename_all() {
+    let input = generate(parse_quote! {
+        #[eure(parse_ext, rename_all = "kebab-case")]
+        struct ExtFields {
+            binding_style: String,
+            deny_untagged: bool,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for ExtFields<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut ext = ctx.parse_extension();
+                    let value = ExtFields {
+                        binding_style: ext.parse_ext("binding-style")?,
+                        deny_untagged: ext.parse_ext("deny-untagged")?
+                    };
+                    ext.allow_unknown_extensions();
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}

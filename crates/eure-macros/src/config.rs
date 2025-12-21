@@ -7,6 +7,8 @@ pub struct MacroConfig {
     pub document_crate: TokenStream,
     pub rename_all: Option<RenameAll>,
     pub rename_all_fields: Option<RenameAll>,
+    /// Parse fields from extension namespace instead of record fields.
+    pub parse_ext: bool,
 }
 
 impl MacroConfig {
@@ -20,6 +22,7 @@ impl MacroConfig {
             document_crate,
             rename_all: attrs.rename_all,
             rename_all_fields: attrs.rename_all_fields,
+            parse_ext: attrs.parse_ext,
         }
     }
 }
