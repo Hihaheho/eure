@@ -694,6 +694,14 @@ impl<'doc> EureDocument {
     }
 }
 
+impl<'doc> ParseDocument<'doc> for EureDocument {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        Ok(ctx.doc().node_subtree_to_document(ctx.node_id()))
+    }
+}
+
 impl<'doc> ParseDocument<'doc> for &'doc str {
     type Error = ParseError;
 

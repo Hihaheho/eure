@@ -3,8 +3,8 @@
 //! Validators for: Text, Integer, Float, Boolean, Null, Literal, Any
 //! All implement `DocumentParser<Output = (), Error = ValidatorError>`.
 
+use eure_document::document::EureDocument;
 use eure_document::document::node::NodeValue;
-use eure_document::document::{EureDocument, NodeId};
 use eure_document::parse::{DocumentParser, ParseContext};
 use eure_document::value::PrimitiveValue;
 use num_bigint::BigInt;
@@ -433,7 +433,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for LiteralValidator<'a, 'doc, 's> {
 
     fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
         let node_id = parse_ctx.node_id();
-        let actual = node_subtree_to_document(self.ctx.document, node_id);
+        let actual = self.ctx.document.node_subtree_to_document(node_id);
         if actual != *self.expected {
             self.ctx.record_error(ValidationError::LiteralMismatch {
                 expected: format!("{:?}", self.expected),
@@ -444,56 +444,5 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for LiteralValidator<'a, 'doc, 's> {
             });
         }
         Ok(())
-    }
-}
-
-// =============================================================================
-// Helper: node subtree to document
-// =============================================================================
-
-/// Convert a subtree of a document to a standalone document.
-pub(crate) fn node_subtree_to_document(doc: &EureDocument, node_id: NodeId) -> EureDocument {
-    let mut result = EureDocument::new();
-    let root_id = result.get_root_id();
-    copy_subtree(doc, node_id, &mut result, root_id);
-    result
-}
-
-fn copy_subtree(src: &EureDocument, src_id: NodeId, dst: &mut EureDocument, dst_id: NodeId) {
-    let src_node = src.node(src_id);
-    dst.node_mut(dst_id).content = src_node.content.clone();
-
-    // Skip ALL extensions during literal comparison.
-    // Extensions are schema metadata (like $variant, $deny-untagged, $optional, etc.)
-    // and should not be part of the literal value comparison.
-    // Literal types compare only the data structure, not metadata.
-
-    // Copy children based on content type
-    match &src_node.content {
-        NodeValue::Array(arr) => {
-            for &child_src_id in arr.iter() {
-                if let Ok(result) = dst.add_array_element(None, dst_id) {
-                    let child_dst_id = result.node_id;
-                    copy_subtree(src, child_src_id, dst, child_dst_id);
-                }
-            }
-        }
-        NodeValue::Tuple(tuple) => {
-            for (idx, &child_src_id) in tuple.iter().enumerate() {
-                if let Ok(result) = dst.add_tuple_element(idx as u8, dst_id) {
-                    let child_dst_id = result.node_id;
-                    copy_subtree(src, child_src_id, dst, child_dst_id);
-                }
-            }
-        }
-        NodeValue::Map(map) => {
-            for (key, &child_src_id) in map.iter() {
-                if let Ok(result) = dst.add_map_child(key.clone(), dst_id) {
-                    let child_dst_id = result.node_id;
-                    copy_subtree(src, child_src_id, dst, child_dst_id);
-                }
-            }
-        }
-        _ => {}
     }
 }

@@ -12,7 +12,6 @@ use crate::{ArraySchema, MapSchema, SchemaNodeContent, SchemaNodeId, TupleSchema
 use super::SchemaValidator;
 use super::context::ValidationContext;
 use super::error::{ValidationError, ValidatorError};
-use super::primitive::node_subtree_to_document;
 
 // =============================================================================
 // ArrayValidator
@@ -117,8 +116,8 @@ impl<'a, 'doc, 's> ArrayValidator<'a, 'doc, 's> {
         // O(n²) comparison - could be optimized with hashing
         for i in 0..items.len() {
             for j in (i + 1)..items.len() {
-                let doc_i = node_subtree_to_document(self.ctx.document, items[i]);
-                let doc_j = node_subtree_to_document(self.ctx.document, items[j]);
+                let doc_i = self.ctx.document.node_subtree_to_document(items[i]);
+                let doc_j = self.ctx.document.node_subtree_to_document(items[j]);
                 if doc_i == doc_j {
                     self.ctx.record_error(ValidationError::ArrayNotUnique {
                         path: self.ctx.path(),

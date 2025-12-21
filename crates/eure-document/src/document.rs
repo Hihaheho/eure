@@ -318,6 +318,53 @@ impl EureDocument {
         // なければ作成
         self.add_child_by_segment(segment, parent_node_id)
     }
+
+    /// Convert a subtree of a document to a standalone document.
+    pub fn node_subtree_to_document(&self, node_id: NodeId) -> EureDocument {
+        let mut result = EureDocument::new();
+        let root_id = result.get_root_id();
+        self.copy_subtree(node_id, &mut result, root_id);
+        result
+    }
+
+    pub fn copy_subtree(&self, src_id: NodeId, dst: &mut EureDocument, dst_id: NodeId) {
+        let src_node = self.node(src_id);
+        dst.node_mut(dst_id).content = src_node.content.clone();
+
+        // Skip ALL extensions during literal comparison.
+        // Extensions are schema metadata (like $variant, $deny-untagged, $optional, etc.)
+        // and should not be part of the literal value comparison.
+        // Literal types compare only the data structure, not metadata.
+
+        // Copy children based on content type
+        match &src_node.content {
+            NodeValue::Array(arr) => {
+                for &child_src_id in arr.iter() {
+                    if let Ok(result) = dst.add_array_element(None, dst_id) {
+                        let child_dst_id = result.node_id;
+                        self.copy_subtree(child_src_id, dst, child_dst_id);
+                    }
+                }
+            }
+            NodeValue::Tuple(tuple) => {
+                for (idx, &child_src_id) in tuple.iter().enumerate() {
+                    if let Ok(result) = dst.add_tuple_element(idx as u8, dst_id) {
+                        let child_dst_id = result.node_id;
+                        self.copy_subtree(child_src_id, dst, child_dst_id);
+                    }
+                }
+            }
+            NodeValue::Map(map) => {
+                for (key, &child_src_id) in map.iter() {
+                    if let Ok(result) = dst.add_map_child(key.clone(), dst_id) {
+                        let child_dst_id = result.node_id;
+                        self.copy_subtree(child_src_id, dst, child_dst_id);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Commands
