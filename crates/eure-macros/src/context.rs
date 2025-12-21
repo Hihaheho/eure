@@ -103,9 +103,9 @@ impl MacroContext {
     }
 
     #[allow(non_snake_case)]
-    pub fn LiteralParser(&self, value: TokenStream, mapper: TokenStream) -> TokenStream {
+    pub fn VariantLiteralParser(&self, value: TokenStream, mapper: TokenStream) -> TokenStream {
         let document_crate = &self.config.document_crate;
-        quote!(#document_crate::parse::DocumentParserExt::map(#document_crate::parse::LiteralParser(#value), #mapper))
+        quote!(#document_crate::parse::DocumentParserExt::map(#document_crate::parse::VariantLiteralParser(#value), #mapper))
     }
 
     /// Applies container-level `rename_all` to a name.

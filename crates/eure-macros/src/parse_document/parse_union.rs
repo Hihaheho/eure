@@ -57,12 +57,12 @@ fn generate_unit_variant(
     variant_name: &str,
     variant_ident: &syn::Ident,
 ) -> TokenStream {
-    let literal_parser = context.LiteralParser(
+    let variant_parser = context.VariantLiteralParser(
         quote!(#variant_name),
         quote!(|_| #enum_ident::#variant_ident),
     );
     quote! {
-        .variant(#variant_name, #literal_parser)
+        .variant(#variant_name, #variant_parser)
     }
 }
 

@@ -37,6 +37,7 @@ pub mod validate;
 use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
+use eure_macros::ParseDocument;
 use num_bigint::BigInt;
 use regex::Regex;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -430,7 +431,8 @@ pub struct UnionSchema {
 /// $variant: union
 /// variants { auto, passthrough, section, nested, binding, section-binding, section-root-binding }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, ParseDocument)]
+#[eure(crate = ::eure_document, rename_all = "kebab-case")]
 pub enum BindingStyle {
     /// Automatically determine the best representation
     #[default]

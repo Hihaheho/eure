@@ -31,30 +31,6 @@ use regex::Regex;
 
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
 
-// ============================================================================
-// ParseDocument for existing types (no NodeId)
-// ============================================================================
-
-impl ParseDocument<'_> for BindingStyle {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let value: &str = ctx.parse()?;
-        match value {
-            "auto" => Ok(BindingStyle::Auto),
-            "passthrough" => Ok(BindingStyle::Passthrough),
-            "section" => Ok(BindingStyle::Section),
-            "nested" => Ok(BindingStyle::Nested),
-            "binding" => Ok(BindingStyle::Binding),
-            "section-binding" => Ok(BindingStyle::SectionBinding),
-            "section-root-binding" => Ok(BindingStyle::SectionRootBinding),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::UnknownVariant(value.to_string()),
-            }),
-        }
-    }
-}
-
 impl ParseDocument<'_> for Description {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -948,10 +924,11 @@ mod tests {
         let node_id = create_text_node(&mut doc, "unknown");
 
         let result: Result<BindingStyle, _> = doc.parse(node_id);
-        assert!(matches!(
-            result.unwrap_err().kind,
-            ParseErrorKind::UnknownVariant(_)
-        ));
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.kind,
+            ParseErrorKind::UnknownVariant("unknown".to_string())
+        );
     }
 
     #[test]

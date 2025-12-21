@@ -21,7 +21,7 @@ fn test_unit_variant() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::LiteralParser("Unit"), |_| TestEnum::Unit))
+                        .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse()
                 }
             }
@@ -128,7 +128,7 @@ fn test_mixed_variants() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::LiteralParser("Unit"), |_| TestEnum::Unit))
+                        .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| Ok(TestEnum::Tuple(field_0, field_1)))
                         .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
@@ -167,7 +167,7 @@ fn test_mixed_variants_with_custom_crate() {
 
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure_document::data_model::VariantRepr::default())?
-                        .variant("Unit", ::eure_document::parse::DocumentParserExt::map(::eure_document::parse::LiteralParser("Unit"), |_| TestEnum::Unit))
+                        .variant("Unit", ::eure_document::parse::DocumentParserExt::map(::eure_document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| Ok(TestEnum::Tuple(field_0, field_1)))
                         .variant("Struct", |ctx: &::eure_document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
@@ -204,8 +204,8 @@ fn test_unit_variant_with_rename_all_snake_case() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("user_created", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::LiteralParser("user_created"), |_| Event::UserCreated))
-                        .variant("order_placed", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::LiteralParser("order_placed"), |_| Event::OrderPlaced))
+                        .variant("user_created", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("user_created"), |_| Event::UserCreated))
+                        .variant("order_placed", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("order_placed"), |_| Event::OrderPlaced))
                         .parse()
                 }
             }

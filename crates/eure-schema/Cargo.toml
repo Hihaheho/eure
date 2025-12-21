@@ -16,7 +16,7 @@ chrono = { version = "0.4", optional = true }
 convert_case = "0.9"
 eure-document = { workspace = true }
 # Optional derive macro support
-eure-macros = { workspace = true, optional = true }
+eure-macros = { workspace = true }
 eure-parol = { workspace = true }
 eure-tree = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
@@ -33,7 +33,6 @@ uuid = { version = "1.0", optional = true }
 [features]
 default = []
 chrono = ["dep:chrono"]
-derive = ["dep:eure-macros"]
 semver = ["dep:semver"]
 url = ["dep:url"]
 uuid = ["dep:uuid"]

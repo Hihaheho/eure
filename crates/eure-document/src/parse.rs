@@ -1190,6 +1190,29 @@ where
     }
 }
 
+/// A parser that matches a specific string literal as an enum variant name.
+///
+/// Similar to [`LiteralParser`], but returns [`ParseErrorKind::UnknownVariant`]
+/// on mismatch instead of [`ParseErrorKind::LiteralMismatch`]. This provides
+/// better error messages when parsing unit enum variants as string literals.
+pub struct VariantLiteralParser(pub &'static str);
+
+impl<'doc> DocumentParser<'doc> for VariantLiteralParser {
+    type Output = &'static str;
+    type Error = ParseError;
+    fn parse(&mut self, ctx: &ParseContext<'doc>) -> Result<Self::Output, Self::Error> {
+        let value: &str = ctx.parse()?;
+        if value == self.0 {
+            Ok(self.0)
+        } else {
+            Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::UnknownVariant(value.to_string()),
+            })
+        }
+    }
+}
+
 pub struct MapParser<T, F> {
     parser: T,
     mapper: F,
