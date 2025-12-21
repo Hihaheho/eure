@@ -32,14 +32,10 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for ReferenceValidator<'a, 'doc, 's> {
         let node_id = parse_ctx.node_id();
 
         // Cross-schema references not supported
-        if self.type_ref.namespace.is_some() {
+        if let Some(namespace) = &self.type_ref.namespace {
             self.ctx
                 .record_error(ValidationError::UndefinedTypeReference {
-                    name: format!(
-                        "{}.{}",
-                        self.type_ref.namespace.as_ref().unwrap(),
-                        self.type_ref.name
-                    ),
+                    name: format!("{}.{}", namespace, self.type_ref.name),
                     path: self.ctx.path(),
                     node_id,
                     schema_node_id: self.schema_node_id,
