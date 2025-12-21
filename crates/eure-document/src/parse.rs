@@ -1164,7 +1164,7 @@ where
     }
 }
 
-pub struct LiteralParser<T>(T);
+pub struct LiteralParser<T>(pub T);
 
 impl<'doc, T, E> DocumentParser<'doc> for LiteralParser<T>
 where

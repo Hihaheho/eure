@@ -12,7 +12,7 @@ enum TestEnum {
 #[test]
 fn test_parse_union() {
     use eure::eure;
-    let a = eure!({ = () });
+    let a = eure!({ = "Unit" });
     assert_eq!(
         a.parse::<TestEnum>(a.get_root_id()).unwrap(),
         TestEnum::Unit

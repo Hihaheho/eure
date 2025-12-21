@@ -33,7 +33,7 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
     let variant_name = context.apply_rename(&variant_ident.to_string());
 
     match &variant.fields {
-        Fields::Unit => generate_unit_variant(ident, &variant_name, variant_ident),
+        Fields::Unit => generate_unit_variant(context, ident, &variant_name, variant_ident),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
             generate_newtype_variant(ident, &variant_name, variant_ident, &fields.unnamed[0].ty)
         }
@@ -52,12 +52,17 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
 }
 
 fn generate_unit_variant(
+    context: &MacroContext,
     enum_ident: &syn::Ident,
     variant_name: &str,
     variant_ident: &syn::Ident,
 ) -> TokenStream {
+    let literal_parser = context.LiteralParser(
+        quote!(#variant_name),
+        quote!(|_| #enum_ident::#variant_ident),
+    );
     quote! {
-        .parse_variant::<()>(#variant_name, |_| Ok(#enum_ident::#variant_ident))
+        .variant(#variant_name, #literal_parser)
     }
 }
 

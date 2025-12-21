@@ -102,6 +102,12 @@ impl MacroContext {
         quote!(#document_crate::parse::ParseContext)
     }
 
+    #[allow(non_snake_case)]
+    pub fn LiteralParser(&self, value: TokenStream, mapper: TokenStream) -> TokenStream {
+        let document_crate = &self.config.document_crate;
+        quote!(#document_crate::parse::DocumentParserExt::map(#document_crate::parse::LiteralParser(#value), #mapper))
+    }
+
     /// Applies container-level `rename_all` to a name.
     /// For structs: renames fields. For enums: renames variants.
     pub fn apply_rename(&self, name: &str) -> String {
