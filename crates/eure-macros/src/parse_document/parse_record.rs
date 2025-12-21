@@ -29,7 +29,10 @@ fn generate_named_struct(
         .iter()
         .map(|f| f.ident.as_ref().expect("named fields must have names"))
         .collect();
-    let field_name_strs: Vec<_> = field_names.iter().map(|n| n.to_string()).collect();
+    let field_name_strs: Vec<_> = field_names
+        .iter()
+        .map(|n| context.apply_rename(&n.to_string()))
+        .collect();
 
     context.impl_parse_document(quote! {
         let mut rec = ctx.parse_record()?;

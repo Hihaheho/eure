@@ -186,3 +186,133 @@ fn test_mixed_variants_with_custom_crate() {
         .to_string()
     );
 }
+
+#[test]
+fn test_unit_variant_with_rename_all_snake_case() {
+    let input = generate(parse_quote! {
+        #[eure(rename_all = "snake_case")]
+        enum Event {
+            UserCreated,
+            OrderPlaced,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<()>("user_created", |_| Ok(Event::UserCreated))
+                        .parse_variant::<()>("order_placed", |_| Ok(Event::OrderPlaced))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_struct_variant_with_rename_all_camel_case() {
+    // Container-level rename_all only renames variant names, not struct variant fields
+    // (matching serde's behavior)
+    let input = generate(parse_quote! {
+        #[eure(rename_all = "camelCase")]
+        enum Event {
+            UserCreated { user_id: i32, created_at: String },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("userCreated", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let mut rec = ctx.parse_record()?;
+                            let value = Event::UserCreated {
+                                user_id: rec.parse_field("user_id")?,
+                                created_at: rec.parse_field("created_at")?
+                            };
+                            rec.deny_unknown_fields()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_struct_variant_with_rename_all_fields() {
+    // rename_all_fields only renames struct variant fields, not variant names
+    let input = generate(parse_quote! {
+        #[eure(rename_all_fields = "camelCase")]
+        enum Event {
+            UserCreated { user_id: i32, created_at: String },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("UserCreated", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let mut rec = ctx.parse_record()?;
+                            let value = Event::UserCreated {
+                                user_id: rec.parse_field("userId")?,
+                                created_at: rec.parse_field("createdAt")?
+                            };
+                            rec.deny_unknown_fields()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_struct_variant_with_both_rename_all_and_rename_all_fields() {
+    // Both rename_all and rename_all_fields can be used together
+    let input = generate(parse_quote! {
+        #[eure(rename_all = "snake_case", rename_all_fields = "camelCase")]
+        enum Event {
+            UserCreated { user_id: i32, created_at: String },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("user_created", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let mut rec = ctx.parse_record()?;
+                            let value = Event::UserCreated {
+                                user_id: rec.parse_field("userId")?,
+                                created_at: rec.parse_field("createdAt")?
+                            };
+                            rec.deny_unknown_fields()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}

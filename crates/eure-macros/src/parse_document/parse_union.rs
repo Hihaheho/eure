@@ -30,7 +30,7 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
     let ident = context.ident();
     let MacroConfig { document_crate, .. } = &context.config;
     let variant_ident = &variant.ident;
-    let variant_name = variant_ident.to_string();
+    let variant_name = context.apply_rename(&variant_ident.to_string());
 
     match &variant.fields {
         Fields::Unit => generate_unit_variant(ident, &variant_name, variant_ident),
@@ -41,6 +41,7 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
             generate_tuple_variant(ident, &variant_name, variant_ident, &fields.unnamed)
         }
         Fields::Named(fields) => generate_struct_variant(
+            context,
             ident,
             document_crate,
             &variant_name,
@@ -88,6 +89,7 @@ fn generate_tuple_variant(
 }
 
 fn generate_struct_variant(
+    context: &MacroContext,
     enum_ident: &syn::Ident,
     document_crate: &TokenStream,
     variant_name: &str,
@@ -98,7 +100,10 @@ fn generate_struct_variant(
         .iter()
         .map(|f| f.ident.as_ref().expect("struct fields must have names"))
         .collect();
-    let field_name_strs: Vec<_> = field_names.iter().map(|n| n.to_string()).collect();
+    let field_name_strs: Vec<_> = field_names
+        .iter()
+        .map(|n| context.apply_field_rename(&n.to_string()))
+        .collect();
 
     quote! {
         .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {

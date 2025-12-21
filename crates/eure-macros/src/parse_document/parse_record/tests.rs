@@ -127,3 +127,63 @@ fn test_named_fields_struct_with_custom_crate() {
         .to_string()
     );
 }
+
+#[test]
+fn test_named_fields_struct_with_rename_all_camel_case() {
+    let input = generate(parse_quote! {
+        #[eure(rename_all = "camelCase")]
+        struct User {
+            user_name: String,
+            email_address: String,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let value = User {
+                        user_name: rec.parse_field("userName")?,
+                        email_address: rec.parse_field("emailAddress")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_named_fields_struct_with_rename_all_kebab_case() {
+    let input = generate(parse_quote! {
+        #[eure(rename_all = "kebab-case")]
+        struct Config {
+            max_retries: i32,
+            timeout_seconds: i32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Config<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let value = Config {
+                        max_retries: rec.parse_field("max-retries")?,
+                        timeout_seconds: rec.parse_field("timeout-seconds")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}

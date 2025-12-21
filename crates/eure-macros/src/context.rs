@@ -1,3 +1,4 @@
+use convert_case::Casing as _;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{ConstParam, DeriveInput, Generics, Ident, LifetimeParam, TypeParam};
@@ -99,6 +100,24 @@ impl MacroContext {
     pub fn ParseContext(&self) -> TokenStream {
         let document_crate = &self.config.document_crate;
         quote!(#document_crate::parse::ParseContext)
+    }
+
+    /// Applies container-level `rename_all` to a name.
+    /// For structs: renames fields. For enums: renames variants.
+    pub fn apply_rename(&self, name: &str) -> String {
+        match self.config.rename_all {
+            Some(rename_all) => name.to_case(rename_all.to_case()),
+            None => name.to_string(),
+        }
+    }
+
+    /// Applies `rename_all_fields` to a field name in an enum struct variant.
+    /// This is separate from `rename_all` which only affects variant names in enums.
+    pub fn apply_field_rename(&self, name: &str) -> String {
+        match self.config.rename_all_fields {
+            Some(rename_all_fields) => name.to_case(rename_all_fields.to_case()),
+            None => name.to_string(),
+        }
     }
 
     pub fn impl_parse_document(&self, parse_body: TokenStream) -> TokenStream {
