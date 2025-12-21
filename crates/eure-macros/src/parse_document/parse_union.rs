@@ -17,11 +17,14 @@ pub fn generate_union_parser(context: &MacroContext, input: &DataEnum) -> TokenS
     let variants = variants
         .iter()
         .map(|variant| generate_variant(context, variant));
+    let parse_document = context.config.ParseDocument();
+    let parse_error = context.config.ParseError();
+    let parse_context = context.config.ParseContext();
     quote! {
-        impl<'doc, #(#impl_generics),*> #document_crate::parse::ParseDocument<'doc> for #ident<#(#for_generics),*> {
-            type Error = #document_crate::parse::ParseError;
+        impl<'doc, #(#impl_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*> {
+            type Error = #parse_error;
 
-            fn parse(ctx: &#document_crate::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+            fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
                 ctx.parse_union(#variant_repr)?
                     #(#variants)*
                     .parse()
