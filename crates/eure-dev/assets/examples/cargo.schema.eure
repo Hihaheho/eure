@@ -23,31 +23,31 @@ authors.$optional = true
 @ $types.dependency {
   $variant: union
   $variant-repr = "untagged"
-  priority = ["detailed", "version"]
+
+  /// Detailed dependency specification (tried first in definition order)
+  variants.detailed {
+    version = `text`
+    version.$optional = true
+    path = `text`
+    path.$optional = true
+    git = `text.url`
+    git.$optional = true
+    branch = `text`
+    branch.$optional = true
+    tag = `text`
+    tag.$optional = true
+    rev = `text`
+    rev.$optional = true
+    features = [`text`]
+    features.$optional = true
+    optional = `boolean`
+    optional.$optional = true
+    default-features = `boolean`
+    default-features.$optional = true
+  }
 
   /// Simple version string like "1" or "1.0.0"
   variants.version = `text`
-
-  /// Detailed dependency specification
-  @variants.detailed
-  version = `text`
-  version.$optional = true
-  path = `text`
-  path.$optional = true
-  git = `text.url`
-  git.$optional = true
-  branch = `text`
-  branch.$optional = true
-  tag = `text`
-  tag.$optional = true
-  rev = `text`
-  rev.$optional = true
-  features = [`text`]
-  features.$optional = true
-  optional = `boolean`
-  optional.$optional = true
-  default-features = `boolean`
-  default-features.$optional = true
 }
 
 @ dependencies

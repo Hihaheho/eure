@@ -342,10 +342,10 @@ where
         })
     }
 
-    /// Register a priority variant.
+    /// Register a variant with short-circuit semantics (default).
     ///
-    /// Priority variants are tried in registration order.
-    /// When a priority variant matches (in Untagged mode), parsing short-circuits.
+    /// When this variant matches in untagged mode, parsing succeeds immediately
+    /// without checking other variants. Use definition order to express priority.
     pub fn variant<P: DocumentParser<'doc, Output = T, Error = E>>(
         mut self,
         name: &str,
@@ -355,6 +355,7 @@ where
         self
     }
 
+    /// Register a variant with short-circuit semantics using ParseDocument.
     pub fn parse_variant<V: ParseDocument<'doc, Error = E>>(
         mut self,
         name: &str,
@@ -371,16 +372,34 @@ where
         self
     }
 
-    /// Register a non-priority variant.
+    /// Register a variant with unambiguous semantics.
     ///
-    /// Non-priority variants are only tried if no priority variant matches.
-    /// All non-priority variants are tried to detect ambiguity.
-    pub fn other<P: DocumentParser<'doc, Output = T, Error = E>>(
+    /// All unambiguous variants are tried to detect conflicts.
+    /// If multiple unambiguous variants match, an AmbiguousUnion error is returned.
+    /// Use for catch-all variants or when you need conflict detection.
+    pub fn variant_unambiguous<P: DocumentParser<'doc, Output = T, Error = E>>(
         mut self,
         name: &str,
         f: P,
     ) -> Self {
         self.try_variant(name, f, false);
+        self
+    }
+
+    /// Register a variant with unambiguous semantics using ParseDocument.
+    pub fn parse_variant_unambiguous<V: ParseDocument<'doc, Error = E>>(
+        mut self,
+        name: &str,
+        mut then: impl FnMut(V) -> Result<T, E>,
+    ) -> Self {
+        self.try_variant(
+            name,
+            move |ctx: &ParseContext<'doc>| {
+                let v = V::parse(ctx)?;
+                then(v)
+            },
+            false,
+        );
         self
     }
 
@@ -675,7 +694,7 @@ mod tests {
                 "foo",
                 AlwaysParser::<TestEnum, ParseError>::new(TestEnum::Foo),
             )
-            .other("baz", AlwaysParser::new(TestEnum::Bar))
+            .variant_unambiguous("baz", AlwaysParser::new(TestEnum::Bar))
             .parse()
             .unwrap();
 
@@ -694,7 +713,7 @@ mod tests {
             .parse_union(VariantRepr::default())
             .unwrap()
             .variant("foo", AlwaysParser::new(TestEnum::Foo))
-            .other("baz", AlwaysParser::new(TestEnum::Bar))
+            .variant_unambiguous("baz", AlwaysParser::new(TestEnum::Bar))
             .parse()
             .unwrap_err();
 
@@ -716,7 +735,7 @@ mod tests {
             .parse_union(VariantRepr::default())
             .unwrap()
             .variant("foo", AlwaysParser::new(TestEnum::Foo))
-            .other("baz", |ctx: &ParseContext<'_>| {
+            .variant_unambiguous("baz", |ctx: &ParseContext<'_>| {
                 Err(ParseError {
                     node_id: ctx.node_id(),
                     kind: ParseErrorKind::MissingField("test".to_string()),

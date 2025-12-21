@@ -1,0 +1,145 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0012-union-variant-resolution-semantics"
+title = "Union Variant Resolution: Short-Circuit by Default"
+status = "accepted"
+decision-date = `2025-12-21`
+tags = ["schema", "union", "parsing", "breaking-change"]
+
+context = ````markdown
+Union types in Eure schemas need to determine which variant matches a given value. When multiple
+variants could potentially match, the system must decide:
+
+1. **Which variant to select** when multiple could match
+2. **Whether to detect ambiguity** (multiple variants matching the same value)
+
+### Previous Design
+
+The schema used an explicit `priority` field to specify variant ordering:
+
+```eure
+@$types.dependency
+$variant: union
+$variant-repr = "untagged"
+priority = ["detailed", "version"]  // explicit ordering
+
+variants.detailed { ... }
+variants.version = `text`
+```
+
+This approach had several problems:
+
+- **Redundancy**: Definition order was already visible, yet we needed a separate field
+- **Maintenance burden**: Adding/removing variants required updating `priority`
+- **AHashMap limitation**: Random iteration order made `priority` necessary
+- **Inconsistency**: Some variants used `other()` for catch-all semantics while others
+  relied on `priority`
+
+### Related Decision
+
+ADR-0011 adopted IndexMap for order-preserving maps. With definition order now reliably
+preserved, the explicit `priority` field becomes redundant.
+````
+
+decision = ````markdown
+**Short-circuit is the default; unambiguous is opt-in per variant.**
+
+### Resolution Modes
+
+1. **Short-circuit** (default): First matching variant wins. Definition order = priority.
+   Parsing stops immediately when a match is found.
+
+2. **Unambiguous** (opt-in): Try all variants, detect conflicts. Used for catch-all variants
+   like `any` that should only match when no other variant does.
+
+### Schema Syntax
+
+```eure
+@$types.value
+$variant: union
+$variant-repr = "untagged"
+
+// Tried in definition order (short-circuit)
+variants.text = `text`
+variants.integer = `integer`
+variants.record { ... }
+
+// Catch-all: opt-in to unambiguous semantics
+variants.any = `any`
+variants.any.$unambiguous = true
+```
+
+The `$unambiguous = true` extension marks a variant for unambiguous resolution.
+These variants are tried last (regardless of definition position) and will fail if another
+variant also matches.
+
+### UnionParser API
+
+```rust
+// Short-circuit: stops on first match (default)
+.variant("text", text_parser)
+.parse_variant::<TextValue>("text", |v| ...)
+
+// Unambiguous: detects conflicts with other matches
+.variant_unambiguous("any", any_parser)
+.parse_variant_unambiguous::<AnyValue>("any", |v| ...)
+```
+````
+
+consequences = ```markdown
+**Positive:**
+- Definition order has semantic meaning (matches pattern matching conventions)
+- No more redundant `priority` field to maintain
+- Clear opt-in for catch-all variants that need conflict detection
+- API explicitly communicates resolution strategy per variant
+- Aligns with ADR-0011's order-preserving map semantics
+
+**Negative:**
+- Breaking change: schemas using `priority` must be updated
+- Order of variant definitions now affects behavior (intentionally)
+- Developers must understand when to use `unambiguous`
+
+**Migration:**
+- Remove `priority = [...]` from union schemas
+- Definition order becomes the priority order
+- Add `$unambiguous = true` to catch-all variants (former `other()` variants)
+- Update API calls: `other()` → `variant_unambiguous()`
+```
+
+alternatives-considered = [
+  ```markdown
+  **Keep explicit `priority` field**: Continue requiring explicit ordering.
+
+  Rejected because:
+  - Redundant now that maps preserve insertion order
+  - Extra maintenance burden
+  - Definition order already visible and intuitive
+  ```,
+  ```markdown
+  **Unambiguous by default**: Try all variants and detect conflicts.
+
+  Rejected because:
+  - Most use cases want "first match wins" behavior
+  - Pattern matching precedent: first clause wins
+  - Performance cost of trying all variants unnecessarily
+  - Conflicts are rare in well-designed schemas
+  ```,
+  ```markdown
+  **Mode parameter on every variant**: `variant("text", Mode::ShortCircuit, parser)`
+
+  Rejected because:
+  - Verbose for the common case (short-circuit)
+  - Mode in the middle disrupts readability with multiline closures
+  - Separate method names (`variant` vs `variant_unambiguous`) are clearer
+  ```,
+  ```markdown
+  **Schema-level mode**: `$short-circuit-all = true` or `$unambiguous-all = true`
+
+  Rejected because:
+  - Per-variant control is more flexible
+  - Catch-all variants (like `any`) often need different semantics than others
+  - Granular opt-in is clearer than schema-wide switches
+  ```,
+]
+
+related-adrs = ["0011-order-preserving-map"]

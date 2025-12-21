@@ -2557,26 +2557,3 @@ fn test_error_types_integer_key() {
         ConversionError::InvalidTypeName(ObjectKey::Number(0.into()))
     );
 }
-
-#[test]
-fn test_error_priority_nonexistent_variant() {
-    let doc = eure!({
-        field {
-            %variant = @code("union"),
-            priority = ["a", "nonexistent"],
-            @variants {
-                a = @code("text"),
-                b = @code("integer"),
-            },
-        },
-    });
-    let result = document_to_schema(&doc);
-
-    assert!(matches!(
-        result.unwrap_err(),
-        ConversionError::ParseError(ParseError {
-            kind: ParseErrorKind::UnknownVariant(msg),
-            ..
-        }) if msg.contains("nonexistent")
-    ));
-}

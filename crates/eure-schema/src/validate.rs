@@ -576,7 +576,7 @@ mod tests {
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
-            priority: None,
+            unambiguous: HashSet::new(),
             repr: VariantRepr::Untagged,
             deny_untagged,
         });
@@ -612,7 +612,7 @@ mod tests {
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
-            priority: None,
+            unambiguous: HashSet::new(),
             repr: VariantRepr::Untagged,
             deny_untagged,
         });
@@ -655,7 +655,7 @@ mod tests {
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
-            priority: Some(vec!["literal".to_string(), "text".to_string()]),
+            unambiguous: HashSet::new(),
             repr: VariantRepr::Untagged,
             deny_untagged,
         });

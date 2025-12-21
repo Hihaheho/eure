@@ -756,7 +756,9 @@ value {
   $variant = "union"
   $variant-repr { tag = "type" }
   variants.a.data = `text`
+  variants.a.$unambiguous = true
   variants.b.data = `integer`
+  variants.b.$unambiguous = true
 }
 ```
 
@@ -774,9 +776,9 @@ error: Type mismatch: expected integer, got text at path value.data
   |   ^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path value.data
   |
 note: constraint defined here
- --> <schema>:5:3
+ --> <schema>:6:3
   |
-5 |   variants.b.data = `integer`
+6 |   variants.b.data = `integer`
   |   --------------------------- constraint defined here
 ```
 

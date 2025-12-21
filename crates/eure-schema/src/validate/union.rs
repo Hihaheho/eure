@@ -2,8 +2,6 @@
 //!
 //! Validates union values using parse_union() API pattern.
 
-use std::collections::HashSet;
-
 use eure_document::parse::union::{VARIANT, extract_repr_variant};
 use eure_document::parse::{DocumentParser, ParseContext};
 
@@ -22,7 +20,7 @@ use super::error::{BestVariantMatch, ValidationError, ValidatorError};
 /// Uses similar pattern to `UnionParser` but for validation:
 /// - `$variant` extension for explicit variant tagging
 /// - VariantRepr patterns (External, Internal, Adjacent)
-/// - Untagged matching with priority resolution
+/// - Short-circuit semantics by default, unambiguous opt-in
 pub struct UnionValidator<'a, 'doc, 's> {
     pub ctx: &'a ValidationContext<'doc>,
     pub schema: &'s UnionSchema,
@@ -61,9 +59,6 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
                 }
             };
 
-        // Build validator closures for each variant
-        let priority_names: HashSet<_> = self.schema.priority.iter().flatten().cloned().collect();
-
         // Create a validator that tries variants using UnionParser's pattern
         let mut builder = union_parser;
 
@@ -89,40 +84,18 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
         };
 
         let deny_untagged = &self.schema.deny_untagged;
+        let unambiguous = &self.schema.unambiguous;
 
-        // Register priority variants first
-        if let Some(priority) = &self.schema.priority {
-            for name in priority {
-                if let Some(&variant_schema_id) = self.schema.variants.get(name) {
-                    let ctx = self.ctx;
-                    let schema_node_id = variant_schema_id;
-                    let variant_name = name.clone();
-                    let requires_explicit = deny_untagged.contains(name);
-                    builder = builder.variant(name, move |parse_ctx: &ParseContext<'_>| {
-                        validate_variant(
-                            ctx,
-                            parse_ctx,
-                            schema_node_id,
-                            is_tagged,
-                            &variant_name,
-                            requires_explicit,
-                            has_explicit_tag,
-                        )
-                    });
-                }
-            }
-        }
-
-        // Register non-priority variants
+        // Register all variants
+        // Default: short-circuit (first match wins)
+        // Opt-in: unambiguous (try all, detect conflicts)
         for (name, &variant_schema_id) in &self.schema.variants {
-            if priority_names.contains(name) {
-                continue;
-            }
             let ctx = self.ctx;
             let schema_node_id = variant_schema_id;
             let variant_name = name.clone();
             let requires_explicit = deny_untagged.contains(name);
-            builder = builder.other(name, move |parse_ctx: &ParseContext<'_>| {
+
+            let validator = move |parse_ctx: &ParseContext<'_>| {
                 validate_variant(
                     ctx,
                     parse_ctx,
@@ -132,7 +105,13 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
                     requires_explicit,
                     has_explicit_tag,
                 )
-            });
+            };
+
+            if unambiguous.contains(name) {
+                builder = builder.variant_unambiguous(name, validator);
+            } else {
+                builder = builder.variant(name, validator);
+            }
         }
 
         // Execute union parsing/validation

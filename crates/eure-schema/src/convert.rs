@@ -33,8 +33,8 @@
 //!   $variant = "union"
 //!   variants.success = { data = `any` }
 //!   variants.error = { message = `text` }
+//!   variants.error.$ext-type.unambiguous = true  // optional, for catch-all variants
 //!   $variant-repr = "untagged"  // optional
-//!   priority = ["error", "success"]  // optional, for untagged unions
 //! }
 //! ```
 //!
@@ -367,7 +367,7 @@ impl<'a> Converter<'a> {
 
         Ok(UnionSchema {
             variants,
-            priority: parsed.priority,
+            unambiguous: parsed.unambiguous,
             repr: parsed.repr,
             deny_untagged: parsed.deny_untagged,
         })

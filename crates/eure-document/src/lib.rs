@@ -43,10 +43,7 @@ pub mod source;
 /// Macro for building Eure documents.
 mod eure_macro;
 
-#[cfg(feature = "std")]
-pub use ahash::AHashMap as Map;
-#[cfg(not(feature = "std"))]
-pub type Map<K, V> = alloc::collections::BTreeMap<K, V>;
+pub use indexmap::IndexMap as Map;
 
 pub(crate) mod prelude_internal {
     #![allow(unused_imports)]

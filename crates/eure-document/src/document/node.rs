@@ -257,8 +257,16 @@ impl NodeMap {
         self.0.insert(key, node_id);
     }
 
-    pub fn remove(&mut self, key: &ObjectKey) -> Option<NodeId> {
-        self.0.remove(key)
+    /// O(1) removal, may reorder remaining keys.
+    /// Use when order doesn't matter (e.g., batch processing).
+    pub fn remove_fast(&mut self, key: &ObjectKey) -> Option<NodeId> {
+        self.0.swap_remove(key)
+    }
+
+    /// O(n) removal, preserves document order.
+    /// Use when order must be maintained.
+    pub fn remove_ordered(&mut self, key: &ObjectKey) -> Option<NodeId> {
+        self.0.shift_remove(key)
     }
 }
 

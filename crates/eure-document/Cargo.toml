@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["data-types", "eure", "serialization", "value"]
 
 [dependencies]
-ahash = { workspace = true, optional = true }
+indexmap = { workspace = true }
 num-bigint = { workspace = true }
 regex = { version = "1.11", default-features = false, features = ["unicode"] }
 thiserror = { workspace = true }
@@ -18,4 +18,4 @@ thisisplural = { workspace = true }
 
 [features]
 default = ["std"]
-std = ["ahash/runtime-rng", "ahash/std", "dep:ahash", "regex/perf"]
+std = ["indexmap/std", "regex/perf"]

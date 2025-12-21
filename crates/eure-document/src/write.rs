@@ -427,7 +427,10 @@ mod tests {
         let doc = c.finish();
 
         let root = doc.root();
-        assert!(root.extensions.contains_key(&"optional".parse().unwrap()));
+        assert!(
+            root.extensions
+                .contains_key(&"optional".parse::<Identifier>().unwrap())
+        );
     }
 
     #[test]
@@ -442,7 +445,10 @@ mod tests {
         let doc = c.finish();
 
         let root = doc.root();
-        assert!(root.extensions.contains_key(&"variant".parse().unwrap()));
+        assert!(
+            root.extensions
+                .contains_key(&"variant".parse::<Identifier>().unwrap())
+        );
     }
 
     #[test]

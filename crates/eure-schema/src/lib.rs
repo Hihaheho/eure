@@ -403,16 +403,15 @@ pub struct TupleSchema {
 /// ```eure
 /// @variants.union
 /// variants = { $variant: map, key => .text, value => .$types.type }
-/// priority = [.text] (optional)
 /// $ext-type.variant-repr = .$types.variant-repr (optional)
 /// ```
 #[derive(Debug, Clone)]
 pub struct UnionSchema {
     /// Variant definitions (variant name -> schema)
     pub variants: BTreeMap<String, SchemaNodeId>,
-    /// Priority order for variant matching in untagged unions
-    /// First matching variant in priority order wins when multiple match
-    pub priority: Option<Vec<String>>,
+    /// Variants that use unambiguous semantics (try all, detect conflicts).
+    /// All other variants use short-circuit semantics (first match wins).
+    pub unambiguous: HashSet<String>,
     /// Variant representation strategy (default: External)
     pub repr: VariantRepr,
     /// Variants that deny untagged matching (require explicit $variant)

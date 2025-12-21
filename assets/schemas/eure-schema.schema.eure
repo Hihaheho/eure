@@ -94,21 +94,21 @@
 ///    Union types require EXACTLY ONE variant to match (not anyOf).
 ///    - If no variant matches: error with the "closest" failure
 ///    - If exactly one matches: success
-///    - If multiple match: ambiguity error (unless priority is set)
 ///
-///    For untagged unions where multiple variants may match structurally,
-///    use "priority" to specify which variant takes precedence:
+///    By default, variants use short-circuit semantics:
+///    - Variants are tried in definition order
+///    - First matching variant wins (no ambiguity check)
+///
+///    For catch-all variants that need conflict detection, use
+///    $ext-type.unambiguous = true to enable ambiguity checking:
 ///
 ///    @ $types.response {
 ///      $variant: union
 ///      $variant-repr = "untagged"
-///      priority = ["error", "success"]  // error checked first
 ///      variants.error = { code = `integer`, message = `text` }
 ///      variants.success = { data = `any` }
+///      variants.success.$ext-type.unambiguous = true  // check for conflicts
 ///    }
-///
-///    When priority is set and multiple variants match, the first
-///    matching variant in priority order is selected.
 ///
 /// 7. Hole Values:
 ///    The hole value (!) acts like a "never" type in type checking:
@@ -379,7 +379,6 @@ variants {
 
 @ $types.type {
   $variant: union
-  priority = ["text", "integer", "float", "boolean", "null", "any", "ref", "record", "array", "tuple", "array-shorthand", "tuple-shorthand", "map", "union", "text-shorthand", "integer-shorthand", "float-shorthand"]
 
   $codegen {
     variant-types = true // Generate type for each variant instead of struct-like variant
@@ -461,12 +460,6 @@ variants {
   /// Usage: field.$type = `any`
   @variants.any = { = `any`, $variant => "literal" }
 
-  /// Literal type accepts a constant value.
-  /// The schema matches only that exact value.
-  /// Example: status.$type = "active" will only accept the string "active".
-  @variants.literal
-  = `any`
-
   /// Record type with fixed, named fields.
   /// Each field has a specific name and type defined in the schema.
   /// Shorthand: field.$type = { name => `text`, age => .integer }
@@ -492,7 +485,8 @@ variants {
 
   /// Union type with named variants.
   /// Requires exactly one variant to match (oneOf semantics).
-  /// Use priority to resolve ambiguity in untagged unions.
+  /// Variant matching uses short-circuit semantics by default (first match wins in definition order).
+  /// Use $ext-type.unambiguous = true on a variant to enable conflict detection.
   @variants.union
   variants {
     $variant: map
@@ -500,12 +494,11 @@ variants {
     value = `$types.type`
     value.$ext-type.deny-untagged = `boolean`
     value.$ext-type.deny-untagged.$optional = true
+    /// When true, this variant uses unambiguous semantics (try all, detect conflicts).
+    /// Default is short-circuit (first match wins).
+    value.$ext-type.unambiguous = `boolean`
+    value.$ext-type.unambiguous.$optional = true
   }
-  /// Priority order for variant matching (used when multiple variants match).
-  /// Only relevant for untagged unions. First matching variant in priority wins.
-  /// Example: priority = ["specific", "general"]
-  priority = [`$types.ident`]
-  priority.$optional = true
   $ext-type.variant-repr = `$types.variant-repr`
   $ext-type.variant-repr.$optional = true  // Default: externally tagged
   $ext-type.codegen = `$types.union-codegen`
@@ -586,4 +579,10 @@ variants {
   @variants.ref
   $variant: text
   pattern = `^\$types\.[a-zA-Z_][a-zA-Z0-9_-]*(\.[a-zA-Z_][a-zA-Z0-9_-]*)?$`
+
+  /// Literal type accepts a constant value.
+  /// The schema matches only that exact value.
+  /// Example: status.$type = "active" will only accept the string "active".
+  @variants.literal
+  = `any`
 }

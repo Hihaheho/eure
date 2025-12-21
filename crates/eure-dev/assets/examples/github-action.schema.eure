@@ -30,19 +30,20 @@ value = `text`
     $variant: union
     $optional = true
     $variant-repr = "untagged"
-    priority = ["config", "null"]
+
+    /// Config variant (tried first in definition order)
+    variants.config {
+      branches = [`text`]
+      branches.$optional = true
+      paths = [`text`]
+      paths.$optional = true
+      paths-ignore = [`text`]
+      paths-ignore.$optional = true
+      types = [`text`]
+      types.$optional = true
+    }
 
     variants.null = `null`
-
-    @variants.config
-    branches = [`text`]
-    branches.$optional = true
-    paths = [`text`]
-    paths.$optional = true
-    paths-ignore = [`text`]
-    paths-ignore.$optional = true
-    types = [`text`]
-    types.$optional = true
   }
 
   /// Trigger on workflow dispatch (manual trigger)
@@ -70,9 +71,8 @@ value = `text`
 @ $types.expression-or-boolean {
   $variant: union
   $variant-repr = "untagged"
-  priority = ["expression", "boolean"]
 
-  /// GitHub Actions expression like ${{ ... }}
+  /// GitHub Actions expression like ${{ ... }} (tried first)
   variants.expression = `text`
 
   /// Plain boolean value

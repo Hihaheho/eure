@@ -494,8 +494,9 @@ impl ParseDocument<'_> for ParsedTupleSchema {
 pub struct ParsedUnionSchema {
     /// Variant definitions (variant name -> schema NodeId)
     pub variants: BTreeMap<String, NodeId>,
-    /// Priority order for variant matching in untagged unions
-    pub priority: Option<Vec<String>>,
+    /// Variants that use unambiguous semantics (try all, detect conflicts).
+    /// All other variants use short-circuit semantics (first match wins).
+    pub unambiguous: HashSet<String>,
     /// Variant representation strategy
     pub repr: VariantRepr,
     /// Variants that deny untagged matching (require explicit $variant)
@@ -507,6 +508,7 @@ impl ParseDocument<'_> for ParsedUnionSchema {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let mut rec = ctx.parse_record()?;
         let mut variants = BTreeMap::new();
+        let mut unambiguous = HashSet::new();
         let mut deny_untagged = HashSet::new();
 
         // Check for variants = { ... } field
@@ -523,26 +525,14 @@ impl ParseDocument<'_> for ParsedUnionSchema {
                 {
                     deny_untagged.insert(name.to_string());
                 }
+                if ext
+                    .parse_ext_optional::<bool>("unambiguous")?
+                    .unwrap_or(false)
+                {
+                    unambiguous.insert(name.to_string());
+                }
                 // There may other extensions to be parsed on the later stage. like $variant, $ext-type, etc.
                 ext.allow_unknown_extensions();
-            }
-        }
-
-        // Parse priority
-        let priority = rec.parse_field_optional::<Vec<String>>("priority")?;
-
-        // Validate that all priority variants exist
-        if let Some(ref priority_list) = priority {
-            for variant_name in priority_list {
-                if !variants.contains_key(variant_name) {
-                    return Err(ParseError {
-                        node_id: ctx.node_id(),
-                        kind: ParseErrorKind::UnknownVariant(format!(
-                            "priority list contains non-existing variant: {}",
-                            variant_name
-                        )),
-                    });
-                }
             }
         }
 
@@ -557,7 +547,7 @@ impl ParseDocument<'_> for ParsedUnionSchema {
 
         Ok(ParsedUnionSchema {
             variants,
-            priority,
+            unambiguous,
             repr,
             deny_untagged,
         })

@@ -849,7 +849,7 @@ mod tests {
 
         doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
-            priority: None,
+            unambiguous: HashSet::new(),
             repr: VariantRepr::Untagged,
             deny_untagged: HashSet::new(),
         }));
@@ -876,7 +876,7 @@ mod tests {
 
         doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
-            priority: None,
+            unambiguous: HashSet::new(),
             repr: VariantRepr::External,
             deny_untagged: HashSet::new(),
         }));
