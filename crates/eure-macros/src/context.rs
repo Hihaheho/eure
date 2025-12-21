@@ -82,4 +82,40 @@ impl MacroContext {
             )
             .collect()
     }
+
+    #[allow(non_snake_case)]
+    pub fn ParseDocument(&self) -> TokenStream {
+        let document_crate = &self.config.document_crate;
+        quote!(#document_crate::parse::ParseDocument)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn ParseError(&self) -> TokenStream {
+        let document_crate = &self.config.document_crate;
+        quote!(#document_crate::parse::ParseError)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn ParseContext(&self) -> TokenStream {
+        let document_crate = &self.config.document_crate;
+        quote!(#document_crate::parse::ParseContext)
+    }
+
+    pub fn impl_parse_document(&self, parse_body: TokenStream) -> TokenStream {
+        let ident = self.ident();
+        let impl_generics = self.impl_generics();
+        let for_generics = self.for_generics();
+        let parse_document = self.ParseDocument();
+        let parse_error = self.ParseError();
+        let parse_context = self.ParseContext();
+        quote! {
+            impl<'doc, #(#impl_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*> {
+                type Error = #parse_error;
+
+                fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
+                    #parse_body
+                }
+            }
+        }
+    }
 }

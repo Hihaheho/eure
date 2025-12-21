@@ -16,22 +16,4 @@ impl MacroConfig {
             .unwrap_or_else(|| quote! { ::eure::document });
         Self { document_crate }
     }
-
-    #[allow(non_snake_case)]
-    pub fn ParseDocument(&self) -> TokenStream {
-        let document_crate = &self.document_crate;
-        quote!(#document_crate::parse::ParseDocument)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn ParseError(&self) -> TokenStream {
-        let document_crate = &self.document_crate;
-        quote!(#document_crate::parse::ParseError)
-    }
-
-    #[allow(non_snake_case)]
-    pub fn ParseContext(&self) -> TokenStream {
-        let document_crate = &self.document_crate;
-        quote!(#document_crate::parse::ParseContext)
-    }
 }
