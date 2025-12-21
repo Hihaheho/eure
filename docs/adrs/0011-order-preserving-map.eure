@@ -1,0 +1,119 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0011-order-preserving-map"
+title = "Order-Preserving Map Semantics"
+status = "accepted"
+decision-date = `2025-12-21`
+tags = ["data-model", "breaking-change", "ergonomics"]
+
+context = ````markdown
+EureDocument's Map currently uses `AHashMap`, which has non-deterministic (random) iteration
+order. This causes the following problems:
+
+1. **Workarounds required**: Schema definitions need separate fields like `priority = ["text",
+   "integer", ...]` to specify ordering explicitly
+2. **Unstable round-trips**: parse -> serialize loses the original field order
+3. **Developer expectations mismatch**: Many modern languages (Python 3.7+, ES6+, Ruby) preserve
+   insertion order as the default behavior for dictionaries/maps
+
+### Current Implementation
+
+```rust
+#[cfg(feature = "std")]
+pub use ahash::AHashMap as Map;
+#[cfg(not(feature = "std"))]
+pub type Map<K, V> = alloc::collections::BTreeMap<K, V>;
+```
+
+- With `std`: `AHashMap` - random iteration order
+- Without `std`: `BTreeMap` - lexicographical order by `Ord` (not definition order)
+
+### Why Order Matters in Config Files
+
+- Execution order in pipeline definitions
+- Priority rules
+- Human-intended logical grouping
+- Stable diffs for code review
+````
+
+decision = ````markdown
+**Adopt IndexMap throughout and preserve insertion order as part of the language specification.**
+
+### Map Type Change
+
+Replace `AHashMap` with `IndexMap` to automatically preserve insertion order.
+
+### Remove API Design
+
+Hide IndexMap's implementation details (`swap_remove`/`shift_remove`) behind semantic naming:
+
+```rust
+impl NodeMap {
+    /// O(1) removal, may reorder remaining keys.
+    /// Use when order doesn't matter (e.g., batch processing).
+    pub fn remove_fast(&mut self, key: &ObjectKey) -> Option<NodeId>;
+
+    /// O(n) removal, preserves document order.
+    /// Use when order must be maintained.
+    pub fn remove_ordered(&mut self, key: &ObjectKey) -> Option<NodeId>;
+}
+```
+
+**Naming rationale:**
+- IndexMap-independent API (resilient to future implementation changes)
+- Explicit trade-off (speed vs order preservation)
+- Follows Rust conventions (`sort()` vs `sort_unstable()` pattern)
+````
+
+consequences = ```markdown
+**Positive:**
+- Simpler schema definitions (no `priority` field workarounds)
+- Round-trip consistency (parse -> modify -> serialize preserves order)
+- Stable diffs, easier code review
+- Matches modern language behavior and developer expectations
+- Preserves human intent (meaning through ordering)
+
+**Negative:**
+- Slight memory overhead (+1 pointer/entry)
+- Order-preserving remove is O(n) (acceptable for config file sizes)
+- Conceptual complexity of "ordered map"
+
+**Migration:**
+- Change `Map` type alias to `IndexMap`
+- Rename existing `remove` method to `remove_ordered`
+- Add `remove_fast` as the fast variant
+- Schema `priority` fields can be removed
+```
+
+alternatives-considered = [
+  ```markdown
+  **`$key-order` Extension approach**: Generate `$key-order = [...]` when `$order-preserving = true`.
+
+  Rejected because:
+  - Memory overhead from duplicate key information
+  - Verbose opt-in annotations
+  - Always allocates `Vec<ObjectKey>`
+  ```,
+  ```markdown
+  **Two Map types**: Distinguish `NodeValue::Map` vs `NodeValue::OrderedMap`.
+
+  Rejected because:
+  - Large-scale refactoring affecting all map processing code
+  - Forces type choice complexity on users
+  - Increases branching throughout codebase
+  ```,
+  ```markdown
+  **Reconstruct order from CST**: Keep EureDocument unchanged, get order from CST when needed.
+
+  Rejected because:
+  - No order when source is absent (programmatic construction)
+  - Unsuitable for schema definitions (need source-independent ordering)
+  ```,
+  ```markdown
+  **Always use `shift_remove`**: Single remove method, always O(n).
+
+  Rejected because:
+  - No optimization escape hatch for large data processing
+  - `remove_fast`/`remove_ordered` is more explicit and Rust-idiomatic
+  ```,
+]
