@@ -134,7 +134,7 @@ fn object_key_to_field_name(key: &ObjectKey) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_document::document::node::NodeArray;
+    use eure_document::document::node::{NodeArray, NodeMap};
     use eure_document::eure;
     use eure_document::text::Text;
     use eure_document::value::ObjectKey;
@@ -168,7 +168,7 @@ mod tests {
         let arr_id = root
             .as_map()
             .unwrap()
-            .get(&ObjectKey::String("arr".into()))
+            .get_node_id(&ObjectKey::String("arr".into()))
             .unwrap();
         assert_eq!(
             synth(&doc, arr_id),
@@ -183,7 +183,7 @@ mod tests {
         let arr_id = root
             .as_map()
             .unwrap()
-            .get(&ObjectKey::String("arr".into()))
+            .get_node_id(&ObjectKey::String("arr".into()))
             .unwrap();
         assert_eq!(
             synth(&doc, arr_id),
@@ -198,7 +198,7 @@ mod tests {
         let arr_id = root
             .as_map()
             .unwrap()
-            .get(&ObjectKey::String("arr".into()))
+            .get_node_id(&ObjectKey::String("arr".into()))
             .unwrap();
         assert_eq!(
             synth(&doc, arr_id),
@@ -218,7 +218,7 @@ mod tests {
         let tup_id = root
             .as_map()
             .unwrap()
-            .get(&ObjectKey::String("tup".into()))
+            .get_node_id(&ObjectKey::String("tup".into()))
             .unwrap();
         assert_eq!(
             synth(&doc, tup_id),
@@ -256,11 +256,10 @@ mod tests {
         let a1_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(
             1,
         ))));
-        let rec1_id = doc.create_node(NodeValue::Map(eure_document::document::node::NodeMap(
-            [(ObjectKey::String("a".into()), a1_id)]
-                .into_iter()
-                .collect(),
-        )));
+        let rec1_id = doc.create_node(NodeValue::Map(NodeMap::from_iter([(
+            ObjectKey::String("a".into()),
+            a1_id,
+        )])));
 
         // Create second record: { a = "x", b = "y" }
         let a2_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(
@@ -269,14 +268,10 @@ mod tests {
         let b2_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(
             "y",
         ))));
-        let rec2_id = doc.create_node(NodeValue::Map(eure_document::document::node::NodeMap(
-            [
-                (ObjectKey::String("a".into()), a2_id),
-                (ObjectKey::String("b".into()), b2_id),
-            ]
-            .into_iter()
-            .collect(),
-        )));
+        let rec2_id = doc.create_node(NodeValue::Map(NodeMap::from_iter([
+            (ObjectKey::String("a".into()), a2_id),
+            (ObjectKey::String("b".into()), b2_id),
+        ])));
 
         // Create array
         let arr_id = doc.create_node(NodeValue::Array(NodeArray(vec![rec1_id, rec2_id])));
@@ -357,20 +352,18 @@ mod tests {
         let a1_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(
             1,
         ))));
-        let rec1_id = doc.create_node(NodeValue::Map(eure_document::document::node::NodeMap(
-            [(ObjectKey::String("a".into()), a1_id)]
-                .into_iter()
-                .collect(),
-        )));
+        let rec1_id = doc.create_node(NodeValue::Map(NodeMap::from_iter([(
+            ObjectKey::String("a".into()),
+            a1_id,
+        )])));
 
         let a2_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(
             "x",
         ))));
-        let rec2_id = doc.create_node(NodeValue::Map(eure_document::document::node::NodeMap(
-            [(ObjectKey::String("a".into()), a2_id)]
-                .into_iter()
-                .collect(),
-        )));
+        let rec2_id = doc.create_node(NodeValue::Map(NodeMap::from_iter([(
+            ObjectKey::String("a".into()),
+            a2_id,
+        )])));
 
         let arr_id = doc.create_node(NodeValue::Array(NodeArray(vec![rec1_id, rec2_id])));
 

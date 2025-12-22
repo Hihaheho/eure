@@ -4,8 +4,8 @@ extern crate alloc;
 
 use alloc::format;
 
+use crate::parse::DocumentParser;
 use crate::prelude_internal::*;
-use crate::{document::node::NodeMap, parse::DocumentParser};
 
 use super::{
     AccessedSet, FlattenContext, ParseContext, ParseDocument, ParseError, ParseErrorKind,
@@ -147,7 +147,7 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        let ctx = ParseContext::with_union_tag_mode(self.doc, field_node_id, self.union_tag_mode);
+        let ctx = ParseContext::with_union_tag_mode(self.doc, *field_node_id, self.union_tag_mode);
         parser.parse(&ctx)
     }
 
@@ -174,8 +174,11 @@ impl<'doc> RecordParser<'doc> {
         self.mark_accessed(name);
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => {
-                let ctx =
-                    ParseContext::with_union_tag_mode(self.doc, field_node_id, self.union_tag_mode);
+                let ctx = ParseContext::with_union_tag_mode(
+                    self.doc,
+                    *field_node_id,
+                    self.union_tag_mode,
+                );
                 Ok(Some(parser.parse(&ctx)?))
             }
             None => Ok(None),
@@ -197,7 +200,7 @@ impl<'doc> RecordParser<'doc> {
             })?;
         Ok(ParseContext::with_union_tag_mode(
             self.doc,
-            field_node_id,
+            *field_node_id,
             self.union_tag_mode,
         ))
     }
@@ -211,7 +214,7 @@ impl<'doc> RecordParser<'doc> {
         self.map
             .get(&ObjectKey::String(name.to_string()))
             .map(|node_id| {
-                ParseContext::with_union_tag_mode(self.doc, node_id, self.union_tag_mode)
+                ParseContext::with_union_tag_mode(self.doc, *node_id, self.union_tag_mode)
             })
     }
 
@@ -229,7 +232,7 @@ impl<'doc> RecordParser<'doc> {
             })?;
         RecordParser::from_doc_and_node_with_flatten_ctx(
             self.doc,
-            field_node_id,
+            *field_node_id,
             None,
             self.union_tag_mode,
         )
@@ -246,7 +249,7 @@ impl<'doc> RecordParser<'doc> {
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => Ok(Some(RecordParser::from_doc_and_node_with_flatten_ctx(
                 self.doc,
-                field_node_id,
+                *field_node_id,
                 None,
                 self.union_tag_mode,
             )?)),

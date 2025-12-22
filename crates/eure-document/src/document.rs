@@ -1,7 +1,7 @@
 pub mod constructor;
 pub mod node;
 
-use crate::document::node::{NodeArray, NodeMap, NodeTuple};
+use crate::document::node::{NodeArray, NodeTuple};
 use crate::prelude_internal::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -302,8 +302,11 @@ impl EureDocument {
         let existing = match &segment {
             PathSegment::Ident(identifier) => node
                 .as_map()
-                .and_then(|m| m.get(&ObjectKey::String(identifier.clone().into_string()))),
-            PathSegment::Value(object_key) => node.as_map().and_then(|m| m.get(object_key)),
+                .and_then(|m| m.get(&ObjectKey::String(identifier.clone().into_string())))
+                .copied(),
+            PathSegment::Value(object_key) => {
+                node.as_map().and_then(|m| m.get(object_key)).copied()
+            }
             PathSegment::Extension(identifier) => node.get_extension(identifier),
             PathSegment::TupleIndex(index) => node.as_tuple().and_then(|t| t.get(*index as usize)),
             PathSegment::ArrayIndex(Some(index)) => node.as_array().and_then(|a| a.get(*index)),
@@ -405,7 +408,7 @@ mod tests {
             .node_id;
 
         let map = doc.node(map_id).as_map().expect("Expected map");
-        assert_eq!(map.get(&key), Some(child_id));
+        assert_eq!(map.get(&key), Some(&child_id));
     }
 
     #[test]

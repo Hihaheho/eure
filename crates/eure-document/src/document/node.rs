@@ -232,43 +232,10 @@ impl From<PrimitiveValue> for NodeValue {
 pub struct NodeArray(pub Vec<NodeId>);
 
 // TODO: Remove `pub`
-#[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
-#[plural(len, is_empty, iter, into_iter, into_iter_ref, new)]
-pub struct NodeMap(pub Map<ObjectKey, NodeId>);
-
-// TODO: Remove `pub`
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Plural)]
 pub struct NodeTuple(pub Vec<NodeId>);
 
-impl NodeMap {
-    pub fn get(&self, key: &ObjectKey) -> Option<NodeId> {
-        self.0.get(key).copied()
-    }
-
-    pub fn add(&mut self, key: ObjectKey, node_id: NodeId) -> Result<(), InsertErrorKind> {
-        if self.0.contains_key(&key) {
-            return Err(InsertErrorKind::AlreadyAssigned { key });
-        }
-        self.0.insert(key, node_id);
-        Ok(())
-    }
-
-    pub fn replace(&mut self, key: ObjectKey, node_id: NodeId) {
-        self.0.insert(key, node_id);
-    }
-
-    /// O(1) removal, may reorder remaining keys.
-    /// Use when order doesn't matter (e.g., batch processing).
-    pub fn remove_fast(&mut self, key: &ObjectKey) -> Option<NodeId> {
-        self.0.swap_remove(key)
-    }
-
-    /// O(n) removal, preserves document order.
-    /// Use when order must be maintained.
-    pub fn remove_ordered(&mut self, key: &ObjectKey) -> Option<NodeId> {
-        self.0.shift_remove(key)
-    }
-}
+pub type NodeMap = Map<ObjectKey, NodeId>;
 
 impl NodeTuple {
     pub fn get(&self, index: usize) -> Option<NodeId> {

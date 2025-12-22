@@ -147,7 +147,7 @@ mod tests {
         let doc = c.finish();
         let map = doc.root().as_map().unwrap();
         let name_id = map.get(&ObjectKey::String("name".to_string())).unwrap();
-        let node = doc.node(name_id);
+        let node = doc.node(*name_id);
         assert_eq!(
             node.content,
             NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("Alice")))
@@ -196,7 +196,7 @@ mod tests {
         let doc = c.finish();
         let map = doc.root().as_map().unwrap();
         let nested_id = map.get(&ObjectKey::String("nested".to_string())).unwrap();
-        let nested = doc.node(nested_id).as_map().unwrap();
+        let nested = doc.node(*nested_id).as_map().unwrap();
         assert!(
             nested
                 .get(&ObjectKey::String("inner".to_string()))

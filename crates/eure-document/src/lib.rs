@@ -43,18 +43,18 @@ pub mod source;
 /// Macro for building Eure documents.
 mod eure_macro;
 
-pub use indexmap::IndexMap as Map;
+pub mod map;
 
 pub(crate) mod prelude_internal {
     #![allow(unused_imports)]
     #![allow(deprecated)]
-    pub use crate::Map;
     pub use crate::data_model::*;
     pub use crate::document::constructor::DocumentConstructor;
-    pub use crate::document::node::{Node, NodeMut, NodeValue};
+    pub use crate::document::node::{Node, NodeMap, NodeMut, NodeValue};
     pub use crate::document::{EureDocument, InsertError, InsertErrorKind, NodeId};
     pub use crate::eure;
     pub use crate::identifier::Identifier;
+    pub use crate::map::Map;
     pub use crate::path::{EurePath, PathSegment};
     pub use crate::text::{Language, SyntaxHint, Text, TextParseError};
     pub use crate::value::{ObjectKey, PrimitiveValue};

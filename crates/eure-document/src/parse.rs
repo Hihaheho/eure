@@ -21,7 +21,7 @@ use core::cell::RefCell;
 use num_bigint::BigInt;
 
 use core::marker::PhantomData;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
     data_model::VariantRepr,
@@ -993,21 +993,14 @@ parse_tuple!(14, A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 parse_tuple!(15, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 parse_tuple!(16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
-impl<'doc, K, T> ParseDocument<'doc> for Map<K, T>
-where
-    K: ParseObjectKey<'doc>,
-    T: ParseDocument<'doc>,
-    T::Error: From<ParseError>,
-{
-    type Error = T::Error;
-
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        ctx.ensure_no_variant_path()?;
-        let map = match &ctx.node().content {
+macro_rules! parse_map {
+    ($ctx:ident) => {{
+        $ctx.ensure_no_variant_path()?;
+        let map = match &$ctx.node().content {
             NodeValue::Map(map) => map,
             value => {
                 return Err(ParseError {
-                    node_id: ctx.node_id(),
+                    node_id: $ctx.node_id(),
                     kind: handle_unexpected_node_value(value),
                 }
                 .into());
@@ -1017,13 +1010,50 @@ where
             .map(|(key, value)| {
                 Ok((
                     K::from_object_key(key).map_err(|kind| ParseError {
-                        node_id: ctx.node_id(),
+                        node_id: $ctx.node_id(),
                         kind,
                     })?,
-                    T::parse(&ctx.at(*value))?,
+                    T::parse(&$ctx.at(*value))?,
                 ))
             })
-            .collect::<Result<Map<_, _>, _>>()
+            .collect::<Result<_, _>>()
+    }};
+}
+
+impl<'doc, K, T> ParseDocument<'doc> for Map<K, T>
+where
+    K: ParseObjectKey<'doc>,
+    T: ParseDocument<'doc>,
+    T::Error: From<ParseError>,
+{
+    type Error = T::Error;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        parse_map!(ctx)
+    }
+}
+
+impl<'doc, K, T> ParseDocument<'doc> for BTreeMap<K, T>
+where
+    K: ParseObjectKey<'doc>,
+    T: ParseDocument<'doc>,
+    T::Error: From<ParseError>,
+{
+    type Error = T::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        parse_map!(ctx)
+    }
+}
+
+impl<'doc, K, T> ParseDocument<'doc> for HashMap<K, T>
+where
+    K: ParseObjectKey<'doc>,
+    T: ParseDocument<'doc>,
+    T::Error: From<ParseError>,
+{
+    type Error = T::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        parse_map!(ctx)
     }
 }
 

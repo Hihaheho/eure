@@ -61,7 +61,7 @@ Implements LSP for IDE integration with semantic tokens, diagnostics, and format
 **Testing Guidelines:**
 - Use `eure!` macro for both test input and expected documents
 - Compare entire documents with `assert_eq!`, not manual tree traversal
-- NEVER use manual document construction or `doc.node(...).as_map().unwrap().get(...)` patterns
+- NEVER use manual document construction or `doc.node(...).as_map().unwrap().get_node_id(...)` patterns
 
 ```rust
 // Good
@@ -69,14 +69,14 @@ let expected = eure!({ name = "Alice", active = true });
 assert_eq!(actual_doc, expected);
 
 // Bad: manual traversal
-let name_id = doc.node(root_id).as_map().unwrap().get(&"name".into()).unwrap();
+let name_id = doc.node(root_id).as_map().unwrap().get_node_id(&"name".into()).unwrap();
 assert_eq!(doc.node(name_id).as_primitive().unwrap().as_str(), Some("Alice"));
 ```
 
 **Error Handling**
 
 - MUST handle errors properly, and NEVER ignore or fallback errors or invalid states.
-- Error data must be enum with thiserror, never use String. 
+- Error data must be enum with thiserror, never use String.
 
 **ParseDocument API:**
 - Use `ParseDocument` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.

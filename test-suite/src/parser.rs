@@ -1,7 +1,6 @@
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use eure::{
-    Map,
     data_model::VariantRepr,
     document::{
         DocumentConstructionError, NodeValue,
@@ -445,7 +444,7 @@ fn parse_unimplemented_field<'doc>(
 pub struct CaseFile {
     pub path: PathBuf,
     pub default_case: CaseData,
-    pub named_cases: Map<String, CaseData>,
+    pub named_cases: BTreeMap<String, CaseData>,
 }
 
 impl CaseFile {
@@ -537,10 +536,10 @@ impl ParseDocument<'_> for CaseFile {
                 // Try to parse as Map<String, CaseData>. If it fails (e.g., it's an array),
                 // just return an empty map and let the tests handle unknown fields.
                 cases_ctx
-                    .parse::<Map<String, CaseData>>()
+                    .parse::<BTreeMap<String, CaseData>>()
                     .unwrap_or_default()
             }
-            None => Map::default(),
+            None => BTreeMap::default(),
         };
 
         rec.deny_unknown_fields()?;

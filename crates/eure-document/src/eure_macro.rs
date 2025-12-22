@@ -902,7 +902,7 @@ mod tests {
         // Verify the structure
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let name_node_id = root.as_map().unwrap().get(&"name".into()).unwrap();
+        let name_node_id = root.as_map().unwrap().get_node_id(&"name".into()).unwrap();
         let name_node = doc.node(name_node_id);
         let prim = name_node.as_primitive().unwrap();
         assert_eq!(prim.as_str(), Some("Alice"));
@@ -918,13 +918,13 @@ mod tests {
         // Verify structure: root.user.name = "Bob", root.user.age = 30
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let user_id = root.as_map().unwrap().get(&"user".into()).unwrap();
+        let user_id = root.as_map().unwrap().get_node_id(&"user".into()).unwrap();
         let user = doc.node(user_id);
-        let name_id = user.as_map().unwrap().get(&"name".into()).unwrap();
+        let name_id = user.as_map().unwrap().get_node_id(&"name".into()).unwrap();
         let name = doc.node(name_id);
         assert_eq!(name.as_primitive().unwrap().as_str(), Some("Bob"));
 
-        let age_id = user.as_map().unwrap().get(&"age".into()).unwrap();
+        let age_id = user.as_map().unwrap().get_node_id(&"age".into()).unwrap();
         let age = doc.node(age_id);
         assert!(matches!(
             age.as_primitive(),
@@ -943,9 +943,9 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let user_id = root.as_map().unwrap().get(&"user".into()).unwrap();
+        let user_id = root.as_map().unwrap().get_node_id(&"user".into()).unwrap();
         let user = doc.node(user_id);
-        let name_id = user.as_map().unwrap().get(&"name".into()).unwrap();
+        let name_id = user.as_map().unwrap().get_node_id(&"name".into()).unwrap();
         let name = doc.node(name_id);
         assert_eq!(name.as_primitive().unwrap().as_str(), Some("Charlie"));
     }
@@ -958,7 +958,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let field_id = root.as_map().unwrap().get(&"field".into()).unwrap();
+        let field_id = root.as_map().unwrap().get_node_id(&"field".into()).unwrap();
         let field = doc.node(field_id);
 
         // Check extension
@@ -978,7 +978,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let field_id = root.as_map().unwrap().get(&"field".into()).unwrap();
+        let field_id = root.as_map().unwrap().get_node_id(&"field".into()).unwrap();
         let field = doc.node(field_id);
 
         // Check extension
@@ -986,12 +986,20 @@ mod tests {
         let variant = doc.node(variant_id);
 
         // Check child of extension
-        let name_id = variant.as_map().unwrap().get(&"name".into()).unwrap();
+        let name_id = variant
+            .as_map()
+            .unwrap()
+            .get_node_id(&"name".into())
+            .unwrap();
         let name = doc.node(name_id);
         let text = name.as_primitive().unwrap().as_text().unwrap();
         assert_eq!(text.as_str(), "text");
 
-        let min_length_id = variant.as_map().unwrap().get(&"min_length".into()).unwrap();
+        let min_length_id = variant
+            .as_map()
+            .unwrap()
+            .get_node_id(&"min_length".into())
+            .unwrap();
         let min_length = doc.node(min_length_id);
         assert!(matches!(
             min_length.as_primitive(),
@@ -1005,7 +1013,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let tags_id = root.as_map().unwrap().get(&"tags".into()).unwrap();
+        let tags_id = root.as_map().unwrap().get_node_id(&"tags".into()).unwrap();
         let tags = doc.node(tags_id);
         let array = tags.as_array().unwrap();
         assert_eq!(array.len(), 3);
@@ -1017,7 +1025,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let point_id = root.as_map().unwrap().get(&"point".into()).unwrap();
+        let point_id = root.as_map().unwrap().get_node_id(&"point".into()).unwrap();
         let point = doc.node(point_id);
         let tuple = point.as_tuple().unwrap();
         assert_eq!(tuple.len(), 2);
@@ -1053,16 +1061,24 @@ mod tests {
         let root = doc.node(root_id);
 
         // Check schema exists
-        let schema_id = root.as_map().unwrap().get(&"schema".into()).unwrap();
+        let schema_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"schema".into())
+            .unwrap();
         let schema = doc.node(schema_id);
 
         // Check field exists with extension
-        let field_id = schema.as_map().unwrap().get(&"field".into()).unwrap();
+        let field_id = schema
+            .as_map()
+            .unwrap()
+            .get_node_id(&"field".into())
+            .unwrap();
         let field = doc.node(field_id);
         assert!(field.get_extension(&"variant".parse().unwrap()).is_some());
 
         // Check tags array
-        let tags_id = root.as_map().unwrap().get(&"tags".into()).unwrap();
+        let tags_id = root.as_map().unwrap().get_node_id(&"tags".into()).unwrap();
         let tags = doc.node(tags_id);
         assert_eq!(tags.as_array().unwrap().len(), 1);
     }
@@ -1078,7 +1094,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items_id = root.as_map().unwrap().get_node_id(&"items".into()).unwrap();
         let items = doc.node(items_id);
         let array = items.as_array().unwrap();
         assert_eq!(array.len(), 3);
@@ -1094,7 +1110,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items_id = root.as_map().unwrap().get_node_id(&"items".into()).unwrap();
         let items = doc.node(items_id);
         let array = items.as_array().unwrap();
         assert_eq!(array.len(), 2);
@@ -1102,7 +1118,7 @@ mod tests {
         // Check first element has name = "first"
         let first_id = array.get(0).unwrap();
         let first = doc.node(first_id);
-        let name_id = first.as_map().unwrap().get(&"name".into()).unwrap();
+        let name_id = first.as_map().unwrap().get_node_id(&"name".into()).unwrap();
         let name = doc.node(name_id);
         assert_eq!(name.as_primitive().unwrap().as_str(), Some("first"));
     }
@@ -1117,7 +1133,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let point_id = root.as_map().unwrap().get(&"point".into()).unwrap();
+        let point_id = root.as_map().unwrap().get_node_id(&"point".into()).unwrap();
         let point = doc.node(point_id);
         let tuple = point.as_tuple().unwrap();
         assert_eq!(tuple.len(), 2);
@@ -1133,7 +1149,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let field_id = root.as_map().unwrap().get(&"field".into()).unwrap();
+        let field_id = root.as_map().unwrap().get_node_id(&"field".into()).unwrap();
         let field = doc.node(field_id);
 
         // Get extension
@@ -1153,7 +1169,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items_id = root.as_map().unwrap().get_node_id(&"items".into()).unwrap();
         let items = doc.node(items_id);
         let array = items.as_array().unwrap();
         assert_eq!(array.len(), 2);
@@ -1181,14 +1197,14 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let map_id = root.as_map().unwrap().get(&"map".into()).unwrap();
+        let map_id = root.as_map().unwrap().get_node_id(&"map".into()).unwrap();
         let map_node = doc.node(map_id);
         let map = map_node.as_map().unwrap();
         assert_eq!(map.len(), 2);
 
         // Check key (1, "key") exists
         let tuple_key = ObjectKey::Tuple(Tuple(alloc::vec![1.into(), "key".into()]));
-        let value_id = map.get(&tuple_key).unwrap();
+        let value_id = map.get_node_id(&tuple_key).unwrap();
         let value = doc.node(value_id);
         assert_eq!(value.as_primitive().unwrap().as_str(), Some("value1"));
     }
@@ -1205,14 +1221,14 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let map_id = root.as_map().unwrap().get(&"map".into()).unwrap();
+        let map_id = root.as_map().unwrap().get_node_id(&"map".into()).unwrap();
         let map_node = doc.node(map_id);
         let map = map_node.as_map().unwrap();
         assert_eq!(map.len(), 2);
 
         // Check key (true, 1) exists
         let tuple_key = ObjectKey::Tuple(Tuple(alloc::vec![true.into(), 1.into()]));
-        let value_id = map.get(&tuple_key).unwrap();
+        let value_id = map.get_node_id(&tuple_key).unwrap();
         let value = doc.node(value_id);
         assert_eq!(value.as_primitive().unwrap().as_str(), Some("yes"));
     }
@@ -1229,17 +1245,17 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let map_id = root.as_map().unwrap().get(&"map".into()).unwrap();
+        let map_id = root.as_map().unwrap().get_node_id(&"map".into()).unwrap();
         let map_node = doc.node(map_id);
         let map = map_node.as_map().unwrap();
 
         // Check key (1, 2) has children
         let tuple_key = ObjectKey::Tuple(Tuple(alloc::vec![1.into(), 2.into()]));
-        let entry_id = map.get(&tuple_key).unwrap();
+        let entry_id = map.get_node_id(&tuple_key).unwrap();
         let entry = doc.node(entry_id);
         let entry_map = entry.as_map().unwrap();
 
-        let name_id = entry_map.get(&"name".into()).unwrap();
+        let name_id = entry_map.get_node_id(&"name".into()).unwrap();
         let name = doc.node(name_id);
         assert_eq!(name.as_primitive().unwrap().as_str(), Some("point_a"));
     }
@@ -1254,12 +1270,12 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let field_id = root.as_map().unwrap().get(&"field".into()).unwrap();
+        let field_id = root.as_map().unwrap().get_node_id(&"field".into()).unwrap();
         let field = doc.node(field_id);
         let field_map = field.as_map().unwrap();
 
         // Check "min-length" key exists
-        let min_id = field_map.get(&"min-length".into()).unwrap();
+        let min_id = field_map.get_node_id(&"min-length".into()).unwrap();
         let min_node = doc.node(min_id);
         assert!(matches!(
             min_node.as_primitive(),
@@ -1276,9 +1292,17 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let variants_id = root.as_map().unwrap().get(&"variants".into()).unwrap();
+        let variants_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"variants".into())
+            .unwrap();
         let variants = doc.node(variants_id);
-        let click_id = variants.as_map().unwrap().get(&"click".into()).unwrap();
+        let click_id = variants
+            .as_map()
+            .unwrap()
+            .get_node_id(&"click".into())
+            .unwrap();
         let click = doc.node(click_id);
         let click_map = click.as_map().unwrap();
 
@@ -1296,15 +1320,27 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let schema_id = root.as_map().unwrap().get(&"schema".into()).unwrap();
+        let schema_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"schema".into())
+            .unwrap();
         let schema = doc.node(schema_id);
-        let variants_id = schema.as_map().unwrap().get(&"variants".into()).unwrap();
+        let variants_id = schema
+            .as_map()
+            .unwrap()
+            .get_node_id(&"variants".into())
+            .unwrap();
         let variants = doc.node(variants_id);
-        let success_id = variants.as_map().unwrap().get(&"success".into()).unwrap();
+        let success_id = variants
+            .as_map()
+            .unwrap()
+            .get_node_id(&"success".into())
+            .unwrap();
         let success = doc.node(success_id);
         let success_map = success.as_map().unwrap();
 
-        let data_id = success_map.get(&"data".into()).unwrap();
+        let data_id = success_map.get_node_id(&"data".into()).unwrap();
         let data = doc.node(data_id);
         assert_eq!(data.as_primitive().unwrap().as_str(), Some("any"));
     }
@@ -1350,7 +1386,11 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let config_id = root.as_map().unwrap().get(&"config".into()).unwrap();
+        let config_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"config".into())
+            .unwrap();
         let config = doc.node(config_id);
 
         // Should be an empty map, not Hole
@@ -1371,7 +1411,11 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let opt_id = root.as_map().unwrap().get(&"optional".into()).unwrap();
+        let opt_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"optional".into())
+            .unwrap();
         let opt = doc.node(opt_id);
         assert!(matches!(
             opt.as_primitive(),
@@ -1405,7 +1449,11 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let placeholder_id = root.as_map().unwrap().get(&"placeholder".into()).unwrap();
+        let placeholder_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"placeholder".into())
+            .unwrap();
         let placeholder = doc.node(placeholder_id);
         assert_eq!(placeholder.content, NodeValue::Hole(None));
     }
@@ -1435,7 +1483,11 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let snippet_id = root.as_map().unwrap().get(&"snippet".into()).unwrap();
+        let snippet_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"snippet".into())
+            .unwrap();
         let snippet = doc.node(snippet_id);
         let text = snippet.as_primitive().unwrap().as_text().unwrap();
         assert_eq!(text.as_str(), "let x = 1");
@@ -1451,7 +1503,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let query_id = root.as_map().unwrap().get(&"query".into()).unwrap();
+        let query_id = root.as_map().unwrap().get_node_id(&"query".into()).unwrap();
         let query = doc.node(query_id);
         let text = query.as_primitive().unwrap().as_text().unwrap();
         assert_eq!(text.as_str(), "SELECT * FROM users");
@@ -1467,7 +1519,11 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let script_id = root.as_map().unwrap().get(&"script".into()).unwrap();
+        let script_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"script".into())
+            .unwrap();
         let script = doc.node(script_id);
         let text = script.as_primitive().unwrap().as_text().unwrap();
         // block adds trailing newline
@@ -1484,7 +1540,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let code_id = root.as_map().unwrap().get(&"code".into()).unwrap();
+        let code_id = root.as_map().unwrap().get_node_id(&"code".into()).unwrap();
         let code = doc.node(code_id);
         let text = code.as_primitive().unwrap().as_text().unwrap();
         assert_eq!(text.language.as_str(), Some("rust"));
@@ -1560,7 +1616,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items_id = root.as_map().unwrap().get_node_id(&"items".into()).unwrap();
         let items = doc.node(items_id);
         let array = items.as_array().unwrap();
         assert_eq!(array.len(), 2);
@@ -1586,7 +1642,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items_id = root.as_map().unwrap().get_node_id(&"items".into()).unwrap();
         let items = doc.node(items_id);
         let array = items.as_array().unwrap();
         assert_eq!(array.len(), 2);
@@ -1594,7 +1650,7 @@ mod tests {
         // Check first element
         let first_id = array.get(0).unwrap();
         let first = doc.node(first_id);
-        let name_id = first.as_map().unwrap().get(&"name".into()).unwrap();
+        let name_id = first.as_map().unwrap().get_node_id(&"name".into()).unwrap();
         let name = doc.node(name_id);
         assert_eq!(name.as_primitive().unwrap().as_str(), Some("first"));
     }
@@ -1613,13 +1669,13 @@ mod tests {
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
 
-        let a_id = root.as_map().unwrap().get(&"a".into()).unwrap();
+        let a_id = root.as_map().unwrap().get_node_id(&"a".into()).unwrap();
         let a = doc.node(a_id);
 
-        let b_id = a.as_map().unwrap().get(&"b".into()).unwrap();
+        let b_id = a.as_map().unwrap().get_node_id(&"b".into()).unwrap();
         let b = doc.node(b_id);
 
-        let c_id = b.as_map().unwrap().get(&"c".into()).unwrap();
+        let c_id = b.as_map().unwrap().get_node_id(&"c".into()).unwrap();
         let c = doc.node(c_id);
 
         // c should be an empty map
@@ -1638,7 +1694,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let field_id = root.as_map().unwrap().get(&"field".into()).unwrap();
+        let field_id = root.as_map().unwrap().get_node_id(&"field".into()).unwrap();
         let field = doc.node(field_id);
 
         // Check all extensions exist
@@ -1664,7 +1720,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items_id = root.as_map().unwrap().get_node_id(&"items".into()).unwrap();
         let items = doc.node(items_id);
         let array = items.as_array().unwrap();
         assert_eq!(array.len(), 2);
@@ -1678,7 +1734,11 @@ mod tests {
             variant.as_primitive().unwrap().as_text().unwrap().as_str(),
             "text"
         );
-        let value_id = first.as_map().unwrap().get(&"value".into()).unwrap();
+        let value_id = first
+            .as_map()
+            .unwrap()
+            .get_node_id(&"value".into())
+            .unwrap();
         let value = doc.node(value_id);
         assert_eq!(value.as_primitive().unwrap().as_str(), Some("first"));
 
@@ -1701,17 +1761,17 @@ mod tests {
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
 
-        let a_id = root.as_map().unwrap().get(&"a".into()).unwrap();
+        let a_id = root.as_map().unwrap().get_node_id(&"a".into()).unwrap();
         let a = doc.node(a_id);
-        let b_id = a.as_map().unwrap().get(&"b".into()).unwrap();
+        let b_id = a.as_map().unwrap().get_node_id(&"b".into()).unwrap();
         let b = doc.node(b_id);
-        let c_id = b.as_map().unwrap().get(&"c".into()).unwrap();
+        let c_id = b.as_map().unwrap().get_node_id(&"c".into()).unwrap();
         let c = doc.node(c_id);
-        let d_id = c.as_map().unwrap().get(&"d".into()).unwrap();
+        let d_id = c.as_map().unwrap().get_node_id(&"d".into()).unwrap();
         let d = doc.node(d_id);
-        let e_id = d.as_map().unwrap().get(&"e".into()).unwrap();
+        let e_id = d.as_map().unwrap().get_node_id(&"e".into()).unwrap();
         let e = doc.node(e_id);
-        let f_id = e.as_map().unwrap().get(&"f".into()).unwrap();
+        let f_id = e.as_map().unwrap().get_node_id(&"f".into()).unwrap();
         let f = doc.node(f_id);
 
         assert_eq!(f.as_primitive().unwrap().as_str(), Some("deep"));
@@ -1724,7 +1784,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let items_id = root.as_map().unwrap().get(&"items".into()).unwrap();
+        let items_id = root.as_map().unwrap().get_node_id(&"items".into()).unwrap();
         let items = doc.node(items_id);
         let array = items.as_array().unwrap();
         assert!(array.is_empty());
@@ -1737,7 +1797,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let point_id = root.as_map().unwrap().get(&"point".into()).unwrap();
+        let point_id = root.as_map().unwrap().get_node_id(&"point".into()).unwrap();
         let point = doc.node(point_id);
         let tuple = point.as_tuple().unwrap();
         assert!(tuple.is_empty());
@@ -1751,7 +1811,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let data_id = root.as_map().unwrap().get(&"data".into()).unwrap();
+        let data_id = root.as_map().unwrap().get_node_id(&"data".into()).unwrap();
         let data = doc.node(data_id);
         let map = data.as_map().unwrap();
         assert!(map.is_empty());
@@ -1772,7 +1832,7 @@ mod tests {
         let map = root.as_map().unwrap();
         assert_eq!(map.len(), 4);
 
-        let age_id = map.get(&"age".into()).unwrap();
+        let age_id = map.get_node_id(&"age".into()).unwrap();
         let age = doc.node(age_id);
         assert!(matches!(
             age.as_primitive(),
@@ -1795,9 +1855,9 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let user_id = root.as_map().unwrap().get(&"user".into()).unwrap();
+        let user_id = root.as_map().unwrap().get_node_id(&"user".into()).unwrap();
         let user = doc.node(user_id);
-        let name_id = user.as_map().unwrap().get(&"name".into()).unwrap();
+        let name_id = user.as_map().unwrap().get_node_id(&"name".into()).unwrap();
         let name = doc.node(name_id);
         assert_eq!(name.as_primitive().unwrap().as_str(), Some("Alice"));
     }
@@ -1816,13 +1876,23 @@ mod tests {
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
 
-        let user_id = root.as_map().unwrap().get(&"user".into()).unwrap();
+        let user_id = root.as_map().unwrap().get_node_id(&"user".into()).unwrap();
         let user = doc.node(user_id);
-        assert!(user.as_map().unwrap().get(&"name".into()).is_some());
+        assert!(user.as_map().unwrap().get_node_id(&"name".into()).is_some());
 
-        let settings_id = root.as_map().unwrap().get(&"settings".into()).unwrap();
+        let settings_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"settings".into())
+            .unwrap();
         let settings = doc.node(settings_id);
-        assert!(settings.as_map().unwrap().get(&"theme".into()).is_some());
+        assert!(
+            settings
+                .as_map()
+                .unwrap()
+                .get_node_id(&"theme".into())
+                .is_some()
+        );
     }
 
     #[test]
@@ -1835,11 +1905,21 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let user_id = root.as_map().unwrap().get(&"user".into()).unwrap();
+        let user_id = root.as_map().unwrap().get_node_id(&"user".into()).unwrap();
         let user = doc.node(user_id);
-        let profile_id = user.as_map().unwrap().get(&"profile".into()).unwrap();
+        let profile_id = user
+            .as_map()
+            .unwrap()
+            .get_node_id(&"profile".into())
+            .unwrap();
         let profile = doc.node(profile_id);
-        assert!(profile.as_map().unwrap().get(&"name".into()).is_some());
+        assert!(
+            profile
+                .as_map()
+                .unwrap()
+                .get_node_id(&"name".into())
+                .is_some()
+        );
     }
 
     #[test]
@@ -1854,10 +1934,10 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let user_id = root.as_map().unwrap().get(&"user".into()).unwrap();
+        let user_id = root.as_map().unwrap().get_node_id(&"user".into()).unwrap();
         let user = doc.node(user_id);
-        assert!(user.as_map().unwrap().get(&"name".into()).is_some());
-        assert!(user.as_map().unwrap().get(&"age".into()).is_some());
+        assert!(user.as_map().unwrap().get_node_id(&"name".into()).is_some());
+        assert!(user.as_map().unwrap().get_node_id(&"age".into()).is_some());
     }
 
     #[test]
@@ -1875,15 +1955,47 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let config_id = root.as_map().unwrap().get(&"config".into()).unwrap();
+        let config_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"config".into())
+            .unwrap();
         let config = doc.node(config_id);
-        assert!(config.as_map().unwrap().get(&"server".into()).is_some());
-        assert!(config.as_map().unwrap().get(&"debug".into()).is_some());
+        assert!(
+            config
+                .as_map()
+                .unwrap()
+                .get_node_id(&"server".into())
+                .is_some()
+        );
+        assert!(
+            config
+                .as_map()
+                .unwrap()
+                .get_node_id(&"debug".into())
+                .is_some()
+        );
 
-        let server_id = config.as_map().unwrap().get(&"server".into()).unwrap();
+        let server_id = config
+            .as_map()
+            .unwrap()
+            .get_node_id(&"server".into())
+            .unwrap();
         let server = doc.node(server_id);
-        assert!(server.as_map().unwrap().get(&"host".into()).is_some());
-        assert!(server.as_map().unwrap().get(&"port".into()).is_some());
+        assert!(
+            server
+                .as_map()
+                .unwrap()
+                .get_node_id(&"host".into())
+                .is_some()
+        );
+        assert!(
+            server
+                .as_map()
+                .unwrap()
+                .get_node_id(&"port".into())
+                .is_some()
+        );
     }
 
     #[test]
@@ -1900,8 +2012,13 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        assert!(root.as_map().unwrap().get(&"user".into()).is_some());
-        assert!(root.as_map().unwrap().get(&"settings".into()).is_some());
+        assert!(root.as_map().unwrap().get_node_id(&"user".into()).is_some());
+        assert!(
+            root.as_map()
+                .unwrap()
+                .get_node_id(&"settings".into())
+                .is_some()
+        );
     }
 
     #[test]
@@ -1916,12 +2033,32 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let server_id = root.as_map().unwrap().get(&"server".into()).unwrap();
+        let server_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"server".into())
+            .unwrap();
         let server = doc.node(server_id);
-        let config_id = server.as_map().unwrap().get(&"config".into()).unwrap();
+        let config_id = server
+            .as_map()
+            .unwrap()
+            .get_node_id(&"config".into())
+            .unwrap();
         let config = doc.node(config_id);
-        assert!(config.as_map().unwrap().get(&"host".into()).is_some());
-        assert!(config.as_map().unwrap().get(&"port".into()).is_some());
+        assert!(
+            config
+                .as_map()
+                .unwrap()
+                .get_node_id(&"host".into())
+                .is_some()
+        );
+        assert!(
+            config
+                .as_map()
+                .unwrap()
+                .get_node_id(&"port".into())
+                .is_some()
+        );
     }
 
     #[test]
@@ -1933,7 +2070,7 @@ mod tests {
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        let empty_id = root.as_map().unwrap().get(&"empty".into()).unwrap();
+        let empty_id = root.as_map().unwrap().get_node_id(&"empty".into()).unwrap();
         let empty = doc.node(empty_id);
         // Empty block creates empty map
         assert!(empty.as_map().unwrap().is_empty());
@@ -1960,20 +2097,46 @@ mod tests {
         let root = doc.node(root_id);
 
         // user should have name
-        let user_id = root.as_map().unwrap().get(&"user".into()).unwrap();
+        let user_id = root.as_map().unwrap().get_node_id(&"user".into()).unwrap();
         let user = doc.node(user_id);
-        assert!(user.as_map().unwrap().get(&"name".into()).is_some());
+        assert!(user.as_map().unwrap().get_node_id(&"name".into()).is_some());
 
         // settings should have theme and debug
-        let settings_id = root.as_map().unwrap().get(&"settings".into()).unwrap();
+        let settings_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"settings".into())
+            .unwrap();
         let settings = doc.node(settings_id);
-        assert!(settings.as_map().unwrap().get(&"theme".into()).is_some());
-        assert!(settings.as_map().unwrap().get(&"debug".into()).is_some());
+        assert!(
+            settings
+                .as_map()
+                .unwrap()
+                .get_node_id(&"theme".into())
+                .is_some()
+        );
+        assert!(
+            settings
+                .as_map()
+                .unwrap()
+                .get_node_id(&"debug".into())
+                .is_some()
+        );
 
         // logging should have level
-        let logging_id = root.as_map().unwrap().get(&"logging".into()).unwrap();
+        let logging_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"logging".into())
+            .unwrap();
         let logging = doc.node(logging_id);
-        assert!(logging.as_map().unwrap().get(&"level".into()).is_some());
+        assert!(
+            logging
+                .as_map()
+                .unwrap()
+                .get_node_id(&"level".into())
+                .is_some()
+        );
     }
 
     #[test]

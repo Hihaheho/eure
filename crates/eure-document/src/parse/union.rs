@@ -81,7 +81,7 @@ fn try_extract_internal(
         return Ok(None);
     };
 
-    let variant_name: &str = doc.parse(tag_node_id)?;
+    let variant_name: &str = doc.parse(*tag_node_id)?;
     Ok(Some((variant_name.to_string(), node_id)))
 }
 
@@ -102,14 +102,14 @@ fn try_extract_adjacent(
         return Ok(None);
     };
 
-    let variant_name: &str = doc.parse(tag_node_id)?;
+    let variant_name: &str = doc.parse(*tag_node_id)?;
 
     let content_key = ObjectKey::String(content.to_string());
     let Some(content_node_id) = map.get(&content_key) else {
         return Ok(None);
     };
 
-    Ok(Some((variant_name.to_string(), content_node_id)))
+    Ok(Some((variant_name.to_string(), *content_node_id)))
 }
 
 // =============================================================================
