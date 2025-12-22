@@ -9,7 +9,7 @@ use crate::prelude_internal::*;
 
 use super::{
     AccessedSet, FlattenContext, ParseContext, ParseDocument, ParseError, ParseErrorKind,
-    UnionTagMode,
+    ParserScope, UnionTagMode,
 };
 
 /// Helper for parsing record (map with string keys) from Eure documents.
@@ -80,6 +80,17 @@ impl<'doc> RecordParser<'doc> {
         flatten_ctx: Option<FlattenContext>,
         union_tag_mode: UnionTagMode,
     ) -> Result<Self, ParseError> {
+        // Error if called in Extension scope - this is a user mistake
+        // (using #[eure(flatten_ext)] with a record-parsing type)
+        if let Some(fc) = &flatten_ctx
+            && fc.scope() == ParserScope::Extension
+        {
+            return Err(ParseError {
+                node_id,
+                kind: ParseErrorKind::RecordInExtensionScope,
+            });
+        }
+
         // Create or clone accessed set
         let accessed = match &flatten_ctx {
             Some(fc) => fc.accessed_set().clone(),
@@ -331,7 +342,7 @@ impl<'doc> RecordParser<'doc> {
         })
     }
 
-    /// Create a flatten context for child parsers.
+    /// Create a flatten context for child parsers in Record scope.
     ///
     /// This creates a FlattenContext initialized with the current accessed fields,
     /// and returns a ParseContext that children can use. Children created from this
@@ -345,8 +356,8 @@ impl<'doc> RecordParser<'doc> {
         let flatten_ctx = match &self.flatten_ctx {
             Some(fc) => fc.clone(),
             None => {
-                // Root: create new FlattenContext wrapping our AccessedSet
-                FlattenContext::from_accessed_set(self.accessed.clone())
+                // Root: create new FlattenContext wrapping our AccessedSet with Record scope
+                FlattenContext::new(self.accessed.clone(), ParserScope::Record)
             }
         };
 
@@ -384,6 +395,9 @@ pub struct ExtParser<'doc> {
 
 impl<'doc> ExtParser<'doc> {
     /// Create a new ExtParser for the given node.
+    ///
+    /// Extensions can be parsed from any context (record or extension scope).
+    /// Unlike record fields, extensions are available on all nodes.
     pub(crate) fn new(
         doc: &'doc EureDocument,
         node_id: NodeId,
@@ -547,6 +561,14 @@ impl<'doc> ExtParser<'doc> {
         // Nothing to do - just consume self
     }
 
+    /// Check if this parser is in a flatten context.
+    ///
+    /// When in a flatten context, the parent parser is responsible for validating
+    /// unknown extensions. This is used by schema validation to skip duplicate warnings.
+    pub fn in_flatten_context(&self) -> bool {
+        self.flatten_ctx.is_some()
+    }
+
     /// Get an iterator over unknown extensions (for custom handling).
     ///
     /// Returns (identifier, context) pairs for extensions that haven't been accessed.
@@ -566,7 +588,7 @@ impl<'doc> ExtParser<'doc> {
         })
     }
 
-    /// Create a flatten context for child parsers.
+    /// Create a flatten context for child parsers in Extension scope.
     ///
     /// This creates a FlattenContext initialized with the current accessed extensions,
     /// and returns a ParseContext that children can use. Children created from this
@@ -575,13 +597,13 @@ impl<'doc> ExtParser<'doc> {
     /// - Have deny_unknown_extensions() be a no-op
     ///
     /// The root parser should call deny_unknown_extensions() after all children are done.
-    pub fn flatten(&mut self) -> ParseContext<'doc> {
-        // Create or reuse flatten context - DON'T mutate self
+    pub fn flatten_ext(&mut self) -> ParseContext<'doc> {
+        // Create or reuse flatten context with Extension scope
         let flatten_ctx = match &self.flatten_ctx {
             Some(fc) => fc.clone(),
             None => {
-                // Root: create new FlattenContext wrapping our AccessedSet
-                FlattenContext::from_accessed_set(self.accessed.clone())
+                // Root: create new FlattenContext wrapping our AccessedSet with Extension scope
+                FlattenContext::new(self.accessed.clone(), ParserScope::Extension)
             }
         };
 

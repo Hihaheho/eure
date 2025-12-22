@@ -1,6 +1,6 @@
 //! ParseObjectKey trait and implementations for object key types.
 
-use crate::{parse::ParseErrorKind, prelude_internal::*};
+use crate::{identifier::Identifier, parse::ParseErrorKind, prelude_internal::*};
 use num_bigint::BigInt;
 
 /// Trait for types that can be used as object keys when parsing from Eure documents.
@@ -51,6 +51,19 @@ pub trait ParseObjectKey<'doc>: Sized + Eq + core::hash::Hash + Ord {
     /// Returns `ParseErrorKind::TypeMismatch` when the ObjectKey variant doesn't
     /// match the expected type.
     fn from_object_key(key: &'doc ObjectKey) -> Result<Self, ParseErrorKind>;
+
+    /// Parse a key from an extension identifier.
+    ///
+    /// Extension keys are always string identifiers. This method converts them
+    /// to the target key type. This is separate from `from_object_key` because
+    /// extension identifiers don't have `'doc` lifetime (they're not ObjectKeys
+    /// stored in the document's NodeMap).
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParseErrorKind::TypeMismatch` if the target type cannot be
+    /// constructed from an identifier (e.g., borrowed `&ObjectKey` or numeric keys).
+    fn from_extension_ident(ident: &Identifier) -> Result<Self, ParseErrorKind>;
 }
 
 // ============================================================================
@@ -61,6 +74,14 @@ impl<'doc> ParseObjectKey<'doc> for &'doc ObjectKey {
     fn from_object_key(key: &'doc ObjectKey) -> Result<Self, ParseErrorKind> {
         Ok(key)
     }
+
+    fn from_extension_ident(_ident: &Identifier) -> Result<Self, ParseErrorKind> {
+        // Cannot return a borrowed ObjectKey from an Identifier
+        Err(ParseErrorKind::TypeMismatch {
+            expected: crate::value::ValueKind::Map,
+            actual: crate::value::ValueKind::Text,
+        })
+    }
 }
 
 // ============================================================================
@@ -70,6 +91,10 @@ impl<'doc> ParseObjectKey<'doc> for &'doc ObjectKey {
 impl ParseObjectKey<'_> for ObjectKey {
     fn from_object_key(key: &ObjectKey) -> Result<Self, ParseErrorKind> {
         Ok(key.clone())
+    }
+
+    fn from_extension_ident(ident: &Identifier) -> Result<Self, ParseErrorKind> {
+        Ok(ObjectKey::String(ident.as_ref().to_string()))
     }
 }
 
@@ -89,6 +114,17 @@ impl ParseObjectKey<'_> for bool {
             }),
         }
     }
+
+    fn from_extension_ident(ident: &Identifier) -> Result<Self, ParseErrorKind> {
+        match ident.as_ref() {
+            "true" => Ok(true),
+            "false" => Ok(false),
+            _ => Err(ParseErrorKind::TypeMismatch {
+                expected: crate::value::ValueKind::Bool,
+                actual: crate::value::ValueKind::Text,
+            }),
+        }
+    }
 }
 
 // ============================================================================
@@ -105,6 +141,14 @@ impl ParseObjectKey<'_> for BigInt {
             }),
         }
     }
+
+    fn from_extension_ident(_ident: &Identifier) -> Result<Self, ParseErrorKind> {
+        // Extension identifiers are always strings, not numbers
+        Err(ParseErrorKind::TypeMismatch {
+            expected: crate::value::ValueKind::Integer,
+            actual: crate::value::ValueKind::Text,
+        })
+    }
 }
 
 // ============================================================================
@@ -120,6 +164,10 @@ impl ParseObjectKey<'_> for String {
                 actual: key_to_value_kind(key),
             }),
         }
+    }
+
+    fn from_extension_ident(ident: &Identifier) -> Result<Self, ParseErrorKind> {
+        Ok(ident.as_ref().to_string())
     }
 }
 

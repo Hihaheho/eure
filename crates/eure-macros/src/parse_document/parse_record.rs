@@ -39,6 +39,12 @@ fn generate_named_struct_from_record(
     ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
+    // Check if we need an ExtParser (for ext or flatten_ext fields)
+    let needs_ext_parser = fields.iter().any(|f| {
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        attrs.ext || attrs.flatten_ext
+    });
+
     let field_assignments: Vec<_> = fields
         .iter()
         .map(|f| {
@@ -46,8 +52,26 @@ fn generate_named_struct_from_record(
             let field_ty = &f.ty;
             let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
 
+            // Validate incompatible attribute combinations
+            if attrs.flatten && attrs.flatten_ext {
+                panic!(
+                    "cannot use both #[eure(flatten)] and #[eure(flatten_ext)] on the same field"
+                );
+            }
+            if attrs.flatten && attrs.ext {
+                panic!("cannot use both #[eure(flatten)] and #[eure(ext)] on the same field");
+            }
+            if attrs.ext && attrs.flatten_ext {
+                panic!("cannot use both #[eure(ext)] and #[eure(flatten_ext)] on the same field");
+            }
+
             if attrs.flatten {
-                quote! { #field_name: #field_ty::parse(&rec.flatten())? }
+                quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
+            } else if attrs.flatten_ext {
+                quote! { #field_name: <#field_ty>::parse(&ext.flatten_ext())? }
+            } else if attrs.ext {
+                let field_name_str = context.apply_rename(&field_name.to_string());
+                quote! { #field_name: ext.parse_ext(#field_name_str)? }
             } else {
                 let field_name_str = context.apply_rename(&field_name.to_string());
                 quote! { #field_name: rec.parse_field(#field_name_str)? }
@@ -55,14 +79,27 @@ fn generate_named_struct_from_record(
         })
         .collect();
 
-    context.impl_parse_document(quote! {
-        let mut rec = ctx.parse_record()?;
-        let value = #ident {
-            #(#field_assignments),*
-        };
-        rec.deny_unknown_fields()?;
-        Ok(value)
-    })
+    if needs_ext_parser {
+        context.impl_parse_document(quote! {
+            let mut rec = ctx.parse_record()?;
+            let mut ext = ctx.parse_extension();
+            let value = #ident {
+                #(#field_assignments),*
+            };
+            rec.deny_unknown_fields()?;
+            ext.deny_unknown_extensions()?;
+            Ok(value)
+        })
+    } else {
+        context.impl_parse_document(quote! {
+            let mut rec = ctx.parse_record()?;
+            let value = #ident {
+                #(#field_assignments),*
+            };
+            rec.deny_unknown_fields()?;
+            Ok(value)
+        })
+    }
 }
 
 fn generate_named_struct_from_ext(
@@ -78,7 +115,9 @@ fn generate_named_struct_from_ext(
             let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
 
             if attrs.flatten {
-                quote! { #field_name: #field_ty::parse(&ext.flatten())? }
+                panic!("#[eure(flatten)] cannot be used in #[eure(parse_ext)] context; use #[eure(flatten_ext)] instead");
+            } else if attrs.flatten_ext {
+                quote! { #field_name: <#field_ty>::parse(&ext.flatten_ext())? }
             } else {
                 let field_name_str = context.apply_rename(&field_name.to_string());
                 quote! { #field_name: ext.parse_ext(#field_name_str)? }

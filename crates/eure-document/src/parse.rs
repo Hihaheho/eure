@@ -180,6 +180,21 @@ impl Default for AccessedSet {
 }
 
 // =============================================================================
+// ParserScope
+// =============================================================================
+
+/// Scope for flatten parsing - indicates whether we're in record or extension mode.
+///
+/// This determines what `parse_record_or_ext()` iterates over for catch-all types like HashMap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParserScope {
+    /// Record scope - iterates record fields (from `rec.flatten()`)
+    Record,
+    /// Extension scope - iterates extensions (from `ext.flatten_ext()`)
+    Extension,
+}
+
+// =============================================================================
 // FlattenContext
 // =============================================================================
 
@@ -205,20 +220,21 @@ impl Default for AccessedSet {
 /// rec1.field("c");  // accessed = {a, b, c}
 /// rec1.deny_unknown_fields()?;  // VALIDATES (root)
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct FlattenContext {
     accessed: AccessedSet,
+    scope: ParserScope,
 }
 
 impl FlattenContext {
-    /// Create a new FlattenContext with empty accessed sets.
-    pub fn new() -> Self {
-        Self::default()
+    /// Create a FlattenContext from an existing AccessedSet with the given scope.
+    pub fn new(accessed: AccessedSet, scope: ParserScope) -> Self {
+        Self { accessed, scope }
     }
 
-    /// Create a FlattenContext from an existing AccessedSet.
-    pub fn from_accessed_set(accessed: AccessedSet) -> Self {
-        Self { accessed }
+    /// Get the parser scope.
+    pub fn scope(&self) -> ParserScope {
+        self.scope
     }
 
     /// Get the underlying AccessedSet (for sharing with RecordParser).
@@ -357,6 +373,15 @@ impl<'doc> ParseContext<'doc> {
         self.flatten_ctx.is_some()
     }
 
+    /// Get the parser scope, if in a flatten context.
+    ///
+    /// Returns `Some(ParserScope::Record)` if from `rec.flatten()`,
+    /// `Some(ParserScope::Extension)` if from `ext.flatten_ext()`,
+    /// `None` if not in a flatten context.
+    pub fn parser_scope(&self) -> Option<ParserScope> {
+        self.flatten_ctx.as_ref().map(|fc| fc.scope())
+    }
+
     /// Get the current node ID.
     pub fn node_id(&self) -> NodeId {
         self.node_id
@@ -379,6 +404,46 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             flatten_ctx: None,
+            union_tag_mode: self.union_tag_mode,
+        }
+    }
+
+    /// Create a flattened version of this context for shared access tracking.
+    ///
+    /// When you need both record parsing and extension parsing to share
+    /// access tracking (so deny_unknown_* works correctly), use this method
+    /// to create a shared context first.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Both record and extension parsers share the same AccessedSet
+    /// let ctx = ctx.flatten();
+    /// let mut ext = ctx.parse_extension();
+    /// // ... parse extensions ...
+    /// let mut rec = ctx.parse_record()?;
+    /// // ... parse fields ...
+    /// rec.deny_unknown_fields()?;  // Validates both fields and extensions
+    /// ```
+    pub fn flatten(&self) -> Self {
+        // If already has flatten context, reuse it
+        if let Some(fc) = &self.flatten_ctx {
+            return Self {
+                doc: self.doc,
+                node_id: self.node_id,
+                variant_path: self.variant_path.clone(),
+                flatten_ctx: Some(fc.clone()),
+                union_tag_mode: self.union_tag_mode,
+            };
+        }
+
+        // Create new flatten context with fresh AccessedSet (Record scope for general use)
+        let flatten_ctx = FlattenContext::new(AccessedSet::new(), ParserScope::Record);
+        Self {
+            doc: self.doc,
+            node_id: self.node_id,
+            variant_path: self.variant_path.clone(),
+            flatten_ctx: Some(flatten_ctx),
             union_tag_mode: self.union_tag_mode,
         }
     }
@@ -445,6 +510,9 @@ impl<'doc> ParseContext<'doc> {
     }
 
     /// Get an ExtParser for parsing extension types on the current node.
+    ///
+    /// Extensions can be parsed from any context (record or extension scope).
+    /// Unlike record fields, extensions are available on all nodes.
     pub fn parse_extension(&self) -> ExtParser<'doc> {
         let node = self.node();
         ExtParser::new(
@@ -634,6 +702,13 @@ pub enum ParseErrorKind {
     /// $variant extension has invalid path syntax.
     #[error("invalid $variant path syntax: {0}")]
     InvalidVariantPath(String),
+
+    /// Tried to parse record fields while in extension flatten scope.
+    /// This happens when using #[eure(flatten_ext)] with a type that calls parse_record().
+    #[error(
+        "cannot parse record in extension scope: use #[eure(flatten)] instead of #[eure(flatten_ext)]"
+    )]
+    RecordInExtensionScope,
 }
 
 impl ParseErrorKind {
@@ -996,27 +1071,52 @@ parse_tuple!(16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 macro_rules! parse_map {
     ($ctx:ident) => {{
         $ctx.ensure_no_variant_path()?;
-        let map = match &$ctx.node().content {
-            NodeValue::Map(map) => map,
-            value => {
-                return Err(ParseError {
-                    node_id: $ctx.node_id(),
-                    kind: handle_unexpected_node_value(value),
-                }
-                .into());
-            }
-        };
-        map.iter()
-            .map(|(key, value)| {
-                Ok((
-                    K::from_object_key(key).map_err(|kind| ParseError {
+
+        // Check scope: Extension scope iterates extensions, otherwise record fields
+        if $ctx.parser_scope() == Some(ParserScope::Extension) {
+            // Extension scope: iterate UNACCESSED extensions only
+            let node = $ctx.node();
+            let accessed = $ctx.flatten_ctx().map(|fc| fc.accessed_set());
+            node.extensions
+                .iter()
+                .filter(|(ident, _)| {
+                    // Only include extensions not already accessed
+                    accessed.map_or(true, |a| !a.has_ext(ident))
+                })
+                .map(|(ident, &node_id)| {
+                    Ok((
+                        K::from_extension_ident(ident).map_err(|kind| ParseError {
+                            node_id: $ctx.node_id(),
+                            kind,
+                        })?,
+                        T::parse(&$ctx.at(node_id))?,
+                    ))
+                })
+                .collect::<Result<_, _>>()
+        } else {
+            // Record scope or no scope: iterate record fields
+            let map = match &$ctx.node().content {
+                NodeValue::Map(map) => map,
+                value => {
+                    return Err(ParseError {
                         node_id: $ctx.node_id(),
-                        kind,
-                    })?,
-                    T::parse(&$ctx.at(*value))?,
-                ))
-            })
-            .collect::<Result<_, _>>()
+                        kind: handle_unexpected_node_value(value),
+                    }
+                    .into());
+                }
+            };
+            map.iter()
+                .map(|(key, value)| {
+                    Ok((
+                        K::from_object_key(key).map_err(|kind| ParseError {
+                            node_id: $ctx.node_id(),
+                            kind,
+                        })?,
+                        T::parse(&$ctx.at(*value))?,
+                    ))
+                })
+                .collect::<Result<_, _>>()
+        }
     }};
 }
 

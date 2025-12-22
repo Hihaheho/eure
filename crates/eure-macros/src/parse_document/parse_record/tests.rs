@@ -267,7 +267,7 @@ fn test_flatten_field() {
                     let mut rec = ctx.parse_record()?;
                     let value = Person {
                         name: rec.parse_field("name")?,
-                        address: Address::parse(&rec.flatten())?
+                        address: <Address>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
                     Ok(value)
@@ -299,8 +299,8 @@ fn test_multiple_flatten_fields() {
                     let mut rec = ctx.parse_record()?;
                     let value = Combined {
                         id: rec.parse_field("id")?,
-                        personal: PersonalInfo::parse(&rec.flatten())?,
-                        contact: ContactInfo::parse(&rec.flatten())?
+                        personal: <PersonalInfo>::parse(&rec.flatten())?,
+                        contact: <ContactInfo>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
                     Ok(value)
@@ -331,9 +331,47 @@ fn test_flatten_with_rename_all() {
                     let mut rec = ctx.parse_record()?;
                     let value = Person {
                         full_name: rec.parse_field("fullName")?,
-                        address_info: AddressInfo::parse(&rec.flatten())?
+                        address_info: <AddressInfo>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_flatten_ext_field() {
+    let input = generate(parse_quote! {
+        struct Person {
+            name: String,
+            #[eure(ext)]
+            optional: bool,
+            #[eure(flatten_ext)]
+            address: ExtAddress,
+            #[eure(flatten_ext)]
+            contact: ExtContact,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Person<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let mut ext = ctx.parse_extension();
+                    let value = Person {
+                        name: rec.parse_field("name")?,
+                        optional: ext.parse_ext("optional")?,
+                        address: <ExtAddress>::parse(&ext.flatten_ext())?,
+                        contact: <ExtContact>::parse(&ext.flatten_ext())?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ext.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }

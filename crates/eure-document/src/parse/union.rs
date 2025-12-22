@@ -16,7 +16,8 @@ use crate::value::ObjectKey;
 
 use super::variant_path::VariantPath;
 use super::{
-    AccessedSnapshot, FlattenContext, ParseContext, ParseError, ParseErrorKind, UnionTagMode,
+    AccessedSnapshot, FlattenContext, ParseContext, ParseError, ParseErrorKind, ParserScope,
+    UnionTagMode,
 };
 
 /// The `$variant` extension identifier.
@@ -299,7 +300,10 @@ where
                         fc.clone()
                     }
                     None => {
-                        let fc = super::FlattenContext::new();
+                        let fc = super::FlattenContext::new(
+                            super::AccessedSet::new(),
+                            ParserScope::Record,
+                        );
                         fc.add_field(tag);
                         fc
                     }

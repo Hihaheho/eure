@@ -35,7 +35,7 @@ pub use eure_document::parse::UnionTagMode;
 
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
-use eure_document::parse::{DocumentParser, ExtParser, ParseContext};
+use eure_document::parse::{DocumentParser, ParseContext};
 
 use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId};
 
@@ -157,138 +157,136 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
 
         let schema_node = self.ctx.schema.node(self.schema_node_id);
 
-        // Validate extensions first (but don't warn about unknown yet)
-        let mut ext_parser = self.validate_extensions(parse_ctx)?;
+        // Create a flattened context so extensions and content validation share AccessedSet
+        let parse_ctx = parse_ctx.flatten();
+
+        // Validate extensions (accesses tracked in flatten context)
+        self.validate_extensions(&parse_ctx)?;
 
         // Dispatch to type-specific validator
         match &schema_node.content {
             SchemaNodeContent::Any => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = AnyValidator;
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Text(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = TextValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Integer(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = IntegerValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Float(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = FloatValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Boolean => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = BooleanValidator {
                     ctx: self.ctx,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Null => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = NullValidator {
                     ctx: self.ctx,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Literal(expected) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = LiteralValidator {
                     ctx: self.ctx,
                     expected,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Array(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = ArrayValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Map(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = MapValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Record(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = RecordValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Tuple(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = TupleValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
             SchemaNodeContent::Union(s) => {
-                self.warn_unknown_extensions(&ext_parser);
+                self.warn_unknown_extensions(&parse_ctx);
                 let mut v = UnionValidator {
                     ctx: self.ctx,
                     schema: s,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(parse_ctx)
+                v.parse(&parse_ctx)
             }
-            SchemaNodeContent::Reference(type_ref) => {
-                // For Reference types, use flatten to pass validated extensions to child
-                let flattened_ctx = ext_parser.flatten();
-                let mut v = ReferenceValidator {
+            SchemaNodeContent::Reference(r) => {
+                // Reference: recurse with resolved schema using the same flattened context
+                // This ensures extension tracking is shared through Reference indirection
+                let mut child_validator = ReferenceValidator {
                     ctx: self.ctx,
-                    type_ref,
+                    type_ref: r,
                     schema_node_id: self.schema_node_id,
                 };
-                v.parse(&flattened_ctx)
+                child_validator.parse(&parse_ctx)
             }
         }
     }
 }
 
 impl<'a, 'doc> SchemaValidator<'a, 'doc> {
-    /// Validate extensions on the current node and return the ext_parser.
+    /// Validate extensions on the current node.
     ///
-    /// This validates required and present extensions but does NOT warn about
-    /// unknown extensions. The caller should either:
-    /// - Call `warn_unknown_extensions()` for terminal types
-    /// - Call `ext_parser.flatten_context()` for Reference types to pass to child
-    fn validate_extensions(
-        &self,
-        parse_ctx: &ParseContext<'doc>,
-    ) -> Result<ExtParser<'doc>, ValidatorError> {
+    /// This validates required and present extensions. Accesses are tracked
+    /// in the flatten context's AccessedSet.
+    fn validate_extensions(&self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
         let schema_node = self.ctx.schema.node(self.schema_node_id);
         let ext_types = &schema_node.ext_types;
         let node = parse_ctx.node();
@@ -308,6 +306,7 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
         }
 
         // Validate present extensions using parse_extension() API
+        // Accesses are tracked in the shared flatten context
         let mut ext_parser = parse_ctx.parse_extension();
 
         for (ext_ident, ext_schema) in ext_types {
@@ -324,16 +323,19 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
             }
         }
 
-        Ok(ext_parser)
+        Ok(())
     }
 
     /// Warn about unknown extensions at terminal types.
     ///
     /// Extensions that are:
     /// - Not accessed (not in schema's ext_types)
-    /// - Not excluded (not handled by a parent Reference)
     /// - Not built-in ($variant, $schema, $ext-type, etc.)
-    fn warn_unknown_extensions(&self, ext_parser: &ExtParser<'doc>) {
+    ///
+    /// Uses the shared AccessedSet from the flatten context to determine
+    /// which extensions have been accessed.
+    fn warn_unknown_extensions(&self, parse_ctx: &ParseContext<'doc>) {
+        let ext_parser = parse_ctx.parse_extension();
         for (ext_ident, _) in ext_parser.unknown_extensions() {
             // Skip built-in extensions used by the schema system
             if Self::is_builtin_extension(ext_ident) {
