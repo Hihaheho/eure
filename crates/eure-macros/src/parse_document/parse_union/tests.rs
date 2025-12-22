@@ -316,3 +316,39 @@ fn test_struct_variant_with_both_rename_all_and_rename_all_fields() {
         .to_string()
     );
 }
+
+#[test]
+fn test_struct_variant_with_flatten() {
+    let input = generate(parse_quote! {
+        enum Entity {
+            Person {
+                name: String,
+                #[eure(flatten)]
+                details: PersonDetails,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Entity<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Person", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let mut rec = ctx.parse_record()?;
+                            let value = Entity::Person {
+                                name: rec.parse_field("name")?,
+                                details: PersonDetails::parse(&rec.flatten())?
+                            };
+                            rec.deny_unknown_fields()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}

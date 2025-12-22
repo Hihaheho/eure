@@ -247,3 +247,97 @@ fn test_parse_ext_with_rename_all() {
         .to_string()
     );
 }
+
+#[test]
+fn test_flatten_field() {
+    let input = generate(parse_quote! {
+        struct Person {
+            name: String,
+            #[eure(flatten)]
+            address: Address,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Person<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let value = Person {
+                        name: rec.parse_field("name")?,
+                        address: Address::parse(&rec.flatten())?
+                    };
+                    rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_multiple_flatten_fields() {
+    let input = generate(parse_quote! {
+        struct Combined {
+            id: i32,
+            #[eure(flatten)]
+            personal: PersonalInfo,
+            #[eure(flatten)]
+            contact: ContactInfo,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Combined<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let value = Combined {
+                        id: rec.parse_field("id")?,
+                        personal: PersonalInfo::parse(&rec.flatten())?,
+                        contact: ContactInfo::parse(&rec.flatten())?
+                    };
+                    rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_flatten_with_rename_all() {
+    let input = generate(parse_quote! {
+        #[eure(rename_all = "camelCase")]
+        struct Person {
+            full_name: String,
+            #[eure(flatten)]
+            address_info: AddressInfo,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Person<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut rec = ctx.parse_record()?;
+                    let value = Person {
+                        full_name: rec.parse_field("fullName")?,
+                        address_info: AddressInfo::parse(&rec.flatten())?
+                    };
+                    rec.deny_unknown_fields()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}

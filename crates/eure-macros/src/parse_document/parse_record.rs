@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod tests;
 
+use darling::FromField;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{DataStruct, Fields};
 
+use crate::attrs::FieldAttrs;
 use crate::context::MacroContext;
 
 pub fn generate_record_parser(context: &MacroContext, input: &DataStruct) -> TokenStream {
@@ -37,19 +39,26 @@ fn generate_named_struct_from_record(
     ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
-    let field_names: Vec<_> = fields
+    let field_assignments: Vec<_> = fields
         .iter()
-        .map(|f| f.ident.as_ref().expect("named fields must have names"))
-        .collect();
-    let field_name_strs: Vec<_> = field_names
-        .iter()
-        .map(|n| context.apply_rename(&n.to_string()))
+        .map(|f| {
+            let field_name = f.ident.as_ref().expect("named fields must have names");
+            let field_ty = &f.ty;
+            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+
+            if attrs.flatten {
+                quote! { #field_name: #field_ty::parse(&rec.flatten())? }
+            } else {
+                let field_name_str = context.apply_rename(&field_name.to_string());
+                quote! { #field_name: rec.parse_field(#field_name_str)? }
+            }
+        })
         .collect();
 
     context.impl_parse_document(quote! {
         let mut rec = ctx.parse_record()?;
         let value = #ident {
-            #(#field_names: rec.parse_field(#field_name_strs)?),*
+            #(#field_assignments),*
         };
         rec.deny_unknown_fields()?;
         Ok(value)
@@ -61,19 +70,26 @@ fn generate_named_struct_from_ext(
     ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
-    let field_names: Vec<_> = fields
+    let field_assignments: Vec<_> = fields
         .iter()
-        .map(|f| f.ident.as_ref().expect("named fields must have names"))
-        .collect();
-    let field_name_strs: Vec<_> = field_names
-        .iter()
-        .map(|n| context.apply_rename(&n.to_string()))
+        .map(|f| {
+            let field_name = f.ident.as_ref().expect("named fields must have names");
+            let field_ty = &f.ty;
+            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+
+            if attrs.flatten {
+                quote! { #field_name: #field_ty::parse(&ext.flatten())? }
+            } else {
+                let field_name_str = context.apply_rename(&field_name.to_string());
+                quote! { #field_name: ext.parse_ext(#field_name_str)? }
+            }
+        })
         .collect();
 
     context.impl_parse_document(quote! {
         let mut ext = ctx.parse_extension();
         let value = #ident {
-            #(#field_names: ext.parse_ext(#field_name_strs)?),*
+            #(#field_assignments),*
         };
         ext.allow_unknown_extensions();
         Ok(value)
