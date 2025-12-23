@@ -1,13 +1,11 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
 use eure::{
+    ParseDocument,
     data_model::VariantRepr,
     document::{
         DocumentConstructionError, NodeValue,
-        parse::{
-            ParseContext, ParseDocument, ParseError as DocumentParseError, ParseErrorKind,
-            RecordParser,
-        },
+        parse::{ParseContext, ParseError as DocumentParseError, ParseErrorKind, RecordParser},
     },
     parol::EureParseError,
     tree::Cst,
@@ -19,22 +17,11 @@ use eure::{
 // ============================================================================
 
 /// A single completion item expected in completions scenario
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
 pub struct CompletionItem {
     pub label: String,
+    #[eure(default)]
     pub kind: Option<String>,
-}
-
-impl ParseDocument<'_> for CompletionItem {
-    type Error = DocumentParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-        let label = rec.parse_field::<String>("label")?;
-        let kind = rec.parse_field_optional::<String>("kind")?;
-        rec.deny_unknown_fields()?;
-        Ok(CompletionItem { label, kind })
-    }
 }
 
 /// Completions test scenario
@@ -61,31 +48,16 @@ impl CompletionsScenario {
 // ============================================================================
 
 /// A single diagnostic item expected in diagnostics scenario
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
 pub struct DiagnosticItem {
+    #[eure(default)]
     pub severity: Option<String>,
+    #[eure(default)]
     pub source: Option<String>,
+    #[eure(default)]
     pub message: Option<String>,
+    #[eure(default)]
     pub code: Option<String>,
-}
-
-impl ParseDocument<'_> for DiagnosticItem {
-    type Error = DocumentParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-        let severity = rec.parse_field_optional::<String>("severity")?;
-        let source = rec.parse_field_optional::<String>("source")?;
-        let message = rec.parse_field_optional::<String>("message")?;
-        let code = rec.parse_field_optional::<String>("code")?;
-        // Allow other fields like range.* for now
-        Ok(DiagnosticItem {
-            severity,
-            source,
-            message,
-            code,
-        })
-    }
 }
 
 /// Diagnostics test scenario
@@ -106,29 +78,13 @@ impl DiagnosticsScenario {
 }
 
 /// Union tag mode for validation tests.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ParseDocument)]
 pub enum InputUnionTagMode {
     /// Use `$variant` extension or untagged matching (default for native Eure)
     #[default]
     Eure,
     /// Use only `VariantRepr` patterns (for JSON/YAML imports)
     Repr,
-}
-
-impl ParseDocument<'_> for InputUnionTagMode {
-    type Error = DocumentParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let s: &str = ctx.parse()?;
-        match s {
-            "eure" => Ok(InputUnionTagMode::Eure),
-            "repr" => Ok(InputUnionTagMode::Repr),
-            _ => Err(DocumentParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::UnknownVariant(s.to_string()),
-            }),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

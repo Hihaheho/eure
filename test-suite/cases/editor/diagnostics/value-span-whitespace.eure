@@ -19,5 +19,3 @@ editor = ```eure
 // The span should focus on the value, not include preceding whitespace
 
 @ diagnostics[]
-message_contains = "type"
-span_should_not_start_with = ["\n", " "]

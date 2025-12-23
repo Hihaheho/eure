@@ -6,7 +6,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{DataStruct, Fields};
 
-use crate::attrs::FieldAttrs;
+use crate::attrs::{DefaultValue, FieldAttrs};
 use crate::context::MacroContext;
 
 pub fn generate_record_parser(context: &MacroContext, input: &DataStruct) -> TokenStream {
@@ -58,6 +58,20 @@ fn generate_named_struct_from_record(
             if attrs.ext && attrs.flatten_ext {
                 panic!("cannot use both #[eure(ext)] and #[eure(flatten_ext)] on the same field");
             }
+            if attrs.default.is_some() && attrs.flatten {
+                panic!(
+                    "cannot use #[eure(default)] with #[eure(flatten)] on field `{}`; \
+                    flatten parses entire nested types, not optional fields",
+                    field_name
+                );
+            }
+            if attrs.default.is_some() && attrs.flatten_ext {
+                panic!(
+                    "cannot use #[eure(default)] with #[eure(flatten_ext)] on field `{}`; \
+                    flatten_ext parses entire nested types, not optional fields",
+                    field_name
+                );
+            }
 
             if attrs.flatten {
                 quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
@@ -65,10 +79,10 @@ fn generate_named_struct_from_record(
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
             } else if attrs.ext {
                 let field_name_str = context.apply_rename(&field_name.to_string());
-                quote! { #field_name: ctx.parse_ext(#field_name_str)? }
+                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
             } else {
                 let field_name_str = context.apply_rename(&field_name.to_string());
-                quote! { #field_name: rec.parse_field(#field_name_str)? }
+                generate_record_field(field_name, field_ty, &field_name_str, &attrs.default)
             }
         })
         .collect();
@@ -98,11 +112,20 @@ fn generate_named_struct_from_ext(
 
             if attrs.flatten {
                 panic!("#[eure(flatten)] cannot be used in #[eure(parse_ext)] context; use #[eure(flatten_ext)] instead");
-            } else if attrs.flatten_ext {
+            }
+            if attrs.default.is_some() && attrs.flatten_ext {
+                panic!(
+                    "cannot use #[eure(default)] with #[eure(flatten_ext)] on field `{}`; \
+                    flatten_ext parses entire nested types, not optional fields",
+                    field_name
+                );
+            }
+
+            if attrs.flatten_ext {
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
             } else {
                 let field_name_str = context.apply_rename(&field_name.to_string());
-                quote! { #field_name: ctx.parse_ext(#field_name_str)? }
+                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
             }
         })
         .collect();
@@ -149,4 +172,54 @@ fn generate_newtype_struct(
         let field_0 = ctx.parse::<#field_ty>()?;
         Ok(#ident(field_0))
     })
+}
+
+fn generate_record_field(
+    field_name: &syn::Ident,
+    field_ty: &syn::Type,
+    field_name_str: &str,
+    default: &DefaultValue,
+) -> TokenStream {
+    match default {
+        DefaultValue::None => {
+            quote! { #field_name: rec.parse_field(#field_name_str)? }
+        }
+        DefaultValue::Default => {
+            quote! {
+                #field_name: rec.parse_field_optional(#field_name_str)?
+                    .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
+            }
+        }
+        DefaultValue::Path(path) => {
+            quote! {
+                #field_name: rec.parse_field_optional(#field_name_str)?
+                    .unwrap_or_else(#path)
+            }
+        }
+    }
+}
+
+fn generate_ext_field(
+    field_name: &syn::Ident,
+    field_ty: &syn::Type,
+    field_name_str: &str,
+    default: &DefaultValue,
+) -> TokenStream {
+    match default {
+        DefaultValue::None => {
+            quote! { #field_name: ctx.parse_ext(#field_name_str)? }
+        }
+        DefaultValue::Default => {
+            quote! {
+                #field_name: ctx.parse_ext_optional(#field_name_str)?
+                    .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
+            }
+        }
+        DefaultValue::Path(path) => {
+            quote! {
+                #field_name: ctx.parse_ext_optional(#field_name_str)?
+                    .unwrap_or_else(#path)
+            }
+        }
+    }
 }

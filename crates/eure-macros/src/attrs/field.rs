@@ -1,5 +1,7 @@
 use darling::FromField;
 
+use super::DefaultValue;
+
 #[derive(Debug, Default, FromField)]
 #[darling(default, attributes(eure))]
 pub struct FieldAttrs {
@@ -12,4 +14,8 @@ pub struct FieldAttrs {
     /// Parse this field from extensions instead of record fields.
     /// Only valid in non-parse_ext context.
     pub ext: bool,
+    /// Use default value when field is missing.
+    /// - `#[eure(default)]` uses `Default::default()`
+    /// - `#[eure(default = "path::to::fn")]` calls custom function
+    pub default: DefaultValue,
 }

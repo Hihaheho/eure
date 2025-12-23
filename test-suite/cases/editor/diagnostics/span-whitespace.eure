@@ -21,6 +21,3 @@ key3 = 123
 // The span should start with "@ value" (the section name)
 
 @ diagnostics[]
-message_contains = "Type mismatch"
-span_should_not_start_with = ["\n", " ", "\t"]
-span_should_start_with = "@ value"
