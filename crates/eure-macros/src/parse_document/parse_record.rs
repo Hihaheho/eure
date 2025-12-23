@@ -78,10 +78,16 @@ fn generate_named_struct_from_record(
             } else if attrs.flatten_ext {
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
             } else if attrs.ext {
-                let field_name_str = context.apply_rename(&field_name.to_string());
+                let field_name_str = attrs
+                    .rename
+                    .clone()
+                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
                 generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
             } else {
-                let field_name_str = context.apply_rename(&field_name.to_string());
+                let field_name_str = attrs
+                    .rename
+                    .clone()
+                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
                 generate_record_field(field_name, field_ty, &field_name_str, &attrs.default)
             }
         })
@@ -124,7 +130,10 @@ fn generate_named_struct_from_ext(
             if attrs.flatten_ext {
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
             } else {
-                let field_name_str = context.apply_rename(&field_name.to_string());
+                let field_name_str = attrs
+                    .rename
+                    .clone()
+                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
                 generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
             }
         })

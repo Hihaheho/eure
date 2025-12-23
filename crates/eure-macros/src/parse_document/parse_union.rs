@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests;
 
-use darling::FromField;
+use darling::{FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{DataEnum, Fields, Variant};
 
-use crate::attrs::FieldAttrs;
+use crate::attrs::{FieldAttrs, VariantAttrs};
 use crate::{config::MacroConfig, context::MacroContext};
 
 pub fn generate_union_parser(context: &MacroContext, input: &DataEnum) -> TokenStream {
@@ -32,7 +32,12 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
     let ident = context.ident();
     let MacroConfig { document_crate, .. } = &context.config;
     let variant_ident = &variant.ident;
-    let variant_name = context.apply_rename(&variant_ident.to_string());
+    let variant_attrs =
+        VariantAttrs::from_variant(variant).expect("failed to parse variant attributes");
+    let variant_name = variant_attrs
+        .rename
+        .clone()
+        .unwrap_or_else(|| context.apply_rename(&variant_ident.to_string()));
 
     match &variant.fields {
         Fields::Unit => generate_unit_variant(context, ident, &variant_name, variant_ident),
@@ -113,7 +118,10 @@ fn generate_struct_variant(
             if attrs.flatten {
                 quote! { #field_name: #field_ty::parse(&rec.flatten())? }
             } else {
-                let field_name_str = context.apply_field_rename(&field_name.to_string());
+                let field_name_str = attrs
+                    .rename
+                    .clone()
+                    .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
                 quote! { #field_name: rec.parse_field(#field_name_str)? }
             }
         })

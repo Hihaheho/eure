@@ -18,4 +18,6 @@ pub struct FieldAttrs {
     /// - `#[eure(default)]` uses `Default::default()`
     /// - `#[eure(default = "path::to::fn")]` calls custom function
     pub default: DefaultValue,
+    /// Explicit rename for this field (overrides rename_all/rename_all_fields)
+    pub rename: Option<String>,
 }
