@@ -21,12 +21,13 @@ fn test_named_fields_struct() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
+                    let rec = ctx.parse_record()?;
                     let value = User {
                         name: rec.parse_field("name")?,
                         age: rec.parse_field("age")?
                     };
                     rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }
@@ -114,12 +115,13 @@ fn test_named_fields_struct_with_custom_crate() {
                 type Error = ::eure_document::parse::ParseError;
 
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
+                    let rec = ctx.parse_record()?;
                     let value = User {
                         name: rec.parse_field("name")?,
                         age: rec.parse_field("age")?
                     };
                     rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }
@@ -144,12 +146,13 @@ fn test_named_fields_struct_with_rename_all_camel_case() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
+                    let rec = ctx.parse_record()?;
                     let value = User {
                         user_name: rec.parse_field("userName")?,
                         email_address: rec.parse_field("emailAddress")?
                     };
                     rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }
@@ -174,12 +177,13 @@ fn test_named_fields_struct_with_rename_all_kebab_case() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
+                    let rec = ctx.parse_record()?;
                     let value = Config {
                         max_retries: rec.parse_field("max-retries")?,
                         timeout_seconds: rec.parse_field("timeout-seconds")?
                     };
                     rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }
@@ -204,12 +208,10 @@ fn test_parse_ext_basic() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut ext = ctx.parse_extension();
                     let value = ExtFields {
-                        optional: ext.parse_ext("optional")?,
-                        deprecated: ext.parse_ext("deprecated")?
+                        optional: ctx.parse_ext("optional")?,
+                        deprecated: ctx.parse_ext("deprecated")?
                     };
-                    ext.allow_unknown_extensions();
                     Ok(value)
                 }
             }
@@ -234,12 +236,10 @@ fn test_parse_ext_with_rename_all() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut ext = ctx.parse_extension();
                     let value = ExtFields {
-                        binding_style: ext.parse_ext("binding-style")?,
-                        deny_untagged: ext.parse_ext("deny-untagged")?
+                        binding_style: ctx.parse_ext("binding-style")?,
+                        deny_untagged: ctx.parse_ext("deny-untagged")?
                     };
-                    ext.allow_unknown_extensions();
                     Ok(value)
                 }
             }
@@ -264,12 +264,13 @@ fn test_flatten_field() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
+                    let rec = ctx.parse_record()?;
                     let value = Person {
                         name: rec.parse_field("name")?,
                         address: <Address>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }
@@ -296,13 +297,14 @@ fn test_multiple_flatten_fields() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
+                    let rec = ctx.parse_record()?;
                     let value = Combined {
                         id: rec.parse_field("id")?,
                         personal: <PersonalInfo>::parse(&rec.flatten())?,
                         contact: <ContactInfo>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }
@@ -328,12 +330,13 @@ fn test_flatten_with_rename_all() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
+                    let rec = ctx.parse_record()?;
                     let value = Person {
                         full_name: rec.parse_field("fullName")?,
                         address_info: <AddressInfo>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }
@@ -362,16 +365,15 @@ fn test_flatten_ext_field() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    let mut rec = ctx.parse_record()?;
-                    let mut ext = ctx.parse_extension();
+                    let rec = ctx.parse_record()?;
                     let value = Person {
                         name: rec.parse_field("name")?,
-                        optional: ext.parse_ext("optional")?,
-                        address: <ExtAddress>::parse(&ext.flatten_ext())?,
-                        contact: <ExtContact>::parse(&ext.flatten_ext())?
+                        optional: ctx.parse_ext("optional")?,
+                        address: <ExtAddress>::parse(&ctx.flatten_ext())?,
+                        contact: <ExtContact>::parse(&ctx.flatten_ext())?
                     };
                     rec.deny_unknown_fields()?;
-                    ext.deny_unknown_extensions()?;
+                    ctx.deny_unknown_extensions()?;
                     Ok(value)
                 }
             }

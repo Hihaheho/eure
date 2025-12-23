@@ -9,7 +9,7 @@ pub mod union;
 pub mod variant_path;
 
 pub use object_key::ParseObjectKey;
-pub use record::{ExtParser, RecordParser};
+pub use record::RecordParser;
 pub use tuple::TupleParser;
 pub use union::UnionParser;
 pub use variant_path::VariantPath;
@@ -312,6 +312,8 @@ pub struct ParseContext<'doc> {
     flatten_ctx: Option<FlattenContext>,
     /// Mode for union tag resolution.
     union_tag_mode: UnionTagMode,
+    /// Tracks accessed fields and extensions.
+    accessed: AccessedSet,
 }
 
 impl<'doc> ParseContext<'doc> {
@@ -323,6 +325,7 @@ impl<'doc> ParseContext<'doc> {
             variant_path: None,
             flatten_ctx: None,
             union_tag_mode: UnionTagMode::default(),
+            accessed: AccessedSet::new(),
         }
     }
 
@@ -338,6 +341,7 @@ impl<'doc> ParseContext<'doc> {
             variant_path: None,
             flatten_ctx: None,
             union_tag_mode: mode,
+            accessed: AccessedSet::new(),
         }
     }
 
@@ -352,12 +356,15 @@ impl<'doc> ParseContext<'doc> {
         flatten_ctx: FlattenContext,
         mode: UnionTagMode,
     ) -> Self {
+        // Share accessed set from flatten context
+        let accessed = flatten_ctx.accessed_set().clone();
         Self {
             doc,
             node_id,
             variant_path: None,
             flatten_ctx: Some(flatten_ctx),
             union_tag_mode: mode,
+            accessed,
         }
     }
 
@@ -405,6 +412,7 @@ impl<'doc> ParseContext<'doc> {
             variant_path: None,
             flatten_ctx: None,
             union_tag_mode: self.union_tag_mode,
+            accessed: AccessedSet::new(),
         }
     }
 
@@ -419,8 +427,7 @@ impl<'doc> ParseContext<'doc> {
     /// ```ignore
     /// // Both record and extension parsers share the same AccessedSet
     /// let ctx = ctx.flatten();
-    /// let mut ext = ctx.parse_extension();
-    /// // ... parse extensions ...
+    /// // ... parse extensions with ctx.parse_ext(...) ...
     /// let mut rec = ctx.parse_record()?;
     /// // ... parse fields ...
     /// rec.deny_unknown_fields()?;  // Validates both fields and extensions
@@ -434,17 +441,19 @@ impl<'doc> ParseContext<'doc> {
                 variant_path: self.variant_path.clone(),
                 flatten_ctx: Some(fc.clone()),
                 union_tag_mode: self.union_tag_mode,
+                accessed: self.accessed.clone(),
             };
         }
 
-        // Create new flatten context with fresh AccessedSet (Record scope for general use)
-        let flatten_ctx = FlattenContext::new(AccessedSet::new(), ParserScope::Record);
+        // Create new flatten context with shared AccessedSet (Record scope for general use)
+        let flatten_ctx = FlattenContext::new(self.accessed.clone(), ParserScope::Record);
         Self {
             doc: self.doc,
             node_id: self.node_id,
             variant_path: self.variant_path.clone(),
             flatten_ctx: Some(flatten_ctx),
             union_tag_mode: self.union_tag_mode,
+            accessed: self.accessed.clone(),
         }
     }
 
@@ -509,19 +518,196 @@ impl<'doc> ParseContext<'doc> {
         }
     }
 
-    /// Get an ExtParser for parsing extension types on the current node.
+    // =========================================================================
+    // Extension parsing methods
+    // =========================================================================
+
+    /// Get the AccessedSet for this context.
+    pub(crate) fn accessed(&self) -> &AccessedSet {
+        &self.accessed
+    }
+
+    /// Mark an extension as accessed.
+    fn mark_ext_accessed(&self, ident: Identifier) {
+        self.accessed.add_ext(ident);
+    }
+
+    /// Get a required extension field.
     ///
-    /// Extensions can be parsed from any context (record or extension scope).
-    /// Unlike record fields, extensions are available on all nodes.
-    pub fn parse_extension(&self) -> ExtParser<'doc> {
-        let node = self.node();
-        ExtParser::new(
+    /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
+    pub fn parse_ext<T>(&self, name: &str) -> Result<T, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
+        self.parse_ext_with(name, T::parse)
+    }
+
+    /// Get a required extension field with a custom parser.
+    pub fn parse_ext_with<T>(&self, name: &str, mut parser: T) -> Result<T::Output, T::Error>
+    where
+        T: DocumentParser<'doc>,
+        T::Error: From<ParseError>,
+    {
+        let ident: Identifier = name.parse().map_err(|e| ParseError {
+            node_id: self.node_id,
+            kind: ParseErrorKind::InvalidIdentifier(e),
+        })?;
+        self.mark_ext_accessed(ident.clone());
+        let ext_node_id = self
+            .node()
+            .extensions
+            .get(&ident)
+            .ok_or_else(|| ParseError {
+                node_id: self.node_id,
+                kind: ParseErrorKind::MissingExtension(name.to_string()),
+            })?;
+        let ctx = ParseContext::with_union_tag_mode(self.doc, *ext_node_id, self.union_tag_mode);
+        parser.parse(&ctx)
+    }
+
+    /// Get an optional extension field.
+    ///
+    /// Returns `Ok(None)` if the extension is not present.
+    pub fn parse_ext_optional<T>(&self, name: &str) -> Result<Option<T>, T::Error>
+    where
+        T: ParseDocument<'doc>,
+        T::Error: From<ParseError>,
+    {
+        self.parse_ext_optional_with(name, T::parse)
+    }
+
+    /// Get an optional extension field with a custom parser.
+    ///
+    /// Returns `Ok(None)` if the extension is not present.
+    pub fn parse_ext_optional_with<T>(
+        &self,
+        name: &str,
+        mut parser: T,
+    ) -> Result<Option<T::Output>, T::Error>
+    where
+        T: DocumentParser<'doc>,
+        T::Error: From<ParseError>,
+    {
+        let ident: Identifier = name.parse().map_err(|e| ParseError {
+            node_id: self.node_id,
+            kind: ParseErrorKind::InvalidIdentifier(e),
+        })?;
+        self.mark_ext_accessed(ident.clone());
+        match self.node().extensions.get(&ident) {
+            Some(ext_node_id) => {
+                let ctx =
+                    ParseContext::with_union_tag_mode(self.doc, *ext_node_id, self.union_tag_mode);
+                Ok(Some(parser.parse(&ctx)?))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Get the parse context for an extension field without parsing it.
+    ///
+    /// Use this when you need access to the extension's NodeId or want to defer parsing.
+    /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
+    pub fn ext(&self, name: &str) -> Result<ParseContext<'doc>, ParseError> {
+        let ident: Identifier = name.parse().map_err(|e| ParseError {
+            node_id: self.node_id,
+            kind: ParseErrorKind::InvalidIdentifier(e),
+        })?;
+        self.mark_ext_accessed(ident.clone());
+        let ext_node_id =
+            self.node()
+                .extensions
+                .get(&ident)
+                .copied()
+                .ok_or_else(|| ParseError {
+                    node_id: self.node_id,
+                    kind: ParseErrorKind::MissingExtension(name.to_string()),
+                })?;
+        Ok(ParseContext::with_union_tag_mode(
             self.doc,
-            self.node_id,
-            &node.extensions,
-            self.flatten_ctx.clone(),
+            ext_node_id,
             self.union_tag_mode,
-        )
+        ))
+    }
+
+    /// Get the parse context for an optional extension field without parsing it.
+    ///
+    /// Use this when you need access to the extension's NodeId or want to defer parsing.
+    /// Returns `None` if the extension is not present.
+    pub fn ext_optional(&self, name: &str) -> Option<ParseContext<'doc>> {
+        let ident: Identifier = name.parse().ok()?;
+        self.mark_ext_accessed(ident.clone());
+        self.node().extensions.get(&ident).map(|&node_id| {
+            ParseContext::with_union_tag_mode(self.doc, node_id, self.union_tag_mode)
+        })
+    }
+
+    /// Finish parsing with Deny policy (error if unknown extensions exist).
+    ///
+    /// **Flatten behavior**: If this context has a flatten_ctx with Extension scope
+    /// (i.e., is a child in a flatten chain), this is a no-op. Only root parsers validate.
+    pub fn deny_unknown_extensions(&self) -> Result<(), ParseError> {
+        // If child (has flatten_ctx with Extension scope), no-op - parent will validate
+        if let Some(fc) = &self.flatten_ctx
+            && fc.scope() == ParserScope::Extension
+        {
+            return Ok(());
+        }
+
+        // Root parser or Record scope - validate using accessed set
+        for (ident, _) in self.node().extensions.iter() {
+            if !self.accessed.has_ext(ident) {
+                return Err(ParseError {
+                    node_id: self.node_id,
+                    kind: ParseErrorKind::UnknownField(format!("$ext-type.{}", ident)),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Get an iterator over unknown extensions (for custom handling).
+    ///
+    /// Returns (identifier, context) pairs for extensions that haven't been accessed.
+    pub fn unknown_extensions(
+        &self,
+    ) -> impl Iterator<Item = (&'doc Identifier, ParseContext<'doc>)> + '_ {
+        let doc = self.doc;
+        let mode = self.union_tag_mode;
+        // Clone the accessed set for filtering - we need the current state
+        let accessed = self.accessed.clone();
+        self.node()
+            .extensions
+            .iter()
+            .filter_map(move |(ident, &node_id)| {
+                if !accessed.has_ext(ident) {
+                    Some((ident, ParseContext::with_union_tag_mode(doc, node_id, mode)))
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Create a flatten context for child parsers in Extension scope.
+    ///
+    /// This creates a FlattenContext initialized with the current accessed extensions,
+    /// and returns a ParseContext that children can use. Children created from this
+    /// context will:
+    /// - Add their accessed extensions to the shared FlattenContext
+    /// - Have deny_unknown_extensions() be a no-op
+    ///
+    /// The root parser should call deny_unknown_extensions() after all children are done.
+    pub fn flatten_ext(&self) -> ParseContext<'doc> {
+        // Create or reuse flatten context with Extension scope
+        let flatten_ctx = match &self.flatten_ctx {
+            Some(fc) => fc.clone(),
+            None => {
+                // Root: create new FlattenContext wrapping our AccessedSet with Extension scope
+                FlattenContext::new(self.accessed.clone(), ParserScope::Extension)
+            }
+        };
+
+        ParseContext::with_flatten_ctx(self.doc, self.node_id, flatten_ctx, self.union_tag_mode)
     }
 
     /// Check if the current node is null.
@@ -540,6 +726,7 @@ impl<'doc> ParseContext<'doc> {
             variant_path: rest,
             flatten_ctx: self.flatten_ctx.clone(),
             union_tag_mode: self.union_tag_mode,
+            accessed: self.accessed.clone(),
         }
     }
 
@@ -747,18 +934,12 @@ impl<'doc> EureDocument {
         RecordParser::from_doc_and_node(self, node_id)
     }
 
-    /// Get an extension parser for a node.
+    /// Create a parse context for extension parsing.
     ///
-    /// Convenience method equivalent to `doc.parse_context(node_id).parse_extension()`.
-    pub fn parse_extension(&'doc self, node_id: NodeId) -> ExtParser<'doc> {
-        let node = self.node(node_id);
-        ExtParser::new(
-            self,
-            node_id,
-            &node.extensions,
-            None,
-            UnionTagMode::default(),
-        )
+    /// Convenience method equivalent to `doc.parse_context(node_id)`.
+    /// Use the returned context's `parse_ext()`, `ext()`, etc. methods.
+    pub fn parse_extension_context(&'doc self, node_id: NodeId) -> ParseContext<'doc> {
+        ParseContext::new(self, node_id)
     }
 
     /// Parse a node as a tuple.
@@ -1231,7 +1412,7 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
         }
 
         // Otherwise, it should be a record with tag/content fields
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let tag = rec.parse_field_optional::<String>("tag")?;
         let content = rec.parse_field_optional::<String>("content")?;
@@ -1459,7 +1640,7 @@ mod tests {
             "some",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(42));
     }
@@ -1469,7 +1650,7 @@ mod tests {
         let doc =
             create_record_with_variant("value", NodeValue::Primitive(PrimitiveValue::Null), "none");
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, None);
     }
@@ -1479,7 +1660,7 @@ mod tests {
         // Without $variant, non-null value is Some
         let doc = eure!({ value = 42 });
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(42));
     }
@@ -1489,7 +1670,7 @@ mod tests {
         // Without $variant, null is None
         let doc = eure!({ value = null });
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Option<i32> = rec.parse_field("value").unwrap();
         assert_eq!(value, None);
     }
@@ -1502,7 +1683,7 @@ mod tests {
             "ok",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Result<i32, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Ok(42));
     }
@@ -1517,7 +1698,7 @@ mod tests {
             "err",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Result<i32, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Err("error message".to_string()));
     }
@@ -1531,7 +1712,7 @@ mod tests {
             "ok.some",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Result<Option<i32>, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Ok(Some(42)));
     }
@@ -1545,7 +1726,7 @@ mod tests {
             "ok.none",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Result<Option<i32>, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Ok(None));
     }
@@ -1559,7 +1740,7 @@ mod tests {
             "err",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Result<Option<i32>, String> = rec.parse_field("value").unwrap();
         assert_eq!(value, Err("error".to_string()));
     }
@@ -1573,7 +1754,7 @@ mod tests {
             "some.some",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Option<Option<i32>> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(Some(42)));
     }
@@ -1587,7 +1768,7 @@ mod tests {
             "some.none",
         );
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Option<Option<i32>> = rec.parse_field("value").unwrap();
         assert_eq!(value, Some(None));
     }
@@ -1598,7 +1779,7 @@ mod tests {
         let doc =
             create_record_with_variant("value", NodeValue::Primitive(PrimitiveValue::Null), "none");
         let root_id = doc.get_root_id();
-        let mut rec = doc.parse_record(root_id).unwrap();
+        let rec = doc.parse_record(root_id).unwrap();
         let value: Option<Option<i32>> = rec.parse_field("value").unwrap();
         assert_eq!(value, None);
     }

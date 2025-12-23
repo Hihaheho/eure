@@ -58,7 +58,7 @@ impl ParseDocument<'_> for Target {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let globs = rec.parse_field::<Vec<String>>("globs")?;
         let schema = rec.parse_field_optional::<String>("schema")?;
@@ -82,7 +82,7 @@ impl ParseDocument<'_> for CliConfig {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let default_targets = rec
             .parse_field_optional::<Vec<String>>("default-targets")?
@@ -107,7 +107,7 @@ impl ParseDocument<'_> for LsConfig {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let format_on_save = rec
             .parse_field_optional::<bool>("format-on-save")?
@@ -138,7 +138,7 @@ impl ParseDocument<'_> for EureConfig {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         // Parse targets as a map
         let targets = if let Some(targets_ctx) = rec.field_optional("targets") {

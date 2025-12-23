@@ -2150,7 +2150,7 @@ mod tests {
             }
         });
 
-        let mut settings = doc
+        let settings = doc
             .parse_context(doc.get_root_id())
             .parse_record()
             .expect("Failed to parse record")
@@ -2178,7 +2178,7 @@ mod tests {
         let code = Text::inline_implicit("fn main() {}");
         let doc = eure!({ snippet = code });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let snippet_ctx = root.field("snippet").unwrap();
         let snippet_node = doc.node(snippet_ctx.node_id());
         let text = snippet_node.as_primitive().unwrap().as_text().unwrap();
@@ -2194,7 +2194,7 @@ mod tests {
         let third = "three";
         let doc = eure!({ items = [first, second, third] });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let items = root.parse_field::<Vec<&str>>("items").unwrap();
         assert_eq!(items, vec!["one", "two", "three"]);
     }
@@ -2206,7 +2206,7 @@ mod tests {
         let y = 2.5;
         let doc = eure!({ point = (x, y) });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let point = root.parse_field::<(f64, f64)>("point").unwrap();
         assert_eq!(point, (1.5, 2.5));
     }
@@ -2223,8 +2223,8 @@ mod tests {
             }
         });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
-        let mut coords = root.field_record("coords").unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let coords = root.field_record("coords").unwrap();
         let x = coords.parse_field::<f64>("x").unwrap();
         let y = coords.parse_field::<f64>("y").unwrap();
         assert_eq!(x, 10.0);
@@ -2244,8 +2244,8 @@ mod tests {
             user.level = 5
         });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
-        let mut user = root.field_record("user").unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let user = root.field_record("user").unwrap();
         assert_eq!(user.parse_field::<&str>("name").unwrap(), "bob");
         assert_eq!(user.parse_field::<bool>("active").unwrap(), true);
         assert_eq!(user.parse_field::<&str>("role").unwrap(), "admin");
@@ -2263,7 +2263,7 @@ mod tests {
             tags[] = tag2
         });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let tags = root.parse_field::<Vec<&str>>("tags").unwrap();
         assert_eq!(tags, vec!["rust", "macro"]);
     }
@@ -2292,8 +2292,8 @@ mod tests {
             language = lang_value
         });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
-        let mut settings = root.field_record("settings").unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let settings = root.field_record("settings").unwrap();
         assert_eq!(settings.parse_field::<&str>("theme").unwrap(), "dark");
         assert_eq!(settings.parse_field::<&str>("language").unwrap(), "en");
     }
@@ -2305,7 +2305,7 @@ mod tests {
         let null_value = PrimitiveValue::Null;
         let doc = eure!({ optional = null_value });
 
-        let mut root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
         let optional_ctx = root.field("optional").unwrap();
         let optional_node = doc.node(optional_ctx.node_id());
         assert!(matches!(

@@ -95,7 +95,7 @@ impl ParseDocument<'_> for TypeReference {
 impl ParseDocument<'_> for TextSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let language = rec.parse_field_optional::<String>("language")?;
         let min_length = rec.parse_field_optional::<u32>("min-length")?;
@@ -135,9 +135,7 @@ impl ParseDocument<'_> for crate::SchemaRef {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut ext = ctx.parse_extension();
-        let schema_ctx = ext.ext("schema")?;
-        ext.allow_unknown_extensions();
+        let schema_ctx = ctx.ext("schema")?;
 
         let path: String = schema_ctx.parse()?;
         Ok(crate::SchemaRef {
@@ -165,7 +163,7 @@ pub struct ParsedIntegerSchema {
 impl ParseDocument<'_> for ParsedIntegerSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let range = rec.parse_field_optional::<String>("range")?;
         let multiple_of = rec.parse_field_optional::<BigInt>("multiple-of")?;
@@ -201,7 +199,7 @@ pub struct ParsedFloatSchema {
 impl ParseDocument<'_> for ParsedFloatSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let range = rec.parse_field_optional::<String>("range")?;
         let multiple_of = rec.parse_field_optional::<f64>("multiple-of")?;
@@ -245,7 +243,7 @@ pub struct ParsedArraySchema {
 impl ParseDocument<'_> for ParsedArraySchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let item = rec.field("item")?.node_id();
         let min_length = rec.parse_field_optional::<u32>("min-length")?;
@@ -261,9 +259,7 @@ impl ParseDocument<'_> for ParsedArraySchema {
         rec.allow_unknown_fields()?;
 
         // Parse $ext-type.binding-style
-        let mut ext = ctx.parse_extension();
-        let binding_style = ext.parse_ext_optional::<BindingStyle>("binding-style")?;
-        ext.allow_unknown_extensions();
+        let binding_style = ctx.parse_ext_optional::<BindingStyle>("binding-style")?;
 
         Ok(ParsedArraySchema {
             item,
@@ -295,7 +291,7 @@ pub struct ParsedMapSchema {
 impl ParseDocument<'_> for ParsedMapSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let key = rec.field("key")?.node_id();
         let value = rec.field("value")?.node_id();
@@ -333,13 +329,8 @@ pub struct ParsedRecordFieldSchema {
 impl ParseDocument<'_> for ParsedRecordFieldSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut ext = ctx.parse_extension();
-
-        let optional = ext.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
-        let binding_style = ext.parse_ext_optional::<BindingStyle>("binding-style")?;
-
-        // Allow other extensions (description, deprecated, etc.)
-        ext.allow_unknown_extensions();
+        let optional = ctx.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
+        let binding_style = ctx.parse_ext_optional::<BindingStyle>("binding-style")?;
 
         Ok(ParsedRecordFieldSchema {
             schema: ctx.node_id(), // The node itself is the schema
@@ -400,11 +391,9 @@ impl ParseDocument<'_> for ParsedRecordSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         // Parse $unknown-fields extension
-        let mut ext = ctx.parse_extension();
-        let unknown_fields = ext
+        let unknown_fields = ctx
             .parse_ext_optional::<ParsedUnknownFieldsPolicy>("unknown-fields")?
             .unwrap_or_default();
-        ext.allow_unknown_extensions();
 
         // Parse all fields in the map as record properties
         let rec = ctx.parse_record()?;
@@ -436,7 +425,7 @@ pub struct ParsedTupleSchema {
 impl ParseDocument<'_> for ParsedTupleSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         // elements is an array of NodeIds
         let elements_ctx = rec.field("elements")?;
@@ -453,9 +442,7 @@ impl ParseDocument<'_> for ParsedTupleSchema {
         rec.allow_unknown_fields()?;
 
         // Parse $ext-type.binding-style
-        let mut ext = ctx.parse_extension();
-        let binding_style = ext.parse_ext_optional::<BindingStyle>("binding-style")?;
-        ext.allow_unknown_extensions();
+        let binding_style = ctx.parse_ext_optional::<BindingStyle>("binding-style")?;
 
         Ok(ParsedTupleSchema {
             elements,
@@ -482,7 +469,7 @@ pub struct ParsedUnionSchema {
 impl ParseDocument<'_> for ParsedUnionSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
         let mut variants = BTreeMap::new();
         let mut unambiguous = HashSet::new();
         let mut deny_untagged = HashSet::new();
@@ -494,32 +481,27 @@ impl ParseDocument<'_> for ParsedUnionSchema {
                 variants.insert(name.to_string(), var_ctx.node_id());
 
                 // Parse extensions on the variant value
-                let mut ext = var_ctx.parse_extension();
-                if ext
+                if var_ctx
                     .parse_ext_optional::<bool>("deny-untagged")?
                     .unwrap_or(false)
                 {
                     deny_untagged.insert(name.to_string());
                 }
-                if ext
+                if var_ctx
                     .parse_ext_optional::<bool>("unambiguous")?
                     .unwrap_or(false)
                 {
                     unambiguous.insert(name.to_string());
                 }
-                // There may other extensions to be parsed on the later stage. like $variant, $ext-type, etc.
-                ext.allow_unknown_extensions();
             }
         }
 
         rec.allow_unknown_fields()?;
 
         // Parse $variant-repr extension
-        let mut ext = ctx.parse_extension();
-        let repr = ext
+        let repr = ctx
             .parse_ext_optional::<VariantRepr>("variant-repr")?
             .unwrap_or_default();
-        ext.allow_unknown_extensions();
 
         Ok(ParsedUnionSchema {
             variants,
@@ -542,9 +524,7 @@ pub struct ParsedExtTypeSchema {
 impl ParseDocument<'_> for ParsedExtTypeSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut ext = ctx.parse_extension();
-        let optional = ext.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
-        ext.allow_unknown_extensions();
+        let optional = ctx.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
 
         Ok(ParsedExtTypeSchema {
             schema: ctx.node_id(),
@@ -569,17 +549,12 @@ pub struct ParsedSchemaMetadata {
 impl ParsedSchemaMetadata {
     /// Parse metadata from a node's extensions.
     pub fn parse_from_extensions(ctx: &ParseContext<'_>) -> Result<Self, ParseError> {
-        let mut ext = ctx.parse_extension();
-
-        let description = ext.parse_ext_optional::<Description>("description")?;
-        let deprecated = ext
+        let description = ctx.parse_ext_optional::<Description>("description")?;
+        let deprecated = ctx
             .parse_ext_optional::<bool>("deprecated")?
             .unwrap_or(false);
-        let default = ext.ext_optional("default").map(|ctx| ctx.node_id());
-        let examples = ext.parse_ext_optional::<Vec<NodeId>>("examples")?;
-
-        // Allow other extensions (codegen, etc.)
-        ext.allow_unknown_extensions();
+        let default = ctx.ext_optional("default").map(|ctx| ctx.node_id());
+        let examples = ctx.parse_ext_optional::<Vec<NodeId>>("examples")?;
 
         Ok(ParsedSchemaMetadata {
             description,
@@ -642,9 +617,7 @@ use eure_document::value::{PrimitiveValue, ValueKind};
 
 /// Get the $variant extension value as a string if present.
 fn get_variant_string(ctx: &ParseContext<'_>) -> Result<Option<String>, ParseError> {
-    let mut ext = ctx.parse_extension();
-    let variant_ctx = ext.ext_optional("variant");
-    ext.allow_unknown_extensions();
+    let variant_ctx = ctx.ext_optional("variant");
 
     match variant_ctx {
         Some(var_ctx) => {
@@ -866,9 +839,7 @@ impl ParseDocument<'_> for ParsedSchemaNode {
 fn parse_ext_types(
     ctx: &ParseContext<'_>,
 ) -> Result<HashMap<Identifier, ParsedExtTypeSchema>, ParseError> {
-    let mut ext = ctx.parse_extension();
-    let ext_type_ctx = ext.ext_optional("ext-type");
-    ext.allow_unknown_extensions();
+    let ext_type_ctx = ctx.ext_optional("ext-type");
 
     let mut result = HashMap::new();
 

@@ -967,13 +967,13 @@ mod tests {
     ) -> Result<ReprTestEnum, ParseError> {
         ctx.parse_union(repr)?
             .variant("a", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::B { name })
@@ -1158,13 +1158,13 @@ mod tests {
             })
             .unwrap()
             .variant("a", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.allow_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::B { name })
@@ -1210,13 +1210,13 @@ mod tests {
             .parse_union::<_, ParseError>(VariantRepr::External)
             .unwrap()
             .variant("a", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 // Don't deny_unknown_fields - we have "extra"
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::B { name })
@@ -1241,13 +1241,13 @@ mod tests {
             .parse_union(VariantRepr::External)
             .unwrap()
             .variant("a", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::B { name })
@@ -1318,13 +1318,13 @@ mod tests {
             })
             .unwrap()
             .variant("a", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 // Don't deny_unknown_fields - we have "type"
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::B { name })
@@ -1368,13 +1368,13 @@ mod tests {
             .parse_union(VariantRepr::External)
             .unwrap()
             .variant("a", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::B { name })
@@ -1411,13 +1411,13 @@ mod tests {
             })
             .unwrap()
             .variant("a", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let value: i64 = rec.parse_field("value")?;
                 rec.allow_unknown_fields()?;
                 Ok(ReprTestEnum::A { value })
             })
             .variant("b", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let name: String = rec.parse_field("name")?;
                 rec.deny_unknown_fields()?;
                 Ok(ReprTestEnum::B { name })

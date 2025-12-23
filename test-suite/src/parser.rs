@@ -29,7 +29,7 @@ impl ParseDocument<'_> for CompletionItem {
     type Error = DocumentParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
         let label = rec.parse_field::<String>("label")?;
         let kind = rec.parse_field_optional::<String>("kind")?;
         rec.deny_unknown_fields()?;
@@ -73,7 +73,7 @@ impl ParseDocument<'_> for DiagnosticItem {
     type Error = DocumentParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
         let severity = rec.parse_field_optional::<String>("severity")?;
         let source = rec.parse_field_optional::<String>("source")?;
         let message = rec.parse_field_optional::<String>("message")?;
@@ -189,13 +189,13 @@ impl ParseDocument<'_> for JsonData {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         ctx.parse_union(VariantRepr::default())?
             .variant("Both", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let text = rec.parse_field("json")?;
                 rec.deny_unknown_fields()?;
                 Ok(JsonData::Both(text))
             })
             .variant("Separate", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let input = rec.parse_field_optional("input_json")?;
                 let output = rec.parse_field_optional("output_json")?;
                 rec.deny_unknown_fields()?;
@@ -267,13 +267,13 @@ impl ParseDocument<'_> for JsonSchemaData {
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         ctx.parse_union(VariantRepr::default())?
             .variant("Both", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let text = rec.parse_field("json_schema")?;
                 rec.deny_unknown_fields()?;
                 Ok(JsonSchemaData::Both(text))
             })
             .variant("Separate", |ctx: &ParseContext<'_>| {
-                let mut rec = ctx.parse_record()?;
+                let rec = ctx.parse_record()?;
                 let input = rec.parse_field_optional("input_json_schema")?;
                 let output = rec.parse_field_optional("output_json_schema")?;
                 rec.deny_unknown_fields()?;

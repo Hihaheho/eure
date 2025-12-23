@@ -39,12 +39,6 @@ fn generate_named_struct_from_record(
     ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
-    // Check if we need an ExtParser (for ext or flatten_ext fields)
-    let needs_ext_parser = fields.iter().any(|f| {
-        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
-        attrs.ext || attrs.flatten_ext
-    });
-
     let field_assignments: Vec<_> = fields
         .iter()
         .map(|f| {
@@ -68,10 +62,10 @@ fn generate_named_struct_from_record(
             if attrs.flatten {
                 quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
             } else if attrs.flatten_ext {
-                quote! { #field_name: <#field_ty>::parse(&ext.flatten_ext())? }
+                quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
             } else if attrs.ext {
                 let field_name_str = context.apply_rename(&field_name.to_string());
-                quote! { #field_name: ext.parse_ext(#field_name_str)? }
+                quote! { #field_name: ctx.parse_ext(#field_name_str)? }
             } else {
                 let field_name_str = context.apply_rename(&field_name.to_string());
                 quote! { #field_name: rec.parse_field(#field_name_str)? }
@@ -79,27 +73,15 @@ fn generate_named_struct_from_record(
         })
         .collect();
 
-    if needs_ext_parser {
-        context.impl_parse_document(quote! {
-            let mut rec = ctx.parse_record()?;
-            let mut ext = ctx.parse_extension();
-            let value = #ident {
-                #(#field_assignments),*
-            };
-            rec.deny_unknown_fields()?;
-            ext.deny_unknown_extensions()?;
-            Ok(value)
-        })
-    } else {
-        context.impl_parse_document(quote! {
-            let mut rec = ctx.parse_record()?;
-            let value = #ident {
-                #(#field_assignments),*
-            };
-            rec.deny_unknown_fields()?;
-            Ok(value)
-        })
-    }
+    context.impl_parse_document(quote! {
+        let rec = ctx.parse_record()?;
+        let value = #ident {
+            #(#field_assignments),*
+        };
+        rec.deny_unknown_fields()?;
+        ctx.deny_unknown_extensions()?;
+        Ok(value)
+    })
 }
 
 fn generate_named_struct_from_ext(
@@ -117,20 +99,20 @@ fn generate_named_struct_from_ext(
             if attrs.flatten {
                 panic!("#[eure(flatten)] cannot be used in #[eure(parse_ext)] context; use #[eure(flatten_ext)] instead");
             } else if attrs.flatten_ext {
-                quote! { #field_name: <#field_ty>::parse(&ext.flatten_ext())? }
+                quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
             } else {
                 let field_name_str = context.apply_rename(&field_name.to_string());
-                quote! { #field_name: ext.parse_ext(#field_name_str)? }
+                quote! { #field_name: ctx.parse_ext(#field_name_str)? }
             }
         })
         .collect();
 
+    // No need to call deny_unknown_extensions in parse_ext context
+    // (the caller is responsible for validation)
     context.impl_parse_document(quote! {
-        let mut ext = ctx.parse_extension();
         let value = #ident {
             #(#field_assignments),*
         };
-        ext.allow_unknown_extensions();
         Ok(value)
     })
 }

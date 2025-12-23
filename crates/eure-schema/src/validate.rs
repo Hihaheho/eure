@@ -305,12 +305,9 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
             }
         }
 
-        // Validate present extensions using parse_extension() API
-        // Accesses are tracked in the shared flatten context
-        let mut ext_parser = parse_ctx.parse_extension();
-
+        // Validate present extensions - accesses are tracked in the shared flatten context
         for (ext_ident, ext_schema) in ext_types {
-            if let Some(ext_ctx) = ext_parser.ext_optional(ext_ident.as_ref()) {
+            if let Some(ext_ctx) = parse_ctx.ext_optional(ext_ident.as_ref()) {
                 self.ctx.push_path_extension(ext_ident.clone());
 
                 let child_validator = SchemaValidator {
@@ -335,8 +332,7 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
     /// Uses the shared AccessedSet from the flatten context to determine
     /// which extensions have been accessed.
     fn warn_unknown_extensions(&self, parse_ctx: &ParseContext<'doc>) {
-        let ext_parser = parse_ctx.parse_extension();
-        for (ext_ident, _) in ext_parser.unknown_extensions() {
+        for (ext_ident, _) in parse_ctx.unknown_extensions() {
             // Skip built-in extensions used by the schema system
             if Self::is_builtin_extension(ext_ident) {
                 continue;

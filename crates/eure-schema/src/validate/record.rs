@@ -35,7 +35,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
         let node_id = parse_ctx.node_id();
 
         // Use parse_record() API
-        let mut rec = match parse_ctx.parse_record() {
+        let rec = match parse_ctx.parse_record() {
             Ok(r) => r,
             Err(e) => {
                 self.ctx.record_error(ValidationError::TypeMismatch {

@@ -38,7 +38,7 @@ pub struct RootCodegen {
 impl ParseDocument<'_> for RootCodegen {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let type_name = rec.parse_field_optional::<String>("type")?;
 
@@ -78,7 +78,7 @@ pub struct CodegenDefaults {
 impl ParseDocument<'_> for CodegenDefaults {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
         let ext_types_field_prefix =
@@ -137,7 +137,7 @@ pub struct UnionCodegen {
 impl ParseDocument<'_> for UnionCodegen {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
         let type_name = rec.parse_field_optional::<String>("type")?;
@@ -190,7 +190,7 @@ pub struct RecordCodegen {
 impl ParseDocument<'_> for RecordCodegen {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         // Parse base-codegen fields (flattened)
         let type_name = rec.parse_field_optional::<String>("type")?;
@@ -224,7 +224,7 @@ pub struct FieldCodegen {
 impl ParseDocument<'_> for FieldCodegen {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let mut rec = ctx.parse_record()?;
+        let rec = ctx.parse_record()?;
 
         let name = rec.parse_field_optional::<String>("name")?;
 
