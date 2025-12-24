@@ -1,0 +1,122 @@
+// Example Eure Markdown document
+$schema: ../../assets/schemas/eure-md.schema.eure
+
+// ---- Frontmatter ----
+title = markdown`Eure Mark: A Structured Document Format`
+authors = [
+  { name => "Alice", affiliation => "Eure Labs" },
+  "Bob"
+]
+date = `2025-01-15`
+tags = ["eure", "markdown", "documentation"]
+draft = false
+
+description = ```markdown
+This document demonstrates the **eure-mark** format, which combines
+Eure's structured data model with Markdown content.
+```
+
+// ---- Bibliography (BibTeX) ----
+cites = ```bibtex
+@article{knuth1984,
+  author = "Donald E. Knuth",
+  title = "Literate Programming",
+  journal = "The Computer Journal",
+  volume = "27",
+  number = "2",
+  pages = "97--111",
+  year = 1984
+}
+
+@book{lamport1994,
+  author = "Leslie Lamport",
+  title = "LaTeX: A Document Preparation System",
+  publisher = "Addison-Wesley",
+  year = 1994,
+  edition = "2nd"
+}
+```
+
+@ footnotes.impl-detail {
+  content = markdown`Implementation details may change in future versions.`
+}
+
+@ footnotes.see-spec {
+  content = markdown`See the [CommonMark Spec](https://commonmark.org) for details.`
+}
+
+@ sections.intro {
+  header = markdown`Introduction`
+  body = ```markdown
+  Traditional Markdown documents have **implicit structure** based on heading levels.
+  This can lead to ambiguity and makes programmatic manipulation difficult.
+
+  Eure-mark addresses this by making the section hierarchy **explicit**!footnote[impl-detail].
+  ```
+
+  @ sections.motivation {
+    header = markdown`Motivation`
+    body = ```markdown
+    The key motivations for eure-mark are:
+
+    - **Type-safe frontmatter**: Validate metadata with schemas
+    - **Explicit hierarchy**: No guessing about section nesting
+    - **Integrated citations**: BibTeX support built-in!cite[knuth1984]
+    - **Structured footnotes**: First-class footnote definitions
+    ```
+  }
+
+  @ sections.goals {
+    header = markdown`Design Goals`
+    body = ```markdown
+    1. Maintain Markdown familiarity for content
+    2. Add structure where Markdown is weak
+    3. Enable programmatic document manipulation
+    4. Support academic/technical writing workflows
+    ```
+  }
+}
+
+@ sections.syntax {
+  header = markdown`Syntax Overview`
+  body = ```markdown
+  Eure-mark uses Eure syntax for structure and Markdown for content.
+  ```
+
+  @ sections.inline {
+    header = markdown`Inline Markdown`
+    body = ````markdown
+    For short text like headers, use inline code with `markdown` tag:
+
+    ```eure
+    header = markdown`Section *Title* with **emphasis**`
+    ```
+
+    This keeps headers on a single line while supporting basic formatting!footnote[see-spec].
+    ````
+  }
+
+  @ sections.block {
+    header = markdown`Block Markdown`
+    body = ````markdown
+    For longer content, use fenced code blocks:
+
+    ```eure
+    body = ```markdown
+    Multiple paragraphs of content...
+
+    - With lists
+    - And other block elements
+    ```
+    ```
+    ````
+  }
+}
+
+@ sections.references {
+  header = markdown`References`
+  body = ```markdown
+  This format was inspired by literate programming!cite[knuth1984] and
+  the LaTeX document preparation system!cite[lamport1994].
+  ```
+}

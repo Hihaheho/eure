@@ -11,5 +11,9 @@ schema = "assets/schemas/eure-schema.schema.eure"
 @ targets.examples
 globs = ["assets/examples/**/*.eure"]
 
+@ targets.eumd
+globs = ["**/*.eumd"]
+schema = "assets/schemas/eure-md.schema.eure"
+
 @ cli
 default-targets = ["adr", "schemas"]

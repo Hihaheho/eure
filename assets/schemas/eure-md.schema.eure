@@ -1,0 +1,142 @@
+/// Eure Markdown Schema
+///
+/// A structured document format combining Eure's data model with Markdown content.
+/// File extension: .eumd
+///
+/// Key features:
+/// - Structured frontmatter with type-safe fields
+/// - Explicit section hierarchy (no implicit # heading parsing)
+/// - Integrated footnotes and citations (BibTeX)
+/// - Markdown content in code blocks
+///
+/// Section references:
+/// - Sections use map structure with ID as key: @ sections.intro { ... }
+/// - Reference in markdown: !ref[intro]
+/// - Nested sections: @ sections.intro.sections.subsection { ... }
+
+$schema = "eure-schema.schema.eure"
+$variant: record
+
+// ============================================================================
+// Document Root Fields
+// ============================================================================
+
+// ---- Frontmatter (metadata) ----
+
+/// Document title (inline markdown for formatting)
+title = `$types.inline-markdown`
+
+/// Document authors
+authors = [`$types.author`]
+authors.$optional = true
+
+/// Publication/creation date
+date = `text.date`
+date.$optional = true
+
+/// Categorization tags
+tags = [`text`]
+tags.$optional = true
+
+/// Draft status (unpublished if true)
+draft = `boolean`
+draft.$optional = true
+
+/// Document description/abstract
+description = `$types.block-markdown`
+description.$optional = true
+
+// ---- References ----
+
+/// Bibliography in BibTeX format
+cites = `$types.bibtex`
+cites.$optional = true
+
+// ---- Footnotes ----
+
+/// Footnote definitions (referenced in body via !footnote[key])
+footnotes {
+  $variant: map
+  key = `text`
+  value = `$types.footnote`
+}
+footnotes.$optional = true
+footnotes.$binding-style = "section"
+
+// ---- Document Body ----
+
+/// Introduction/preamble before first section
+intro = `$types.block-markdown`
+intro.$optional = true
+
+/// Document sections (map with ID as key for easy referencing)
+sections {
+  $variant: map
+  key = `text`
+  value = `$types.section`
+}
+sections.$optional = true
+sections.$binding-style = "section"
+
+// ============================================================================
+// Custom Types
+// ============================================================================
+
+/// Inline markdown text (for headers, short content)
+@ $types.inline-markdown {
+  $variant: text
+  language = "markdown"
+}
+
+/// Block markdown content (for body text)
+@ $types.block-markdown {
+  $variant: text
+  language = "markdown"
+}
+
+/// BibTeX bibliography content
+@ $types.bibtex {
+  $variant: text
+  language = "bibtex"
+}
+
+/// Author information
+@ $types.author {
+  $variant: union
+  // Simple: just a name string
+  variants.simple = `text`
+  // Detailed: name with affiliation, email, etc.
+  @ variants.detailed {
+    name = `text`
+    affiliation = `text`
+    affiliation.$optional = true
+    email = `text.email`
+    email.$optional = true
+    url = `text.url`
+    url.$optional = true
+  }
+}
+
+/// Footnote definition
+@ $types.footnote {
+  content = `$types.inline-markdown`
+}
+
+/// Section structure (recursive, map-based for referencing)
+@ $types.section {
+  // Section header (inline markdown)
+  header = `$types.inline-markdown`
+
+  // Section body content (block markdown)
+  body = `$types.block-markdown`
+  body.$optional = true
+
+  // Nested subsections (map with ID as key)
+  sections {
+    $variant: map
+    key = `text`
+    value = `$types.section`
+  }
+  sections.$optional = true
+  sections.$binding-style = "section"
+}

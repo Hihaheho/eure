@@ -27,6 +27,7 @@
 !example.schema.eure
 !eure-schema.schema.eure
 !assets/**/*.eure
+!**/*.eumd
 
 !playground/**/*.json
 !playground/**/*.js
