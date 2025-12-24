@@ -830,9 +830,13 @@ pub enum ParseErrorKind {
     #[error("value out of range: {0}")]
     OutOfRange(String),
 
-    /// Invalid string pattern.
-    #[error("invalid pattern: expected {pattern}, got {value}")]
-    InvalidPattern { pattern: String, value: String },
+    /// Invalid value pattern or format.
+    ///
+    /// Used for validation errors in types like regex, URL, UUID, etc.
+    /// - `kind`: Type of validation (e.g., "regex", "url", "uuid", "pattern: <expected>")
+    /// - `reason`: Human-readable error message explaining the failure
+    #[error("invalid {kind}: {reason}")]
+    InvalidPattern { kind: String, reason: String },
 
     /// Nested parse error with path context.
     #[error("at {path}: {source}")]
@@ -1346,8 +1350,8 @@ impl ParseDocument<'_> for regex::Regex {
         regex::Regex::new(pattern).map_err(|e| ParseError {
             node_id: ctx.node_id(),
             kind: ParseErrorKind::InvalidPattern {
-                pattern: pattern.to_string(),
-                value: e.to_string(),
+                kind: format!("regex '{}'", pattern),
+                reason: e.to_string(),
             },
         })
     }

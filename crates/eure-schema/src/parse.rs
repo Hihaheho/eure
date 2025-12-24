@@ -40,8 +40,11 @@ impl ParseDocument<'_> for TypeReference {
         let path = path.strip_prefix("$types.").ok_or_else(|| ParseError {
             node_id: ctx.node_id(),
             kind: ParseErrorKind::InvalidPattern {
-                pattern: "$types.<name> or $types.<namespace>.<name>".to_string(),
-                value: path.to_string(),
+                kind: "type reference".to_string(),
+                reason: format!(
+                    "expected '$types.<name>' or '$types.<namespace>.<name>', got '{}'",
+                    path
+                ),
             },
         })?;
 
@@ -71,8 +74,11 @@ impl ParseDocument<'_> for TypeReference {
             _ => Err(ParseError {
                 node_id: ctx.node_id(),
                 kind: ParseErrorKind::InvalidPattern {
-                    pattern: "$types.<name> or $types.<namespace>.<name>".to_string(),
-                    value: format!("$types.{}", path),
+                    kind: "type reference".to_string(),
+                    reason: format!(
+                        "expected '$types.<name>' or '$types.<namespace>.<name>', got '$types.{}'",
+                        path
+                    ),
                 },
             }),
         }
@@ -617,8 +623,8 @@ fn parse_type_reference_string(
         return Err(ParseError {
             node_id,
             kind: ParseErrorKind::InvalidPattern {
-                pattern: "non-empty type reference".to_string(),
-                value: String::new(),
+                kind: "type reference".to_string(),
+                reason: "expected non-empty type reference, got empty string".to_string(),
             },
         });
     }
@@ -676,8 +682,11 @@ fn parse_type_reference_string(
         _ => Err(ParseError {
             node_id,
             kind: ParseErrorKind::InvalidPattern {
-                pattern: "type reference (e.g., 'text', 'integer', '$types.name')".to_string(),
-                value: s.to_string(),
+                kind: "type reference".to_string(),
+                reason: format!(
+                    "expected 'text', 'integer', '$types.name', etc., got '{}'",
+                    s
+                ),
             },
         }),
     }
@@ -769,8 +778,11 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
                     Err(ParseError {
                         node_id,
                         kind: ParseErrorKind::InvalidPattern {
-                            pattern: "single-element array for array schema shorthand".to_string(),
-                            value: format!("{}-element array", arr.len()),
+                            kind: "array schema shorthand".to_string(),
+                            reason: format!(
+                                "expected single-element array [type], got {}-element array",
+                                arr.len()
+                            ),
                         },
                     })
                 }
