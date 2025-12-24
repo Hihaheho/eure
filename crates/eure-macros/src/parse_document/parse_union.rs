@@ -54,6 +54,7 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
             &variant_name,
             variant_ident,
             &fields.named,
+            &variant_attrs,
         ),
     }
 }
@@ -107,6 +108,7 @@ fn generate_struct_variant(
     variant_name: &str,
     variant_ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
+    variant_attrs: &VariantAttrs,
 ) -> TokenStream {
     let field_assignments: Vec<_> = fields
         .iter()
@@ -127,13 +129,19 @@ fn generate_struct_variant(
         })
         .collect();
 
+    let unknown_fields_check = if variant_attrs.allow_unknown_fields {
+        quote! { rec.allow_unknown_fields()?; }
+    } else {
+        quote! { rec.deny_unknown_fields()?; }
+    };
+
     quote! {
         .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
             let mut rec = ctx.parse_record()?;
             let value = #enum_ident::#variant_ident {
                 #(#field_assignments),*
             };
-            rec.deny_unknown_fields()?;
+            #unknown_fields_check
             Ok(value)
         })
     }

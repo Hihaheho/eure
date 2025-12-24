@@ -477,7 +477,8 @@ pub struct TypeReference {
 /// ```eure
 /// description => { $variant: union, variants.string => .text, variants.markdown => .text.markdown }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "lowercase")]
 pub enum Description {
     /// Plain text description
     String(String),

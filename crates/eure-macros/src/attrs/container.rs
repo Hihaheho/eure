@@ -16,4 +16,8 @@ pub struct ContainerAttrs {
     /// When true, uses `ctx.parse_extension()` and `ext.parse_ext()` instead of
     /// `ctx.parse_record()` and `rec.parse_field()`.
     pub parse_ext: bool,
+    /// Allow unknown fields instead of denying them.
+    /// By default (false), unknown fields cause a parse error.
+    /// When true, uses `allow_unknown_fields()` instead of `deny_unknown_fields()`.
+    pub allow_unknown_fields: bool,
 }
