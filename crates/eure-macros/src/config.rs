@@ -9,6 +9,10 @@ pub struct MacroConfig {
     pub rename_all_fields: Option<RenameAll>,
     /// Parse fields from extension namespace instead of record fields.
     pub parse_ext: bool,
+    /// Allow unknown fields instead of denying them.
+    pub allow_unknown_fields: bool,
+    /// Allow unknown extensions instead of denying them.
+    pub allow_unknown_extensions: bool,
 }
 
 impl MacroConfig {
@@ -23,6 +27,8 @@ impl MacroConfig {
             rename_all: attrs.rename_all,
             rename_all_fields: attrs.rename_all_fields,
             parse_ext: attrs.parse_ext,
+            allow_unknown_fields: attrs.allow_unknown_fields,
+            allow_unknown_extensions: attrs.allow_unknown_extensions,
         }
     }
 }

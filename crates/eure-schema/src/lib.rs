@@ -199,7 +199,8 @@ pub enum Bound<T> {
 /// max-length = .integer (optional)
 /// pattern = .text (optional)
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields, allow_unknown_extensions)]
 pub struct TextSchema {
     /// Language identifier (e.g., "rust", "javascript", "email", "plaintext")
     ///
@@ -208,15 +209,20 @@ pub struct TextSchema {
     ///
     /// Note: When a value has `Language::Implicit` (from `` `...` `` syntax),
     /// it can be coerced to match the schema's expected language.
+    #[eure(default)]
     pub language: Option<String>,
     /// Minimum length constraint (in UTF-8 code points)
+    #[eure(default)]
     pub min_length: Option<u32>,
     /// Maximum length constraint (in UTF-8 code points)
+    #[eure(default)]
     pub max_length: Option<u32>,
     /// Regex pattern constraint (applied to the text content).
     /// Pre-compiled at schema parse time for efficiency.
+    #[eure(default)]
     pub pattern: Option<Regex>,
     /// Unknown fields (for future extensions like "flatten")
+    #[eure(flatten)]
     pub unknown_fields: std::collections::HashMap<String, eure_document::document::NodeId>,
 }
 
@@ -477,7 +483,8 @@ pub struct TypeReference {
 /// ```eure
 /// description => { $variant: union, variants.string => .text, variants.markdown => .text.markdown }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "lowercase")]
 pub enum Description {
     /// Plain text description
     String(String),

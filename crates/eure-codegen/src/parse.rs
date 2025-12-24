@@ -11,7 +11,7 @@
 //! - [`RecordCodegen`] - Codegen settings for record types
 //! - [`FieldCodegen`] - Codegen settings for individual record fields
 
-use eure_document::parse::{ParseContext, ParseDocument, ParseError};
+use eure_macros::ParseDocument;
 
 // ============================================================================
 // Root-Level Codegen Types
@@ -29,23 +29,12 @@ use eure_document::parse::{ParseContext, ParseDocument, ParseError};
 ///   type = "MyRootType"
 /// }
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document)]
 pub struct RootCodegen {
     /// The root type name for the generated code.
+    #[eure(rename = "type", default)]
     pub type_name: Option<String>,
-}
-
-impl ParseDocument<'_> for RootCodegen {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let type_name = rec.parse_field_optional::<String>("type")?;
-
-        rec.deny_unknown_fields()?;
-
-        Ok(RootCodegen { type_name })
-    }
 }
 
 /// Default codegen settings applied to all types.
@@ -63,39 +52,21 @@ impl ParseDocument<'_> for RootCodegen {
 ///   document-node-id-field = "doc_node"
 /// }
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct CodegenDefaults {
     /// Default derive macros for all generated types.
+    #[eure(default)]
     pub derive: Option<Vec<String>>,
     /// Prefix for extension type field names (e.g., "ext_" -> ext_types).
+    #[eure(default)]
     pub ext_types_field_prefix: Option<String>,
     /// Prefix for extension type names (e.g., "Ext" -> ExtTypes).
+    #[eure(default)]
     pub ext_types_type_prefix: Option<String>,
     /// Field name for storing document node ID in generated types.
+    #[eure(default)]
     pub document_node_id_field: Option<String>,
-}
-
-impl ParseDocument<'_> for CodegenDefaults {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
-        let ext_types_field_prefix =
-            rec.parse_field_optional::<String>("ext-types-field-prefix")?;
-        let ext_types_type_prefix = rec.parse_field_optional::<String>("ext-types-type-prefix")?;
-        let document_node_id_field =
-            rec.parse_field_optional::<String>("document-node-id-field")?;
-
-        rec.deny_unknown_fields()?;
-
-        Ok(CodegenDefaults {
-            derive,
-            ext_types_field_prefix,
-            ext_types_type_prefix,
-            document_node_id_field,
-        })
-    }
 }
 
 // ============================================================================
@@ -122,40 +93,21 @@ impl ParseDocument<'_> for CodegenDefaults {
 ///   variants.b = `integer`
 /// }
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct UnionCodegen {
     /// Override the generated type name (from base-codegen).
+    #[eure(rename = "type", default)]
     pub type_name: Option<String>,
     /// Override the list of derive macros (from base-codegen).
+    #[eure(default)]
     pub derive: Option<Vec<String>>,
     /// Generate separate types for each variant instead of struct-like variants.
+    #[eure(default)]
     pub variant_types: Option<bool>,
     /// Suffix for variant type names (e.g., "Type" -> TextType, IntegerType).
+    #[eure(default)]
     pub variant_types_suffix: Option<String>,
-}
-
-impl ParseDocument<'_> for UnionCodegen {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        // Parse base-codegen fields (flattened)
-        let type_name = rec.parse_field_optional::<String>("type")?;
-        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
-
-        // Parse union-specific fields
-        let variant_types = rec.parse_field_optional::<bool>("variant-types")?;
-        let variant_types_suffix = rec.parse_field_optional::<String>("variant-types-suffix")?;
-
-        rec.deny_unknown_fields()?;
-
-        Ok(UnionCodegen {
-            type_name,
-            derive,
-            variant_types,
-            variant_types_suffix,
-        })
-    }
 }
 
 /// Codegen settings for record types.
@@ -179,27 +131,15 @@ impl ParseDocument<'_> for UnionCodegen {
 ///   age = `integer`
 /// }
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document)]
 pub struct RecordCodegen {
     /// Override the generated type name (from base-codegen).
+    #[eure(rename = "type", default)]
     pub type_name: Option<String>,
     /// Override the list of derive macros (from base-codegen).
+    #[eure(default)]
     pub derive: Option<Vec<String>>,
-}
-
-impl ParseDocument<'_> for RecordCodegen {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        // Parse base-codegen fields (flattened)
-        let type_name = rec.parse_field_optional::<String>("type")?;
-        let derive = rec.parse_field_optional::<Vec<String>>("derive")?;
-
-        rec.deny_unknown_fields()?;
-
-        Ok(RecordCodegen { type_name, derive })
-    }
 }
 
 /// Codegen settings for individual record fields.
@@ -215,23 +155,12 @@ impl ParseDocument<'_> for RecordCodegen {
 ///   user-name.$codegen.name = "username"  // Rename to `username` in Rust
 /// }
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document)]
 pub struct FieldCodegen {
     /// Override the field name in generated Rust code.
+    #[eure(default)]
     pub name: Option<String>,
-}
-
-impl ParseDocument<'_> for FieldCodegen {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let name = rec.parse_field_optional::<String>("name")?;
-
-        rec.deny_unknown_fields()?;
-
-        Ok(FieldCodegen { name })
-    }
 }
 
 #[cfg(test)]

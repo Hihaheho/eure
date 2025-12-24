@@ -93,13 +93,25 @@ fn generate_named_struct_from_record(
         })
         .collect();
 
+    let unknown_fields_check = if context.config.allow_unknown_fields {
+        quote! { rec.allow_unknown_fields()?; }
+    } else {
+        quote! { rec.deny_unknown_fields()?; }
+    };
+
+    let unknown_extensions_check = if context.config.allow_unknown_extensions {
+        quote! {}
+    } else {
+        quote! { ctx.deny_unknown_extensions()?; }
+    };
+
     context.impl_parse_document(quote! {
         let rec = ctx.parse_record()?;
         let value = #ident {
             #(#field_assignments),*
         };
-        rec.deny_unknown_fields()?;
-        ctx.deny_unknown_extensions()?;
+        #unknown_fields_check
+        #unknown_extensions_check
         Ok(value)
     })
 }

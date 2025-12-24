@@ -23,24 +23,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
-use eure_document::parse::{
-    DocumentParserExt as _, ParseContext, ParseDocument, ParseError, ParseErrorKind,
-};
+use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
 use num_bigint::BigInt;
-use regex::Regex;
 
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
-
-impl ParseDocument<'_> for Description {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        use eure_document::data_model::VariantRepr;
-        ctx.parse_union(VariantRepr::default())?
-            .variant("string", String::parse.map(Description::String))
-            .variant("markdown", String::parse.map(Description::Markdown))
-            .parse()
-    }
-}
 
 impl ParseDocument<'_> for TypeReference {
     type Error = ParseError;
@@ -53,8 +39,11 @@ impl ParseDocument<'_> for TypeReference {
         let path = path.strip_prefix("$types.").ok_or_else(|| ParseError {
             node_id: ctx.node_id(),
             kind: ParseErrorKind::InvalidPattern {
-                pattern: "$types.<name> or $types.<namespace>.<name>".to_string(),
-                value: path.to_string(),
+                kind: "type reference".to_string(),
+                reason: format!(
+                    "expected '$types.<name>' or '$types.<namespace>.<name>', got '{}'",
+                    path
+                ),
             },
         })?;
 
@@ -84,50 +73,14 @@ impl ParseDocument<'_> for TypeReference {
             _ => Err(ParseError {
                 node_id: ctx.node_id(),
                 kind: ParseErrorKind::InvalidPattern {
-                    pattern: "$types.<name> or $types.<namespace>.<name>".to_string(),
-                    value: format!("$types.{}", path),
+                    kind: "type reference".to_string(),
+                    reason: format!(
+                        "expected '$types.<name>' or '$types.<namespace>.<name>', got '$types.{}'",
+                        path
+                    ),
                 },
             }),
         }
-    }
-}
-
-impl ParseDocument<'_> for TextSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let language = rec.parse_field_optional::<String>("language")?;
-        let min_length = rec.parse_field_optional::<u32>("min-length")?;
-        let max_length = rec.parse_field_optional::<u32>("max-length")?;
-        let pattern_str = rec.parse_field_optional::<String>("pattern")?;
-
-        // Compile regex at parse time
-        let pattern = pattern_str
-            .map(|s| Regex::new(&s))
-            .transpose()
-            .map_err(|e| ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::InvalidPattern {
-                    pattern: "valid regex".to_string(),
-                    value: e.to_string(),
-                },
-            })?;
-
-        // Collect unknown fields for future extensions
-        let unknown_fields: HashMap<String, NodeId> = rec
-            .unknown_fields()
-            .map(|(name, field_ctx)| (name.to_string(), field_ctx.node_id()))
-            .collect();
-        rec.allow_unknown_fields()?;
-
-        Ok(TextSchema {
-            language,
-            min_length,
-            max_length,
-            pattern,
-            unknown_fields,
-        })
     }
 }
 
@@ -647,8 +600,8 @@ fn parse_type_reference_string(
         return Err(ParseError {
             node_id,
             kind: ParseErrorKind::InvalidPattern {
-                pattern: "non-empty type reference".to_string(),
-                value: String::new(),
+                kind: "type reference".to_string(),
+                reason: "expected non-empty type reference, got empty string".to_string(),
             },
         });
     }
@@ -706,8 +659,11 @@ fn parse_type_reference_string(
         _ => Err(ParseError {
             node_id,
             kind: ParseErrorKind::InvalidPattern {
-                pattern: "type reference (e.g., 'text', 'integer', '$types.name')".to_string(),
-                value: s.to_string(),
+                kind: "type reference".to_string(),
+                reason: format!(
+                    "expected 'text', 'integer', '$types.name', etc., got '{}'",
+                    s
+                ),
             },
         }),
     }
@@ -799,8 +755,11 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
                     Err(ParseError {
                         node_id,
                         kind: ParseErrorKind::InvalidPattern {
-                            pattern: "single-element array for array schema shorthand".to_string(),
-                            value: format!("{}-element array", arr.len()),
+                            kind: "array schema shorthand".to_string(),
+                            reason: format!(
+                                "expected single-element array [type], got {}-element array",
+                                arr.len()
+                            ),
                         },
                     })
                 }

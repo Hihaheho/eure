@@ -13,8 +13,9 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use eure::ParseDocument;
 use eure::document::parse_to_document;
-use eure_document::parse::{ParseContext, ParseDocument, ParseError};
+use eure_document::parse::{ParseContext, ParseDocument as ParseDocumentTrait, ParseError};
 
 // Re-export for convenience
 pub use eure_document::parse::ParseError as ConfigParseError;
@@ -46,77 +47,34 @@ impl From<ParseError> for ConfigError {
 }
 
 /// A check target definition.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
+#[eure(crate = eure_document, allow_unknown_fields)]
 pub struct Target {
     /// Glob patterns for files to include in this target.
     pub globs: Vec<String>,
     /// Optional schema file path (relative to config file).
+    #[eure(default)]
     pub schema: Option<String>,
-}
-
-impl ParseDocument<'_> for Target {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let globs = rec.parse_field::<Vec<String>>("globs")?;
-        let schema = rec.parse_field_optional::<String>("schema")?;
-
-        rec.allow_unknown_fields()?;
-
-        Ok(Target { globs, schema })
-    }
 }
 
 /// CLI-specific configuration.
 #[cfg(feature = "cli")]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
 pub struct CliConfig {
     /// Default targets to check when running `eure check` without arguments.
+    #[eure(default)]
     pub default_targets: Vec<String>,
-}
-
-#[cfg(feature = "cli")]
-impl ParseDocument<'_> for CliConfig {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let default_targets = rec
-            .parse_field_optional::<Vec<String>>("default-targets")?
-            .unwrap_or_default();
-
-        rec.allow_unknown_fields()?;
-
-        Ok(CliConfig { default_targets })
-    }
 }
 
 /// Language server configuration.
 #[cfg(feature = "ls")]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
 pub struct LsConfig {
     /// Whether to format on save.
+    #[eure(default)]
     pub format_on_save: bool,
-}
-
-#[cfg(feature = "ls")]
-impl ParseDocument<'_> for LsConfig {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let format_on_save = rec
-            .parse_field_optional::<bool>("format-on-save")?
-            .unwrap_or(false);
-
-        rec.allow_unknown_fields()?;
-
-        Ok(LsConfig { format_on_save })
-    }
 }
 
 /// The main Eure configuration.
@@ -134,7 +92,7 @@ pub struct EureConfig {
     pub ls: Option<LsConfig>,
 }
 
-impl ParseDocument<'_> for EureConfig {
+impl ParseDocumentTrait<'_> for EureConfig {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
