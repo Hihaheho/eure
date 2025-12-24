@@ -45,8 +45,8 @@ cites = ```bibtex
   content = markdown`See the [CommonMark Spec](https://commonmark.org) for details.`
 }
 
-@ sections.intro {
-  header = markdown`Introduction`
+// Section key as header (no explicit header field needed)
+@ sections.Introduction {
   body = ```markdown
   Traditional Markdown documents have **implicit structure** based on heading levels.
   This can lead to ambiguity and makes programmatic manipulation difficult.
@@ -54,8 +54,7 @@ cites = ```bibtex
   Eure-mark addresses this by making the section hierarchy **explicit**!footnote[impl-detail].
   ```
 
-  @ sections.motivation {
-    header = markdown`Motivation`
+  @ sections.Motivation {
     body = ```markdown
     The key motivations for eure-mark are:
 
@@ -66,8 +65,8 @@ cites = ```bibtex
     ```
   }
 
-  @ sections.goals {
-    header = markdown`Design Goals`
+  // Quoted key for markdown formatting in header
+  @ sections."Design *Goals*" {
     body = ```markdown
     1. Maintain Markdown familiarity for content
     2. Add structure where Markdown is weak
@@ -77,14 +76,14 @@ cites = ```bibtex
   }
 }
 
+// Explicit header when key differs from display text
 @ sections.syntax {
   header = markdown`Syntax Overview`
   body = ```markdown
   Eure-mark uses Eure syntax for structure and Markdown for content.
   ```
 
-  @ sections.inline {
-    header = markdown`Inline Markdown`
+  @ sections."Inline Markdown" {
     body = ````markdown
     For short text like headers, use inline code with `markdown` tag:
 
@@ -96,8 +95,7 @@ cites = ```bibtex
     ````
   }
 
-  @ sections.block {
-    header = markdown`Block Markdown`
+  @ sections."Block Markdown" {
     body = ````markdown
     For longer content, use fenced code blocks:
 
@@ -113,8 +111,7 @@ cites = ```bibtex
   }
 }
 
-@ sections.references {
-  header = markdown`References`
+@ sections.References {
   body = ```markdown
   This format was inspired by literate programming!cite[knuth1984] and
   the LaTeX document preparation system!cite[lamport1994].
