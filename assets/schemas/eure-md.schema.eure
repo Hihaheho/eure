@@ -9,9 +9,14 @@
 /// - Integrated footnotes and citations (BibTeX)
 /// - Markdown content in code blocks
 ///
-/// Section references:
-/// - Sections use map structure with ID as key: @ sections.intro { ... }
-/// - Reference in markdown: !ref[intro]
+/// Section keys as headers:
+/// - Section key is used as header if `header` field is omitted
+/// - @ sections.Introduction { body = ... }  → header is "Introduction"
+/// - @ sections."*euremark* について" { ... } → header with markdown formatting
+/// - @ sections.intro { header = markdown`Custom Header` } → explicit header
+///
+/// References:
+/// - Reference sections in markdown: !ref[intro]
 /// - Nested sections: @ sections.intro.sections.subsection { ... }
 
 $schema = "eure-schema.schema.eure"
@@ -123,9 +128,11 @@ sections.$binding-style = "section"
 }
 
 /// Section structure (recursive, map-based for referencing)
+/// If header is omitted, the section key is used as the header text.
 @ $types.section {
-  // Section header (inline markdown)
+  // Section header (inline markdown). If omitted, section key is used as header.
   header = `$types.inline-markdown`
+  header.$optional = true
 
   // Section body content (block markdown)
   body = `$types.block-markdown`
