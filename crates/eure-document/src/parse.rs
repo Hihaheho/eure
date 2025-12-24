@@ -1338,6 +1338,21 @@ where
     }
 }
 
+impl ParseDocument<'_> for regex::Regex {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+        let pattern: &str = ctx.parse()?;
+        regex::Regex::new(pattern).map_err(|e| ParseError {
+            node_id: ctx.node_id(),
+            kind: ParseErrorKind::InvalidPattern {
+                pattern: pattern.to_string(),
+                value: e.to_string(),
+            },
+        })
+    }
+}
+
 /// `Option<T>` is a union with variants `some` and `none`.
 ///
 /// - `$variant: some` -> parse T

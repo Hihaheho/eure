@@ -24,10 +24,10 @@ use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use eure_macros::ParseDocument;
 use num_bigint::BigInt;
-use regex::Regex;
 
-use crate::{BindingStyle, Description, TextSchema, TypeReference};
+use crate::{BindingStyle, Description, TypeReference};
 
 impl ParseDocument<'_> for TypeReference {
     type Error = ParseError;
@@ -79,43 +79,26 @@ impl ParseDocument<'_> for TypeReference {
     }
 }
 
-impl ParseDocument<'_> for TextSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-
-        let language = rec.parse_field_optional::<String>("language")?;
-        let min_length = rec.parse_field_optional::<u32>("min-length")?;
-        let max_length = rec.parse_field_optional::<u32>("max-length")?;
-        let pattern_str = rec.parse_field_optional::<String>("pattern")?;
-
-        // Compile regex at parse time
-        let pattern = pattern_str
-            .map(|s| Regex::new(&s))
-            .transpose()
-            .map_err(|e| ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::InvalidPattern {
-                    pattern: "valid regex".to_string(),
-                    value: e.to_string(),
-                },
-            })?;
-
-        // Collect unknown fields for future extensions
-        let unknown_fields: HashMap<String, NodeId> = rec
-            .unknown_fields()
-            .map(|(name, field_ctx)| (name.to_string(), field_ctx.node_id()))
-            .collect();
-        rec.allow_unknown_fields()?;
-
-        Ok(TextSchema {
-            language,
-            min_length,
-            max_length,
-            pattern,
-            unknown_fields,
-        })
-    }
+/// Parsed text schema - syntactic representation with pattern as string.
+/// Regex compilation is deferred to convert phase.
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields, allow_unknown_extensions)]
+pub struct ParsedTextSchema {
+    /// Language identifier (e.g., "rust", "javascript", "email", "plaintext")
+    #[eure(default)]
+    pub language: Option<String>,
+    /// Minimum length constraint (in UTF-8 code points)
+    #[eure(default)]
+    pub min_length: Option<u32>,
+    /// Maximum length constraint (in UTF-8 code points)
+    #[eure(default)]
+    pub max_length: Option<u32>,
+    /// Regex pattern constraint as string (compiled in convert phase)
+    #[eure(default)]
+    pub pattern: Option<String>,
+    /// Unknown fields (for future extensions)
+    #[eure(flatten)]
+    pub unknown_fields: HashMap<String, NodeId>,
 }
 
 impl ParseDocument<'_> for crate::SchemaRef {
@@ -558,7 +541,7 @@ pub enum ParsedSchemaNodeContent {
     /// Any type - accepts any valid Eure value
     Any,
     /// Text type with constraints
-    Text(TextSchema),
+    Text(ParsedTextSchema),
     /// Integer type with constraints
     Integer(ParsedIntegerSchema),
     /// Float type with constraints
@@ -643,7 +626,7 @@ fn parse_type_reference_string(
     let segments: Vec<&str> = s.split('.').collect();
     match segments.as_slice() {
         // Primitive types
-        ["text"] => Ok(ParsedSchemaNodeContent::Text(TextSchema::default())),
+        ["text"] => Ok(ParsedSchemaNodeContent::Text(ParsedTextSchema::default())),
         ["integer"] => Ok(ParsedSchemaNodeContent::Integer(ParsedIntegerSchema {
             range: None,
             multiple_of: None,
@@ -660,7 +643,7 @@ fn parse_type_reference_string(
         ["any"] => Ok(ParsedSchemaNodeContent::Any),
 
         // Text with language: text.rust, text.email, etc.
-        ["text", lang] => Ok(ParsedSchemaNodeContent::Text(TextSchema {
+        ["text", lang] => Ok(ParsedSchemaNodeContent::Text(ParsedTextSchema {
             language: Some((*lang).to_string()),
             ..Default::default()
         })),

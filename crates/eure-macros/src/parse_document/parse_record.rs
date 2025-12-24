@@ -99,13 +99,19 @@ fn generate_named_struct_from_record(
         quote! { rec.deny_unknown_fields()?; }
     };
 
+    let unknown_extensions_check = if context.config.allow_unknown_extensions {
+        quote! {}
+    } else {
+        quote! { ctx.deny_unknown_extensions()?; }
+    };
+
     context.impl_parse_document(quote! {
         let rec = ctx.parse_record()?;
         let value = #ident {
             #(#field_assignments),*
         };
         #unknown_fields_check
-        ctx.deny_unknown_extensions()?;
+        #unknown_extensions_check
         Ok(value)
     })
 }
