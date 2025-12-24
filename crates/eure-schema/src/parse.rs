@@ -24,10 +24,9 @@ use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
-use eure_macros::ParseDocument;
 use num_bigint::BigInt;
 
-use crate::{BindingStyle, Description, TypeReference};
+use crate::{BindingStyle, Description, TextSchema, TypeReference};
 
 impl ParseDocument<'_> for TypeReference {
     type Error = ParseError;
@@ -83,28 +82,6 @@ impl ParseDocument<'_> for TypeReference {
             }),
         }
     }
-}
-
-/// Parsed text schema - syntactic representation with pattern as string.
-/// Regex compilation is deferred to convert phase.
-#[derive(Debug, Clone, Default, ParseDocument)]
-#[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields, allow_unknown_extensions)]
-pub struct ParsedTextSchema {
-    /// Language identifier (e.g., "rust", "javascript", "email", "plaintext")
-    #[eure(default)]
-    pub language: Option<String>,
-    /// Minimum length constraint (in UTF-8 code points)
-    #[eure(default)]
-    pub min_length: Option<u32>,
-    /// Maximum length constraint (in UTF-8 code points)
-    #[eure(default)]
-    pub max_length: Option<u32>,
-    /// Regex pattern constraint as string (compiled in convert phase)
-    #[eure(default)]
-    pub pattern: Option<String>,
-    /// Unknown fields (for future extensions)
-    #[eure(flatten)]
-    pub unknown_fields: HashMap<String, NodeId>,
 }
 
 impl ParseDocument<'_> for crate::SchemaRef {
@@ -547,7 +524,7 @@ pub enum ParsedSchemaNodeContent {
     /// Any type - accepts any valid Eure value
     Any,
     /// Text type with constraints
-    Text(ParsedTextSchema),
+    Text(TextSchema),
     /// Integer type with constraints
     Integer(ParsedIntegerSchema),
     /// Float type with constraints
@@ -632,7 +609,7 @@ fn parse_type_reference_string(
     let segments: Vec<&str> = s.split('.').collect();
     match segments.as_slice() {
         // Primitive types
-        ["text"] => Ok(ParsedSchemaNodeContent::Text(ParsedTextSchema::default())),
+        ["text"] => Ok(ParsedSchemaNodeContent::Text(TextSchema::default())),
         ["integer"] => Ok(ParsedSchemaNodeContent::Integer(ParsedIntegerSchema {
             range: None,
             multiple_of: None,
@@ -649,7 +626,7 @@ fn parse_type_reference_string(
         ["any"] => Ok(ParsedSchemaNodeContent::Any),
 
         // Text with language: text.rust, text.email, etc.
-        ["text", lang] => Ok(ParsedSchemaNodeContent::Text(ParsedTextSchema {
+        ["text", lang] => Ok(ParsedSchemaNodeContent::Text(TextSchema {
             language: Some((*lang).to_string()),
             ..Default::default()
         })),

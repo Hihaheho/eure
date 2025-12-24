@@ -45,13 +45,12 @@
 use crate::parse::{
     ParsedArraySchema, ParsedExtTypeSchema, ParsedFloatSchema, ParsedIntegerSchema,
     ParsedMapSchema, ParsedRecordSchema, ParsedSchemaMetadata, ParsedSchemaNode,
-    ParsedSchemaNodeContent, ParsedTextSchema, ParsedTupleSchema, ParsedUnionSchema,
-    ParsedUnknownFieldsPolicy,
+    ParsedSchemaNodeContent, ParsedTupleSchema, ParsedUnionSchema, ParsedUnknownFieldsPolicy,
 };
 use crate::{
     ArraySchema, Bound, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema, MapSchema,
     RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent,
-    SchemaNodeId, TextSchema, TupleSchema, UnionSchema, UnknownFieldsPolicy,
+    SchemaNodeId, TupleSchema, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
@@ -59,7 +58,6 @@ use eure_document::identifier::Identifier;
 use eure_document::parse::ParseError;
 use eure_document::value::ObjectKey;
 use num_bigint::BigInt;
-use regex::Regex;
 use std::collections::{BTreeMap, HashMap};
 use thiserror::Error;
 
@@ -80,9 +78,6 @@ pub enum ConversionError {
 
     #[error("Invalid precision: {0} (expected \"f32\" or \"f64\")")]
     InvalidPrecision(String),
-
-    #[error("Invalid regex pattern '{pattern}': {error}")]
-    InvalidRegexPattern { pattern: String, error: String },
 
     #[error("Undefined type reference: {0}")]
     UndefinedTypeReference(String),
@@ -200,9 +195,7 @@ impl<'a> Converter<'a> {
             ParsedSchemaNodeContent::Any => Ok(SchemaNodeContent::Any),
             ParsedSchemaNodeContent::Boolean => Ok(SchemaNodeContent::Boolean),
             ParsedSchemaNodeContent::Null => Ok(SchemaNodeContent::Null),
-            ParsedSchemaNodeContent::Text(parsed) => {
-                Ok(SchemaNodeContent::Text(Self::convert_text_schema(parsed)?))
-            }
+            ParsedSchemaNodeContent::Text(schema) => Ok(SchemaNodeContent::Text(schema)),
             ParsedSchemaNodeContent::Reference(type_ref) => {
                 Ok(SchemaNodeContent::Reference(type_ref))
             }
@@ -232,27 +225,6 @@ impl<'a> Converter<'a> {
                 Ok(SchemaNodeContent::Union(self.convert_union_schema(parsed)?))
             }
         }
-    }
-
-    /// Convert parsed text schema to final text schema (compiles regex pattern)
-    fn convert_text_schema(parsed: ParsedTextSchema) -> Result<TextSchema, ConversionError> {
-        let pattern = match &parsed.pattern {
-            Some(s) => Some(
-                Regex::new(s).map_err(|e| ConversionError::InvalidRegexPattern {
-                    pattern: s.clone(),
-                    error: e.to_string(),
-                })?,
-            ),
-            None => None,
-        };
-
-        Ok(TextSchema {
-            language: parsed.language,
-            min_length: parsed.min_length,
-            max_length: parsed.max_length,
-            pattern,
-            unknown_fields: parsed.unknown_fields,
-        })
     }
 
     /// Convert parsed integer schema (with range string) to final integer schema (with Bound)
