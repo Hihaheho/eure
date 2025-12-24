@@ -3,7 +3,7 @@
 use clap::{Parser, Subcommand};
 use eure::document::cst_to_document_and_origin_map;
 use eure::error::format_parse_error_color;
-use eure_mark::{check_references, EumdDocument};
+use eure_mark::{check_references_with_spans, format_check_errors, EumdDocument};
 
 use crate::util::{display_path, read_input};
 
@@ -40,18 +40,16 @@ fn run_check(args: CheckArgs) {
         }
     };
 
+    let path = display_path(args.file.as_deref());
     let parse_result = eure_parol::parse_tolerant(&contents);
 
     if let Some(error) = parse_result.error() {
-        eprintln!(
-            "{}",
-            format_parse_error_color(error, &contents, display_path(args.file.as_deref()))
-        );
+        eprintln!("{}", format_parse_error_color(error, &contents, path));
         std::process::exit(1);
     }
 
     let cst = parse_result.cst();
-    let (doc, _origin_map) = match cst_to_document_and_origin_map(&contents, &cst) {
+    let (doc, origin_map) = match cst_to_document_and_origin_map(&contents, &cst) {
         Ok(result) => result,
         Err(e) => {
             eprintln!("Error converting to document: {e}");
@@ -68,22 +66,15 @@ fn run_check(args: CheckArgs) {
         }
     };
 
-    let result = check_references(&eumd_doc);
+    // Use the span-aware check function
+    let result = check_references_with_spans(&eumd_doc, &doc);
 
     if result.is_ok() {
-        println!(
-            "\x1b[1;32m✓\x1b[0m {} references OK",
-            display_path(args.file.as_deref())
-        );
+        println!("\x1b[1;32m✓\x1b[0m {} references OK", path);
     } else {
-        eprintln!(
-            "\x1b[1;31m✗\x1b[0m {} has {} reference error(s):",
-            display_path(args.file.as_deref()),
-            result.errors.len()
-        );
-        for error in &result.errors {
-            eprintln!("  - {error}");
-        }
+        // Format errors with source spans using styled output
+        let formatted = format_check_errors(&result, &contents, path, &cst, &origin_map, true);
+        eprintln!("{formatted}");
         std::process::exit(1);
     }
 }

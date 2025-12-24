@@ -1710,6 +1710,7 @@ dependencies = [
  "eure",
  "eure-document",
  "eure-parol",
+ "eure-tree",
  "regex",
  "thiserror 2.0.17",
 ]
@@ -3873,6 +3874,7 @@ dependencies = [
  "eure-fmt",
  "eure-json",
  "eure-json-schema",
+ "eure-mark",
  "eure-schema",
  "eure-toml",
  "rayon",

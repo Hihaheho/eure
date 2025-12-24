@@ -1,5 +1,6 @@
 //! Error types for eure-mark
 
+use eure_document::document::NodeId;
 use thiserror::Error;
 
 /// Errors that can occur during eumd document processing
@@ -18,7 +19,7 @@ pub enum EumdError {
     ReferenceErrors(Vec<ReferenceError>),
 }
 
-/// A single reference error
+/// A single reference error with optional span information
 #[derive(Debug, Clone)]
 pub struct ReferenceError {
     /// Type of reference
@@ -27,6 +28,45 @@ pub struct ReferenceError {
     pub key: String,
     /// Location description (e.g., "in section 'intro'")
     pub location: String,
+    /// NodeId of the field containing the reference (for span resolution)
+    pub node_id: Option<NodeId>,
+    /// Byte offset of the reference within the field content
+    pub offset: Option<u32>,
+    /// Byte length of the reference string (e.g., "!cite[key]")
+    pub len: Option<u32>,
+}
+
+impl ReferenceError {
+    /// Create a new reference error without span information
+    pub fn new(ref_type: ReferenceType, key: String, location: String) -> Self {
+        Self {
+            ref_type,
+            key,
+            location,
+            node_id: None,
+            offset: None,
+            len: None,
+        }
+    }
+
+    /// Create a new reference error with span information
+    pub fn with_span(
+        ref_type: ReferenceType,
+        key: String,
+        location: String,
+        node_id: NodeId,
+        offset: u32,
+        len: u32,
+    ) -> Self {
+        Self {
+            ref_type,
+            key,
+            location,
+            node_id: Some(node_id),
+            offset: Some(offset),
+            len: Some(len),
+        }
+    }
 }
 
 /// Type of reference
@@ -54,7 +94,7 @@ impl std::fmt::Display for ReferenceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Undefined {}[{}] {}",
+            "Undefined !{}[{}] {}",
             self.ref_type, self.key, self.location
         )
     }

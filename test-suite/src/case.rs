@@ -363,6 +363,7 @@ pub enum Scenario<'a> {
     Formatting(FormattingScenario<'a>),
     Completions(&'a CompletionsScenario),
     Diagnostics(&'a DiagnosticsScenario),
+    EumdErrorValidation(EumdErrorValidationScenario<'a>),
 }
 
 impl Scenario<'_> {
@@ -385,6 +386,7 @@ impl Scenario<'_> {
             Scenario::Formatting(_) => "formatting".to_string(),
             Scenario::Completions(_) => "completions".to_string(),
             Scenario::Diagnostics(_) => "diagnostics".to_string(),
+            Scenario::EumdErrorValidation(_) => "eumd_error_validation".to_string(),
         }
     }
 
@@ -405,6 +407,7 @@ impl Scenario<'_> {
             Scenario::Formatting(s) => s.run(),
             Scenario::Completions(s) => s.run(),
             Scenario::Diagnostics(s) => s.run(),
+            Scenario::EumdErrorValidation(s) => s.run(),
         }
     }
 }
@@ -431,6 +434,8 @@ pub struct PreprocessedCase {
     // Editor scenarios
     pub completions_scenario: Option<CompletionsScenario>,
     pub diagnostics_scenario: Option<DiagnosticsScenario>,
+    // Eure-mark error validation
+    pub euremark_errors: Vec<String>,
 }
 
 pub enum PreprocessedEure {
@@ -800,6 +805,14 @@ impl Case {
             .as_ref()
             .map(|text| text.as_str().to_string());
 
+        // Eure-mark error validation
+        let euremark_errors = self
+            .data
+            .euremark_errors
+            .iter()
+            .map(|e| e.as_str().to_string())
+            .collect();
+
         Ok(PreprocessedCase {
             input_eure,
             input_toml,
@@ -818,6 +831,7 @@ impl Case {
             formatted_normalized,
             completions_scenario: self.data.completions_scenario.clone(),
             diagnostics_scenario: self.data.diagnostics_scenario.clone(),
+            euremark_errors,
         })
     }
 }
@@ -1599,6 +1613,103 @@ impl MetaSchemaScenario<'_> {
     }
 }
 
+// ============================================================================
+// Eure-mark Error Validation Scenario
+// ============================================================================
+
+/// Validates that an input eumd document produces expected reference errors.
+/// The input_eure is treated as a .eumd file, parsed, checked for references,
+/// and errors are compared against expected_errors.
+pub struct EumdErrorValidationScenario<'a> {
+    input: &'a PreprocessedEure,
+    expected_errors: &'a [String],
+}
+
+impl EumdErrorValidationScenario<'_> {
+    pub fn run(&self) -> Result<(), ScenarioError> {
+        let input_doc = self
+            .input
+            .doc()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+        let input_cst = self
+            .input
+            .cst()
+            .map_err(|e| ScenarioError::PreprocessingError {
+                message: format!("{}", e),
+            })?;
+        let input_origins =
+            self.input
+                .origins()
+                .map_err(|e| ScenarioError::PreprocessingError {
+                    message: format!("{}", e),
+                })?;
+
+        // Parse the document as an EumdDocument
+        let root_id = input_doc.get_root_id();
+        let eumd_doc: eure_mark::EumdDocument =
+            input_doc
+                .parse(root_id)
+                .map_err(|e| ScenarioError::PreprocessingError {
+                    message: format!("Failed to parse as eumd: {}", e),
+                })?;
+
+        // Check references with spans
+        let result = eure_mark::check_references_with_spans(&eumd_doc, input_doc);
+
+        // Format errors using plain text (no ANSI colors) for comparison
+        let actual_errors: Vec<String> = if !result.is_ok() {
+            let formatted = eure_mark::format_check_errors_plain(
+                &result,
+                self.input.input(),
+                "<input>",
+                input_cst,
+                input_origins,
+            );
+            // Split by double newline to separate individual errors
+            formatted
+                .split("\n\n")
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| s.trim().to_string())
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        // Normalize expected errors
+        let expected_errors_trimmed: Vec<String> = self
+            .expected_errors
+            .iter()
+            .map(|e| e.trim().to_string())
+            .collect();
+
+        // Check exact match
+        if expected_errors_trimmed.len() != actual_errors.len() {
+            return Err(ScenarioError::ExpectedErrorNotFound {
+                expected: format!(
+                    "Expected {} errors, got {}",
+                    expected_errors_trimmed.len(),
+                    actual_errors.len()
+                ),
+                actual_errors: actual_errors.clone(),
+            });
+        }
+
+        for expected in &expected_errors_trimmed {
+            let found = actual_errors.iter().any(|actual| actual == expected);
+            if !found {
+                return Err(ScenarioError::ExpectedErrorNotFound {
+                    expected: expected.clone(),
+                    actual_errors: actual_errors.clone(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl PreprocessedCase {
     /// Returns all scenarios that this case will run.
     /// This is the single source of truth for scenario collection.
@@ -1741,6 +1852,17 @@ impl PreprocessedCase {
         }
         if let Some(diagnostics_scenario) = &self.diagnostics_scenario {
             scenarios.push(Scenario::Diagnostics(diagnostics_scenario));
+        }
+
+        // Eure-mark error validation scenario
+        // Validates that input_eure (as .eumd) produces expected reference errors
+        if let Some(input) = &self.input_eure
+            && !self.euremark_errors.is_empty()
+        {
+            scenarios.push(Scenario::EumdErrorValidation(EumdErrorValidationScenario {
+                input,
+                expected_errors: &self.euremark_errors,
+            }));
         }
 
         scenarios
