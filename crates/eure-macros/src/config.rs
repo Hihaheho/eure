@@ -13,6 +13,8 @@ pub struct MacroConfig {
     pub allow_unknown_fields: bool,
     /// Allow unknown extensions instead of denying them.
     pub allow_unknown_extensions: bool,
+    /// Custom error type for the ParseDocument impl.
+    pub parse_error: Option<TokenStream>,
 }
 
 impl MacroConfig {
@@ -22,6 +24,7 @@ impl MacroConfig {
             .crate_path
             .map(|path| path.into_token_stream())
             .unwrap_or_else(|| quote! { ::eure::document });
+        let parse_error = attrs.parse_error.map(|path| path.into_token_stream());
         Self {
             document_crate,
             rename_all: attrs.rename_all,
@@ -29,6 +32,7 @@ impl MacroConfig {
             parse_ext: attrs.parse_ext,
             allow_unknown_fields: attrs.allow_unknown_fields,
             allow_unknown_extensions: attrs.allow_unknown_extensions,
+            parse_error,
         }
     }
 }
