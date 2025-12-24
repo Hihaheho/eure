@@ -24,4 +24,8 @@ pub struct ContainerAttrs {
     /// By default (false), unknown extensions cause a parse error.
     /// When true, skips the `deny_unknown_extensions()` check.
     pub allow_unknown_extensions: bool,
+    /// Custom error type for the ParseDocument impl.
+    /// When specified, the generated `type Error` is set to this type instead of `ParseError`.
+    /// The custom error type must implement `From<ParseError>` for `?` to work.
+    pub parse_error: Option<Path>,
 }

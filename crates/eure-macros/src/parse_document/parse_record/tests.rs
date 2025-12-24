@@ -381,3 +381,92 @@ fn test_flatten_ext_field() {
         .to_string()
     );
 }
+
+#[test]
+fn test_custom_parse_error() {
+    let input = generate(parse_quote! {
+        #[eure(parse_error = MyCustomError)]
+        struct User {
+            name: String,
+            age: i32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+                type Error = MyCustomError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = User {
+                        name: rec.parse_field("name")?,
+                        age: rec.parse_field("age")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_custom_parse_error_with_path() {
+    let input = generate(parse_quote! {
+        #[eure(parse_error = crate::errors::MyCustomError)]
+        struct User {
+            name: String,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+                type Error = crate::errors::MyCustomError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = User {
+                        name: rec.parse_field("name")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_custom_parse_error_with_custom_crate() {
+    let input = generate(parse_quote! {
+        #[eure(crate = ::eure_document, parse_error = MyError)]
+        struct User {
+            name: String,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure_document::parse::ParseDocument<'doc> for User<> {
+                type Error = MyError;
+
+                fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = User {
+                        name: rec.parse_field("name")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}

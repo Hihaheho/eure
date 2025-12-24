@@ -92,8 +92,12 @@ impl MacroContext {
 
     #[allow(non_snake_case)]
     pub fn ParseError(&self) -> TokenStream {
-        let document_crate = &self.config.document_crate;
-        quote!(#document_crate::parse::ParseError)
+        if let Some(ref custom_error) = self.config.parse_error {
+            custom_error.clone()
+        } else {
+            let document_crate = &self.config.document_crate;
+            quote!(#document_crate::parse::ParseError)
+        }
     }
 
     #[allow(non_snake_case)]

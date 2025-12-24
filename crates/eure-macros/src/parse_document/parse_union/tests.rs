@@ -352,3 +352,30 @@ fn test_struct_variant_with_flatten() {
         .to_string()
     );
 }
+
+#[test]
+fn test_enum_custom_parse_error() {
+    let input = generate(parse_quote! {
+        #[eure(parse_error = MyCustomError)]
+        enum TestEnum {
+            Unit,
+            Tuple(i32, bool),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TestEnum<> {
+                type Error = MyCustomError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
+                        .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| Ok(TestEnum::Tuple(field_0, field_1)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
