@@ -1544,6 +1544,7 @@ dependencies = [
  "eure-editor-support",
  "eure-fmt",
  "eure-json",
+ "eure-mark",
  "eure-parol",
  "eure-schema",
  "eure-tree",
@@ -1700,6 +1701,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "eure-mark"
+version = "0.1.0"
+dependencies = [
+ "eure",
+ "eure-document",
+ "eure-parol",
+ "regex",
+ "thiserror 2.0.17",
 ]
 
 [[package]]

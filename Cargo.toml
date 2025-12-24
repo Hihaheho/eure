@@ -20,6 +20,7 @@ eure-json = { path = "crates/eure-json", version = "0.1.0" }
 eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.0" }
 eure-lint = { path = "crates/eure-lint", version = "0.1.0" }
 eure-macros = { path = "crates/eure-macros", version = "0.1.0" }
+eure-mark = { path = "crates/eure-mark", version = "0.1.0" }
 eure-parol = { path = "crates/eure-parol", version = "0.1.0" }
 eure-schema = { path = "crates/eure-schema", version = "0.1.0" }
 eure-template = { path = "crates/eure-template", version = "0.1.0" }
