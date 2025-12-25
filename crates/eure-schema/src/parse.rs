@@ -103,125 +103,69 @@ impl ParseDocument<'_> for crate::SchemaRef {
 // ============================================================================
 
 /// Parsed integer schema - syntactic representation with range as string.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedIntegerSchema {
     /// Range constraint as string (e.g., "[0, 100)", "(-∞, 0]")
+    #[eure(default)]
     pub range: Option<String>,
     /// Multiple-of constraint
+    #[eure(default)]
     pub multiple_of: Option<BigInt>,
 }
 
-impl ParseDocument<'_> for ParsedIntegerSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-        let range = rec.field_optional("range");
-        let multiple_of = rec.field_optional("multiple-of");
-        rec.allow_unknown_fields()?;
-        Ok(ParsedIntegerSchema {
-            range: range.map(|ctx| ctx.parse()).transpose()?,
-            multiple_of: multiple_of.map(|ctx| ctx.parse()).transpose()?,
-        })
-    }
-}
-
 /// Parsed float schema - syntactic representation with range as string.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedFloatSchema {
     /// Range constraint as string
+    #[eure(default)]
     pub range: Option<String>,
     /// Multiple-of constraint
+    #[eure(default)]
     pub multiple_of: Option<f64>,
     /// Precision constraint ("f32" or "f64")
+    #[eure(default)]
     pub precision: Option<String>,
 }
 
-impl ParseDocument<'_> for ParsedFloatSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-        let range = rec.field_optional("range");
-        let multiple_of = rec.field_optional("multiple-of");
-        let precision = rec.field_optional("precision");
-        rec.allow_unknown_fields()?;
-        Ok(ParsedFloatSchema {
-            range: range.map(|ctx| ctx.parse()).transpose()?,
-            multiple_of: multiple_of.map(|ctx| ctx.parse()).transpose()?,
-            precision: precision.map(|ctx| ctx.parse()).transpose()?,
-        })
-    }
-}
-
 /// Parsed array schema with NodeId references.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedArraySchema {
     /// Schema for array elements
     pub item: NodeId,
     /// Minimum number of elements
+    #[eure(default)]
     pub min_length: Option<u32>,
     /// Maximum number of elements
+    #[eure(default)]
     pub max_length: Option<u32>,
     /// All elements must be unique
+    #[eure(default)]
     pub unique: bool,
     /// Array must contain at least one element matching this schema
+    #[eure(default)]
     pub contains: Option<NodeId>,
     /// Binding style for formatting
+    #[eure(ext, default)]
     pub binding_style: Option<BindingStyle>,
 }
 
-impl ParseDocument<'_> for ParsedArraySchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-        let item = rec.field("item")?;
-        let min_length = rec.field_optional("min-length");
-        let max_length = rec.field_optional("max-length");
-        let unique = rec.field_optional("unique");
-        let contains = rec.field_optional("contains");
-        rec.allow_unknown_fields()?;
-
-        let binding_style = ctx.parse_ext_optional("binding-style")?;
-
-        Ok(ParsedArraySchema {
-            item: item.node_id(),
-            min_length: min_length.map(|ctx| ctx.parse()).transpose()?,
-            max_length: max_length.map(|ctx| ctx.parse()).transpose()?,
-            unique: unique.map(|ctx| ctx.parse()).transpose()?.unwrap_or(false),
-            contains: contains.map(|ctx| Ok(ctx.node_id())).transpose()?,
-            binding_style,
-        })
-    }
-}
-
 /// Parsed map schema with NodeId references.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedMapSchema {
     /// Schema for keys
     pub key: NodeId,
     /// Schema for values
     pub value: NodeId,
     /// Minimum number of key-value pairs
+    #[eure(default)]
     pub min_size: Option<u32>,
     /// Maximum number of key-value pairs
+    #[eure(default)]
     pub max_size: Option<u32>,
-}
-
-impl ParseDocument<'_> for ParsedMapSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-        let key = rec.field("key")?;
-        let value = rec.field("value")?;
-        let min_size = rec.field_optional("min-size");
-        let max_size = rec.field_optional("max-size");
-        rec.allow_unknown_fields()?;
-        Ok(ParsedMapSchema {
-            key: key.node_id(),
-            value: value.node_id(),
-            min_size: min_size.map(|ctx| ctx.parse()).transpose()?,
-            max_size: max_size.map(|ctx| ctx.parse()).transpose()?,
-        })
-    }
 }
 
 /// Parsed record field schema with NodeId reference.
@@ -311,28 +255,14 @@ impl ParseDocument<'_> for ParsedRecordSchema {
 }
 
 /// Parsed tuple schema with NodeId references.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedTupleSchema {
     /// Schema for each element by position (NodeId references)
     pub elements: Vec<NodeId>,
     /// Binding style for formatting
+    #[eure(ext, default)]
     pub binding_style: Option<BindingStyle>,
-}
-
-impl ParseDocument<'_> for ParsedTupleSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let rec = ctx.parse_record()?;
-        let elements = rec.field("elements")?;
-        rec.allow_unknown_fields()?;
-
-        let binding_style = ctx.parse_ext_optional("binding-style")?;
-
-        Ok(ParsedTupleSchema {
-            elements: elements.parse()?,
-            binding_style,
-        })
-    }
 }
 
 /// Parsed union schema with NodeId references.
@@ -699,9 +629,21 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
 impl ParseDocument<'_> for ParsedSchemaNode {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let content = ctx.parse::<ParsedSchemaNodeContent>()?;
-        let metadata = ParsedSchemaMetadata::parse_from_extensions(ctx)?;
-        let ext_types = parse_ext_types(ctx)?;
+        // Create a flattened context so child parsers' deny_unknown_* are no-ops.
+        // All accesses are recorded in the shared accessed set (via Rc).
+        let flatten_ctx = ctx.flatten();
+
+        // Parse schema-level extensions - marks $ext-type, $description, etc. as accessed
+        let ext_types = parse_ext_types(&flatten_ctx)?;
+        let metadata = ParsedSchemaMetadata::parse_from_extensions(&flatten_ctx)?;
+
+        // Content parsing uses the flattened context
+        let content = flatten_ctx.parse::<ParsedSchemaNodeContent>()?;
+
+        // Note: We do NOT validate unknown extensions here because:
+        // 1. At the document root, $types extension is handled by the converter
+        // 2. Content types use flatten context, so their deny is already no-op
+        // The caller (e.g., Converter) should handle document-level validation if needed.
 
         Ok(ParsedSchemaNode {
             content,

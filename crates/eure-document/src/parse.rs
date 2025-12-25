@@ -644,22 +644,20 @@ impl<'doc> ParseContext<'doc> {
 
     /// Finish parsing with Deny policy (error if unknown extensions exist).
     ///
-    /// **Flatten behavior**: If this context has a flatten_ctx with Extension scope
-    /// (i.e., is a child in a flatten chain), this is a no-op. Only root parsers validate.
+    /// **Flatten behavior**: If this context is in a flatten chain (has flatten_ctx),
+    /// this is a no-op. Only root parsers validate.
     pub fn deny_unknown_extensions(&self) -> Result<(), ParseError> {
-        // If child (has flatten_ctx with Extension scope), no-op - parent will validate
-        if let Some(fc) = &self.flatten_ctx
-            && fc.scope() == ParserScope::Extension
-        {
+        // If child (in any flatten context), no-op - parent will validate
+        if self.flatten_ctx.is_some() {
             return Ok(());
         }
 
-        // Root parser or Record scope - validate using accessed set
+        // Root parser - validate using accessed set
         for (ident, _) in self.node().extensions.iter() {
             if !self.accessed.has_ext(ident) {
                 return Err(ParseError {
                     node_id: self.node_id,
-                    kind: ParseErrorKind::UnknownField(format!("$ext-type.{}", ident)),
+                    kind: ParseErrorKind::UnknownExtension(ident.clone()),
                 });
             }
         }
@@ -857,6 +855,10 @@ pub enum ParseErrorKind {
     /// Unknown field in record.
     #[error("unknown field: {0}")]
     UnknownField(String),
+
+    /// Unknown extension on node.
+    #[error("unknown extension: ${0}")]
+    UnknownExtension(Identifier),
 
     /// Invalid key type in record (expected string).
     #[error("invalid key type in record: expected string key, got {0:?}")]
