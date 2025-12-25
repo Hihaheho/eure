@@ -1699,6 +1699,8 @@ dependencies = [
  "convert_case 0.10.0",
  "darling 0.23.0",
  "eure",
+ "eure-document",
+ "eure-schema",
  "proc-macro2",
  "quote",
  "syn",

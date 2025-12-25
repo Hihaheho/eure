@@ -28,11 +28,14 @@
 //! **Reference:**
 //! - `Reference` - Type reference (local or cross-schema)
 
+pub mod build;
 pub mod convert;
 pub mod identifiers;
 pub mod parse;
 pub mod synth;
 pub mod validate;
+
+pub use build::{BuildSchema, SchemaBuilder};
 
 use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;

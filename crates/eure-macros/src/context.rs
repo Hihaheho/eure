@@ -147,4 +147,99 @@ impl MacroContext {
             }
         }
     }
+
+    // ========================================================================
+    // BuildSchema helpers
+    // ========================================================================
+
+    /// Returns the path to the schema crate (eure_schema)
+    pub fn schema_crate(&self) -> TokenStream {
+        // For now, always use ::eure_schema
+        // In the future, this could be configurable via an attribute
+        quote!(::eure_schema)
+    }
+
+    /// Generates the BuildSchema impl block
+    pub fn impl_build_schema(&self, build_body: TokenStream) -> TokenStream {
+        let ident = self.ident();
+        let impl_generics = self.impl_generics();
+        let for_generics = self.for_generics();
+        let schema_crate = self.schema_crate();
+
+        // Add BuildSchema + 'static bounds to type parameters
+        let impl_generics_with_bounds: Vec<_> = self
+            .generics()
+            .lifetimes()
+            .map(
+                |LifetimeParam {
+                     lifetime,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    quote! { #lifetime #colon_token #bounds }
+                },
+            )
+            .chain(self.generics().const_params().map(
+                |ConstParam {
+                     const_token,
+                     colon_token,
+                     ty,
+                     ..
+                 }| {
+                    quote! { #const_token #colon_token #ty }
+                },
+            ))
+            .chain(self.generics().type_params().map(
+                |TypeParam {
+                     ident,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    if bounds.is_empty() {
+                        quote! { #ident: #schema_crate::BuildSchema + 'static }
+                    } else {
+                        quote! { #ident #colon_token #bounds + #schema_crate::BuildSchema + 'static }
+                    }
+                },
+            ))
+            .collect();
+
+        // Generate type_name() if configured
+        let type_name_impl = if let Some(ref name) = self.config.type_name {
+            quote! {
+                fn type_name() -> Option<&'static str> {
+                    Some(#name)
+                }
+            }
+        } else {
+            quote! {}
+        };
+
+        // Handle empty generics case
+        if impl_generics.is_empty() {
+            quote! {
+                impl #schema_crate::BuildSchema for #ident {
+                    #type_name_impl
+
+                    fn build_schema(ctx: &mut #schema_crate::SchemaBuilder) -> #schema_crate::SchemaNodeContent {
+                        use #schema_crate::BuildSchema;
+                        #build_body
+                    }
+                }
+            }
+        } else {
+            quote! {
+                impl<#(#impl_generics_with_bounds),*> #schema_crate::BuildSchema for #ident<#(#for_generics),*> {
+                    #type_name_impl
+
+                    fn build_schema(ctx: &mut #schema_crate::SchemaBuilder) -> #schema_crate::SchemaNodeContent {
+                        use #schema_crate::BuildSchema;
+                        #build_body
+                    }
+                }
+            }
+        }
+    }
 }
