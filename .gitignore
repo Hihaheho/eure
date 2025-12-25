@@ -26,6 +26,7 @@
 !example.eure
 !example.schema.eure
 !eure-schema.schema.eure
+!assets/eure.svg
 !assets/**/*.eure
 !**/*.eumd
 

@@ -1,4 +1,4 @@
-# Eure
+# <img src="assets/eure.svg" style="height: 1.1em; vertical-align: middle; margin-bottom: 0.2em" /> Eure
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Hihaheho/eure)
 
