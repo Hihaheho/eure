@@ -109,29 +109,18 @@ pub struct ParsedIntegerSchema {
     pub range: Option<String>,
     /// Multiple-of constraint
     pub multiple_of: Option<BigInt>,
-    /// Unknown fields (for future extensions like "flatten")
-    pub unknown_fields: HashMap<String, NodeId>,
 }
 
 impl ParseDocument<'_> for ParsedIntegerSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let rec = ctx.parse_record()?;
-
-        let range = rec.parse_field_optional::<String>("range")?;
-        let multiple_of = rec.parse_field_optional::<BigInt>("multiple-of")?;
-
-        // Collect unknown fields for future extensions
-        let unknown_fields: HashMap<String, NodeId> = rec
-            .unknown_fields()
-            .map(|(name, ctx)| (name.to_string(), ctx.node_id()))
-            .collect();
+        let range = rec.field_optional("range");
+        let multiple_of = rec.field_optional("multiple-of");
         rec.allow_unknown_fields()?;
-
         Ok(ParsedIntegerSchema {
-            range,
-            multiple_of,
-            unknown_fields,
+            range: range.map(|ctx| ctx.parse()).transpose()?,
+            multiple_of: multiple_of.map(|ctx| ctx.parse()).transpose()?,
         })
     }
 }
@@ -145,31 +134,20 @@ pub struct ParsedFloatSchema {
     pub multiple_of: Option<f64>,
     /// Precision constraint ("f32" or "f64")
     pub precision: Option<String>,
-    /// Unknown fields (for future extensions like "flatten")
-    pub unknown_fields: HashMap<String, NodeId>,
 }
 
 impl ParseDocument<'_> for ParsedFloatSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let rec = ctx.parse_record()?;
-
-        let range = rec.parse_field_optional::<String>("range")?;
-        let multiple_of = rec.parse_field_optional::<f64>("multiple-of")?;
-        let precision = rec.parse_field_optional::<String>("precision")?;
-
-        // Collect unknown fields for future extensions
-        let unknown_fields: HashMap<String, NodeId> = rec
-            .unknown_fields()
-            .map(|(name, ctx)| (name.to_string(), ctx.node_id()))
-            .collect();
+        let range = rec.field_optional("range");
+        let multiple_of = rec.field_optional("multiple-of");
+        let precision = rec.field_optional("precision");
         rec.allow_unknown_fields()?;
-
         Ok(ParsedFloatSchema {
-            range,
-            multiple_of,
-            precision,
-            unknown_fields,
+            range: range.map(|ctx| ctx.parse()).transpose()?,
+            multiple_of: multiple_of.map(|ctx| ctx.parse()).transpose()?,
+            precision: precision.map(|ctx| ctx.parse()).transpose()?,
         })
     }
 }
@@ -189,39 +167,28 @@ pub struct ParsedArraySchema {
     pub contains: Option<NodeId>,
     /// Binding style for formatting
     pub binding_style: Option<BindingStyle>,
-    /// Unknown fields (for future extensions like "flatten")
-    pub unknown_fields: HashMap<String, NodeId>,
 }
 
 impl ParseDocument<'_> for ParsedArraySchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let rec = ctx.parse_record()?;
-
-        let item = rec.field("item")?.node_id();
-        let min_length = rec.parse_field_optional::<u32>("min-length")?;
-        let max_length = rec.parse_field_optional::<u32>("max-length")?;
-        let unique = rec.parse_field_optional::<bool>("unique")?.unwrap_or(false);
-        let contains = rec.field_optional("contains").map(|ctx| ctx.node_id());
-
-        // Collect unknown fields for future extensions
-        let unknown_fields: HashMap<String, NodeId> = rec
-            .unknown_fields()
-            .map(|(name, ctx)| (name.to_string(), ctx.node_id()))
-            .collect();
+        let item = rec.field("item")?;
+        let min_length = rec.field_optional("min-length");
+        let max_length = rec.field_optional("max-length");
+        let unique = rec.field_optional("unique");
+        let contains = rec.field_optional("contains");
         rec.allow_unknown_fields()?;
 
-        // Parse $ext-type.binding-style
-        let binding_style = ctx.parse_ext_optional::<BindingStyle>("binding-style")?;
+        let binding_style = ctx.parse_ext_optional("binding-style")?;
 
         Ok(ParsedArraySchema {
-            item,
-            min_length,
-            max_length,
-            unique,
-            contains,
+            item: item.node_id(),
+            min_length: min_length.map(|ctx| ctx.parse()).transpose()?,
+            max_length: max_length.map(|ctx| ctx.parse()).transpose()?,
+            unique: unique.map(|ctx| ctx.parse()).transpose()?.unwrap_or(false),
+            contains: contains.map(|ctx| Ok(ctx.node_id())).transpose()?,
             binding_style,
-            unknown_fields,
         })
     }
 }
@@ -237,60 +204,39 @@ pub struct ParsedMapSchema {
     pub min_size: Option<u32>,
     /// Maximum number of key-value pairs
     pub max_size: Option<u32>,
-    /// Unknown fields (for future extensions like "flatten")
-    pub unknown_fields: HashMap<String, NodeId>,
 }
 
 impl ParseDocument<'_> for ParsedMapSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let rec = ctx.parse_record()?;
-
-        let key = rec.field("key")?.node_id();
-        let value = rec.field("value")?.node_id();
-        let min_size = rec.parse_field_optional::<u32>("min-size")?;
-        let max_size = rec.parse_field_optional::<u32>("max-size")?;
-
-        // Collect unknown fields for future extensions
-        let unknown_fields: HashMap<String, NodeId> = rec
-            .unknown_fields()
-            .map(|(name, ctx)| (name.to_string(), ctx.node_id()))
-            .collect();
+        let key = rec.field("key")?;
+        let value = rec.field("value")?;
+        let min_size = rec.field_optional("min-size");
+        let max_size = rec.field_optional("max-size");
         rec.allow_unknown_fields()?;
-
         Ok(ParsedMapSchema {
-            key,
-            value,
-            min_size,
-            max_size,
-            unknown_fields,
+            key: key.node_id(),
+            value: value.node_id(),
+            min_size: min_size.map(|ctx| ctx.parse()).transpose()?,
+            max_size: max_size.map(|ctx| ctx.parse()).transpose()?,
         })
     }
 }
 
 /// Parsed record field schema with NodeId reference.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[eure(crate = eure_document, parse_ext, rename_all = "kebab-case")]
 pub struct ParsedRecordFieldSchema {
     /// Schema for this field's value (NodeId reference)
+    #[eure(flatten_ext)]
     pub schema: NodeId,
     /// Field is optional (defaults to false = required)
+    #[eure(default)]
     pub optional: bool,
     /// Binding style for this field
+    #[eure(default)]
     pub binding_style: Option<BindingStyle>,
-}
-
-impl ParseDocument<'_> for ParsedRecordFieldSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let optional = ctx.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
-        let binding_style = ctx.parse_ext_optional::<BindingStyle>("binding-style")?;
-
-        Ok(ParsedRecordFieldSchema {
-            schema: ctx.node_id(), // The node itself is the schema
-            optional,
-            binding_style,
-        })
-    }
 }
 
 /// Policy for handling fields not defined in record properties.
@@ -371,36 +317,20 @@ pub struct ParsedTupleSchema {
     pub elements: Vec<NodeId>,
     /// Binding style for formatting
     pub binding_style: Option<BindingStyle>,
-    /// Unknown fields (for future extensions like "flatten")
-    pub unknown_fields: HashMap<String, NodeId>,
 }
 
 impl ParseDocument<'_> for ParsedTupleSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let rec = ctx.parse_record()?;
-
-        // elements is an array of NodeIds
-        let elements_ctx = rec.field("elements")?;
-        let elements: Vec<NodeId> = {
-            let array = elements_ctx.parse::<&eure_document::document::node::NodeArray>()?;
-            array.iter().copied().collect()
-        };
-
-        // Collect unknown fields for future extensions
-        let unknown_fields: HashMap<String, NodeId> = rec
-            .unknown_fields()
-            .map(|(name, ctx)| (name.to_string(), ctx.node_id()))
-            .collect();
+        let elements = rec.field("elements")?;
         rec.allow_unknown_fields()?;
 
-        // Parse $ext-type.binding-style
-        let binding_style = ctx.parse_ext_optional::<BindingStyle>("binding-style")?;
+        let binding_style = ctx.parse_ext_optional("binding-style")?;
 
         Ok(ParsedTupleSchema {
-            elements,
+            elements: elements.parse()?,
             binding_style,
-            unknown_fields,
         })
     }
 }
@@ -466,24 +396,15 @@ impl ParseDocument<'_> for ParsedUnionSchema {
 }
 
 /// Parsed extension type schema with NodeId reference.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[eure(crate = eure_document, parse_ext)]
 pub struct ParsedExtTypeSchema {
     /// Schema for the extension value (NodeId reference)
+    #[eure(flatten_ext)]
     pub schema: NodeId,
     /// Whether the extension is optional (default: false = required)
+    #[eure(default)]
     pub optional: bool,
-}
-
-impl ParseDocument<'_> for ParsedExtTypeSchema {
-    type Error = ParseError;
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let optional = ctx.parse_ext_optional::<bool>("optional")?.unwrap_or(false);
-
-        Ok(ParsedExtTypeSchema {
-            schema: ctx.node_id(),
-            optional,
-        })
-    }
 }
 
 /// Parsed schema metadata - extension metadata via $ext-type on $types.type.
@@ -613,13 +534,11 @@ fn parse_type_reference_string(
         ["integer"] => Ok(ParsedSchemaNodeContent::Integer(ParsedIntegerSchema {
             range: None,
             multiple_of: None,
-            unknown_fields: HashMap::new(),
         })),
         ["float"] => Ok(ParsedSchemaNodeContent::Float(ParsedFloatSchema {
             range: None,
             multiple_of: None,
             precision: None,
-            unknown_fields: HashMap::new(),
         })),
         ["boolean"] => Ok(ParsedSchemaNodeContent::Boolean),
         ["null"] => Ok(ParsedSchemaNodeContent::Null),
@@ -749,7 +668,6 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
                         unique: false,
                         contains: None,
                         binding_style: None,
-                        unknown_fields: HashMap::new(),
                     }))
                 } else {
                     Err(ParseError {
@@ -770,7 +688,6 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
                 Ok(ParsedSchemaNodeContent::Tuple(ParsedTupleSchema {
                     elements: tup.0.clone(),
                     binding_style: None,
-                    unknown_fields: HashMap::new(),
                 }))
             }
 

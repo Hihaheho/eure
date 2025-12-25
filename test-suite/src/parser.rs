@@ -2,7 +2,6 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 use eure::{
     ParseDocument,
-    data_model::VariantRepr,
     document::{
         DocumentConstructionError, NodeValue,
         parse::{ParseContext, ParseError as DocumentParseError, ParseErrorKind, RecordParser},
@@ -87,12 +86,17 @@ pub enum InputUnionTagMode {
     Repr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
+#[eure(crate = eure::document)]
 pub enum JsonData {
-    Both(Text),
+    Both {
+        json: Text,
+    },
     Separate {
-        input: Option<Text>,
-        output: Option<Text>,
+        #[eure(default)]
+        input_json: Option<Text>,
+        #[eure(default)]
+        output_json: Option<Text>,
     },
 }
 
@@ -101,18 +105,18 @@ impl JsonData {
         matches!(
             self,
             JsonData::Separate {
-                input: None,
-                output: None
+                input_json: None,
+                output_json: None
             }
         )
     }
 
     pub fn input_json(&self) -> Option<&Text> {
         match self {
-            JsonData::Both(text) => Some(text),
+            JsonData::Both { json } => Some(json),
             JsonData::Separate {
-                input: Some(input),
-                output: _,
+                input_json: Some(input),
+                ..
             } => Some(input),
             _ => None,
         }
@@ -120,10 +124,10 @@ impl JsonData {
 
     pub fn output_json(&self) -> Option<&Text> {
         match self {
-            JsonData::Both(text) => Some(text),
+            JsonData::Both { json } => Some(json),
             JsonData::Separate {
-                input: _,
-                output: Some(output),
+                output_json: Some(output),
+                ..
             } => Some(output),
             _ => None,
         }
@@ -133,44 +137,25 @@ impl JsonData {
 impl Default for JsonData {
     fn default() -> Self {
         JsonData::Separate {
-            input: None,
-            output: None,
+            input_json: None,
+            output_json: None,
         }
-    }
-}
-
-impl ParseDocument<'_> for JsonData {
-    type Error = DocumentParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        ctx.parse_union(VariantRepr::default())?
-            .variant("Both", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let text = rec.parse_field("json")?;
-                rec.deny_unknown_fields()?;
-                Ok(JsonData::Both(text))
-            })
-            .variant("Separate", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let input = rec.parse_field_optional("input_json")?;
-                let output = rec.parse_field_optional("output_json")?;
-                rec.deny_unknown_fields()?;
-                Ok(JsonData::Separate { input, output })
-            })
-            .parse()
     }
 }
 
 /// JSON Schema data for test cases - supports bidirectional testing.
 /// Similar to JsonData, but for JSON Schema conversion tests.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
+#[eure(crate = eure::document)]
 pub enum JsonSchemaData {
     /// Same JSON Schema used for both input and output
-    Both(Text),
+    Both { json_schema: Text },
     /// Separate input and output JSON Schema (for testing round-trip or asymmetric conversion)
     Separate {
-        input: Option<Text>,
-        output: Option<Text>,
+        #[eure(default)]
+        input_json_schema: Option<Text>,
+        #[eure(default)]
+        output_json_schema: Option<Text>,
     },
 }
 
@@ -179,18 +164,18 @@ impl JsonSchemaData {
         matches!(
             self,
             JsonSchemaData::Separate {
-                input: None,
-                output: None
+                input_json_schema: None,
+                output_json_schema: None
             }
         )
     }
 
     pub fn input_json_schema(&self) -> Option<&Text> {
         match self {
-            JsonSchemaData::Both(text) => Some(text),
+            JsonSchemaData::Both { json_schema } => Some(json_schema),
             JsonSchemaData::Separate {
-                input: Some(input),
-                output: _,
+                input_json_schema: Some(input),
+                ..
             } => Some(input),
             _ => None,
         }
@@ -198,10 +183,10 @@ impl JsonSchemaData {
 
     pub fn output_json_schema(&self) -> Option<&Text> {
         match self {
-            JsonSchemaData::Both(text) => Some(text),
+            JsonSchemaData::Both { json_schema } => Some(json_schema),
             JsonSchemaData::Separate {
-                input: _,
-                output: Some(output),
+                output_json_schema: Some(output),
+                ..
             } => Some(output),
             _ => None,
         }
@@ -211,31 +196,9 @@ impl JsonSchemaData {
 impl Default for JsonSchemaData {
     fn default() -> Self {
         JsonSchemaData::Separate {
-            input: None,
-            output: None,
+            input_json_schema: None,
+            output_json_schema: None,
         }
-    }
-}
-
-impl ParseDocument<'_> for JsonSchemaData {
-    type Error = DocumentParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        ctx.parse_union(VariantRepr::default())?
-            .variant("Both", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let text = rec.parse_field("json_schema")?;
-                rec.deny_unknown_fields()?;
-                Ok(JsonSchemaData::Both(text))
-            })
-            .variant("Separate", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let input = rec.parse_field_optional("input_json_schema")?;
-                let output = rec.parse_field_optional("output_json_schema")?;
-                rec.deny_unknown_fields()?;
-                Ok(JsonSchemaData::Separate { input, output })
-            })
-            .parse()
     }
 }
 

@@ -340,7 +340,7 @@ fn test_struct_variant_with_flatten() {
                             let mut rec = ctx.parse_record()?;
                             let value = Entity::Person {
                                 name: rec.parse_field("name")?,
-                                details: PersonDetails::parse(&rec.flatten())?
+                                details: <PersonDetails>::parse(&rec.flatten())?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)

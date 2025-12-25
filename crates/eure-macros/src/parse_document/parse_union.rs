@@ -118,13 +118,13 @@ fn generate_struct_variant(
             let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
 
             if attrs.flatten {
-                quote! { #field_name: #field_ty::parse(&rec.flatten())? }
+                quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
             } else {
                 let field_name_str = attrs
                     .rename
                     .clone()
                     .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
-                quote! { #field_name: rec.parse_field(#field_name_str)? }
+                generate_variant_record_field(field_name, field_ty, &field_name_str, &attrs.default)
             }
         })
         .collect();
@@ -144,5 +144,33 @@ fn generate_struct_variant(
             #unknown_fields_check
             Ok(value)
         })
+    }
+}
+
+/// Generate field assignment for struct variant fields.
+/// Handles #[eure(default)] to use parse_field_optional.
+fn generate_variant_record_field(
+    field_name: &syn::Ident,
+    field_ty: &syn::Type,
+    field_name_str: &str,
+    default: &crate::attrs::DefaultValue,
+) -> TokenStream {
+    use crate::attrs::DefaultValue;
+    match default {
+        DefaultValue::None => {
+            quote! { #field_name: rec.parse_field(#field_name_str)? }
+        }
+        DefaultValue::Default => {
+            quote! {
+                #field_name: rec.parse_field_optional(#field_name_str)?
+                    .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
+            }
+        }
+        DefaultValue::Path(path) => {
+            quote! {
+                #field_name: rec.parse_field_optional(#field_name_str)?
+                    .unwrap_or_else(#path)
+            }
+        }
     }
 }
