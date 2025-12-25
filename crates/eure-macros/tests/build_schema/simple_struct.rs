@@ -8,15 +8,24 @@ use eure_schema::{SchemaNodeContent, SchemaNodeId, UnknownFieldsPolicy};
 // ============================================================================
 
 fn assert_text(schema: &SchemaDocument, id: SchemaNodeId) {
-    assert!(matches!(schema.node(id).content, SchemaNodeContent::Text(_)));
+    assert!(matches!(
+        schema.node(id).content,
+        SchemaNodeContent::Text(_)
+    ));
 }
 
 fn assert_integer(schema: &SchemaDocument, id: SchemaNodeId) {
-    assert!(matches!(schema.node(id).content, SchemaNodeContent::Integer(_)));
+    assert!(matches!(
+        schema.node(id).content,
+        SchemaNodeContent::Integer(_)
+    ));
 }
 
 fn assert_boolean(schema: &SchemaDocument, id: SchemaNodeId) {
-    assert!(matches!(schema.node(id).content, SchemaNodeContent::Boolean));
+    assert!(matches!(
+        schema.node(id).content,
+        SchemaNodeContent::Boolean
+    ));
 }
 
 fn assert_null(schema: &SchemaDocument, id: SchemaNodeId) {

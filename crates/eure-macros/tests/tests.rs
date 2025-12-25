@@ -7,5 +7,6 @@ mod records {
 }
 
 mod build_schema {
+    #![allow(dead_code)]
     automod::dir!("./tests/build_schema");
 }
