@@ -51,8 +51,8 @@ pub enum ScenarioError {
     },
     /// Eure to JSON conversion output mismatch
     EureToJsonMismatch {
-        expected: serde_json::Value,
-        actual: serde_json::Value,
+        expected: Box<serde_json::Value>,
+        actual: Box<serde_json::Value>,
     },
     /// JSON to Eure conversion output mismatch
     JsonToEureMismatch {
@@ -65,8 +65,8 @@ pub enum ScenarioError {
     JsonParseError { message: String },
     /// JSON Schema output mismatch
     JsonSchemaMismatch {
-        expected: serde_json::Value,
-        actual: serde_json::Value,
+        expected: Box<serde_json::Value>,
+        actual: Box<serde_json::Value>,
     },
     /// Schema conversion error
     SchemaConversionError { message: String },
@@ -929,8 +929,8 @@ impl EureToJsonScenario<'_> {
             })?;
         if actual != *self.output_json {
             return Err(ScenarioError::EureToJsonMismatch {
-                expected: self.output_json.clone(),
-                actual,
+                expected: Box::new(self.output_json.clone()),
+                actual: Box::new(actual),
             });
         }
         Ok(())
@@ -1032,8 +1032,8 @@ impl TomlToJsonScenario<'_> {
         // Compare JSON values
         if actual_json != expected_json {
             return Err(ScenarioError::EureToJsonMismatch {
-                expected: expected_json,
-                actual: actual_json,
+                expected: Box::new(expected_json),
+                actual: Box::new(actual_json),
             });
         }
         Ok(())
@@ -1396,8 +1396,8 @@ impl EureSchemaToJsonSchemaScenario<'_> {
         // Compare normalized outputs
         if actual_normalized != expected_normalized {
             return Err(ScenarioError::JsonSchemaMismatch {
-                expected: expected_normalized,
-                actual: actual_normalized,
+                expected: Box::new(expected_normalized),
+                actual: Box::new(actual_normalized),
             });
         }
 
