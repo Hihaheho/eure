@@ -92,7 +92,7 @@ impl SchemaBuilder {
     /// 1. Returns cached ID if already built (idempotent)
     /// 2. Reserves a node slot before building (handles recursion)
     /// 3. Calls `T::build_schema()` to get the content
-    /// 4. Registers the type name if provided
+    /// 4. For named types: registers in $types and returns a Reference node
     pub fn build<T: BuildSchema + 'static>(&mut self) -> SchemaNodeId {
         let type_id = TypeId::of::<T>();
 
@@ -101,23 +101,45 @@ impl SchemaBuilder {
             return id;
         }
 
-        // Reserve a node slot (handles recursive types)
-        let id = self.reserve_node();
-        self.cache.insert(type_id, id);
+        // Check if this type has a name (for registration)
+        let type_name = T::type_name();
 
-        // Build the schema content
-        let content = T::build_schema(self);
-        let metadata = T::schema_metadata();
-        self.set_node(id, content, metadata);
+        // For named types, we need two nodes: content + reference
+        // For unnamed types, just the content node
+        if let Some(name) = type_name {
+            // Reserve a slot for the content node
+            let content_id = self.reserve_node();
 
-        // Register type name if provided
-        if let Some(name) = T::type_name()
-            && let Ok(ident) = name.parse()
-        {
-            self.doc.types.insert(ident, id);
+            // Build the schema content
+            let content = T::build_schema(self);
+            let metadata = T::schema_metadata();
+            self.set_node(content_id, content, metadata);
+
+            // Register the type
+            if let Ok(ident) = name.parse::<eure_document::identifier::Identifier>() {
+                self.doc.types.insert(ident, content_id);
+            }
+
+            // Create a Reference node that points to this type
+            let ref_id = self.create_node(SchemaNodeContent::Reference(crate::TypeReference {
+                namespace: None,
+                name: name.parse().expect("valid type name"),
+            }));
+
+            // Cache the reference ID so subsequent calls return the reference
+            self.cache.insert(type_id, ref_id);
+            ref_id
+        } else {
+            // Unnamed type: just build and cache the content node
+            let id = self.reserve_node();
+            self.cache.insert(type_id, id);
+
+            let content = T::build_schema(self);
+            let metadata = T::schema_metadata();
+            self.set_node(id, content, metadata);
+
+            id
         }
-
-        id
     }
 
     /// Create a schema node with the given content.

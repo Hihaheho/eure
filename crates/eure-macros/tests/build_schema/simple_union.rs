@@ -1,7 +1,57 @@
 //! Test BuildSchema derive for enums (unions)
 
 use eure::{BuildSchema, SchemaDocument};
-use eure_schema::SchemaNodeContent;
+use eure_schema::{SchemaNodeContent, SchemaNodeId};
+
+// ============================================================================
+// Assertion helpers
+// ============================================================================
+
+fn assert_text(schema: &SchemaDocument, id: SchemaNodeId) {
+    assert!(matches!(schema.node(id).content, SchemaNodeContent::Text(_)));
+}
+
+fn assert_integer(schema: &SchemaDocument, id: SchemaNodeId) {
+    assert!(matches!(schema.node(id).content, SchemaNodeContent::Integer(_)));
+}
+
+fn assert_null(schema: &SchemaDocument, id: SchemaNodeId) {
+    assert!(matches!(schema.node(id).content, SchemaNodeContent::Null));
+}
+
+fn assert_record<F>(schema: &SchemaDocument, id: SchemaNodeId, check: F)
+where
+    F: Fn(&SchemaDocument, &eure_schema::RecordSchema),
+{
+    let SchemaNodeContent::Record(record) = &schema.node(id).content else {
+        panic!("Expected Record, got {:?}", schema.node(id).content);
+    };
+    check(schema, record);
+}
+
+fn assert_tuple<F>(schema: &SchemaDocument, id: SchemaNodeId, check: F)
+where
+    F: Fn(&SchemaDocument, &eure_schema::TupleSchema),
+{
+    let SchemaNodeContent::Tuple(tuple) = &schema.node(id).content else {
+        panic!("Expected Tuple, got {:?}", schema.node(id).content);
+    };
+    check(schema, tuple);
+}
+
+fn assert_union<F>(schema: &SchemaDocument, id: SchemaNodeId, check: F)
+where
+    F: Fn(&SchemaDocument, &eure_schema::UnionSchema),
+{
+    let SchemaNodeContent::Union(union) = &schema.node(id).content else {
+        panic!("Expected Union, got {:?}", schema.node(id).content);
+    };
+    check(schema, union);
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[derive(BuildSchema)]
 enum SimpleEnum {
@@ -13,24 +63,12 @@ enum SimpleEnum {
 #[test]
 fn test_simple_enum_schema() {
     let schema = SchemaDocument::of::<SimpleEnum>();
-
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Union(union) = &root.content else {
-        panic!("Expected Union, got {:?}", root.content);
-    };
-
-    // Check variants exist
-    assert!(union.variants.contains_key("Active"));
-    assert!(union.variants.contains_key("Inactive"));
-    assert!(union.variants.contains_key("Pending"));
-
-    // Unit variants should have Null schema
-    for (_, &variant_id) in &union.variants {
-        assert!(matches!(
-            schema.node(variant_id).content,
-            SchemaNodeContent::Null
-        ));
-    }
+    assert_union(&schema, schema.root, |s, union| {
+        assert_eq!(union.variants.len(), 3);
+        assert_null(s, union.variants["Active"]);
+        assert_null(s, union.variants["Inactive"]);
+        assert_null(s, union.variants["Pending"]);
+    });
 }
 
 #[derive(BuildSchema)]
@@ -43,14 +81,12 @@ enum RenamedVariants {
 #[test]
 fn test_renamed_variants() {
     let schema = SchemaDocument::of::<RenamedVariants>();
-
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Union(union) = &root.content else {
-        panic!("Expected Union");
-    };
-
-    assert!(union.variants.contains_key("user-active"));
-    assert!(union.variants.contains_key("user-inactive"));
+    assert_union(&schema, schema.root, |s, union| {
+        assert!(union.variants.contains_key("user-active"));
+        assert!(union.variants.contains_key("user-inactive"));
+        assert_null(s, union.variants["user-active"]);
+        assert_null(s, union.variants["user-inactive"]);
+    });
 }
 
 #[derive(BuildSchema)]
@@ -62,22 +98,11 @@ enum NewtypeVariants {
 #[test]
 fn test_newtype_variants() {
     let schema = SchemaDocument::of::<NewtypeVariants>();
-
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Union(union) = &root.content else {
-        panic!("Expected Union");
-    };
-
-    // Text variant should have Text schema
-    let text_schema = schema.node(union.variants["Text"]);
-    assert!(matches!(text_schema.content, SchemaNodeContent::Text(_)));
-
-    // Number variant should have Integer schema
-    let number_schema = schema.node(union.variants["Number"]);
-    assert!(matches!(
-        number_schema.content,
-        SchemaNodeContent::Integer(_)
-    ));
+    assert_union(&schema, schema.root, |s, union| {
+        assert_eq!(union.variants.len(), 2);
+        assert_text(s, union.variants["Text"]);
+        assert_integer(s, union.variants["Number"]);
+    });
 }
 
 #[derive(BuildSchema)]
@@ -89,27 +114,19 @@ enum StructVariants {
 #[test]
 fn test_struct_variants() {
     let schema = SchemaDocument::of::<StructVariants>();
+    assert_union(&schema, schema.root, |s, union| {
+        assert_eq!(union.variants.len(), 2);
 
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Union(union) = &root.content else {
-        panic!("Expected Union");
-    };
+        assert_record(s, union.variants["User"], |s, rec| {
+            assert_text(s, rec.properties["name"].schema);
+            assert_integer(s, rec.properties["age"].schema);
+        });
 
-    // User variant should be a record
-    let user_schema = schema.node(union.variants["User"]);
-    let SchemaNodeContent::Record(user_record) = &user_schema.content else {
-        panic!("Expected Record for User variant");
-    };
-    assert!(user_record.properties.contains_key("name"));
-    assert!(user_record.properties.contains_key("age"));
-
-    // Admin variant should be a record
-    let admin_schema = schema.node(union.variants["Admin"]);
-    let SchemaNodeContent::Record(admin_record) = &admin_schema.content else {
-        panic!("Expected Record for Admin variant");
-    };
-    assert!(admin_record.properties.contains_key("name"));
-    assert!(admin_record.properties.contains_key("level"));
+        assert_record(s, union.variants["Admin"], |s, rec| {
+            assert_text(s, rec.properties["name"].schema);
+            assert_integer(s, rec.properties["level"].schema);
+        });
+    });
 }
 
 #[derive(BuildSchema)]
@@ -121,25 +138,22 @@ enum TupleVariants {
 #[test]
 fn test_tuple_variants() {
     let schema = SchemaDocument::of::<TupleVariants>();
+    assert_union(&schema, schema.root, |s, union| {
+        assert_eq!(union.variants.len(), 2);
 
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Union(union) = &root.content else {
-        panic!("Expected Union");
-    };
+        assert_tuple(s, union.variants["Point"], |s, tuple| {
+            assert_eq!(tuple.elements.len(), 2);
+            assert_integer(s, tuple.elements[0]);
+            assert_integer(s, tuple.elements[1]);
+        });
 
-    // Point variant should be a tuple
-    let point_schema = schema.node(union.variants["Point"]);
-    let SchemaNodeContent::Tuple(point_tuple) = &point_schema.content else {
-        panic!("Expected Tuple for Point variant");
-    };
-    assert_eq!(point_tuple.elements.len(), 2);
-
-    // Color variant should be a tuple
-    let color_schema = schema.node(union.variants["Color"]);
-    let SchemaNodeContent::Tuple(color_tuple) = &color_schema.content else {
-        panic!("Expected Tuple for Color variant");
-    };
-    assert_eq!(color_tuple.elements.len(), 3);
+        assert_tuple(s, union.variants["Color"], |s, tuple| {
+            assert_eq!(tuple.elements.len(), 3);
+            assert_integer(s, tuple.elements[0]);
+            assert_integer(s, tuple.elements[1]);
+            assert_integer(s, tuple.elements[2]);
+        });
+    });
 }
 
 #[derive(BuildSchema)]
@@ -153,35 +167,25 @@ enum MixedVariants {
 #[test]
 fn test_mixed_variants() {
     let schema = SchemaDocument::of::<MixedVariants>();
+    assert_union(&schema, schema.root, |s, union| {
+        assert_eq!(union.variants.len(), 4);
 
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Union(union) = &root.content else {
-        panic!("Expected Union");
-    };
+        // Unit -> Null
+        assert_null(s, union.variants["Unit"]);
 
-    assert_eq!(union.variants.len(), 4);
+        // Newtype -> Text
+        assert_text(s, union.variants["Newtype"]);
 
-    // Unit -> Null
-    assert!(matches!(
-        schema.node(union.variants["Unit"]).content,
-        SchemaNodeContent::Null
-    ));
+        // Tuple -> Tuple
+        assert_tuple(s, union.variants["Tuple"], |s, tuple| {
+            assert_eq!(tuple.elements.len(), 2);
+            assert_integer(s, tuple.elements[0]);
+            assert_integer(s, tuple.elements[1]);
+        });
 
-    // Newtype -> Text
-    assert!(matches!(
-        schema.node(union.variants["Newtype"]).content,
-        SchemaNodeContent::Text(_)
-    ));
-
-    // Tuple -> Tuple
-    assert!(matches!(
-        schema.node(union.variants["Tuple"]).content,
-        SchemaNodeContent::Tuple(_)
-    ));
-
-    // Struct -> Record
-    assert!(matches!(
-        schema.node(union.variants["Struct"]).content,
-        SchemaNodeContent::Record(_)
-    ));
+        // Struct -> Record
+        assert_record(s, union.variants["Struct"], |s, rec| {
+            assert_text(s, rec.properties["name"].schema);
+        });
+    });
 }

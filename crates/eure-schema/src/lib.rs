@@ -50,7 +50,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 // ============================================================================
 
 /// Schema document with arena-based node storage
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SchemaDocument {
     /// All schema nodes stored in a flat vector
     pub nodes: Vec<SchemaNode>,
@@ -61,7 +61,7 @@ pub struct SchemaDocument {
 }
 
 /// Extension type definition with optionality
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExtTypeSchema {
     /// Schema for the extension value
     pub schema: SchemaNodeId,
@@ -74,7 +74,7 @@ pub struct ExtTypeSchema {
 pub struct SchemaNodeId(pub usize);
 
 /// A single schema node
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SchemaNode {
     /// The type definition, structure, and constraints
     pub content: SchemaNodeContent,
@@ -91,7 +91,7 @@ pub struct SchemaNode {
 /// Type definitions with their specific constraints
 ///
 /// See spec: `eure-schema.schema.eure` lines 298-525
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SchemaNodeContent {
     // --- Primitives ---
     /// Any type - accepts any valid Eure value
@@ -229,6 +229,20 @@ pub struct TextSchema {
     pub unknown_fields: std::collections::HashMap<String, eure_document::document::NodeId>,
 }
 
+impl PartialEq for TextSchema {
+    fn eq(&self, other: &Self) -> bool {
+        self.language == other.language
+            && self.min_length == other.min_length
+            && self.max_length == other.max_length
+            && self.unknown_fields == other.unknown_fields
+            && match (&self.pattern, &other.pattern) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a.as_str() == b.as_str(),
+                _ => false,
+            }
+    }
+}
+
 /// Integer type constraints
 ///
 /// Spec: lines 360-364
@@ -239,7 +253,7 @@ pub struct TextSchema {
 /// ```
 ///
 /// Note: Range string is parsed in the converter to Bound<BigInt>
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct IntegerSchema {
     /// Minimum value constraint (parsed from range string)
     pub min: Bound<BigInt>,
@@ -270,7 +284,7 @@ pub enum FloatPrecision {
 /// ```
 ///
 /// Note: Range string is parsed in the converter to Bound<f64>
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct FloatSchema {
     /// Minimum value constraint (parsed from range string)
     pub min: Bound<f64>,
@@ -298,7 +312,7 @@ pub struct FloatSchema {
 /// contains = .$types.type (optional)
 /// $ext-type.binding-style = .$types.binding-style (optional)
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ArraySchema {
     /// Schema for array elements (required)
     pub item: SchemaNodeId,
@@ -324,7 +338,7 @@ pub struct ArraySchema {
 /// min-size = .integer (optional)
 /// max-size = .integer (optional)
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MapSchema {
     /// Schema for keys
     pub key: SchemaNodeId,
@@ -343,7 +357,7 @@ pub struct MapSchema {
 /// value.$ext-type.optional = .boolean (optional)
 /// value.$ext-type.binding-style = .$types.binding-style (optional)
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RecordFieldSchema {
     /// Schema for this field's value
     pub schema: SchemaNodeId,
@@ -363,7 +377,7 @@ pub struct RecordFieldSchema {
 /// value = .$types.type
 /// $ext-type.unknown-fields = .$types.unknown-fields-policy (optional)
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct RecordSchema {
     /// Fixed field schemas (field name -> field schema with metadata)
     pub properties: HashMap<String, RecordFieldSchema>,
@@ -380,7 +394,7 @@ pub struct RecordSchema {
 /// @variants.allow = "allow"
 /// @variants.schema = .$types.type
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum UnknownFieldsPolicy {
     /// Deny unknown fields (default, strict)
     #[default]
@@ -399,7 +413,7 @@ pub enum UnknownFieldsPolicy {
 /// elements = [.$types.type]
 /// $ext-type.binding-style = .$types.binding-style (optional)
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TupleSchema {
     /// Schema for each element by position
     pub elements: Vec<SchemaNodeId>,
@@ -415,7 +429,7 @@ pub struct TupleSchema {
 /// variants = { $variant: map, key => .text, value => .$types.type }
 /// $ext-type.variant-repr = .$types.variant-repr (optional)
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UnionSchema {
     /// Variant definitions (variant name -> schema)
     pub variants: BTreeMap<String, SchemaNodeId>,
@@ -486,7 +500,7 @@ pub struct TypeReference {
 /// ```eure
 /// description => { $variant: union, variants.string => .text, variants.markdown => .text.markdown }
 /// ```
-#[derive(Debug, Clone, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, ParseDocument)]
 #[eure(crate = eure_document, rename_all = "lowercase")]
 pub enum Description {
     /// Plain text description
@@ -505,7 +519,7 @@ pub enum Description {
 /// ```
 ///
 /// Note: `optional` and `binding_style` are per-field extensions stored in `RecordFieldSchema`
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct SchemaMetadata {
     /// Documentation/description
     pub description: Option<Description>,

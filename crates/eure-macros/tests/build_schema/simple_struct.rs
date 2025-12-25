@@ -1,7 +1,58 @@
 //! Test BuildSchema derive for simple structs
 
 use eure::{BuildSchema, SchemaDocument};
-use eure_schema::{SchemaNodeContent, UnknownFieldsPolicy};
+use eure_schema::{SchemaNodeContent, SchemaNodeId, UnknownFieldsPolicy};
+
+// ============================================================================
+// Assertion helpers
+// ============================================================================
+
+fn assert_text(schema: &SchemaDocument, id: SchemaNodeId) {
+    assert!(matches!(schema.node(id).content, SchemaNodeContent::Text(_)));
+}
+
+fn assert_integer(schema: &SchemaDocument, id: SchemaNodeId) {
+    assert!(matches!(schema.node(id).content, SchemaNodeContent::Integer(_)));
+}
+
+fn assert_boolean(schema: &SchemaDocument, id: SchemaNodeId) {
+    assert!(matches!(schema.node(id).content, SchemaNodeContent::Boolean));
+}
+
+fn assert_null(schema: &SchemaDocument, id: SchemaNodeId) {
+    assert!(matches!(schema.node(id).content, SchemaNodeContent::Null));
+}
+
+fn assert_record<F>(schema: &SchemaDocument, id: SchemaNodeId, check: F)
+where
+    F: Fn(&SchemaDocument, &eure_schema::RecordSchema),
+{
+    let SchemaNodeContent::Record(record) = &schema.node(id).content else {
+        panic!("Expected Record, got {:?}", schema.node(id).content);
+    };
+    check(schema, record);
+}
+
+fn assert_union<F>(schema: &SchemaDocument, id: SchemaNodeId, check: F)
+where
+    F: Fn(&SchemaDocument, &eure_schema::UnionSchema),
+{
+    let SchemaNodeContent::Union(union) = &schema.node(id).content else {
+        panic!("Expected Union, got {:?}", schema.node(id).content);
+    };
+    check(schema, union);
+}
+
+fn assert_reference(schema: &SchemaDocument, id: SchemaNodeId, type_name: &str) {
+    let SchemaNodeContent::Reference(r) = &schema.node(id).content else {
+        panic!("Expected Reference, got {:?}", schema.node(id).content);
+    };
+    assert_eq!(r.name.as_ref(), type_name);
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[derive(BuildSchema)]
 struct SimpleStruct {
@@ -13,42 +64,12 @@ struct SimpleStruct {
 #[test]
 fn test_simple_struct_schema() {
     let schema = SchemaDocument::of::<SimpleStruct>();
-
-    // Check root is a record
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Record(record) = &root.content else {
-        panic!("Expected Record, got {:?}", root.content);
-    };
-
-    // Check fields exist
-    assert!(record.properties.contains_key("name"));
-    assert!(record.properties.contains_key("age"));
-    assert!(record.properties.contains_key("active"));
-
-    // Check field types
-    let name_field = &record.properties["name"];
-    assert!(!name_field.optional);
-    assert!(matches!(
-        schema.node(name_field.schema).content,
-        SchemaNodeContent::Text(_)
-    ));
-
-    let age_field = &record.properties["age"];
-    assert!(!age_field.optional);
-    assert!(matches!(
-        schema.node(age_field.schema).content,
-        SchemaNodeContent::Integer(_)
-    ));
-
-    let active_field = &record.properties["active"];
-    assert!(!active_field.optional);
-    assert!(matches!(
-        schema.node(active_field.schema).content,
-        SchemaNodeContent::Boolean
-    ));
-
-    // Default unknown fields policy is Deny
-    assert!(matches!(record.unknown_fields, UnknownFieldsPolicy::Deny));
+    assert_record(&schema, schema.root, |s, rec| {
+        assert_eq!(rec.properties.len(), 3);
+        assert_text(s, rec.properties["name"].schema);
+        assert_integer(s, rec.properties["age"].schema);
+        assert_boolean(s, rec.properties["active"].schema);
+    });
 }
 
 #[derive(BuildSchema)]
@@ -61,9 +82,14 @@ struct UserWithTypeName {
 fn test_type_name_registration() {
     let schema = SchemaDocument::of::<UserWithTypeName>();
 
-    // Check type is registered
-    let user_type = schema.types.get(&"user".parse().unwrap());
-    assert!(user_type.is_some());
+    // Root should reference the type
+    assert_reference(&schema, schema.root, "user");
+
+    // Type should be registered
+    let user_id = *schema.types.values().next().expect("type registered");
+    assert_record(&schema, user_id, |s, rec| {
+        assert_text(s, rec.properties["name"].schema);
+    });
 }
 
 #[derive(BuildSchema)]
@@ -75,21 +101,17 @@ struct WithOptionalField {
 #[test]
 fn test_optional_field() {
     let schema = SchemaDocument::of::<WithOptionalField>();
-
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Record(record) = &root.content else {
-        panic!("Expected Record");
-    };
-
-    // Required field should not be optional
-    assert!(!record.properties["required"].optional);
-
-    // Option<T> field should be optional
-    assert!(record.properties["optional"].optional);
-
-    // The schema for Option<i32> should be a union
-    let optional_schema = schema.node(record.properties["optional"].schema);
-    assert!(matches!(optional_schema.content, SchemaNodeContent::Union(_)));
+    assert_record(&schema, schema.root, |s, rec| {
+        assert_text(s, rec.properties["required"].schema);
+        // Optional field should have a union schema (some|none)
+        assert_union(s, rec.properties["optional"].schema, |s, union| {
+            assert_eq!(union.variants.len(), 2);
+            assert_integer(s, union.variants["some"]);
+            assert_null(s, union.variants["none"]);
+        });
+        // Optional field should be marked as optional
+        assert!(rec.properties["optional"].optional);
+    });
 }
 
 #[derive(BuildSchema)]
@@ -102,17 +124,12 @@ struct RenamedFields {
 #[test]
 fn test_rename_all() {
     let schema = SchemaDocument::of::<RenamedFields>();
-
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Record(record) = &root.content else {
-        panic!("Expected Record");
-    };
-
-    // Fields should be renamed to kebab-case
-    assert!(record.properties.contains_key("user-name"));
-    assert!(record.properties.contains_key("email-address"));
-    assert!(!record.properties.contains_key("user_name"));
-    assert!(!record.properties.contains_key("email_address"));
+    assert_record(&schema, schema.root, |s, rec| {
+        assert!(rec.properties.contains_key("user-name"));
+        assert!(rec.properties.contains_key("email-address"));
+        assert_text(s, rec.properties["user-name"].schema);
+        assert_text(s, rec.properties["email-address"].schema);
+    });
 }
 
 #[derive(BuildSchema)]
@@ -124,11 +141,8 @@ struct AllowUnknownFields {
 #[test]
 fn test_allow_unknown_fields() {
     let schema = SchemaDocument::of::<AllowUnknownFields>();
-
-    let root = schema.node(schema.root);
-    let SchemaNodeContent::Record(record) = &root.content else {
-        panic!("Expected Record");
-    };
-
-    assert!(matches!(record.unknown_fields, UnknownFieldsPolicy::Allow));
+    assert_record(&schema, schema.root, |s, rec| {
+        assert_text(s, rec.properties["name"].schema);
+        assert!(matches!(rec.unknown_fields, UnknownFieldsPolicy::Allow));
+    });
 }
