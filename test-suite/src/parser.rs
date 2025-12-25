@@ -261,6 +261,8 @@ pub struct CaseData {
     // Editor scenarios
     pub completions_scenario: Option<CompletionsScenario>,
     pub diagnostics_scenario: Option<DiagnosticsScenario>,
+    // Eure-mark errors (for .eumd file validation)
+    pub euremark_errors: Vec<Text>,
 }
 
 impl CaseData {
@@ -280,6 +282,7 @@ impl CaseData {
             && self.formatted_normalized.is_none()
             && self.completions_scenario.is_none()
             && self.diagnostics_scenario.is_none()
+            && self.euremark_errors.is_empty()
     }
 }
 
@@ -341,6 +344,11 @@ impl ParseDocument<'_> for CaseData {
             _ => None,
         };
 
+        // Parse euremark errors
+        let euremark_errors = rec
+            .parse_field_optional::<Vec<Text>>("euremark_errors")?
+            .unwrap_or_default();
+
         rec.deny_unknown_fields()?;
 
         Ok(CaseData {
@@ -360,6 +368,7 @@ impl ParseDocument<'_> for CaseData {
             formatted_normalized,
             completions_scenario,
             diagnostics_scenario,
+            euremark_errors,
         })
     }
 }
@@ -484,6 +493,11 @@ impl ParseDocument<'_> for CaseFile {
             _ => None,
         };
 
+        // Parse euremark errors
+        let euremark_errors = rec
+            .parse_field_optional::<Vec<Text>>("euremark_errors")?
+            .unwrap_or_default();
+
         // Parse named cases from "cases" section
         // Note: Some legacy test files use "cases[]" (array) instead of "cases.<name>" (map).
         // We only support the map format for named cases; arrays are ignored.
@@ -519,6 +533,7 @@ impl ParseDocument<'_> for CaseFile {
                 formatted_normalized,
                 completions_scenario,
                 diagnostics_scenario,
+                euremark_errors,
             },
             named_cases,
         })

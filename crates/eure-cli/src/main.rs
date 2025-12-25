@@ -30,6 +30,8 @@ enum Commands {
     Html(commands::html::Args),
     /// Validate Eure file against a schema
     Check(commands::check::Args),
+    /// Eure Markdown document commands
+    Mark(commands::mark::Args),
 }
 
 fn main() {
@@ -44,5 +46,6 @@ fn main() {
         Commands::Highlight(args) => commands::highlight::run(args),
         Commands::Html(args) => commands::html::run(args),
         Commands::Check(args) => commands::check::run(args),
+        Commands::Mark(args) => commands::mark::run(args),
     }
 }

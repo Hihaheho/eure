@@ -1,0 +1,81 @@
+// Test cases for eure-mark reference validation
+
+// ============================================================================
+// Test Case 1: Missing citation reference
+// ============================================================================
+
+@ cases.missing-cite
+input_eure = ````eure
+title = "Test Document"
+
+intro = ```markdown
+This has !cite[missing] reference.
+```
+````
+
+euremark_errors = [
+  ``````
+error: Undefined !cite[missing] in intro
+ --> <input>:3:10
+  |
+3 |   intro = ```markdown
+  |  __________^
+4 | | This has !cite[missing] reference.
+  | |___^ Undefined !cite[missing] in intro
+``````
+]
+
+// ============================================================================
+// Test Case 2: Missing section reference
+// ============================================================================
+
+@ cases.missing-section-ref
+input_eure = ````eure
+title = "Test Document"
+
+@ sections.intro
+body = ```markdown
+See !ref[nonexistent] for more.
+```
+````
+
+euremark_errors = [
+  ``````
+error: Undefined !ref[nonexistent] in section 'intro'
+ --> <input>:4:5
+  |
+4 |   body = ```markdown
+  |  _____^
+5 | | See !ref[nonexistent] for more.
+  | |__^ Undefined !ref[nonexistent] in section 'intro'
+``````
+]
+
+// ============================================================================
+// Test Case 3: Valid references (no errors expected)
+// ============================================================================
+
+@ cases.valid-references
+input_eure = `````eure
+title = "Test Document"
+
+cites = ````bibtex
+@article{knuth1984,
+  author = "Donald Knuth"
+}
+````
+
+footnotes.note1 { content = "A footnote" }
+
+@ sections.intro
+body = ```markdown
+See !cite[knuth1984] and !footnote[note1].
+```
+
+@ sections.details
+body = ```markdown
+Back to !ref[intro].
+```
+`````
+
+// No euremark_errors means no error scenario is run (valid references)

@@ -1,0 +1,20 @@
+[package]
+name = "eure-mark"
+version = "0.1.0"
+edition = "2024"
+description = "Eure Markdown document format"
+readme = "README.md"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+license = "MIT OR Apache-2.0"
+keywords = ["eure", "markdown", "document"]
+
+[dependencies]
+eure = { workspace = true }
+eure-document = { workspace = true }
+eure-parol = { workspace = true }
+eure-tree = { workspace = true }
+thiserror = { workspace = true }
+regex = { workspace = true }
+
+[dev-dependencies]
