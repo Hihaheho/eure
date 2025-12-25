@@ -272,7 +272,7 @@ fn test_record_with_single_ext_rejects_unknown() {
     let result = doc.parse::<RecordWithSingleExt>(doc.get_root_id());
     assert_eq!(
         result.unwrap_err().kind,
-        ParseErrorKind::UnknownField("$ext-type.unknown".to_string())
+        ParseErrorKind::UnknownExtension("unknown".parse().unwrap())
     );
 }
 
