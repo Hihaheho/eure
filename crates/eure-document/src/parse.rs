@@ -1290,7 +1290,21 @@ macro_rules! parse_map {
                     .into());
                 }
             };
+            // If in flatten context with Record scope, only iterate UNACCESSED fields
+            let accessed = $ctx
+                .flatten_ctx()
+                .filter(|fc| fc.scope() == ParserScope::Record)
+                .map(|fc| fc.accessed_set().clone());
             map.iter()
+                .filter(|(key, _)| {
+                    match &accessed {
+                        Some(acc) => match key {
+                            ObjectKey::String(s) => !acc.has_field(s),
+                            _ => true, // Non-string keys are always included
+                        },
+                        None => true, // No flatten context means include all
+                    }
+                })
                 .map(|(key, value)| {
                     Ok((
                         K::from_object_key(key).map_err(|kind| ParseError {
