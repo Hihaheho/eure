@@ -15,6 +15,8 @@ pub struct MacroConfig {
     pub allow_unknown_extensions: bool,
     /// Custom error type for the ParseDocument impl.
     pub parse_error: Option<TokenStream>,
+    /// Type name for BuildSchema registration.
+    pub type_name: Option<String>,
 }
 
 impl MacroConfig {
@@ -33,6 +35,7 @@ impl MacroConfig {
             allow_unknown_fields: attrs.allow_unknown_fields,
             allow_unknown_extensions: attrs.allow_unknown_extensions,
             parse_error,
+            type_name: attrs.type_name,
         }
     }
 }
