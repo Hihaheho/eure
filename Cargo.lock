@@ -1625,6 +1625,7 @@ dependencies = [
 name = "eure-fmt"
 version = "0.1.0"
 dependencies = [
+ "eure-document",
  "eure-parol",
  "eure-tree",
  "rand",
@@ -1764,6 +1765,7 @@ name = "eure-toml"
 version = "0.1.0"
 dependencies = [
  "eure-document",
+ "eure-fmt",
  "num-bigint",
  "thiserror 2.0.17",
  "toml_parser",

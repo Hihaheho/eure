@@ -11,6 +11,7 @@ keywords = ["conversion", "eure", "serialization", "toml"]
 
 [dependencies]
 eure-document = { workspace = true }
+eure-fmt = { workspace = true }
 num-bigint = { workspace = true }
 thiserror = { workspace = true }
 toml_parser = "1"

@@ -25,12 +25,14 @@ mod builder;
 pub mod config;
 pub mod doc;
 pub mod printer;
+pub mod source;
 
 #[cfg(any(feature = "unformat", test))]
 pub mod unformat;
 
 pub use config::FormatConfig;
 pub use doc::Doc;
+pub use source::{build_source_doc, format_source_document};
 
 use eure_tree::Cst;
 
