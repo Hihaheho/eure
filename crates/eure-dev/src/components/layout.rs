@@ -21,7 +21,15 @@ pub fn Layout() -> Element {
 			header { class: "p-4 shrink-0",
 				div { class: "max-w-6xl mx-auto w-full flex justify-between items-center",
 					Link { to: "/",
-						h1 { class: "text-2xl font-bold", "Eure" }
+						img {
+							src: if theme() == Theme::Dark {
+								"https://raw.githubusercontent.com/Hihaheho/eure/main/assets/eure-logo-dark.svg"
+							} else {
+								"https://raw.githubusercontent.com/Hihaheho/eure/main/assets/eure-logo-light.svg"
+							},
+							alt: "Eure",
+							class: "h-8",
+						}
 					}
 
 					div { class: "flex items-center gap-4",
