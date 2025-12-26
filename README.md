@@ -1,7 +1,7 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/eure-logo-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/eure-logo.svg">
-  <img alt="Eure" src="assets/eure-logo.svg" height="100px" >
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Hihaheho/eure/main/assets/eure-logo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/Hihaheho/eure/main/assets/eure-logo-light.svg">
+  <img alt="Eure" src="https://raw.githubusercontent.com/Hihaheho/eure/main/assets/eure-logo.svg" height="100px" >
 </picture>
 
 > [!NOTE]
