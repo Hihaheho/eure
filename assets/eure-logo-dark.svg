@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 2700 1000" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1.104225,0,0,1.045978,-43.549296,-0.496405)">
+        <g transform="matrix(1,0,0,1,-26.598639,10)">
+            <rect x="100" y="-53.401" width="442.177" height="1043.537" style="fill:white;fill-opacity:0;"/>
+            <g transform="matrix(884.353741,0,0,884.353741,542.176871,800)">
+            </g>
+            <text x="100px" y="800px" style="font-family:'Iosevka-Fixed', 'Iosevka Fixed', monospace;font-size:884.354px;fill:white;">@</text>
+        </g>
+        <g transform="matrix(1,0,0,1,368.911565,16.190476)">
+            <rect x="100" y="-53.401" width="442.177" height="1043.537" style="fill:white;fill-opacity:0;"/>
+            <g transform="matrix(884.353741,0,0,884.353741,542.176871,800)">
+            </g>
+            <text x="100px" y="800px" style="font-family:'Iosevka-Fixed', 'Iosevka Fixed', monospace;font-size:884.354px;fill:white;">␣</text>
+        </g>
+    </g>
+    <g transform="matrix(1.160184,0,0,1.160184,-230.554741,-167.151684)">
+        <rect x="1000" y="112.495" width="1463.868" height="987.415" style="fill:white;fill-opacity:0;"/>
+        <text x="1000px" y="920px" style="font-family:'Iosevka-Fixed', 'Iosevka Fixed', monospace;font-size:836.793px;fill:white;">E<tspan x="1353.126px " y="920px ">u</tspan></text>
+        <g transform="matrix(1.01,0,0,1,-16.878434,0)">
+            <text x="1687.843px" y="920px" style="font-family:'Iosevka-Fixed', 'Iosevka Fixed', monospace;font-size:836.793px;fill:white;">r</text>
+        </g>
+        <g transform="matrix(0.97,0,0,1,61.740711,0)">
+            <g transform="matrix(836.792501,0,0,836.792501,2476.419953,920)">
+            </g>
+            <text x="2058.024px" y="920px" style="font-family:'Iosevka-Fixed', 'Iosevka Fixed', monospace;font-size:836.793px;fill:white;">e</text>
+        </g>
+    </g>
+</svg>

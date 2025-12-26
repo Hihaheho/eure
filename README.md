@@ -1,6 +1,8 @@
-# <img src="assets/eure.svg" style="height: 1.1em; vertical-align: middle; margin-bottom: 0.2em" /> Eure
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Hihaheho/eure)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/eure-logo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/eure-logo.svg">
+  <img alt="Eure" src="assets/eure-logo.svg" height="100px" >
+</picture>
 
 > [!NOTE]
 > Preparing for Alpha Release!

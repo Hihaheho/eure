@@ -27,6 +27,8 @@
 !example.schema.eure
 !eure-schema.schema.eure
 !assets/eure.svg
+!assets/eure-logo-light.svg
+!assets/eure-logo-dark.svg
 !assets/**/*.eure
 !**/*.eumd
 
