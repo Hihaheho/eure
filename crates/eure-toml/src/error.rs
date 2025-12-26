@@ -8,4 +8,12 @@ pub enum TomlToEureError {
     /// The TOML key is not a valid Eure identifier.
     #[error("Invalid identifier '{key}': {reason}")]
     InvalidIdentifier { key: String, reason: String },
+
+    /// TOML parse error.
+    #[error("Parse error: {message}")]
+    ParseError { message: String },
+
+    /// Value decode error.
+    #[error("Decode error: {message}")]
+    DecodeError { message: String },
 }

@@ -36,6 +36,8 @@
 //! let output = eure_fmt::format_source(&source, &config);
 //! ```
 
+use std::collections::HashSet;
+
 use crate::document::{EureDocument, NodeId};
 use crate::prelude_internal::*;
 
@@ -71,12 +73,17 @@ impl SourceDocument {
 pub struct Layout {
     /// Top-level items in order
     pub items: Vec<LayoutItem>,
+    /// Nodes that should be formatted with multiple lines
+    pub multiline_nodes: HashSet<NodeId>,
 }
 
 impl Layout {
     /// Create an empty layout.
     pub fn new() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            items: Vec::new(),
+            multiline_nodes: HashSet::new(),
+        }
     }
 
     /// Add an item to the layout.
@@ -112,6 +119,28 @@ pub enum LayoutItem {
         trailing_comment: Option<String>,
         /// Section body
         body: SectionBody,
+    },
+
+    /// An array binding with per-element layout information.
+    ///
+    /// Used when an array has comments between elements that need to be preserved.
+    /// ```eure
+    /// items = [
+    ///   // First item
+    ///   "one",
+    ///   // Second item
+    ///   "two",
+    /// ]
+    /// ```
+    ArrayBinding {
+        /// Path to the binding target
+        path: SourcePath,
+        /// Reference to the array node in EureDocument
+        node: NodeId,
+        /// Per-element layout information (comments before each element)
+        elements: Vec<ArrayElementLayout>,
+        /// Optional trailing comment
+        trailing_comment: Option<String>,
     },
 }
 
@@ -236,6 +265,27 @@ impl Comment {
     pub fn block(s: impl Into<String>) -> Self {
         Comment::Block(s.into())
     }
+
+    /// Get the comment text content.
+    pub fn text(&self) -> &str {
+        match self {
+            Comment::Line(s) | Comment::Block(s) => s,
+        }
+    }
+}
+
+/// Layout information for an array element.
+///
+/// Used to preserve comments that appear before array elements when converting
+/// from formats like TOML.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArrayElementLayout {
+    /// Comments that appear before this element in the source
+    pub comments_before: Vec<Comment>,
+    /// Trailing comment on the same line as this element
+    pub trailing_comment: Option<String>,
+    /// The index of this element in the array (corresponds to NodeArray)
+    pub index: usize,
 }
 
 // ============================================================================
@@ -305,6 +355,20 @@ impl LayoutItem {
             body: SectionBody::Items(items),
         }
     }
+
+    /// Create an array binding item with per-element layout.
+    pub fn array_binding(
+        path: SourcePath,
+        node: NodeId,
+        elements: Vec<ArrayElementLayout>,
+    ) -> Self {
+        LayoutItem::ArrayBinding {
+            path,
+            node,
+            elements,
+            trailing_comment: None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -371,7 +435,7 @@ mod tests {
     #[test]
     fn test_source_document_empty() {
         let doc = SourceDocument::empty();
-        let expected_layout = Layout { items: vec![] };
-        assert_eq!(doc.layout.items, expected_layout.items);
+        assert!(doc.layout.items.is_empty());
+        assert!(doc.layout.multiline_nodes.is_empty());
     }
 }

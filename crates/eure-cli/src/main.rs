@@ -24,6 +24,8 @@ enum Commands {
     ToJson(commands::to_json::Args),
     /// Convert JSON to Eure
     FromJson(commands::from_json::Args),
+    /// Convert TOML to Eure
+    FromToml(commands::from_toml::Args),
     /// Syntax highlight Eure file with colors
     Highlight(commands::highlight::Args),
     /// Export Eure file as HTML with syntax highlighting
@@ -43,6 +45,7 @@ fn main() {
         Commands::Fmt(args) => commands::fmt::run(args),
         Commands::ToJson(args) => commands::to_json::run(args),
         Commands::FromJson(args) => commands::from_json::run(args),
+        Commands::FromToml(args) => commands::from_toml::run(args),
         Commands::Highlight(args) => commands::highlight::run(args),
         Commands::Html(args) => commands::html::run(args),
         Commands::Check(args) => commands::check::run(args),

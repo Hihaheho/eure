@@ -13,4 +13,4 @@ keywords = ["conversion", "eure", "serialization", "toml"]
 eure-document = { workspace = true }
 num-bigint = { workspace = true }
 thiserror = { workspace = true }
-toml_edit = "0.22"
+toml_parser = "1"

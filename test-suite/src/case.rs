@@ -267,11 +267,59 @@ impl std::fmt::Display for ScenarioError {
                 )
             }
             ScenarioError::TomlToEureSourceMismatch { expected, actual } => {
-                write!(
-                    f,
-                    "TOML to Eure source mismatch.\nExpected:\n{}\nActual:\n{}",
-                    expected, actual
-                )
+                use similar::{ChangeTag, TextDiff};
+                writeln!(f, "TOML to Eure source mismatch.")?;
+                let diff = TextDiff::from_lines(expected, actual);
+                let changes: Vec<_> = diff
+                    .iter_all_changes()
+                    .filter(|c| c.tag() != ChangeTag::Equal)
+                    .collect();
+                if changes.is_empty() {
+                    // No visible line differences - likely whitespace issue
+                    writeln!(f, "No visible line differences. Checking char-by-char...")?;
+                    let expected_bytes = expected.as_bytes();
+                    let actual_bytes = actual.as_bytes();
+                    writeln!(
+                        f,
+                        "Expected length: {}, Actual length: {}",
+                        expected_bytes.len(),
+                        actual_bytes.len()
+                    )?;
+                    for (i, (e, a)) in expected_bytes.iter().zip(actual_bytes.iter()).enumerate() {
+                        if e != a {
+                            writeln!(
+                                f,
+                                "First diff at byte {}: expected {:02x} ({:?}), actual {:02x} ({:?})",
+                                i,
+                                e,
+                                char::from(*e),
+                                a,
+                                char::from(*a)
+                            )?;
+                            // Show context
+                            let start = i.saturating_sub(20);
+                            let end = (i + 20).min(expected_bytes.len()).min(actual_bytes.len());
+                            writeln!(f, "Context expected: {:?}", &expected[start..end])?;
+                            writeln!(f, "Context actual:   {:?}", &actual[start..end])?;
+                            break;
+                        }
+                    }
+                    if expected_bytes.len() != actual_bytes.len() {
+                        let min_len = expected_bytes.len().min(actual_bytes.len());
+                        writeln!(f, "Length mismatch after byte {}", min_len)?;
+                    }
+                } else {
+                    writeln!(f, "Diff (expected → actual):")?;
+                    for change in diff.iter_all_changes() {
+                        let sign = match change.tag() {
+                            ChangeTag::Delete => "-",
+                            ChangeTag::Insert => "+",
+                            ChangeTag::Equal => " ",
+                        };
+                        write!(f, "{}{}", sign, change)?;
+                    }
+                }
+                Ok(())
             }
         }
     }
@@ -692,19 +740,8 @@ impl Case {
     fn preprocess_toml(code: &Text) -> PreprocessedToml {
         let input = code.content.clone();
 
-        // Parse TOML
-        let toml_doc: toml_edit::DocumentMut = match input.parse() {
-            Ok(doc) => doc,
-            Err(e) => {
-                return PreprocessedToml::ErrParse {
-                    input,
-                    error: e.to_string(),
-                };
-            }
-        };
-
-        // Convert to SourceDocument
-        match eure_toml::to_source_document(&toml_doc) {
+        // Convert to SourceDocument directly (toml_parser handles parsing)
+        match eure_toml::to_source_document(&input) {
             Ok(source_doc) => PreprocessedToml::Ok { input, source_doc },
             Err(e) => PreprocessedToml::ErrConvert { input, error: e },
         }

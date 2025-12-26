@@ -27,6 +27,8 @@ eure-json = { workspace = true }
 eure-mark = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }
+toml = "0.9"
+eure-toml = { workspace = true }
 eure-tree = { workspace = true }
 eure-yaml = { workspace = true }
 glob = "0.3"

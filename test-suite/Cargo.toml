@@ -27,5 +27,6 @@ eure-schema.workspace = true
 eure-toml.workspace = true
 rayon = "1.10"
 serde_json.workspace = true
+similar = "2"
 thiserror.workspace = true
 toml_edit = "0.22"
