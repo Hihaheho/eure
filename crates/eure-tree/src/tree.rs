@@ -114,7 +114,7 @@ impl std::fmt::Display for CstNodeId {
 }
 
 /// A generic concrete syntax tree with stable child ordering
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConcreteSyntaxTree<T, Nt> {
     nodes: Vec<CstNodeData<T, Nt>>,
     children: HashMap<CstNodeId, Vec<CstNodeId>>,

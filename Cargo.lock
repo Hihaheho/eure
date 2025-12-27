@@ -11,6 +11,7 @@ dependencies = [
  "cfg-if",
  "getrandom 0.3.4",
  "once_cell",
+ "serde",
  "version_check",
  "zerocopy",
 ]
@@ -1571,8 +1572,10 @@ dependencies = [
 name = "eure-config"
 version = "0.1.0"
 dependencies = [
+ "eros",
  "eure",
  "eure-document",
+ "eure-tree",
  "thiserror 2.0.17",
 ]
 
@@ -1612,12 +1615,14 @@ name = "eure-editor-support"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "eros",
+ "eure",
+ "eure-config",
  "eure-document",
- "eure-parol",
- "eure-schema",
  "eure-tree",
  "indexmap",
  "lsp-types",
+ "query-flow",
  "tracing",
 ]
 
@@ -2867,6 +2872,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c6901729fa79e91a0913333229e9ca5dc725089d1c363b2f4b4760709dc4a52"
 
 [[package]]
+name = "papaya"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f92dd0b07c53a0a0c764db2ace8c541dc47320dad97c2200c2a637ab9dd2328f"
+dependencies = [
+ "equivalent",
+ "seize",
+ "serde",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3134,6 +3150,31 @@ checksum = "6f42ea446cab60335f76979ec15e12619a2165b5ae2c12166bef27d283a9fadf"
 dependencies = [
  "idna",
  "psl-types",
+]
+
+[[package]]
+name = "query-flow"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30bbaf0303bf3e0b5f94bc58e99ad8a31ffffa5637228c9e9eacf293167189d3"
+dependencies = [
+ "ahash",
+ "papaya",
+ "query-flow-macros",
+ "whale",
+]
+
+[[package]]
+name = "query-flow-macros"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb68030da92c55c09f99c01036d02c3860fda60a84b9b14ecca605dad80352b2"
+dependencies = [
+ "darling 0.20.11",
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -3513,6 +3554,16 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "seize"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b55fb86dfd3a2f5f76ea78310a88f96c4ea21a3031f8d212443d56123fd0521"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "semver"
@@ -4562,6 +4613,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2878ef029c47c6e8cf779119f20fcf52bde7ad42a731b2a304bc221df17571e"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "whale"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "805a8f86d5ca7f379c2cc69d9bacb975cdfd915d8a2d81e74d7255dedd26037c"
+dependencies = [
+ "ahash",
+ "papaya",
+ "serde",
 ]
 
 [[package]]

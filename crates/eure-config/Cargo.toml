@@ -10,8 +10,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["eure", "config", "configuration"]
 
 [dependencies]
+eros = { workspace = true }
 eure = { workspace = true }
 eure-document = { workspace = true }
+eure-tree = { workspace = true }
 thiserror = { workspace = true }
 
 [features]

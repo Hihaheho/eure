@@ -23,7 +23,7 @@ use eure_document::value::ObjectKey;
 /// This structure provides span resolution for error reporting:
 /// - `node`: Maps document NodeId to CST origins (for general node spans)
 /// - `key`: Maps (MapNodeId, ObjectKey) to the key's CstNodeId (for precise key spans)
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OriginMap {
     /// NodeId -> CstNodeId origins.
     /// A node can have multiple origins (e.g., created via key + value).

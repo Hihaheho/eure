@@ -69,7 +69,7 @@ impl FileRegistry {
 // ============================================================================
 
 /// A location in source code with semantic context hints.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Origin {
     /// The file containing this location.
     pub file: FileId,
@@ -111,7 +111,7 @@ impl Origin {
 }
 
 /// Semantic context hints that aid in navigation and understanding.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct OriginHints {
     /// Logical path into the document (e.g., ".user.name").
     pub path: Option<EurePath>,
@@ -182,7 +182,7 @@ pub enum AnnotationKind {
 // ============================================================================
 
 /// A complete error report with location and structured content.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ErrorReport {
     /// Short title/summary of the error (e.g., "type mismatch").
     pub title: Cow<'static, str>,
@@ -288,7 +288,7 @@ impl ErrorReport {
 // ============================================================================
 
 /// A collection of error reports.
-#[derive(Debug, Clone, Plural)]
+#[derive(Debug, Clone, Plural, PartialEq)]
 pub struct ErrorReports(Vec<ErrorReport>);
 
 impl ErrorReports {
@@ -308,7 +308,7 @@ impl ErrorReports {
 // ============================================================================
 
 /// An element within an error report.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Element {
     /// A span annotation with a label.
     Annotation {

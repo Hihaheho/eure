@@ -5,7 +5,7 @@ use eure_tree::tree::InputSpan;
 use parol_runtime::{LexerError, ParolError, ParserError, SyntaxError};
 
 /// A parse error with extracted span and message information.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EureParseError {
     pub entries: Vec<ParseErrorEntry>,
 }

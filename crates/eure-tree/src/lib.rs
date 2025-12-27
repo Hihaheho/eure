@@ -23,7 +23,7 @@ pub mod prelude {
     pub use crate::node_kind::{NonTerminalKind, TerminalKind};
     pub use crate::nodes::*;
     pub use crate::tree::{
-        CharInfo, CstFacade, CstNodeId, DynamicTokenId, LineNumbers, NonTerminalData,
+        CharInfo, CstFacade, CstNodeId, DynamicTokenId, InputSpan, LineNumbers, NonTerminalData,
         NonTerminalHandle as _, TerminalData, TerminalHandle as _,
     };
     pub use crate::visitor::{CstVisitor, CstVisitorSuper as _};

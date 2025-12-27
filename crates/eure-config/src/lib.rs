@@ -13,12 +13,16 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use eros::E2;
 use eure::ParseDocument;
-use eure::document::parse_to_document;
+use eure::document::{DocumentConstructionError, OriginMap, parse_to_document};
+use eure::parol::EureParseError;
+use eure::report::{
+    ErrorReport, ErrorReports, FileId, Origin, report_document_error_simple, report_parse_error,
+};
 use eure_document::parse::{ParseContext, ParseDocument as ParseDocumentTrait, ParseError};
-
-// Re-export for convenience
-pub use eure_document::parse::ParseError as ConfigParseError;
+use eure_tree::prelude::Cst;
+use eure_tree::tree::InputSpan;
 
 /// The standard configuration filename.
 pub const CONFIG_FILENAME: &str = "Eure.eure";
@@ -28,26 +32,46 @@ pub const CONFIG_FILENAME: &str = "Eure.eure";
 pub enum ConfigError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Parse error: {0}")]
-    Parse(String),
-    #[error("Config error at {node_id:?}: {kind}")]
-    Config {
-        node_id: eure_document::document::NodeId,
-        kind: String,
-    },
+
+    #[error("Syntax error: {0}")]
+    Syntax(EureParseError),
+
+    #[error("Document error: {0}")]
+    Document(#[from] DocumentConstructionError),
+
+    #[error("Config error: {0}")]
+    Parse(#[from] ParseError),
 }
 
-impl From<ParseError> for ConfigError {
-    fn from(err: ParseError) -> Self {
-        ConfigError::Config {
-            node_id: err.node_id,
-            kind: err.kind.to_string(),
+impl PartialEq for ConfigError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ConfigError::Io(a), ConfigError::Io(b)) => a.kind() == b.kind(),
+            (ConfigError::Syntax(a), ConfigError::Syntax(b)) => a.to_string() == b.to_string(),
+            (ConfigError::Document(a), ConfigError::Document(b)) => a.to_string() == b.to_string(),
+            (ConfigError::Parse(a), ConfigError::Parse(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl From<EureParseError> for ConfigError {
+    fn from(err: EureParseError) -> Self {
+        ConfigError::Syntax(err)
+    }
+}
+
+impl From<E2<EureParseError, DocumentConstructionError>> for ConfigError {
+    fn from(err: E2<EureParseError, DocumentConstructionError>) -> Self {
+        match err {
+            E2::A(e) => ConfigError::Syntax(e),
+            E2::B(e) => ConfigError::Document(e),
         }
     }
 }
 
 /// A check target definition.
-#[derive(Debug, Clone, ParseDocument)]
+#[derive(Debug, Clone, ParseDocument, PartialEq)]
 #[eure(crate = eure_document, allow_unknown_fields)]
 pub struct Target {
     /// Glob patterns for files to include in this target.
@@ -59,7 +83,7 @@ pub struct Target {
 
 /// CLI-specific configuration.
 #[cfg(feature = "cli")]
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, ParseDocument, PartialEq)]
 #[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
 pub struct CliConfig {
     /// Default targets to check when running `eure check` without arguments.
@@ -69,7 +93,7 @@ pub struct CliConfig {
 
 /// Language server configuration.
 #[cfg(feature = "ls")]
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, ParseDocument, PartialEq)]
 #[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
 pub struct LsConfig {
     /// Whether to format on save.
@@ -78,7 +102,7 @@ pub struct LsConfig {
 }
 
 /// The main Eure configuration.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct EureConfig {
     /// Check targets (name -> target definition).
     pub targets: HashMap<String, Target>,
@@ -145,7 +169,7 @@ impl EureConfig {
 
     /// Parse configuration from a string.
     pub fn parse_str(content: &str) -> Result<Self, ConfigError> {
-        let doc = parse_to_document(content).map_err(|e| ConfigError::Parse(e.to_string()))?;
+        let doc = parse_to_document(content).map_err(|e| ConfigError::from(e.to_enum()))?;
         let root_id = doc.get_root_id();
         let config: EureConfig = doc.parse(root_id)?;
         Ok(config)
@@ -192,6 +216,34 @@ impl EureConfig {
     /// Get all target names.
     pub fn target_names(&self) -> impl Iterator<Item = &str> {
         self.targets.keys().map(|s| s.as_str())
+    }
+}
+
+/// Convert a ConfigError to ErrorReports.
+pub fn report_config_error(
+    error: &ConfigError,
+    file: FileId,
+    cst: &Cst,
+    origins: &OriginMap,
+) -> ErrorReports {
+    match error {
+        ConfigError::Io(e) => ErrorReports::from(vec![ErrorReport::error(
+            e.to_string(),
+            Origin::new(file, InputSpan::EMPTY),
+        )]),
+        ConfigError::Syntax(e) => report_parse_error(e, file),
+        ConfigError::Document(e) => {
+            ErrorReports::from(vec![report_document_error_simple(e, file, cst)])
+        }
+        ConfigError::Parse(e) => {
+            let span = origins
+                .get_node_span(e.node_id, cst)
+                .unwrap_or(InputSpan::EMPTY);
+            ErrorReports::from(vec![ErrorReport::error(
+                e.to_string(),
+                Origin::new(file, span),
+            )])
+        }
     }
 }
 
