@@ -1,13 +1,22 @@
 {
-  "name": "eure-ls",
-  "version": "1.0.0",
+  "name": "eurels",
+  "displayName": "Eure",
+  "description": "Eure Language Server extension for Visual Studio Code",
+  "homepage": "https://eure.dev",
+  "icon": "assets/eure-icon.png",
+  "version": "0.1.2",
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
   "main": "out/main.js",
-  "publisher": "eure",
+  "publisher": "hihaheho",
   "scripts": {
-    "package": "npm run build && vsce package -o eure-ls.vsix",
-    "build-base": "esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --target=node16",
-    "build": "npm run build-base -- --sourcemap",
-    "watch": "npm run build-base -- --sourcemap --watch"
+    "package": "pnpm run build && vsce package --no-dependencies -o eurels.vsix",
+    "build-base": "cp ../../assets/eure-icon.png assets/eure-icon.png && esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --target=node16",
+    "build": "pnpm run build-base --sourcemap",
+    "watch": "pnpm run build-base --sourcemap --watch"
   },
   "repository": {
     "type": "git",
@@ -21,8 +30,6 @@
   "bugs": {
     "url": "https://github.com/Hihaheho/eure/issues"
   },
-  "homepage": "https://github.com/Hihaheho/eure#readme",
-  "description": "",
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
@@ -30,16 +37,16 @@
     "vscode": "^1.92.0"
   },
   "devDependencies": {
-    "@tsconfig/strictest": "^2.0.5",
-    "@types/node": "^22.15.3",
+    "@tsconfig/strictest": "^2.0",
+    "@types/node": "^25.0",
     "@types/vscode": "^1.92.0",
-    "@vscode/vsce": "^3.3.2",
-    "esbuild": "^0.25.3",
-    "typescript": "^5.8.3"
+    "@vscode/vsce": "^3.7",
+    "esbuild": "^0.27",
+    "typescript": "^5.9"
   },
   "contributes": {
     "configuration": {
-      "title": "Eure Language Support",
+      "title": "EureLS",
       "properties": {
         "eure.schema.enabled": {
           "type": "boolean",
@@ -96,8 +103,8 @@
         "filenames": [],
         "configuration": "language-configuration.json",
         "icon": {
-          "light": "../../assets/eure.png",
-          "dark": "../../assets/eure.png"
+          "light": "assets/eure.png",
+          "dark": "assets/eure.png"
         }
       }
     ]

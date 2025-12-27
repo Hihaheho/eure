@@ -1,7 +1,8 @@
 node_modules
 out
 
-!package-lock.json
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
 !package.json
 !tsconfig.json
 !src/**/*.ts
@@ -11,3 +12,6 @@ out
 
 *.vsix
 *.wasm
+
+# copied from ../../assets
+assets/eure-icon.png
