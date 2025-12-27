@@ -9,6 +9,7 @@ out
 !LICENSE
 
 !language-configuration.json
+!syntaxes/eure.tmLanguage.json
 
 *.vsix
 *.wasm

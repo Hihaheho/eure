@@ -4,7 +4,7 @@
   "description": "Eure Language Server extension for Visual Studio Code",
   "homepage": "https://eure.dev",
   "icon": "assets/eure-icon.png",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "categories": [
     "Programming Languages",
     "Formatters",
@@ -105,6 +105,41 @@
         "icon": {
           "light": "assets/eure.png",
           "dark": "assets/eure.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "eure",
+        "scopeName": "source.eure",
+        "path": "./syntaxes/eure.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.rust": "rust",
+          "meta.embedded.block.json": "json",
+          "meta.embedded.block.yaml": "yaml",
+          "meta.embedded.block.toml": "toml",
+          "meta.embedded.block.javascript": "javascript",
+          "meta.embedded.block.typescript": "typescript",
+          "meta.embedded.block.python": "python",
+          "meta.embedded.block.html": "html",
+          "meta.embedded.block.css": "css",
+          "meta.embedded.block.sql": "sql",
+          "meta.embedded.block.markdown": "markdown",
+          "meta.embedded.block.shellscript": "shellscript",
+          "meta.embedded.block.eure": "eure",
+          "meta.embedded.inline.rust": "rust",
+          "meta.embedded.inline.json": "json",
+          "meta.embedded.inline.yaml": "yaml",
+          "meta.embedded.inline.toml": "toml",
+          "meta.embedded.inline.javascript": "javascript",
+          "meta.embedded.inline.typescript": "typescript",
+          "meta.embedded.inline.python": "python",
+          "meta.embedded.inline.html": "html",
+          "meta.embedded.inline.css": "css",
+          "meta.embedded.inline.sql": "sql",
+          "meta.embedded.inline.markdown": "markdown",
+          "meta.embedded.inline.shellscript": "shellscript",
+          "meta.embedded.inline.eure": "eure"
         }
       }
     ]

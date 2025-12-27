@@ -52,6 +52,8 @@ export function activate(
   startLanguageServer();
 
   async function startLanguageServer() {
+    // TODO: Implement language server. For now textmate only.
+    return;
     if (client) {
       window.showInformationMessage(
         "Eure language server is already running."
@@ -80,19 +82,19 @@ export function activate(
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions =
-      {
-        // Register the server for eure documents
-        documentSelector: [
-          { scheme: "file", language: "eure" },
-        ],
-        synchronize: {
-          // Notify the server about file changes to '.clientrc files contained in the workspace
-          fileEvents:
-            workspace.createFileSystemWatcher(
-              "**/*.eure"
-            ),
-        },
-      };
+    {
+      // Register the server for eure documents
+      documentSelector: [
+        { scheme: "file", language: "eure" },
+      ],
+      synchronize: {
+        // Notify the server about file changes to '.clientrc files contained in the workspace
+        fileEvents:
+          workspace.createFileSystemWatcher(
+            "**/*.eure"
+          ),
+      },
+    };
 
     // Create the language client and start the client.
     client = new LanguageClient(
