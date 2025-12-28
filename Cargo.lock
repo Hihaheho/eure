@@ -1619,10 +1619,14 @@ dependencies = [
  "eure",
  "eure-config",
  "eure-document",
+ "eure-json",
+ "eure-parol",
+ "eure-schema",
  "eure-tree",
  "indexmap",
  "lsp-types",
  "query-flow",
+ "serde_json",
  "tracing",
 ]
 

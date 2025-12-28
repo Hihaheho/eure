@@ -3,12 +3,10 @@
 //! This module provides types and functions for extracting semantic tokens
 //! from Eure source code, suitable for use with LSP semantic token features.
 
-use std::sync::Arc;
-
 use eure::tree::*;
 use query_flow::query;
 
-use crate::assets::{TextFile, TextFileContent};
+use crate::assets::TextFile;
 use crate::config::ParseCst;
 
 /// Semantic token types specific to Eure.
@@ -146,28 +144,20 @@ pub fn semantic_tokens(input: &str, cst: &Cst) -> Vec<SemanticToken> {
 
 /// Query to get semantic tokens for a file.
 ///
-/// Uses incremental computing via query-flow. Depends on `ParseCst` query.
+/// Uses tolerant parsing to always produce tokens even with syntax errors.
+/// Depends on `ParseCst` query.
 #[query]
 pub fn get_semantic_tokens(
     ctx: &mut query_flow::QueryContext,
     file: TextFile,
 ) -> Result<Option<Vec<SemanticToken>>, query_flow::QueryError> {
-    // Step 1: Get CST from ParseCst query (UserError propagates automatically via ?)
-    let cst_result = ctx.query(ParseCst::new(file.clone()))?;
-    let cst = match &*cst_result {
+    let result = ctx.query(ParseCst::new(file.clone()))?;
+    let parsed_cst = match &*result {
         None => return Ok(None),
-        Some(cst) => cst,
+        Some(parsed) => parsed,
     };
 
-    // Step 2: Get source text
-    let content: Arc<TextFileContent> = ctx.asset(file)?.suspend()?;
-    let source = match content.as_ref() {
-        TextFileContent::NotFound => return Ok(None),
-        TextFileContent::Content(text) => text,
-    };
-
-    // Step 3: Compute semantic tokens
-    Ok(Some(semantic_tokens(source, cst)))
+    Ok(Some(semantic_tokens(&parsed_cst.source, &parsed_cst.cst)))
 }
 
 /// Visitor that collects semantic tokens from the CST.

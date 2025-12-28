@@ -14,9 +14,13 @@ anyhow = { workspace = true }
 eure = { workspace = true }
 eure-config = { workspace = true }
 eure-document = { workspace = true }
+eure-json = { workspace = true }
+eure-parol = { workspace = true }
+eure-schema = { workspace = true }
 eure-tree = { workspace = true }
 indexmap = { version = "2.0" }
 lsp-types = { workspace = true }
 tracing = "0.1"
 query-flow = "0.3"
+serde_json = "1"
 eros = { workspace = true }
