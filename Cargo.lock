@@ -1594,6 +1594,7 @@ dependencies = [
  "eure-parol",
  "eure-schema",
  "getrandom 0.3.4",
+ "query-flow",
  "serde",
  "serde_json",
  "tracing",
@@ -3158,9 +3159,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62dce3f1e99c51e952945baeaa419e7defe15c0c6365a45ee7bbf62266f8eceb"
+checksum = "aa8ab9744336d913f3aa111c1c98819ca6a9ed55d0463a3806892de95fe2ce04"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3171,9 +3172,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3796cfcbacce54da522f43a938b3f52665445834f949d4eff96075c7b2a7f4c2"
+checksum = "625ed660f478e13e2f903e331c21615f7da02f6fdfc79d5dd1b9c34e8b8c1aa9"
 dependencies = [
  "darling 0.20.11",
  "heck",
@@ -4622,9 +4623,9 @@ dependencies = [
 
 [[package]]
 name = "whale"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "805a8f86d5ca7f379c2cc69d9bacb975cdfd915d8a2d81e74d7255dedd26037c"
+checksum = "052adf249f7f2d382a428dfedd34e8aae7830b4f9b80f4a085d4e1d2d8dbdd34"
 dependencies = [
  "ahash",
  "papaya",

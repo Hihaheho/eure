@@ -4,33 +4,159 @@ use crate::{
     theme::Theme,
 };
 use dioxus::prelude::*;
-use eure::document::{OriginMap, cst_to_document, cst_to_document_and_origin_map};
 use eure::error::format_parse_error_plain;
-use eure::report::{DocumentReportContext, FileRegistry, format_error_report, report_conversion_error};
-use eure::tree::Cst;
-use eure_editor_support::semantic_token::{SemanticToken, semantic_tokens};
-use eure_json::{Config as JsonConfig, document_to_value};
-use eure_parol::{EureParseError, ParseResult, parse_tolerant};
-use eure_schema::SchemaDocument;
-use eure_schema::convert::document_to_schema;
-use eure_schema::validate::{ValidationError, validate};
+use eure_editor_support::{
+    assets::{TextFile, TextFileContent},
+    config::{DocumentToJson, ParseCst},
+    error_reports_comparator,
+    schema::{
+        DocumentToSchemaQuery, ErrorSpan as EditorErrorSpan, ValidateAgainstMetaSchema,
+        ValidateAgainstSchema,
+    },
+    semantic_token::{GetSemanticTokens, SemanticToken},
+};
+use eure_parol::EureParseError;
+use query_flow::{QueryRuntime, QueryRuntimeBuilder};
 
-/// Parsed result containing tokens, errors, and JSON output
-#[derive(Debug, Clone, Default, PartialEq)]
-struct ParsedData {
-    tokens: Vec<SemanticToken>,
-    errors: Vec<ErrorSpan>,
-    json_output: String,
+/// Aggregated errors from all sources (query result).
+#[derive(Clone, PartialEq, Default, Debug)]
+struct EditorAllErrors {
+    doc_parser_errors: Vec<EditorErrorSpan>,
+    schema_parser_errors: Vec<EditorErrorSpan>,
+    schema_conversion_errors: Vec<EditorErrorSpan>,
+    schema_validation_errors: Vec<EditorErrorSpan>,
+    validation_errors: Vec<EditorErrorSpan>,
 }
 
-/// Parsed schema result with validation against meta-schema
-#[derive(Debug, Clone, Default, PartialEq)]
-struct ParsedSchemaData {
-    tokens: Vec<SemanticToken>,
-    parser_errors: Vec<ErrorSpan>,
-    schema_errors: Vec<ErrorSpan>,             // Schema conversion errors (with spans)
-    schema_validation_errors: Vec<ErrorSpan>,  // Meta-schema validation errors (with spans)
-    schema_valid: bool,                        // Whether schema is valid (for document validation)
+/// Get all errors from document and schema parsing/validation.
+#[query_flow::query]
+fn get_all_errors(
+    ctx: &mut query_flow::QueryContext,
+    doc_file: TextFile,
+    schema_file: TextFile,
+    meta_schema_file: TextFile,
+) -> Result<EditorAllErrors, query_flow::QueryError> {
+    // Get parser errors
+    let doc_cst_result = ctx.query(ParseCst::new(doc_file.clone()))?;
+    let schema_cst_result = ctx.query(ParseCst::new(schema_file.clone()))?;
+
+    let doc_parser_errors = match &*doc_cst_result {
+        Some(parsed) if parsed.error.is_some() => format_parser_errors(
+            parsed.error.as_ref().unwrap(),
+            &parsed.source,
+            "document.eure",
+        ),
+        _ => vec![],
+    };
+
+    let schema_parser_errors = match &*schema_cst_result {
+        Some(parsed) if parsed.error.is_some() => format_parser_errors(
+            parsed.error.as_ref().unwrap(),
+            &parsed.source,
+            "schema.eure",
+        ),
+        _ => vec![],
+    };
+
+    // Get schema conversion errors (via UserError)
+    let schema_conversion_errors = match ctx.query(DocumentToSchemaQuery::new(schema_file.clone()))
+    {
+        Ok(_) => vec![],
+        Err(e) => vec![EditorErrorSpan {
+            start: 0,
+            end: 1,
+            message: e.to_string(),
+        }],
+    };
+
+    // Get schema validation against meta-schema
+    let schema_validation_errors =
+        if schema_parser_errors.is_empty() && schema_conversion_errors.is_empty() {
+            (*ctx.query(ValidateAgainstMetaSchema::new(
+                schema_file.clone(),
+                meta_schema_file.clone(),
+            ))?)
+            .clone()
+        } else {
+            vec![]
+        };
+
+    // Get document validation against schema
+    let validation_errors = if doc_parser_errors.is_empty()
+        && schema_conversion_errors.is_empty()
+        && schema_validation_errors.is_empty()
+    {
+        match ctx.query(ValidateAgainstSchema::new(doc_file.clone(), schema_file.clone())) {
+            Ok(errors) => (*errors).clone(),
+            Err(e) => {
+                // Document construction failed - show as validation error
+                vec![EditorErrorSpan {
+                    start: 0,
+                    end: 1,
+                    message: e.to_string(),
+                }]
+            }
+        }
+    } else {
+        vec![]
+    };
+
+    Ok(EditorAllErrors {
+        doc_parser_errors,
+        schema_parser_errors,
+        schema_conversion_errors,
+        schema_validation_errors,
+        validation_errors,
+    })
+}
+
+/// Format parser errors to EditorErrorSpan list.
+fn format_parser_errors(
+    error: &EureParseError,
+    source: &str,
+    filename: &str,
+) -> Vec<EditorErrorSpan> {
+    let message = format_parse_error_plain(error, source, filename);
+    error
+        .entries
+        .iter()
+        .filter_map(|entry| {
+            entry.span.map(|s| EditorErrorSpan {
+                start: s.start as usize,
+                end: s.end as usize,
+                message: message.clone(),
+            })
+        })
+        .collect()
+}
+
+/// Convert EditorAllErrors to local AllErrors format for UI.
+fn convert_errors(errors: &EditorAllErrors) -> AllErrors {
+    let convert_span = |e: &EditorErrorSpan| ErrorSpan {
+        start: e.start as u32,
+        end: e.end as u32,
+        message: e.message.clone(),
+    };
+
+    AllErrors {
+        doc_parser_errors: errors.doc_parser_errors.iter().map(convert_span).collect(),
+        schema_parser_errors: errors
+            .schema_parser_errors
+            .iter()
+            .map(convert_span)
+            .collect(),
+        schema_errors: errors
+            .schema_conversion_errors
+            .iter()
+            .map(convert_span)
+            .collect(),
+        schema_validation_errors: errors
+            .schema_validation_errors
+            .iter()
+            .map(convert_span)
+            .collect(),
+        validation_errors: errors.validation_errors.iter().map(convert_span).collect(),
+    }
 }
 
 /// All errors organized by category for display
@@ -38,8 +164,8 @@ struct ParsedSchemaData {
 struct AllErrors {
     doc_parser_errors: Vec<ErrorSpan>,
     schema_parser_errors: Vec<ErrorSpan>,
-    schema_errors: Vec<ErrorSpan>,            // Schema conversion errors (with spans)
-    schema_validation_errors: Vec<ErrorSpan>, // Meta-schema validation errors
+    schema_errors: Vec<ErrorSpan>,
+    schema_validation_errors: Vec<ErrorSpan>,
     validation_errors: Vec<ErrorSpan>,
 }
 
@@ -54,215 +180,6 @@ impl AllErrors {
 
     fn is_empty(&self) -> bool {
         self.total_count() == 0
-    }
-}
-
-/// Convert a validation error to an ErrorSpan using the origin map
-fn validation_error_to_span(
-    error: &ValidationError,
-    cst: &Cst,
-    origins: &OriginMap,
-) -> ErrorSpan {
-    let message = error.to_string();
-    let (node_id, _schema_node_id) = error.node_ids();
-
-    // Try to get span from node_id via origin map
-    let span = origins.get_node_span(node_id, cst);
-
-    match span {
-        Some(s) => ErrorSpan {
-            start: s.start,
-            end: s.end,
-            message,
-        },
-        None => ErrorSpan {
-            start: 0,
-            end: 1,
-            message,
-        },
-    }
-}
-
-/// Load and cache the meta-schema for validating schemas
-fn load_meta_schema() -> Option<SchemaDocument> {
-    static META_SCHEMA_TEXT: &str =
-        include_str!("../../../../assets/schemas/eure-schema.schema.eure");
-
-    parse_to_schema(META_SCHEMA_TEXT)
-}
-
-// ============================================================================
-// Parsing Helper Functions
-// ============================================================================
-
-/// Parse Eure input and return CST with optional parse error
-fn parse_eure(input: &str) -> (Cst, Option<EureParseError>) {
-    match parse_tolerant(input) {
-        ParseResult::Ok(cst) => (cst, None),
-        ParseResult::ErrWithCst { cst, error } => (cst, Some(error)),
-    }
-}
-
-/// Convert parse errors to ErrorSpan list
-fn format_parser_errors(
-    error: Option<EureParseError>,
-    input: &str,
-    filename: &str,
-) -> Vec<ErrorSpan> {
-    error
-        .map(|e| {
-            let message = format_parse_error_plain(&e, input, filename);
-            e.entries
-                .into_iter()
-                .filter_map(|entry| {
-                    entry.span.map(|s| ErrorSpan {
-                        start: s.start,
-                        end: s.end,
-                        message: message.clone(),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Parse input and convert to SchemaDocument
-fn parse_to_schema(input: &str) -> Option<SchemaDocument> {
-    let (cst, error) = parse_eure(input);
-    if error.is_some() {
-        return None;
-    }
-    let doc = cst_to_document(input, &cst).ok()?;
-    let (schema, _) = document_to_schema(&doc).ok()?;
-    Some(schema)
-}
-
-/// Parse document and return tokens, errors, and JSON output
-fn parse_document(input: &str) -> ParsedData {
-    let (cst, error) = parse_eure(input);
-    let tokens = semantic_tokens(input, &cst);
-    let parser_errors = format_parser_errors(error, input, "document.eure");
-
-    let json_output = if parser_errors.is_empty() {
-        cst_to_document(input, &cst)
-            .ok()
-            .and_then(|doc| document_to_value(&doc, &JsonConfig::default()).ok())
-            .and_then(|v| serde_json::to_string_pretty(&v).ok())
-            .unwrap_or_default()
-    } else {
-        String::new()
-    };
-
-    ParsedData {
-        tokens,
-        errors: parser_errors,
-        json_output,
-    }
-}
-
-/// Parse schema and validate against meta-schema
-fn parse_schema(input: &str) -> ParsedSchemaData {
-    let (cst, error) = parse_eure(input);
-    let tokens = semantic_tokens(input, &cst);
-    let parser_errors = format_parser_errors(error, input, "schema.eure");
-
-    if !parser_errors.is_empty() {
-        return ParsedSchemaData {
-            tokens,
-            parser_errors,
-            schema_errors: Vec::new(),
-            schema_validation_errors: Vec::new(),
-            schema_valid: false,
-        };
-    }
-
-    let mut schema_errors = Vec::new();
-    let mut schema_validation_errors = Vec::new();
-
-    let schema_valid = match cst_to_document_and_origin_map(input, &cst) {
-        Ok((doc, origins)) => {
-            // Always validate against meta-schema if parse succeeded
-            if let Some(meta_schema) = load_meta_schema() {
-                let validation_result = validate(&doc, &meta_schema);
-                if !validation_result.is_valid {
-                    for error in &validation_result.errors {
-                        schema_validation_errors
-                            .push(validation_error_to_span(error, &cst, &origins));
-                    }
-                }
-            }
-
-            // Check if schema can be used for document validation
-            // (document_to_schema must succeed)
-            if schema_validation_errors.is_empty() {
-                match document_to_schema(&doc) {
-                    Ok(_) => true,
-                    Err(e) => {
-                        // Format conversion error with source spans
-                        let mut files = FileRegistry::new();
-                        let file_id = files.register("schema.eure", input);
-                        let ctx = DocumentReportContext {
-                            file: file_id,
-                            cst: &cst,
-                            origins: &origins,
-                        };
-                        let report = report_conversion_error(&e, &ctx);
-                        let span = report.primary_origin.span;
-                        let message = format_error_report(&report, &files, false);
-                        schema_errors.push(ErrorSpan {
-                            start: span.start,
-                            end: span.end,
-                            message,
-                        });
-                        false
-                    }
-                }
-            } else {
-                false
-            }
-        }
-        Err(e) => {
-            // Document construction errors don't have spans
-            schema_errors.push(ErrorSpan {
-                start: 0,
-                end: 1,
-                message: format!("Document construction: {}", e),
-            });
-            false
-        }
-    };
-
-    ParsedSchemaData {
-        tokens,
-        parser_errors,
-        schema_errors,
-        schema_validation_errors,
-        schema_valid,
-    }
-}
-
-/// Validate document against schema and return validation errors
-fn compute_validation_errors(doc_input: &str, schema_input: &str) -> Vec<ErrorSpan> {
-    let (doc_cst, doc_error) = parse_eure(doc_input);
-    if doc_error.is_some() {
-        return Vec::new();
-    }
-
-    let schema = match parse_to_schema(schema_input) {
-        Some(s) => s,
-        None => return Vec::new(),
-    };
-
-    match cst_to_document_and_origin_map(doc_input, &doc_cst) {
-        Ok((doc, origins)) => {
-            let validation_result = validate(&doc, &schema);
-            validation_result
-                .errors
-                .iter()
-                .map(|e| validation_error_to_span(e, &doc_cst, &origins))
-                .collect()
-        }
-        Err(_) => Vec::new(),
     }
 }
 
@@ -388,6 +305,133 @@ impl EureExample {
             EureExample::Minimal => "= `any`\n",
         }
     }
+
+    fn file_name(&self) -> &'static str {
+        match self {
+            EureExample::Readme => "readme.eure",
+            EureExample::HelloWorld => "hello-world.eure",
+            EureExample::EureSchema => "eure-schema.schema.eure",
+            EureExample::Cargo => "cargo.eure",
+            EureExample::GitHubAction => "github-action.eure",
+            EureExample::GameScript => "game-script.eure",
+            EureExample::Minimal => "minimal.eure",
+        }
+    }
+
+    fn schema_file_name(&self) -> &'static str {
+        match self {
+            EureExample::Readme => "readme.schema.eure",
+            EureExample::HelloWorld => "hello-world.schema.eure",
+            EureExample::EureSchema => "eure-schema.schema.eure",
+            EureExample::Cargo => "cargo.schema.eure",
+            EureExample::GitHubAction => "github-action.schema.eure",
+            EureExample::GameScript => "game-script.schema.eure",
+            EureExample::Minimal => "minimal.schema.eure",
+        }
+    }
+
+    fn register_all(runtime: &QueryRuntime) {
+        // Register all example files
+        for example in EureExample::ALL {
+            runtime.resolve_asset(
+                TextFile::from_path(example.file_name().into()),
+                TextFileContent::Content(example.content().to_string()),
+            );
+            runtime.resolve_asset(
+                TextFile::from_path(example.schema_file_name().into()),
+                TextFileContent::Content(example.schema().to_string()),
+            );
+        }
+        // Register meta-schema for schema validation
+        runtime.resolve_asset(
+            TextFile::from_path("meta-schema.eure".into()),
+            TextFileContent::Content(
+                include_str!("../../../../assets/schemas/eure-schema.schema.eure").to_string(),
+            ),
+        );
+    }
+
+    fn on_change_tab(&self, runtime: &QueryRuntime) {
+        runtime.resolve_asset(
+            TextFile::from_path(self.file_name().into()),
+            TextFileContent::Content(self.content().to_string()),
+        );
+        runtime.resolve_asset(
+            TextFile::from_path(self.schema_file_name().into()),
+            TextFileContent::Content(self.schema().to_string()),
+        );
+    }
+
+    fn on_input(&self, runtime: &QueryRuntime, value: String) {
+        runtime.resolve_asset(
+            TextFile::from_path(self.file_name().into()),
+            TextFileContent::Content(value),
+        );
+    }
+
+    fn on_schema_input(&self, runtime: &QueryRuntime, value: String) {
+        runtime.resolve_asset(
+            TextFile::from_path(self.schema_file_name().into()),
+            TextFileContent::Content(value),
+        );
+    }
+}
+
+/// Run all queries and update signals
+fn run_queries(
+    runtime: &QueryRuntime,
+    doc_file: &TextFile,
+    schema_file: &TextFile,
+    mut doc_tokens: Signal<Vec<SemanticToken>>,
+    mut schema_tokens: Signal<Vec<SemanticToken>>,
+    mut json_output: Signal<String>,
+    mut all_errors: Signal<AllErrors>,
+) {
+    // Get semantic tokens for document
+    if let Ok(result) = runtime.query(GetSemanticTokens::new(doc_file.clone()))
+        && let Some(tokens) = &*result
+    {
+        doc_tokens.set(tokens.clone());
+    }
+
+    // Get semantic tokens for schema
+    if let Ok(result) = runtime.query(GetSemanticTokens::new(schema_file.clone()))
+        && let Some(tokens) = &*result
+    {
+        schema_tokens.set(tokens.clone());
+    }
+
+    // Get JSON output
+    if let Ok(result) = runtime.query(DocumentToJson::new(doc_file.clone())) {
+        if let Some(json) = &*result {
+            json_output.set((**json).clone());
+        } else {
+            json_output.set(String::new());
+        }
+    }
+
+    // Get all errors
+    let meta_file = TextFile::from_path("meta-schema.eure".into());
+    match runtime.query(GetAllErrors::new(
+        doc_file.clone(),
+        schema_file.clone(),
+        meta_file,
+    )) {
+        Ok(errors) => {
+            all_errors.set(convert_errors(&errors));
+        }
+        Err(e) => {
+            // Query failed unexpectedly - show the error
+            all_errors.set(AllErrors {
+                doc_parser_errors: vec![ErrorSpan {
+                    start: 0,
+                    end: 1,
+                    message: e.to_string(),
+                }],
+                ..Default::default()
+            });
+        }
+    }
 }
 
 /// Home page with the Eure editor
@@ -395,6 +439,13 @@ impl EureExample {
 pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>) -> Element {
     let theme: Signal<Theme> = use_context();
     let navigator = use_navigator();
+    let runtime = use_signal(|| {
+        let runtime = QueryRuntimeBuilder::new()
+            .error_comparator(error_reports_comparator)
+            .build();
+        EureExample::register_all(&runtime);
+        runtime
+    });
 
     // Derive the current example from the route parameter
     let current_example = use_memo(move || {
@@ -412,54 +463,84 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
             .unwrap_or_default()
     });
 
+    // Content signals (updated from runtime assets)
     let mut content = use_signal(|| EureExample::default().content().to_string());
     let mut schema_content = use_signal(|| EureExample::default().schema().to_string());
 
-    // Update content when example changes via route
+    // Derived data signals (updated by queries)
+    let doc_tokens: Signal<Vec<SemanticToken>> = use_signal(Vec::new);
+    let schema_tokens: Signal<Vec<SemanticToken>> = use_signal(Vec::new);
+    let json_output: Signal<String> = use_signal(String::new);
+    let all_errors: Signal<AllErrors> = use_signal(AllErrors::default);
+
+    // Update content and run queries when example changes
     use_effect(move || {
         let ex = current_example();
         content.set(ex.content().to_string());
         schema_content.set(ex.schema().to_string());
+        ex.on_change_tab(&runtime());
+
+        let doc_file = TextFile::from_path(ex.file_name().into());
+        let schema_file = TextFile::from_path(ex.schema_file_name().into());
+        run_queries(
+            &runtime(),
+            &doc_file,
+            &schema_file,
+            doc_tokens,
+            schema_tokens,
+            json_output,
+            all_errors,
+        );
     });
 
-    let parsed = use_memo(move || parse_document(&content()));
-    // Create read signals for the editor
-    let tokens = use_memo(move || parsed().tokens);
-    let doc_parser_errors = use_memo(move || parsed().errors);
-    let json_output = use_memo(move || parsed().json_output);
-    let schema_parsed = use_memo(move || parse_schema(&schema_content()));
-    let schema_tokens = use_memo(move || schema_parsed().tokens);
+    // Handler for document content changes
+    let update_content = move |value: String| {
+        content.set(value.clone());
+        let ex = current_example();
+        ex.on_input(&runtime(), value);
 
-    // Combined schema errors for the schema editor (parser + meta-schema validation + conversion)
+        let doc_file = TextFile::from_path(ex.file_name().into());
+        let schema_file = TextFile::from_path(ex.schema_file_name().into());
+        run_queries(
+            &runtime(),
+            &doc_file,
+            &schema_file,
+            doc_tokens,
+            schema_tokens,
+            json_output,
+            all_errors,
+        );
+    };
+
+    // Handler for schema content changes
+    let update_schema = move |value: String| {
+        schema_content.set(value.clone());
+        let ex = current_example();
+        ex.on_schema_input(&runtime(), value);
+
+        let doc_file = TextFile::from_path(ex.file_name().into());
+        let schema_file = TextFile::from_path(ex.schema_file_name().into());
+        run_queries(
+            &runtime(),
+            &doc_file,
+            &schema_file,
+            doc_tokens,
+            schema_tokens,
+            json_output,
+            all_errors,
+        );
+    };
+
+    // Combined schema errors for the schema editor
     let combined_schema_errors = use_memo(move || {
-        let data = schema_parsed();
-        let mut combined = data.parser_errors.clone();
-        combined.extend(data.schema_validation_errors.clone());
-        combined.extend(data.schema_errors.clone());
+        let errors = all_errors();
+        let mut combined = errors.schema_parser_errors.clone();
+        combined.extend(errors.schema_validation_errors.clone());
+        combined.extend(errors.schema_errors.clone());
         combined
     });
 
-    // Combined validation: validate document against schema
-    let all_errors = use_memo(move || {
-        let doc_errors = doc_parser_errors();
-        let schema_data = schema_parsed();
-
-        let validation_errors = if doc_errors.is_empty() && schema_data.schema_valid {
-            compute_validation_errors(&content(), &schema_content())
-        } else {
-            Vec::new()
-        };
-
-        AllErrors {
-            doc_parser_errors: doc_errors.clone(),
-            schema_parser_errors: schema_data.parser_errors.clone(),
-            schema_errors: schema_data.schema_errors.clone(),
-            schema_validation_errors: schema_data.schema_validation_errors.clone(),
-            validation_errors,
-        }
-    });
-
-    // Combined errors for the document editor (parser + validation)
+    // Combined errors for the document editor
     let combined_doc_errors = use_memo(move || {
         let errors = all_errors();
         let mut combined = errors.doc_parser_errors.clone();
@@ -511,10 +592,10 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                 div { class: "flex-1 text-xl overflow-hidden min-h-0",
                     Editor {
                         content,
-                        tokens,
+                        tokens: doc_tokens,
                         errors: combined_doc_errors,
                         theme,
-                        on_change: move |s| content.set(s),
+                        on_change: update_content,
                     }
                 }
             }
@@ -608,7 +689,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                     tokens: schema_tokens,
                                     errors: combined_schema_errors,
                                     theme,
-                                    on_change: move |s| schema_content.set(s),
+                                    on_change: update_schema,
                                 }
                             }
                         },

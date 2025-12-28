@@ -25,6 +25,13 @@ pub enum TextFileContent {
 }
 
 impl TextFileContent {
+    pub fn get(&self) -> Option<&str> {
+        match self {
+            TextFileContent::Content(content) => Some(content),
+            TextFileContent::NotFound => None,
+        }
+    }
+
     pub fn map<T, F>(&self, f: F) -> Option<T>
     where
         F: FnOnce(&str) -> T,

@@ -1,6 +1,5 @@
 pub mod assets;
 pub mod config;
-pub mod errors;
 pub mod schema;
 pub mod semantic_token;
 
