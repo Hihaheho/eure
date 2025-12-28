@@ -5,7 +5,6 @@
 
 use std::sync::Arc;
 
-use eure::report::ErrorReports;
 use eure::tree::*;
 use query_flow::query;
 
@@ -152,24 +151,23 @@ pub fn semantic_tokens(input: &str, cst: &Cst) -> Vec<SemanticToken> {
 pub fn get_semantic_tokens(
     ctx: &mut query_flow::QueryContext,
     file: TextFile,
-) -> Result<Result<Option<Vec<SemanticToken>>, ErrorReports>, query_flow::QueryError> {
-    // Step 1: Get CST from ParseCst query
+) -> Result<Option<Vec<SemanticToken>>, query_flow::QueryError> {
+    // Step 1: Get CST from ParseCst query (UserError propagates automatically via ?)
     let cst_result = ctx.query(ParseCst::new(file.clone()))?;
-    let cst = match cst_result.as_ref() {
-        Err(reports) => return Ok(Err(reports.clone())),
-        Ok(None) => return Ok(Ok(None)),
-        Ok(Some(cst)) => cst,
+    let cst = match &*cst_result {
+        None => return Ok(None),
+        Some(cst) => cst,
     };
 
     // Step 2: Get source text
     let content: Arc<TextFileContent> = ctx.asset(file)?.suspend()?;
     let source = match content.as_ref() {
-        TextFileContent::NotFound => return Ok(Ok(None)),
+        TextFileContent::NotFound => return Ok(None),
         TextFileContent::Content(text) => text,
     };
 
     // Step 3: Compute semantic tokens
-    Ok(Ok(Some(semantic_tokens(source, cst))))
+    Ok(Some(semantic_tokens(source, cst)))
 }
 
 /// Visitor that collects semantic tokens from the CST.

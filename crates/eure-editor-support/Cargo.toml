@@ -18,5 +18,5 @@ eure-tree = { workspace = true }
 indexmap = { version = "2.0" }
 lsp-types = { workspace = true }
 tracing = "0.1"
-query-flow = "0.2"
+query-flow = "0.3"
 eros = { workspace = true }
