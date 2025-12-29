@@ -1,0 +1,43 @@
+{
+  "name": "Eure Development",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts",
+      "pnpmVersion": "latest"
+    }
+  },
+  "mounts": [
+    "source=eure-cargo-cache,target=/usr/local/cargo/registry,type=volume",
+    "source=eure-cargo-git,target=/usr/local/cargo/git,type=volume",
+    "source=eure-target,target=${containerWorkspaceFolder}/target,type=volume",
+    "source=eure-claude-config,target=/home/vscode/.claude,type=volume"
+  ],
+  "containerEnv": {
+    "DEVCONTAINER": "true",
+    "SHELL": "/usr/bin/fish"
+  },
+  "initializeCommand": "docker volume inspect eure-target > /dev/null 2>&1 || true",
+  "onCreateCommand": "sudo chown -R vscode:vscode /workspaces/eure/target 2>/dev/null || mkdir -p target",
+  "postCreateCommand": ".devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tombi-toml.tombi",
+        "fill-labs.dependi",
+        "hihaheho.eurels"
+      ],
+      "settings": {
+        "rust-analyzer.check.command": "clippy",
+        "editor.formatOnSave": true,
+        "files.watcherExclude": {
+          "**/target/**": true
+        }
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}
