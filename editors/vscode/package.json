@@ -3,8 +3,8 @@
   "displayName": "Eure",
   "description": "Eure Language Server extension for Visual Studio Code",
   "homepage": "https://eure.dev",
-  "icon": "assets/eure-icon.png",
-  "version": "0.1.4",
+  "icon": "assets/icons/eure-icon.png",
+  "version": "0.1.5",
   "categories": [
     "Programming Languages",
     "Formatters",
@@ -14,7 +14,7 @@
   "publisher": "hihaheho",
   "scripts": {
     "package": "pnpm run build && vsce package --no-dependencies -o eurels.vsix",
-    "build-base": "cp ../../assets/eure-icon.png assets/eure-icon.png && esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --target=node16",
+    "build-base": "cp -r ../../assets/icons assets/ && esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --target=node16",
     "build": "pnpm run build-base --sourcemap",
     "watch": "pnpm run build-base --sourcemap --watch"
   },
@@ -103,8 +103,8 @@
         "filenames": [],
         "configuration": "language-configuration.json",
         "icon": {
-          "light": "assets/eure.png",
-          "dark": "assets/eure.png"
+          "light": "assets/icons/eure-icon-light.svg",
+          "dark": "assets/icons/eure-icon-dark.svg"
         }
       }
     ],

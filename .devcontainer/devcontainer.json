@@ -19,6 +19,9 @@
     "DEVCONTAINER": "true",
     "SHELL": "/usr/bin/fish"
   },
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
+  },
   "initializeCommand": "docker volume inspect eure-target > /dev/null 2>&1 || true",
   "onCreateCommand": "sudo chown -R vscode:vscode /workspaces/eure/target 2>/dev/null || mkdir -p target",
   "postCreateCommand": ".devcontainer/post-create.sh",
