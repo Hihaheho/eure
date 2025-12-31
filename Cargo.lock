@@ -3159,9 +3159,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow"
-version = "0.5.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa8ab9744336d913f3aa111c1c98819ca6a9ed55d0463a3806892de95fe2ce04"
+checksum = "0bb694959bf57198947a01f0580d1636bf61998ff34259f459480ba509614fe4"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3172,9 +3172,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.5.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "625ed660f478e13e2f903e331c21615f7da02f6fdfc79d5dd1b9c34e8b8c1aa9"
+checksum = "2b5c9719a1845b870c147fb61622994a5b7c5507c15102e33f61f58620e88c20"
 dependencies = [
  "darling 0.20.11",
  "heck",
@@ -4623,9 +4623,9 @@ dependencies = [
 
 [[package]]
 name = "whale"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "052adf249f7f2d382a428dfedd34e8aae7830b4f9b80f4a085d4e1d2d8dbdd34"
+checksum = "0b1076cde6f2cc74adcc6552cf2a4e4ba23e44c25b56cf605575a3736f30cf99"
 dependencies = [
  "ahash",
  "papaya",
