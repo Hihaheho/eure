@@ -14,6 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libglib2.0-dev \
         unzip \
         fish \
+        vim \
         gnupg2
 
 # Rust target for WASM
