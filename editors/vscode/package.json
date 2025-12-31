@@ -48,6 +48,11 @@
     "configuration": {
       "title": "EureLS",
       "properties": {
+        "eure.server.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the eure-ls executable. If empty, uses ~/.cargo/bin/eure-ls"
+        },
         "eure.schema.enabled": {
           "type": "boolean",
           "default": true,

@@ -52,8 +52,6 @@ export function activate(
   startLanguageServer();
 
   async function startLanguageServer() {
-    // TODO: Implement language server. For now textmate only.
-    return;
     if (client) {
       window.showInformationMessage(
         "Eure language server is already running."
@@ -61,21 +59,22 @@ export function activate(
       return;
     }
 
+    // Get the server path from settings, or use default
+    const config = workspace.getConfiguration("eure");
+    const configuredPath = config.get<string>("server.path");
+    const serverPath = configuredPath && configuredPath.trim() !== ""
+      ? configuredPath
+      : path.join(homedir(), ".cargo/bin/eure-ls");
+
     // If the extension is launched in debug mode then the debug server options are used
     // Otherwise the run options are used
     const serverOptions: ServerOptions = {
       run: {
-        command: path.join(
-          homedir(),
-          "/.cargo/bin/eure-ls"
-        ),
+        command: serverPath,
         transport: TransportKind.stdio,
       },
       debug: {
-        command: path.join(
-          homedir(),
-          "/.cargo/bin/eure-ls"
-        ),
+        command: serverPath,
         transport: TransportKind.stdio,
       },
     };
