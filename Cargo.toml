@@ -43,6 +43,7 @@ thisisplural = "0.7"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 query-flow = "0.7"
+glob = "0.3"
 
 # For faster parser generation
 [profile.dev.package.parol]

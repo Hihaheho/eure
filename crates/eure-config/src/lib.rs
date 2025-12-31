@@ -217,6 +217,34 @@ impl EureConfig {
     pub fn target_names(&self) -> impl Iterator<Item = &str> {
         self.targets.keys().map(|s| s.as_str())
     }
+
+    /// Find the schema for a file path by matching against target globs.
+    ///
+    /// Returns the first matching target's schema path, if any.
+    pub fn schema_for_path(&self, file_path: &Path, config_dir: &Path) -> Option<PathBuf> {
+        // Use explicit options for consistent cross-platform behavior
+        let options = glob::MatchOptions {
+            case_sensitive: true,
+            require_literal_separator: true,
+            require_literal_leading_dot: false,
+        };
+
+        for target in self.targets.values() {
+            if let Some(ref schema) = target.schema {
+                for glob_pattern in &target.globs {
+                    // Make glob pattern absolute relative to config dir
+                    let full_pattern = config_dir.join(glob_pattern);
+                    if let Ok(pattern) = glob::Pattern::new(&full_pattern.to_string_lossy())
+                        && pattern.matches_path_with(file_path, options)
+                    {
+                        // Return schema path relative to config dir
+                        return Some(config_dir.join(schema));
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 /// Convert a ConfigError to ErrorReports.

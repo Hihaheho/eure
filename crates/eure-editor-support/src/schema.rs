@@ -1,5 +1,6 @@
 //! Schema conversion and validation queries.
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use eure::document::OriginMap;
@@ -11,7 +12,7 @@ use eure_tree::prelude::Cst;
 use query_flow::query;
 
 use crate::assets::TextFile;
-use crate::config::{ParseDocument, ParsedDocument};
+use crate::config::{GetConfig, ParseDocument, ParsedDocument};
 
 /// Validated schema with the SchemaDocument.
 #[derive(Clone, PartialEq)]
@@ -111,6 +112,142 @@ pub fn validate_against_meta_schema(
         .collect();
     Ok(spans)
 }
+
+// =============================================================================
+// Schema Resolution Queries
+// =============================================================================
+
+/// Extract the `$schema` extension value from a document's root node.
+///
+/// Returns `None` if:
+/// - The file cannot be parsed
+/// - The document has no `$schema` extension
+/// - The `$schema` value is not a valid string
+#[query]
+pub fn get_schema_extension(
+    ctx: &mut query_flow::QueryContext,
+    file: TextFile,
+) -> Result<Option<String>, query_flow::QueryError> {
+    let result = ctx.query(ParseDocument::new(file.clone()))?;
+    let parsed = match &*result {
+        None => return Ok(None),
+        Some(p) => p,
+    };
+
+    let root_id = parsed.doc.get_root_id();
+    let root_ctx = parsed.doc.parse_context(root_id);
+
+    // Try to get $schema extension as a string
+    match root_ctx.parse_ext_optional::<String>("schema") {
+        Ok(Some(schema_path)) => Ok(Some(schema_path)),
+        Ok(None) => Ok(None),
+        Err(_) => Ok(None), // Invalid type, diagnostics handled by get_schema_extension_diagnostics
+    }
+}
+
+/// Check for schema extension errors (e.g., wrong type).
+///
+/// Returns diagnostics if `$schema` exists but is not a valid string.
+#[query]
+pub fn get_schema_extension_diagnostics(
+    ctx: &mut query_flow::QueryContext,
+    file: TextFile,
+) -> Result<Vec<ErrorSpan>, query_flow::QueryError> {
+    let result = ctx.query(ParseDocument::new(file.clone()))?;
+    let parsed = match &*result {
+        None => return Ok(vec![]),
+        Some(p) => p,
+    };
+
+    let root_id = parsed.doc.get_root_id();
+    let root_ctx = parsed.doc.parse_context(root_id);
+
+    // Check if $schema extension exists
+    let Some(schema_ctx) = root_ctx.ext_optional("schema") else {
+        return Ok(vec![]);
+    };
+
+    // Try to parse as string
+    if root_ctx.parse_ext_optional::<String>("schema").is_ok() {
+        return Ok(vec![]);
+    }
+
+    // $schema exists but has wrong type - generate diagnostic
+    let node_id = schema_ctx.node_id();
+    let span = parsed.origins.get_node_span(node_id, &parsed.cst);
+    let (start, end) = span
+        .map(|s| (s.start as usize, s.end as usize))
+        .unwrap_or((0, 1));
+
+    Ok(vec![ErrorSpan {
+        start,
+        end,
+        message: "$schema must be a string path to a schema file".to_string(),
+    }])
+}
+
+/// Resolve the schema file for a document.
+///
+/// Priority order:
+/// 1. `$schema` extension in the document itself
+/// 2. Workspace config (`Eure.eure`) schema mappings
+/// 3. File name heuristics (e.g., `*.schema.eure` uses meta-schema)
+///
+/// Returns `None` if no schema can be determined.
+#[query]
+pub fn resolve_schema(
+    ctx: &mut query_flow::QueryContext,
+    file: TextFile,
+) -> Result<Option<TextFile>, query_flow::QueryError> {
+    // 1. Check $schema extension in the document
+    if let Some(schema_path) = ctx.query(GetSchemaExtension::new(file.clone()))?.as_ref() {
+        let resolved = resolve_relative_path(&file.path, schema_path);
+        return Ok(Some(TextFile::from_path(resolved)));
+    }
+
+    // 2. Check workspace config
+    if let Some(config) = ctx.query(GetConfig::new(file.clone()))?.as_ref() {
+        // Get config directory from workspace
+        let workspace_ids = ctx.list_asset_keys::<crate::assets::WorkspaceId>();
+        if let Some(workspace_id) = workspace_ids.into_iter().next() {
+            let workspace: std::sync::Arc<crate::assets::Workspace> =
+                ctx.asset(workspace_id)?.suspend()?;
+            if let Some(config_dir) = workspace.config_path.parent()
+                && let Some(schema_path) = config.schema_for_path(&file.path, config_dir)
+            {
+                return Ok(Some(TextFile::from_path(schema_path)));
+            }
+        }
+    }
+
+    // 3. File name heuristics
+    let path_str = file.path.to_string_lossy();
+    if path_str.ends_with(".schema.eure") {
+        // Schema files are validated against the meta-schema
+        return Ok(Some(meta_schema_file()));
+    }
+
+    Ok(None)
+}
+
+/// Get the built-in meta-schema file.
+fn meta_schema_file() -> TextFile {
+    // The meta-schema is bundled with the application
+    TextFile::from_path(PathBuf::from("$eure/meta-schema.eure"))
+}
+
+/// Resolve a relative path against a base file path.
+fn resolve_relative_path(base: &Path, relative: &str) -> PathBuf {
+    if let Some(parent) = base.parent() {
+        parent.join(relative)
+    } else {
+        PathBuf::from(relative)
+    }
+}
+
+// =============================================================================
+// Validation Helper Functions
+// =============================================================================
 
 /// Convert a validation error to an ErrorSpan using the origin map.
 fn validation_error_to_span(error: &ValidationError, cst: &Cst, origins: &OriginMap) -> ErrorSpan {

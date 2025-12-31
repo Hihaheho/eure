@@ -15,11 +15,14 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+crossbeam-channel = "0.5"
 eure = { workspace = true }
 eure-editor-support = { workspace = true }
 eure-schema = { workspace = true }
 lsp-server = "0.7.6"
 lsp-types = "0.97.0"
+percent-encoding = "2.3"
+query-flow = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 tracing = "0.1"

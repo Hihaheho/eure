@@ -1576,6 +1576,7 @@ dependencies = [
  "eure",
  "eure-document",
  "eure-tree",
+ "glob",
  "thiserror 2.0.17",
 ]
 
@@ -1693,11 +1694,14 @@ name = "eure-ls"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "crossbeam-channel",
  "eure",
  "eure-editor-support",
  "eure-schema",
  "lsp-server",
  "lsp-types",
+ "percent-encoding",
+ "query-flow",
  "serde",
  "serde_json",
  "tracing",

@@ -14,6 +14,7 @@ eros = { workspace = true }
 eure = { workspace = true }
 eure-document = { workspace = true }
 eure-tree = { workspace = true }
+glob = { workspace = true }
 thiserror = { workspace = true }
 
 [features]

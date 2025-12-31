@@ -27,7 +27,7 @@ pub fn parse_cst(
     ctx: &mut query_flow::QueryContext,
     file: TextFile,
 ) -> Result<Option<ParsedCst>, query_flow::QueryError> {
-    let content: Arc<TextFileContent> = ctx.asset(file)?.suspend()?;
+    let content: Arc<TextFileContent> = ctx.asset(file.clone())?.suspend()?;
     match content.as_ref() {
         TextFileContent::NotFound => Ok(None),
         TextFileContent::Content(text) => {
@@ -106,7 +106,7 @@ pub fn get_config(
 ) -> Result<Option<EureConfig>, query_flow::QueryError> {
     let workspace_ids = ctx.list_asset_keys::<WorkspaceId>();
     if let Some(workspace_id) = workspace_ids.into_iter().next() {
-        let workspace = ctx.asset(&workspace_id)?.suspend()?;
+        let workspace = ctx.asset(workspace_id)?.suspend()?;
         if detect_workspace(&workspace.path, &file.path) {
             let config_file = TextFile::from_path(workspace.config_path.clone());
             // UserError propagates automatically via ?
