@@ -11,10 +11,30 @@ email = `text`
 
 schema_errors = [
   ```
-error: Missing required field 'email' at path (root)
- --> <input>:1:16
-  |
-1 | name = "Alice"
-  |               ^ Missing required field 'email' at path (root)
+  error: Missing required field 'email' at path (root)
+   --> <input>:1:16
+    |
+  1 | name = "Alice"
+    |               ^ Missing required field 'email' at path (root)
+  ```
+]
+
+@ cases.unknown-field
+input_eure = ```eure
+name = "Alice"
+unknown-field = "value"
 ```
+
+schema = ```eure
+name = `text`
+```
+
+schema_errors = [
+  ```
+  error: Unknown field 'unknown-field' at path (root)
+   --> <input>:2:25
+    |
+  2 | unknown-field = "value"
+    |                        ^ Unknown field 'unknown-field' at path (root)
+  ```
 ]
