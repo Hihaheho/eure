@@ -62,6 +62,16 @@
     "configuration": {
       "title": "EureLS",
       "properties": {
+        "eure.useWasm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use WASM-based language server. Set to false to use native binary."
+        },
+        "eure.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the native eure-ls binary. If empty, searches PATH for 'eurels'."
+        },
         "eure.schema.enabled": {
           "type": "boolean",
           "default": true,
