@@ -27,10 +27,10 @@ pub struct ValidatedSchema {
 /// Returns `UserError` if schema conversion fails.
 #[query]
 pub fn document_to_schema_query(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<ValidatedSchema>, query_flow::QueryError> {
-    let result = ctx.query(ParseDocument::new(file.clone()))?;
+    let result = db.query(ParseDocument::new(file.clone()))?;
     let parsed = match &*result {
         None => return Ok(None),
         Some(p) => p.clone(),
@@ -58,17 +58,17 @@ pub struct ErrorSpan {
 /// Returns empty vec if either document or schema parsing failed.
 #[query]
 pub fn validate_against_schema(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     doc_file: TextFile,
     schema_file: TextFile,
 ) -> Result<Vec<ErrorSpan>, query_flow::QueryError> {
-    let doc_result = ctx.query(ParseDocument::new(doc_file.clone()))?;
+    let doc_result = db.query(ParseDocument::new(doc_file.clone()))?;
     let doc_parsed = match &*doc_result {
         None => return Ok(vec![]),
         Some(p) => p,
     };
 
-    let schema_result = ctx.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
+    let schema_result = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
     let validated_schema = match &*schema_result {
         None => return Ok(vec![]),
         Some(s) => s,
@@ -88,17 +88,17 @@ pub fn validate_against_schema(
 /// Returns empty vec if either schema parsing failed.
 #[query]
 pub fn validate_against_meta_schema(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     schema_file: TextFile,
     meta_schema_file: TextFile,
 ) -> Result<Vec<ErrorSpan>, query_flow::QueryError> {
-    let schema_result = ctx.query(ParseDocument::new(schema_file.clone()))?;
+    let schema_result = db.query(ParseDocument::new(schema_file.clone()))?;
     let schema_parsed = match &*schema_result {
         None => return Ok(vec![]),
         Some(p) => p,
     };
 
-    let meta_result = ctx.query(DocumentToSchemaQuery::new(meta_schema_file.clone()))?;
+    let meta_result = db.query(DocumentToSchemaQuery::new(meta_schema_file.clone()))?;
     let meta_schema = match &*meta_result {
         None => return Ok(vec![]),
         Some(s) => s,
@@ -125,10 +125,10 @@ pub fn validate_against_meta_schema(
 /// - The `$schema` value is not a valid string
 #[query]
 pub fn get_schema_extension(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<String>, query_flow::QueryError> {
-    let result = ctx.query(ParseDocument::new(file.clone()))?;
+    let result = db.query(ParseDocument::new(file.clone()))?;
     let parsed = match &*result {
         None => return Ok(None),
         Some(p) => p,
@@ -150,10 +150,10 @@ pub fn get_schema_extension(
 /// Returns diagnostics if `$schema` exists but is not a valid string.
 #[query]
 pub fn get_schema_extension_diagnostics(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Vec<ErrorSpan>, query_flow::QueryError> {
-    let result = ctx.query(ParseDocument::new(file.clone()))?;
+    let result = db.query(ParseDocument::new(file.clone()))?;
     let parsed = match &*result {
         None => return Ok(vec![]),
         Some(p) => p,
@@ -196,22 +196,22 @@ pub fn get_schema_extension_diagnostics(
 /// Returns `None` if no schema can be determined.
 #[query]
 pub fn resolve_schema(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<TextFile>, query_flow::QueryError> {
     // 1. Check $schema extension in the document
-    if let Some(schema_path) = ctx.query(GetSchemaExtension::new(file.clone()))?.as_ref() {
+    if let Some(schema_path) = db.query(GetSchemaExtension::new(file.clone()))?.as_ref() {
         let resolved = resolve_relative_path(&file.path, schema_path);
         return Ok(Some(TextFile::from_path(resolved)));
     }
 
     // 2. Check workspace config
-    if let Some(config) = ctx.query(GetConfig::new(file.clone()))?.as_ref() {
+    if let Some(config) = db.query(GetConfig::new(file.clone()))?.as_ref() {
         // Get config directory from workspace
-        let workspace_ids = ctx.list_asset_keys::<crate::assets::WorkspaceId>();
+        let workspace_ids = db.list_asset_keys::<crate::assets::WorkspaceId>();
         if let Some(workspace_id) = workspace_ids.into_iter().next() {
             let workspace: std::sync::Arc<crate::assets::Workspace> =
-                ctx.asset(workspace_id)?.suspend()?;
+                db.asset(workspace_id)?.suspend()?;
             if let Some(config_dir) = workspace.config_path.parent()
                 && let Some(schema_path) = config.schema_for_path(&file.path, config_dir)
             {

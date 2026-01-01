@@ -31,14 +31,14 @@ struct EditorAllErrors {
 /// Get all errors from document and schema parsing/validation.
 #[query_flow::query]
 fn get_all_errors(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     doc_file: TextFile,
     schema_file: TextFile,
     meta_schema_file: TextFile,
 ) -> Result<EditorAllErrors, query_flow::QueryError> {
     // Get parser errors
-    let doc_cst_result = ctx.query(ParseCst::new(doc_file.clone()))?;
-    let schema_cst_result = ctx.query(ParseCst::new(schema_file.clone()))?;
+    let doc_cst_result = db.query(ParseCst::new(doc_file.clone()))?;
+    let schema_cst_result = db.query(ParseCst::new(schema_file.clone()))?;
 
     let doc_parser_errors = match &*doc_cst_result {
         Some(parsed) if parsed.error.is_some() => format_parser_errors(
@@ -59,8 +59,7 @@ fn get_all_errors(
     };
 
     // Get schema conversion errors (via UserError)
-    let schema_conversion_errors = match ctx.query(DocumentToSchemaQuery::new(schema_file.clone()))
-    {
+    let schema_conversion_errors = match db.query(DocumentToSchemaQuery::new(schema_file.clone())) {
         Ok(_) => vec![],
         Err(e) => vec![EditorErrorSpan {
             start: 0,
@@ -72,7 +71,7 @@ fn get_all_errors(
     // Get schema validation against meta-schema
     let schema_validation_errors =
         if schema_parser_errors.is_empty() && schema_conversion_errors.is_empty() {
-            (*ctx.query(ValidateAgainstMetaSchema::new(
+            (*db.query(ValidateAgainstMetaSchema::new(
                 schema_file.clone(),
                 meta_schema_file.clone(),
             ))?)
@@ -86,7 +85,10 @@ fn get_all_errors(
         && schema_conversion_errors.is_empty()
         && schema_validation_errors.is_empty()
     {
-        match ctx.query(ValidateAgainstSchema::new(doc_file.clone(), schema_file.clone())) {
+        match db.query(ValidateAgainstSchema::new(
+            doc_file.clone(),
+            schema_file.clone(),
+        )) {
             Ok(errors) => (*errors).clone(),
             Err(e) => {
                 // Document construction failed - show as validation error

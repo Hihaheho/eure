@@ -24,10 +24,10 @@ pub struct ParsedCst {
 /// Parse errors are included in the result for downstream processing.
 #[query]
 pub fn parse_cst(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<ParsedCst>, query_flow::QueryError> {
-    let content: Arc<TextFileContent> = ctx.asset(file.clone())?.suspend()?;
+    let content: Arc<TextFileContent> = db.asset(file.clone())?.suspend()?;
     match content.as_ref() {
         TextFileContent::NotFound => Ok(None),
         TextFileContent::Content(text) => {
@@ -64,11 +64,11 @@ pub struct ParsedDocument {
 /// Returns `UserError` if document construction fails on a valid CST.
 #[query]
 pub fn parse_document(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<ParsedDocument>, query_flow::QueryError> {
     // Get CST from previous step
-    let parsed_cst = match &*ctx.query(ParseCst::new(file.clone()))? {
+    let parsed_cst = match &*db.query(ParseCst::new(file.clone()))? {
         None => return Ok(None),
         Some(parsed) => parsed.clone(),
     };
@@ -101,16 +101,16 @@ pub fn parse_document(
 /// Step 3: Parse EureConfig from document.
 #[query]
 pub fn get_config(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<EureConfig>, query_flow::QueryError> {
-    let workspace_ids = ctx.list_asset_keys::<WorkspaceId>();
+    let workspace_ids = db.list_asset_keys::<WorkspaceId>();
     if let Some(workspace_id) = workspace_ids.into_iter().next() {
-        let workspace = ctx.asset(workspace_id)?.suspend()?;
+        let workspace = db.asset(workspace_id)?.suspend()?;
         if detect_workspace(&workspace.path, &file.path) {
             let config_file = TextFile::from_path(workspace.config_path.clone());
             // UserError propagates automatically via ?
-            let parsed = match &*ctx.query(ParseDocument::new(config_file))? {
+            let parsed = match &*db.query(ParseDocument::new(config_file))? {
                 None => return Ok(None),
                 Some(parsed) => parsed.clone(),
             };
@@ -143,10 +143,10 @@ fn detect_workspace(workspace_path: &Path, file_path: &Path) -> bool {
 /// Returns `None` if parsing failed.
 #[query]
 pub fn document_to_json(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<Arc<String>>, query_flow::QueryError> {
-    let result = ctx.query(ParseDocument::new(file.clone()))?;
+    let result = db.query(ParseDocument::new(file.clone()))?;
     let parsed = match &*result {
         None => return Ok(None),
         Some(p) => p,

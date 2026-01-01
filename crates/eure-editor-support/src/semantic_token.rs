@@ -148,10 +148,10 @@ pub fn semantic_tokens(input: &str, cst: &Cst) -> Vec<SemanticToken> {
 /// Depends on `ParseCst` query.
 #[query]
 pub fn get_semantic_tokens(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Option<Vec<SemanticToken>>, query_flow::QueryError> {
-    let result = ctx.query(ParseCst::new(file.clone()))?;
+    let result = db.query(ParseCst::new(file.clone()))?;
     let parsed_cst = match &*result {
         None => return Ok(None),
         Some(parsed) => parsed,

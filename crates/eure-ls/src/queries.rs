@@ -14,13 +14,13 @@ use query_flow::query;
 /// Wraps `GetSemanticTokens` and converts to LSP `SemanticTokens` format.
 #[query]
 pub fn lsp_semantic_tokens(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
     source: String,
 ) -> Result<Option<SemanticTokens>, query_flow::QueryError> {
-    let tokens = ctx.query(GetSemanticTokens::new(file.clone()))?;
+    let tokens = db.query(GetSemanticTokens::new(file.clone()))?;
     match tokens.as_ref() {
-        Some(tokens) => Ok(Some(convert_tokens(tokens, source))),
+        Some(tokens) => Ok(Some(convert_tokens(tokens, &source))),
         None => Ok(None),
     }
 }
@@ -30,15 +30,15 @@ pub fn lsp_semantic_tokens(
 /// Wraps `GetDiagnostics` and converts to LSP `Diagnostic` format.
 #[query]
 pub fn lsp_diagnostics(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
     source: String,
 ) -> Result<Vec<Diagnostic>, query_flow::QueryError> {
-    let diagnostics = ctx.query(GetDiagnostics::new(file.clone()))?;
-    let line_offsets = compute_line_offsets(source);
+    let diagnostics = db.query(GetDiagnostics::new(file.clone()))?;
+    let line_offsets = compute_line_offsets(&source);
     Ok(diagnostics
         .iter()
-        .map(|d| convert_diagnostic(d, source, &line_offsets))
+        .map(|d| convert_diagnostic(d, &source, &line_offsets))
         .collect())
 }
 

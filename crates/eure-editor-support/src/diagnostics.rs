@@ -40,26 +40,26 @@ pub struct DiagnosticMessage {
 /// Returns an empty vec if the file cannot be parsed.
 #[query]
 pub fn get_diagnostics(
-    ctx: &mut query_flow::QueryContext,
+    db: &impl Db,
     file: TextFile,
 ) -> Result<Vec<DiagnosticMessage>, query_flow::QueryError> {
     let mut diagnostics = Vec::new();
 
     // 1. Collect parse errors
-    if let Some(parsed) = ctx.query(ParseCst::new(file.clone()))?.as_ref() {
+    if let Some(parsed) = db.query(ParseCst::new(file.clone()))?.as_ref() {
         if let Some(error) = &parsed.error {
             diagnostics.extend(parse_error_to_diagnostics(error));
         }
 
         // 2. Collect $schema extension errors (e.g., wrong type)
-        let schema_ext_errors = ctx.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
+        let schema_ext_errors = db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
         diagnostics.extend(schema_ext_errors.iter().map(error_span_to_diagnostic));
 
         // 3. Collect schema validation errors (only if parsing succeeded)
         if parsed.error.is_none()
-            && let Some(schema_file) = ctx.query(ResolveSchema::new(file.clone()))?.as_ref()
+            && let Some(schema_file) = db.query(ResolveSchema::new(file.clone()))?.as_ref()
         {
-            let validation_errors = ctx.query(ValidateAgainstSchema::new(
+            let validation_errors = db.query(ValidateAgainstSchema::new(
                 file.clone(),
                 schema_file.clone(),
             ))?;
