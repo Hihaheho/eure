@@ -21,7 +21,6 @@ clap = { workspace = true, features = ["derive"] }
 eure = { workspace = true }
 eure-config = { workspace = true, features = ["all"] }
 eure-document = { workspace = true }
-eure-editor-support = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }
 eure-json = { workspace = true }
 eure-mark = { workspace = true }

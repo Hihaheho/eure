@@ -3,16 +3,21 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use eure::document::OriginMap;
-use eure::report::ErrorReports;
+use eure_document::value::ObjectKey;
 use eure_schema::SchemaDocument;
 use eure_schema::convert::{ConversionError, document_to_schema};
 use eure_schema::validate::{ValidationError, validate};
 use eure_tree::prelude::Cst;
+use eure_tree::tree::InputSpan;
 use query_flow::query;
 
-use crate::assets::TextFile;
-use crate::config::{GetConfig, ParseDocument, ParsedDocument};
+use crate::document::OriginMap;
+use crate::report::{
+    DocumentReportContext, ErrorReport, ErrorReports, FileRegistry, report_conversion_error,
+};
+
+use super::assets::{TextFile, Workspace, WorkspaceId};
+use super::config::{GetConfig, ParseDocument, ParsedDocument};
 
 /// Validated schema with the SchemaDocument.
 #[derive(Clone, PartialEq)]
@@ -208,10 +213,9 @@ pub fn resolve_schema(
     // 2. Check workspace config
     if let Some(config) = db.query(GetConfig::new(file.clone()))?.as_ref() {
         // Get config directory from workspace
-        let workspace_ids = db.list_asset_keys::<crate::assets::WorkspaceId>();
+        let workspace_ids = db.list_asset_keys::<WorkspaceId>();
         if let Some(workspace_id) = workspace_ids.into_iter().next() {
-            let workspace: std::sync::Arc<crate::assets::Workspace> =
-                db.asset(workspace_id)?.suspend()?;
+            let workspace: Arc<Workspace> = db.asset(workspace_id)?.suspend()?;
             if let Some(config_dir) = workspace.config_path.parent()
                 && let Some(schema_path) = config.schema_for_path(&file.path, config_dir)
             {
@@ -246,15 +250,51 @@ fn resolve_relative_path(base: &Path, relative: &str) -> PathBuf {
 }
 
 // =============================================================================
-// Validation Helper Functions
+// Validation Error Span Resolution
 // =============================================================================
+
+/// Resolve the document span for a validation error.
+///
+/// Handles error-specific span resolution:
+/// - `UnknownField`: Use key span for the unknown field name
+/// - `MissingRequiredField`: Use key span if the field exists elsewhere, otherwise node span
+/// - `InvalidKeyType`: Use key span for the invalid key
+/// - Others: Use node span
+pub fn resolve_validation_error_span(
+    error: &ValidationError,
+    origins: &OriginMap,
+    cst: &Cst,
+) -> Option<InputSpan> {
+    let (node_id, _schema_node_id) = error.node_ids();
+
+    match error {
+        // For UnknownField, try to get the precise key span
+        ValidationError::UnknownField { field, node_id, .. } => {
+            let key = ObjectKey::String(field.clone());
+            origins
+                .get_key_span(*node_id, &key, cst)
+                .or_else(|| origins.get_node_span(*node_id, cst))
+        }
+
+        // For InvalidKeyType, use the key span
+        ValidationError::InvalidKeyType { key, node_id, .. } => origins
+            .get_key_span(*node_id, key, cst)
+            .or_else(|| origins.get_node_span(*node_id, cst)),
+
+        // For MissingRequiredField, the node_id is the parent map
+        // We can't point to the missing field, so use the parent span
+        ValidationError::MissingRequiredField { .. } => origins.get_node_span(node_id, cst),
+
+        // For all other errors, use the standard node span
+        _ => origins.get_node_span(node_id, cst),
+    }
+}
 
 /// Convert a validation error to an ErrorSpan using the origin map.
 fn validation_error_to_span(error: &ValidationError, cst: &Cst, origins: &OriginMap) -> ErrorSpan {
     let message = error.to_string();
-    let (node_id, _schema_node_id) = error.node_ids();
+    let span = resolve_validation_error_span(error, origins, cst);
 
-    let span = origins.get_node_span(node_id, cst);
     match span {
         Some(s) => ErrorSpan {
             start: s.start as usize,
@@ -274,8 +314,6 @@ fn report_schema_conversion_error(
     error: &ConversionError,
     parsed: &ParsedDocument,
 ) -> ErrorReports {
-    use eure::report::{DocumentReportContext, ErrorReport, FileRegistry, report_conversion_error};
-
     let mut files = FileRegistry::new();
     let file_id = files.register("schema.eure", &*parsed.source);
     let ctx = DocumentReportContext {

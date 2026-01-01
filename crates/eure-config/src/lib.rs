@@ -1,7 +1,10 @@
 //! Configuration types for Eure tools.
 //!
-//! This crate provides configuration types for the Eure CLI and Language Server.
+//! This crate provides configuration data types for the Eure CLI and Language Server.
 //! The configuration is stored in `Eure.eure` files at project roots.
+//!
+//! This crate only defines data structures. Query logic and error reporting
+//! are in the `eure` crate.
 //!
 //! # Features
 //!
@@ -13,21 +16,16 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use eros::E2;
-use eure::ParseDocument;
-use eure::document::{DocumentConstructionError, OriginMap, parse_to_document};
-use eure::parol::EureParseError;
-use eure::report::{
-    ErrorReport, ErrorReports, FileId, Origin, report_document_error_simple, report_parse_error,
-};
-use eure_document::parse::{ParseContext, ParseDocument as ParseDocumentTrait, ParseError};
-use eure_tree::prelude::Cst;
-use eure_tree::tree::InputSpan;
+use eure_document::parse::{ParseContext, ParseDocument, ParseError};
+use eure_macros::ParseDocument;
+use eure_parol::EureParseError;
 
 /// The standard configuration filename.
 pub const CONFIG_FILENAME: &str = "Eure.eure";
 
-/// Error type for configuration loading.
+/// Error type for configuration parsing.
+///
+/// Note: Document construction errors are handled separately in the eure crate.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("IO error: {0}")]
@@ -35,9 +33,6 @@ pub enum ConfigError {
 
     #[error("Syntax error: {0}")]
     Syntax(EureParseError),
-
-    #[error("Document error: {0}")]
-    Document(#[from] DocumentConstructionError),
 
     #[error("Config error: {0}")]
     Parse(#[from] ParseError),
@@ -48,7 +43,6 @@ impl PartialEq for ConfigError {
         match (self, other) {
             (ConfigError::Io(a), ConfigError::Io(b)) => a.kind() == b.kind(),
             (ConfigError::Syntax(a), ConfigError::Syntax(b)) => a.to_string() == b.to_string(),
-            (ConfigError::Document(a), ConfigError::Document(b)) => a.to_string() == b.to_string(),
             (ConfigError::Parse(a), ConfigError::Parse(b)) => a == b,
             _ => false,
         }
@@ -58,15 +52,6 @@ impl PartialEq for ConfigError {
 impl From<EureParseError> for ConfigError {
     fn from(err: EureParseError) -> Self {
         ConfigError::Syntax(err)
-    }
-}
-
-impl From<E2<EureParseError, DocumentConstructionError>> for ConfigError {
-    fn from(err: E2<EureParseError, DocumentConstructionError>) -> Self {
-        match err {
-            E2::A(e) => ConfigError::Syntax(e),
-            E2::B(e) => ConfigError::Document(e),
-        }
     }
 }
 
@@ -116,7 +101,7 @@ pub struct EureConfig {
     pub ls: Option<LsConfig>,
 }
 
-impl ParseDocumentTrait<'_> for EureConfig {
+impl ParseDocument<'_> for EureConfig {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -161,20 +146,6 @@ impl ParseDocumentTrait<'_> for EureConfig {
 }
 
 impl EureConfig {
-    /// Load configuration from a file.
-    pub fn load(path: &Path) -> Result<Self, ConfigError> {
-        let content = std::fs::read_to_string(path)?;
-        Self::parse_str(&content)
-    }
-
-    /// Parse configuration from a string.
-    pub fn parse_str(content: &str) -> Result<Self, ConfigError> {
-        let doc = parse_to_document(content).map_err(|e| ConfigError::from(e.to_enum()))?;
-        let root_id = doc.get_root_id();
-        let config: EureConfig = doc.parse(root_id)?;
-        Ok(config)
-    }
-
     /// Find the configuration file by searching upward from the given directory.
     pub fn find_config_file(start_dir: &Path) -> Option<PathBuf> {
         let mut current = start_dir.to_path_buf();
@@ -186,16 +157,6 @@ impl EureConfig {
             if !current.pop() {
                 return None;
             }
-        }
-    }
-
-    /// Load configuration by searching upward from the given directory.
-    pub fn load_from_dir(start_dir: &Path) -> Result<Option<(PathBuf, Self)>, ConfigError> {
-        if let Some(config_path) = Self::find_config_file(start_dir) {
-            let config = Self::load(&config_path)?;
-            Ok(Some((config_path, config)))
-        } else {
-            Ok(None)
         }
     }
 
@@ -244,80 +205,5 @@ impl EureConfig {
             }
         }
         None
-    }
-}
-
-/// Convert a ConfigError to ErrorReports.
-pub fn report_config_error(
-    error: &ConfigError,
-    file: FileId,
-    cst: &Cst,
-    origins: &OriginMap,
-) -> ErrorReports {
-    match error {
-        ConfigError::Io(e) => ErrorReports::from(vec![ErrorReport::error(
-            e.to_string(),
-            Origin::new(file, InputSpan::EMPTY),
-        )]),
-        ConfigError::Syntax(e) => report_parse_error(e, file),
-        ConfigError::Document(e) => {
-            ErrorReports::from(vec![report_document_error_simple(e, file, cst)])
-        }
-        ConfigError::Parse(e) => {
-            let span = origins
-                .get_node_span(e.node_id, cst)
-                .unwrap_or(InputSpan::EMPTY);
-            ErrorReports::from(vec![ErrorReport::error(
-                e.to_string(),
-                Origin::new(file, span),
-            )])
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_config() {
-        let content = r#"
-@ targets.adr
-globs = ["docs/adrs/**/*.eure"]
-schema = "assets/schemas/eure-adr.schema.eure"
-
-@ targets.schemas
-globs = ["assets/schemas/**/*.eure"]
-
-@ cli
-default-targets = ["adr", "schemas"]
-"#;
-
-        let config = EureConfig::parse_str(content).unwrap();
-        assert_eq!(config.targets.len(), 2);
-
-        let adr = config.get_target("adr").unwrap();
-        assert_eq!(adr.globs, vec!["docs/adrs/**/*.eure"]);
-        assert_eq!(
-            adr.schema.as_deref(),
-            Some("assets/schemas/eure-adr.schema.eure")
-        );
-
-        let schemas = config.get_target("schemas").unwrap();
-        assert_eq!(schemas.globs, vec!["assets/schemas/**/*.eure"]);
-        assert!(schemas.schema.is_none());
-
-        #[cfg(feature = "cli")]
-        {
-            let cli = config.cli.as_ref().unwrap();
-            assert_eq!(cli.default_targets, vec!["adr", "schemas"]);
-        }
-    }
-
-    #[test]
-    fn test_empty_config() {
-        let content = "";
-        let config = EureConfig::parse_str(content).unwrap();
-        assert!(config.targets.is_empty());
     }
 }

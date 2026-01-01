@@ -3,11 +3,11 @@
 //! This module provides types and functions for extracting semantic tokens
 //! from Eure source code, suitable for use with LSP semantic token features.
 
-use eure::tree::*;
+use crate::tree::*;
 use query_flow::query;
 
-use crate::assets::TextFile;
-use crate::config::ParseCst;
+use super::assets::TextFile;
+use super::config::ParseCst;
 
 /// Semantic token types specific to Eure.
 ///
@@ -616,7 +616,7 @@ mod tests {
     use super::*;
 
     fn parse_and_get_tokens(input: &str) -> Vec<SemanticToken> {
-        let cst = eure::parol::parse(input).expect("Failed to parse");
+        let cst = crate::parol::parse(input).expect("Failed to parse");
         semantic_tokens(input, &cst)
     }
 

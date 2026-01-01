@@ -5,6 +5,7 @@ use eure::document::cst_to_document_and_origin_map;
 use eure::error::{
     SchemaErrorContext, format_document_error, format_parse_error_color, format_schema_error,
 };
+use eure::query::load_config;
 use eure_config::{CONFIG_FILENAME, EureConfig, Target};
 use eure_schema::SchemaRef;
 use eure_schema::convert::document_to_schema;
@@ -59,7 +60,7 @@ pub fn run(args: Args) {
 fn run_project_mode(args: Args, config_path: &Path) {
     let start = Instant::now();
 
-    let config = match EureConfig::load(config_path) {
+    let config = match load_config(config_path) {
         Ok(c) => c,
         Err(e) => {
             eprintln!(

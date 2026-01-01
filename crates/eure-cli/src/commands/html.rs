@@ -1,8 +1,6 @@
 use catppuccin::{FlavorColors, PALETTE};
 use eure::error::format_parse_error_color;
-use eure_editor_support::semantic_token::{
-    SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens,
-};
+use eure::query::{SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens};
 use maud::{Markup, html};
 
 use crate::util::{display_path, read_input};

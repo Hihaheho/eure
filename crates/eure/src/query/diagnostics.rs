@@ -1,13 +1,13 @@
 //! Diagnostic collection queries.
 
+use eure_parol::EureParseError;
 use query_flow::query;
 
-use crate::assets::TextFile;
-use crate::config::ParseCst;
-use crate::schema::{
+use super::assets::TextFile;
+use super::config::ParseCst;
+use super::schema::{
     ErrorSpan, GetSchemaExtensionDiagnostics, ResolveSchema, ValidateAgainstSchema,
 };
-use eure_parol::EureParseError;
 
 /// Severity level for diagnostics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

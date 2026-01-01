@@ -1,6 +1,6 @@
 //! Asset locator for virtual paths and bundled content.
 
-use eure_editor_support::assets::{TextFile, TextFileContent};
+use eure::query::{TextFile, TextFileContent};
 use query_flow::{AssetLocator, LocateResult};
 
 /// Bundled meta-schema content.

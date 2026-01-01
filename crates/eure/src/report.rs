@@ -772,3 +772,54 @@ fn add_element_to_groups<'a>(
         }
     }
 }
+
+// ============================================================================
+// Config Error Reporting
+// ============================================================================
+
+/// Error comparator for query-flow that compares ErrorReports by value.
+///
+/// This comparator is designed for use with `QueryRuntimeBuilder::error_comparator`.
+/// It enables early cutoff optimization by detecting when errors are semantically
+/// equivalent, avoiding unnecessary downstream recomputation.
+///
+/// # Comparison Strategy
+///
+/// 1. If both errors can be downcast to `ErrorReports`, compare using `PartialEq`
+/// 2. Otherwise, fall back to string comparison via `to_string()`
+pub fn error_reports_comparator(a: &anyhow::Error, b: &anyhow::Error) -> bool {
+    match (
+        a.downcast_ref::<ErrorReports>(),
+        b.downcast_ref::<ErrorReports>(),
+    ) {
+        (Some(a), Some(b)) => a == b,
+        _ => a.to_string() == b.to_string(),
+    }
+}
+
+/// Convert a ConfigError to ErrorReports.
+pub fn report_config_error(
+    error: &eure_config::ConfigError,
+    file: FileId,
+    cst: &Cst,
+    origins: &crate::document::OriginMap,
+) -> ErrorReports {
+    use eure_config::ConfigError;
+
+    match error {
+        ConfigError::Io(e) => ErrorReports::from(vec![ErrorReport::error(
+            e.to_string(),
+            Origin::new(file, InputSpan::EMPTY),
+        )]),
+        ConfigError::Syntax(e) => report_parse_error(e, file),
+        ConfigError::Parse(e) => {
+            let span = origins
+                .get_node_span(e.node_id, cst)
+                .unwrap_or(InputSpan::EMPTY);
+            ErrorReports::from(vec![ErrorReport::error(
+                e.to_string(),
+                Origin::new(file, span),
+            )])
+        }
+    }
+}

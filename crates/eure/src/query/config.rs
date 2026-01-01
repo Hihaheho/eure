@@ -1,14 +1,17 @@
+//! Configuration and parsing queries.
+
 use std::path::Path;
 use std::sync::Arc;
 
-use eure::document::{EureDocument, OriginMap, cst_to_document_and_origin_map};
-use eure::report::{ErrorReports, FileId, report_document_error_simple};
-use eure_config::{EureConfig, report_config_error};
+use eure_config::EureConfig;
 use eure_parol::{EureParseError, ParseResult, parse_tolerant};
 use eure_tree::prelude::Cst;
 use query_flow::query;
 
-use crate::assets::{TextFile, TextFileContent, WorkspaceId};
+use crate::document::{EureDocument, OriginMap, cst_to_document_and_origin_map};
+use crate::report::{ErrorReports, FileId, report_config_error, report_document_error_simple};
+
+use super::assets::{TextFile, TextFileContent, WorkspaceId};
 
 /// Result of tolerant parsing - always returns CST, optionally with error.
 #[derive(Clone, PartialEq)]
@@ -138,22 +141,47 @@ fn detect_workspace(workspace_path: &Path, file_path: &Path) -> bool {
     file_path.starts_with(workspace_path)
 }
 
-/// Convert document to pretty-printed JSON.
-///
-/// Returns `None` if parsing failed.
-#[query]
-pub fn document_to_json(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Option<Arc<String>>, query_flow::QueryError> {
-    let result = db.query(ParseDocument::new(file.clone()))?;
-    let parsed = match &*result {
-        None => return Ok(None),
-        Some(p) => p,
-    };
+// ============================================================================
+// Synchronous API for CLI usage
+// ============================================================================
 
-    let value = eure_json::document_to_value(&parsed.doc, &eure_json::Config::default())
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-    let json = serde_json::to_string_pretty(&value).map_err(|e| anyhow::anyhow!("{}", e))?;
-    Ok(Some(Arc::new(json)))
+/// Error type for synchronous config loading.
+#[derive(Debug, thiserror::Error)]
+pub enum LoadConfigError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Parse error: {0}")]
+    Parse(String),
+
+    #[error("Document error: {0}")]
+    Document(String),
+
+    #[error("Config error: {0}")]
+    Config(String),
+}
+
+/// Load EureConfig from a file path synchronously.
+///
+/// This is a convenience function for CLI tools that don't need
+/// the query-flow incremental computation infrastructure.
+pub fn load_config(path: &Path) -> Result<EureConfig, LoadConfigError> {
+    // Read file
+    let source = std::fs::read_to_string(path)?;
+
+    // Parse CST (tolerant mode to get error messages)
+    let parse_result = eure_parol::parse_tolerant(&source);
+    if let Some(error) = parse_result.error() {
+        return Err(LoadConfigError::Parse(error.to_string()));
+    }
+
+    // Build document
+    let cst = parse_result.cst();
+    let (doc, _origins) = cst_to_document_and_origin_map(&source, &cst)
+        .map_err(|e| LoadConfigError::Document(e.to_string()))?;
+
+    // Parse config
+    let root_id = doc.get_root_id();
+    doc.parse::<EureConfig>(root_id)
+        .map_err(|e| LoadConfigError::Config(e.to_string()))
 }

@@ -5,18 +5,33 @@ use crate::{
 };
 use dioxus::prelude::*;
 use eure::error::format_parse_error_plain;
-use eure_editor_support::{
-    assets::{TextFile, TextFileContent},
-    config::{DocumentToJson, ParseCst},
-    error_reports_comparator,
-    schema::{
-        DocumentToSchemaQuery, ErrorSpan as EditorErrorSpan, ValidateAgainstMetaSchema,
-        ValidateAgainstSchema,
-    },
-    semantic_token::{GetSemanticTokens, SemanticToken},
+use eure::query::{
+    DocumentToSchemaQuery, ErrorSpan as EditorErrorSpan, GetSemanticTokens, ParseCst,
+    ParseDocument, SemanticToken, TextFile, TextFileContent, ValidateAgainstMetaSchema,
+    ValidateAgainstSchema,
 };
+use eure::report::error_reports_comparator;
 use eure_parol::EureParseError;
 use query_flow::{QueryRuntime, QueryRuntimeBuilder};
+use std::sync::Arc;
+
+/// Convert document to pretty-printed JSON.
+#[query_flow::query]
+fn document_to_json(
+    db: &impl Db,
+    file: TextFile,
+) -> Result<Option<Arc<String>>, query_flow::QueryError> {
+    let result = db.query(ParseDocument::new(file))?;
+    let parsed = match &*result {
+        None => return Ok(None),
+        Some(p) => p,
+    };
+
+    let value = eure_json::document_to_value(&parsed.doc, &eure_json::Config::default())
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let json = serde_json::to_string_pretty(&value).map_err(|e| anyhow::anyhow!("{}", e))?;
+    Ok(Some(Arc::new(json)))
+}
 
 /// Aggregated errors from all sources (query result).
 #[derive(Clone, PartialEq, Default, Debug)]

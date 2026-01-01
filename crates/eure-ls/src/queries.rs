@@ -1,8 +1,9 @@
 //! LSP-specific queries that convert to LSP types.
 
-use eure_editor_support::assets::TextFile;
-use eure_editor_support::diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
-use eure_editor_support::semantic_token::{GetSemanticTokens, SemanticToken};
+use eure::query::{
+    DiagnosticMessage, DiagnosticSeverity, GetDiagnostics, GetSemanticTokens, SemanticToken,
+    TextFile,
+};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity as LspSeverity, Position, Range,
     SemanticToken as LspSemanticToken, SemanticTokens,

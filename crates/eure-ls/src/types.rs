@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use eure_editor_support::assets::{TextFile, TextFileContent};
+use eure::query::{TextFile, TextFileContent};
 
 use crate::queries::LspSemanticTokens;
 

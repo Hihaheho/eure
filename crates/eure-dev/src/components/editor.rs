@@ -6,9 +6,7 @@ use crate::theme::Theme;
 use catppuccin::Hex;
 use dioxus::events::MountedData;
 use dioxus::prelude::*;
-use eure_editor_support::semantic_token::{
-    SemanticToken, SemanticTokenModifier, SemanticTokenType,
-};
+use eure::query::{SemanticToken, SemanticTokenModifier, SemanticTokenType};
 
 /// Error span information for displaying error underlines.
 #[derive(Debug, Clone, PartialEq)]

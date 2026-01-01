@@ -11,9 +11,9 @@ keywords = ["eure", "config", "configuration"]
 
 [dependencies]
 eros = { workspace = true }
-eure = { workspace = true }
 eure-document = { workspace = true }
-eure-tree = { workspace = true }
+eure-macros = { workspace = true }
+eure-parol = { workspace = true }
 glob = { workspace = true }
 thiserror = { workspace = true }
 

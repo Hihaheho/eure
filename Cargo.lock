@@ -498,6 +498,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "const-serialize"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1519,13 +1529,16 @@ name = "eure"
 version = "0.1.0"
 dependencies = [
  "annotate-snippets",
+ "anyhow",
  "eros",
+ "eure-config",
  "eure-document",
  "eure-macros",
  "eure-parol",
  "eure-schema",
  "eure-tree",
  "num-bigint",
+ "query-flow",
  "regex",
  "thiserror 2.0.17",
  "thisisplural",
@@ -1542,7 +1555,6 @@ dependencies = [
  "eure",
  "eure-config",
  "eure-document",
- "eure-editor-support",
  "eure-fmt",
  "eure-json",
  "eure-mark",
@@ -1573,9 +1585,9 @@ name = "eure-config"
 version = "0.1.0"
 dependencies = [
  "eros",
- "eure",
  "eure-document",
- "eure-tree",
+ "eure-macros",
+ "eure-parol",
  "glob",
  "thiserror 2.0.17",
 ]
@@ -1584,13 +1596,13 @@ dependencies = [
 name = "eure-dev"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "automod",
  "catppuccin",
  "dioxus",
  "dioxus-free-icons",
  "dioxus-sdk-storage",
  "eure",
- "eure-editor-support",
  "eure-json",
  "eure-parol",
  "eure-schema",
@@ -1610,26 +1622,6 @@ dependencies = [
  "regex",
  "thiserror 2.0.17",
  "thisisplural",
-]
-
-[[package]]
-name = "eure-editor-support"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "eros",
- "eure",
- "eure-config",
- "eure-document",
- "eure-json",
- "eure-parol",
- "eure-schema",
- "eure-tree",
- "indexmap",
- "lsp-types",
- "query-flow",
- "serde_json",
- "tracing",
 ]
 
 [[package]]
@@ -1694,9 +1686,9 @@ name = "eure-ls"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "console_error_panic_hook",
  "crossbeam-channel",
  "eure",
- "eure-editor-support",
  "eure-schema",
  "getrandom 0.3.4",
  "js-sys",
@@ -3167,9 +3159,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24c0ccf1cc37dcbe11b86f2443bfe579bead9cb9ca4651222323a39583051b83"
+checksum = "99f1837993a1a652309f76630ca8f8f9257143f76575fe43fcd26b282a232bfc"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3181,9 +3173,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93681330b3e436c509011d62622232ead8ecda9340a10db68be6369083031092"
+checksum = "914216a64c548833f25651a28b63896721744453ec679d60a97656b3879c5e2a"
 dependencies = [
  "darling 0.20.11",
  "heck",

@@ -6,8 +6,8 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use eure_editor_support::assets::{TextFile, TextFileContent};
-use eure_editor_support::error_reports_comparator;
+use eure::query::{TextFile, TextFileContent};
+use eure::report::error_reports_comparator;
 use js_sys::Array;
 use lsp_types::{
     Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
@@ -71,6 +71,9 @@ impl WasmCore {
     /// Create a new WasmCore instance.
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
+        // Set up panic hook to display panic messages in the console
+        console_error_panic_hook::set_once();
+
         let runtime = QueryRuntimeBuilder::new()
             .error_comparator(error_reports_comparator)
             .build();

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use crossbeam_channel::select;
-use eure_editor_support::assets::TextFile;
+use eure::query::TextFile;
 use eure_ls::executor::QueryExecutor;
 use eure_ls::io_pool::IoPool;
 use eure_ls::types::CommandQuery;

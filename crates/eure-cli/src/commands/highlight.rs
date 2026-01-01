@@ -1,5 +1,5 @@
 use eure::error::format_parse_error_color;
-use eure_editor_support::semantic_token::{SemanticTokenType, semantic_tokens};
+use eure::query::{SemanticTokenType, semantic_tokens};
 use nu_ansi_term::Color;
 use std::io::{self, Write};
 

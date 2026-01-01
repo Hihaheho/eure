@@ -4,7 +4,7 @@ use std::fs;
 use std::thread::{self, JoinHandle};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use eure_editor_support::assets::{TextFile, TextFileContent};
+use eure::query::{TextFile, TextFileContent};
 
 use crate::types::{IoRequest, IoResponse};
 

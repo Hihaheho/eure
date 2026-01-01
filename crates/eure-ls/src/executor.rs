@@ -3,8 +3,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crossbeam_channel::Receiver;
-use eure_editor_support::assets::{TextFile, TextFileContent};
-use eure_editor_support::error_reports_comparator;
+use eure::query::{TextFile, TextFileContent};
+use eure::report::error_reports_comparator;
 use lsp_server::{Notification, RequestId, Response};
 use lsp_types::{
     Diagnostic, PublishDiagnosticsParams, SemanticTokens, notification::PublishDiagnostics,

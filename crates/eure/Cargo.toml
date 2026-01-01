@@ -11,13 +11,16 @@ keywords = ["configuration", "data-format", "eure", "serialization"]
 
 [dependencies]
 annotate-snippets = { workspace = true }
+anyhow = { workspace = true }
 eros = { workspace = true }
+eure-config = { workspace = true }
 eure-document = { workspace = true }
 eure-macros = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }
 eure-tree = { workspace = true }
 num-bigint = { workspace = true }
+query-flow = { workspace = true }
 regex = { workspace = true }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }

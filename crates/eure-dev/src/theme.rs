@@ -1,7 +1,7 @@
 //! Catppuccin theme support for the Eure editor.
 
 use catppuccin::{FlavorColors, Hex, PALETTE};
-use eure_editor_support::semantic_token::SemanticTokenType;
+use eure::query::SemanticTokenType;
 use serde::{Deserialize, Serialize};
 
 /// Theme variants: Dark (Mocha) and Light (Latte).
