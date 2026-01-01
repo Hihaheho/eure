@@ -24,7 +24,7 @@ RUN rustup target add wasm32-unknown-unknown
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 
 # CLI tools (pre-built binaries with version pinning)
-RUN cargo binstall -y cargo-nextest dioxus-cli@0.7.2
+RUN cargo binstall -y cargo-nextest dioxus-cli@0.7.2 wasm-pack
 
 # Fix permissions for vscode user (for named volume mounts)
 RUN mkdir -p /usr/local/cargo/registry /usr/local/cargo/git \

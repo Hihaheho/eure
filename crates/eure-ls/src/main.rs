@@ -1,18 +1,15 @@
 //! Eure Language Server - LSP implementation for the Eure data format.
 
-mod asset_locator;
-mod capabilities;
-mod executor;
-mod io_pool;
-mod queries;
-mod types;
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
 use crossbeam_channel::select;
 use eure_editor_support::assets::TextFile;
+use eure_ls::executor::QueryExecutor;
+use eure_ls::io_pool::IoPool;
+use eure_ls::types::CommandQuery;
+use eure_ls::{LspDiagnostics, LspSemanticTokens, server_capabilities};
 use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
@@ -24,12 +21,6 @@ use lsp_types::{
     request::{Request as _, SemanticTokensFullRequest},
 };
 use tracing::{error, info};
-
-use crate::capabilities::server_capabilities;
-use crate::executor::QueryExecutor;
-use crate::io_pool::IoPool;
-use crate::queries::{LspDiagnostics, LspSemanticTokens};
-use crate::types::CommandQuery;
 
 fn main() -> Result<()> {
     // Initialize logging

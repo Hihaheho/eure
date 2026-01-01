@@ -1698,14 +1698,18 @@ dependencies = [
  "eure",
  "eure-editor-support",
  "eure-schema",
+ "getrandom 0.3.4",
+ "js-sys",
  "lsp-server",
  "lsp-types",
  "percent-encoding",
  "query-flow",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-subscriber",
+ "wasm-bindgen",
 ]
 
 [[package]]
