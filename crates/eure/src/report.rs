@@ -11,58 +11,17 @@ use eure_document::path::EurePath;
 use eure_parol::EureParseError;
 use eure_parol::error::{ParseErrorEntry, ParseErrorKind};
 use eure_schema::SchemaNodeId;
-use eure_schema::convert::{ConversionError, SchemaSourceMap};
+use eure_schema::convert::ConversionError;
 use eure_schema::validate::ValidationError;
 use eure_tree::prelude::{Cst, CstNodeId};
 use eure_tree::tree::InputSpan;
+use query_flow::{Db, QueryError};
 use thisisplural::Plural;
 
-use crate::document::{DocumentConstructionError, OriginMap};
-
-// ============================================================================
-// File Registry
-// ============================================================================
-
-/// Opaque identifier for a source file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FileId(pub u32);
-
-/// Information about a single source file.
-#[derive(Debug, Clone)]
-pub struct FileInfo {
-    /// Display path (may be virtual like "<stdin>" or "untitled:1").
-    pub path: String,
-    /// Source content.
-    pub source: String,
-}
-
-/// Registry mapping FileIds to file information.
-#[derive(Debug, Default)]
-pub struct FileRegistry {
-    files: Vec<FileInfo>,
-}
-
-impl FileRegistry {
-    /// Create a new empty file registry.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register a file and return its FileId.
-    pub fn register(&mut self, path: impl Into<String>, source: impl Into<String>) -> FileId {
-        let id = FileId(self.files.len() as u32);
-        self.files.push(FileInfo {
-            path: path.into(),
-            source: source.into(),
-        });
-        id
-    }
-
-    /// Get file information by FileId.
-    pub fn get(&self, id: FileId) -> Option<&FileInfo> {
-        self.files.get(id.0 as usize)
-    }
-}
+use crate::document::OriginMap;
+use crate::query::{
+    DocumentToSchemaQuery, ParseCst, ParseDocument, TextFile, TextFileContent, ValidCst,
+};
 
 // ============================================================================
 // Origin
@@ -72,7 +31,7 @@ impl FileRegistry {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Origin {
     /// The file containing this location.
-    pub file: FileId,
+    pub file: TextFile,
     /// Byte range within the file.
     pub span: InputSpan,
     /// Optional semantic hints for this location.
@@ -83,7 +42,7 @@ pub struct Origin {
 
 impl Origin {
     /// Create an origin with just file and span (no hints).
-    pub fn new(file: FileId, span: InputSpan) -> Self {
+    pub fn new(file: TextFile, span: InputSpan) -> Self {
         Self {
             file,
             span,
@@ -93,7 +52,7 @@ impl Origin {
     }
 
     /// Create an origin with full hints.
-    pub fn with_hints(file: FileId, span: InputSpan, hints: OriginHints) -> Self {
+    pub fn with_hints(file: TextFile, span: InputSpan, hints: OriginHints) -> Self {
         Self {
             file,
             span,
@@ -358,50 +317,21 @@ pub enum Element {
 }
 
 // ============================================================================
-// Conversion Contexts
-// ============================================================================
-
-/// Context for converting document-related errors to ErrorReports.
-pub struct DocumentReportContext<'a> {
-    /// File ID for the document.
-    pub file: FileId,
-    /// CST for span resolution.
-    pub cst: &'a Cst,
-    /// Origin map with precise key origins.
-    pub origins: &'a OriginMap,
-}
-
-/// Context for converting schema validation errors to ErrorReports.
-/// References both document and schema sources.
-pub struct SchemaReportContext<'a> {
-    /// Document context.
-    pub doc: DocumentReportContext<'a>,
-    /// Schema file ID.
-    pub schema_file: FileId,
-    /// Schema CST.
-    pub schema_cst: &'a Cst,
-    /// Schema OriginMap.
-    pub schema_origins: &'a OriginMap,
-    /// SchemaNodeId -> NodeId mapping.
-    pub schema_source_map: &'a SchemaSourceMap,
-}
-
-// ============================================================================
 // Conversion Functions
 // ============================================================================
 
 /// Convert a parse error to ErrorReports.
-pub fn report_parse_error(error: &EureParseError, file: FileId) -> ErrorReports {
+pub fn report_parse_error(error: &EureParseError, file: TextFile) -> ErrorReports {
     error
         .entries
         .iter()
-        .map(|entry| report_parse_entry(entry, file))
+        .map(|entry| report_parse_entry(entry, file.clone()))
         .collect()
 }
 
-fn report_parse_entry(entry: &ParseErrorEntry, file: FileId) -> ErrorReport {
+fn report_parse_entry(entry: &ParseErrorEntry, file: TextFile) -> ErrorReport {
     let span = entry.span.unwrap_or(InputSpan::EMPTY);
-    let origin = Origin::new(file, span);
+    let origin = Origin::new(file.clone(), span);
 
     let mut report = ErrorReport::error(entry.message.clone(), origin);
 
@@ -421,7 +351,7 @@ fn report_parse_entry(entry: &ParseErrorEntry, file: FileId) -> ErrorReport {
         report = report.with_element(Element::Labelled {
             label: "caused by".into(),
             element: Box::new(Element::Annotation {
-                origin: Origin::new(file, source_span),
+                origin: Origin::new(file.clone(), source_span),
                 kind: AnnotationKind::Secondary,
                 label: source.message.clone().into(),
             }),
@@ -431,50 +361,45 @@ fn report_parse_entry(entry: &ParseErrorEntry, file: FileId) -> ErrorReport {
     report
 }
 
-/// Convert a document construction error to an ErrorReport.
-pub fn report_document_error(
-    error: &DocumentConstructionError,
-    ctx: &DocumentReportContext<'_>,
-) -> ErrorReport {
-    report_document_error_simple(error, ctx.file, ctx.cst)
-}
-
-/// Convert a document construction error to an ErrorReport (simplified API).
-pub fn report_document_error_simple(
-    error: &DocumentConstructionError,
-    file: FileId,
-    cst: &Cst,
-) -> ErrorReport {
-    let span = error.span(cst).unwrap_or(InputSpan::EMPTY);
-    let origin = Origin::new(file, span);
-
-    ErrorReport::error(error.to_string(), origin)
-}
-
 /// Convert schema validation errors to ErrorReports.
 pub fn report_schema_validation_errors(
+    db: &impl Db,
+    file: TextFile,
+    schema_file: TextFile,
     errors: &[ValidationError],
-    ctx: &SchemaReportContext<'_>,
-) -> ErrorReports {
+) -> Result<ErrorReports, QueryError> {
     errors
         .iter()
-        .map(|error| report_validation_error(error, ctx))
-        .collect()
+        .map(|error| report_validation_error(db, error, file.clone(), schema_file.clone()))
+        .collect::<Result<ErrorReports, QueryError>>()
 }
 
-fn report_validation_error(error: &ValidationError, ctx: &SchemaReportContext<'_>) -> ErrorReport {
+fn report_validation_error(
+    db: &impl Db,
+    error: &ValidationError,
+    file: TextFile,
+    schema_file: TextFile,
+) -> Result<ErrorReport, QueryError> {
     let (doc_node_id, schema_node_id) = error.node_ids();
+
+    // Query parsed document
+    let doc = db.query(ParseDocument::new(file.clone()))?;
+
+    // Query CST for span resolution
+    let cst = db.query(ValidCst::new(file.clone()))?;
+
+    // Query schema
+    let schema = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
 
     // For InvalidKeyType, try to get precise key span
     let resolved_span = if let ValidationError::InvalidKeyType { key, node_id, .. } = error {
         // Try to get precise key span first
-        ctx.doc
-            .origins
-            .get_key_span(*node_id, key, ctx.doc.cst)
-            .or_else(|| ctx.doc.origins.get_node_span(doc_node_id, ctx.doc.cst))
+        doc.origins
+            .get_key_span(*node_id, key, &cst)
+            .or_else(|| doc.origins.get_node_span(doc_node_id, &cst))
     } else {
         // Standard node span resolution
-        ctx.doc.origins.get_node_span(doc_node_id, ctx.doc.cst)
+        doc.origins.get_node_span(doc_node_id, &cst)
     };
 
     let (doc_span, is_fallback) = match resolved_span {
@@ -483,7 +408,7 @@ fn report_validation_error(error: &ValidationError, ctx: &SchemaReportContext<'_
     };
 
     let doc_origin = Origin::with_hints(
-        ctx.doc.file,
+        file.clone(),
         doc_span,
         OriginHints::default().with_doc(doc_node_id),
     );
@@ -496,9 +421,10 @@ fn report_validation_error(error: &ValidationError, ctx: &SchemaReportContext<'_
     let mut report = ErrorReport::error(error.to_string(), doc_origin);
 
     // Add schema location as secondary annotation
-    if let Some(schema_span) = resolve_schema_span(schema_node_id, ctx) {
+    if let Some(schema_span) = resolve_schema_span(db, schema_node_id, schema_file.clone(), &schema)
+    {
         let schema_origin = Origin::with_hints(
-            ctx.schema_file,
+            schema_file.clone(),
             schema_span,
             OriginHints::default().with_schema(schema_node_id),
         );
@@ -516,42 +442,46 @@ fn report_validation_error(error: &ValidationError, ctx: &SchemaReportContext<'_
         ..
     } = error
     {
-        let nested = report_validation_error(&best.error, ctx);
+        let nested = report_validation_error(db, &best.error, file, schema_file)?;
         report = report.with_element(Element::Nested {
             title: format!("most close variant '{}' failed with", best.variant_name).into(),
             children: nested.elements,
         });
     }
 
-    report
+    Ok(report)
 }
 
 fn resolve_schema_span(
+    db: &impl Db,
     schema_id: SchemaNodeId,
-    ctx: &SchemaReportContext<'_>,
+    schema_file: TextFile,
+    schema: &crate::query::ValidatedSchema,
 ) -> Option<InputSpan> {
     // SchemaNodeId -> NodeId (from schema source map)
-    let doc_node_id = ctx.schema_source_map.get(&schema_id)?;
+    let doc_node_id = schema.source_map.get(&schema_id)?;
+    // Query CST for span resolution
+    let cst = db.query(ParseCst::new(schema_file)).ok()?;
     // Use OriginMap for span resolution
-    ctx.schema_origins
-        .get_node_span(*doc_node_id, ctx.schema_cst)
+    schema.parsed.origins.get_node_span(*doc_node_id, &cst.cst)
 }
 
 /// Convert a schema conversion error to an ErrorReport.
 pub fn report_conversion_error(
     error: &ConversionError,
-    ctx: &DocumentReportContext<'_>,
+    file: TextFile,
+    cst: &Cst,
+    origins: &OriginMap,
 ) -> ErrorReport {
     match error {
         ConversionError::ParseError(parse_error) => {
             // ParseError contains a NodeId, resolve it
-            let span = ctx
-                .origins
-                .get_node_span(parse_error.node_id, ctx.cst)
+            let span = origins
+                .get_node_span(parse_error.node_id, cst)
                 .unwrap_or(InputSpan::EMPTY);
 
             let origin = Origin::with_hints(
-                ctx.file,
+                file,
                 span,
                 OriginHints::default().with_doc(parse_error.node_id),
             );
@@ -560,7 +490,7 @@ pub fn report_conversion_error(
         }
         _ => {
             // Other conversion errors may not have precise spans
-            let origin = Origin::new(ctx.file, InputSpan::EMPTY);
+            let origin = Origin::new(file, InputSpan::EMPTY);
             ErrorReport::error(error.to_string(), origin)
         }
     }
@@ -570,11 +500,91 @@ pub fn report_conversion_error(
 // Rendering Functions
 // ============================================================================
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use annotate_snippets::{AnnotationKind as SnippetAnnotation, Group, Level, Renderer, Snippet};
 
+/// File info for rendering error reports.
+struct FileInfo {
+    path: String,
+    source: String,
+}
+
+/// Rendering context that owns file contents so groups can borrow from it.
+struct RenderContext {
+    files: HashMap<TextFile, FileInfo>,
+}
+
+impl RenderContext {
+    fn new() -> Self {
+        Self {
+            files: HashMap::new(),
+        }
+    }
+
+    fn prefetch(&mut self, db: &impl Db, file: &TextFile) -> Result<(), QueryError> {
+        if self.files.contains_key(file) {
+            return Ok(());
+        }
+        if let Some(file_info) = get_file_content(db, file)? {
+            self.files.insert(file.clone(), file_info);
+        }
+        Ok(())
+    }
+
+    fn prefetch_for_element(&mut self, db: &impl Db, element: &Element) -> Result<(), QueryError> {
+        match element {
+            Element::Annotation { origin, .. } => self.prefetch(db, &origin.file)?,
+            Element::Suggestion { origin, .. } => self.prefetch(db, &origin.file)?,
+            Element::Labelled { element, .. } => self.prefetch_for_element(db, element)?,
+            Element::Nested { children, .. } => {
+                for child in children {
+                    self.prefetch_for_element(db, child)?;
+                }
+            }
+            Element::Note(_) | Element::Help(_) => {}
+        }
+        Ok(())
+    }
+
+    fn get(&self, file: &TextFile) -> Option<&FileInfo> {
+        self.files.get(file)
+    }
+}
+
+/// Get file content via query-flow asset.
+///
+/// Returns `Ok(Some(info))` if file exists, `Ok(None)` if file not found,
+/// or propagates suspension error if content isn't loaded yet.
+fn get_file_content(db: &impl Db, file: &TextFile) -> Result<Option<FileInfo>, QueryError> {
+    let content: Arc<TextFileContent> = db.asset(file.clone())?.suspend()?;
+    match content.as_ref() {
+        TextFileContent::Content(text) => Ok(Some(FileInfo {
+            path: file.path.display().to_string(),
+            source: text.clone(),
+        })),
+        TextFileContent::NotFound => Ok(None),
+    }
+}
+
 /// Render an ErrorReport to a string using annotate-snippets.
-pub fn format_error_report(report: &ErrorReport, files: &FileRegistry, styled: bool) -> String {
-    let groups = build_snippet_groups(report, files);
+///
+/// Returns `Err` with suspension if file content isn't loaded yet.
+pub fn format_error_report(
+    db: &impl Db,
+    report: &ErrorReport,
+    styled: bool,
+) -> Result<String, QueryError> {
+    // Pre-fetch all file contents into a context that owns the data
+    let mut ctx = RenderContext::new();
+    ctx.prefetch(db, &report.primary_origin.file)?;
+    for element in &report.elements {
+        ctx.prefetch_for_element(db, element)?;
+    }
+
+    // Build groups that borrow from ctx
+    let groups = build_snippet_groups(&ctx, report);
 
     let renderer = if styled {
         Renderer::styled()
@@ -582,23 +592,29 @@ pub fn format_error_report(report: &ErrorReport, files: &FileRegistry, styled: b
         Renderer::plain()
     };
 
-    renderer.render(&groups).to_string()
+    Ok(renderer.render(&groups).to_string())
 }
 
 /// Render multiple ErrorReports to a string.
-pub fn format_error_reports(reports: &ErrorReports, files: &FileRegistry, styled: bool) -> String {
-    reports
-        .iter()
-        .map(|r| format_error_report(r, files, styled))
-        .collect::<Vec<_>>()
-        .join("\n")
+///
+/// Returns `Err` with suspension if any file content isn't loaded yet.
+pub fn format_error_reports(
+    db: &impl Db,
+    reports: &ErrorReports,
+    styled: bool,
+) -> Result<String, QueryError> {
+    let mut results = Vec::new();
+    for r in reports.iter() {
+        results.push(format_error_report(db, r, styled)?);
+    }
+    Ok(results.join("\n"))
 }
 
-fn build_snippet_groups<'a>(report: &'a ErrorReport, files: &'a FileRegistry) -> Vec<Group<'a>> {
+fn build_snippet_groups<'a>(ctx: &'a RenderContext, report: &'a ErrorReport) -> Vec<Group<'a>> {
     let mut groups = Vec::new();
 
     // Get primary file info
-    let file_info = files.get(report.primary_origin.file);
+    let primary_file = ctx.get(&report.primary_origin.file);
 
     // Build primary group
     let level = match report.severity {
@@ -608,7 +624,7 @@ fn build_snippet_groups<'a>(report: &'a ErrorReport, files: &'a FileRegistry) ->
         Severity::Hint => Level::HELP,
     };
 
-    if let Some(file_info) = file_info {
+    if let Some(file_info) = primary_file {
         let span = &report.primary_origin.span;
 
         // Clamp span to valid range
@@ -632,7 +648,6 @@ fn build_snippet_groups<'a>(report: &'a ErrorReport, files: &'a FileRegistry) ->
         groups.push(primary_group);
     } else {
         // No file info - create a minimal group with just the title
-        // We need a snippet with annotation to create a Group
         let primary_group = level.primary_title(report.title.as_ref()).element(
             Snippet::source("")
                 .line_start(1)
@@ -643,15 +658,15 @@ fn build_snippet_groups<'a>(report: &'a ErrorReport, files: &'a FileRegistry) ->
 
     // Process elements
     for element in &report.elements {
-        add_element_to_groups(element, files, &mut groups, file_info);
+        add_element_to_groups(ctx, element, &mut groups, primary_file);
     }
 
     groups
 }
 
 fn add_element_to_groups<'a>(
+    ctx: &'a RenderContext,
     element: &'a Element,
-    files: &'a FileRegistry,
     groups: &mut Vec<Group<'a>>,
     primary_file: Option<&'a FileInfo>,
 ) {
@@ -661,7 +676,7 @@ fn add_element_to_groups<'a>(
             kind,
             label,
         } => {
-            if let Some(file_info) = files.get(origin.file) {
+            if let Some(file_info) = ctx.get(&origin.file) {
                 let snippet_kind = match kind {
                     AnnotationKind::Primary => SnippetAnnotation::Primary,
                     AnnotationKind::Secondary | AnnotationKind::Help => SnippetAnnotation::Context,
@@ -724,7 +739,7 @@ fn add_element_to_groups<'a>(
                 );
                 groups.push(group);
             }
-            add_element_to_groups(element, files, groups, primary_file);
+            add_element_to_groups(ctx, element, groups, primary_file);
         }
 
         Element::Nested { title, children } => {
@@ -740,7 +755,7 @@ fn add_element_to_groups<'a>(
             }
             // Recurse into children
             for child in children {
-                add_element_to_groups(child, files, groups, primary_file);
+                add_element_to_groups(ctx, child, groups, primary_file);
             }
         }
 
@@ -750,7 +765,7 @@ fn add_element_to_groups<'a>(
             replacement: _,
         } => {
             // Suggestions are rendered as help with the origin highlighted
-            if let Some(file_info) = files.get(origin.file) {
+            if let Some(file_info) = ctx.get(&origin.file) {
                 let span = &origin.span;
                 let span_start = (span.start as usize).min(file_info.source.len());
                 let span_end = (span.end as usize)
@@ -800,9 +815,9 @@ pub fn error_reports_comparator(a: &anyhow::Error, b: &anyhow::Error) -> bool {
 /// Convert a ConfigError to ErrorReports.
 pub fn report_config_error(
     error: &eure_config::ConfigError,
-    file: FileId,
+    file: TextFile,
     cst: &Cst,
-    origins: &crate::document::OriginMap,
+    origins: &OriginMap,
 ) -> ErrorReports {
     use eure_config::ConfigError;
 

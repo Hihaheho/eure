@@ -7,17 +7,20 @@
 pub mod assets;
 pub mod config;
 pub mod diagnostics;
+pub mod error;
+pub mod parse;
 pub mod schema;
 pub mod semantic_token;
 
 pub use assets::{TextFile, TextFileContent, Workspace, WorkspaceId};
-pub use config::{
-    LoadConfigError, ParseCst, ParseDocument, ParsedCst, ParsedDocument, load_config,
-};
+pub use config::{GetConfig, LoadConfigError, load_config};
 pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
+pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst, read_text_file};
 pub use schema::{
-    DocumentToSchemaQuery, ErrorSpan, GetSchemaExtension, GetSchemaExtensionDiagnostics,
-    ResolveSchema, ValidateAgainstMetaSchema, ValidateAgainstSchema, ValidatedSchema,
+    DocumentToSchemaQuery, GetSchemaConversionErrorFormatted, GetSchemaExtension,
+    GetSchemaExtensionDiagnostics, GetValidationErrorsFormatted,
+    GetValidationErrorsFormattedWithMode, ResolveSchema, UnionTagMode, ValidateAgainstSchema,
+    ValidateAgainstSchemaWithMode, ValidatedSchema,
 };
 pub use semantic_token::{
     GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens,

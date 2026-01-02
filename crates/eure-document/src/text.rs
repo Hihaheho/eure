@@ -99,6 +99,13 @@ impl Language {
             (a, b) => a == b,                // Otherwise must match exactly
         }
     }
+
+    pub fn is_other(&self, arg: &str) -> bool {
+        match self {
+            Language::Other(s) => s == arg,
+            _ => false,
+        }
+    }
 }
 
 /// Hint for serialization: which syntax was used to parse this text.

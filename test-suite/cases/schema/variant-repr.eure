@@ -296,7 +296,7 @@ value {
 
 schema_errors[] = ```text
 error: Invalid variant tag 'unknown' at path value
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | / value {
 2 | |   unknown {
@@ -306,7 +306,7 @@ error: Invalid variant tag 'unknown' at path value
   | |_^ Invalid variant tag 'unknown' at path value
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "union"
@@ -338,7 +338,7 @@ value {
 
 schema_errors[] = ```text
 error: No variant matched for union at path value, most close variant is 'b': Missing required field 'code' at path value (and 1 more errors)
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | / value {
 2 | |   unknown_field = "test"
@@ -346,7 +346,7 @@ error: No variant matched for union at path value, most close variant is 'b': Mi
   | |_^ No variant matched for union at path value, most close variant is 'b': Missing required field 'code' at path value (and 1 more errors)
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "union"
@@ -355,7 +355,7 @@ note: constraint defined here
 5 | | }
   | |_- constraint defined here
 note: most close variant 'b' failed with
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | value {
   | -
@@ -384,7 +384,7 @@ value {
 
 schema_errors[] = ```text
 error: Invalid variant tag 'message' at path value
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | / value {
 2 | |   message = "direct content without wrapper"
@@ -392,7 +392,7 @@ error: Invalid variant tag 'message' at path value
   | |_^ Invalid variant tag 'message' at path value
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "union"
@@ -425,7 +425,7 @@ value {
 
 schema_errors[] = ```text
 error: Invalid variant tag 'nonexistent' at path value
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "nonexistent"
@@ -434,7 +434,7 @@ error: Invalid variant tag 'nonexistent' at path value
   | |_^ Invalid variant tag 'nonexistent' at path value
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "union"
@@ -483,7 +483,7 @@ value {
 
 schema_errors[] = ```text
 error: Invalid variant tag 'unknown' at path value
-  --> <input>:3:5
+  --> input.eure:3:5
    |
  3 | /     outer {
  4 | |       unknown {
@@ -493,7 +493,7 @@ error: Invalid variant tag 'unknown' at path value
    | |_____^ Invalid variant tag 'unknown' at path value
    |
 note: constraint defined here
-  --> <schema>:7:5
+  --> schema.eure:7:5
    |
  7 | /     variants.outer {
  8 | |       $variant = "union"
@@ -573,7 +573,7 @@ value {
 // Alternative: Could try variants.b and succeed
 schema_errors[] = ```text
 error: Type mismatch: expected integer, got map at path value
- --> <input>:2:3
+ --> input.eure:2:3
   |
 2 | /   a {
 3 | |     x = "hello"
@@ -581,7 +581,7 @@ error: Type mismatch: expected integer, got map at path value
   | |___^ Type mismatch: expected integer, got map at path value
   |
 note: constraint defined here
- --> <schema>:4:3
+ --> schema.eure:4:3
   |
 4 |   variants.a = `integer`
   |   ---------------------- constraint defined here
@@ -613,7 +613,7 @@ value {
 // Alternative: Could fallback to untagged (but would fail anyway here)
 schema_errors[] = ```text
 error: Invalid variant tag 'unknown' at path value
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | / value {
 2 | |   unknown = "hello"
@@ -621,7 +621,7 @@ error: Invalid variant tag 'unknown' at path value
   | |_^ Invalid variant tag 'unknown' at path value
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "union"
@@ -682,13 +682,13 @@ value {
 // The tag says "a" but data is integer (matches b's structure)
 schema_errors[] = ```text
 error: Type mismatch: expected text, got integer at path value.data
- --> <input>:3:3
+ --> input.eure:3:3
   |
 3 |   data = 42
   |   ^^^^^^^^^ Type mismatch: expected text, got integer at path value.data
   |
 note: constraint defined here
- --> <schema>:4:3
+ --> schema.eure:4:3
   |
 4 |   variants.a.data = `text`
   |   ------------------------ constraint defined here
@@ -718,7 +718,7 @@ value {
 
 schema_errors[] = ```text
 error: Invalid variant tag 'unknown' at path value
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | / value {
 2 | |   type = "unknown"
@@ -727,7 +727,7 @@ error: Invalid variant tag 'unknown' at path value
   | |_^ Invalid variant tag 'unknown' at path value
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "union"
@@ -770,13 +770,13 @@ value {
 // This shows the issue with untagged fallback - order matters
 schema_errors[] = ```text
 error: Type mismatch: expected integer, got text at path value.data
- --> <input>:2:3
+ --> input.eure:2:3
   |
 2 |   data = "hello"
   |   ^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path value.data
   |
 note: constraint defined here
- --> <schema>:6:3
+ --> schema.eure:6:3
   |
 6 |   variants.b.data = `integer`
   |   --------------------------- constraint defined here
@@ -826,7 +826,7 @@ value {
 
 schema_errors[] = ```text
 error: Invalid variant tag 'unknown' at path value
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | / value {
 2 | |   kind = "unknown"
@@ -835,7 +835,7 @@ error: Invalid variant tag 'unknown' at path value
   | |_^ Invalid variant tag 'unknown' at path value
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / value {
 2 | |   $variant = "union"

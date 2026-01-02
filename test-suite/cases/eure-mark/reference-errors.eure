@@ -16,7 +16,7 @@ This has !cite[missing] reference.
 euremark_errors = [
   ``````
 error: Undefined !cite[missing] in intro
- --> <input>:3:10
+ --> input.eure:3:10
   |
 3 |   intro = ```markdown
   |  __________^
@@ -42,7 +42,7 @@ See !ref[nonexistent] for more.
 euremark_errors = [
   ``````
 error: Undefined !ref[nonexistent] in section 'intro'
- --> <input>:4:5
+ --> input.eure:4:5
   |
 4 |   body = ```markdown
   |  _____^

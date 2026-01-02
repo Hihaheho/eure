@@ -1,4 +1,6 @@
 use clap::ValueEnum;
+use eure::query_flow::{QueryError, QueryRuntime};
+use eure::report::{ErrorReports, format_error_reports};
 use std::fs;
 use std::io::{self, Read};
 
@@ -34,4 +36,21 @@ pub enum VariantFormat {
     Adjacent,
     /// Just the content without variant information
     Untagged,
+}
+
+/// Handle query errors by printing formatted error reports and exiting.
+///
+/// This function provides unified error handling for CLI commands:
+/// - If the error contains `ErrorReports`, formats and prints them
+/// - Otherwise prints the error message directly
+pub fn handle_query_error(runtime: &QueryRuntime, e: QueryError) -> ! {
+    if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+        eprintln!(
+            "{}",
+            format_error_reports(runtime, reports, true).expect("file content should be loaded")
+        );
+    } else {
+        eprintln!("Error: {e}");
+    }
+    std::process::exit(1);
 }

@@ -1657,6 +1657,7 @@ dependencies = [
  "eure-fmt",
  "indexmap",
  "num-bigint",
+ "query-flow",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -1728,6 +1729,7 @@ dependencies = [
  "eure-document",
  "eure-parol",
  "eure-tree",
+ "query-flow",
  "regex",
  "thiserror 2.0.17",
 ]
@@ -3159,9 +3161,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99f1837993a1a652309f76630ca8f8f9257143f76575fe43fcd26b282a232bfc"
+checksum = "293f4701f23702f90dc130b039136bab3e24b7945ccdc8bd08a1e337d7f69a8d"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3173,9 +3175,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "914216a64c548833f25651a28b63896721744453ec679d60a97656b3879c5e2a"
+checksum = "11c1434eb4851f3d381feb83aaeceae51bd4c4db794cd2cc538cc9fdfe67347f"
 dependencies = [
  "darling 0.20.11",
  "heck",
@@ -3959,6 +3961,7 @@ dependencies = [
  "eure-mark",
  "eure-schema",
  "eure-toml",
+ "query-flow",
  "rayon",
  "serde_json",
  "similar",

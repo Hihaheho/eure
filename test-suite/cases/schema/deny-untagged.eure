@@ -74,13 +74,13 @@ value {
 
 schema_errors[] = ```text
 error: Variant 'literal' requires explicit $variant tag at path value
- --> <input>:1:1
+ --> input.eure:1:1
   |
 1 | value = "active"
   | ^^^^^^^^^^^^^^^^ Variant 'literal' requires explicit $variant tag at path value
   |
 note: constraint defined here
- --> <schema>:3:3
+ --> schema.eure:3:3
   |
 3 |   variants.literal = "active"
   |   --------------------------- constraint defined here

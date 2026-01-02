@@ -65,7 +65,7 @@ pub enum TupleRepr {
     Error,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 /// How to represent variant in a data model. Corresponds to the `$variant-repr` extension.
 pub enum VariantRepr {
     /// External tagging: {"variant-name": {...}}

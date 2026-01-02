@@ -1,8 +1,9 @@
-use eure::error::format_parse_error_color;
+use eure::query::{TextFile, TextFileContent, ValidCst};
+use eure::query_flow::QueryRuntimeBuilder;
 use eure::tree::write_cst;
 use eure_fmt::unformat::{unformat, unformat_with_seed};
 
-use crate::util::{display_path, read_input};
+use crate::util::{display_path, handle_query_error, read_input};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -22,16 +23,20 @@ pub fn run(args: Args) {
         }
     };
 
-    let mut tree = match eure_parol::parse(&contents) {
-        Ok(tree) => tree,
-        Err(e) => {
-            eprintln!(
-                "{}",
-                format_parse_error_color(&e, &contents, display_path(args.file.as_deref()))
-            );
-            std::process::exit(1);
-        }
+    // Create query runtime
+    let runtime = QueryRuntimeBuilder::new().build();
+
+    let file = TextFile::from_path(display_path(args.file.as_deref()).into());
+    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents.clone()));
+
+    // Parse CST (fails on parse errors)
+    let cst = match runtime.query(ValidCst::new(file)) {
+        Ok(result) => result,
+        Err(e) => handle_query_error(&runtime, e),
     };
+
+    // Clone CST for mutation
+    let mut tree = (*cst).clone();
 
     if let Some(seed) = args.seed {
         unformat_with_seed(&mut tree, seed);

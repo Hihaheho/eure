@@ -4,33 +4,31 @@ use crate::{
     theme::Theme,
 };
 use dioxus::prelude::*;
-use eure::error::format_parse_error_plain;
 use eure::query::{
-    DocumentToSchemaQuery, ErrorSpan as EditorErrorSpan, GetSemanticTokens, ParseCst,
-    ParseDocument, SemanticToken, TextFile, TextFileContent, ValidateAgainstMetaSchema,
-    ValidateAgainstSchema,
+    DocumentToSchemaQuery, GetSemanticTokens, ParseCst, ParseDocument, SemanticToken, TextFile,
+    TextFileContent, ValidateAgainstSchema,
 };
-use eure::report::error_reports_comparator;
+use eure::report::{ErrorReports, error_reports_comparator};
 use eure_parol::EureParseError;
-use query_flow::{QueryRuntime, QueryRuntimeBuilder};
-use std::sync::Arc;
+use query_flow::{Db, QueryError, QueryRuntime, QueryRuntimeBuilder, query};
+
+/// Error span for editor display (internal type for query caching).
+#[derive(Debug, Clone, PartialEq)]
+struct EditorErrorSpan {
+    start: usize,
+    end: usize,
+    message: String,
+}
 
 /// Convert document to pretty-printed JSON.
-#[query_flow::query]
-fn document_to_json(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Option<Arc<String>>, query_flow::QueryError> {
-    let result = db.query(ParseDocument::new(file))?;
-    let parsed = match &*result {
-        None => return Ok(None),
-        Some(p) => p,
-    };
+#[query]
+fn document_to_json(db: &impl Db, file: TextFile) -> Result<String, QueryError> {
+    let parsed = db.query(ParseDocument::new(file))?;
 
     let value = eure_json::document_to_value(&parsed.doc, &eure_json::Config::default())
         .map_err(|e| anyhow::anyhow!("{}", e))?;
     let json = serde_json::to_string_pretty(&value).map_err(|e| anyhow::anyhow!("{}", e))?;
-    Ok(Some(Arc::new(json)))
+    Ok(json)
 }
 
 /// Aggregated errors from all sources (query result).
@@ -50,27 +48,21 @@ fn get_all_errors(
     doc_file: TextFile,
     schema_file: TextFile,
     meta_schema_file: TextFile,
-) -> Result<EditorAllErrors, query_flow::QueryError> {
+) -> Result<EditorAllErrors, QueryError> {
     // Get parser errors
     let doc_cst_result = db.query(ParseCst::new(doc_file.clone()))?;
     let schema_cst_result = db.query(ParseCst::new(schema_file.clone()))?;
 
-    let doc_parser_errors = match &*doc_cst_result {
-        Some(parsed) if parsed.error.is_some() => format_parser_errors(
-            parsed.error.as_ref().unwrap(),
-            &parsed.source,
-            "document.eure",
-        ),
-        _ => vec![],
+    let doc_parser_errors = if let Some(error) = &doc_cst_result.error {
+        format_parser_errors(error)
+    } else {
+        vec![]
     };
 
-    let schema_parser_errors = match &*schema_cst_result {
-        Some(parsed) if parsed.error.is_some() => format_parser_errors(
-            parsed.error.as_ref().unwrap(),
-            &parsed.source,
-            "schema.eure",
-        ),
-        _ => vec![],
+    let schema_parser_errors = if let Some(error) = &schema_cst_result.error {
+        format_parser_errors(error)
+    } else {
+        vec![]
     };
 
     // Get schema conversion errors (via UserError)
@@ -86,11 +78,10 @@ fn get_all_errors(
     // Get schema validation against meta-schema
     let schema_validation_errors =
         if schema_parser_errors.is_empty() && schema_conversion_errors.is_empty() {
-            (*db.query(ValidateAgainstMetaSchema::new(
+            error_reports_to_spans(&*db.query(ValidateAgainstSchema::new(
                 schema_file.clone(),
                 meta_schema_file.clone(),
             ))?)
-            .clone()
         } else {
             vec![]
         };
@@ -104,7 +95,7 @@ fn get_all_errors(
             doc_file.clone(),
             schema_file.clone(),
         )) {
-            Ok(errors) => (*errors).clone(),
+            Ok(validation) => error_reports_to_spans(&validation),
             Err(e) => {
                 // Document construction failed - show as validation error
                 vec![EditorErrorSpan {
@@ -128,12 +119,7 @@ fn get_all_errors(
 }
 
 /// Format parser errors to EditorErrorSpan list.
-fn format_parser_errors(
-    error: &EureParseError,
-    source: &str,
-    filename: &str,
-) -> Vec<EditorErrorSpan> {
-    let message = format_parse_error_plain(error, source, filename);
+fn format_parser_errors(error: &EureParseError) -> Vec<EditorErrorSpan> {
     error
         .entries
         .iter()
@@ -141,8 +127,20 @@ fn format_parser_errors(
             entry.span.map(|s| EditorErrorSpan {
                 start: s.start as usize,
                 end: s.end as usize,
-                message: message.clone(),
+                message: entry.message.clone(),
             })
+        })
+        .collect()
+}
+
+/// Convert ErrorReports to EditorErrorSpan list.
+fn error_reports_to_spans(reports: &ErrorReports) -> Vec<EditorErrorSpan> {
+    reports
+        .iter()
+        .map(|report| EditorErrorSpan {
+            start: report.primary_origin.span.start as usize,
+            end: report.primary_origin.span.end as usize,
+            message: report.title.to_string(),
         })
         .collect()
 }
@@ -405,26 +403,18 @@ fn run_queries(
     mut all_errors: Signal<AllErrors>,
 ) {
     // Get semantic tokens for document
-    if let Ok(result) = runtime.query(GetSemanticTokens::new(doc_file.clone()))
-        && let Some(tokens) = &*result
-    {
-        doc_tokens.set(tokens.clone());
+    if let Ok(result) = runtime.query(GetSemanticTokens::new(doc_file.clone())) {
+        doc_tokens.set((*result).clone());
     }
 
     // Get semantic tokens for schema
-    if let Ok(result) = runtime.query(GetSemanticTokens::new(schema_file.clone()))
-        && let Some(tokens) = &*result
-    {
-        schema_tokens.set(tokens.clone());
+    if let Ok(result) = runtime.query(GetSemanticTokens::new(schema_file.clone())) {
+        schema_tokens.set((*result).clone());
     }
 
     // Get JSON output
-    if let Ok(result) = runtime.query(DocumentToJson::new(doc_file.clone())) {
-        if let Some(json) = &*result {
-            json_output.set((**json).clone());
-        } else {
-            json_output.set(String::new());
-        }
+    if let Ok(json) = runtime.query(DocumentToJson::new(doc_file.clone())) {
+        json_output.set(json.as_ref().clone());
     }
 
     // Get all errors

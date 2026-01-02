@@ -300,7 +300,7 @@ impl QueryExecutor {
         match command {
             CommandQuery::SemanticTokensFull(query) => {
                 let result = self.runtime.query(query.clone())?;
-                Ok(CommandResult::SemanticTokens((*result).clone()))
+                Ok(CommandResult::SemanticTokens(Some((*result).clone())))
             }
         }
     }

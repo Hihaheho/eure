@@ -4,10 +4,10 @@
 //! from Eure source code, suitable for use with LSP semantic token features.
 
 use crate::tree::*;
-use query_flow::query;
+use query_flow::{Db, QueryError, query};
 
 use super::assets::TextFile;
-use super::config::ParseCst;
+use super::parse::ParseCst;
 
 /// Semantic token types specific to Eure.
 ///
@@ -147,17 +147,11 @@ pub fn semantic_tokens(input: &str, cst: &Cst) -> Vec<SemanticToken> {
 /// Uses tolerant parsing to always produce tokens even with syntax errors.
 /// Depends on `ParseCst` query.
 #[query]
-pub fn get_semantic_tokens(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Option<Vec<SemanticToken>>, query_flow::QueryError> {
-    let result = db.query(ParseCst::new(file.clone()))?;
-    let parsed_cst = match &*result {
-        None => return Ok(None),
-        Some(parsed) => parsed,
-    };
+pub fn get_semantic_tokens(db: &impl Db, file: TextFile) -> Result<Vec<SemanticToken>, QueryError> {
+    let parsed_cst = db.query(ParseCst::new(file.clone()))?;
+    let source = super::parse::read_text_file(db, file)?;
 
-    Ok(Some(semantic_tokens(&parsed_cst.source, &parsed_cst.cst)))
+    Ok(semantic_tokens(&source, &parsed_cst.cst))
 }
 
 /// Visitor that collects semantic tokens from the CST.

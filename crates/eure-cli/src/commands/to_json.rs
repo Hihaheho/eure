@@ -1,9 +1,9 @@
 use eure::data_model::VariantRepr;
-use eure::document::cst_to_document;
-use eure::error::format_parse_error_color;
-use eure_json::{document_to_value, Config as JsonConfig};
+use eure::query::{TextFile, TextFileContent};
+use eure::query_flow::QueryRuntimeBuilder;
+use eure_json::{Config as JsonConfig, EureToJson};
 
-use crate::util::{display_path, read_input, VariantFormat};
+use crate::util::{VariantFormat, display_path, handle_query_error, read_input};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -38,26 +38,11 @@ pub fn run(args: Args) {
         }
     };
 
-    // Parse Eure
-    let tree = match eure_parol::parse(&contents) {
-        Ok(tree) => tree,
-        Err(e) => {
-            eprintln!(
-                "{}",
-                format_parse_error_color(&e, &contents, display_path(file_opt))
-            );
-            std::process::exit(1);
-        }
-    };
+    // Create query runtime
+    let runtime = QueryRuntimeBuilder::new().build();
 
-    // Extract document from CST
-    let document = match cst_to_document(&contents, &tree) {
-        Ok(doc) => doc,
-        Err(e) => {
-            eprintln!("Error converting CST to document: {e:?}");
-            std::process::exit(1);
-        }
-    };
+    let file = TextFile::from_path(display_path(file_opt).into());
+    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents));
 
     // Configure variant representation
     let variant_repr = match args.variant {
@@ -73,12 +58,9 @@ pub fn run(args: Args) {
     let config = JsonConfig { variant_repr };
 
     // Convert document to JSON
-    let json_value = match document_to_value(&document, &config) {
+    let json_value = match runtime.query(EureToJson::new(file.clone(), config)) {
         Ok(json) => json,
-        Err(e) => {
-            eprintln!("Error converting to JSON: {e}");
-            std::process::exit(1);
-        }
+        Err(e) => handle_query_error(&runtime, e),
     };
 
     // Output JSON

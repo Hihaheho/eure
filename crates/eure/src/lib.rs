@@ -1,5 +1,4 @@
 pub mod document;
-pub mod error;
 pub mod query;
 pub mod report;
 pub mod tree;

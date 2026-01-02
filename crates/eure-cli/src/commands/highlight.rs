@@ -1,9 +1,9 @@
-use eure::error::format_parse_error_color;
-use eure::query::{SemanticTokenType, semantic_tokens};
+use eure::query::{GetSemanticTokens, TextFile, TextFileContent};
+use eure::query_flow::QueryRuntimeBuilder;
 use nu_ansi_term::Color;
 use std::io::{self, Write};
 
-use crate::util::{display_path, read_input};
+use crate::util::{display_path, handle_query_error, read_input};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -20,28 +20,23 @@ pub fn run(args: Args) {
         }
     };
 
-    // Parse with tolerant mode to show partial highlighting even with errors
-    let parse_result = eure_parol::parse_tolerant(&contents);
+    // Create query runtime
+    let runtime = QueryRuntimeBuilder::new().build();
 
-    // Print any parse errors to stderr
-    if let Some(error) = parse_result.error() {
-        eprintln!(
-            "{}",
-            format_parse_error_color(error, &contents, display_path(args.file.as_deref()))
-        );
-        eprintln!();
-    }
-
-    let cst = parse_result.cst();
+    let file = TextFile::from_path(display_path(args.file.as_deref()).into());
+    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents.clone()));
 
     // Get semantic tokens
-    let tokens = semantic_tokens(&contents, &cst);
+    let tokens = match runtime.query(GetSemanticTokens::new(file)) {
+        Ok(result) => result,
+        Err(e) => handle_query_error(&runtime, e),
+    };
 
     // Build colored output
     let mut stdout = io::stdout().lock();
     let mut pos = 0usize;
 
-    for token in &tokens {
+    for token in tokens.iter() {
         let start = token.start as usize;
         let end = start + token.length as usize;
 
@@ -66,7 +61,8 @@ pub fn run(args: Args) {
     let _ = stdout.flush();
 }
 
-fn token_type_to_color(token_type: SemanticTokenType) -> Color {
+fn token_type_to_color(token_type: eure::query::SemanticTokenType) -> Color {
+    use eure::query::SemanticTokenType;
     match token_type {
         SemanticTokenType::Keyword => Color::Purple,
         SemanticTokenType::Number => Color::Cyan,

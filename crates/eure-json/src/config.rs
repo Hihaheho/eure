@@ -1,6 +1,6 @@
 use eure::data_model::VariantRepr;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Config {
     pub variant_repr: VariantRepr,
 }

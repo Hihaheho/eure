@@ -128,7 +128,7 @@ fn run(args: &Args) -> i32 {
             .into_iter()
             .filter(|case_result| {
                 let path = match case_result {
-                    Ok(parse_result) => &parse_result.case_file.path,
+                    Ok(parse_result) => &parse_result.path,
                     Err(CollectCasesError::IoError { path, .. }) => path,
                     Err(CollectCasesError::ParseError { path, .. }) => path,
                 };
@@ -165,8 +165,7 @@ fn run(args: &Args) -> i32 {
             cases.par_iter().for_each_with(tx, |tx, case_result| {
                 let outcome = match case_result {
                     Ok(parse_result) => {
-                        let file_name =
-                            file_name_from_path(&parse_result.case_file.path, &cases_base_dir);
+                        let file_name = file_name_from_path(&parse_result.path, &cases_base_dir);
                         let case_file = &parse_result.case_file;
 
                         // Process all cases in the file
@@ -174,33 +173,22 @@ fn run(args: &Args) -> i32 {
                             .all_cases()
                             .map(|(name, case_data)| {
                                 let case = Case::new(
-                                    case_file.path.clone(),
+                                    parse_result.path.clone(),
                                     name.to_string(),
                                     case_data.clone(),
                                 );
-                                let unimplemented = case.data.unimplemented.clone();
-                                let preprocessed = case.preprocess().unwrap_or_else(|e| {
-                                    panic!(
-                                        "Failed to preprocess case '{}' in {}: {}",
-                                        name,
-                                        case_file.path.display(),
-                                        e
-                                    )
-                                });
-                                let status_info = {
-                                    let summary = preprocessed.status_summary();
-                                    if summary.is_empty() {
-                                        None
-                                    } else {
-                                        Some(summary)
-                                    }
-                                };
-                                let result = preprocessed.run_all(&config);
+                                let unimplemented = case
+                                    .data
+                                    .unimplemented
+                                    .as_ref()
+                                    .and_then(|r| r.as_str())
+                                    .map(|s| s.to_string());
+                                let result = case.run_all(&config);
 
                                 CaseOutcome {
                                     case_name: name.to_string(),
                                     result,
-                                    status_info,
+                                    status_info: None,
                                     unimplemented,
                                 }
                             })

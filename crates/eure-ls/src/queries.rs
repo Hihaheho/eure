@@ -8,7 +8,7 @@ use lsp_types::{
     Diagnostic, DiagnosticSeverity as LspSeverity, Position, Range,
     SemanticToken as LspSemanticToken, SemanticTokens,
 };
-use query_flow::query;
+use query_flow::{Db, QueryError, query};
 
 /// LSP-formatted semantic tokens query.
 ///
@@ -18,12 +18,9 @@ pub fn lsp_semantic_tokens(
     db: &impl Db,
     file: TextFile,
     source: String,
-) -> Result<Option<SemanticTokens>, query_flow::QueryError> {
+) -> Result<SemanticTokens, QueryError> {
     let tokens = db.query(GetSemanticTokens::new(file.clone()))?;
-    match tokens.as_ref() {
-        Some(tokens) => Ok(Some(convert_tokens(tokens, &source))),
-        None => Ok(None),
-    }
+    Ok(convert_tokens(&tokens, &source))
 }
 
 /// LSP-formatted diagnostics query.
@@ -34,7 +31,7 @@ pub fn lsp_diagnostics(
     db: &impl Db,
     file: TextFile,
     source: String,
-) -> Result<Vec<Diagnostic>, query_flow::QueryError> {
+) -> Result<Vec<Diagnostic>, QueryError> {
     let diagnostics = db.query(GetDiagnostics::new(file.clone()))?;
     let line_offsets = compute_line_offsets(&source);
     Ok(diagnostics
