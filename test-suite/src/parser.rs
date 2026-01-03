@@ -227,6 +227,7 @@ impl CaseData {
             && self.formatted_input.is_none()
             && self.formatted_normalized.is_none()
             && self.euremark_errors.is_empty()
+            && self.editor.is_none()
     }
 }
 
