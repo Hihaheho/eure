@@ -11,5 +11,5 @@ keywords = ["codegen", "eure", "schema"]
 
 [dependencies]
 bon = "3"
-eure-document = { path = "../eure-document" }
+eure-document = { workspace = true }
 eure-macros = { workspace = true }
