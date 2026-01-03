@@ -51,3 +51,32 @@ schema_errors = [
     | ------------- constraint defined here
   ```
 ]
+
+@ cases.typo
+input_eure = ```eure
+@ root {
+  @ user
+  n = "Alice"
+}
+```
+
+schema = ```eure
+root.user.name = `text`
+```
+
+schema_errors = [
+  ```
+  error: Missing required field 'name' at path root.user
+   --> input.eure:2:5
+    |
+  2 |   @ user
+    |     ^^^^ Missing required field 'name' at path root.user
+  ```,
+  ```
+  error: Unknown field 'n' at path root.user
+   --> input.eure:3:3
+    |
+  3 |   n = "Alice"
+    |   ^ Unknown field 'n' at path root.user
+  ```
+]
