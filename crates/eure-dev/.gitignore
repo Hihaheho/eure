@@ -1,12 +1,11 @@
-!Dioxus.toml
-!tailwind.css
-!assets/*.ico
-!assets/*.svg
-!assets/*.css
+!/Dioxus.toml
+!/tailwind.css
+
+!/wrangler.toml
+
 !assets/**/*.eure
 
-!wrangler.toml
-
+!assets/*.css
 assets/tailwind.css
 
 .wrangler

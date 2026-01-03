@@ -22,3 +22,7 @@ tracing = { workspace = true }
 dioxus-free-icons = { version = "0.10.0", features = ["bootstrap"] }
 dioxus-sdk-storage = "0.7.0"
 serde = { workspace = true, features = ["derive"] }
+
+[build-dependencies]
+resvg = "0.45"
+image = "0.25"

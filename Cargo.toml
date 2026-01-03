@@ -48,6 +48,13 @@ glob = "0.3"
 [profile.dev.package.parol]
 opt-level = 3
 
+# For faster favicon generation in eure-dev build.rs
+[profile.dev.package.resvg]
+opt-level = 3
+
+[profile.dev.package.image]
+opt-level = 3
+
 [profile.android-dev]
 inherits = "dev"
 
