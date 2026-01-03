@@ -23,6 +23,10 @@ dioxus-free-icons = { version = "0.10.0", features = ["bootstrap"] }
 dioxus-sdk-storage = "0.7.0"
 serde = { workspace = true, features = ["derive"] }
 
+[features]
+default = []
+build-image = ["dep:resvg", "dep:image"]
+
 [build-dependencies]
-resvg = "0.45"
-image = "0.25"
+resvg = { version = "0.45", optional = true }
+image = { version = "0.25", optional = true }

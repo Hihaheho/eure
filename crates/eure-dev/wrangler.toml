@@ -2,7 +2,7 @@ name = "eure-dev"
 compatibility_date = "2025-12-03"
 
 [build]
-command = "dx build --release"
+command = "dx build --release --features build-image"
 
 [assets]
 directory = "../../target/dx/eure-dev/release/web/public"

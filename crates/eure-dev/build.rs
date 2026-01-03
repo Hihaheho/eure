@@ -1,12 +1,10 @@
-use image::{
-    ExtendedColorType, ImageFormat, RgbaImage,
-    codecs::ico::{IcoEncoder, IcoFrame},
-};
-use resvg::tiny_skia;
-use resvg::usvg;
 use std::fs;
+use std::path::PathBuf;
+
+#[cfg(feature = "build-image")]
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+#[cfg(feature = "build-image")]
+use std::path::Path;
 
 fn main() {
     let manifest_dir =
@@ -19,28 +17,66 @@ fn main() {
     }
     println!("cargo:rerun-if-changed={}", tailwind_css_path.display());
 
-    // Generate favicons from SVG
     let out_dir = manifest_dir.join("assets");
     fs::create_dir_all(&out_dir).expect("failed to create assets/");
 
-    // Light theme favicons
-    let light_svg = manifest_dir.join("../../assets/icons/eure-icon-light.svg");
-    if light_svg.exists() {
-        println!("cargo:rerun-if-changed={}", light_svg.display());
-        generate_favicons(&light_svg, &out_dir, "");
+    #[cfg(feature = "build-image")]
+    {
+        // Light theme favicons
+        let light_svg = manifest_dir.join("../../assets/icons/eure-icon-light.svg");
+        if light_svg.exists() {
+            println!("cargo:rerun-if-changed={}", light_svg.display());
+            generate_favicons(&light_svg, &out_dir, "");
+        }
+
+        // Dark theme favicons
+        let dark_svg = manifest_dir.join("../../assets/icons/eure-icon-dark.svg");
+        if dark_svg.exists() {
+            println!("cargo:rerun-if-changed={}", dark_svg.display());
+            generate_favicons(&dark_svg, &out_dir, "-dark");
+        }
     }
 
-    // Dark theme favicons
-    let dark_svg = manifest_dir.join("../../assets/icons/eure-icon-dark.svg");
-    if dark_svg.exists() {
-        println!("cargo:rerun-if-changed={}", dark_svg.display());
-        generate_favicons(&dark_svg, &out_dir, "-dark");
+    #[cfg(not(feature = "build-image"))]
+    {
+        /// All favicon files that need to exist for asset!() to compile
+        const FAVICON_FILES: &[&str] = &[
+            "favicon-16x16.png",
+            "favicon-32x32.png",
+            "apple-touch-icon.png",
+            "android-chrome-192x192.png",
+            "android-chrome-512x512.png",
+            "favicon.ico",
+            "favicon-dark-16x16.png",
+            "favicon-dark-32x32.png",
+            "apple-touch-icon-dark.png",
+            "android-chrome-dark-192x192.png",
+            "android-chrome-dark-512x512.png",
+            "favicon-dark.ico",
+        ];
+        // Generate empty placeholder files so asset!() doesn't fail
+        for file in FAVICON_FILES {
+            let path = out_dir.join(file);
+            if !path.exists() {
+                fs::write(&path, b"").expect("Failed to create placeholder favicon");
+            }
+        }
     }
 
     println!("cargo:rerun-if-changed=build.rs");
+    // Re-run when feature flag changes
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_BUILD_IMAGE");
 }
 
+#[cfg(feature = "build-image")]
 fn generate_favicons(svg_path: &Path, out_dir: &Path, suffix: &str) {
+    use image::{
+        ExtendedColorType, ImageFormat, RgbaImage,
+        codecs::ico::{IcoEncoder, IcoFrame},
+    };
+    use resvg::tiny_skia;
+    use resvg::usvg;
+
     let svg_data = fs::read(svg_path).unwrap_or_else(|e| {
         panic!("failed to read {}: {e}", svg_path.display());
     });
@@ -89,50 +125,52 @@ fn generate_favicons(svg_path: &Path, out_dir: &Path, suffix: &str) {
         write_if_changed(&out_dir.join(&ico_name), &ico_bytes)
             .expect("failed to write favicon.ico");
     }
-}
 
-fn render_svg_square_to_rgba(tree: &usvg::Tree, out_size: u32) -> RgbaImage {
-    let svg_size = tree.size().to_int_size();
-    let svg_w = svg_size.width() as f32;
-    let svg_h = svg_size.height() as f32;
+    fn render_svg_square_to_rgba(tree: &usvg::Tree, out_size: u32) -> RgbaImage {
+        let svg_size = tree.size().to_int_size();
+        let svg_w = svg_size.width() as f32;
+        let svg_h = svg_size.height() as f32;
 
-    let out_w = out_size as f32;
-    let out_h = out_size as f32;
+        let out_w = out_size as f32;
+        let out_h = out_size as f32;
 
-    // Aspect ratio preserving fit + centering
-    let scale = (out_w / svg_w).min(out_h / svg_h);
-    let drawn_w = svg_w * scale;
-    let drawn_h = svg_h * scale;
-    let tx = (out_w - drawn_w) / 2.0;
-    let ty = (out_h - drawn_h) / 2.0;
+        // Aspect ratio preserving fit + centering
+        let scale = (out_w / svg_w).min(out_h / svg_h);
+        let drawn_w = svg_w * scale;
+        let drawn_h = svg_h * scale;
+        let tx = (out_w - drawn_w) / 2.0;
+        let ty = (out_h - drawn_h) / 2.0;
 
-    let mut pixmap = tiny_skia::Pixmap::new(out_size, out_size).expect("failed to create pixmap");
-    pixmap.fill(tiny_skia::Color::from_rgba8(0, 0, 0, 0));
+        let mut pixmap =
+            tiny_skia::Pixmap::new(out_size, out_size).expect("failed to create pixmap");
+        pixmap.fill(tiny_skia::Color::from_rgba8(0, 0, 0, 0));
 
-    // x' = scale*x + tx, y' = scale*y + ty
-    let transform = tiny_skia::Transform::from_row(scale, 0.0, 0.0, scale, tx, ty);
+        // x' = scale*x + tx, y' = scale*y + ty
+        let transform = tiny_skia::Transform::from_row(scale, 0.0, 0.0, scale, tx, ty);
 
-    resvg::render(tree, transform, &mut pixmap.as_mut());
+        resvg::render(tree, transform, &mut pixmap.as_mut());
 
-    // tiny-skia uses premultiplied RGBA, so demultiply before passing to image crate
-    let mut rgba: Vec<u8> = Vec::with_capacity((out_size * out_size * 4) as usize);
-    for p in pixmap.pixels() {
-        let c: tiny_skia::ColorU8 = p.demultiply();
-        rgba.extend_from_slice(&[c.red(), c.green(), c.blue(), c.alpha()]);
+        // tiny-skia uses premultiplied RGBA, so demultiply before passing to image crate
+        let mut rgba: Vec<u8> = Vec::with_capacity((out_size * out_size * 4) as usize);
+        for p in pixmap.pixels() {
+            let c: tiny_skia::ColorU8 = p.demultiply();
+            rgba.extend_from_slice(&[c.red(), c.green(), c.blue(), c.alpha()]);
+        }
+
+        RgbaImage::from_raw(out_size, out_size, rgba).expect("invalid rgba buffer")
     }
 
-    RgbaImage::from_raw(out_size, out_size, rgba).expect("invalid rgba buffer")
-}
-
-fn encode_png(img: &RgbaImage) -> Vec<u8> {
-    let mut buf = Vec::new();
-    image::DynamicImage::ImageRgba8(img.clone())
-        .write_to(&mut io::Cursor::new(&mut buf), ImageFormat::Png)
-        .expect("failed to encode png");
-    buf
+    fn encode_png(img: &RgbaImage) -> Vec<u8> {
+        let mut buf = Vec::new();
+        image::DynamicImage::ImageRgba8(img.clone())
+            .write_to(&mut io::Cursor::new(&mut buf), ImageFormat::Png)
+            .expect("failed to encode png");
+        buf
+    }
 }
 
 /// Write only if content changed (avoids unnecessary timestamp changes)
+#[cfg(feature = "build-image")]
 fn write_if_changed(path: &Path, bytes: &[u8]) -> io::Result<()> {
     if let Ok(existing) = fs::read(path)
         && existing == bytes
