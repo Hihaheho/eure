@@ -45,3 +45,5 @@
 !/.devcontainer/Dockerfile
 !/.devcontainer/devcontainer.json
 !/.devcontainer/post-create.sh
+
+!/scripts/**/*.rs
