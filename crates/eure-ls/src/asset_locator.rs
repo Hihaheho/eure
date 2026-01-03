@@ -4,7 +4,10 @@ use eure::query::{TextFile, TextFileContent};
 use query_flow::{AssetLocator, DurabilityLevel, LocateResult};
 
 /// Bundled meta-schema content.
-const META_SCHEMA: &str = include_str!("../../../assets/schemas/eure-schema.schema.eure");
+const META_SCHEMA: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../assets/schemas/eure-schema.schema.eure"
+));
 
 /// Asset locator that handles virtual `$eure/` paths.
 ///

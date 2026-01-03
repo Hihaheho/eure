@@ -114,7 +114,10 @@ const OUTPUT_JSON_SCHEMA_PATH: &str = "output.json-schema.json";
 const META_SCHEMA_PATH: &str = "$eure/meta-schema.eure";
 
 /// Bundled meta-schema content
-const META_SCHEMA: &str = include_str!("../../assets/schemas/eure-schema.schema.eure");
+const META_SCHEMA: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../assets/schemas/eure-schema.schema.eure"
+));
 
 // ============================================================================
 // Scenario enum
