@@ -20,15 +20,6 @@ output_json_schema = ```json
         {"$ref": "#/$defs/User"},
         {
             "$defs": {
-                "Settings": {
-                    "type": "object",
-                    "properties": {
-                        "theme": {"type": "string"},
-                        "language": {"type": "string"}
-                    },
-                    "required": ["language", "theme"],
-                    "additionalProperties": false
-                },
                 "User": {
                     "type": "object",
                     "properties": {
@@ -36,6 +27,15 @@ output_json_schema = ```json
                         "settings": {"$ref": "#/$defs/Settings"}
                     },
                     "required": ["name", "settings"],
+                    "additionalProperties": false
+                },
+                "Settings": {
+                    "type": "object",
+                    "properties": {
+                        "theme": {"type": "string"},
+                        "language": {"type": "string"}
+                    },
+                    "required": ["theme", "language"],
                     "additionalProperties": false
                 }
             }

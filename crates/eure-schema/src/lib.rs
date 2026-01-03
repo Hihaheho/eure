@@ -41,9 +41,9 @@ use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use eure_macros::ParseDocument;
+use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 use regex::Regex;
-use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ============================================================================
 // Schema Document
@@ -57,7 +57,7 @@ pub struct SchemaDocument {
     /// Root node reference
     pub root: SchemaNodeId,
     /// Named type definitions ($types)
-    pub types: HashMap<Identifier, SchemaNodeId>,
+    pub types: IndexMap<Identifier, SchemaNodeId>,
 }
 
 /// Extension type definition with optionality
@@ -81,7 +81,7 @@ pub struct SchemaNode {
     /// Cascading metadata (description, deprecated, default, examples)
     pub metadata: SchemaMetadata,
     /// Extension type definitions for this node ($ext-type.X)
-    pub ext_types: HashMap<Identifier, ExtTypeSchema>,
+    pub ext_types: IndexMap<Identifier, ExtTypeSchema>,
 }
 
 // ============================================================================
@@ -226,7 +226,7 @@ pub struct TextSchema {
     pub pattern: Option<Regex>,
     /// Unknown fields (for future extensions like "flatten")
     #[eure(flatten)]
-    pub unknown_fields: std::collections::HashMap<String, eure_document::document::NodeId>,
+    pub unknown_fields: IndexMap<String, eure_document::document::NodeId>,
 }
 
 impl PartialEq for TextSchema {
@@ -380,7 +380,7 @@ pub struct RecordFieldSchema {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RecordSchema {
     /// Fixed field schemas (field name -> field schema with metadata)
-    pub properties: HashMap<String, RecordFieldSchema>,
+    pub properties: IndexMap<String, RecordFieldSchema>,
     /// Policy for unknown/additional fields (default: deny)
     pub unknown_fields: UnknownFieldsPolicy,
 }
@@ -432,14 +432,14 @@ pub struct TupleSchema {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionSchema {
     /// Variant definitions (variant name -> schema)
-    pub variants: BTreeMap<String, SchemaNodeId>,
+    pub variants: IndexMap<String, SchemaNodeId>,
     /// Variants that use unambiguous semantics (try all, detect conflicts).
     /// All other variants use short-circuit semantics (first match wins).
-    pub unambiguous: HashSet<String>,
+    pub unambiguous: IndexSet<String>,
     /// Variant representation strategy (default: External)
     pub repr: VariantRepr,
     /// Variants that deny untagged matching (require explicit $variant)
-    pub deny_untagged: HashSet<String>,
+    pub deny_untagged: IndexSet<String>,
 }
 
 // ============================================================================
@@ -542,10 +542,10 @@ impl SchemaDocument {
             nodes: vec![SchemaNode {
                 content: SchemaNodeContent::Any,
                 metadata: SchemaMetadata::default(),
-                ext_types: HashMap::new(),
+                ext_types: IndexMap::new(),
             }],
             root: SchemaNodeId(0),
-            types: HashMap::new(),
+            types: IndexMap::new(),
         }
     }
 
@@ -565,7 +565,7 @@ impl SchemaDocument {
         self.nodes.push(SchemaNode {
             content,
             metadata: SchemaMetadata::default(),
-            ext_types: HashMap::new(),
+            ext_types: IndexMap::new(),
         });
         id
     }

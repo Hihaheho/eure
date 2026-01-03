@@ -30,7 +30,7 @@ output_json_schema = ```json
                         "name": {"type": "string"},
                         "email": {"type": "string"}
                     },
-                    "required": ["email", "name"],
+                    "required": ["name", "email"],
                     "additionalProperties": false
                 }
             }

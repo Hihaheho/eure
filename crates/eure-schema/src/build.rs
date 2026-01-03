@@ -21,6 +21,8 @@
 use std::any::TypeId;
 use std::collections::HashMap;
 
+use indexmap::IndexMap;
+
 use crate::{SchemaDocument, SchemaMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId};
 
 /// Trait for types that can build their schema representation.
@@ -80,7 +82,7 @@ impl SchemaBuilder {
             doc: SchemaDocument {
                 nodes: Vec::new(),
                 root: SchemaNodeId(0), // Will be set in finish()
-                types: HashMap::new(),
+                types: Default::default(),
             },
             cache: HashMap::new(),
         }
@@ -151,7 +153,7 @@ impl SchemaBuilder {
         self.doc.nodes.push(SchemaNode {
             content,
             metadata: SchemaMetadata::default(),
-            ext_types: HashMap::new(),
+            ext_types: Default::default(),
         });
         id
     }
@@ -166,7 +168,7 @@ impl SchemaBuilder {
         self.doc.nodes.push(SchemaNode {
             content,
             metadata,
-            ext_types: HashMap::new(),
+            ext_types: Default::default(),
         });
         id
     }
@@ -180,7 +182,7 @@ impl SchemaBuilder {
         self.doc.nodes.push(SchemaNode {
             content: SchemaNodeContent::Any, // Placeholder
             metadata: SchemaMetadata::default(),
-            ext_types: HashMap::new(),
+            ext_types: Default::default(),
         });
         id
     }
@@ -365,19 +367,17 @@ impl BuildSchema for () {
 /// Option<T> is represented as a union: some(T) | none(null)
 impl<T: BuildSchema + 'static> BuildSchema for Option<T> {
     fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        use std::collections::{BTreeMap, HashSet};
-
         let some_schema = ctx.build::<T>();
         let none_schema = ctx.create_node(SchemaNodeContent::Null);
 
         SchemaNodeContent::Union(crate::UnionSchema {
-            variants: BTreeMap::from([
+            variants: IndexMap::from([
                 ("some".to_string(), some_schema),
                 ("none".to_string(), none_schema),
             ]),
-            unambiguous: HashSet::new(),
+            unambiguous: Default::default(),
             repr: eure_document::data_model::VariantRepr::default(),
-            deny_untagged: HashSet::new(),
+            deny_untagged: Default::default(),
         })
     }
 }
@@ -385,19 +385,17 @@ impl<T: BuildSchema + 'static> BuildSchema for Option<T> {
 /// Result<T, E> is represented as a union: ok(T) | err(E)
 impl<T: BuildSchema + 'static, E: BuildSchema + 'static> BuildSchema for Result<T, E> {
     fn build_schema(ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        use std::collections::{BTreeMap, HashSet};
-
         let ok_schema = ctx.build::<T>();
         let err_schema = ctx.build::<E>();
 
         SchemaNodeContent::Union(crate::UnionSchema {
-            variants: BTreeMap::from([
+            variants: IndexMap::from([
                 ("ok".to_string(), ok_schema),
                 ("err".to_string(), err_schema),
             ]),
-            unambiguous: HashSet::new(),
+            unambiguous: Default::default(),
             repr: eure_document::data_model::VariantRepr::default(),
-            deny_untagged: HashSet::new(),
+            deny_untagged: Default::default(),
         })
     }
 }

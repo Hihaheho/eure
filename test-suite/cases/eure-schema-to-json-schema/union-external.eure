@@ -13,14 +13,14 @@ output_json_schema = ```json
     "oneOf": [
         {
             "type": "object",
-            "properties": {"error": {"type": "string"}},
-            "required": ["error"],
+            "properties": {"success": {"type": "string"}},
+            "required": ["success"],
             "additionalProperties": false
         },
         {
             "type": "object",
-            "properties": {"success": {"type": "string"}},
-            "required": ["success"],
+            "properties": {"error": {"type": "string"}},
+            "required": ["error"],
             "additionalProperties": false
         }
     ]

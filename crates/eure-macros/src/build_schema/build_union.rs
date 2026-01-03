@@ -145,15 +145,13 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
         .collect();
 
     let content = quote! {
-        use std::collections::{BTreeMap, HashSet};
-
         #(#all_builds)*
 
         #schema_crate::SchemaNodeContent::Union(#schema_crate::UnionSchema {
-            variants: BTreeMap::from([#(#variant_entries),*]),
-            unambiguous: HashSet::new(),
+            variants: [#(#variant_entries),*].into_iter().collect(),
+            unambiguous: Default::default(),
             repr: ::eure_document::data_model::VariantRepr::default(),
-            deny_untagged: HashSet::new(),
+            deny_untagged: Default::default(),
         })
     };
 

@@ -18,12 +18,11 @@
 //! SchemaDocument, SchemaNode, ArraySchema, ...
 //! ```
 
-use std::collections::{BTreeMap, HashMap, HashSet};
-
 use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
@@ -225,7 +224,7 @@ impl ParseDocument<'_> for ParsedUnknownFieldsPolicy {
 #[derive(Debug, Clone, Default)]
 pub struct ParsedRecordSchema {
     /// Fixed field schemas (field name -> field schema with metadata)
-    pub properties: HashMap<String, ParsedRecordFieldSchema>,
+    pub properties: IndexMap<String, ParsedRecordFieldSchema>,
     /// Policy for unknown/additional fields
     pub unknown_fields: ParsedUnknownFieldsPolicy,
 }
@@ -240,7 +239,7 @@ impl ParseDocument<'_> for ParsedRecordSchema {
 
         // Parse all fields in the map as record properties
         let rec = ctx.parse_record()?;
-        let mut properties = HashMap::new();
+        let mut properties = IndexMap::new();
 
         for (field_name, field_ctx) in rec.unknown_fields() {
             let field_schema = ParsedRecordFieldSchema::parse(&field_ctx)?;
@@ -269,23 +268,23 @@ pub struct ParsedTupleSchema {
 #[derive(Debug, Clone)]
 pub struct ParsedUnionSchema {
     /// Variant definitions (variant name -> schema NodeId)
-    pub variants: BTreeMap<String, NodeId>,
+    pub variants: IndexMap<String, NodeId>,
     /// Variants that use unambiguous semantics (try all, detect conflicts).
     /// All other variants use short-circuit semantics (first match wins).
-    pub unambiguous: HashSet<String>,
+    pub unambiguous: IndexSet<String>,
     /// Variant representation strategy
     pub repr: VariantRepr,
     /// Variants that deny untagged matching (require explicit $variant)
-    pub deny_untagged: HashSet<String>,
+    pub deny_untagged: IndexSet<String>,
 }
 
 impl ParseDocument<'_> for ParsedUnionSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let rec = ctx.parse_record()?;
-        let mut variants = BTreeMap::new();
-        let mut unambiguous = HashSet::new();
-        let mut deny_untagged = HashSet::new();
+        let mut variants = IndexMap::new();
+        let mut unambiguous = IndexSet::new();
+        let mut deny_untagged = IndexSet::new();
 
         // Check for variants = { ... } field
         if let Some(variants_ctx) = rec.field_optional("variants") {
@@ -408,7 +407,7 @@ pub struct ParsedSchemaNode {
     /// Cascading metadata
     pub metadata: ParsedSchemaMetadata,
     /// Extension type definitions for this node
-    pub ext_types: HashMap<Identifier, ParsedExtTypeSchema>,
+    pub ext_types: IndexMap<Identifier, ParsedExtTypeSchema>,
 }
 
 // ============================================================================
@@ -656,10 +655,10 @@ impl ParseDocument<'_> for ParsedSchemaNode {
 /// Parse the $ext-type extension as a map of extension schemas.
 fn parse_ext_types(
     ctx: &ParseContext<'_>,
-) -> Result<HashMap<Identifier, ParsedExtTypeSchema>, ParseError> {
+) -> Result<IndexMap<Identifier, ParsedExtTypeSchema>, ParseError> {
     let ext_type_ctx = ctx.ext_optional("ext-type");
 
-    let mut result = HashMap::new();
+    let mut result = IndexMap::new();
 
     if let Some(ext_type_ctx) = ext_type_ctx {
         let rec = ext_type_ctx.parse_record()?;

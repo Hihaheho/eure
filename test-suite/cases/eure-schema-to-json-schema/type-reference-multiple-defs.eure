@@ -20,22 +20,22 @@ output_json_schema = ```json
         {"$ref": "#/$defs/Person"},
         {
             "$defs": {
-                "Address": {
-                    "type": "object",
-                    "properties": {
-                        "street": {"type": "string"},
-                        "city": {"type": "string"}
-                    },
-                    "required": ["city", "street"],
-                    "additionalProperties": false
-                },
                 "Person": {
                     "type": "object",
                     "properties": {
                         "name": {"type": "string"},
                         "address": {"$ref": "#/$defs/Address"}
                     },
-                    "required": ["address", "name"],
+                    "required": ["name", "address"],
+                    "additionalProperties": false
+                },
+                "Address": {
+                    "type": "object",
+                    "properties": {
+                        "street": {"type": "string"},
+                        "city": {"type": "string"}
+                    },
+                    "required": ["street", "city"],
                     "additionalProperties": false
                 }
             }

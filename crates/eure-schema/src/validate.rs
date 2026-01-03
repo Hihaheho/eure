@@ -383,14 +383,14 @@ mod tests {
     use eure_document::data_model::VariantRepr;
     use eure_document::text::Text;
     use eure_document::value::{ObjectKey, PrimitiveValue};
+    use indexmap::{IndexMap, IndexSet};
     use num_bigint::BigInt;
-    use std::collections::{BTreeMap, HashMap, HashSet};
 
     fn create_simple_schema(content: SchemaNodeContent) -> (SchemaDocument, SchemaNodeId) {
         let mut schema = SchemaDocument {
             nodes: Vec::new(),
             root: SchemaNodeId(0),
-            types: HashMap::new(),
+            types: IndexMap::new(),
         };
         let id = schema.create_node(content);
         schema.root = id;
@@ -497,7 +497,7 @@ mod tests {
         let age_schema_id =
             schema.create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
 
-        let mut properties = HashMap::new();
+        let mut properties = IndexMap::new();
         properties.insert(
             "name".to_string(),
             RecordFieldSchema {
@@ -566,15 +566,15 @@ mod tests {
         let literal_schema_id = create_literal_schema(&mut schema, eure!({ = "active" }));
 
         // Create union with literal variant that requires explicit tagging
-        let mut variants = BTreeMap::new();
+        let mut variants = IndexMap::new();
         variants.insert("literal".to_string(), literal_schema_id);
 
-        let mut deny_untagged = HashSet::new();
+        let mut deny_untagged = IndexSet::new();
         deny_untagged.insert("literal".to_string());
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
-            unambiguous: HashSet::new(),
+            unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
             deny_untagged,
         });
@@ -602,15 +602,15 @@ mod tests {
         let literal_schema_id = create_literal_schema(&mut schema, eure!({ = "active" }));
 
         // Create union with literal variant that requires explicit tagging
-        let mut variants = BTreeMap::new();
+        let mut variants = IndexMap::new();
         variants.insert("literal".to_string(), literal_schema_id);
 
-        let mut deny_untagged = HashSet::new();
+        let mut deny_untagged = IndexSet::new();
         deny_untagged.insert("literal".to_string());
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
-            unambiguous: HashSet::new(),
+            unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
             deny_untagged,
         });
@@ -644,16 +644,16 @@ mod tests {
         let text_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
 
         // Create union where literal requires explicit tag but text doesn't
-        let mut variants = BTreeMap::new();
+        let mut variants = IndexMap::new();
         variants.insert("literal".to_string(), literal_active_id);
         variants.insert("text".to_string(), text_schema_id);
 
-        let mut deny_untagged = HashSet::new();
+        let mut deny_untagged = IndexSet::new();
         deny_untagged.insert("literal".to_string());
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
-            unambiguous: HashSet::new(),
+            unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
             deny_untagged,
         });

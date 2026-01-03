@@ -14,8 +14,8 @@ output_json_schema = ```json
     "type": "array",
     "items": {
         "oneOf": [
-            {"type": "integer"},
-            {"type": "string"}
+            {"type": "string"},
+            {"type": "integer"}
         ]
     }
 }
