@@ -1,0 +1,21 @@
+name: Publish to crates.io
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    branches: [main]
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: dtolnay/rust-toolchain@4be9e76fd7c4901c61fb841f559994984270fce7 # stable
+    - uses: rust-lang/crates-io-auth-action@b7e9a28eded4986ec6b1fa40eeee8f8f165559ec # v1.0.3
+      id: auth
+    - name: Install cargo-workspaces
+      run: cargo install cargo-workspaces
+    - run: cargo workspaces publish --publish-as-is
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
