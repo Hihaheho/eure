@@ -394,3 +394,41 @@ fn format_expected_error_not_found(
     }
     Ok(())
 }
+
+/// Compare error lists from query results with expected errors.
+/// - If actual is empty but expected is not, returns ExpectedValidationToFail
+/// - If lists don't match, returns SchemaValidationMismatch
+/// - Returns Ok(()) if lists match exactly
+///
+/// Note: Trailing whitespace on each line is normalized for comparison,
+/// as test case files may have trailing whitespace stripped differently
+/// than the formatted error output.
+pub fn compare_error_lists(
+    actual: &Arc<Vec<String>>,
+    expected: Vec<String>,
+) -> Result<(), ScenarioError> {
+    if actual.is_empty() && !expected.is_empty() {
+        return Err(ScenarioError::ExpectedValidationToFail {
+            expected_errors: expected,
+        });
+    }
+
+    // Normalize trailing whitespace on each line for comparison
+    let normalize = |s: &str| -> String {
+        s.lines()
+            .map(|line| line.trim_end())
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    let actual_normalized: Vec<String> = actual.iter().map(|s| normalize(s)).collect();
+    let expected_normalized: Vec<String> = expected.iter().map(|s| normalize(s)).collect();
+
+    if actual_normalized != expected_normalized {
+        return Err(ScenarioError::SchemaValidationMismatch {
+            expected,
+            actual: actual.as_ref().clone(),
+        });
+    }
+    Ok(())
+}

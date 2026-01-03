@@ -8,6 +8,7 @@ use std::borrow::Cow;
 
 use eure_document::document::NodeId;
 use eure_document::path::EurePath;
+use eure_document::value::ObjectKey;
 use eure_parol::EureParseError;
 use eure_parol::error::{ParseErrorEntry, ParseErrorKind};
 use eure_schema::SchemaNodeId;
@@ -247,7 +248,7 @@ impl ErrorReport {
 // ============================================================================
 
 /// A collection of error reports.
-#[derive(Debug, Clone, Plural, PartialEq)]
+#[derive(Debug, Clone, Default, Plural, PartialEq)]
 pub struct ErrorReports(Vec<ErrorReport>);
 
 impl ErrorReports {
@@ -391,15 +392,31 @@ fn report_validation_error(
     // Query schema
     let schema = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
 
-    // For InvalidKeyType, try to get precise key span
-    let resolved_span = if let ValidationError::InvalidKeyType { key, node_id, .. } = error {
-        // Try to get precise key span first
-        doc.origins
-            .get_key_span(*node_id, key, &cst)
-            .or_else(|| doc.origins.get_node_span(doc_node_id, &cst))
-    } else {
-        // Standard node span resolution
-        doc.origins.get_node_span(doc_node_id, &cst)
+    // Resolve span based on error type
+    let resolved_span = match error {
+        ValidationError::InvalidKeyType { key, node_id, .. } => {
+            // Try to get precise key span first
+            doc.origins
+                .get_key_span(*node_id, key, &cst)
+                .or_else(|| doc.origins.get_value_span(doc_node_id, &cst))
+        }
+        ValidationError::UnknownField { field, node_id, .. } => {
+            // Try to get precise key span for the unknown field
+            let object_key = ObjectKey::String(field.clone());
+            doc.origins
+                .get_key_span(*node_id, &object_key, &cst)
+                .or_else(|| doc.origins.get_value_span(doc_node_id, &cst))
+        }
+        ValidationError::MissingRequiredField { .. } => {
+            // Use definition span (the key) to show where the record is defined
+            doc.origins
+                .get_definition_span(doc_node_id, &cst)
+                .or_else(|| doc.origins.get_value_span(doc_node_id, &cst))
+        }
+        _ => {
+            // Standard node span resolution (value span)
+            doc.origins.get_value_span(doc_node_id, &cst)
+        }
     };
 
     let (doc_span, is_fallback) = match resolved_span {
@@ -463,7 +480,7 @@ fn resolve_schema_span(
     // Query CST for span resolution
     let cst = db.query(ParseCst::new(schema_file)).ok()?;
     // Use OriginMap for span resolution
-    schema.parsed.origins.get_node_span(*doc_node_id, &cst.cst)
+    schema.parsed.origins.get_value_span(*doc_node_id, &cst.cst)
 }
 
 /// Convert a schema conversion error to an ErrorReport.
@@ -477,7 +494,7 @@ pub fn report_conversion_error(
         ConversionError::ParseError(parse_error) => {
             // ParseError contains a NodeId, resolve it
             let span = origins
-                .get_node_span(parse_error.node_id, cst)
+                .get_value_span(parse_error.node_id, cst)
                 .unwrap_or(InputSpan::EMPTY);
 
             let origin = Origin::with_hints(
@@ -829,7 +846,7 @@ pub fn report_config_error(
         ConfigError::Syntax(e) => report_parse_error(e, file),
         ConfigError::Parse(e) => {
             let span = origins
-                .get_node_span(e.node_id, cst)
+                .get_value_span(e.node_id, cst)
                 .unwrap_or(InputSpan::EMPTY);
             ErrorReports::from(vec![ErrorReport::error(
                 e.to_string(),

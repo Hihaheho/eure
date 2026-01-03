@@ -218,7 +218,7 @@ pub fn get_schema_extension_diagnostics(
     // $schema exists but has wrong type - generate diagnostic
     let node_id = schema_ctx.node_id();
     let cst = db.query(ParseCst::new(file.clone()))?;
-    let span = parsed.origins.get_node_span(node_id, &cst.cst);
+    let span = parsed.origins.get_value_span(node_id, &cst.cst);
 
     let origin = crate::report::Origin {
         file,
@@ -312,20 +312,20 @@ pub fn resolve_validation_error_span(
             let key = ObjectKey::String(field.clone());
             origins
                 .get_key_span(*node_id, &key, cst)
-                .or_else(|| origins.get_node_span(*node_id, cst))
+                .or_else(|| origins.get_value_span(*node_id, cst))
         }
 
         // For InvalidKeyType, use the key span
         ValidationError::InvalidKeyType { key, node_id, .. } => origins
             .get_key_span(*node_id, key, cst)
-            .or_else(|| origins.get_node_span(*node_id, cst)),
+            .or_else(|| origins.get_value_span(*node_id, cst)),
 
         // For MissingRequiredField, the node_id is the parent map
         // We can't point to the missing field, so use the parent span
-        ValidationError::MissingRequiredField { .. } => origins.get_node_span(node_id, cst),
+        ValidationError::MissingRequiredField { .. } => origins.get_value_span(node_id, cst),
 
         // For all other errors, use the standard node span
-        _ => origins.get_node_span(node_id, cst),
+        _ => origins.get_value_span(node_id, cst),
     }
 }
 
@@ -339,7 +339,7 @@ fn report_schema_conversion_error(
     let span = match error {
         ConversionError::ParseError(parse_error) => parsed
             .origins
-            .get_node_span(parse_error.node_id, cst)
+            .get_value_span(parse_error.node_id, cst)
             .unwrap_or(InputSpan::EMPTY),
         _ => InputSpan::EMPTY,
     };

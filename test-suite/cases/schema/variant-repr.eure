@@ -581,10 +581,10 @@ error: Type mismatch: expected integer, got map at path value
   | |___^ Type mismatch: expected integer, got map at path value
   |
 note: constraint defined here
- --> schema.eure:4:3
+ --> schema.eure:4:16
   |
 4 |   variants.a = `integer`
-  |   ---------------------- constraint defined here
+  |                --------- constraint defined here
 ```
 
 // ============================================================================
@@ -682,16 +682,16 @@ value {
 // The tag says "a" but data is integer (matches b's structure)
 schema_errors[] = ```text
 error: Type mismatch: expected text, got integer at path value.data
- --> input.eure:3:3
+ --> input.eure:3:10
   |
 3 |   data = 42
-  |   ^^^^^^^^^ Type mismatch: expected text, got integer at path value.data
+  |          ^^ Type mismatch: expected text, got integer at path value.data
   |
 note: constraint defined here
- --> schema.eure:4:3
+ --> schema.eure:4:21
   |
 4 |   variants.a.data = `text`
-  |   ------------------------ constraint defined here
+  |                     ------ constraint defined here
 ```
 
 // ============================================================================
@@ -770,16 +770,16 @@ value {
 // This shows the issue with untagged fallback - order matters
 schema_errors[] = ```text
 error: Type mismatch: expected integer, got text at path value.data
- --> input.eure:2:3
+ --> input.eure:2:10
   |
 2 |   data = "hello"
-  |   ^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path value.data
+  |          ^^^^^^^ Type mismatch: expected integer, got text at path value.data
   |
 note: constraint defined here
- --> schema.eure:6:3
+ --> schema.eure:6:21
   |
 6 |   variants.b.data = `integer`
-  |   --------------------------- constraint defined here
+  |                     --------- constraint defined here
 ```
 
 // ============================================================================

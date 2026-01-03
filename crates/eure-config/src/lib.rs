@@ -56,7 +56,7 @@ impl From<EureParseError> for ConfigError {
 }
 
 /// A check target definition.
-#[derive(Debug, Clone, ParseDocument, PartialEq)]
+#[derive(Debug, Clone, ParseDocument, PartialEq, Eq, Hash)]
 #[eure(crate = eure_document, allow_unknown_fields)]
 pub struct Target {
     /// Glob patterns for files to include in this target.

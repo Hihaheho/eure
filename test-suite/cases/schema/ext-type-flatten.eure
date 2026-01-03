@@ -125,16 +125,16 @@ a.$ext-type.required = `boolean`
 schema_errors = [
   ```
 error: Missing required extension 'required' at path a
- --> input.eure:1:1
+ --> input.eure:1:5
   |
 1 | a = "hello"
-  | ^^^^^^^^^^^ Missing required extension 'required' at path a
+  |     ^^^^^^^ Missing required extension 'required' at path a
   |
 note: constraint defined here
- --> schema.eure:3:1
+ --> schema.eure:3:5
   |
 3 | a = `$types.my-type`
-  | -------------------- constraint defined here
+  |     ---------------- constraint defined here
 ```
 ]
 
@@ -159,15 +159,15 @@ a = `$types.my-type`
 schema_errors = [
   ```
 error: Type mismatch: expected integer, got text at path a.$a
- --> input.eure:2:1
+ --> input.eure:2:8
   |
 2 | a.$a = "not an integer"
-  | ^^^^^^^^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path a.$a
+  |        ^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path a.$a
   |
 note: constraint defined here
- --> schema.eure:2:1
+ --> schema.eure:2:30
   |
 2 | $types.my-type.$ext-type.a = `integer`
-  | -------------------------------------- constraint defined here
+  |                              --------- constraint defined here
 ```
 ]

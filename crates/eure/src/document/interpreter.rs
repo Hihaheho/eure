@@ -203,9 +203,18 @@ impl<'a> CstInterpreter<'a> {
         (self.document.finish(), self.origins)
     }
 
-    /// Record an origin for a node
-    fn record_origin(&mut self, node_id: eure_document::document::NodeId, cst_node_id: CstNodeId) {
-        self.origins.record_node(node_id, cst_node_id);
+    /// Record a definition span for a node (typically the key).
+    fn record_definition(
+        &mut self,
+        node_id: eure_document::document::NodeId,
+        cst_node_id: CstNodeId,
+    ) {
+        self.origins.record_definition(node_id, cst_node_id);
+    }
+
+    /// Record a value span for a node (the full expression).
+    fn record_value(&mut self, node_id: eure_document::document::NodeId, cst_node_id: CstNodeId) {
+        self.origins.record_value(node_id, cst_node_id);
     }
 
     /// Record a map key origin for precise error spans.
@@ -291,6 +300,14 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: EureView,
         tree: &F,
     ) -> Result<(), Self::Error> {
+        let root_id = self.document.current_node_id();
+
+        // Only record value span for the true document root (not for section bodies).
+        // Section bodies get their value span from visit_section.
+        if root_id == self.document.document().get_root_id() {
+            self.record_value(root_id, handle.node_id());
+        }
+
         // Visit children using the default super implementation
         self.visit_eure_super(handle, view, tree)?;
         // Check if Eure is truly empty (no ValueBinding, no Bindings, no Sections)
@@ -312,9 +329,9 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: ObjectView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Record the object container origin
+        // Record the object container value span
         let container_id = self.document.current_node_id();
-        self.record_origin(container_id, handle.node_id());
+        self.record_value(container_id, handle.node_id());
 
         // Check if there's a value binding (new syntax: { = value, ... })
         let has_value_binding = if let Some(object_opt_view) = view.object_opt.get_view(tree)? {
@@ -344,8 +361,8 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     }
                 })?;
 
-                // Record origin for this object entry
-                self.record_origin(node_id, item.keys.node_id());
+                // Record value span for this object entry
+                self.record_value(node_id, item.keys.node_id());
 
                 // Visit the value
                 self.visit_value_handle(item.value, tree)?;
@@ -374,9 +391,9 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: ArrayView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Record the array container origin
+        // Record the array container value span
         let container_id = self.document.current_node_id();
-        self.record_origin(container_id, handle.node_id());
+        self.record_value(container_id, handle.node_id());
 
         // Process array elements
         if let Some(elements_handle) = view.array_opt.get_view(tree)? {
@@ -397,8 +414,8 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                         node_id: handle.node_id(),
                     })?;
 
-                // Record origin for this array element
-                self.record_origin(node_id, handle.node_id());
+                // Record value span for this array element
+                self.record_value(node_id, handle.node_id());
 
                 // Visit the value at this index
                 self.visit_value_handle(elem_view.value, tree)?;
@@ -434,9 +451,9 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: TupleView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Record the tuple container origin
+        // Record the tuple container value span
         let container_id = self.document.current_node_id();
-        self.record_origin(container_id, handle.node_id());
+        self.record_value(container_id, handle.node_id());
 
         // Process tuple elements (similar to array but with TupleIndex path segment)
         if let Some(elements_handle) = view.tuple_opt.get_view(tree)? {
@@ -457,8 +474,8 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                         node_id: handle.node_id(),
                     })?;
 
-                // Record origin for this tuple element
-                self.record_origin(node_id, handle.node_id());
+                // Record value span for this tuple element
+                self.record_value(node_id, handle.node_id());
 
                 // Visit the value at this index
                 self.visit_value_handle(elem_view.value, tree)?;
@@ -560,6 +577,9 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             }
         };
 
+        // Capture CST node ID before consuming key_origin_info
+        let key_cst_node = key_origin_info.as_ref().map(|(_, id)| *id);
+
         // Record key origin for ObjectKey-based segments (for precise error spans)
         if let Some((object_key, key_cst_node_id)) = key_origin_info {
             self.record_key_origin(container_id, object_key, key_cst_node_id);
@@ -572,6 +592,13 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
+
+        // Record definition span for the navigated node using the key's CST span
+        // This ensures MissingRequiredField errors point to the defining key
+        if let Some(cst_node_id) = key_cst_node {
+            let child_id = self.document.current_node_id();
+            self.record_definition(child_id, cst_node_id);
+        }
 
         // 3. ArrayMarker の処理
         let key_opt_view = view.key_opt.get_view(tree)?;
@@ -666,7 +693,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 node_id: handle.node_id(),
             })?;
 
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         self.visit_binding_rhs_handle(view.binding_rhs, tree)?;
         self.document.end_scope(scope)?;
         Ok(())
@@ -697,7 +724,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 node_id: handle.node_id(),
             })?;
 
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         self.visit_section_body_handle(section_body, tree)?;
         self.document.end_scope(scope)?;
         Ok(())
@@ -752,7 +779,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -769,7 +796,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -786,7 +813,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -812,7 +839,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -832,7 +859,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -849,7 +876,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -892,7 +919,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 node_id: handle.node_id(),
             }
         })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -919,7 +946,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -944,7 +971,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -1006,7 +1033,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::InlineCode2(inline_handle)) = code_start.origin {
-                self.record_origin(node_id, inline_handle.node_id());
+                self.record_value(node_id, inline_handle.node_id());
             }
         }
         Ok(())
@@ -1071,7 +1098,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, block_handle.node_id());
+                self.record_value(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1122,7 +1149,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, block_handle.node_id());
+                self.record_value(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1173,7 +1200,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, block_handle.node_id());
+                self.record_value(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1224,7 +1251,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
-                self.record_origin(node_id, block_handle.node_id());
+                self.record_value(node_id, block_handle.node_id());
             }
         }
         Ok(())
@@ -1251,7 +1278,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 
@@ -1285,7 +1312,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 error: e,
                 node_id: handle.node_id(),
             })?;
-        self.record_origin(node_id, handle.node_id());
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 

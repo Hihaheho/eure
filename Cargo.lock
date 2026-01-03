@@ -1537,6 +1537,7 @@ dependencies = [
  "eure-parol",
  "eure-schema",
  "eure-tree",
+ "glob",
  "num-bigint",
  "query-flow",
  "regex",
@@ -1667,12 +1668,14 @@ dependencies = [
 name = "eure-json-schema"
 version = "0.1.0"
 dependencies = [
+ "eure",
  "eure-document",
  "eure-json",
  "eure-schema",
  "indexmap",
  "num-bigint",
  "num-traits",
+ "query-flow",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -1776,9 +1779,11 @@ version = "0.1.0"
 name = "eure-toml"
 version = "0.1.0"
 dependencies = [
+ "eure",
  "eure-document",
  "eure-fmt",
  "num-bigint",
+ "query-flow",
  "thiserror 2.0.17",
  "toml_parser",
 ]

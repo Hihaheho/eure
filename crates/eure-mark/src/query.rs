@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use eure::query::{ParseCst, ParseDocument, TextFile};
-use eure::report::{ErrorReports, Origin};
+use eure::report::{ErrorReports, Origin, format_error_reports};
 use eure_document::document::EureDocument;
 use eure_document::parse::ParseError;
 use eure_tree::prelude::Cst;
@@ -48,16 +48,19 @@ pub fn parse_eumd_document(db: &impl Db, file: TextFile) -> Result<ParsedEumd, Q
         // Convert parse error to ErrorReports
         let span = parsed_doc
             .origins
-            .get_node_span(e.node_id, &parsed_cst.cst)
+            .get_value_span(e.node_id, &parsed_cst.cst)
             .unwrap_or(InputSpan::EMPTY);
         let origin = Origin::new(file.clone(), span);
-        ErrorReports::from(vec![eure::report::ErrorReport::error(e.to_string(), origin)])
+        ErrorReports::from(vec![eure::report::ErrorReport::error(
+            e.to_string(),
+            origin,
+        )])
     })?;
 
     Ok(ParsedEumd {
         doc: Arc::new(eumd_doc),
         eure_doc: parsed_doc.doc.clone(),
-        cst: parsed_cst.cst.clone(),
+        cst: Arc::new(parsed_cst.cst.clone()),
         origins: parsed_doc.origins.clone(),
     })
 }
@@ -73,7 +76,7 @@ pub fn parse_eumd_document(db: &impl Db, file: TextFile) -> Result<ParsedEumd, Q
 pub fn check_eumd_references(db: &impl Db, file: TextFile) -> Result<ErrorReports, QueryError> {
     let parsed = db.query(ParseEumdDocument::new(file.clone()))?;
 
-    // Check references
+    // Check references (explicit dereference for proper type coercion)
     let result = check_references_with_spans(&parsed.doc, &parsed.eure_doc);
 
     if result.is_ok() {
@@ -87,4 +90,28 @@ pub fn check_eumd_references(db: &impl Db, file: TextFile) -> Result<ErrorReport
         };
         Ok(report_check_errors(&result, &ctx))
     }
+}
+
+/// Check references in an EumdDocument and return formatted error strings.
+///
+/// This query combines:
+/// - CheckEumdReferences
+/// - Error formatting
+///
+/// Returns formatted error strings for each reference error found.
+#[query]
+pub fn check_eumd_references_formatted(
+    db: &impl Db,
+    file: TextFile,
+) -> Result<Vec<String>, QueryError> {
+    let reports = db.query(CheckEumdReferences::new(file))?;
+
+    // Format each error individually
+    let mut formatted = Vec::new();
+    for r in reports.iter() {
+        let single = ErrorReports::from(vec![r.clone()]);
+        let s = format_error_reports(db, &single, false)?;
+        formatted.push(s.trim().to_string());
+    }
+    Ok(formatted)
 }

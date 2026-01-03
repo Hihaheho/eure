@@ -8,7 +8,7 @@ pub use error::{EureToJsonError, JsonToEureError};
 use eure::data_model::VariantRepr;
 use eure::document::node::NodeValue;
 use eure::document::{EureDocument, NodeId};
-use eure::query::{ParseDocument, TextFile};
+use eure::query::{ParseDocument, TextFile, read_text_file};
 use eure::value::{ObjectKey, PrimitiveValue};
 use eure_document::text::Text;
 use num_bigint::BigInt;
@@ -23,6 +23,20 @@ pub fn eure_to_json(
 ) -> Result<JsonValue, QueryError> {
     let parsed = db.query(ParseDocument::new(text_file.clone()))?;
     Ok(document_to_value(&parsed.doc, &config)?)
+}
+
+/// Convert a JSON file to an Eure document.
+///
+/// This query reads the JSON file, parses it, and converts it to an EureDocument.
+#[query]
+pub fn json_to_eure(
+    db: &impl Db,
+    json_file: TextFile,
+    config: Config,
+) -> Result<EureDocument, QueryError> {
+    let content = read_text_file(db, json_file)?;
+    let json: JsonValue = serde_json::from_str(&content)?;
+    Ok(value_to_document(&json, &config)?)
 }
 
 pub fn document_to_value(

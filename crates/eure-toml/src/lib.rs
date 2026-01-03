@@ -18,8 +18,10 @@
 //! ```
 
 mod error;
+mod query;
 
 pub use error::TomlToEureError;
+pub use query::{TomlToEureDocument, TomlToEureSource};
 
 use std::collections::HashSet;
 

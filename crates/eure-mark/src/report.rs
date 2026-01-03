@@ -40,7 +40,7 @@ fn report_reference_error(error: &ReferenceError, ctx: &EumdReportContext<'_>) -
         (error.node_id, error.offset, error.len)
     {
         // Get the span of the node (code block)
-        if let Some(node_span) = ctx.origins.get_node_span(node_id, ctx.cst) {
+        if let Some(node_span) = ctx.origins.get_value_span(node_id, ctx.cst) {
             // For code blocks, we need to find where the actual content starts
             // The node_span includes the opening ``` and language tag
             // We'll calculate the content start by looking at the text

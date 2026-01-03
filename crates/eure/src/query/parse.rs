@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eure_parol::{EureParseError, ParseResult, parse, parse_tolerant};
+use eure_parol::{EureParseError, ParseResult, parse_tolerant};
 use eure_tree::prelude::Cst;
 use query_flow::{Db, QueryError, query};
 
@@ -16,7 +16,7 @@ use super::assets::{TextFile, TextFileContent};
 /// Result of tolerant parsing - always returns CST, optionally with error.
 #[derive(Clone, PartialEq)]
 pub struct ParsedCst {
-    pub cst: Arc<Cst>,
+    pub cst: Cst,
     pub error: Option<EureParseError>,
 }
 
@@ -36,12 +36,9 @@ pub fn read_text_file(db: &impl Db, file: TextFile) -> Result<String, QueryError
 pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> {
     let text = read_text_file(db, file.clone())?;
     let parsed = match parse_tolerant(&text) {
-        ParseResult::Ok(cst) => ParsedCst {
-            cst: Arc::new(cst),
-            error: None,
-        },
+        ParseResult::Ok(cst) => ParsedCst { cst, error: None },
         ParseResult::ErrWithCst { cst, error } => ParsedCst {
-            cst: Arc::new(cst),
+            cst,
             error: Some(error),
         },
     };
@@ -50,9 +47,11 @@ pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> 
 
 #[query]
 pub fn valid_cst(db: &impl Db, file: TextFile) -> Result<Cst, QueryError> {
-    let text = read_text_file(db, file.clone())?;
-    let cst = parse(&text).map_err(EureQueryError::ParseError)?;
-    Ok(cst)
+    let parsed = db.query(ParseCst::new(file.clone()))?;
+    if let Some(error) = &parsed.error {
+        return Err(EureQueryError::ParseError(error.clone()).into());
+    }
+    Ok(parsed.cst.clone())
 }
 
 /// Parsed document with CST and OriginMap for error reporting.

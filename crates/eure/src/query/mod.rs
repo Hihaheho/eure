@@ -11,6 +11,7 @@ pub mod error;
 pub mod parse;
 pub mod schema;
 pub mod semantic_token;
+pub mod validation;
 
 pub use assets::{TextFile, TextFileContent, Workspace, WorkspaceId};
 pub use config::{GetConfig, LoadConfigError, load_config};
@@ -24,4 +25,8 @@ pub use schema::{
 };
 pub use semantic_token::{
     GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens,
+};
+pub use validation::{
+    TargetValidationResult, TargetsValidationResult, ValidateDocument, ValidateTarget,
+    ValidateTargetResult, ValidateTargets, ValidateTargetsResult,
 };

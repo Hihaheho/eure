@@ -21,13 +21,17 @@ use eure_document::value::ObjectKey;
 /// Origin tracking for document nodes and map keys.
 ///
 /// This structure provides span resolution for error reporting:
-/// - `node`: Maps document NodeId to CST origins (for general node spans)
+/// - `definition`: Where the node's key/name is defined (for MissingRequiredField)
+/// - `value`: The full value expression (for TypeMismatch, etc.)
 /// - `key`: Maps (MapNodeId, ObjectKey) to the key's CstNodeId (for precise key spans)
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct OriginMap {
-    /// NodeId -> CstNodeId origins.
-    /// A node can have multiple origins (e.g., created via key + value).
-    pub node: HashMap<NodeId, Vec<CstNodeId>>,
+    /// Definition span (where the node's key/name is defined).
+    /// Only the first definition is kept (via entry().or_insert()).
+    pub definition: HashMap<NodeId, CstNodeId>,
+    /// Value span (the full value expression).
+    /// Later values overwrite earlier ones.
+    pub value: HashMap<NodeId, CstNodeId>,
     /// (MapNodeId, ObjectKey) -> key's CstNodeId.
     /// Used for precise error spans on map keys.
     pub key: HashMap<(NodeId, ObjectKey), CstNodeId>,
@@ -39,9 +43,16 @@ impl OriginMap {
         Self::default()
     }
 
-    /// Record a node origin.
-    pub fn record_node(&mut self, node_id: NodeId, cst_node_id: CstNodeId) {
-        self.node.entry(node_id).or_default().push(cst_node_id);
+    /// Record a definition span for a node (typically the key).
+    /// Only the first definition is kept.
+    pub fn record_definition(&mut self, node_id: NodeId, cst_node_id: CstNodeId) {
+        self.definition.entry(node_id).or_insert(cst_node_id);
+    }
+
+    /// Record a value span for a node (the full expression).
+    /// Later values overwrite earlier ones.
+    pub fn record_value(&mut self, node_id: NodeId, cst_node_id: CstNodeId) {
+        self.value.insert(node_id, cst_node_id);
     }
 
     /// Record a map key origin.
@@ -49,11 +60,19 @@ impl OriginMap {
         self.key.insert((map_node_id, key), cst_node_id);
     }
 
-    /// Get the first origin span for a node.
-    pub fn get_node_span(&self, node_id: NodeId, cst: &Cst) -> Option<InputSpan> {
-        self.node
+    /// Get the value span for a node (the full value expression).
+    /// Used for TypeMismatch and other value-related errors.
+    pub fn get_value_span(&self, node_id: NodeId, cst: &Cst) -> Option<InputSpan> {
+        self.value
             .get(&node_id)
-            .and_then(|origins| origins.first())
+            .and_then(|&cst_node_id| cst.span(cst_node_id))
+    }
+
+    /// Get the definition span for a node (where the key is defined).
+    /// Used for MissingRequiredField errors to point to where the record is defined.
+    pub fn get_definition_span(&self, node_id: NodeId, cst: &Cst) -> Option<InputSpan> {
+        self.definition
+            .get(&node_id)
             .and_then(|&cst_node_id| cst.span(cst_node_id))
     }
 

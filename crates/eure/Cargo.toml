@@ -19,6 +19,7 @@ eure-macros = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }
 eure-tree = { workspace = true }
+glob = { workspace = true }
 num-bigint = { workspace = true }
 query-flow = { workspace = true }
 regex = { workspace = true }

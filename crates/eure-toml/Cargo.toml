@@ -10,8 +10,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["conversion", "eure", "serialization", "toml"]
 
 [dependencies]
+eure = { workspace = true }
 eure-document = { workspace = true }
 eure-fmt = { workspace = true }
 num-bigint = { workspace = true }
+query-flow = { workspace = true }
 thiserror = { workspace = true }
 toml_parser = "1"

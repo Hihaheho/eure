@@ -1,5 +1,6 @@
 use clap::ValueEnum;
-use eure::query_flow::{QueryError, QueryRuntime};
+use eure::query::{TextFile, TextFileContent};
+use eure::query_flow::{Query, QueryError, QueryRuntime};
 use eure::report::{ErrorReports, format_error_reports};
 use std::fs;
 use std::io::{self, Read};
@@ -53,4 +54,42 @@ pub fn handle_query_error(runtime: &QueryRuntime, e: QueryError) -> ! {
         eprintln!("Error: {e}");
     }
     std::process::exit(1);
+}
+
+/// Run a query with automatic file loading on suspend.
+///
+/// This helper enables single-query patterns for CLI commands by automatically
+/// loading files when the query suspends waiting for assets.
+///
+/// Uses query-flow's suspend/resume mechanism:
+/// 1. Execute query
+/// 2. If query suspends (waiting for assets), load pending files from disk
+/// 3. Retry query until it completes or errors
+///
+/// Returns the Arc-wrapped query result.
+pub fn run_query_with_file_loading<Q, R>(
+    runtime: &QueryRuntime,
+    query: Q,
+) -> Result<std::sync::Arc<R>, QueryError>
+where
+    Q: Query<Output = R> + Clone,
+{
+    loop {
+        match runtime.query(query.clone()) {
+            Ok(result) => return Ok(result),
+            Err(QueryError::Suspend { .. }) => {
+                // Load pending file assets from disk
+                for pending in runtime.pending_assets() {
+                    if let Some(file) = pending.key::<TextFile>() {
+                        let content = match fs::read_to_string(&*file.path) {
+                            Ok(c) => TextFileContent::Content(c),
+                            Err(_) => TextFileContent::NotFound,
+                        };
+                        runtime.resolve_asset(file.clone(), content);
+                    }
+                }
+            }
+            Err(e) => return Err(e),
+        }
+    }
 }
