@@ -16,31 +16,31 @@ output_json_schema = ```json
     "oneOf": [
         {
             "type": "object",
+            "properties": {"text": {"type": "string"}},
+            "required": ["text"],
+            "additionalProperties": false
+        },
+        {
+            "type": "object",
             "properties": {
                 "result": {
                     "oneOf": [
                         {
                             "type": "object",
-                            "properties": {"error": {"type": "string"}},
-                            "required": ["error"],
+                            "properties": {"ok": {"type": "boolean"}},
+                            "required": ["ok"],
                             "additionalProperties": false
                         },
                         {
                             "type": "object",
-                            "properties": {"ok": {"type": "boolean"}},
-                            "required": ["ok"],
+                            "properties": {"error": {"type": "string"}},
+                            "required": ["error"],
                             "additionalProperties": false
                         }
                     ]
                 }
             },
             "required": ["result"],
-            "additionalProperties": false
-        },
-        {
-            "type": "object",
-            "properties": {"text": {"type": "string"}},
-            "required": ["text"],
             "additionalProperties": false
         }
     ]

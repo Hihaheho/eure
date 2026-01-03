@@ -16,7 +16,7 @@ output_json_schema = ```json
             "name": {"type": "string"},
             "age": {"type": "integer"}
         },
-        "required": ["age", "name"],
+        "required": ["name", "age"],
         "additionalProperties": false
     }
 }

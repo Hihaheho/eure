@@ -8,6 +8,7 @@ pub mod tuple;
 pub mod union;
 pub mod variant_path;
 
+use indexmap::{IndexMap, IndexSet};
 pub use object_key::ParseObjectKey;
 pub use record::RecordParser;
 pub use tuple::TupleParser;
@@ -1214,6 +1215,28 @@ where
     }
 }
 
+impl<'doc, T> ParseDocument<'doc> for IndexSet<T>
+where
+    T: ParseDocument<'doc> + Eq + std::hash::Hash,
+    T::Error: From<ParseError>,
+{
+    type Error = T::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        ctx.ensure_no_variant_path()?;
+        match &ctx.node().content {
+            NodeValue::Array(array) => array
+                .iter()
+                .map(|item| T::parse(&ctx.at(*item)))
+                .collect::<Result<IndexSet<_>, _>>(),
+            value => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: handle_unexpected_node_value(value),
+            }
+            .into()),
+        }
+    }
+}
+
 macro_rules! parse_tuple {
     ($n:expr, $($var:ident),*) => {
         impl<'doc, $($var),*, Err> ParseDocument<'doc> for ($($var),*,)
@@ -1347,6 +1370,18 @@ where
 }
 
 impl<'doc, K, T> ParseDocument<'doc> for HashMap<K, T>
+where
+    K: ParseObjectKey<'doc>,
+    T: ParseDocument<'doc>,
+    T::Error: From<ParseError>,
+{
+    type Error = T::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        parse_map!(ctx)
+    }
+}
+
+impl<'doc, K, T> ParseDocument<'doc> for IndexMap<K, T>
 where
     K: ParseObjectKey<'doc>,
     T: ParseDocument<'doc>,

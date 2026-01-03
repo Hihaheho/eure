@@ -11,8 +11,8 @@ variants.number = `integer`
 output_json_schema = ```json
 {
     "oneOf": [
-        {"type": "integer"},
-        {"type": "string"}
+        {"type": "string"},
+        {"type": "integer"}
     ]
 }
 ```

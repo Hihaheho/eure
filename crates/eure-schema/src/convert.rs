@@ -57,8 +57,8 @@ use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::parse::ParseError;
 use eure_document::value::ObjectKey;
+use indexmap::IndexMap;
 use num_bigint::BigInt;
-use std::collections::{BTreeMap, HashMap};
 use thiserror::Error;
 
 /// Errors that can occur during document to schema conversion
@@ -88,7 +88,7 @@ pub enum ConversionError {
 
 /// Mapping from schema node IDs to their source document node IDs.
 /// Used for propagating origin information for error formatting.
-pub type SchemaSourceMap = HashMap<SchemaNodeId, NodeId>;
+pub type SchemaSourceMap = IndexMap<SchemaNodeId, NodeId>;
 
 /// Internal converter state
 struct Converter<'a> {
@@ -103,7 +103,7 @@ impl<'a> Converter<'a> {
         Self {
             doc,
             schema: SchemaDocument::new(),
-            source_map: HashMap::new(),
+            source_map: IndexMap::new(),
         }
     }
 
@@ -331,7 +331,7 @@ impl<'a> Converter<'a> {
         &mut self,
         parsed: ParsedRecordSchema,
     ) -> Result<RecordSchema, ConversionError> {
-        let mut properties = HashMap::new();
+        let mut properties = IndexMap::new();
 
         for (field_name, field_parsed) in parsed.properties {
             let schema = self.convert_node(field_parsed.schema)?;
@@ -358,7 +358,7 @@ impl<'a> Converter<'a> {
         &mut self,
         parsed: ParsedUnionSchema,
     ) -> Result<UnionSchema, ConversionError> {
-        let mut variants = BTreeMap::new();
+        let mut variants = IndexMap::new();
 
         for (variant_name, variant_node_id) in parsed.variants {
             let schema = self.convert_node(variant_node_id)?;
@@ -418,9 +418,9 @@ impl<'a> Converter<'a> {
     /// Convert parsed ext types to final ext types
     fn convert_ext_types(
         &mut self,
-        parsed: HashMap<Identifier, ParsedExtTypeSchema>,
-    ) -> Result<HashMap<Identifier, ExtTypeSchema>, ConversionError> {
-        let mut result = HashMap::new();
+        parsed: IndexMap<Identifier, ParsedExtTypeSchema>,
+    ) -> Result<IndexMap<Identifier, ExtTypeSchema>, ConversionError> {
+        let mut result = IndexMap::new();
 
         for (name, parsed_schema) in parsed {
             let schema = self.convert_node(parsed_schema.schema)?;

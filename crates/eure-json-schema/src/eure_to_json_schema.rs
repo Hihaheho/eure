@@ -750,7 +750,6 @@ mod tests {
         Bound, IntegerSchema as EureIntegerSchema, RecordFieldSchema, RecordSchema, SchemaDocument,
         SchemaNodeContent, UnknownFieldsPolicy,
     };
-    use std::collections::{BTreeMap, HashMap, HashSet};
 
     #[test]
     fn test_convert_simple_text() {
@@ -800,7 +799,7 @@ mod tests {
         let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
-        let mut properties = HashMap::new();
+        let mut properties = IndexMap::new();
         properties.insert(
             "name".to_string(),
             RecordFieldSchema {
@@ -843,15 +842,15 @@ mod tests {
         let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
-        let mut variants = BTreeMap::new();
+        let mut variants = IndexMap::new();
         variants.insert("TextVariant".to_string(), text_id);
         variants.insert("IntVariant".to_string(), int_id);
 
         doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
-            unambiguous: HashSet::new(),
+            unambiguous: Default::default(),
             repr: VariantRepr::Untagged,
-            deny_untagged: HashSet::new(),
+            deny_untagged: Default::default(),
         }));
 
         let result = eure_to_json_schema(&doc).unwrap();
@@ -870,15 +869,15 @@ mod tests {
         let text_id = doc.create_node(SchemaNodeContent::Text(TextSchema::default()));
         let int_id = doc.create_node(SchemaNodeContent::Integer(EureIntegerSchema::default()));
 
-        let mut variants = BTreeMap::new();
+        let mut variants = IndexMap::new();
         variants.insert("A".to_string(), text_id);
         variants.insert("B".to_string(), int_id);
 
         doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
-            unambiguous: HashSet::new(),
+            unambiguous: Default::default(),
             repr: VariantRepr::External,
-            deny_untagged: HashSet::new(),
+            deny_untagged: Default::default(),
         }));
 
         let result = eure_to_json_schema(&doc).unwrap();

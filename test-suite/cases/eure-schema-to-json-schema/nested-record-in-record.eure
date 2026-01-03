@@ -17,11 +17,11 @@ output_json_schema = ```json
                 "street": {"type": "string"},
                 "city": {"type": "string"}
             },
-            "required": ["city", "street"],
+            "required": ["street", "city"],
             "additionalProperties": false
         }
     },
-    "required": ["address", "name"],
+    "required": ["name", "address"],
     "additionalProperties": false
 }
 ```
