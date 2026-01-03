@@ -1,6 +1,6 @@
 [package]
 name = "serde-eure"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Serde support for Eure format"
 readme = "README.md"

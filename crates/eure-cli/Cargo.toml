@@ -1,6 +1,6 @@
 [package]
 name = "eure-cli"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Command-line tool for Eure format conversion and validation"
 readme = "README.md"

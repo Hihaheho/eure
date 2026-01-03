@@ -1,6 +1,6 @@
 [package]
 name = "eure-config"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Configuration types for Eure tools (CLI, LSP)"
 readme = "README.md"
