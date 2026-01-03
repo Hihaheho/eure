@@ -3,7 +3,7 @@ use eure::query::{
     GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, TextFile,
     TextFileContent,
 };
-use eure::query_flow::QueryRuntimeBuilder;
+use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
 use maud::{Markup, html};
 
 use crate::util::{display_path, handle_query_error, read_input};
@@ -40,7 +40,11 @@ pub fn run(args: Args) {
     let runtime = QueryRuntimeBuilder::new().build();
 
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
-    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents.clone()));
+    runtime.resolve_asset(
+        file.clone(),
+        TextFileContent::Content(contents.clone()),
+        DurabilityLevel::Static,
+    );
 
     // Get semantic tokens
     let tokens = match runtime.query(GetSemanticTokens::new(file)) {

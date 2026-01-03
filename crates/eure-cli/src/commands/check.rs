@@ -10,7 +10,7 @@ use eure::query::{
     TextFile, TextFileContent, ValidateDocument, ValidateTargetResult, ValidateTargets,
     ValidateTargetsResult, load_config,
 };
-use eure::query_flow::QueryRuntimeBuilder;
+use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
 use eure::report::{ErrorReports, format_error_reports};
 use eure_config::{CONFIG_FILENAME, EureConfig};
 use nu_ansi_term::Color;
@@ -165,13 +165,21 @@ fn run_file_mode(args: Args) {
     };
 
     let doc_file = TextFile::from_path(display_path(file_opt).into());
-    runtime.resolve_asset(doc_file.clone(), TextFileContent::Content(doc_contents));
+    runtime.resolve_asset(
+        doc_file.clone(),
+        TextFileContent::Content(doc_contents),
+        DurabilityLevel::Static,
+    );
 
     // Register schema override if provided
     let schema_file = args.schema.as_ref().map(|path| {
         let sf = TextFile::from_path(path.into());
         if let Ok(content) = std::fs::read_to_string(path) {
-            runtime.resolve_asset(sf.clone(), TextFileContent::Content(content));
+            runtime.resolve_asset(
+                sf.clone(),
+                TextFileContent::Content(content),
+                DurabilityLevel::Static,
+            );
         }
         sf
     });

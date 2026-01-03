@@ -8,7 +8,7 @@ use eure::query::{
     GetSemanticTokens, ParseDocument, SemanticToken, TextFile, TextFileContent, ValidateDocument,
 };
 use eure::report::{ErrorReports, error_reports_comparator, format_error_report};
-use query_flow::{Db, QueryError, QueryRuntime, QueryRuntimeBuilder, query};
+use query_flow::{Db, DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, query};
 
 /// Convert document to pretty-printed JSON.
 #[query]
@@ -255,10 +255,12 @@ impl EureExample {
             runtime.resolve_asset(
                 TextFile::from_path(example.file_name().into()),
                 TextFileContent::Content(example.content().to_string()),
+                DurabilityLevel::Volatile,
             );
             runtime.resolve_asset(
                 TextFile::from_path(example.schema_file_name().into()),
                 TextFileContent::Content(example.schema().to_string()),
+                DurabilityLevel::Volatile,
             );
         }
         // Register meta-schema for schema validation
@@ -267,6 +269,7 @@ impl EureExample {
             TextFileContent::Content(
                 include_str!("../../../../assets/schemas/eure-schema.schema.eure").to_string(),
             ),
+            DurabilityLevel::Static,
         );
     }
 
@@ -274,10 +277,12 @@ impl EureExample {
         runtime.resolve_asset(
             TextFile::from_path(self.file_name().into()),
             TextFileContent::Content(self.content().to_string()),
+            DurabilityLevel::Volatile,
         );
         runtime.resolve_asset(
             TextFile::from_path(self.schema_file_name().into()),
             TextFileContent::Content(self.schema().to_string()),
+            DurabilityLevel::Volatile,
         );
     }
 
@@ -285,6 +290,7 @@ impl EureExample {
         runtime.resolve_asset(
             TextFile::from_path(self.file_name().into()),
             TextFileContent::Content(value),
+            DurabilityLevel::Volatile,
         );
     }
 
@@ -292,6 +298,7 @@ impl EureExample {
         runtime.resolve_asset(
             TextFile::from_path(self.schema_file_name().into()),
             TextFileContent::Content(value),
+            DurabilityLevel::Volatile,
         );
     }
 }

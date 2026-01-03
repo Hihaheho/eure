@@ -1,5 +1,5 @@
 use eure::query::{TextFile, TextFileContent, ValidCst};
-use eure::query_flow::QueryRuntimeBuilder;
+use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
 use eure::tree::write_cst;
 use eure_fmt::unformat::{unformat, unformat_with_seed};
 
@@ -27,7 +27,11 @@ pub fn run(args: Args) {
     let runtime = QueryRuntimeBuilder::new().build();
 
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
-    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents.clone()));
+    runtime.resolve_asset(
+        file.clone(),
+        TextFileContent::Content(contents.clone()),
+        DurabilityLevel::Static,
+    );
 
     // Parse CST (fails on parse errors)
     let cst = match runtime.query(ValidCst::new(file)) {

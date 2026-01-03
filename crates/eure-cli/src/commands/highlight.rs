@@ -1,5 +1,5 @@
 use eure::query::{GetSemanticTokens, TextFile, TextFileContent};
-use eure::query_flow::QueryRuntimeBuilder;
+use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
 use nu_ansi_term::Color;
 use std::io::{self, Write};
 
@@ -24,7 +24,11 @@ pub fn run(args: Args) {
     let runtime = QueryRuntimeBuilder::new().build();
 
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
-    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents.clone()));
+    runtime.resolve_asset(
+        file.clone(),
+        TextFileContent::Content(contents.clone()),
+        DurabilityLevel::Static,
+    );
 
     // Get semantic tokens
     let tokens = match runtime.query(GetSemanticTokens::new(file)) {

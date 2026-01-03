@@ -2,7 +2,7 @@
 
 use clap::{Parser, Subcommand};
 use eure::query::{TextFile, TextFileContent};
-use eure::query_flow::QueryRuntimeBuilder;
+use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
 use eure::report::format_error_reports;
 use eure_mark::CheckEumdReferences;
 
@@ -46,7 +46,11 @@ fn run_check(args: CheckArgs) {
 
     let path = display_path(args.file.as_deref());
     let file: TextFile = TextFile::from_path(path.into());
-    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents));
+    runtime.resolve_asset(
+        file.clone(),
+        TextFileContent::Content(contents),
+        DurabilityLevel::Static,
+    );
 
     // Check eumd references (single query handles parsing + validation)
     let reports = match runtime.query(CheckEumdReferences::new(file.clone())) {

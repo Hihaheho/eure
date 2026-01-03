@@ -1,6 +1,6 @@
 use clap::ValueEnum;
 use eure::query::{TextFile, TextFileContent};
-use eure::query_flow::{Query, QueryError, QueryRuntime};
+use eure::query_flow::{DurabilityLevel, Query, QueryError, QueryRuntime};
 use eure::report::{ErrorReports, format_error_reports};
 use std::fs;
 use std::io::{self, Read};
@@ -85,7 +85,7 @@ where
                             Ok(c) => TextFileContent::Content(c),
                             Err(_) => TextFileContent::NotFound,
                         };
-                        runtime.resolve_asset(file.clone(), content);
+                        runtime.resolve_asset(file.clone(), content, DurabilityLevel::Static);
                     }
                 }
             }

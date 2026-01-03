@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use eure::query::{TextFile, TextFileContent, UnionTagMode};
 use eure_document::Text;
-use query_flow::{Db, QueryRuntime, QueryRuntimeBuilder};
+use query_flow::{Db, DurabilityLevel, QueryRuntime, QueryRuntimeBuilder};
 
 use crate::parser::{CaseData, InputUnionTagMode};
 
@@ -227,9 +227,17 @@ impl Case {
                     error: format!("{e}"),
                 }
             })?;
-            runtime.resolve_asset(file, TextFileContent::Content(content));
+            runtime.resolve_asset(
+                file,
+                TextFileContent::Content(content),
+                DurabilityLevel::Static,
+            );
         } else {
-            runtime.resolve_asset(file, TextFileContent::Content(text.as_str().to_string()));
+            runtime.resolve_asset(
+                file,
+                TextFileContent::Content(text.as_str().to_string()),
+                DurabilityLevel::Static,
+            );
         }
         Ok(())
     }
@@ -285,6 +293,7 @@ impl Case {
         runtime.resolve_asset(
             TextFile::from_path(PathBuf::from(META_SCHEMA_PATH)),
             TextFileContent::Content(META_SCHEMA.to_string()),
+            DurabilityLevel::Static,
         );
 
         Ok(())

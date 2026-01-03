@@ -1,6 +1,6 @@
 use eure::data_model::VariantRepr;
 use eure::query::{TextFile, TextFileContent};
-use eure::query_flow::QueryRuntimeBuilder;
+use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
 use eure_json::{Config as JsonConfig, EureToJson};
 
 use crate::util::{VariantFormat, display_path, handle_query_error, read_input};
@@ -42,7 +42,11 @@ pub fn run(args: Args) {
     let runtime = QueryRuntimeBuilder::new().build();
 
     let file = TextFile::from_path(display_path(file_opt).into());
-    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents));
+    runtime.resolve_asset(
+        file.clone(),
+        TextFileContent::Content(contents),
+        DurabilityLevel::Static,
+    );
 
     // Configure variant representation
     let variant_repr = match args.variant {
