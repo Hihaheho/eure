@@ -9,7 +9,7 @@ use lsp_server::{Notification, RequestId, Response};
 use lsp_types::{
     Diagnostic, PublishDiagnosticsParams, SemanticTokens, notification::PublishDiagnostics,
 };
-use query_flow::{QueryError, QueryRuntime, QueryRuntimeBuilder, RevisionCounter};
+use query_flow::{DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, RevisionCounter};
 use tracing::{info, warn};
 
 use crate::asset_locator::EureAssetLocator;
@@ -104,7 +104,8 @@ impl QueryExecutor {
         sources: &HashMap<String, String>,
     ) -> (Vec<Response>, Vec<Notification>) {
         // Resolve the asset in the runtime
-        self.runtime.resolve_asset(file.clone(), content);
+        self.runtime
+            .resolve_asset(file.clone(), content, DurabilityLevel::Volatile);
         self.pending_io.remove(&file);
 
         // Collect IDs of requests that were waiting for this file
@@ -277,8 +278,11 @@ impl QueryExecutor {
 
     /// Resolve a file directly (for open documents).
     pub fn resolve_open_document(&mut self, file: TextFile, content: String) {
-        self.runtime
-            .resolve_asset(file, TextFileContent::Content(content));
+        self.runtime.resolve_asset(
+            file,
+            TextFileContent::Content(content),
+            DurabilityLevel::Volatile,
+        );
     }
 
     /// Invalidate a file (e.g., when it's closed or changed externally).
