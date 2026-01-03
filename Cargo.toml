@@ -10,22 +10,22 @@ automod = "1"
 catppuccin = { version = "2.6.0", features = ["css-colors"] }
 clap = "4.5"
 eros = "0.5"
-eure = { path = "crates/eure", version = "0.1.1" }
-eure-codegen = { path = "crates/eure-codegen", version = "0.1.1" }
-eure-config = { path = "crates/eure-config", version = "0.1.1" }
-eure-document = { path = "crates/eure-document", version = "0.1.1" }
-eure-fmt = { path = "crates/eure-fmt", version = "0.1.1" }
-eure-json = { path = "crates/eure-json", version = "0.1.1" }
-eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.1" }
-eure-lint = { path = "crates/eure-lint", version = "0.1.1" }
-eure-macros = { path = "crates/eure-macros", version = "0.1.1" }
-eure-mark = { path = "crates/eure-mark", version = "0.1.1" }
-eure-parol = { path = "crates/eure-parol", version = "0.1.1" }
-eure-schema = { path = "crates/eure-schema", version = "0.1.1" }
-eure-template = { path = "crates/eure-template", version = "0.1.1" }
-eure-toml = { path = "crates/eure-toml", version = "0.1.1" }
-eure-tree = { path = "crates/eure-tree", version = "0.1.1" }
-eure-yaml = { path = "crates/eure-yaml", version = "0.1.1" }
+eure = { path = "crates/eure", version = "0.1.2" }
+eure-codegen = { path = "crates/eure-codegen", version = "0.1.2" }
+eure-config = { path = "crates/eure-config", version = "0.1.2" }
+eure-document = { path = "crates/eure-document", version = "0.1.2" }
+eure-fmt = { path = "crates/eure-fmt", version = "0.1.2" }
+eure-json = { path = "crates/eure-json", version = "0.1.2" }
+eure-json-schema = { path = "crates/eure-json-schema", version = "0.1.2" }
+eure-lint = { path = "crates/eure-lint", version = "0.1.2" }
+eure-macros = { path = "crates/eure-macros", version = "0.1.2" }
+eure-mark = { path = "crates/eure-mark", version = "0.1.2" }
+eure-parol = { path = "crates/eure-parol", version = "0.1.2" }
+eure-schema = { path = "crates/eure-schema", version = "0.1.2" }
+eure-template = { path = "crates/eure-template", version = "0.1.2" }
+eure-toml = { path = "crates/eure-toml", version = "0.1.2" }
+eure-tree = { path = "crates/eure-tree", version = "0.1.2" }
+eure-yaml = { path = "crates/eure-yaml", version = "0.1.2" }
 indexmap = { version = "2", default-features = false }
 lsp-types = "0.97.0"
 num-bigint = "0.4"
@@ -35,7 +35,7 @@ parol_runtime = "4"
 regex = "1.11"
 scnr2 = "0.3.3"
 serde = "1"
-serde-eure = { path = "crates/serde-eure", version = "0.1.1" }
+serde-eure = { path = "crates/serde-eure", version = "0.1.2" }
 serde_json = "1"
 thiserror = { version = "2.0", default-features = false }
 thisisplural = "0.7"
