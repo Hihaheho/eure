@@ -16,12 +16,12 @@ This has !cite[missing] reference.
 euremark_errors = [
   ``````
 error: Undefined !cite[missing] in intro
- --> <input>:3:10
+ --> input.eure:3:18
   |
 3 |   intro = ```markdown
-  |  __________^
+  |  __________________^
 4 | | This has !cite[missing] reference.
-  | |___^ Undefined !cite[missing] in intro
+  | |___________^ Undefined !cite[missing] in intro
 ``````
 ]
 
@@ -42,12 +42,12 @@ See !ref[nonexistent] for more.
 euremark_errors = [
   ``````
 error: Undefined !ref[nonexistent] in section 'intro'
- --> <input>:4:5
+ --> input.eure:4:12
   |
 4 |   body = ```markdown
-  |  _____^
+  |  ____________^
 5 | | See !ref[nonexistent] for more.
-  | |__^ Undefined !ref[nonexistent] in section 'intro'
+  | |_________^ Undefined !ref[nonexistent] in section 'intro'
 ``````
 ]
 

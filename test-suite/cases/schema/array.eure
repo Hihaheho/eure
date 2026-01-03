@@ -113,16 +113,16 @@ numbers = [`integer`]
 schema_errors = [
   ```
 error: Type mismatch: expected integer, got text at path numbers[1]
- --> <input>:2:1
+ --> input.eure:2:13
   |
 2 | numbers[] = "two"
-  | ^^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path numbers[1]
+  |             ^^^^^ Type mismatch: expected integer, got text at path numbers[1]
   |
 note: constraint defined here
- --> <schema>:1:11
+ --> schema.eure:1:12
   |
 1 | numbers = [`integer`]
-  |           ----------- constraint defined here
+  |            --------- constraint defined here
 ```
 ]
 
@@ -162,13 +162,13 @@ items {
 
 schema_errors[] = ```text
 error: Array must contain required element at path items
- --> <input>:1:1
+ --> input.eure:1:9
   |
 1 | items = [1, 2, 3]
-  | ^^^^^^^^^^^^^^^^^ Array must contain required element at path items
+  |         ^^^^^^^^^ Array must contain required element at path items
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / items {
 2 | |   $variant = "array"

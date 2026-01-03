@@ -4,195 +4,97 @@ use crate::{
     theme::Theme,
 };
 use dioxus::prelude::*;
-use eure::error::format_parse_error_plain;
 use eure::query::{
-    DocumentToSchemaQuery, ErrorSpan as EditorErrorSpan, GetSemanticTokens, ParseCst,
-    ParseDocument, SemanticToken, TextFile, TextFileContent, ValidateAgainstMetaSchema,
-    ValidateAgainstSchema,
+    GetSemanticTokens, ParseDocument, SemanticToken, TextFile, TextFileContent, ValidateDocument,
 };
-use eure::report::error_reports_comparator;
-use eure_parol::EureParseError;
-use query_flow::{QueryRuntime, QueryRuntimeBuilder};
-use std::sync::Arc;
+use eure::report::{ErrorReports, error_reports_comparator, format_error_report};
+use query_flow::{Db, QueryError, QueryRuntime, QueryRuntimeBuilder, query};
 
 /// Convert document to pretty-printed JSON.
-#[query_flow::query]
-fn document_to_json(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Option<Arc<String>>, query_flow::QueryError> {
-    let result = db.query(ParseDocument::new(file))?;
-    let parsed = match &*result {
-        None => return Ok(None),
-        Some(p) => p,
-    };
+#[query]
+fn document_to_json(db: &impl Db, file: TextFile) -> Result<String, QueryError> {
+    let parsed = db.query(ParseDocument::new(file))?;
 
     let value = eure_json::document_to_value(&parsed.doc, &eure_json::Config::default())
         .map_err(|e| anyhow::anyhow!("{}", e))?;
     let json = serde_json::to_string_pretty(&value).map_err(|e| anyhow::anyhow!("{}", e))?;
-    Ok(Some(Arc::new(json)))
+    Ok(json)
 }
 
-/// Aggregated errors from all sources (query result).
+/// Aggregated errors from document and schema validation.
 #[derive(Clone, PartialEq, Default, Debug)]
 struct EditorAllErrors {
-    doc_parser_errors: Vec<EditorErrorSpan>,
-    schema_parser_errors: Vec<EditorErrorSpan>,
-    schema_conversion_errors: Vec<EditorErrorSpan>,
-    schema_validation_errors: Vec<EditorErrorSpan>,
-    validation_errors: Vec<EditorErrorSpan>,
+    /// Errors from validating document against schema
+    doc_errors: ErrorReports,
+    /// Errors from validating schema against meta-schema
+    schema_errors: ErrorReports,
 }
 
-/// Get all errors from document and schema parsing/validation.
-#[query_flow::query]
+/// Get all errors using SSoT ValidateDocument query.
+///
+/// Validates:
+/// 1. Document against schema
+/// 2. Schema against meta-schema
+#[query]
 fn get_all_errors(
     db: &impl Db,
     doc_file: TextFile,
     schema_file: TextFile,
     meta_schema_file: TextFile,
-) -> Result<EditorAllErrors, query_flow::QueryError> {
-    // Get parser errors
-    let doc_cst_result = db.query(ParseCst::new(doc_file.clone()))?;
-    let schema_cst_result = db.query(ParseCst::new(schema_file.clone()))?;
-
-    let doc_parser_errors = match &*doc_cst_result {
-        Some(parsed) if parsed.error.is_some() => format_parser_errors(
-            parsed.error.as_ref().unwrap(),
-            &parsed.source,
-            "document.eure",
-        ),
-        _ => vec![],
-    };
-
-    let schema_parser_errors = match &*schema_cst_result {
-        Some(parsed) if parsed.error.is_some() => format_parser_errors(
-            parsed.error.as_ref().unwrap(),
-            &parsed.source,
-            "schema.eure",
-        ),
-        _ => vec![],
-    };
-
-    // Get schema conversion errors (via UserError)
-    let schema_conversion_errors = match db.query(DocumentToSchemaQuery::new(schema_file.clone())) {
-        Ok(_) => vec![],
-        Err(e) => vec![EditorErrorSpan {
-            start: 0,
-            end: 1,
-            message: e.to_string(),
-        }],
-    };
-
-    // Get schema validation against meta-schema
-    let schema_validation_errors =
-        if schema_parser_errors.is_empty() && schema_conversion_errors.is_empty() {
-            (*db.query(ValidateAgainstMetaSchema::new(
-                schema_file.clone(),
-                meta_schema_file.clone(),
-            ))?)
-            .clone()
-        } else {
-            vec![]
-        };
-
-    // Get document validation against schema
-    let validation_errors = if doc_parser_errors.is_empty()
-        && schema_conversion_errors.is_empty()
-        && schema_validation_errors.is_empty()
-    {
-        match db.query(ValidateAgainstSchema::new(
-            doc_file.clone(),
+) -> Result<EditorAllErrors, QueryError> {
+    // Validate schema against meta-schema first
+    let schema_errors = db
+        .query(ValidateDocument::new(
             schema_file.clone(),
-        )) {
-            Ok(errors) => (*errors).clone(),
-            Err(e) => {
-                // Document construction failed - show as validation error
-                vec![EditorErrorSpan {
-                    start: 0,
-                    end: 1,
-                    message: e.to_string(),
-                }]
-            }
-        }
+            Some(meta_schema_file),
+        ))?
+        .as_ref()
+        .clone();
+
+    // Only validate document if schema is valid
+    let doc_errors = if schema_errors.is_empty() {
+        db.query(ValidateDocument::new(
+            doc_file.clone(),
+            Some(schema_file.clone()),
+        ))?
+        .as_ref()
+        .clone()
     } else {
-        vec![]
+        ErrorReports::new()
     };
 
     Ok(EditorAllErrors {
-        doc_parser_errors,
-        schema_parser_errors,
-        schema_conversion_errors,
-        schema_validation_errors,
-        validation_errors,
+        doc_errors,
+        schema_errors,
     })
 }
 
-/// Format parser errors to EditorErrorSpan list.
-fn format_parser_errors(
-    error: &EureParseError,
-    source: &str,
-    filename: &str,
-) -> Vec<EditorErrorSpan> {
-    let message = format_parse_error_plain(error, source, filename);
-    error
-        .entries
+/// Convert ErrorReports to ErrorSpan list for UI.
+fn error_reports_to_spans(db: &impl Db, reports: &ErrorReports) -> Vec<ErrorSpan> {
+    reports
         .iter()
-        .filter_map(|entry| {
-            entry.span.map(|s| EditorErrorSpan {
-                start: s.start as usize,
-                end: s.end as usize,
-                message: message.clone(),
-            })
+        .map(|report| {
+            let formatted = format_error_report(db, report, false)
+                .unwrap_or_else(|e| format!("Error formatting error report: {e}"));
+            ErrorSpan {
+                start: report.primary_origin.span.start,
+                end: report.primary_origin.span.end,
+                message: formatted,
+            }
         })
         .collect()
 }
 
-/// Convert EditorAllErrors to local AllErrors format for UI.
-fn convert_errors(errors: &EditorAllErrors) -> AllErrors {
-    let convert_span = |e: &EditorErrorSpan| ErrorSpan {
-        start: e.start as u32,
-        end: e.end as u32,
-        message: e.message.clone(),
-    };
-
-    AllErrors {
-        doc_parser_errors: errors.doc_parser_errors.iter().map(convert_span).collect(),
-        schema_parser_errors: errors
-            .schema_parser_errors
-            .iter()
-            .map(convert_span)
-            .collect(),
-        schema_errors: errors
-            .schema_conversion_errors
-            .iter()
-            .map(convert_span)
-            .collect(),
-        schema_validation_errors: errors
-            .schema_validation_errors
-            .iter()
-            .map(convert_span)
-            .collect(),
-        validation_errors: errors.validation_errors.iter().map(convert_span).collect(),
-    }
-}
-
-/// All errors organized by category for display
+/// All errors organized for display (simplified)
 #[derive(Debug, Clone, Default, PartialEq)]
 struct AllErrors {
-    doc_parser_errors: Vec<ErrorSpan>,
-    schema_parser_errors: Vec<ErrorSpan>,
+    doc_errors: Vec<ErrorSpan>,
     schema_errors: Vec<ErrorSpan>,
-    schema_validation_errors: Vec<ErrorSpan>,
-    validation_errors: Vec<ErrorSpan>,
 }
 
 impl AllErrors {
     fn total_count(&self) -> usize {
-        self.doc_parser_errors.len()
-            + self.schema_parser_errors.len()
-            + self.schema_errors.len()
-            + self.schema_validation_errors.len()
-            + self.validation_errors.len()
+        self.doc_errors.len() + self.schema_errors.len()
     }
 
     fn is_empty(&self) -> bool {
@@ -405,26 +307,18 @@ fn run_queries(
     mut all_errors: Signal<AllErrors>,
 ) {
     // Get semantic tokens for document
-    if let Ok(result) = runtime.query(GetSemanticTokens::new(doc_file.clone()))
-        && let Some(tokens) = &*result
-    {
-        doc_tokens.set(tokens.clone());
+    if let Ok(result) = runtime.query(GetSemanticTokens::new(doc_file.clone())) {
+        doc_tokens.set((*result).clone());
     }
 
     // Get semantic tokens for schema
-    if let Ok(result) = runtime.query(GetSemanticTokens::new(schema_file.clone()))
-        && let Some(tokens) = &*result
-    {
-        schema_tokens.set(tokens.clone());
+    if let Ok(result) = runtime.query(GetSemanticTokens::new(schema_file.clone())) {
+        schema_tokens.set((*result).clone());
     }
 
     // Get JSON output
-    if let Ok(result) = runtime.query(DocumentToJson::new(doc_file.clone())) {
-        if let Some(json) = &*result {
-            json_output.set((**json).clone());
-        } else {
-            json_output.set(String::new());
-        }
+    if let Ok(json) = runtime.query(DocumentToJson::new(doc_file.clone())) {
+        json_output.set(json.as_ref().clone());
     }
 
     // Get all errors
@@ -435,12 +329,15 @@ fn run_queries(
         meta_file,
     )) {
         Ok(errors) => {
-            all_errors.set(convert_errors(&errors));
+            all_errors.set(AllErrors {
+                doc_errors: error_reports_to_spans(runtime, &errors.doc_errors),
+                schema_errors: error_reports_to_spans(runtime, &errors.schema_errors),
+            });
         }
         Err(e) => {
             // Query failed unexpectedly - show the error
             all_errors.set(AllErrors {
-                doc_parser_errors: vec![ErrorSpan {
+                doc_errors: vec![ErrorSpan {
                     start: 0,
                     end: 1,
                     message: e.to_string(),
@@ -548,22 +445,11 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
         );
     };
 
-    // Combined schema errors for the schema editor
-    let combined_schema_errors = use_memo(move || {
-        let errors = all_errors();
-        let mut combined = errors.schema_parser_errors.clone();
-        combined.extend(errors.schema_validation_errors.clone());
-        combined.extend(errors.schema_errors.clone());
-        combined
-    });
+    // Schema errors for the schema editor
+    let combined_schema_errors = use_memo(move || all_errors().schema_errors.clone());
 
-    // Combined errors for the document editor
-    let combined_doc_errors = use_memo(move || {
-        let errors = all_errors();
-        let mut combined = errors.doc_parser_errors.clone();
-        combined.extend(errors.validation_errors.clone());
-        combined
-    });
+    // Document errors for the document editor
+    let combined_doc_errors = use_memo(move || all_errors().doc_errors.clone());
 
     let error_count = use_memo(move || all_errors().total_count());
 
@@ -715,26 +601,12 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                 if all_errors().is_empty() {
                                     span { class: "opacity-50", "No errors" }
                                 } else {
-                                    if !all_errors().doc_parser_errors.is_empty() {
+                                    if !all_errors().doc_errors.is_empty() {
                                         div { class: "mb-4",
                                             div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "Document Parser Errors ({all_errors().doc_parser_errors.len()})"
+                                                "Document Errors ({all_errors().doc_errors.len()})"
                                             }
-                                            for error in all_errors().doc_parser_errors.iter() {
-                                                div {
-                                                    class: "mb-2 p-2 rounded border",
-                                                    style: "border-color: {border_color}",
-                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if !all_errors().schema_parser_errors.is_empty() {
-                                        div { class: "mb-4",
-                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "Schema Parser Errors ({all_errors().schema_parser_errors.len()})"
-                                            }
-                                            for error in all_errors().schema_parser_errors.iter() {
+                                            for error in all_errors().doc_errors.iter() {
                                                 div {
                                                     class: "mb-2 p-2 rounded border",
                                                     style: "border-color: {border_color}",
@@ -746,37 +618,9 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                     if !all_errors().schema_errors.is_empty() {
                                         div { class: "mb-4",
                                             div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "Schema Conversion Errors ({all_errors().schema_errors.len()})"
+                                                "Schema Errors ({all_errors().schema_errors.len()})"
                                             }
                                             for error in all_errors().schema_errors.iter() {
-                                                div {
-                                                    class: "mb-2 p-2 rounded border",
-                                                    style: "border-color: {border_color}",
-                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if !all_errors().schema_validation_errors.is_empty() {
-                                        div { class: "mb-4",
-                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "Schema Validation Errors ({all_errors().schema_validation_errors.len()})"
-                                            }
-                                            for error in all_errors().schema_validation_errors.iter() {
-                                                div {
-                                                    class: "mb-2 p-2 rounded border",
-                                                    style: "border-color: {border_color}",
-                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if !all_errors().validation_errors.is_empty() {
-                                        div { class: "mb-4",
-                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "Validation Errors ({all_errors().validation_errors.len()})"
-                                            }
-                                            for error in all_errors().validation_errors.iter() {
                                                 div {
                                                     class: "mb-2 p-2 rounded border",
                                                     style: "border-color: {border_color}",

@@ -72,13 +72,13 @@ outer {
 
 schema_errors[] = ```text
 error: Invalid key type at path data
- --> <input>:1:10
+ --> input.eure:1:10
   |
 1 | data = { "string-key" => 1 }
   |          ^^^^^^^^^^^^ Invalid key type at path data
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:1
   |
 1 | / data {
 2 | |   $variant = "map"
@@ -90,13 +90,13 @@ note: constraint defined here
 
 schema_errors[] = ```text
 error: Invalid key type at path outer.data
-  --> <input>:3:8
+  --> input.eure:3:8
    |
  3 |   data."string-key".inner => 1
    |        ^^^^^^^^^^^^ Invalid key type at path outer.data
    |
 note: constraint defined here
-  --> <schema>:7:3
+  --> schema.eure:7:3
    |
  7 | /   data {
  8 | |     $variant = "map"
@@ -108,13 +108,13 @@ note: constraint defined here
 
 schema_errors[] = ```text
 error: Invalid key type at path outer.data
-  --> <input>:4:8
+  --> input.eure:4:8
    |
  4 |   data.ident-key.inner => 1
    |        ^^^^^^^^^ Invalid key type at path outer.data
    |
 note: constraint defined here
-  --> <schema>:7:3
+  --> schema.eure:7:3
    |
  7 | /   data {
  8 | |     $variant = "map"

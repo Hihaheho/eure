@@ -1,13 +1,13 @@
 //! Diagnostic collection queries.
 
 use eure_parol::EureParseError;
-use query_flow::query;
+use query_flow::{Db, QueryError, query};
+
+use crate::query::parse::ParseCst;
+use crate::report::ErrorReport;
 
 use super::assets::TextFile;
-use super::config::ParseCst;
-use super::schema::{
-    ErrorSpan, GetSchemaExtensionDiagnostics, ResolveSchema, ValidateAgainstSchema,
-};
+use super::schema::{GetSchemaExtensionDiagnostics, ResolveSchema, ValidateAgainstSchema};
 
 /// Severity level for diagnostics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,32 +39,28 @@ pub struct DiagnosticMessage {
 ///
 /// Returns an empty vec if the file cannot be parsed.
 #[query]
-pub fn get_diagnostics(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Vec<DiagnosticMessage>, query_flow::QueryError> {
+pub fn get_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<DiagnosticMessage>, QueryError> {
     let mut diagnostics = Vec::new();
 
     // 1. Collect parse errors
-    if let Some(parsed) = db.query(ParseCst::new(file.clone()))?.as_ref() {
-        if let Some(error) = &parsed.error {
-            diagnostics.extend(parse_error_to_diagnostics(error));
-        }
+    let parsed = db.query(ParseCst::new(file.clone()))?;
+    if let Some(error) = &parsed.error {
+        diagnostics.extend(parse_error_to_diagnostics(error));
+    }
 
-        // 2. Collect $schema extension errors (e.g., wrong type)
-        let schema_ext_errors = db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
-        diagnostics.extend(schema_ext_errors.iter().map(error_span_to_diagnostic));
+    // 2. Collect $schema extension errors (e.g., wrong type)
+    let schema_ext_errors = db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
+    diagnostics.extend(schema_ext_errors.iter().map(error_report_to_diagnostic));
 
-        // 3. Collect schema validation errors (only if parsing succeeded)
-        if parsed.error.is_none()
-            && let Some(schema_file) = db.query(ResolveSchema::new(file.clone()))?.as_ref()
-        {
-            let validation_errors = db.query(ValidateAgainstSchema::new(
-                file.clone(),
-                schema_file.clone(),
-            ))?;
-            diagnostics.extend(validation_errors.iter().map(error_span_to_diagnostic));
-        }
+    // 3. Collect schema validation errors (only if parsing succeeded)
+    if parsed.error.is_none()
+        && let Some(schema_file) = db.query(ResolveSchema::new(file.clone()))?.as_ref()
+    {
+        let reports = db.query(ValidateAgainstSchema::new(
+            file.clone(),
+            schema_file.clone(),
+        ))?;
+        diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
     }
 
     Ok(diagnostics)
@@ -91,12 +87,12 @@ fn parse_error_to_diagnostics(error: &EureParseError) -> Vec<DiagnosticMessage> 
         .collect()
 }
 
-/// Convert a schema validation error span to a diagnostic message.
-fn error_span_to_diagnostic(span: &ErrorSpan) -> DiagnosticMessage {
+/// Convert an error report to a diagnostic message.
+fn error_report_to_diagnostic(report: &ErrorReport) -> DiagnosticMessage {
     DiagnosticMessage {
-        start: span.start,
-        end: span.end,
-        message: span.message.clone(),
+        start: report.primary_origin.span.start as usize,
+        end: report.primary_origin.span.end as usize,
+        message: report.title.to_string(),
         severity: DiagnosticSeverity::Error,
     }
 }

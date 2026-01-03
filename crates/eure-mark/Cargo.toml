@@ -16,5 +16,6 @@ eure-parol = { workspace = true }
 eure-tree = { workspace = true }
 thiserror = { workspace = true }
 regex = { workspace = true }
+query-flow = { workspace = true }
 
 [dev-dependencies]

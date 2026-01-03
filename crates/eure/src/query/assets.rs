@@ -29,6 +29,12 @@ impl TextFile {
     }
 }
 
+impl std::fmt::Display for TextFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path.display())
+    }
+}
+
 /// Content of a text file.
 #[derive(Clone, PartialEq, Debug)]
 pub enum TextFileContent {

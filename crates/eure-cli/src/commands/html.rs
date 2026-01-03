@@ -1,9 +1,12 @@
 use catppuccin::{FlavorColors, PALETTE};
-use eure::error::format_parse_error_color;
-use eure::query::{SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens};
+use eure::query::{
+    GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, TextFile,
+    TextFileContent,
+};
+use eure::query_flow::QueryRuntimeBuilder;
 use maud::{Markup, html};
 
-use crate::util::{display_path, read_input};
+use crate::util::{display_path, handle_query_error, read_input};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -33,21 +36,17 @@ pub fn run(args: Args) {
         }
     };
 
-    // 2. Parse with tolerant mode
-    let parse_result = eure_parol::parse_tolerant(&contents);
+    // Create query runtime
+    let runtime = QueryRuntimeBuilder::new().build();
 
-    // Print parse errors to stderr
-    if let Some(error) = parse_result.error() {
-        eprintln!(
-            "{}",
-            format_parse_error_color(error, &contents, display_path(args.file.as_deref()))
-        );
-        eprintln!();
-    }
+    let file = TextFile::from_path(display_path(args.file.as_deref()).into());
+    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents.clone()));
 
-    // 3. Get semantic tokens
-    let cst = parse_result.cst();
-    let tokens = semantic_tokens(&contents, &cst);
+    // Get semantic tokens
+    let tokens = match runtime.query(GetSemanticTokens::new(file)) {
+        Ok(result) => result,
+        Err(e) => handle_query_error(&runtime, e),
+    };
 
     // 4. Get color palette
     let palette = match args.theme {

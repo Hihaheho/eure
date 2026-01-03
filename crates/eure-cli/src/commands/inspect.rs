@@ -1,7 +1,9 @@
-use eure::error::format_parse_error_color;
+use eure::query::{ParseCst, TextFile, TextFileContent};
+use eure::query_flow::QueryRuntimeBuilder;
+use eure::report::{format_error_reports, report_parse_error};
 use eure::tree::inspect_cst;
 
-use crate::util::{display_path, read_input};
+use crate::util::{display_path, handle_query_error, read_input};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -18,21 +20,31 @@ pub fn run(args: Args) {
         }
     };
 
-    let parse_result = eure_parol::parse_tolerant(&contents);
+    // Create query runtime
+    let runtime = QueryRuntimeBuilder::new().build();
+
+    let file = TextFile::from_path(display_path(args.file.as_deref()).into());
+    runtime.resolve_asset(file.clone(), TextFileContent::Content(contents.clone()));
+
+    // Parse with tolerant mode
+    let parsed = match runtime.query(ParseCst::new(file.clone())) {
+        Ok(result) => result,
+        Err(e) => handle_query_error(&runtime, e),
+    };
 
     // Print any parse errors
-    if let Some(error) = parse_result.error() {
+    if let Some(error) = &parsed.error {
+        let reports = report_parse_error(error, file.clone());
         eprintln!(
             "{}",
-            format_parse_error_color(error, &contents, display_path(args.file.as_deref()))
+            format_error_reports(&runtime, &reports, true).expect("file content should be loaded")
         );
         eprintln!("Note: Showing partial syntax tree below");
         eprintln!();
     }
 
-    let tree = parse_result.cst();
     let mut out = String::new();
-    if let Err(e) = inspect_cst(&contents, &tree, &mut out) {
+    if let Err(e) = inspect_cst(&contents, &parsed.cst, &mut out) {
         eprintln!("Error inspecting tree: {e}");
         std::process::exit(1);
     }

@@ -89,16 +89,16 @@ name = `text`
 schema_errors = [
   ```
 error: Type mismatch: expected text, got integer at path name
- --> <input>:1:1
+ --> input.eure:1:8
   |
 1 | name = 42
-  | ^^^^^^^^^ Type mismatch: expected text, got integer at path name
+  |        ^^ Type mismatch: expected text, got integer at path name
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:8
   |
 1 | name = `text`
-  | ------------- constraint defined here
+  |        ------ constraint defined here
 ```
 ]
 
@@ -111,8 +111,8 @@ name = `texte`
 
 schema_conversion_error = ```
 error: Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'texte'
- --> <schema>:1:1
+ --> schema.eure:1:8
   |
 1 | name = `texte`
-  | ^^^^^^^^^^^^^^ Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'texte'
+  |        ^^^^^^^ Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'texte'
 ```

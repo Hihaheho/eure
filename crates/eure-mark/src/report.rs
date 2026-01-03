@@ -1,7 +1,9 @@
 //! Error reporting for eure-mark using eure's ErrorReports system
 
 use eure::document::OriginMap;
-use eure::report::{ErrorReport, ErrorReports, FileId, FileRegistry, Origin};
+use eure::query::assets::TextFile;
+use eure::query_flow::{Db, QueryError};
+use eure::report::{ErrorReport, ErrorReports, Origin};
 use eure::tree::Cst;
 use eure_tree::tree::InputSpan;
 
@@ -10,8 +12,8 @@ use crate::error::ReferenceError;
 
 /// Context for converting eure-mark errors to ErrorReports
 pub struct EumdReportContext<'a> {
-    /// File ID for the eumd document
-    pub file: FileId,
+    /// File for the eumd document
+    pub file: TextFile,
     /// CST for span resolution
     pub cst: &'a Cst,
     /// Origin map with precise origins
@@ -38,7 +40,7 @@ fn report_reference_error(error: &ReferenceError, ctx: &EumdReportContext<'_>) -
         (error.node_id, error.offset, error.len)
     {
         // Get the span of the node (code block)
-        if let Some(node_span) = ctx.origins.get_node_span(node_id, ctx.cst) {
+        if let Some(node_span) = ctx.origins.get_value_span(node_id, ctx.cst) {
             // For code blocks, we need to find where the actual content starts
             // The node_span includes the opening ``` and language tag
             // We'll calculate the content start by looking at the text
@@ -54,7 +56,7 @@ fn report_reference_error(error: &ReferenceError, ctx: &EumdReportContext<'_>) -
         InputSpan::EMPTY
     };
 
-    let origin = Origin::new(ctx.file, span);
+    let origin = Origin::new(ctx.file.clone(), span);
     ErrorReport::error(title, origin)
 }
 
@@ -69,29 +71,31 @@ fn get_code_block_content_start(_ctx: &EumdReportContext<'_>, node_span: InputSp
     node_span.start
 }
 
-/// Format check errors to a string using annotate-snippets
+/// Format check errors to a string using annotate-snippets.
+///
+/// Returns `Err` with suspension if file content isn't loaded yet.
 pub fn format_check_errors(
+    db: &impl Db,
     result: &CheckResult,
-    source: &str,
-    path: &str,
+    file: TextFile,
     cst: &Cst,
     origins: &OriginMap,
     styled: bool,
-) -> String {
-    let mut files = FileRegistry::new();
-    let file = files.register(path, source);
+) -> Result<String, QueryError> {
     let ctx = EumdReportContext { file, cst, origins };
     let reports = report_check_errors(result, &ctx);
-    eure::report::format_error_reports(&reports, &files, styled)
+    eure::report::format_error_reports(db, &reports, styled)
 }
 
-/// Format check errors without ANSI colors (for testing)
+/// Format check errors without ANSI colors (for testing).
+///
+/// Returns `Err` with suspension if file content isn't loaded yet.
 pub fn format_check_errors_plain(
+    db: &impl Db,
     result: &CheckResult,
-    source: &str,
-    path: &str,
+    file: TextFile,
     cst: &Cst,
     origins: &OriginMap,
-) -> String {
-    format_check_errors(result, source, path, cst, origins, false)
+) -> Result<String, QueryError> {
+    format_check_errors(db, result, file, cst, origins, false)
 }

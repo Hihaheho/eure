@@ -19,6 +19,7 @@ clap = { workspace = true, features = ["derive"] }
 eros.workspace = true
 eure = { workspace = true }
 eure-document.workspace = true
+query-flow.workspace = true
 eure-fmt.workspace = true
 eure-json.workspace = true
 eure-json-schema.workspace = true

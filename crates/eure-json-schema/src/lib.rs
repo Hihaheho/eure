@@ -4,6 +4,8 @@
 
 pub mod eure_to_json_schema;
 pub mod json_schema;
+mod query;
 
 pub use eure_to_json_schema::{ConversionError, eure_to_json_schema};
 pub use json_schema::JsonSchema;
+pub use query::EureSchemaToJsonSchemaQuery;

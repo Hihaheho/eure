@@ -55,16 +55,16 @@ name.$ext-type.description = `text`
 schema_errors = [
   ```
 error: Missing required extension 'description' at path name
- --> <input>:1:1
+ --> input.eure:1:8
   |
 1 | name = "Alice"
-  | ^^^^^^^^^^^^^^ Missing required extension 'description' at path name
+  |        ^^^^^^^ Missing required extension 'description' at path name
   |
 note: constraint defined here
- --> <schema>:1:1
+ --> schema.eure:1:8
   |
 1 | name = `text`
-  | ------------- constraint defined here
+  |        ------ constraint defined here
 ```
 ]
 
@@ -86,15 +86,15 @@ name.$ext-type.description = `text`
 schema_errors = [
   ```
 error: Type mismatch: expected text, got integer at path name.$description
- --> <input>:2:1
+ --> input.eure:2:21
   |
 2 | name.$description = 42
-  | ^^^^^^^^^^^^^^^^^^^^^^ Type mismatch: expected text, got integer at path name.$description
+  |                     ^^ Type mismatch: expected text, got integer at path name.$description
   |
 note: constraint defined here
- --> <schema>:2:1
+ --> schema.eure:2:30
   |
 2 | name.$ext-type.description = `text`
-  | ----------------------------------- constraint defined here
+  |                              ------ constraint defined here
 ```
 ]

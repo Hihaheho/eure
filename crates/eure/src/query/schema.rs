@@ -5,24 +5,28 @@ use std::sync::Arc;
 
 use eure_document::value::ObjectKey;
 use eure_schema::SchemaDocument;
-use eure_schema::convert::{ConversionError, document_to_schema};
-use eure_schema::validate::{ValidationError, validate};
+use eure_schema::convert::{ConversionError, SchemaSourceMap, document_to_schema};
+pub use eure_schema::validate::UnionTagMode;
+use eure_schema::validate::{ValidationError, validate, validate_with_mode};
 use eure_tree::prelude::Cst;
 use eure_tree::tree::InputSpan;
-use query_flow::query;
+use query_flow::{Db, QueryError, query};
 
 use crate::document::OriginMap;
+
 use crate::report::{
-    DocumentReportContext, ErrorReport, ErrorReports, FileRegistry, report_conversion_error,
+    ErrorReport, ErrorReports, Origin, format_error_reports, report_schema_validation_errors,
 };
 
 use super::assets::{TextFile, Workspace, WorkspaceId};
-use super::config::{GetConfig, ParseDocument, ParsedDocument};
+use super::config::GetConfig;
+use super::parse::{ParseCst, ParseDocument, ParsedDocument};
 
-/// Validated schema with the SchemaDocument.
+/// Validated schema with the SchemaDocument and source map.
 #[derive(Clone, PartialEq)]
 pub struct ValidatedSchema {
     pub schema: Arc<SchemaDocument>,
+    pub source_map: Arc<SchemaSourceMap>,
     pub parsed: ParsedDocument,
 }
 
@@ -34,88 +38,132 @@ pub struct ValidatedSchema {
 pub fn document_to_schema_query(
     db: &impl Db,
     file: TextFile,
-) -> Result<Option<ValidatedSchema>, query_flow::QueryError> {
-    let result = db.query(ParseDocument::new(file.clone()))?;
-    let parsed = match &*result {
-        None => return Ok(None),
-        Some(p) => p.clone(),
-    };
+) -> Result<ValidatedSchema, QueryError> {
+    let parsed = db.query(ParseDocument::new(file.clone()))?;
 
     match document_to_schema(&parsed.doc) {
-        Ok((schema, _source_map)) => Ok(Some(ValidatedSchema {
+        Ok((schema, source_map)) => Ok(ValidatedSchema {
             schema: Arc::new(schema),
-            parsed,
-        })),
-        Err(e) => Err(report_schema_conversion_error(&e, &parsed))?,
+            source_map: Arc::new(source_map),
+            parsed: parsed.as_ref().clone(),
+        }),
+        Err(e) => {
+            let cst = db.query(ParseCst::new(file.clone()))?;
+            Err(report_schema_conversion_error(&e, &parsed, &cst.cst, file))?
+        }
     }
 }
 
-/// Error span with source location for display.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ErrorSpan {
-    pub start: usize,
-    pub end: usize,
-    pub message: String,
+/// Try to convert document to SchemaDocument and return formatted error if conversion fails.
+///
+/// Returns `Some(formatted_error)` if conversion fails.
+/// Returns `None` if parsing failed or conversion succeeds.
+#[query]
+pub fn get_schema_conversion_error_formatted(
+    db: &impl Db,
+    file: TextFile,
+) -> Result<Option<String>, QueryError> {
+    match db.query(DocumentToSchemaQuery::new(file.clone())) {
+        Ok(_) => Ok(None), // Schema conversion succeeded
+        Err(QueryError::UserError(e)) => {
+            // Try to downcast to ErrorReports
+            if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+                Ok(Some(format_error_reports(db, reports, false)?))
+            } else {
+                // Can't downcast, re-propagate the error
+                Err(QueryError::UserError(e))
+            }
+        }
+        Err(other) => Err(other), // Re-propagate system errors
+    }
 }
 
 /// Validate document against schema.
 ///
-/// Returns empty vec if either document or schema parsing failed.
+/// Returns empty reports if either document or schema parsing failed.
 #[query]
 pub fn validate_against_schema(
     db: &impl Db,
     doc_file: TextFile,
     schema_file: TextFile,
-) -> Result<Vec<ErrorSpan>, query_flow::QueryError> {
+) -> Result<ErrorReports, QueryError> {
     let doc_result = db.query(ParseDocument::new(doc_file.clone()))?;
-    let doc_parsed = match &*doc_result {
-        None => return Ok(vec![]),
-        Some(p) => p,
-    };
+    let doc_parsed = doc_result.as_ref().clone();
 
     let schema_result = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
-    let validated_schema = match &*schema_result {
-        None => return Ok(vec![]),
-        Some(s) => s,
-    };
 
-    let result = validate(&doc_parsed.doc, &validated_schema.schema);
-    let spans = result
-        .errors
-        .iter()
-        .map(|e| validation_error_to_span(e, &doc_parsed.cst, &doc_parsed.origins))
-        .collect();
-    Ok(spans)
+    let result = validate(&doc_parsed.doc, &schema_result.schema);
+
+    report_schema_validation_errors(db, doc_file, schema_file, &result.errors)
 }
 
-/// Validate schema against meta-schema.
+/// Validate document against schema and return formatted error strings.
 ///
-/// Returns empty vec if either schema parsing failed.
+/// Returns empty vec if either document or schema parsing failed.
+/// Returns formatted error messages suitable for display.
 #[query]
-pub fn validate_against_meta_schema(
+pub fn get_validation_errors_formatted(
     db: &impl Db,
+    doc_file: TextFile,
     schema_file: TextFile,
-    meta_schema_file: TextFile,
-) -> Result<Vec<ErrorSpan>, query_flow::QueryError> {
-    let schema_result = db.query(ParseDocument::new(schema_file.clone()))?;
-    let schema_parsed = match &*schema_result {
-        None => return Ok(vec![]),
-        Some(p) => p,
-    };
+) -> Result<Vec<String>, QueryError> {
+    let reports = db.query(ValidateAgainstSchema::new(doc_file, schema_file))?;
 
-    let meta_result = db.query(DocumentToSchemaQuery::new(meta_schema_file.clone()))?;
-    let meta_schema = match &*meta_result {
-        None => return Ok(vec![]),
-        Some(s) => s,
-    };
+    // Format each error report individually
+    let mut formatted = Vec::new();
+    for report in reports.iter() {
+        let single_report = ErrorReports::from(vec![report.clone()]);
+        formatted.push(format_error_reports(db, &single_report, false)?);
+    }
 
-    let result = validate(&schema_parsed.doc, &meta_schema.schema);
-    let spans = result
-        .errors
-        .iter()
-        .map(|e| validation_error_to_span(e, &schema_parsed.cst, &schema_parsed.origins))
-        .collect();
-    Ok(spans)
+    Ok(formatted)
+}
+
+/// Validate document against schema with specified union tag mode.
+///
+/// Returns empty reports if either document or schema parsing failed.
+#[query]
+pub fn validate_against_schema_with_mode(
+    db: &impl Db,
+    doc_file: TextFile,
+    schema_file: TextFile,
+    mode: UnionTagMode,
+) -> Result<ErrorReports, QueryError> {
+    let doc_result = db.query(ParseDocument::new(doc_file.clone()))?;
+    let doc_parsed = doc_result.as_ref().clone();
+
+    let schema_result = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
+
+    let result = validate_with_mode(&doc_parsed.doc, &schema_result.schema, mode);
+
+    report_schema_validation_errors(db, doc_file, schema_file, &result.errors)
+}
+
+/// Validate document against schema with specified union tag mode and return formatted error strings.
+///
+/// Returns empty vec if either document or schema parsing failed.
+/// Returns formatted error messages suitable for display.
+#[query]
+pub fn get_validation_errors_formatted_with_mode(
+    db: &impl Db,
+    doc_file: TextFile,
+    schema_file: TextFile,
+    mode: UnionTagMode,
+) -> Result<Vec<String>, QueryError> {
+    let reports = db.query(ValidateAgainstSchemaWithMode::new(
+        doc_file,
+        schema_file,
+        mode,
+    ))?;
+
+    // Format each error report individually
+    let mut formatted = Vec::new();
+    for report in reports.iter() {
+        let single_report = ErrorReports::from(vec![report.clone()]);
+        formatted.push(format_error_reports(db, &single_report, false)?);
+    }
+
+    Ok(formatted)
 }
 
 // =============================================================================
@@ -129,15 +177,8 @@ pub fn validate_against_meta_schema(
 /// - The document has no `$schema` extension
 /// - The `$schema` value is not a valid string
 #[query]
-pub fn get_schema_extension(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Option<String>, query_flow::QueryError> {
-    let result = db.query(ParseDocument::new(file.clone()))?;
-    let parsed = match &*result {
-        None => return Ok(None),
-        Some(p) => p,
-    };
+pub fn get_schema_extension(db: &impl Db, file: TextFile) -> Result<Option<String>, QueryError> {
+    let parsed = db.query(ParseDocument::new(file.clone()))?;
 
     let root_id = parsed.doc.get_root_id();
     let root_ctx = parsed.doc.parse_context(root_id);
@@ -157,38 +198,39 @@ pub fn get_schema_extension(
 pub fn get_schema_extension_diagnostics(
     db: &impl Db,
     file: TextFile,
-) -> Result<Vec<ErrorSpan>, query_flow::QueryError> {
+) -> Result<ErrorReports, QueryError> {
     let result = db.query(ParseDocument::new(file.clone()))?;
-    let parsed = match &*result {
-        None => return Ok(vec![]),
-        Some(p) => p,
-    };
+    let parsed = result.as_ref().clone();
 
     let root_id = parsed.doc.get_root_id();
     let root_ctx = parsed.doc.parse_context(root_id);
 
     // Check if $schema extension exists
     let Some(schema_ctx) = root_ctx.ext_optional("schema") else {
-        return Ok(vec![]);
+        return Ok(ErrorReports::new());
     };
 
     // Try to parse as string
     if root_ctx.parse_ext_optional::<String>("schema").is_ok() {
-        return Ok(vec![]);
+        return Ok(ErrorReports::new());
     }
 
     // $schema exists but has wrong type - generate diagnostic
     let node_id = schema_ctx.node_id();
-    let span = parsed.origins.get_node_span(node_id, &parsed.cst);
-    let (start, end) = span
-        .map(|s| (s.start as usize, s.end as usize))
-        .unwrap_or((0, 1));
+    let cst = db.query(ParseCst::new(file.clone()))?;
+    let span = parsed.origins.get_value_span(node_id, &cst.cst);
 
-    Ok(vec![ErrorSpan {
-        start,
-        end,
-        message: "$schema must be a string path to a schema file".to_string(),
-    }])
+    let origin = crate::report::Origin {
+        file,
+        span: span.unwrap_or(eure_tree::tree::InputSpan { start: 0, end: 1 }),
+        hints: Default::default(),
+        is_fallback: span.is_none(),
+    };
+
+    Ok(ErrorReports::from(vec![ErrorReport::error(
+        "$schema must be a string path to a schema file",
+        origin,
+    )]))
 }
 
 /// Resolve the schema file for a document.
@@ -200,10 +242,7 @@ pub fn get_schema_extension_diagnostics(
 ///
 /// Returns `None` if no schema can be determined.
 #[query]
-pub fn resolve_schema(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Option<TextFile>, query_flow::QueryError> {
+pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<TextFile>, QueryError> {
     // 1. Check $schema extension in the document
     if let Some(schema_path) = db.query(GetSchemaExtension::new(file.clone()))?.as_ref() {
         let resolved = resolve_relative_path(&file.path, schema_path);
@@ -273,39 +312,20 @@ pub fn resolve_validation_error_span(
             let key = ObjectKey::String(field.clone());
             origins
                 .get_key_span(*node_id, &key, cst)
-                .or_else(|| origins.get_node_span(*node_id, cst))
+                .or_else(|| origins.get_value_span(*node_id, cst))
         }
 
         // For InvalidKeyType, use the key span
         ValidationError::InvalidKeyType { key, node_id, .. } => origins
             .get_key_span(*node_id, key, cst)
-            .or_else(|| origins.get_node_span(*node_id, cst)),
+            .or_else(|| origins.get_value_span(*node_id, cst)),
 
         // For MissingRequiredField, the node_id is the parent map
         // We can't point to the missing field, so use the parent span
-        ValidationError::MissingRequiredField { .. } => origins.get_node_span(node_id, cst),
+        ValidationError::MissingRequiredField { .. } => origins.get_value_span(node_id, cst),
 
         // For all other errors, use the standard node span
-        _ => origins.get_node_span(node_id, cst),
-    }
-}
-
-/// Convert a validation error to an ErrorSpan using the origin map.
-fn validation_error_to_span(error: &ValidationError, cst: &Cst, origins: &OriginMap) -> ErrorSpan {
-    let message = error.to_string();
-    let span = resolve_validation_error_span(error, origins, cst);
-
-    match span {
-        Some(s) => ErrorSpan {
-            start: s.start as usize,
-            end: s.end as usize,
-            message,
-        },
-        None => ErrorSpan {
-            start: 0,
-            end: 1,
-            message,
-        },
+        _ => origins.get_value_span(node_id, cst),
     }
 }
 
@@ -313,18 +333,17 @@ fn validation_error_to_span(error: &ValidationError, cst: &Cst, origins: &Origin
 fn report_schema_conversion_error(
     error: &ConversionError,
     parsed: &ParsedDocument,
+    cst: &Cst,
+    file: TextFile,
 ) -> ErrorReports {
-    let mut files = FileRegistry::new();
-    let file_id = files.register("schema.eure", &*parsed.source);
-    let ctx = DocumentReportContext {
-        file: file_id,
-        cst: &parsed.cst,
-        origins: &parsed.origins,
+    let span = match error {
+        ConversionError::ParseError(parse_error) => parsed
+            .origins
+            .get_value_span(parse_error.node_id, cst)
+            .unwrap_or(InputSpan::EMPTY),
+        _ => InputSpan::EMPTY,
     };
-    let report = report_conversion_error(error, &ctx);
 
-    ErrorReports::from(vec![ErrorReport::error(
-        error.to_string(),
-        report.primary_origin,
-    )])
+    let origin = Origin::new(file, span);
+    ErrorReports::from(vec![ErrorReport::error(error.to_string(), origin)])
 }

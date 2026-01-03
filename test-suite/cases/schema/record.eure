@@ -12,10 +12,17 @@ email = `text`
 schema_errors = [
   ```
   error: Missing required field 'email' at path (root)
-   --> <input>:1:16
+   --> input.eure:1:1
     |
   1 | name = "Alice"
-    |               ^ Missing required field 'email' at path (root)
+    | ^^^^^^^^^^^^^^ Missing required field 'email' at path (root)
+    |
+  note: constraint defined here
+   --> schema.eure:1:1
+    |
+  1 | / name = `text`
+  2 | | email = `text`
+    | |______________- constraint defined here
   ```
 ]
 
@@ -32,9 +39,15 @@ name = `text`
 schema_errors = [
   ```
   error: Unknown field 'unknown-field' at path (root)
-   --> <input>:2:25
+   --> input.eure:2:1
     |
   2 | unknown-field = "value"
-    |                        ^ Unknown field 'unknown-field' at path (root)
+    | ^^^^^^^^^^^^^ Unknown field 'unknown-field' at path (root)
+    |
+  note: constraint defined here
+   --> schema.eure:1:1
+    |
+  1 | name = `text`
+    | ------------- constraint defined here
   ```
 ]

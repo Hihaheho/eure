@@ -43,7 +43,7 @@ use crate::{
 /// - `Repr`: Use only `VariantRepr` patterns (for JSON/YAML imports)
 ///
 /// These modes are mutually exclusive to avoid false positives.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum UnionTagMode {
     /// Eure mode: Use `$variant` extension or untagged matching.
     ///

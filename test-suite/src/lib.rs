@@ -1,5 +1,6 @@
 pub mod case;
 pub mod parser;
+pub mod scenarios;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,11 +8,7 @@ use std::path::{Path, PathBuf};
 use annotate_snippets::{Level, Renderer, Snippet};
 use eure::tree::LineNumbers;
 
-pub use crate::case::{
-    Case, CaseResult, EureToJsonScenario, NamedScenarioResult, NormalizationScenario,
-    PreprocessError, PreprocessedCase, RunConfig, Scenario, ScenarioResult,
-    SchemaErrorValidationScenario, SchemaValidationScenario,
-};
+pub use crate::case::{Case, CaseResult, NamedScenarioResult, RunConfig, Scenario, ScenarioResult};
 pub use crate::parser::{CaseData, CaseFile, ParseError, ParseResult, parse_case_file};
 
 #[derive(Debug)]
