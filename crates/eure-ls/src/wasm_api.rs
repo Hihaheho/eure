@@ -159,8 +159,11 @@ impl WasmCore {
         // Resolve in runtime
         match content {
             Some(s) => {
-                self.runtime
-                    .resolve_asset(file.clone(), TextFileContent(s), DurabilityLevel::Volatile);
+                self.runtime.resolve_asset(
+                    file.clone(),
+                    TextFileContent(s),
+                    DurabilityLevel::Volatile,
+                );
             }
             None => {
                 self.runtime.resolve_asset_error::<TextFile>(
