@@ -4,13 +4,16 @@
 # It is NOT intended as a build system, task runner, or CI configuration.
 # Please do not extend it for other purposes.
 
-.PHONY: check clippy test test-no-default-features fmt-check test-suite eure-check
+.PHONY: check clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eure-check
 
-check: clippy test test-no-default-features fmt-check test-suite eure-check
+check: clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eure-check
 	@echo "All checks passed."
 
 clippy:
 	@cargo clippy -q -- -D warnings && echo "clippy passed"
+
+eure-ls-wasm:
+	@rustup target add wasm32-unknown-unknown &&cargo clippy -p eure-ls --target wasm32-unknown-unknown -- -D warnings && echo "eure-ls-wasm passed"
 
 test:
 	@if command -v cargo-nextest >/dev/null 2>&1; then cargo nextest run --all-targets --all-features --show-progress none --status-level fail --final-status-level fail; else cargo test -q --all-targets --all-features; fi && echo "test passed"

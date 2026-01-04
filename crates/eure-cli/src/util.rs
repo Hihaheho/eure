@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::ValueEnum;
-use eure::query::{TextFile, TextFileContent, fetch_url};
+use eure::query::{Glob, GlobResult, TextFile, TextFileContent, fetch_url};
 use eure::query_flow::{DurabilityLevel, Query, QueryError, QueryRuntime};
 use eure::report::{ErrorReports, format_error_reports};
 
@@ -110,6 +110,19 @@ where
                                 }
                             },
                         }
+                    } else if let Some(glob_key) = pending.key::<Glob>() {
+                        // Expand glob pattern on filesystem
+                        let pattern = glob_key.full_pattern();
+                        let pattern_str = pattern.to_string_lossy();
+                        let files: Vec<TextFile> = glob::glob(&pattern_str)
+                            .into_iter()
+                            .flat_map(|paths| paths.flatten().map(TextFile::from_path))
+                            .collect();
+                        runtime.resolve_asset(
+                            glob_key.clone(),
+                            GlobResult(files),
+                            DurabilityLevel::Static,
+                        );
                     }
                 }
             }

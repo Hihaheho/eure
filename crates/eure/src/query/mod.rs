@@ -15,7 +15,7 @@ pub mod schema;
 pub mod semantic_token;
 pub mod validation;
 
-pub use assets::{TextFile, TextFileContent, Workspace, WorkspaceId};
+pub use assets::{Glob, GlobResult, TextFile, TextFileContent, Workspace, WorkspaceId};
 pub use config::{GetConfig, LoadConfigError, load_config};
 pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
 #[cfg(feature = "http")]

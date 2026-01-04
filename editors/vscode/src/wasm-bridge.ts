@@ -42,12 +42,20 @@ export class WasmBridge {
     return this.core!.drain_outbox();
   }
 
-  getPendingAssets(): string[] {
-    return this.core!.get_pending_assets();
+  getPendingTextFiles(): string[] {
+    return this.core!.get_pending_text_files();
   }
 
-  resolveAsset(uri: string, content: string | null, error: string | null): void {
-    this.core!.resolve_asset(uri, content ?? undefined, error ?? undefined);
+  resolveTextFile(uri: string, content: string | null, error: string | null): void {
+    this.core!.resolve_text_file(uri, content ?? undefined, error ?? undefined);
+  }
+
+  getPendingGlobs(): Array<{ id: string; base_dir: string; pattern: string }> {
+    return this.core!.get_pending_globs();
+  }
+
+  resolveGlob(id: string, files: string[]): void {
+    this.core!.resolve_glob(id, files);
   }
 
   tick(): void {

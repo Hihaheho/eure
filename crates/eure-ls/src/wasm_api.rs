@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use eure::query::{TextFile, TextFileContent, error::EureQueryError};
+use eure::query::{Glob, GlobResult, TextFile, TextFileContent, error::EureQueryError};
 use eure::report::error_reports_comparator;
 use js_sys::Array;
 use lsp_types::{
@@ -61,6 +61,7 @@ pub struct WasmCore {
     outbox: Vec<Value>,
     pending_requests: HashMap<String, PendingRequest>,
     pending_assets: HashSet<TextFile>,
+    pending_globs: HashMap<String, Glob>,
     diagnostics_subscriptions: HashMap<String, DiagnosticsSubscription>,
     documents: HashMap<String, String>,
     initialized: bool,
@@ -83,6 +84,7 @@ impl WasmCore {
             outbox: Vec::new(),
             pending_requests: HashMap::new(),
             pending_assets: HashSet::new(),
+            pending_globs: HashMap::new(),
             diagnostics_subscriptions: HashMap::new(),
             documents: HashMap::new(),
             initialized: false,
@@ -126,26 +128,76 @@ impl WasmCore {
         messages.into_iter().collect()
     }
 
-    /// Get pending asset URIs that need to be fetched.
+    /// Get pending text file URIs that need to be fetched.
     ///
     /// Returns a JavaScript array of URI strings.
     /// - Local files return file:// URIs
     /// - Remote files return https:// URLs
     #[wasm_bindgen]
-    pub fn get_pending_assets(&self) -> Array {
+    pub fn get_pending_text_files(&self) -> Array {
         self.pending_assets
             .iter()
             .map(|file| JsValue::from_str(&text_file_to_uri(file)))
             .collect()
     }
 
-    /// Resolve an asset (file content).
+    /// Get pending glob patterns that need to be expanded.
+    ///
+    /// Returns a JavaScript array of objects with:
+    /// - `id`: Unique identifier for this glob request
+    /// - `base_dir`: Base directory for the pattern
+    /// - `pattern`: Glob pattern relative to base_dir
+    #[wasm_bindgen]
+    pub fn get_pending_globs(&self) -> Array {
+        self.pending_globs
+            .iter()
+            .map(|(id, glob)| {
+                let obj = js_sys::Object::new();
+                js_sys::Reflect::set(&obj, &"id".into(), &JsValue::from_str(id)).unwrap();
+                js_sys::Reflect::set(
+                    &obj,
+                    &"base_dir".into(),
+                    &JsValue::from_str(&glob.base_dir.to_string_lossy()),
+                )
+                .unwrap();
+                js_sys::Reflect::set(&obj, &"pattern".into(), &JsValue::from_str(&glob.pattern))
+                    .unwrap();
+                JsValue::from(obj)
+            })
+            .collect()
+    }
+
+    /// Resolve a glob pattern with matching file paths.
+    ///
+    /// - `id`: The glob request ID from `get_pending_globs()`
+    /// - `files`: Array of file URIs (file://) matching the pattern
+    #[wasm_bindgen]
+    pub fn resolve_glob(&mut self, id: &str, files: Array) {
+        if let Some(glob_key) = self.pending_globs.remove(id) {
+            let text_files: Vec<TextFile> = files
+                .iter()
+                .filter_map(|v| v.as_string())
+                .map(|uri| uri_to_text_file_from_str(&uri))
+                .collect();
+
+            self.runtime
+                .resolve_asset(glob_key, GlobResult(text_files), DurabilityLevel::Volatile);
+
+            // Try to complete pending requests
+            self.retry_pending_requests();
+
+            // Check diagnostics subscriptions
+            self.check_diagnostics_subscriptions();
+        }
+    }
+
+    /// Resolve a text file content.
     ///
     /// - `uri`: The file URI (file://) or URL (https://)
     /// - `content`: The file content, or undefined/null if the file doesn't exist
     /// - `error`: Optional error message if content is null due to an error
     #[wasm_bindgen]
-    pub fn resolve_asset(&mut self, uri: &str, content: Option<String>, error: Option<String>) {
+    pub fn resolve_text_file(&mut self, uri: &str, content: Option<String>, error: Option<String>) {
         // Parse URI to get TextFile
         let file = uri_to_text_file_from_str(uri);
 
@@ -413,6 +465,16 @@ impl WasmCore {
                     self.pending_assets.insert(file.clone());
                 }
                 waiting_for.insert(file.clone());
+            } else if let Some(glob_key) = pending.key::<Glob>() {
+                // Generate a unique ID for this glob request
+                let id = format!(
+                    "{}:{}",
+                    glob_key.base_dir.to_string_lossy(),
+                    glob_key.pattern
+                );
+                self.pending_globs
+                    .entry(id)
+                    .or_insert_with(|| glob_key.clone());
             }
         }
 

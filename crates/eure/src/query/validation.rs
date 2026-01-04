@@ -14,7 +14,7 @@ use thisisplural::Plural;
 
 use crate::report::ErrorReports;
 
-use super::assets::TextFile;
+use super::assets::{Glob, TextFile};
 use super::parse::ParseDocument;
 use super::schema::ValidateAgainstSchema;
 
@@ -92,19 +92,25 @@ pub fn validate_target(
         TextFile::from_path(full_path)
     });
 
-    target
+    // Expand glob patterns via asset (platform-specific implementation)
+    let files: Vec<TextFile> = target
         .globs
         .iter()
-        .flat_map(|glob_pattern| {
-            let pattern = config_dir.join(glob_pattern);
-            let pattern_str = pattern.to_string_lossy();
-            glob::glob(&pattern_str).into_iter().flat_map(|paths| {
-                paths.flatten().map(|entry| {
-                    let file = TextFile::from_path(entry);
-                    db.query(ValidateDocument::new(file.clone(), schema_file.clone()))
-                        .map(|reports| (file, reports.as_ref().clone()))
-                })
-            })
+        .map(|glob_pattern| {
+            let glob_key = Glob::new(config_dir.clone(), glob_pattern.clone());
+            db.asset(glob_key)?.suspend()
+        })
+        .collect::<Result<Vec<_>, QueryError>>()?
+        .into_iter()
+        .flat_map(|result| result.0.clone())
+        .collect();
+
+    // Validate each file
+    files
+        .into_iter()
+        .map(|file| {
+            db.query(ValidateDocument::new(file.clone(), schema_file.clone()))
+                .map(|reports| (file, reports.as_ref().clone()))
         })
         .collect()
 }

@@ -103,6 +103,37 @@ pub struct Workspace {
     pub config_path: PathBuf,
 }
 
+/// Asset key for glob pattern expansion.
+///
+/// Resolves a glob pattern relative to a base directory into a list of matching files.
+/// Each platform implements this differently:
+/// - CLI: uses `glob::glob()` on the filesystem
+/// - LSP (wasm32): returns empty or queries client for file list
+/// - test-suite: pre-resolves with test files
+#[asset_key(asset = GlobResult)]
+pub struct Glob {
+    pub base_dir: PathBuf,
+    pub pattern: String,
+}
+
+impl Glob {
+    pub fn new(base_dir: impl Into<PathBuf>, pattern: impl Into<String>) -> Self {
+        Self {
+            base_dir: base_dir.into(),
+            pattern: pattern.into(),
+        }
+    }
+
+    /// Returns the full pattern path (base_dir joined with pattern).
+    pub fn full_pattern(&self) -> PathBuf {
+        self.base_dir.join(&self.pattern)
+    }
+}
+
+/// Result of glob pattern expansion.
+#[derive(Clone, PartialEq, Debug)]
+pub struct GlobResult(pub Vec<TextFile>);
+
 #[cfg(test)]
 mod tests {
     use super::*;

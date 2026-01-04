@@ -88,22 +88,30 @@ export class WasmEventLoop {
   }
 
   private async resolvePendingAssets(): Promise<void> {
-    const resolvedInThisPump = new Set<string>();
+    const resolvedTextFilesInThisPump = new Set<string>();
+    const resolvedGlobsInThisPump = new Set<string>();
 
     for (let i = 0; i < MAX_PENDING_ITERATIONS; i++) {
-      const pending = this.bridge.getPendingAssets();
-      const newPending = pending.filter((uri) => !resolvedInThisPump.has(uri));
-      if (newPending.length === 0) break;
+      // Resolve pending text files
+      const pendingTextFiles = this.bridge.getPendingTextFiles();
+      const newPendingTextFiles = pendingTextFiles.filter((uri) => !resolvedTextFilesInThisPump.has(uri));
 
+      // Resolve pending globs
+      const pendingGlobs = this.bridge.getPendingGlobs();
+      const newPendingGlobs = pendingGlobs.filter((glob) => !resolvedGlobsInThisPump.has(glob.id));
+
+      if (newPendingTextFiles.length === 0 && newPendingGlobs.length === 0) break;
+
+      // Resolve text files
       await Promise.all(
-        newPending.map(async (uri) => {
-          resolvedInThisPump.add(uri);
+        newPendingTextFiles.map(async (uri) => {
+          resolvedTextFilesInThisPump.add(uri);
           try {
             const parsedUri = Uri.parse(uri);
             if (parsedUri.scheme === 'file') {
               // Local file: read from filesystem
               const content = await workspace.fs.readFile(parsedUri);
-              this.bridge.resolveAsset(uri, new TextDecoder().decode(content), null);
+              this.bridge.resolveTextFile(uri, new TextDecoder().decode(content), null);
             } else if (parsedUri.scheme === 'https') {
               // Remote URL: fetch via HTTP
               const response = await fetch(uri, {
@@ -111,17 +119,36 @@ export class WasmEventLoop {
               });
               if (response.ok) {
                 const text = await response.text();
-                this.bridge.resolveAsset(uri, text, null);
+                this.bridge.resolveTextFile(uri, text, null);
               } else {
-                this.bridge.resolveAsset(uri, null, `HTTP ${response.status}: ${response.statusText}`);
+                this.bridge.resolveTextFile(uri, null, `HTTP ${response.status}: ${response.statusText}`);
               }
             } else {
               // Unknown scheme
-              this.bridge.resolveAsset(uri, null, null);
+              this.bridge.resolveTextFile(uri, null, null);
             }
           } catch (e) {
             const errorMsg = e instanceof Error ? e.message : String(e);
-            this.bridge.resolveAsset(uri, null, errorMsg);
+            this.bridge.resolveTextFile(uri, null, errorMsg);
+          }
+        })
+      );
+
+      // Resolve globs by finding matching files
+      await Promise.all(
+        newPendingGlobs.map(async (glob) => {
+          resolvedGlobsInThisPump.add(glob.id);
+          try {
+            // Use VS Code's findFiles API with glob pattern
+            const baseUri = Uri.file(glob.base_dir);
+            const pattern = new workspace.RelativePattern(baseUri, glob.pattern);
+            const files = await workspace.findFiles(pattern);
+            const fileUris = files.map((f) => f.toString());
+            this.bridge.resolveGlob(glob.id, fileUris);
+          } catch (e) {
+            // On error, resolve with empty array
+            debugLog(`[EventLoop] Glob error for ${glob.pattern}: ${e}`);
+            this.bridge.resolveGlob(glob.id, []);
           }
         })
       );

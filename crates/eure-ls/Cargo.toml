@@ -36,6 +36,7 @@ serde_json.workspace = true
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 crossbeam-channel = "0.5"
+glob.workspace = true
 lsp-server = "0.7.6"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

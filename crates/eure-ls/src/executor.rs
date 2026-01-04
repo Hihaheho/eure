@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crossbeam_channel::Receiver;
-use eure::query::{TextFile, TextFileContent};
+use eure::query::{Glob, GlobResult, TextFile, TextFileContent};
 use eure::report::error_reports_comparator;
 use lsp_server::{Notification, RequestId, Response};
 use lsp_types::{
@@ -340,6 +340,19 @@ impl QueryExecutor {
                     self.pending_io.insert(file.clone());
                 }
                 waiting_for.insert(file.clone());
+            } else if let Some(glob_key) = pending.key::<Glob>() {
+                // Expand glob pattern on filesystem
+                let pattern = glob_key.full_pattern();
+                let pattern_str = pattern.to_string_lossy();
+                let files: Vec<TextFile> = glob::glob(&pattern_str)
+                    .into_iter()
+                    .flat_map(|paths| paths.flatten().map(TextFile::from_path))
+                    .collect();
+                self.runtime.resolve_asset(
+                    glob_key.clone(),
+                    GlobResult(files),
+                    DurabilityLevel::Volatile,
+                );
             }
         }
 
