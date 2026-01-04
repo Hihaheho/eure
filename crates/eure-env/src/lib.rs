@@ -1,17 +1,17 @@
-//! Configuration types for Eure tools.
+//! Environment and configuration for Eure tools.
 //!
-//! This crate provides configuration data types for the Eure CLI and Language Server.
-//! The configuration is stored in `Eure.eure` files at project roots.
-//!
-//! This crate only defines data structures. Query logic and error reporting
-//! are in the `eure` crate.
+//! This crate provides configuration data types and caching for the Eure CLI
+//! and Language Server. The configuration is stored in `Eure.eure` files at project roots.
 //!
 //! # Features
 //!
 //! - `lint` - Include lint configuration types
 //! - `ls` - Include language server configuration types
 //! - `cli` - Include CLI configuration (enables `lint` and `ls`)
+//! - `native` - Include native I/O for remote schema caching (requires network/filesystem dependencies)
 //! - `all` - Include all configuration types
+
+pub mod cache;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

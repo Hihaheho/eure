@@ -12,6 +12,9 @@ use crate::query::error::EureQueryError;
 
 use super::TextFileContent;
 
+#[cfg(feature = "native")]
+pub use eure_env::cache::{CacheOptions, default_cache_dir, parse_duration};
+
 /// Rate limit: minimum interval between requests to the same URL.
 const RATE_LIMIT_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -75,6 +78,26 @@ pub fn fetch_url(url: &Url) -> Result<TextFileContent, QueryError> {
         // Convert non-404 HTTP errors to reqwest::Error
         response.error_for_status()?;
         unreachable!()
+    }
+}
+
+/// Fetch content from a URL with caching support.
+///
+/// Uses the cache system to avoid redundant network requests.
+/// Supports conditional GET (ETag/Last-Modified) for efficient revalidation.
+#[cfg(feature = "native")]
+pub fn fetch_url_cached(url: &Url, opts: &CacheOptions) -> Result<TextFileContent, QueryError> {
+    use eure_env::cache;
+
+    match cache::fetch(url, opts) {
+        Ok(result) => Ok(TextFileContent(result.content)),
+        Err(cache::CacheError::NotFound(_)) => {
+            Err(EureQueryError::ContentNotFound(TextFile::from_url(url.clone())).into())
+        }
+        Err(cache::CacheError::OfflineCacheMiss(_)) => {
+            Err(EureQueryError::OfflineNoCache(url.clone()).into())
+        }
+        Err(e) => Err(QueryError::from(anyhow::anyhow!(e))),
     }
 }
 

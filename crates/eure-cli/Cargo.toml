@@ -19,8 +19,8 @@ anyhow = { workspace = true }
 automod = { workspace = true }
 catppuccin = { workspace = true, features = ["css-colors"] }
 clap = { workspace = true, features = ["derive"] }
-eure = { workspace = true, features = ["http"] }
-eure-config = { workspace = true, features = ["all"] }
+eure = { workspace = true, features = ["http", "native"] }
+eure-env = { workspace = true, features = ["all", "native"] }
 eure-document = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }
 eure-json = { workspace = true }
@@ -36,3 +36,4 @@ maud = "0.27.0"
 nu-ansi-term = "0.50"
 petgraph = "0.8.1"
 serde_json = { workspace = true }
+url = { workspace = true }

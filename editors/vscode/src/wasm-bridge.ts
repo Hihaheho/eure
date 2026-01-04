@@ -9,6 +9,21 @@ type InitFunction = (module_or_path?: InitInput) => Promise<void>;
 let initWasm: InitFunction | null = null;
 let WasmCoreClass: (typeof WasmCore) | null = null;
 
+/** Cache key information returned by compute_cache_key */
+export interface CacheKeyInfo {
+  url: string;
+  hash: string;
+  host: string;
+  filename: string;
+  cache_path: string;
+}
+
+/** Cache action returned by check_cache_status */
+export type CacheAction =
+  | { action: 'fetch' }
+  | { action: 'use_cached' }
+  | { action: 'revalidate'; headers: { if_none_match?: string; if_modified_since?: string } };
+
 export class WasmBridge {
   private core: WasmCore | null = null;
 
@@ -60,5 +75,31 @@ export class WasmBridge {
 
   tick(): void {
     this.core!.tick();
+  }
+
+  // Cache helper methods
+
+  computeCacheKey(url: string): CacheKeyInfo | null {
+    const result = this.core!.compute_cache_key(url);
+    return result as CacheKeyInfo | null;
+  }
+
+  checkCacheStatus(url: string, metaJson: string | undefined, maxAgeSecs: number): CacheAction {
+    const result = this.core!.check_cache_status(url, metaJson, maxAgeSecs);
+    return result as CacheAction;
+  }
+
+  buildCacheMeta(
+    url: string,
+    etag: string | undefined,
+    lastModified: string | undefined,
+    contentHash: string,
+    sizeBytes: number
+  ): string {
+    return this.core!.build_cache_meta(url, etag, lastModified, contentHash, sizeBytes);
+  }
+
+  computeContentHash(content: string): string {
+    return this.core!.compute_content_hash(content);
   }
 }

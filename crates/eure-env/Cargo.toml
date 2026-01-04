@@ -1,0 +1,41 @@
+[package]
+name = "eure-env"
+version = "0.1.2"
+edition = "2024"
+description = "Environment and configuration for Eure tools (CLI, LSP, cache)"
+readme = "README.md"
+homepage = "https://eure.dev"
+repository = "https://github.com/Hihaheho/eure"
+license = "MIT OR Apache-2.0"
+keywords = ["eure", "config", "configuration", "cache", "environment"]
+
+[dependencies]
+# Core dependencies (always included)
+eros = { workspace = true }
+eure-document = { workspace = true }
+eure-macros = { workspace = true }
+eure-parol = { workspace = true }
+glob = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Cache core (pure computation, always available for WASM)
+sha2 = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Native I/O dependencies (optional)
+reqwest = { workspace = true, optional = true }
+tempfile = { version = "3", optional = true }
+fs2 = { version = "0.4", optional = true }
+walkdir = { version = "2", optional = true }
+dirs = { version = "5", optional = true }
+
+[features]
+default = []
+lint = []
+ls = []
+cli = ["lint", "ls"]
+all = ["cli"]
+native = ["dep:reqwest", "dep:tempfile", "dep:fs2", "dep:walkdir", "dep:dirs"]

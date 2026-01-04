@@ -26,6 +26,7 @@ http = ["eure/http"]
 [dependencies]
 anyhow.workspace = true
 eure = { workspace = true }
+eure-env = { workspace = true }
 eure-schema = { workspace = true }
 lsp-types = "0.97.0"
 percent-encoding = "2.3"
@@ -48,3 +49,4 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 js-sys = "0.3"
 serde-wasm-bindgen = "0.6"
 wasm-bindgen = "0.2"
+url = { workspace = true }

@@ -1,3 +1,4 @@
+mod args;
 mod commands {
     automod::dir!(pub "src/commands");
 }
@@ -34,6 +35,8 @@ enum Commands {
     Check(commands::check::Args),
     /// Eure Markdown document commands
     Mark(commands::mark::Args),
+    /// Manage remote schema cache
+    Cache(commands::cache::Args),
 }
 
 fn main() {
@@ -50,5 +53,6 @@ fn main() {
         Commands::Html(args) => commands::html::run(args),
         Commands::Check(args) => commands::check::run(args),
         Commands::Mark(args) => commands::mark::run(args),
+        Commands::Cache(args) => commands::cache::run(args),
     }
 }

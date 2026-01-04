@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use eure_config::EureConfig;
+use eure_env::EureConfig;
 use query_flow::{Db, QueryError, query};
 
 use crate::document::cst_to_document_and_origin_map;
@@ -31,7 +31,7 @@ pub fn get_config(db: &impl Db, file: TextFile) -> Result<Option<EureConfig>, Qu
                 Err(e) => {
                     let cst = db.query(ParseCst::new(config_file.clone()))?;
                     Err(report_config_error(
-                        &eure_config::ConfigError::from(e),
+                        &eure_env::ConfigError::from(e),
                         file,
                         &cst.cst,
                         &parsed.origins,

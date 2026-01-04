@@ -12,10 +12,13 @@ use eure::query::{
 };
 use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
 use eure::report::{ErrorReports, format_error_reports};
-use eure_config::{CONFIG_FILENAME, EureConfig};
+use eure_env::{CONFIG_FILENAME, EureConfig};
 use nu_ansi_term::Color;
 
-use crate::util::{display_path, handle_query_error, read_input, run_query_with_file_loading};
+use crate::args::CacheArgs;
+use crate::util::{
+    display_path, handle_query_error, read_input, run_query_with_file_loading_cached,
+};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -36,6 +39,10 @@ pub struct Args {
     /// Run all targets defined in Eure.eure
     #[arg(long)]
     pub all: bool,
+
+    /// Cache-related options for remote schemas
+    #[command(flatten)]
+    pub cache: CacheArgs,
 }
 
 pub fn run(args: Args) {
@@ -125,10 +132,12 @@ fn run_project_mode(args: Args, config_path: &Path) {
 
     // Create runtime and run validation
     let runtime = QueryRuntimeBuilder::new().build();
+    let cache_opts = args.cache.to_cache_options();
 
-    let result = match run_query_with_file_loading(
+    let result = match run_query_with_file_loading_cached(
         &runtime,
         ValidateTargets::new(Arc::new(targets), config_dir.to_path_buf()),
+        Some(&cache_opts),
     ) {
         Ok(r) => r,
         Err(e) => handle_query_error(&runtime, e),
@@ -185,9 +194,11 @@ fn run_file_mode(args: Args) {
     });
 
     // Single query for validation
-    let result = match run_query_with_file_loading(
+    let cache_opts = args.cache.to_cache_options();
+    let result = match run_query_with_file_loading_cached(
         &runtime,
         ValidateDocument::new(doc_file.clone(), schema_file),
+        Some(&cache_opts),
     ) {
         Ok(r) => r,
         Err(e) => handle_query_error(&runtime, e),

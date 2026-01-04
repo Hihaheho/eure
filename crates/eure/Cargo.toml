@@ -12,12 +12,13 @@ keywords = ["configuration", "data-format", "eure", "serialization"]
 [features]
 default = []
 http = ["dep:reqwest"]
+native = ["http", "eure-env/native"]
 
 [dependencies]
 annotate-snippets = { workspace = true }
 anyhow = { workspace = true }
 eros = { workspace = true }
-eure-config = { workspace = true }
+eure-env = { workspace = true }
 eure-document = { workspace = true }
 eure-macros = { workspace = true }
 eure-parol = { workspace = true }

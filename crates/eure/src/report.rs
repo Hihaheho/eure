@@ -828,12 +828,12 @@ pub fn error_reports_comparator(a: &anyhow::Error, b: &anyhow::Error) -> bool {
 
 /// Convert a ConfigError to ErrorReports.
 pub fn report_config_error(
-    error: &eure_config::ConfigError,
+    error: &eure_env::ConfigError,
     file: TextFile,
     cst: &Cst,
     origins: &OriginMap,
 ) -> ErrorReports {
-    use eure_config::ConfigError;
+    use eure_env::ConfigError;
 
     match error {
         ConfigError::Io(e) => ErrorReports::from(vec![ErrorReport::error(

@@ -8,7 +8,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use eure_config::Target;
+use eure_env::Target;
 use query_flow::{Db, QueryError, QueryResultExt, query};
 use thisisplural::Plural;
 

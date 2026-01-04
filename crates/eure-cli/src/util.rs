@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::ValueEnum;
-use eure::query::{Glob, GlobResult, TextFile, TextFileContent, fetch_url};
+use eure::query::{
+    CacheOptions, Glob, GlobResult, TextFile, TextFileContent, fetch_url, fetch_url_cached,
+};
 use eure::query_flow::{DurabilityLevel, Query, QueryError, QueryRuntime};
 use eure::report::{ErrorReports, format_error_reports};
 
@@ -70,9 +72,25 @@ pub fn handle_query_error(runtime: &QueryRuntime, e: QueryError) -> ! {
 /// 3. Retry query until it completes or errors
 ///
 /// Returns the Arc-wrapped query result.
+#[allow(dead_code)]
 pub fn run_query_with_file_loading<Q, R>(
     runtime: &QueryRuntime,
     query: Q,
+) -> Result<Arc<R>, QueryError>
+where
+    Q: Query<Output = R> + Clone,
+{
+    run_query_with_file_loading_cached(runtime, query, None)
+}
+
+/// Run a query with automatic file loading and caching support.
+///
+/// Same as `run_query_with_file_loading` but uses the cache for remote files
+/// when `cache_opts` is provided.
+pub fn run_query_with_file_loading_cached<Q, R>(
+    runtime: &QueryRuntime,
+    query: Q,
+    cache_opts: Option<&CacheOptions>,
 ) -> Result<Arc<R>, QueryError>
 where
     Q: Query<Output = R> + Clone,
@@ -93,22 +111,30 @@ where
                                     DurabilityLevel::Static,
                                 );
                             }
-                            TextFile::Remote(url) => match fetch_url(url) {
-                                Ok(content) => {
-                                    runtime.resolve_asset(
-                                        file.clone(),
-                                        content,
-                                        DurabilityLevel::Static,
-                                    );
+                            TextFile::Remote(url) => {
+                                // Use cached fetch when cache options are provided
+                                let result = if let Some(opts) = cache_opts {
+                                    fetch_url_cached(url, opts)
+                                } else {
+                                    fetch_url(url)
+                                };
+                                match result {
+                                    Ok(content) => {
+                                        runtime.resolve_asset(
+                                            file.clone(),
+                                            content,
+                                            DurabilityLevel::Static,
+                                        );
+                                    }
+                                    Err(e) => {
+                                        runtime.resolve_asset_error::<TextFile>(
+                                            file.clone(),
+                                            anyhow!("Failed to fetch {}: {}", url, e),
+                                            DurabilityLevel::Static,
+                                        );
+                                    }
                                 }
-                                Err(e) => {
-                                    runtime.resolve_asset_error::<TextFile>(
-                                        file.clone(),
-                                        anyhow!("Failed to fetch {}: {}", url, e),
-                                        DurabilityLevel::Static,
-                                    );
-                                }
-                            },
+                            }
                         }
                     } else if let Some(glob_key) = pending.key::<Glob>() {
                         // Expand glob pattern on filesystem

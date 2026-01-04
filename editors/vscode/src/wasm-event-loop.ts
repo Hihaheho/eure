@@ -1,13 +1,16 @@
 import type { Message } from 'vscode-jsonrpc';
 import { Uri, workspace, extensions } from 'vscode';
 import { debugLog } from './common';
-import { WasmBridge } from './wasm-bridge';
+import { WasmBridge, CacheAction } from './wasm-bridge';
 
 function getUserAgent(): string {
   const ext = extensions.getExtension('hihaheho.vscode-eurels');
   const version = ext?.packageJSON?.version ?? 'unknown';
   return `vscode-eurels@${version}`;
 }
+
+// Default cache max age: 24 hours (in seconds)
+const DEFAULT_MAX_AGE_SECS = 24 * 60 * 60;
 
 const MAX_PENDING_ITERATIONS = 20;
 
@@ -18,13 +21,18 @@ export class WasmEventLoop {
   private processing = false;
   private needsPump = false;
   private disposed = false;
+  private cacheDir: Uri | null = null;
 
   constructor() {
     this.bridge = new WasmBridge();
   }
 
-  async start(extensionUri: Uri): Promise<void> {
+  async start(extensionUri: Uri, globalStorageUri?: Uri): Promise<void> {
     await this.bridge.initialize(extensionUri);
+    // Use globalStorageUri for cache if provided
+    if (globalStorageUri) {
+      this.cacheDir = Uri.joinPath(globalStorageUri, 'schema-cache');
+    }
   }
 
   onMessage(callback: (msg: Message) => void): void {
@@ -113,15 +121,12 @@ export class WasmEventLoop {
               const content = await workspace.fs.readFile(parsedUri);
               this.bridge.resolveTextFile(uri, new TextDecoder().decode(content), null);
             } else if (parsedUri.scheme === 'https') {
-              // Remote URL: fetch via HTTP
-              const response = await fetch(uri, {
-                headers: { 'User-Agent': getUserAgent() },
-              });
-              if (response.ok) {
-                const text = await response.text();
-                this.bridge.resolveTextFile(uri, text, null);
+              // Remote URL: fetch via HTTP with caching
+              const result = await this.fetchWithCache(uri);
+              if (result.content !== null) {
+                this.bridge.resolveTextFile(uri, result.content, null);
               } else {
-                this.bridge.resolveTextFile(uri, null, `HTTP ${response.status}: ${response.statusText}`);
+                this.bridge.resolveTextFile(uri, null, result.error ?? 'Unknown error');
               }
             } else {
               // Unknown scheme
@@ -155,6 +160,177 @@ export class WasmEventLoop {
 
       this.bridge.tick();
       this.flushOutbox();
+    }
+  }
+
+  /**
+   * Fetch a remote URL with caching support.
+   * Uses WASM helpers to determine cache strategy and build metadata.
+   */
+  private async fetchWithCache(url: string): Promise<{ content: string | null; error: string | null }> {
+    // If no cache directory, just fetch directly
+    if (!this.cacheDir) {
+      return this.fetchDirect(url);
+    }
+
+    try {
+      // Get cache key info from WASM
+      const keyInfo = this.bridge.computeCacheKey(url);
+      if (!keyInfo) {
+        return this.fetchDirect(url);
+      }
+
+      // Build cache file paths
+      const cacheFilePath = Uri.joinPath(this.cacheDir, keyInfo.cache_path);
+      const metaFilePath = Uri.joinPath(this.cacheDir, keyInfo.cache_path + '.meta');
+
+      // Try to read existing meta
+      let metaJson: string | undefined;
+      try {
+        const metaBytes = await workspace.fs.readFile(metaFilePath);
+        metaJson = new TextDecoder().decode(metaBytes);
+      } catch {
+        // No cached meta
+      }
+
+      // Ask WASM what to do
+      const action = this.bridge.checkCacheStatus(url, metaJson, DEFAULT_MAX_AGE_SECS);
+
+      if (action.action === 'use_cached') {
+        // Cache is fresh, just read it
+        debugLog(`[Cache] Using cached: ${url}`);
+        try {
+          const content = await workspace.fs.readFile(cacheFilePath);
+          return { content: new TextDecoder().decode(content), error: null };
+        } catch {
+          // Cache file missing, fall through to fetch
+          debugLog(`[Cache] Cache file missing, fetching: ${url}`);
+        }
+      }
+
+      // Build request headers
+      const headers: Record<string, string> = {
+        'User-Agent': getUserAgent(),
+      };
+
+      if (action.action === 'revalidate') {
+        debugLog(`[Cache] Revalidating: ${url}`);
+        if (action.headers.if_none_match) {
+          headers['If-None-Match'] = action.headers.if_none_match;
+        }
+        if (action.headers.if_modified_since) {
+          headers['If-Modified-Since'] = action.headers.if_modified_since;
+        }
+      } else {
+        debugLog(`[Cache] Fetching fresh: ${url}`);
+      }
+
+      // Make the request
+      const response = await fetch(url, { headers });
+
+      if (response.status === 304) {
+        // Not modified - use cached content
+        debugLog(`[Cache] 304 Not Modified: ${url}`);
+        try {
+          const content = await workspace.fs.readFile(cacheFilePath);
+          // Update last_used_at in meta (touch)
+          await this.updateCacheLastUsed(metaFilePath, metaJson!);
+          return { content: new TextDecoder().decode(content), error: null };
+        } catch {
+          // Cache file missing after 304 - this shouldn't happen, but fetch again
+          return this.fetchDirect(url);
+        }
+      }
+
+      if (!response.ok) {
+        return { content: null, error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+
+      // Got fresh content
+      const content = await response.text();
+      debugLog(`[Cache] Fetched ${content.length} bytes: ${url}`);
+
+      // Cache it
+      try {
+        await this.writeCacheEntry(url, content, response, cacheFilePath, metaFilePath);
+      } catch (e) {
+        debugLog(`[Cache] Failed to write cache: ${e}`);
+        // Continue anyway, we have the content
+      }
+
+      return { content, error: null };
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      debugLog(`[Cache] Error: ${errorMsg}`);
+      return { content: null, error: errorMsg };
+    }
+  }
+
+  /**
+   * Fetch directly without caching.
+   */
+  private async fetchDirect(url: string): Promise<{ content: string | null; error: string | null }> {
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': getUserAgent() },
+      });
+      if (response.ok) {
+        const content = await response.text();
+        return { content, error: null };
+      } else {
+        return { content: null, error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      return { content: null, error: errorMsg };
+    }
+  }
+
+  /**
+   * Write content and metadata to cache.
+   */
+  private async writeCacheEntry(
+    url: string,
+    content: string,
+    response: Response,
+    contentPath: Uri,
+    metaPath: Uri
+  ): Promise<void> {
+    // Compute content hash
+    const contentHash = this.bridge.computeContentHash(content);
+
+    // Extract response headers
+    const etag = response.headers.get('etag') ?? undefined;
+    const lastModified = response.headers.get('last-modified') ?? undefined;
+
+    // Build metadata JSON
+    const metaJson = this.bridge.buildCacheMeta(
+      url,
+      etag,
+      lastModified,
+      contentHash,
+      content.length
+    );
+
+    // Ensure directory exists and write files
+    const contentBytes = new TextEncoder().encode(content);
+    const metaBytes = new TextEncoder().encode(metaJson);
+
+    await workspace.fs.writeFile(contentPath, contentBytes);
+    await workspace.fs.writeFile(metaPath, metaBytes);
+  }
+
+  /**
+   * Update last_used_at in cached metadata.
+   */
+  private async updateCacheLastUsed(metaPath: Uri, existingMetaJson: string): Promise<void> {
+    try {
+      const meta = JSON.parse(existingMetaJson);
+      meta.last_used_at = new Date().toISOString();
+      const updatedJson = JSON.stringify(meta, null, 2);
+      await workspace.fs.writeFile(metaPath, new TextEncoder().encode(updatedJson));
+    } catch {
+      // Ignore errors updating metadata
     }
   }
 }

@@ -13,4 +13,6 @@ pub enum EureQueryError {
     ParseError(EureParseError),
     #[error("Rate limit exceeded for URL {0}: possible infinite invalidation loop detected")]
     RateLimitExceeded(Url),
+    #[error("Offline mode: no cached version available for {0}")]
+    OfflineNoCache(Url),
 }

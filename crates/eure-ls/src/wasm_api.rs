@@ -259,6 +259,137 @@ impl WasmCore {
         // Currently a no-op, but could be used for periodic tasks
         // like garbage collection or timeout handling
     }
+
+    // =========================================================================
+    // Cache Helper Functions (for WASM host to implement caching)
+    // =========================================================================
+
+    /// Compute cache key information from a URL.
+    ///
+    /// Returns a JSON object with:
+    /// - `url`: Original URL string
+    /// - `hash`: 8-character SHA256 hash prefix
+    /// - `host`: Host name from URL
+    /// - `filename`: Original filename from URL path
+    /// - `cache_path`: Relative path within cache directory (2-level sharding)
+    ///
+    /// Example cache_path: `eure.dev/a1/b2/a1b2c3d4-eure-schema.schema.eure`
+    #[wasm_bindgen]
+    pub fn compute_cache_key(&self, url_str: &str) -> JsValue {
+        use eure_env::cache::compute_cache_key;
+
+        let url = match url::Url::parse(url_str) {
+            Ok(u) => u,
+            Err(_) => return JsValue::NULL,
+        };
+
+        let key_info = compute_cache_key(&url);
+
+        let info = serde_json::json!({
+            "url": key_info.url,
+            "hash": key_info.hash,
+            "host": key_info.host,
+            "filename": key_info.filename,
+            "cache_path": key_info.cache_path,
+        });
+
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        info.serialize(&serializer).unwrap_or(JsValue::NULL)
+    }
+
+    /// Check cache status and determine what action to take.
+    ///
+    /// Arguments:
+    /// - `url`: The URL to check
+    /// - `meta_json`: Optional JSON string of cached metadata (from .meta file)
+    /// - `max_age_secs`: Maximum age in seconds before revalidation
+    ///
+    /// Returns a JSON object with `action` field:
+    /// - `{ "action": "fetch" }` - No cache, fetch fresh
+    /// - `{ "action": "use_cached" }` - Cache is fresh, use it
+    /// - `{ "action": "revalidate", "headers": { ... } }` - Cache is stale, revalidate
+    ///
+    /// The `headers` object contains:
+    /// - `if_none_match`: ETag value for If-None-Match header
+    /// - `if_modified_since`: Last-Modified value for If-Modified-Since header
+    #[wasm_bindgen]
+    pub fn check_cache_status(
+        &self,
+        _url: &str,
+        meta_json: Option<String>,
+        max_age_secs: u32,
+    ) -> JsValue {
+        use eure_env::cache::CacheMeta;
+
+        let meta_json = match meta_json {
+            Some(json) => json,
+            None => {
+                // No cache
+                return to_js_value(&serde_json::json!({ "action": "fetch" }));
+            }
+        };
+
+        // Parse meta using shared type
+        let meta: CacheMeta = match serde_json::from_str(&meta_json) {
+            Ok(m) => m,
+            Err(_) => {
+                // Invalid meta, fetch fresh
+                return to_js_value(&serde_json::json!({ "action": "fetch" }));
+            }
+        };
+
+        // Use shared freshness check logic
+        let action = meta.check_freshness(max_age_secs);
+
+        // Serialize the action enum directly
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        action.serialize(&serializer).unwrap_or(JsValue::NULL)
+    }
+
+    /// Build cache metadata from fetch response.
+    ///
+    /// Arguments:
+    /// - `url`: The fetched URL
+    /// - `etag`: ETag header from response (optional)
+    /// - `last_modified`: Last-Modified header from response (optional)
+    /// - `content_hash`: SHA256 hash of content (computed by host)
+    /// - `size_bytes`: Content size in bytes
+    ///
+    /// Returns a JSON string suitable for storing in .meta file.
+    #[wasm_bindgen]
+    pub fn build_cache_meta(
+        &self,
+        url: &str,
+        etag: Option<String>,
+        last_modified: Option<String>,
+        content_hash: &str,
+        size_bytes: u32,
+    ) -> String {
+        use eure_env::cache::CacheMeta;
+
+        let meta = CacheMeta::new(
+            url.to_string(),
+            etag,
+            last_modified,
+            content_hash.to_string(),
+            size_bytes as u64,
+        );
+
+        serde_json::to_string_pretty(&meta).unwrap_or_default()
+    }
+
+    /// Compute SHA256 hash of content.
+    ///
+    /// Returns the hash as a hex string.
+    #[wasm_bindgen]
+    pub fn compute_content_hash(&self, content: &str) -> String {
+        eure_env::cache::compute_content_hash(content)
+    }
+}
+
+fn to_js_value(value: &serde_json::Value) -> JsValue {
+    let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+    value.serialize(&serializer).unwrap_or(JsValue::NULL)
 }
 
 impl WasmCore {

@@ -31,7 +31,7 @@ export async function activateCommon(
   const eventLoop = new WasmEventLoop();
 
   channel.appendLine('[DEBUG] Starting eventLoop...');
-  await eventLoop.start(context.extensionUri);
+  await eventLoop.start(context.extensionUri, context.globalStorageUri);
   channel.appendLine('[DEBUG] eventLoop started.');
 
   channel.appendLine('[DEBUG] Creating transports...');
