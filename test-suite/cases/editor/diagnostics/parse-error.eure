@@ -1,0 +1,36 @@
+// Test: parse error produces diagnostic
+// Goal: Verify that parse errors are converted to diagnostics
+
+editor = ```eure
+name = "unclosed string
+```
+
+// Parse errors produce multiple diagnostics
+@ diagnostics[]
+severity = "error"
+message = ```
+LA(1): " (Error) at test.eure:1:8-1:9[2].
+at non-terminal "Value"
+Current scanner is INITIAL
+Current production is:
+/* 11 */ ValueBinding: Bind Value;
+```
+
+@ diagnostics[]
+severity = "error"
+message = ```
+LA(1): string (Ident) at test.eure:2:10-2:16[4].
+at non-terminal "BindingRhs"
+Current scanner is INITIAL
+Current production is:
+/* 7 */ Binding: Keys BindingRhs;
+```
+
+@ diagnostics[]
+severity = "error"
+message = ```
+Syntax error: found $ (EndOfInput) at test.eure:0:0-0:0[6]
+Current scanner is INITIAL
+Current production is:
+/* 171 */ End: "End";
+```

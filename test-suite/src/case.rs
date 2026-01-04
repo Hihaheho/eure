@@ -111,6 +111,7 @@ const OUTPUT_JSON_PATH: &str = "output.json";
 const FORMATTED_INPUT_PATH: &str = "formatted_input.eure";
 const FORMATTED_NORMALIZED_PATH: &str = "formatted_normalized.eure";
 const OUTPUT_JSON_SCHEMA_PATH: &str = "output.json-schema.json";
+const EDITOR_PATH: &str = "editor.eure";
 const META_SCHEMA_PATH: &str = "$eure/meta-schema.eure";
 
 /// Bundled meta-schema content
@@ -286,6 +287,11 @@ impl Case {
         // output_json_schema → "output.json-schema.json"
         if let Some(output_json_schema) = self.data.json_schema.output_json_schema() {
             Self::resolve_asset(runtime, OUTPUT_JSON_SCHEMA_PATH, output_json_schema)?;
+        }
+
+        // editor → "editor.eure"
+        if let Some(editor) = &self.data.editor {
+            Self::resolve_asset(runtime, EDITOR_PATH, editor)?;
         }
 
         // meta-schema → "$eure/meta-schema.eure" (always available)
@@ -491,25 +497,22 @@ impl Case {
         }
 
         // Editor scenarios (completions, diagnostics)
-        // When 'editor' is present, this is an editor test. We create scenarios based on
-        // what's specified:
-        // - If completions are specified → completions scenario
-        // - If completions are NOT specified → diagnostics scenario (even if empty,
-        //   which means "expect zero diagnostics")
+        // When 'editor' is present, we create:
+        // - Diagnostics scenario: always (empty diagnostics = expect zero diagnostics)
+        // - Completions scenario: when trigger is specified
         if let Some(editor) = &self.data.editor {
-            if !self.data.completions.is_empty() {
-                // Completions scenario - run when completions are specified
+            // Diagnostics scenario - always run when editor is present
+            scenarios.push(Scenario::Diagnostics(DiagnosticsScenario {
+                editor: Self::resolve_path(editor, EDITOR_PATH),
+                diagnostics: self.data.diagnostics.clone(),
+            }));
+
+            // Completions scenario - run when trigger is specified
+            if self.data.trigger.is_some() {
                 scenarios.push(Scenario::Completions(CompletionsScenario {
-                    editor: Self::resolve_path(editor, editor.as_str()),
+                    editor: Self::resolve_path(editor, EDITOR_PATH),
                     completions: self.data.completions.clone(),
                     trigger: self.data.trigger.clone(),
-                }));
-            } else {
-                // Diagnostics scenario - run when editor is present but no completions
-                // (empty diagnostics means "expect zero diagnostics")
-                scenarios.push(Scenario::Diagnostics(DiagnosticsScenario {
-                    editor: Self::resolve_path(editor, editor.as_str()),
-                    diagnostics: self.data.diagnostics.clone(),
                 }));
             }
         }

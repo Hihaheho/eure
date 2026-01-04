@@ -139,6 +139,11 @@ pub enum ScenarioError {
         expected: String,
         actual: String,
     },
+    /// Diagnostics mismatch (expected vs actual)
+    DiagnosticsMismatch {
+        expected: Vec<String>,
+        actual: Vec<String>,
+    },
     /// Query error
     QueryError(QueryError),
     FileNotFound(TextFile),
@@ -365,6 +370,18 @@ impl std::fmt::Display for ScenarioError {
                         };
                         write!(f, "{}{}", sign, change)?;
                     }
+                }
+                Ok(())
+            }
+            ScenarioError::DiagnosticsMismatch { expected, actual } => {
+                writeln!(f, "Diagnostics mismatch.")?;
+                writeln!(f, "\n--- Expected ({}) ---", expected.len())?;
+                for diag in expected {
+                    writeln!(f, "{}", diag)?;
+                }
+                writeln!(f, "\n--- Actual ({}) ---", actual.len())?;
+                for diag in actual {
+                    writeln!(f, "{}", diag)?;
                 }
                 Ok(())
             }

@@ -48,19 +48,20 @@ pub fn get_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<DiagnosticMes
         diagnostics.extend(parse_error_to_diagnostics(error));
     }
 
-    // 2. Collect $schema extension errors (e.g., wrong type)
-    let schema_ext_errors = db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
-    diagnostics.extend(schema_ext_errors.iter().map(error_report_to_diagnostic));
+    // Schema-related diagnostics only run if parsing succeeded
+    if parsed.error.is_none() {
+        // 2. Collect $schema extension errors (e.g., wrong type)
+        let schema_ext_errors = db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
+        diagnostics.extend(schema_ext_errors.iter().map(error_report_to_diagnostic));
 
-    // 3. Collect schema validation errors (only if parsing succeeded)
-    if parsed.error.is_none()
-        && let Some(schema_file) = db.query(ResolveSchema::new(file.clone()))?.as_ref()
-    {
-        let reports = db.query(ValidateAgainstSchema::new(
-            file.clone(),
-            schema_file.clone(),
-        ))?;
-        diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
+        // 3. Collect schema validation errors
+        if let Some(schema_file) = db.query(ResolveSchema::new(file.clone()))?.as_ref() {
+            let reports = db.query(ValidateAgainstSchema::new(
+                file.clone(),
+                schema_file.clone(),
+            ))?;
+            diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
+        }
     }
 
     Ok(diagnostics)
