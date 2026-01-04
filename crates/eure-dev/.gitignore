@@ -2,6 +2,8 @@
 !/tailwind.css
 
 !/wrangler.toml
+!/tsconfig.json
+!/src/worker.ts
 
 !assets/**/*.eure
 

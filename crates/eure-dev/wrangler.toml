@@ -1,4 +1,5 @@
 name = "eure-dev"
+main = "src/worker.ts"
 compatibility_date = "2025-12-03"
 
 [build]
@@ -6,4 +7,6 @@ command = "dx build --release --features build-image"
 
 [assets]
 directory = "../../target/dx/eure-dev/release/web/public"
+binding = "ASSETS"
+run_worker_first = ["/v*"]
 not_found_handling = "single-page-application"

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["./worker-configuration.d.ts"]
+  },
+  "include": ["src/**/*.ts", "worker-configuration.d.ts"]
+}
