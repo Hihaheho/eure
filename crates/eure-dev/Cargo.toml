@@ -22,6 +22,7 @@ tracing = { workspace = true }
 dioxus-free-icons = { version = "0.10.0", features = ["bootstrap"] }
 dioxus-sdk-storage = "0.7.0"
 serde = { workspace = true, features = ["derive"] }
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
 
 [features]
 default = []

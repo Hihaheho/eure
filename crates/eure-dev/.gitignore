@@ -5,6 +5,8 @@
 !/tsconfig.json
 !/src/worker.ts
 
+!/src/components/**/*.css
+
 !assets/**/*.eure
 
 !assets/*.css
