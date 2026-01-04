@@ -33,7 +33,7 @@
         "rust-lang.rust-analyzer",
         "tombi-toml.tombi",
         "fill-labs.dependi",
-        "hihaheho.eurels",
+        "hihaheho.vscode-eurels",
         "anthropic.claude-code"
       ],
       "settings": {
