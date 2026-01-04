@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use eure::query::{EureQueryError, TextFile, TextFileContent};
+use eure::query::{TextFile, TextFileContent, error::EureQueryError};
 use eure::report::error_reports_comparator;
 use js_sys::Array;
 use lsp_types::{
@@ -168,7 +168,7 @@ impl WasmCore {
             None => {
                 self.runtime.resolve_asset_error::<TextFile>(
                     file.clone(),
-                    EureQueryError::ContentNotFound(file.clone()).into(),
+                    EureQueryError::ContentNotFound(file.clone()),
                     DurabilityLevel::Volatile,
                 );
             }
