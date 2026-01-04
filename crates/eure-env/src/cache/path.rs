@@ -126,6 +126,15 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_cache_key_root_path() {
+        let url = Url::parse("https://example.com/").unwrap();
+        let key = compute_cache_key(&url);
+
+        assert_eq!(key.host, "example.com");
+        assert_eq!(key.filename, "index");
+    }
+
+    #[test]
     fn test_meta_path() {
         let cache_path = PathBuf::from("/cache/eure.dev/a1/b2/a1b2c3d4-schema.eure");
         let meta = meta_path(&cache_path);
@@ -133,5 +142,42 @@ mod tests {
             meta,
             PathBuf::from("/cache/eure.dev/a1/b2/a1b2c3d4-schema.eure.meta")
         );
+    }
+
+    #[test]
+    fn test_lock_path() {
+        let cache_path = PathBuf::from("/cache/eure.dev/a1/b2/a1b2c3d4-schema.eure");
+        let lock = lock_path(&cache_path);
+        assert_eq!(
+            lock,
+            PathBuf::from("/cache/eure.dev/a1/b2/a1b2c3d4-schema.eure.lock")
+        );
+    }
+
+    #[test]
+    fn test_compute_content_hash() {
+        // SHA256 of empty string
+        let hash = compute_content_hash("");
+        assert_eq!(
+            hash,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+
+        // SHA256 of "hello"
+        let hash = compute_content_hash("hello");
+        assert_eq!(
+            hash,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    #[test]
+    fn test_url_to_cache_path() {
+        let url = Url::parse("https://eure.dev/schema.eure").unwrap();
+        let cache_dir = PathBuf::from("/home/user/.cache/eure/schemas");
+        let path = url_to_cache_path(&url, &cache_dir);
+
+        assert!(path.starts_with(&cache_dir));
+        assert!(path.to_string_lossy().contains("eure.dev"));
     }
 }

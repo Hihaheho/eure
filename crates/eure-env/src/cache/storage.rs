@@ -118,6 +118,32 @@ impl FsStorage {
             path: lock_file_path,
         })
     }
+
+    /// Try to read a cache entry from a .meta file path.
+    /// Returns None if the path is not a .meta file or if reading fails.
+    fn try_read_cache_entry(path: &std::path::Path) -> Option<CacheEntry> {
+        // Only process .meta files
+        if path.extension().and_then(|e| e.to_str()) != Some("meta") {
+            return None;
+        }
+
+        // Get the content file path
+        let content_path = path.with_extension("");
+        if !content_path.exists() {
+            return None;
+        }
+
+        // Read meta and content files
+        let meta_content = fs::read_to_string(path).ok()?;
+        let meta = serde_json::from_str::<CacheMeta>(&meta_content).ok()?;
+        let content = fs::read_to_string(&content_path).ok()?;
+
+        Some(CacheEntry {
+            content,
+            meta,
+            path: content_path,
+        })
+    }
 }
 
 /// RAII guard for file lock.
@@ -214,29 +240,8 @@ impl CacheStorage for FsStorage {
             .into_iter()
             .filter_map(|e| e.ok())
         {
-            let path = entry.path();
-
-            // Only process .meta files
-            if path.extension().and_then(|e| e.to_str()) != Some("meta") {
-                continue;
-            }
-
-            // Get the content file path
-            let content_path = path.with_extension("");
-            if !content_path.exists() {
-                continue;
-            }
-
-            // Read meta
-            if let Ok(meta_content) = fs::read_to_string(path)
-                && let Ok(meta) = serde_json::from_str::<CacheMeta>(&meta_content)
-                && let Ok(content) = fs::read_to_string(&content_path)
-            {
-                entries.push(CacheEntry {
-                    content,
-                    meta,
-                    path: content_path,
-                });
+            if let Some(cache_entry) = Self::try_read_cache_entry(entry.path()) {
+                entries.push(cache_entry);
             }
         }
 

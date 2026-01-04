@@ -68,25 +68,11 @@ pub fn handle_query_error(runtime: &QueryRuntime, e: QueryError) -> ! {
 ///
 /// Uses query-flow's suspend/resume mechanism:
 /// 1. Execute query
-/// 2. If query suspends (waiting for assets), load pending files from disk
+/// 2. If query suspends (waiting for assets), load pending files from disk or network
 /// 3. Retry query until it completes or errors
 ///
-/// Returns the Arc-wrapped query result.
-#[allow(dead_code)]
-pub fn run_query_with_file_loading<Q, R>(
-    runtime: &QueryRuntime,
-    query: Q,
-) -> Result<Arc<R>, QueryError>
-where
-    Q: Query<Output = R> + Clone,
-{
-    run_query_with_file_loading_cached(runtime, query, None)
-}
-
-/// Run a query with automatic file loading and caching support.
-///
-/// Same as `run_query_with_file_loading` but uses the cache for remote files
-/// when `cache_opts` is provided.
+/// When `cache_opts` is provided, remote files are fetched using the cache.
+/// Pass `None` for cache_opts to fetch remote files without caching.
 pub fn run_query_with_file_loading_cached<Q, R>(
     runtime: &QueryRuntime,
     query: Q,
