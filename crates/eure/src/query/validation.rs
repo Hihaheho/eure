@@ -100,6 +100,9 @@ pub fn validate_target(
             let glob_key = Glob::new(config_dir.clone(), glob_pattern.clone());
             db.asset(glob_key)?.suspend()
         })
+        // Register all Glob as pending assets before suspending
+        .collect::<Vec<_>>()
+        .into_iter()
         .collect::<Result<Vec<_>, QueryError>>()?
         .into_iter()
         .flat_map(|result| result.0.clone())
