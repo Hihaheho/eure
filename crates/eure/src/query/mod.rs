@@ -8,6 +8,8 @@ pub mod assets;
 pub mod config;
 pub mod diagnostics;
 pub mod error;
+#[cfg(feature = "http")]
+pub mod http;
 pub mod parse;
 pub mod schema;
 pub mod semantic_token;
@@ -16,7 +18,11 @@ pub mod validation;
 pub use assets::{TextFile, TextFileContent, Workspace, WorkspaceId};
 pub use config::{GetConfig, LoadConfigError, load_config};
 pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
+#[cfg(feature = "http")]
+pub use http::fetch_url;
 pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst, read_text_file};
+#[cfg(feature = "http")]
+pub use reqwest;
 pub use schema::{
     DocumentToSchemaQuery, GetSchemaConversionErrorFormatted, GetSchemaExtension,
     GetSchemaExtensionDiagnostics, GetValidationErrorsFormatted,

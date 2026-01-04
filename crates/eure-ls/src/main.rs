@@ -1,14 +1,19 @@
 //! Eure Language Server - LSP implementation for the Eure data format.
 
+pub mod asset_locator;
+pub mod executor;
+pub mod io_pool;
+pub mod types;
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::executor::QueryExecutor;
+use crate::io_pool::IoPool;
+use crate::types::CommandQuery;
 use anyhow::Result;
 use crossbeam_channel::select;
 use eure::query::TextFile;
-use eure_ls::executor::QueryExecutor;
-use eure_ls::io_pool::IoPool;
-use eure_ls::types::CommandQuery;
 use eure_ls::{LspDiagnostics, LspSemanticTokens, server_capabilities};
 use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
 use lsp_types::{
@@ -77,16 +82,30 @@ fn main() -> Result<()> {
             }
             recv(executor.io_receiver()) -> response => {
                 if let Ok(response) = response {
-                    let (responses, notifications) = executor.on_asset_resolved(
-                        response.file,
-                        response.content,
-                        &documents,
-                    );
-                    for resp in responses {
-                        connection.sender.send(Message::Response(resp))?;
-                    }
-                    for notif in notifications {
-                        connection.sender.send(Message::Notification(notif))?;
+                    match response.result {
+                        Ok(content) => {
+                            let (responses, notifications) = executor.on_asset_resolved(
+                                response.file,
+                                content,
+                                &documents,
+                            );
+                            for resp in responses {
+                                connection.sender.send(Message::Response(resp))?;
+                            }
+                            for notif in notifications {
+                                connection.sender.send(Message::Notification(notif))?;
+                            }
+                        }
+                        Err(e) => {
+                            let (responses, notifications) =
+                                executor.on_asset_error(response.file, e, &documents);
+                            for resp in responses {
+                                connection.sender.send(Message::Response(resp))?;
+                            }
+                            for notif in notifications {
+                                connection.sender.send(Message::Notification(notif))?;
+                            }
+                        }
                     }
                 }
             }

@@ -15,10 +15,11 @@ path = "src/main.rs"
 
 [dependencies]
 ahash = { workspace = true }
+anyhow = { workspace = true }
 automod = { workspace = true }
 catppuccin = { workspace = true, features = ["css-colors"] }
 clap = { workspace = true, features = ["derive"] }
-eure = { workspace = true }
+eure = { workspace = true, features = ["http"] }
 eure-config = { workspace = true, features = ["all"] }
 eure-document = { workspace = true }
 eure-fmt = { workspace = true, features = ["unformat"] }

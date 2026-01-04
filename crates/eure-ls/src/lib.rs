@@ -4,17 +4,8 @@
 //! for use in VS Code web extensions.
 
 mod capabilities;
-mod queries;
-
-// Native-only modules (require threading, crossbeam, etc.)
-#[cfg(not(target_arch = "wasm32"))]
-pub mod asset_locator;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod executor;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod io_pool;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod types;
+pub mod queries;
+mod uri_utils;
 
 // WASM-specific module
 #[cfg(target_arch = "wasm32")]

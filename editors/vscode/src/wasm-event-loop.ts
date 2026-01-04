@@ -94,14 +94,26 @@ export class WasmEventLoop {
           resolvedInThisPump.add(uri);
           try {
             const parsedUri = Uri.parse(uri);
-            if (parsedUri.scheme !== 'file') {
-              this.bridge.resolveAsset(uri, null);
-              return;
+            if (parsedUri.scheme === 'file') {
+              // Local file: read from filesystem
+              const content = await workspace.fs.readFile(parsedUri);
+              this.bridge.resolveAsset(uri, new TextDecoder().decode(content), null);
+            } else if (parsedUri.scheme === 'https') {
+              // Remote URL: fetch via HTTP
+              const response = await fetch(uri);
+              if (response.ok) {
+                const text = await response.text();
+                this.bridge.resolveAsset(uri, text, null);
+              } else {
+                this.bridge.resolveAsset(uri, null, `HTTP ${response.status}: ${response.statusText}`);
+              }
+            } else {
+              // Unknown scheme
+              this.bridge.resolveAsset(uri, null, null);
             }
-            const content = await workspace.fs.readFile(parsedUri);
-            this.bridge.resolveAsset(uri, new TextDecoder().decode(content));
-          } catch {
-            this.bridge.resolveAsset(uri, null);
+          } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : String(e);
+            this.bridge.resolveAsset(uri, null, errorMsg);
           }
         })
       );

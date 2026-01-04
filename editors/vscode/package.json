@@ -15,7 +15,7 @@
   "publisher": "hihaheho",
   "scripts": {
     "package": "pnpm run build-wasm && pnpm run build && vsce package --no-dependencies -o eurels.vsix",
-    "build-wasm": "cd ../../crates/eure-ls && wasm-pack build --target web --out-dir ../../editors/vscode/pkg",
+    "build-wasm": "cd ../../crates/eure-ls && wasm-pack build --target web --out-dir ../../editors/vscode/pkg --release",
     "build-node": "esbuild ./src/node/main.ts --bundle --outfile=out/node/main.js --external:vscode --format=cjs --platform=node --target=node18",
     "build-browser": "esbuild ./src/browser/main.ts --bundle --outfile=out/browser/main.js --external:vscode --format=cjs --platform=browser",
     "build-ts": "cp -r ../../assets/icons assets/ && pnpm run build-node && pnpm run build-browser",

@@ -17,9 +17,14 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "eurels"
 path = "src/main.rs"
-required-features = []
+required-features = ["http"]
+
+[features]
+default = []
+http = ["eure/http"]
 
 [dependencies]
+anyhow.workspace = true
 eure = { workspace = true }
 eure-schema = { workspace = true }
 lsp-types = "0.97.0"
@@ -30,7 +35,6 @@ serde_json.workspace = true
 
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-anyhow.workspace = true
 crossbeam-channel = "0.5"
 lsp-server = "0.7.6"
 tracing = "0.1"

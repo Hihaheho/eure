@@ -327,7 +327,7 @@ fn report_target_errors(
                 "{}",
                 format_error_reports(runtime, errors, true).expect("file content should be loaded")
             );
-            eprintln!("  {} {}", Color::Red.paint("✗"), file.path.display());
+            eprintln!("  {} {}", Color::Red.paint("✗"), file);
         }
     }
 }

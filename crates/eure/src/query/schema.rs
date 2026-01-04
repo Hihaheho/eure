@@ -245,27 +245,35 @@ pub fn get_schema_extension_diagnostics(
 pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<TextFile>, QueryError> {
     // 1. Check $schema extension in the document
     if let Some(schema_path) = db.query(GetSchemaExtension::new(file.clone()))?.as_ref() {
-        let resolved = resolve_relative_path(&file.path, schema_path);
-        return Ok(Some(TextFile::from_path(resolved)));
+        // If schema_path is a URL, use it directly
+        if schema_path.starts_with("https://") {
+            return Ok(Some(TextFile::parse(schema_path)));
+        }
+        // Otherwise, resolve as a relative path (only for local files)
+        if let Some(base_path) = file.as_local_path() {
+            let resolved = resolve_relative_path(base_path, schema_path);
+            return Ok(Some(TextFile::from_path(resolved)));
+        }
     }
 
-    // 2. Check workspace config
-    if let Some(config) = db.query(GetConfig::new(file.clone()))?.as_ref() {
+    // 2. Check workspace config (only for local files)
+    if let Some(file_path) = file.as_local_path()
+        && let Some(config) = db.query(GetConfig::new(file.clone()))?.as_ref()
+    {
         // Get config directory from workspace
         let workspace_ids = db.list_asset_keys::<WorkspaceId>();
         if let Some(workspace_id) = workspace_ids.into_iter().next() {
             let workspace: Arc<Workspace> = db.asset(workspace_id)?.suspend()?;
             if let Some(config_dir) = workspace.config_path.parent()
-                && let Some(schema_path) = config.schema_for_path(&file.path, config_dir)
+                && let Some(schema_path) = config.schema_for_path(file_path, config_dir)
             {
                 return Ok(Some(TextFile::from_path(schema_path)));
             }
         }
     }
 
-    // 3. File name heuristics
-    let path_str = file.path.to_string_lossy();
-    if path_str.ends_with(".schema.eure") {
+    // 3. File name heuristics (works for both local and remote)
+    if file.ends_with(".schema.eure") {
         // Schema files are validated against the meta-schema
         return Ok(Some(meta_schema_file()));
     }

@@ -4,7 +4,6 @@
 //! It uses an inbox/outbox pattern for LSP message handling.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
 use eure::query::{TextFile, TextFileContent};
 use eure::report::error_reports_comparator;
@@ -17,13 +16,14 @@ use lsp_types::{
     },
     request::{Initialize, Request, SemanticTokensFullRequest, Shutdown},
 };
-use query_flow::{QueryError, QueryRuntime, QueryRuntimeBuilder, RevisionCounter};
+use query_flow::{DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, RevisionCounter};
 use serde::Serialize;
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
 use crate::capabilities::server_capabilities;
 use crate::queries::{LspDiagnostics, LspSemanticTokens};
+use crate::uri_utils::{text_file_to_uri, uri_to_text_file as uri_to_text_file_from_str};
 
 /// Subscription for diagnostics with revision tracking.
 #[derive(Clone)]
@@ -129,40 +129,58 @@ impl WasmCore {
     /// Get pending asset URIs that need to be fetched.
     ///
     /// Returns a JavaScript array of URI strings.
+    /// - Local files return file:// URIs
+    /// - Remote files return https:// URLs
     #[wasm_bindgen]
     pub fn get_pending_assets(&self) -> Array {
         self.pending_assets
             .iter()
-            .filter_map(|file| {
-                // Convert TextFile path to file:// URI
-                let path = file.path.display().to_string();
-                let uri = if path.starts_with('/') {
-                    format!("file://{}", path)
-                } else {
-                    format!("file:///{}", path)
-                };
-                Some(JsValue::from_str(&uri))
-            })
+            .map(|file| JsValue::from_str(&text_file_to_uri(file)))
             .collect()
     }
 
     /// Resolve an asset (file content).
     ///
-    /// - `uri`: The file URI (file://)
+    /// - `uri`: The file URI (file://) or URL (https://)
     /// - `content`: The file content, or undefined/null if the file doesn't exist
+    /// - `error`: Optional error message if content is null due to an error
     #[wasm_bindgen]
-    pub fn resolve_asset(&mut self, uri: &str, content: Option<String>) {
-        // Parse URI to get path
-        let path = uri_to_path(uri);
-        let file = TextFile::from_path(PathBuf::from(path));
+    pub fn resolve_asset(&mut self, uri: &str, content: Option<String>, error: Option<String>) {
+        // Parse URI to get TextFile
+        let file = uri_to_text_file_from_str(uri);
+
+        // Handle error case
+        if let Some(error_msg) = error {
+            // Log the error and fail pending requests
+            self.handle_asset_error(&file, error_msg);
+            return;
+        }
 
         // Resolve in runtime
         let content = match content {
             Some(s) => TextFileContent::Content(s),
             None => TextFileContent::NotFound,
         };
-        self.runtime.resolve_asset(file.clone(), content);
+        self.runtime
+            .resolve_asset(file.clone(), content, DurabilityLevel::Volatile);
         self.pending_assets.remove(&file);
+
+        // Try to complete pending requests
+        self.retry_pending_requests();
+
+        // Check diagnostics subscriptions
+        self.check_diagnostics_subscriptions();
+    }
+
+    /// Handle an asset fetch error.
+    fn handle_asset_error(&mut self, file: &TextFile, error_msg: String) {
+        self.pending_assets.remove(file);
+
+        self.runtime.resolve_asset_error::<TextFile>(
+            file.clone(),
+            anyhow::anyhow!("{}", error_msg),
+            DurabilityLevel::Volatile,
+        );
 
         // Try to complete pending requests
         self.retry_pending_requests();
@@ -274,8 +292,11 @@ impl WasmCore {
 
                     // Resolve in query runtime
                     let file = uri_to_text_file(&uri);
-                    self.runtime
-                        .resolve_asset(file, TextFileContent::Content(content.clone()));
+                    self.runtime.resolve_asset(
+                        file,
+                        TextFileContent::Content(content.clone()),
+                        DurabilityLevel::Volatile,
+                    );
 
                     // Publish diagnostics
                     self.publish_diagnostics(&uri, &content);
@@ -293,8 +314,11 @@ impl WasmCore {
 
                         // Resolve in query runtime
                         let file = uri_to_text_file(&uri);
-                        self.runtime
-                            .resolve_asset(file, TextFileContent::Content(content.clone()));
+                        self.runtime.resolve_asset(
+                            file,
+                            TextFileContent::Content(content.clone()),
+                            DurabilityLevel::Volatile,
+                        );
 
                         // Publish diagnostics
                         self.publish_diagnostics(&uri, &content);
@@ -316,8 +340,8 @@ impl WasmCore {
                     self.pending_requests.retain(|_, pending| {
                         match &pending.command {
                             CommandQuery::SemanticTokensFull(q) => {
-                                // Keep if path doesn't match
-                                let pending_uri = format!("file://{}", q.file.path.display());
+                                // Keep if URI doesn't match
+                                let pending_uri = text_file_to_uri(&q.file);
                                 pending_uri != uri_str
                             }
                         }
@@ -355,7 +379,7 @@ impl WasmCore {
         match command {
             CommandQuery::SemanticTokensFull(query) => {
                 let result = self.runtime.query(query.clone())?;
-                Ok(CommandResult::SemanticTokens((*result).clone()))
+                Ok(CommandResult::SemanticTokens(Some((*result).clone())))
             }
         }
     }
@@ -393,9 +417,7 @@ impl WasmCore {
         for id_str in request_ids {
             if let Some(pending) = self.pending_requests.get(&id_str) {
                 let uri_str = match &pending.command {
-                    CommandQuery::SemanticTokensFull(q) => {
-                        format!("file://{}", q.file.path.display())
-                    }
+                    CommandQuery::SemanticTokensFull(q) => text_file_to_uri(&q.file),
                 };
                 let source = self.documents.get(&uri_str).cloned().unwrap_or_default();
                 let command = pending.command.clone();
@@ -572,30 +594,7 @@ impl Default for WasmCore {
 
 /// Convert an LSP URI to a TextFile.
 fn uri_to_text_file(uri: &Uri) -> TextFile {
-    let path_str = uri.path().as_str();
-    let decoded = percent_decode(path_str);
-    TextFile::from_path(PathBuf::from(decoded))
-}
-
-/// Extract path from a file:// URI.
-fn uri_to_path(uri: &str) -> String {
-    let path = if let Some(stripped) = uri.strip_prefix("file:///") {
-        // Windows-style: file:///C:/path
-        stripped.to_string()
-    } else if let Some(stripped) = uri.strip_prefix("file://") {
-        // Unix-style: file:///path -> /path
-        stripped.to_string()
-    } else {
-        uri.to_string()
-    };
-    percent_decode(&path)
-}
-
-/// Percent-decode a URI path.
-fn percent_decode(s: &str) -> String {
-    percent_encoding::percent_decode_str(s)
-        .decode_utf8_lossy()
-        .into_owned()
+    uri_to_text_file_from_str(uri.as_str())
 }
 
 /// Normalize request ID to string for HashMap keys.

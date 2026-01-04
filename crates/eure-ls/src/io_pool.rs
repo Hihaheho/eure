@@ -3,7 +3,11 @@
 use std::fs;
 use std::thread::{self, JoinHandle};
 
+#[cfg(feature = "http")]
+use anyhow::anyhow;
 use crossbeam_channel::{Receiver, Sender, unbounded};
+#[cfg(feature = "http")]
+use eure::query::fetch_url;
 use eure::query::{TextFile, TextFileContent};
 
 use crate::types::{IoRequest, IoResponse};
@@ -69,10 +73,10 @@ impl IoPool {
 /// Worker loop that reads files from disk.
 fn worker_loop(request_rx: Receiver<IoRequest>, response_tx: Sender<IoResponse>) {
     for request in request_rx {
-        let content = read_file(&request.file);
+        let result = read_file(&request.file);
         let response = IoResponse {
             file: request.file,
-            content,
+            result,
         };
 
         // If the main thread has stopped listening, just exit
@@ -82,11 +86,17 @@ fn worker_loop(request_rx: Receiver<IoRequest>, response_tx: Sender<IoResponse>)
     }
 }
 
-/// Read a file from disk and return its content.
-fn read_file(file: &TextFile) -> TextFileContent {
-    match fs::read_to_string(file.path.as_ref()) {
-        Ok(content) => TextFileContent::Content(content),
-        Err(_) => TextFileContent::NotFound,
+/// Read a file from disk or fetch from URL and return its content.
+fn read_file(file: &TextFile) -> Result<TextFileContent, anyhow::Error> {
+    match file {
+        TextFile::Local(path) => match fs::read_to_string(path.as_ref()) {
+            Ok(content) => Ok(TextFileContent::Content(content)),
+            Err(_) => Ok(TextFileContent::NotFound),
+        },
+        TextFile::Remote(url) => match fetch_url(url) {
+            Ok(content) => Ok(content),
+            Err(e) => Err(anyhow!("Failed to fetch {}: {}", url, e)),
+        },
     }
 }
 
@@ -98,7 +108,7 @@ mod tests {
     #[test]
     fn test_read_nonexistent_file() {
         let file = TextFile::from_path(PathBuf::from("/nonexistent/path/to/file.eure"));
-        let content = read_file(&file);
-        assert!(matches!(content, TextFileContent::NotFound));
+        let result = read_file(&file);
+        assert!(matches!(result, Ok(TextFileContent::NotFound)));
     }
 }

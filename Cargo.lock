@@ -1274,7 +1274,7 @@ dependencies = [
  "js-sys",
  "mime",
  "pin-project",
- "reqwest",
+ "reqwest 0.12.24",
  "rustversion",
  "send_wrapper",
  "serde",
@@ -1740,8 +1740,10 @@ dependencies = [
  "num-bigint",
  "query-flow",
  "regex",
+ "reqwest 0.13.1",
  "thiserror 2.0.17",
  "thisisplural",
+ "url",
 ]
 
 [[package]]
@@ -1749,6 +1751,7 @@ name = "eure-cli"
 version = "0.1.2"
 dependencies = [
  "ahash",
+ "anyhow",
  "automod",
  "catppuccin",
  "clap",
@@ -3733,9 +3736,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ea1b5d7d9bf831ffccd50b06255653231723bf504b0844fe2db516ff48d4162"
+checksum = "fcef08ef9bdf20e92d48d56898dc7069f0f7286bc5968d5eb934c3fdff6a1e42"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3747,9 +3750,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8208713a7f070a933e3b1963d31cf5affc18f65608aee58e2de5c7fe95b6b773"
+checksum = "1f2971b52b26d8e74c96fd2c3719d6d2e3e507c153cbb8c0630a87661e2a091f"
 dependencies = [
  "darling 0.20.11",
  "heck",
@@ -4056,6 +4059,37 @@ dependencies = [
  "wasm-streams",
  "web-sys",
  "webpki-roots",
+]
+
+[[package]]
+name = "reqwest"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04e9018c9d814e5f30cc16a0f03271aeab3571e609612d9fe78c1aa8d11c2f62"
+dependencies = [
+ "base64",
+ "bytes",
+ "futures-channel",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "js-sys",
+ "log",
+ "percent-encoding",
+ "pin-project-lite",
+ "sync_wrapper",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tower-service",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -4982,9 +5016,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.7"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf146f99d442e8e68e585f5d798ccd3cad9a7835b917e09728880a862706456"
+checksum = "d4e6559d53cc268e5031cd8429d05415bc4cb4aefc4aa5d6cc35fbf5b924a1f8"
 dependencies = [
  "bitflags 2.10.0",
  "bytes",

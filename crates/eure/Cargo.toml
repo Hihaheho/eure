@@ -9,6 +9,10 @@ repository = "https://github.com/Hihaheho/eure"
 license = "MIT OR Apache-2.0"
 keywords = ["configuration", "data-format", "eure", "serialization"]
 
+[features]
+default = []
+http = ["dep:reqwest"]
+
 [dependencies]
 annotate-snippets = { workspace = true }
 anyhow = { workspace = true }
@@ -23,5 +27,7 @@ glob = { workspace = true }
 num-bigint = { workspace = true }
 query-flow = { workspace = true }
 regex = { workspace = true }
+reqwest = { workspace = true, optional = true }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
+url = { workspace = true }

@@ -59,7 +59,7 @@ fn run_check(args: CheckArgs) {
     };
 
     if reports.is_empty() {
-        println!("\x1b[1;32m✓\x1b[0m {} references OK", file.path.display());
+        println!("\x1b[1;32m✓\x1b[0m {} references OK", file);
     } else {
         eprintln!(
             "{}",

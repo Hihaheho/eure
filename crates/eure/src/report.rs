@@ -578,7 +578,7 @@ fn get_file_content(db: &impl Db, file: &TextFile) -> Result<Option<FileInfo>, Q
     let content: Arc<TextFileContent> = db.asset(file.clone())?.suspend()?;
     match content.as_ref() {
         TextFileContent::Content(text) => Ok(Some(FileInfo {
-            path: file.path.display().to_string(),
+            path: file.to_string(),
             source: text.clone(),
         })),
         TextFileContent::NotFound => Ok(None),

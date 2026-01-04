@@ -1,9 +1,12 @@
-use clap::ValueEnum;
-use eure::query::{TextFile, TextFileContent};
-use eure::query_flow::{DurabilityLevel, Query, QueryError, QueryRuntime};
-use eure::report::{ErrorReports, format_error_reports};
 use std::fs;
 use std::io::{self, Read};
+use std::sync::Arc;
+
+use anyhow::anyhow;
+use clap::ValueEnum;
+use eure::query::{TextFile, TextFileContent, fetch_url};
+use eure::query_flow::{DurabilityLevel, Query, QueryError, QueryRuntime};
+use eure::report::{ErrorReports, format_error_reports};
 
 /// Read input from file path or stdin.
 /// - `None` or `Some("-")` reads from stdin
@@ -70,7 +73,7 @@ pub fn handle_query_error(runtime: &QueryRuntime, e: QueryError) -> ! {
 pub fn run_query_with_file_loading<Q, R>(
     runtime: &QueryRuntime,
     query: Q,
-) -> Result<std::sync::Arc<R>, QueryError>
+) -> Result<Arc<R>, QueryError>
 where
     Q: Query<Output = R> + Clone,
 {
@@ -78,14 +81,38 @@ where
         match runtime.query(query.clone()) {
             Ok(result) => return Ok(result),
             Err(QueryError::Suspend { .. }) => {
-                // Load pending file assets from disk
+                // Load pending file assets from disk or network
                 for pending in runtime.pending_assets() {
                     if let Some(file) = pending.key::<TextFile>() {
-                        let content = match fs::read_to_string(&*file.path) {
-                            Ok(c) => TextFileContent::Content(c),
-                            Err(_) => TextFileContent::NotFound,
-                        };
-                        runtime.resolve_asset(file.clone(), content, DurabilityLevel::Static);
+                        match file {
+                            TextFile::Local(path) => {
+                                let content = match fs::read_to_string(path.as_ref()) {
+                                    Ok(c) => TextFileContent::Content(c),
+                                    Err(_) => TextFileContent::NotFound,
+                                };
+                                runtime.resolve_asset(
+                                    file.clone(),
+                                    content,
+                                    DurabilityLevel::Static,
+                                );
+                            }
+                            TextFile::Remote(url) => match fetch_url(url) {
+                                Ok(content) => {
+                                    runtime.resolve_asset(
+                                        file.clone(),
+                                        content,
+                                        DurabilityLevel::Static,
+                                    );
+                                }
+                                Err(e) => {
+                                    runtime.resolve_asset_error::<TextFile>(
+                                        file.clone(),
+                                        anyhow!("Failed to fetch {}: {}", url, e),
+                                        DurabilityLevel::Static,
+                                    );
+                                }
+                            },
+                        }
                     }
                 }
             }

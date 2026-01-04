@@ -14,8 +14,8 @@ use tracing::{info, warn};
 
 use crate::asset_locator::EureAssetLocator;
 use crate::io_pool::IoPool;
-use crate::queries::LspDiagnostics;
 use crate::types::{CommandQuery, IoResponse, PendingRequest};
+use eure_ls::queries::LspDiagnostics;
 
 /// A subscription to a diagnostics query with revision tracking.
 #[derive(Clone)]
@@ -103,16 +103,41 @@ impl QueryExecutor {
         content: TextFileContent,
         sources: &HashMap<String, String>,
     ) -> (Vec<Response>, Vec<Notification>) {
-        // Resolve the asset in the runtime
         self.runtime
             .resolve_asset(file.clone(), content, DurabilityLevel::Volatile);
         self.pending_io.remove(&file);
+        self.process_after_asset_change(&file, sources)
+    }
 
+    /// Called when fetching an asset fails.
+    ///
+    /// Returns responses for pending requests and notifications for completed queries.
+    pub fn on_asset_error<E: Into<anyhow::Error>>(
+        &mut self,
+        file: TextFile,
+        error: E,
+        sources: &HashMap<String, String>,
+    ) -> (Vec<Response>, Vec<Notification>) {
+        self.runtime.resolve_asset_error::<TextFile>(
+            file.clone(),
+            error,
+            DurabilityLevel::Volatile,
+        );
+        self.pending_io.remove(&file);
+        self.process_after_asset_change(&file, sources)
+    }
+
+    /// Process pending requests and diagnostics after an asset is resolved or errored.
+    fn process_after_asset_change(
+        &mut self,
+        file: &TextFile,
+        sources: &HashMap<String, String>,
+    ) -> (Vec<Response>, Vec<Notification>) {
         // Collect IDs of requests that were waiting for this file
         let waiting_ids: Vec<RequestId> = self
             .pending
             .iter()
-            .filter(|(_, pending)| pending.waiting_for.contains(&file))
+            .filter(|(_, pending)| pending.waiting_for.contains(file))
             .map(|(id, _)| id.clone())
             .collect();
 
@@ -133,7 +158,6 @@ impl QueryExecutor {
                         completed_ids.push(id);
                     }
                     Err(QueryError::Suspend { .. }) => {
-                        // Still waiting for more assets - mark for dispatch
                         needs_dispatch = true;
                     }
                     Err(e) => {
@@ -148,7 +172,6 @@ impl QueryExecutor {
             }
         }
 
-        // Remove completed requests
         for id in completed_ids {
             self.pending.remove(&id);
         }
@@ -162,7 +185,6 @@ impl QueryExecutor {
             if let Some(sub) = self.diagnostics_subscriptions.get(&uri_str).cloned() {
                 match self.runtime.poll(sub.query.clone()) {
                     Ok(polled) => {
-                        // Only send notification if revision changed
                         if polled.revision != sub.last_revision {
                             self.diagnostics_subscriptions.insert(
                                 uri_str.clone(),
@@ -196,7 +218,6 @@ impl QueryExecutor {
             }
         }
 
-        // Dispatch any new pending assets
         if needs_dispatch {
             self.dispatch_pending_assets();
         }
@@ -338,11 +359,13 @@ impl QueryExecutor {
 
 /// Extract the file URI string from a command query.
 fn file_to_uri(command: &CommandQuery) -> String {
-    let path = match command {
-        CommandQuery::SemanticTokensFull(query) => query.file.path.as_ref(),
+    let file = match command {
+        CommandQuery::SemanticTokensFull(query) => &query.file,
     };
-    // Create a file:// URI from the path
-    format!("file://{}", path.display())
+    match file {
+        TextFile::Local(path) => format!("file://{}", path.display()),
+        TextFile::Remote(url) => url.to_string(),
+    }
 }
 
 /// Create a diagnostics notification from URI string and diagnostics.

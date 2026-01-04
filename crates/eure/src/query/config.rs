@@ -17,7 +17,10 @@ pub fn get_config(db: &impl Db, file: TextFile) -> Result<Option<EureConfig>, Qu
     let workspace_ids = db.list_asset_keys::<WorkspaceId>();
     if let Some(workspace_id) = workspace_ids.into_iter().next() {
         let workspace = db.asset(workspace_id)?.suspend()?;
-        if detect_workspace(&workspace.path, &file.path) {
+        // Only local files can be in a workspace
+        if let Some(file_path) = file.as_local_path()
+            && detect_workspace(&workspace.path, file_path)
+        {
             let config_file = TextFile::from_path(workspace.config_path.clone());
             // UserError propagates automatically via ?
             let parsed = db.query(ParseDocument::new(config_file.clone()))?;
