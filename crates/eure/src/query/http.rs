@@ -17,6 +17,11 @@ static HTTP_CLIENT: LazyLock<reqwest::blocking::Client> = LazyLock::new(|| {
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(30))
         .pool_idle_timeout(Duration::from_secs(30))
+        .user_agent(format!(
+            "{}@{}",
+            option_env!("CARGO_BIN_NAME").unwrap_or("eure"),
+            env!("CARGO_PKG_VERSION")
+        ))
         .build()
         .expect("Failed to create HTTP client")
 });

@@ -1,7 +1,13 @@
 import type { Message } from 'vscode-jsonrpc';
-import { Uri, workspace } from 'vscode';
+import { Uri, workspace, extensions } from 'vscode';
 import { debugLog } from './common';
 import { WasmBridge } from './wasm-bridge';
+
+function getUserAgent(): string {
+  const ext = extensions.getExtension('hihaheho.vscode-eurels');
+  const version = ext?.packageJSON?.version ?? 'unknown';
+  return `vscode-eurels@${version}`;
+}
 
 const MAX_PENDING_ITERATIONS = 20;
 
@@ -100,7 +106,9 @@ export class WasmEventLoop {
               this.bridge.resolveAsset(uri, new TextDecoder().decode(content), null);
             } else if (parsedUri.scheme === 'https') {
               // Remote URL: fetch via HTTP
-              const response = await fetch(uri);
+              const response = await fetch(uri, {
+                headers: { 'User-Agent': getUserAgent() },
+              });
               if (response.ok) {
                 const text = await response.text();
                 this.bridge.resolveAsset(uri, text, null);
