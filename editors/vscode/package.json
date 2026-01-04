@@ -29,7 +29,8 @@
     "pkg/eure_ls.d.ts",
     "assets/**/*",
     "syntaxes/**/*",
-    "language-configuration.json"
+    "language-configuration.json",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",
