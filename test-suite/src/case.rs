@@ -230,15 +230,11 @@ impl Case {
                     error: format!("{e}"),
                 }
             })?;
-            runtime.resolve_asset(
-                file,
-                TextFileContent::Content(content),
-                DurabilityLevel::Static,
-            );
+            runtime.resolve_asset(file, TextFileContent(content), DurabilityLevel::Static);
         } else {
             runtime.resolve_asset(
                 file,
-                TextFileContent::Content(text.as_str().to_string()),
+                TextFileContent(text.as_str().to_string()),
                 DurabilityLevel::Static,
             );
         }
@@ -295,7 +291,7 @@ impl Case {
         // meta-schema → "$eure/meta-schema.eure" (always available)
         runtime.resolve_asset(
             TextFile::from_path(PathBuf::from(META_SCHEMA_PATH)),
-            TextFileContent::Content(META_SCHEMA.to_string()),
+            TextFileContent(META_SCHEMA.to_string()),
             DurabilityLevel::Static,
         );
 

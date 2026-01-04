@@ -1,6 +1,6 @@
 //! Query-flow queries for eure-toml.
 
-use eure::query::{TextFile, read_text_file};
+use eure::query::TextFile;
 use eure_document::document::EureDocument;
 use query_flow::{Db, QueryError, query};
 
@@ -14,8 +14,8 @@ pub fn toml_to_eure_document(
     db: &impl Db,
     toml_file: TextFile,
 ) -> Result<EureDocument, QueryError> {
-    let content = read_text_file(db, toml_file)?;
-    let source_doc = to_source_document(&content)?;
+    let content = db.asset(toml_file.clone())?.suspend()?;
+    let source_doc = to_source_document(content.get())?;
     Ok(source_doc.document)
 }
 
@@ -25,7 +25,7 @@ pub fn toml_to_eure_document(
 /// and formats it as Eure source code.
 #[query]
 pub fn toml_to_eure_source(db: &impl Db, toml_file: TextFile) -> Result<String, QueryError> {
-    let content = read_text_file(db, toml_file)?;
-    let source_doc = to_source_document(&content)?;
+    let content = db.asset(toml_file.clone())?.suspend()?;
+    let source_doc = to_source_document(content.get())?;
     Ok(format_source_document(&source_doc))
 }

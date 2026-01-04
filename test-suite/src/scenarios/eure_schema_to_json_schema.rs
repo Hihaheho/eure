@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eure::query::{TextFile, read_text_file};
+use eure::query::TextFile;
 use eure_json_schema::EureSchemaToJsonSchemaQuery;
 use query_flow::Db;
 
@@ -17,10 +17,15 @@ impl Scenario for EureSchemaToJsonSchemaScenario {
             db.query(EureSchemaToJsonSchemaQuery::new(self.schema.clone()))?;
 
         // Read expected JSON schema
-        let expected_str = read_text_file(db, self.output_json_schema.clone())?;
+        let expected_str = {
+            let file = self.output_json_schema.clone();
+            db.asset(file.clone())?.suspend()
+        }?;
         let expected: serde_json::Value =
-            serde_json::from_str(&expected_str).map_err(|e| ScenarioError::JsonParseError {
-                message: e.to_string(),
+            serde_json::from_str(expected_str.get()).map_err(|e| {
+                ScenarioError::JsonParseError {
+                    message: e.to_string(),
+                }
             })?;
 
         if *actual != expected {

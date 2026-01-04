@@ -20,7 +20,7 @@ pub use config::{GetConfig, LoadConfigError, load_config};
 pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
 #[cfg(feature = "http")]
 pub use http::fetch_url;
-pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst, read_text_file};
+pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst};
 #[cfg(feature = "http")]
 pub use reqwest;
 pub use schema::{

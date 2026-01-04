@@ -299,11 +299,8 @@ impl QueryExecutor {
 
     /// Resolve a file directly (for open documents).
     pub fn resolve_open_document(&mut self, file: TextFile, content: String) {
-        self.runtime.resolve_asset(
-            file,
-            TextFileContent::Content(content),
-            DurabilityLevel::Volatile,
-        );
+        self.runtime
+            .resolve_asset(file, TextFileContent(content), DurabilityLevel::Volatile);
     }
 
     /// Invalidate a file (e.g., when it's closed or changed externally).

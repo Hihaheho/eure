@@ -48,7 +48,7 @@ fn run_check(args: CheckArgs) {
     let file: TextFile = TextFile::from_path(path.into());
     runtime.resolve_asset(
         file.clone(),
-        TextFileContent::Content(contents),
+        TextFileContent(contents),
         DurabilityLevel::Static,
     );
 

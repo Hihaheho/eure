@@ -29,7 +29,7 @@ pub fn run(args: Args) {
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
     runtime.resolve_asset(
         file.clone(),
-        TextFileContent::Content(contents.clone()),
+        TextFileContent(contents.clone()),
         DurabilityLevel::Static,
     );
 

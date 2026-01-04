@@ -23,19 +23,18 @@ impl Scenario for EureToJsonScenario {
             })?;
 
         // Read the expected JSON file content directly
-        let expected_json_content: Arc<TextFileContent> = db
+        let expected_json: Arc<TextFileContent> = db
             .asset(self.output_json.clone())
             .map_err(|_| ScenarioError::FileNotFound(self.output_json.clone()))?
             .suspend()
             .map_err(|_| ScenarioError::FileNotFound(self.output_json.clone()))?;
-        let expected_json_str = expected_json_content
-            .get()
-            .ok_or_else(|| ScenarioError::FileNotFound(self.output_json.clone()))?;
 
         // Parse expected JSON
         let expected: serde_json::Value =
-            serde_json::from_str(expected_json_str).map_err(|e| ScenarioError::JsonParseError {
-                message: e.to_string(),
+            serde_json::from_str(expected_json.get()).map_err(|e| {
+                ScenarioError::JsonParseError {
+                    message: e.to_string(),
+                }
             })?;
 
         if *actual != expected {

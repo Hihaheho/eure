@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use eure::query::{TextFile, TextFileContent};
+use eure::query::{EureQueryError, TextFile, TextFileContent};
 use eure::report::error_reports_comparator;
 use js_sys::Array;
 use lsp_types::{
@@ -157,12 +157,19 @@ impl WasmCore {
         }
 
         // Resolve in runtime
-        let content = match content {
-            Some(s) => TextFileContent::Content(s),
-            None => TextFileContent::NotFound,
-        };
-        self.runtime
-            .resolve_asset(file.clone(), content, DurabilityLevel::Volatile);
+        match content {
+            Some(s) => {
+                self.runtime
+                    .resolve_asset(file.clone(), TextFileContent(s), DurabilityLevel::Volatile);
+            }
+            None => {
+                self.runtime.resolve_asset_error::<TextFile>(
+                    file.clone(),
+                    EureQueryError::ContentNotFound(file.clone()).into(),
+                    DurabilityLevel::Volatile,
+                );
+            }
+        }
         self.pending_assets.remove(&file);
 
         // Try to complete pending requests
@@ -294,7 +301,7 @@ impl WasmCore {
                     let file = uri_to_text_file(&uri);
                     self.runtime.resolve_asset(
                         file,
-                        TextFileContent::Content(content.clone()),
+                        TextFileContent(content.clone()),
                         DurabilityLevel::Volatile,
                     );
 
@@ -316,7 +323,7 @@ impl WasmCore {
                         let file = uri_to_text_file(&uri);
                         self.runtime.resolve_asset(
                             file,
-                            TextFileContent::Content(content.clone()),
+                            TextFileContent(content.clone()),
                             DurabilityLevel::Volatile,
                         );
 

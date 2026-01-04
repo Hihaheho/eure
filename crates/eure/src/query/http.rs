@@ -3,7 +3,11 @@
 use std::sync::LazyLock;
 use std::time::Duration;
 
+use query_flow::QueryError;
 use url::Url;
+
+use crate::query::TextFile;
+use crate::query::error::EureQueryError;
 
 use super::TextFileContent;
 
@@ -32,15 +36,15 @@ static HTTP_CLIENT: LazyLock<reqwest::blocking::Client> = LazyLock::new(|| {
 /// - `Ok(Content(text))` on success
 /// - `Ok(NotFound)` for HTTP 404
 /// - `Err(reqwest::Error)` for network/HTTP errors (to be converted to UserError)
-pub fn fetch_url(url: &Url) -> Result<TextFileContent, reqwest::Error> {
+pub fn fetch_url(url: &Url) -> Result<TextFileContent, QueryError> {
     let response = HTTP_CLIENT.get(url.as_str()).send()?;
     let status = response.status();
 
     if status.is_success() {
         let text = response.text()?;
-        Ok(TextFileContent::Content(text))
+        Ok(TextFileContent(text))
     } else if status == reqwest::StatusCode::NOT_FOUND {
-        Ok(TextFileContent::NotFound)
+        Err(EureQueryError::ContentNotFound(TextFile::from_url(url.clone())).into())
     } else {
         // Convert non-404 HTTP errors to reqwest::Error
         response.error_for_status()?;

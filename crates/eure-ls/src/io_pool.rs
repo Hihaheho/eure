@@ -89,10 +89,7 @@ fn worker_loop(request_rx: Receiver<IoRequest>, response_tx: Sender<IoResponse>)
 /// Read a file from disk or fetch from URL and return its content.
 fn read_file(file: &TextFile) -> Result<TextFileContent, anyhow::Error> {
     match file {
-        TextFile::Local(path) => match fs::read_to_string(path.as_ref()) {
-            Ok(content) => Ok(TextFileContent::Content(content)),
-            Err(_) => Ok(TextFileContent::NotFound),
-        },
+        TextFile::Local(path) => Ok(TextFileContent(fs::read_to_string(path.as_ref())?)),
         TextFile::Remote(url) => match fetch_url(url) {
             Ok(content) => Ok(content),
             Err(e) => Err(anyhow!("Failed to fetch {}: {}", url, e)),
@@ -109,6 +106,11 @@ mod tests {
     fn test_read_nonexistent_file() {
         let file = TextFile::from_path(PathBuf::from("/nonexistent/path/to/file.eure"));
         let result = read_file(&file);
-        assert!(matches!(result, Ok(TextFileContent::NotFound)));
+        assert!(
+            result
+                .unwrap_err()
+                .downcast_ref::<std::io::Error>()
+                .is_some()
+        );
     }
 }

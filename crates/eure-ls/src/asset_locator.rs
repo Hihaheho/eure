@@ -25,7 +25,7 @@ impl AssetLocator<TextFile> for EureAssetLocator {
             let path_str = path.to_string_lossy();
             if path_str == "$eure/meta-schema.eure" {
                 return Ok(LocateResult::Ready {
-                    value: TextFileContent::Content(META_SCHEMA.to_string()),
+                    value: TextFileContent(META_SCHEMA.to_string()),
                     durability: DurabilityLevel::Static,
                 });
             }

@@ -84,27 +84,11 @@ impl std::fmt::Display for TextFile {
 
 /// Content of a text file.
 #[derive(Clone, PartialEq, Debug)]
-pub enum TextFileContent {
-    Content(String),
-    NotFound,
-}
+pub struct TextFileContent(pub String);
 
 impl TextFileContent {
-    pub fn get(&self) -> Option<&str> {
-        match self {
-            TextFileContent::Content(content) => Some(content),
-            TextFileContent::NotFound => None,
-        }
-    }
-
-    pub fn map<T, F>(&self, f: F) -> Option<T>
-    where
-        F: FnOnce(&str) -> T,
-    {
-        match self {
-            TextFileContent::Content(content) => Some(f(content)),
-            TextFileContent::NotFound => None,
-        }
+    pub fn get(&self) -> &str {
+        &self.0
     }
 }
 

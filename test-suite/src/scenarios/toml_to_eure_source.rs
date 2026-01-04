@@ -1,4 +1,4 @@
-use eure::query::{TextFile, read_text_file};
+use eure::query::TextFile;
 use eure_toml::TomlToEureSource;
 use query_flow::Db;
 
@@ -14,11 +14,14 @@ impl Scenario for TomlToEureSourceScenario {
         let actual = db.query(TomlToEureSource::new(self.input_toml.clone()))?;
 
         // Read expected Eure source directly
-        let expected = read_text_file(db, self.input_eure.clone())?;
+        let expected = {
+            let file = self.input_eure.clone();
+            db.asset(file.clone())?.suspend()
+        }?;
 
-        if *actual != expected {
+        if *actual != expected.get() {
             return Err(ScenarioError::TomlToEureSourceMismatch {
-                expected,
+                expected: expected.get().to_string(),
                 actual: actual.as_ref().clone(),
             });
         }

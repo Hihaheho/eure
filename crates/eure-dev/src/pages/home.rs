@@ -254,19 +254,19 @@ impl EureExample {
         for example in EureExample::ALL {
             runtime.resolve_asset(
                 TextFile::from_path(example.file_name().into()),
-                TextFileContent::Content(example.content().to_string()),
+                TextFileContent(example.content().to_string()),
                 DurabilityLevel::Volatile,
             );
             runtime.resolve_asset(
                 TextFile::from_path(example.schema_file_name().into()),
-                TextFileContent::Content(example.schema().to_string()),
+                TextFileContent(example.schema().to_string()),
                 DurabilityLevel::Volatile,
             );
         }
         // Register meta-schema for schema validation
         runtime.resolve_asset(
             TextFile::from_path("meta-schema.eure".into()),
-            TextFileContent::Content(
+            TextFileContent(
                 include_str!("../../../../assets/schemas/eure-schema.schema.eure").to_string(),
             ),
             DurabilityLevel::Static,
@@ -276,12 +276,12 @@ impl EureExample {
     fn on_change_tab(&self, runtime: &QueryRuntime) {
         runtime.resolve_asset(
             TextFile::from_path(self.file_name().into()),
-            TextFileContent::Content(self.content().to_string()),
+            TextFileContent(self.content().to_string()),
             DurabilityLevel::Volatile,
         );
         runtime.resolve_asset(
             TextFile::from_path(self.schema_file_name().into()),
-            TextFileContent::Content(self.schema().to_string()),
+            TextFileContent(self.schema().to_string()),
             DurabilityLevel::Volatile,
         );
     }
@@ -289,7 +289,7 @@ impl EureExample {
     fn on_input(&self, runtime: &QueryRuntime, value: String) {
         runtime.resolve_asset(
             TextFile::from_path(self.file_name().into()),
-            TextFileContent::Content(value),
+            TextFileContent(value),
             DurabilityLevel::Volatile,
         );
     }
@@ -297,7 +297,7 @@ impl EureExample {
     fn on_schema_input(&self, runtime: &QueryRuntime, value: String) {
         runtime.resolve_asset(
             TextFile::from_path(self.schema_file_name().into()),
-            TextFileContent::Content(value),
+            TextFileContent(value),
             DurabilityLevel::Volatile,
         );
     }

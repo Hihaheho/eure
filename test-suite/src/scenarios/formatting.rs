@@ -1,4 +1,4 @@
-use eure::query::{ParseCst, TextFile, read_text_file};
+use eure::query::{ParseCst, TextFile};
 use eure_fmt::{FormatConfig, format_cst};
 use query_flow::Db;
 
@@ -12,20 +12,26 @@ pub struct FormattingScenario {
 impl Scenario for FormattingScenario {
     fn run(self, db: &impl Db) -> Result<(), ScenarioError> {
         // Get input source and CST
-        let input_source = read_text_file(db, self.input.clone())?;
+        let input_source = {
+            let file = self.input.clone();
+            db.asset(file.clone())?.suspend()
+        }?;
         let input_cst = db.query(ParseCst::new(self.input.clone()))?;
 
         // Get expected source
-        let expected_source = read_text_file(db, self.expected.clone())?;
+        let expected_source = {
+            let file = self.expected.clone();
+            db.asset(file.clone())?.suspend()
+        }?;
 
         // Format the input
         let config = FormatConfig::default();
-        let actual = format_cst(&input_source, &input_cst.cst, &config);
+        let actual = format_cst(input_source.get(), &input_cst.cst, &config);
 
-        if actual != expected_source {
+        if actual != expected_source.get() {
             return Err(ScenarioError::FormattingMismatch {
-                input: input_source,
-                expected: expected_source,
+                input: input_source.get().to_string(),
+                expected: expected_source.get().to_string(),
                 actual,
             });
         }

@@ -20,12 +20,8 @@ pub struct ParsedCst {
     pub error: Option<EureParseError>,
 }
 
-pub fn read_text_file(db: &impl Db, file: TextFile) -> Result<String, QueryError> {
-    let content: Arc<TextFileContent> = db.asset(file.clone())?.suspend()?;
-    match content.as_ref() {
-        TextFileContent::NotFound => Err(EureQueryError::ContentNotFound(file).into()),
-        TextFileContent::Content(text) => Ok(text.clone()),
-    }
+pub fn read_text_file(db: &impl Db, file: TextFile) -> Result<Arc<TextFileContent>, QueryError> {
+    db.asset(file.clone())?.suspend()
 }
 
 /// Step 1: Parse text content to CST (tolerant).
@@ -35,7 +31,7 @@ pub fn read_text_file(db: &impl Db, file: TextFile) -> Result<String, QueryError
 #[query]
 pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> {
     let text = read_text_file(db, file.clone())?;
-    let parsed = match parse_tolerant(&text) {
+    let parsed = match parse_tolerant(text.get()) {
         ParseResult::Ok(cst) => ParsedCst { cst, error: None },
         ParseResult::ErrWithCst { cst, error } => ParsedCst {
             cst,
@@ -72,7 +68,7 @@ pub fn parse_document(db: &impl Db, file: TextFile) -> Result<ParsedDocument, Qu
     let source = read_text_file(db, file.clone())?;
 
     // Build document
-    match cst_to_document_and_origin_map(&source, &cst) {
+    match cst_to_document_and_origin_map(source.get(), &cst) {
         Ok((doc, origins)) => Ok(ParsedDocument {
             doc: Arc::new(doc),
             origins: Arc::new(origins),

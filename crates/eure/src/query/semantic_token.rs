@@ -151,7 +151,7 @@ pub fn get_semantic_tokens(db: &impl Db, file: TextFile) -> Result<Vec<SemanticT
     let parsed_cst = db.query(ParseCst::new(file.clone()))?;
     let source = super::parse::read_text_file(db, file)?;
 
-    Ok(semantic_tokens(&source, &parsed_cst.cst))
+    Ok(semantic_tokens(source.get(), &parsed_cst.cst))
 }
 
 /// Visitor that collects semantic tokens from the CST.

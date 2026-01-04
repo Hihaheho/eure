@@ -44,7 +44,7 @@ pub fn run(args: Args) {
     let file = TextFile::from_path(display_path(file_opt).into());
     runtime.resolve_asset(
         file.clone(),
-        TextFileContent::Content(contents),
+        TextFileContent(contents),
         DurabilityLevel::Static,
     );
 

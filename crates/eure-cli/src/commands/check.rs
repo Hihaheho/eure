@@ -167,7 +167,7 @@ fn run_file_mode(args: Args) {
     let doc_file = TextFile::from_path(display_path(file_opt).into());
     runtime.resolve_asset(
         doc_file.clone(),
-        TextFileContent::Content(doc_contents),
+        TextFileContent(doc_contents),
         DurabilityLevel::Static,
     );
 
@@ -177,7 +177,7 @@ fn run_file_mode(args: Args) {
         if let Ok(content) = std::fs::read_to_string(path) {
             runtime.resolve_asset(
                 sf.clone(),
-                TextFileContent::Content(content),
+                TextFileContent(content),
                 DurabilityLevel::Static,
             );
         }

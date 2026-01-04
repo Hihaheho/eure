@@ -86,10 +86,7 @@ where
                     if let Some(file) = pending.key::<TextFile>() {
                         match file {
                             TextFile::Local(path) => {
-                                let content = match fs::read_to_string(path.as_ref()) {
-                                    Ok(c) => TextFileContent::Content(c),
-                                    Err(_) => TextFileContent::NotFound,
-                                };
+                                let content = TextFileContent(fs::read_to_string(path.as_ref())?);
                                 runtime.resolve_asset(
                                     file.clone(),
                                     content,
