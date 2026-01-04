@@ -1,7 +1,7 @@
 import type { Message } from 'vscode-jsonrpc';
-import { Uri, workspace, extensions } from 'vscode';
+import { Uri, workspace, extensions, RelativePattern } from 'vscode';
 import { debugLog } from './common';
-import { WasmBridge, CacheAction } from './wasm-bridge';
+import { WasmBridge, ActionKind } from './wasm-bridge';
 
 function getUserAgent(): string {
   const ext = extensions.getExtension('hihaheho.vscode-eurels');
@@ -146,7 +146,7 @@ export class WasmEventLoop {
           try {
             // Use VS Code's findFiles API with glob pattern
             const baseUri = Uri.file(glob.base_dir);
-            const pattern = new workspace.RelativePattern(baseUri, glob.pattern);
+            const pattern = new RelativePattern(baseUri, glob.pattern);
             const files = await workspace.findFiles(pattern);
             const fileUris = files.map((f) => f.toString());
             this.bridge.resolveGlob(glob.id, fileUris);
@@ -194,9 +194,9 @@ export class WasmEventLoop {
       }
 
       // Ask WASM what to do
-      const action = this.bridge.checkCacheStatus(url, metaJson, DEFAULT_MAX_AGE_SECS);
+      const action = this.bridge.checkCacheStatus(metaJson, DEFAULT_MAX_AGE_SECS);
 
-      if (action.action === 'use_cached') {
+      if (action.action === ActionKind.UseCached) {
         // Cache is fresh, just read it
         debugLog(`[Cache] Using cached: ${url}`);
         try {
@@ -213,7 +213,7 @@ export class WasmEventLoop {
         'User-Agent': getUserAgent(),
       };
 
-      if (action.action === 'revalidate') {
+      if (action.action === ActionKind.Revalidate && action.headers) {
         debugLog(`[Cache] Revalidating: ${url}`);
         if (action.headers.if_none_match) {
           headers['If-None-Match'] = action.headers.if_none_match;

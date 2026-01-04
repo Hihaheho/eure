@@ -1,39 +1,32 @@
 import type { Uri } from 'vscode';
-import type { WasmCore, InitInput } from '../pkg/eure_ls';
+// @ts-expect-error - ESM module imported as type
+import type { WasmCore, InitInput, InitOutput, CacheKeyInfo, CacheAction, CacheActionKind } from '../pkg/eure_ls';
 import { debugLog } from './common';
 import { loadWasmBytes } from './wasm-loader';
 
-type InitFunction = (module_or_path?: InitInput) => Promise<void>;
+type InitFunction = (module_or_path?: InitInput) => Promise<InitOutput>;
 
 // Dynamic import will be resolved after wasm-pack build
 let initWasm: InitFunction | null = null;
 let WasmCoreClass: (typeof WasmCore) | null = null;
+// CacheActionKind enum - set during initialization
+// eslint-disable-next-line import/no-mutable-exports
+export let ActionKind: typeof CacheActionKind;
 
-/** Cache key information returned by compute_cache_key */
-export interface CacheKeyInfo {
-  url: string;
-  hash: string;
-  host: string;
-  filename: string;
-  cache_path: string;
-}
-
-/** Cache action returned by check_cache_status */
-export type CacheAction =
-  | { action: 'fetch' }
-  | { action: 'use_cached' }
-  | { action: 'revalidate'; headers: { if_none_match?: string; if_modified_since?: string } };
+// Re-export generated types
+export type { CacheKeyInfo, CacheAction, CacheActionKind };
 
 export class WasmBridge {
   private core: WasmCore | null = null;
 
   async initialize(extensionUri: Uri): Promise<void> {
     debugLog('[WASM-Bridge] Importing wasm module...');
-    const wasmModule = await import('../pkg/eure_ls');
+    const wasmModule = await import('../pkg/eure_ls.js');
     debugLog('[WASM-Bridge] Module imported: ' + Object.keys(wasmModule).join(', '));
 
     initWasm = wasmModule.default;
     WasmCoreClass = wasmModule.WasmCore;
+    ActionKind = wasmModule.CacheActionKind;
     debugLog('[WASM-Bridge] initWasm and WasmCoreClass set');
 
     debugLog('[WASM-Bridge] Loading WASM bytes...');
@@ -79,14 +72,12 @@ export class WasmBridge {
 
   // Cache helper methods
 
-  computeCacheKey(url: string): CacheKeyInfo | null {
-    const result = this.core!.compute_cache_key(url);
-    return result as CacheKeyInfo | null;
+  computeCacheKey(url: string): CacheKeyInfo | undefined {
+    return this.core!.compute_cache_key(url);
   }
 
-  checkCacheStatus(url: string, metaJson: string | undefined, maxAgeSecs: number): CacheAction {
-    const result = this.core!.check_cache_status(url, metaJson, maxAgeSecs);
-    return result as CacheAction;
+  checkCacheStatus(metaJson: string | undefined, maxAgeSecs: number): CacheAction {
+    return this.core!.check_cache_status(metaJson, maxAgeSecs);
   }
 
   buildCacheMeta(

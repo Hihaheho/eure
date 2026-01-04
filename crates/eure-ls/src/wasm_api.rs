@@ -25,6 +25,100 @@ use crate::capabilities::server_capabilities;
 use crate::queries::{LspDiagnostics, LspSemanticTokens};
 use crate::uri_utils::{text_file_to_uri, uri_to_text_file as uri_to_text_file_from_str};
 
+// =========================================================================
+// WASM-exported types for TypeScript
+// =========================================================================
+
+/// Cache key information derived from a URL.
+#[wasm_bindgen(getter_with_clone)]
+pub struct CacheKeyInfo {
+    pub url: String,
+    pub hash: String,
+    pub host: String,
+    pub filename: String,
+    pub cache_path: String,
+}
+
+impl From<eure_env::cache::CacheKeyInfo> for CacheKeyInfo {
+    fn from(info: eure_env::cache::CacheKeyInfo) -> Self {
+        Self {
+            url: info.url,
+            hash: info.hash,
+            host: info.host,
+            filename: info.filename,
+            cache_path: info.cache_path,
+        }
+    }
+}
+
+/// Conditional headers for cache revalidation.
+#[derive(Clone)]
+#[wasm_bindgen(getter_with_clone)]
+pub struct ConditionalHeaders {
+    pub if_none_match: Option<String>,
+    pub if_modified_since: Option<String>,
+}
+
+impl From<eure_env::cache::ConditionalHeaders> for ConditionalHeaders {
+    fn from(headers: eure_env::cache::ConditionalHeaders) -> Self {
+        Self {
+            if_none_match: headers.if_none_match,
+            if_modified_since: headers.if_modified_since,
+        }
+    }
+}
+
+/// Cache action result.
+#[wasm_bindgen]
+pub struct CacheAction {
+    action: CacheActionKind,
+    headers: Option<ConditionalHeaders>,
+}
+
+#[derive(Clone, Copy)]
+#[wasm_bindgen]
+pub enum CacheActionKind {
+    Fetch,
+    UseCached,
+    Revalidate,
+}
+
+#[wasm_bindgen]
+impl CacheAction {
+    #[wasm_bindgen(getter)]
+    pub fn action(&self) -> CacheActionKind {
+        self.action
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn headers(&self) -> Option<ConditionalHeaders> {
+        self.headers.clone()
+    }
+}
+
+impl From<eure_env::cache::CacheAction> for CacheAction {
+    fn from(action: eure_env::cache::CacheAction) -> Self {
+        match action {
+            eure_env::cache::CacheAction::Fetch => Self {
+                action: CacheActionKind::Fetch,
+                headers: None,
+            },
+            eure_env::cache::CacheAction::UseCached => Self {
+                action: CacheActionKind::UseCached,
+                headers: None,
+            },
+            eure_env::cache::CacheAction::Revalidate { headers } => Self {
+                action: CacheActionKind::Revalidate,
+                headers: Some(headers.into()),
+            },
+        }
+    }
+}
+
+// =========================================================================
+// Internal types
+// =========================================================================
+
 /// Subscription for diagnostics with revision tracking.
 #[derive(Clone)]
 struct DiagnosticsSubscription {
@@ -266,84 +360,39 @@ impl WasmCore {
 
     /// Compute cache key information from a URL.
     ///
-    /// Returns a JSON object with:
-    /// - `url`: Original URL string
-    /// - `hash`: 8-character SHA256 hash prefix
-    /// - `host`: Host name from URL
-    /// - `filename`: Original filename from URL path
-    /// - `cache_path`: Relative path within cache directory (2-level sharding)
-    ///
-    /// Example cache_path: `eure.dev/a1/b2/a1b2c3d4-eure-schema.schema.eure`
+    /// Returns cache key info with URL, hash, host, filename, and cache_path.
+    /// Returns None if the URL is invalid.
     #[wasm_bindgen]
-    pub fn compute_cache_key(&self, url_str: &str) -> JsValue {
+    pub fn compute_cache_key(&self, url_str: &str) -> Option<CacheKeyInfo> {
         use eure_env::cache::compute_cache_key;
 
-        let url = match url::Url::parse(url_str) {
-            Ok(u) => u,
-            Err(_) => return JsValue::NULL,
-        };
-
-        let key_info = compute_cache_key(&url);
-
-        let info = serde_json::json!({
-            "url": key_info.url,
-            "hash": key_info.hash,
-            "host": key_info.host,
-            "filename": key_info.filename,
-            "cache_path": key_info.cache_path,
-        });
-
-        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-        info.serialize(&serializer).unwrap_or(JsValue::NULL)
+        let url = url::Url::parse(url_str).ok()?;
+        Some(compute_cache_key(&url).into())
     }
 
     /// Check cache status and determine what action to take.
     ///
-    /// Arguments:
-    /// - `url`: The URL to check
     /// - `meta_json`: Optional JSON string of cached metadata (from .meta file)
     /// - `max_age_secs`: Maximum age in seconds before revalidation
     ///
-    /// Returns a JSON object with `action` field:
-    /// - `{ "action": "fetch" }` - No cache, fetch fresh
-    /// - `{ "action": "use_cached" }` - Cache is fresh, use it
-    /// - `{ "action": "revalidate", "headers": { ... } }` - Cache is stale, revalidate
-    ///
-    /// The `headers` object contains:
-    /// - `if_none_match`: ETag value for If-None-Match header
-    /// - `if_modified_since`: Last-Modified value for If-Modified-Since header
+    /// Returns CacheAction with action kind and optional conditional headers.
     #[wasm_bindgen]
     pub fn check_cache_status(
         &self,
-        _url: &str,
         meta_json: Option<String>,
         max_age_secs: u32,
-    ) -> JsValue {
+    ) -> CacheAction {
         use eure_env::cache::CacheMeta;
 
-        let meta_json = match meta_json {
-            Some(json) => json,
-            None => {
-                // No cache
-                return to_js_value(&serde_json::json!({ "action": "fetch" }));
-            }
+        let Some(meta_json) = meta_json else {
+            return eure_env::cache::CacheAction::Fetch.into();
         };
 
-        // Parse meta using shared type
-        let meta: CacheMeta = match serde_json::from_str(&meta_json) {
-            Ok(m) => m,
-            Err(_) => {
-                // Invalid meta, fetch fresh
-                return to_js_value(&serde_json::json!({ "action": "fetch" }));
-            }
+        let Ok(meta) = serde_json::from_str::<CacheMeta>(&meta_json) else {
+            return eure_env::cache::CacheAction::Fetch.into();
         };
 
-        // Use shared freshness check logic
-        let action = meta.check_freshness(max_age_secs);
-
-        // Serialize the action enum directly
-        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-        action.serialize(&serializer).unwrap_or(JsValue::NULL)
+        meta.check_freshness(max_age_secs).into()
     }
 
     /// Build cache metadata from fetch response.
@@ -385,11 +434,6 @@ impl WasmCore {
     pub fn compute_content_hash(&self, content: &str) -> String {
         eure_env::cache::compute_content_hash(content)
     }
-}
-
-fn to_js_value(value: &serde_json::Value) -> JsValue {
-    let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-    value.serialize(&serializer).unwrap_or(JsValue::NULL)
 }
 
 impl WasmCore {

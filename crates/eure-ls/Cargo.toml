@@ -9,6 +9,9 @@ repository = "https://github.com/Hihaheho/eure"
 license = "MIT OR Apache-2.0"
 keywords = ["eure", "ide", "language-server", "lsp"]
 
+[package.metadata.wasm-pack.profile.release.wasm-bindgen]
+omit-default-module-path = true
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
