@@ -127,8 +127,8 @@
         "filenames": [],
         "configuration": "language-configuration.json",
         "icon": {
-          "light": "assets/icons/eure-icon-light.svg",
-          "dark": "assets/icons/eure-icon-dark.svg"
+          "light": "assets/icons/eure-icon.svg",
+          "dark": "assets/icons/eure-icon.svg"
         }
       }
     ],

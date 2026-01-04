@@ -23,17 +23,10 @@ fn main() {
     #[cfg(feature = "build-image")]
     {
         // Light theme favicons
-        let light_svg = manifest_dir.join("../../assets/icons/eure-icon-light.svg");
+        let light_svg = manifest_dir.join("../../assets/icons/eure-icon.svg");
         if light_svg.exists() {
             println!("cargo:rerun-if-changed={}", light_svg.display());
             generate_favicons(&light_svg, &out_dir, "");
-        }
-
-        // Dark theme favicons
-        let dark_svg = manifest_dir.join("../../assets/icons/eure-icon-dark.svg");
-        if dark_svg.exists() {
-            println!("cargo:rerun-if-changed={}", dark_svg.display());
-            generate_favicons(&dark_svg, &out_dir, "-dark");
         }
     }
 
@@ -47,12 +40,6 @@ fn main() {
             "android-chrome-192x192.png",
             "android-chrome-512x512.png",
             "favicon.ico",
-            "favicon-dark-16x16.png",
-            "favicon-dark-32x32.png",
-            "apple-touch-icon-dark.png",
-            "android-chrome-dark-192x192.png",
-            "android-chrome-dark-512x512.png",
-            "favicon-dark.ico",
         ];
         // Generate empty placeholder files so asset!() doesn't fail
         for file in FAVICON_FILES {
