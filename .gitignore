@@ -47,3 +47,5 @@
 !/.devcontainer/post-create.sh
 
 !/scripts/**/*.rs
+
+.pnpm-store

@@ -4,9 +4,9 @@ import { debugLog } from './common';
 import { WasmBridge, ActionKind } from './wasm-bridge';
 
 function getUserAgent(): string {
-  const ext = extensions.getExtension('hihaheho.vscode-eurels');
+  const ext = extensions.getExtension('hihaheho.eurels');
   const version = ext?.packageJSON?.version ?? 'unknown';
-  return `vscode-eurels@${version}`;
+  return `eurels@${version}`;
 }
 
 // Default cache max age: 24 hours (in seconds)
