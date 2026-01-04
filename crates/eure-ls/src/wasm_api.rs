@@ -377,11 +377,7 @@ impl WasmCore {
     ///
     /// Returns CacheAction with action kind and optional conditional headers.
     #[wasm_bindgen]
-    pub fn check_cache_status(
-        &self,
-        meta_json: Option<String>,
-        max_age_secs: u32,
-    ) -> CacheAction {
+    pub fn check_cache_status(&self, meta_json: Option<String>, max_age_secs: u32) -> CacheAction {
         use eure_env::cache::CacheMeta;
 
         let Some(meta_json) = meta_json else {
