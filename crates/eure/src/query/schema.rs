@@ -1,6 +1,6 @@
 //! Schema conversion and validation queries.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use eure_document::value::ObjectKey;
@@ -245,14 +245,14 @@ pub fn get_schema_extension_diagnostics(
 pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<TextFile>, QueryError> {
     // 1. Check $schema extension in the document
     if let Some(schema_path) = db.query(GetSchemaExtension::new(file.clone()))?.as_ref() {
-        // If schema_path is a URL, use it directly
+        // Resolve relative to the document's directory (only for local files)
+        if let Some(base_path) = file.as_local_path() {
+            let base_dir = base_path.parent().unwrap_or(Path::new("."));
+            return Ok(Some(TextFile::resolve(schema_path, base_dir)));
+        }
+        // For remote files, only absolute URLs are supported
         if schema_path.starts_with("https://") {
             return Ok(Some(TextFile::parse(schema_path)));
-        }
-        // Otherwise, resolve as a relative path (only for local files)
-        if let Some(base_path) = file.as_local_path() {
-            let resolved = resolve_relative_path(base_path, schema_path);
-            return Ok(Some(TextFile::from_path(resolved)));
         }
     }
 
@@ -267,7 +267,7 @@ pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<TextFile>, 
             if let Some(config_dir) = workspace.config_path.parent()
                 && let Some(schema_path) = config.schema_for_path(file_path, config_dir)
             {
-                return Ok(Some(TextFile::from_path(schema_path)));
+                return Ok(Some(TextFile::resolve(&schema_path, config_dir)));
             }
         }
     }
@@ -284,16 +284,11 @@ pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<TextFile>, 
 /// Get the built-in meta-schema file.
 fn meta_schema_file() -> TextFile {
     // The meta-schema is bundled with the application
-    TextFile::from_path(PathBuf::from("$eure/meta-schema.eure"))
-}
-
-/// Resolve a relative path against a base file path.
-fn resolve_relative_path(base: &Path, relative: &str) -> PathBuf {
-    if let Some(parent) = base.parent() {
-        parent.join(relative)
-    } else {
-        PathBuf::from(relative)
-    }
+    TextFile::parse(concat!(
+        "https://eure.dev/v",
+        env!("CARGO_PKG_VERSION"),
+        "/schemas/eure-schema.schema.eure"
+    ))
 }
 
 // =============================================================================

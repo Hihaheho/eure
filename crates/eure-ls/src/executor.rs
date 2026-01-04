@@ -12,7 +12,6 @@ use lsp_types::{
 use query_flow::{DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, RevisionCounter};
 use tracing::{info, warn};
 
-use crate::asset_locator::EureAssetLocator;
 use crate::io_pool::IoPool;
 use crate::types::{CommandQuery, IoResponse, PendingRequest};
 use eure_ls::queries::LspDiagnostics;
@@ -46,7 +45,6 @@ impl QueryExecutor {
         let runtime = QueryRuntimeBuilder::new()
             .error_comparator(error_reports_comparator)
             .build();
-        runtime.register_asset_locator(EureAssetLocator);
 
         Self {
             runtime,

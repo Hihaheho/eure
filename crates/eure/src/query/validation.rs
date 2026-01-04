@@ -87,10 +87,10 @@ pub fn validate_target(
     config_dir: PathBuf,
 ) -> Result<ValidateTargetResult, QueryError> {
     // Resolve schema file if specified
-    let schema_file = target.schema.as_ref().map(|schema_path| {
-        let full_path = config_dir.join(schema_path);
-        TextFile::from_path(full_path)
-    });
+    let schema_file = target
+        .schema
+        .as_ref()
+        .map(|schema_path| TextFile::resolve(schema_path, &config_dir));
 
     // Expand glob patterns via asset (platform-specific implementation)
     let files: Vec<TextFile> = target

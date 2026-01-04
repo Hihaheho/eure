@@ -90,10 +90,16 @@ where
                     if let Some(file) = pending.key::<TextFile>() {
                         match file {
                             TextFile::Local(path) => {
-                                let content = TextFileContent(fs::read_to_string(path.as_ref())?);
+                                let path_ref = path.as_ref();
+                                let content = fs::read_to_string(path_ref).map_err(|e| {
+                                    std::io::Error::new(
+                                        e.kind(),
+                                        format!("{}: {}", path_ref.display(), e),
+                                    )
+                                })?;
                                 runtime.resolve_asset(
                                     file.clone(),
-                                    content,
+                                    TextFileContent(content),
                                     DurabilityLevel::Static,
                                 );
                             }

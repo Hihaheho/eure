@@ -182,7 +182,7 @@ impl EureConfig {
     /// Find the schema for a file path by matching against target globs.
     ///
     /// Returns the first matching target's schema path, if any.
-    pub fn schema_for_path(&self, file_path: &Path, config_dir: &Path) -> Option<PathBuf> {
+    pub fn schema_for_path(&self, file_path: &Path, config_dir: &Path) -> Option<String> {
         // Use explicit options for consistent cross-platform behavior
         let options = glob::MatchOptions {
             case_sensitive: true,
@@ -199,7 +199,7 @@ impl EureConfig {
                         && pattern.matches_path_with(file_path, options)
                     {
                         // Return schema path relative to config dir
-                        return Some(config_dir.join(schema));
+                        return Some(schema.clone());
                     }
                 }
             }

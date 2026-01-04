@@ -41,6 +41,18 @@ impl TextFile {
         }
     }
 
+    /// Resolve a schema/file reference relative to a base directory.
+    ///
+    /// - If `target` starts with "https://", returns a `TextFile::Remote`
+    /// - Otherwise, joins `target` with `base_dir` and returns a `TextFile::Local`
+    pub fn resolve(target: &str, base_dir: &Path) -> Self {
+        if target.starts_with("https://") {
+            Self::parse(target)
+        } else {
+            Self::from_path(base_dir.join(target))
+        }
+    }
+
     /// Create a TextFile from an Arc<PathBuf> (for backward compatibility).
     pub fn new(path: Arc<PathBuf>) -> Self {
         Self::Local(path)

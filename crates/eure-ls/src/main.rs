@@ -1,6 +1,5 @@
 //! Eure Language Server - LSP implementation for the Eure data format.
 
-pub mod asset_locator;
 pub mod executor;
 pub mod io_pool;
 pub mod types;
