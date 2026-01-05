@@ -198,7 +198,7 @@ export class WasmEventLoop {
 
       if (action.action === ActionKind.UseCached) {
         // Cache is fresh, just read it
-        debugLog(`[Cache] Using cached: ${url}`);
+        debugLog(`[Cache] Using cached: ${url} (${cacheFilePath.fsPath})`);
         try {
           const content = await workspace.fs.readFile(cacheFilePath);
           return { content: new TextDecoder().decode(content), error: null };
