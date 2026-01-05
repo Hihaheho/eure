@@ -1,0 +1,248 @@
+// Test cases for flatten behavior in schemas
+//
+// When a record has $flatten, the flattened schema's fields are merged into
+// the record's properties for validation purposes.
+
+// ============================================================================
+// Valid Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 1: Flatten a record into another record
+// ============================================================================
+
+@ cases.flatten-record
+input_eure = ```eure
+name = "Alice"
+city = "Tokyo"
+country = "Japan"
+```
+
+schema = ```eure
+$types.address {
+  city = `text`
+  country = `text`
+}
+
+name = `text`
+$flatten = [`$types.address`]
+```
+
+// ============================================================================
+// Test Case 2: Flatten a union - single variant matches
+// ============================================================================
+
+@ cases.flatten-union
+input_eure = ```eure
+name = "Alice"
+email = "alice@example.com"
+```
+
+schema = ```eure
+$types.contact-method {
+  $variant: union
+  variants.email-contact {
+    email = `text`
+  }
+  variants.phone-contact {
+    phone = `text`
+  }
+}
+
+name = `text`
+$flatten = [`$types.contact-method`]
+```
+
+// ============================================================================
+// Test Case 3: Nested flatten
+// ============================================================================
+
+@ cases.nested-flatten
+input_eure = ```eure
+a = 1
+b = 2
+c = 3
+```
+
+schema = ```eure
+$types.level2 {
+  c = `integer`
+}
+
+$types.level1 {
+  b = `integer`
+  $flatten = [`$types.level2`]
+}
+
+a = `integer`
+$flatten = [`$types.level1`]
+```
+
+// ============================================================================
+// Error Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 4: Missing required field from flattened record
+// ============================================================================
+
+@ cases.flatten-record-missing-field
+input_eure = ```eure
+name = "Alice"
+city = "Tokyo"
+```
+
+schema = ```eure
+$types.address {
+  city = `text`
+  country = `text`
+}
+
+name = `text`
+$flatten = [`$types.address`]
+```
+
+schema_errors = [
+  ```
+  error: Missing required field 'country' at path (root)
+   --> input.eure:1:1
+    |
+  1 | / name = "Alice"
+  2 | | city = "Tokyo"
+    | |______________^ Missing required field 'country' at path (root)
+    |
+  note: constraint defined here
+   --> schema.eure:1:1
+    |
+  1 | / $types.address {
+  2 | |   city = `text`
+  3 | |   country = `text`
+  4 | | }
+    | |_- constraint defined here
+  ```
+]
+
+// ============================================================================
+// Test Case 5: No union variant matches
+// ============================================================================
+
+@ cases.flatten-union-no-match
+input_eure = ```eure
+name = "Alice"
+fax = "123-456-7890"
+```
+
+schema = ```eure
+$types.contact-method {
+  $variant: union
+  variants.email-contact {
+    email = `text`
+  }
+  variants.phone-contact {
+    phone = `text`
+  }
+}
+
+name = `text`
+$flatten = [`$types.contact-method`]
+```
+
+schema_errors = [
+  ```
+  error: No variant matched for union at path (root), most close variant is 'phone-contact': Missing required field 'phone' at path (root) (and 1 more errors)
+   --> input.eure:1:1
+    |
+  1 | / name = "Alice"
+  2 | | fax = "123-456-7890"
+    | |____________________^ No variant matched for union at path (root), most close variant is 'phone-contact': Missing required field 'phone' at path (root) (and 1 more errors)
+    |
+  note: constraint defined here
+   --> schema.eure:1:1
+    |
+  1 | / $types.contact-method {
+  2 | |   $variant: union
+  3 | |   variants.email-contact {
+  4 | |     email = `text`
+  ... |
+  9 | | }
+    | |_- constraint defined here
+  note: most close variant 'phone-contact' failed with
+   --> input.eure:1:1
+    |
+  1 | name = "Alice"
+    | -
+  note: constraint defined here
+   --> schema.eure:6:3
+    |
+  6 | /   variants.phone-contact {
+  7 | |     phone = `text`
+  8 | |   }
+    | |___- constraint defined here
+  ```,
+  ```
+  error: Unknown field 'fax' at path (root)
+    --> input.eure:2:1
+     |
+   2 | fax = "123-456-7890"
+     | ^^^ Unknown field 'fax' at path (root)
+     |
+  note: constraint defined here
+    --> schema.eure:1:1
+     |
+   1 | / $types.contact-method {
+   2 | |   $variant: union
+   3 | |   variants.email-contact {
+   4 | |     email = `text`
+  ...  |
+  11 | | name = `text`
+  12 | | $flatten = [`$types.contact-method`]
+     | |____________________________________- constraint defined here
+  ```
+]
+
+// ============================================================================
+// Test Case 6: Ambiguous union - multiple variants match
+// ============================================================================
+
+@ cases.flatten-union-ambiguous
+input_eure = ```eure
+name = "Alice"
+value = 42
+```
+
+schema = ```eure
+$types.ambiguous-union {
+  $variant: union
+  variants.option-a {
+    value = `integer`
+  }
+  variants.option-b {
+    value = `integer`
+  }
+}
+
+name = `text`
+$flatten = [`$types.ambiguous-union`]
+```
+
+schema_errors = [
+  ```
+  error: Multiple variants matched for union at path (root): ["option-a", "option-b"]
+   --> input.eure:1:1
+    |
+  1 | / name = "Alice"
+  2 | | value = 42
+    | |__________^ Multiple variants matched for union at path (root): ["option-a", "option-b"]
+    |
+  note: constraint defined here
+   --> schema.eure:1:1
+    |
+  1 | / $types.ambiguous-union {
+  2 | |   $variant: union
+  3 | |   variants.option-a {
+  4 | |     value = `integer`
+  ... |
+  9 | | }
+    | |_- constraint defined here
+  ```
+]

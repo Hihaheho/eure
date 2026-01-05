@@ -290,6 +290,15 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
+    #[error("Invalid flatten target: expected Record or Union, got {actual_kind} at path {path}")]
+    InvalidFlattenTarget {
+        /// The actual schema kind that was found
+        actual_kind: crate::SchemaKind,
+        path: EurePath,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
+    },
+
     #[error("Missing required extension '{extension}' at path {path}")]
     MissingRequiredExtension {
         extension: String,
@@ -459,6 +468,11 @@ impl ValidationError {
                 schema_node_id,
                 ..
             }
+            | Self::InvalidFlattenTarget {
+                node_id,
+                schema_node_id,
+                ..
+            }
             | Self::MissingRequiredExtension {
                 node_id,
                 schema_node_id,
@@ -499,6 +513,7 @@ impl ValidationError {
             | Self::InvalidKeyType { path, .. }
             | Self::NotMultipleOf { path, .. }
             | Self::UndefinedTypeReference { path, .. }
+            | Self::InvalidFlattenTarget { path, .. }
             | Self::MissingRequiredExtension { path, .. }
             | Self::ParseError { path, .. } => path.0.len(),
         }
@@ -532,6 +547,7 @@ impl ValidationError {
             Self::AmbiguousUnion { .. } => 0, // Not a mismatch
             Self::ConflictingVariantTags { .. } => 0, // Configuration error
             Self::UndefinedTypeReference { .. } => 0, // Configuration error
+            Self::InvalidFlattenTarget { .. } => 0, // Schema construction error
             Self::RequiresExplicitVariant { .. } => 0, // Configuration error
         }
     }
@@ -548,4 +564,66 @@ pub enum ValidationWarning {
     UnknownExtension { name: String, path: EurePath },
     /// Deprecated field usage
     DeprecatedField { field: String, path: EurePath },
+}
+
+// =============================================================================
+// Best Variant Selection
+// =============================================================================
+
+/// Select the best matching variant from collected errors.
+///
+/// Used by both regular union validation and flattened union validation
+/// to determine which variant "almost matched" for error reporting.
+///
+/// The "best" variant is selected based on:
+/// 1. **Depth** (primary): Errors deeper in the structure indicate better match
+/// 2. **Error count** (secondary): Fewer errors indicate closer match
+/// 3. **Error priority** (tertiary): Higher priority errors indicate clearer mismatch
+///
+/// Returns None if no variants were tried or all had empty errors.
+pub fn select_best_variant_match(
+    variant_errors: Vec<(String, Vec<ValidationError>)>,
+) -> Option<BestVariantMatch> {
+    if variant_errors.is_empty() {
+        return None;
+    }
+
+    // Find the best match based on metrics
+    let best = variant_errors
+        .into_iter()
+        .filter(|(_, errors)| !errors.is_empty())
+        .max_by_key(|(_, errors)| {
+            // Calculate metrics
+            let max_depth = errors.iter().map(|e| e.depth()).max().unwrap_or(0);
+            let error_count = errors.len();
+            let max_priority = errors.iter().map(|e| e.priority_score()).max().unwrap_or(0);
+
+            // Return tuple for comparison: (depth, -count, priority)
+            // Higher depth = better (got further)
+            // Lower count = better (fewer issues), so we use MAX - count
+            // Higher priority = better (more significant mismatch)
+            (max_depth, usize::MAX - error_count, max_priority)
+        });
+
+    best.map(|(variant_name, mut errors)| {
+        let depth = errors.iter().map(|e| e.depth()).max().unwrap_or(0);
+        let error_count = errors.len();
+
+        // Select primary error (highest priority, or deepest if tied)
+        errors.sort_by_key(|e| {
+            (
+                std::cmp::Reverse(e.priority_score()),
+                std::cmp::Reverse(e.depth()),
+            )
+        });
+        let primary_error = errors.first().cloned().unwrap();
+
+        BestVariantMatch {
+            variant_name,
+            error: Box::new(primary_error),
+            all_errors: errors,
+            depth,
+            error_count,
+        }
+    })
 }

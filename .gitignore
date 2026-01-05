@@ -49,3 +49,4 @@
 !/scripts/**/*.rs
 
 .pnpm-store
+tmp

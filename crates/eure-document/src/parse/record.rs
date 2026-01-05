@@ -291,6 +291,8 @@ impl<'doc> RecordParser<'doc> {
     /// Get an iterator over unknown fields (for Schema policy or custom handling).
     ///
     /// Returns (field_name, context) pairs for fields that haven't been accessed.
+    /// Note: In flattened contexts, this still returns fields - use `deny_unknown_fields()`
+    /// if you want the automatic no-op behavior for child parsers.
     pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, ParseContext<'doc>)> + '_ {
         let doc = self.ctx.doc();
         let mode = self.union_tag_mode;

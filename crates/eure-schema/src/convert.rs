@@ -345,10 +345,18 @@ impl<'a> Converter<'a> {
             );
         }
 
+        // Convert flatten targets
+        let flatten = parsed
+            .flatten
+            .into_iter()
+            .map(|id| self.convert_node(id))
+            .collect::<Result<Vec<_>, _>>()?;
+
         let unknown_fields = self.convert_unknown_fields_policy(parsed.unknown_fields)?;
 
         Ok(RecordSchema {
             properties,
+            flatten,
             unknown_fields,
         })
     }

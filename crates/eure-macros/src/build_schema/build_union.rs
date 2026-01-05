@@ -117,6 +117,7 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
                         let #schema_var = ctx.create_node(#schema_crate::SchemaNodeContent::Record(
                             #schema_crate::RecordSchema {
                                 properties: [#(#property_entries),*].into_iter().collect(),
+                                flatten: vec![],
                                 unknown_fields: #schema_crate::UnknownFieldsPolicy::Deny,
                             }
                         ));

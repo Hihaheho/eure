@@ -521,6 +521,40 @@ fn convert_record_schema(
     eure: &RecordSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
+    let base_schema = convert_record_properties(ctx, eure, metadata.clone())?;
+
+    // If no flatten targets, return the base schema directly
+    if eure.flatten.is_empty() {
+        return Ok(base_schema);
+    }
+
+    // With flatten targets, use allOf to combine base schema with flattened schemas
+    let mut all_of_schemas = vec![base_schema];
+
+    for &flatten_id in &eure.flatten {
+        let flatten_schema = convert_node(ctx, flatten_id)?;
+        all_of_schemas.push(flatten_schema);
+    }
+
+    Ok(JsonSchema::AllOf(AllOfSchema {
+        schemas: all_of_schemas,
+        metadata,
+    }))
+}
+
+/// Convert record properties to a JSON Schema object, excluding flatten targets.
+///
+/// This helper extracts the direct properties of a record schema into a JSON Schema
+/// object with `properties`, `required`, and `additionalProperties` fields.
+///
+/// Used by `convert_record_schema` to separate the base record schema from
+/// flatten targets. When a record has flatten targets, the result of this function
+/// is combined with the flatten target schemas using `allOf`.
+fn convert_record_properties(
+    ctx: &mut ConversionContext,
+    eure: &RecordSchema,
+    metadata: SchemaMetadata,
+) -> Result<JsonSchema, ConversionError> {
     let mut properties = IndexMap::new();
     let mut required = Vec::new();
 
@@ -819,6 +853,7 @@ mod tests {
 
         doc.root = doc.create_node(SchemaNodeContent::Record(RecordSchema {
             properties,
+            flatten: vec![],
             unknown_fields: UnknownFieldsPolicy::Deny,
         }));
 

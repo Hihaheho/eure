@@ -517,6 +517,7 @@ mod tests {
 
         schema.node_mut(schema.root).content = SchemaNodeContent::Record(RecordSchema {
             properties,
+            flatten: vec![],
             unknown_fields: UnknownFieldsPolicy::Deny,
         });
 

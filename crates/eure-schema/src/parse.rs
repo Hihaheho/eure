@@ -225,6 +225,8 @@ impl ParseDocument<'_> for ParsedUnknownFieldsPolicy {
 pub struct ParsedRecordSchema {
     /// Fixed field schemas (field name -> field schema with metadata)
     pub properties: IndexMap<String, ParsedRecordFieldSchema>,
+    /// Schemas to be flattened into this record
+    pub flatten: Vec<NodeId>,
     /// Policy for unknown/additional fields
     pub unknown_fields: ParsedUnknownFieldsPolicy,
 }
@@ -235,6 +237,11 @@ impl ParseDocument<'_> for ParsedRecordSchema {
         // Parse $unknown-fields extension
         let unknown_fields = ctx
             .parse_ext_optional::<ParsedUnknownFieldsPolicy>("unknown-fields")?
+            .unwrap_or_default();
+
+        // Parse $flatten extension - list of schemas to flatten into this record
+        let flatten = ctx
+            .parse_ext_optional::<Vec<NodeId>>("flatten")?
             .unwrap_or_default();
 
         // Parse all fields in the map as record properties
@@ -248,6 +255,7 @@ impl ParseDocument<'_> for ParsedRecordSchema {
 
         Ok(ParsedRecordSchema {
             properties,
+            flatten,
             unknown_fields,
         })
     }

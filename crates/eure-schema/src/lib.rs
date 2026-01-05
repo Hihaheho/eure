@@ -158,6 +158,66 @@ pub enum SchemaNodeContent {
     Reference(TypeReference),
 }
 
+/// The kind of a schema node (discriminant without data).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SchemaKind {
+    Any,
+    Text,
+    Integer,
+    Float,
+    Boolean,
+    Null,
+    Literal,
+    Array,
+    Map,
+    Record,
+    Tuple,
+    Union,
+    Reference,
+}
+
+impl std::fmt::Display for SchemaKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            Self::Any => "any",
+            Self::Text => "text",
+            Self::Integer => "integer",
+            Self::Float => "float",
+            Self::Boolean => "boolean",
+            Self::Null => "null",
+            Self::Literal => "literal",
+            Self::Array => "array",
+            Self::Map => "map",
+            Self::Record => "record",
+            Self::Tuple => "tuple",
+            Self::Union => "union",
+            Self::Reference => "reference",
+        };
+        write!(f, "{}", name)
+    }
+}
+
+impl SchemaNodeContent {
+    /// Returns the kind of this schema node.
+    pub fn kind(&self) -> SchemaKind {
+        match self {
+            Self::Any => SchemaKind::Any,
+            Self::Text(_) => SchemaKind::Text,
+            Self::Integer(_) => SchemaKind::Integer,
+            Self::Float(_) => SchemaKind::Float,
+            Self::Boolean => SchemaKind::Boolean,
+            Self::Null => SchemaKind::Null,
+            Self::Literal(_) => SchemaKind::Literal,
+            Self::Array(_) => SchemaKind::Array,
+            Self::Map(_) => SchemaKind::Map,
+            Self::Record(_) => SchemaKind::Record,
+            Self::Tuple(_) => SchemaKind::Tuple,
+            Self::Union(_) => SchemaKind::Union,
+            Self::Reference(_) => SchemaKind::Reference,
+        }
+    }
+}
+
 // ============================================================================
 // Primitive Type Schemas
 // ============================================================================
@@ -381,6 +441,10 @@ pub struct RecordFieldSchema {
 pub struct RecordSchema {
     /// Fixed field schemas (field name -> field schema with metadata)
     pub properties: IndexMap<String, RecordFieldSchema>,
+    /// Schemas to flatten into this record.
+    /// Each must point to a Record or Union schema.
+    /// Fields from flattened schemas are merged into this record's field space.
+    pub flatten: Vec<SchemaNodeId>,
     /// Policy for unknown/additional fields (default: deny)
     pub unknown_fields: UnknownFieldsPolicy,
 }

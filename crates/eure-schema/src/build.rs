@@ -21,9 +21,12 @@
 use std::any::TypeId;
 use std::collections::HashMap;
 
+use eure_document::Text;
 use indexmap::IndexMap;
 
-use crate::{SchemaDocument, SchemaMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId};
+use crate::{
+    SchemaDocument, SchemaMetadata, SchemaNode, SchemaNodeContent, SchemaNodeId, TextSchema,
+};
 
 /// Trait for types that can build their schema representation.
 ///
@@ -357,6 +360,18 @@ impl BuildSchema for f64 {
 impl BuildSchema for () {
     fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
         SchemaNodeContent::Null
+    }
+}
+
+impl BuildSchema for Text {
+    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+        SchemaNodeContent::Text(TextSchema {
+            language: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            unknown_fields: IndexMap::new(),
+        })
     }
 }
 

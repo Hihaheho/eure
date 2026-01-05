@@ -25,35 +25,34 @@ fn generate_named_struct(
 ) -> TokenStream {
     let schema_crate = context.schema_crate();
 
-    let field_schemas: Vec<_> = fields
-        .iter()
-        .enumerate()
-        .map(|(idx, f)| {
+    // Separate regular fields from flatten fields
+    let mut regular_fields = Vec::new();
+    let mut flatten_fields = Vec::new();
+
+    for (idx, f) in fields.iter().enumerate() {
+        let field_ty = &f.ty;
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+
+        if attrs.flatten || attrs.flatten_ext {
+            // Flatten field - will be added to flatten vec
+            // (flatten_ext behaves the same in BuildSchema since we don't model extensions)
+            let schema_var = format_ident!("flatten_{}_schema", idx);
+            flatten_fields.push((schema_var, field_ty.clone()));
+        } else {
+            // Regular field
             let field_name = f.ident.as_ref().expect("named fields must have names");
-            let field_ty = &f.ty;
-            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
-
-            // Skip flatten fields for now - they need special handling
-            if attrs.flatten || attrs.flatten_ext {
-                panic!("flatten is not yet supported in BuildSchema derive");
-            }
-
             let field_name_str = attrs
                 .rename
                 .clone()
                 .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-
             let schema_var = format_ident!("field_{}_schema", idx);
-
-            // Check if the field is Option<T> to mark as optional
             let is_optional = is_option_type(field_ty);
+            regular_fields.push((field_name_str, schema_var, field_ty.clone(), is_optional));
+        }
+    }
 
-            (field_name_str, schema_var, field_ty.clone(), is_optional)
-        })
-        .collect();
-
-    // Generate schema building for each field
-    let field_builds: Vec<_> = field_schemas
+    // Generate schema building for regular fields
+    let field_builds: Vec<_> = regular_fields
         .iter()
         .map(|(_, schema_var, field_ty, _)| {
             quote! {
@@ -62,8 +61,18 @@ fn generate_named_struct(
         })
         .collect();
 
+    // Generate schema building for flatten fields
+    let flatten_builds: Vec<_> = flatten_fields
+        .iter()
+        .map(|(schema_var, field_ty)| {
+            quote! {
+                let #schema_var = ctx.build::<#field_ty>();
+            }
+        })
+        .collect();
+
     // Generate the properties HashMap entries
-    let properties_entries: Vec<_> = field_schemas
+    let properties_entries: Vec<_> = regular_fields
         .iter()
         .map(|(name, schema_var, _, is_optional)| {
             quote! {
@@ -79,6 +88,14 @@ fn generate_named_struct(
         })
         .collect();
 
+    // Generate the flatten vec entries
+    let flatten_entries: Vec<_> = flatten_fields
+        .iter()
+        .map(|(schema_var, _)| {
+            quote! { #schema_var }
+        })
+        .collect();
+
     // Determine unknown fields policy
     let unknown_fields_policy = if context.config.allow_unknown_fields {
         quote! { #schema_crate::UnknownFieldsPolicy::Allow }
@@ -88,11 +105,13 @@ fn generate_named_struct(
 
     let content = quote! {
         #(#field_builds)*
+        #(#flatten_builds)*
 
         #schema_crate::SchemaNodeContent::Record(#schema_crate::RecordSchema {
             properties: [
                 #(#properties_entries),*
             ].into_iter().collect(),
+            flatten: vec![#(#flatten_entries),*],
             unknown_fields: #unknown_fields_policy,
         })
     };
