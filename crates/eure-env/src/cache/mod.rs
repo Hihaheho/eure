@@ -9,11 +9,17 @@
 //!
 //! # Cache Layout
 //!
-//! The cache is stored in `~/.cache/eure/schemas/` (or `$EURE_CACHE_DIR`).
+//! The cache is stored in the platform-specific cache directory (via `directories` crate):
+//! - macOS: `~/Library/Caches/dev.eure.eure/schemas/`
+//! - Linux: `~/.cache/eure/schemas/`
+//! - Windows: `C:\Users\<User>\AppData\Local\eure\eure\cache\schemas\`
+//!
+//! Override with `$EURE_CACHE_DIR` environment variable.
+//!
 //! Files are organized with 2-level directory sharding to prevent overcrowding:
 //!
 //! ```text
-//! ~/.cache/eure/schemas/
+//! ~/Library/Caches/dev.eure.eure/schemas/  # (macOS example)
 //!   eure.dev/
 //!     a1/
 //!       b2/

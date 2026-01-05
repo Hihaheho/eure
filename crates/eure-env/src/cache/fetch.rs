@@ -60,9 +60,9 @@ pub fn default_cache_dir() -> std::path::PathBuf {
     std::env::var("EURE_CACHE_DIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
-            dirs::cache_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from(".cache"))
-                .join("eure")
+            directories::ProjectDirs::from("dev", "eure", "eure")
+                .map(|p| p.cache_dir().to_path_buf())
+                .unwrap_or_else(|| std::path::PathBuf::from(".cache/eure"))
                 .join("schemas")
         })
 }
