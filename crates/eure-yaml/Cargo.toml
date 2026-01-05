@@ -1,6 +1,6 @@
 [package]
 name = "eure-yaml"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "YAML conversion support for Eure format"
 readme = "README.md"

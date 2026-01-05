@@ -1,6 +1,6 @@
 [package]
 name = "eure-ls"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "Language Server Protocol implementation for Eure"
 readme = "README.md"

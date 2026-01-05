@@ -1,6 +1,6 @@
 [package]
 name = "eure-schema"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "Schema specification and validation for Eure"
 readme = "README.md"

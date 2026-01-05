@@ -1,6 +1,6 @@
 [package]
 name = "eure-parol"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "Eure parser implementation using Parol"
 readme = "README.md"
