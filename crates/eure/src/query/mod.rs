@@ -42,7 +42,7 @@ pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
 #[cfg(feature = "http")]
 pub use http::fetch_url;
 #[cfg(feature = "native")]
-pub use http::{CacheOptions, default_cache_dir, fetch_url_cached, parse_duration};
+pub use http::{CacheOptions, base_cache_dir, fetch_url_cached, https_cache_dir, parse_duration};
 pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst};
 #[cfg(feature = "http")]
 pub use reqwest;

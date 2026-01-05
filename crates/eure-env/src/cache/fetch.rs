@@ -55,16 +55,29 @@ pub struct FetchResult {
     pub cache_path: Option<std::path::PathBuf>,
 }
 
-/// Get the default cache directory.
-pub fn default_cache_dir() -> std::path::PathBuf {
+/// Get the base cache directory for all eure caches.
+///
+/// Platform-specific paths (via `directories` crate):
+/// - macOS: `~/Library/Caches/dev.eure.eure/`
+/// - Linux: `~/.cache/eure/`
+/// - Windows: `C:\Users\<User>\AppData\Local\eure\eure\cache\`
+///
+/// Override with `$EURE_CACHE_DIR` environment variable.
+pub fn base_cache_dir() -> std::path::PathBuf {
     std::env::var("EURE_CACHE_DIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
             directories::ProjectDirs::from("dev", "eure", "eure")
                 .map(|p| p.cache_dir().to_path_buf())
                 .unwrap_or_else(|| std::path::PathBuf::from(".cache/eure"))
-                .join("schemas")
         })
+}
+
+/// Get the cache directory for HTTPS fetched content.
+///
+/// Returns `base_cache_dir()/https/`.
+pub fn https_cache_dir() -> std::path::PathBuf {
+    base_cache_dir().join("https")
 }
 
 /// Fetch a URL with caching.
@@ -74,7 +87,7 @@ pub fn fetch(url: &Url, opts: &CacheOptions) -> Result<FetchResult, CacheError> 
         return Err(CacheError::HttpsRequired(url.to_string()));
     }
 
-    let cache_dir = opts.cache_dir.clone().unwrap_or_else(default_cache_dir);
+    let cache_dir = opts.cache_dir.clone().unwrap_or_else(https_cache_dir);
     let storage = FsStorage::new(cache_dir);
 
     // Check cache first (unless refresh is set)

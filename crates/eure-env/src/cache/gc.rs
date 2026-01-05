@@ -3,14 +3,14 @@
 use std::time::Duration;
 
 use super::error::CacheError;
-use super::fetch::default_cache_dir;
+use super::fetch::https_cache_dir;
 use super::storage::{CacheStorage, FsStorage, GcOptions, GcStats};
 
-/// Run garbage collection on the cache.
+/// Run garbage collection on the HTTPS cache.
 ///
 /// This removes old entries based on the provided options.
 pub fn gc(opts: &GcOptions) -> Result<GcStats, CacheError> {
-    let cache_dir = default_cache_dir();
+    let cache_dir = https_cache_dir();
     let storage = FsStorage::new(cache_dir);
     storage.gc(opts)
 }
@@ -21,9 +21,9 @@ pub fn gc_with_dir(cache_dir: &std::path::Path, opts: &GcOptions) -> Result<GcSt
     storage.gc(opts)
 }
 
-/// Remove all cached entries.
+/// Remove all cached entries from the HTTPS cache.
 pub fn clean() -> Result<(), CacheError> {
-    let cache_dir = default_cache_dir();
+    let cache_dir = https_cache_dir();
     let storage = FsStorage::new(cache_dir);
     storage.clean()
 }

@@ -1,6 +1,6 @@
-//! Remote schema caching module.
+//! Caching module for eure.
 //!
-//! This module provides caching for remote schema files fetched over HTTP(S).
+//! This module provides caching infrastructure with support for multiple cache types.
 //!
 //! # Module Organization
 //!
@@ -10,21 +10,23 @@
 //! # Cache Layout
 //!
 //! The cache is stored in the platform-specific cache directory (via `directories` crate):
-//! - macOS: `~/Library/Caches/dev.eure.eure/schemas/`
-//! - Linux: `~/.cache/eure/schemas/`
-//! - Windows: `C:\Users\<User>\AppData\Local\eure\eure\cache\schemas\`
+//! - macOS: `~/Library/Caches/dev.eure.eure/`
+//! - Linux: `~/.cache/eure/`
+//! - Windows: `C:\Users\<User>\AppData\Local\eure\eure\cache\`
 //!
 //! Override with `$EURE_CACHE_DIR` environment variable.
 //!
-//! Files are organized with 2-level directory sharding to prevent overcrowding:
+//! Cache types are stored in subdirectories:
 //!
 //! ```text
-//! ~/Library/Caches/dev.eure.eure/schemas/  # (macOS example)
-//!   eure.dev/
-//!     a1/
-//!       b2/
-//!         a1b2c3d4-eure-schema.schema.eure       # content
-//!         a1b2c3d4-eure-schema.schema.eure.meta  # metadata (JSON)
+//! ~/Library/Caches/dev.eure.eure/  # base_cache_dir() (macOS example)
+//!   https/                          # https_cache_dir() - HTTPS fetched content
+//!     eure.dev/
+//!       a1/
+//!         b2/
+//!           a1b2c3d4-schema.eure       # content
+//!           a1b2c3d4-schema.eure.meta  # metadata (JSON)
+//!   # (future: compile/, build/, etc.)
 //! ```
 //!
 //! # Example (native only)
@@ -61,7 +63,7 @@ mod storage;
 #[cfg(feature = "native")]
 pub use error::CacheError;
 #[cfg(feature = "native")]
-pub use fetch::{CacheOptions, FetchResult, default_cache_dir, fetch};
+pub use fetch::{CacheOptions, FetchResult, base_cache_dir, fetch, https_cache_dir};
 #[cfg(feature = "native")]
 pub use gc::{clean, clean_with_dir, gc, gc_with_dir, parse_duration, parse_size};
 #[cfg(feature = "native")]

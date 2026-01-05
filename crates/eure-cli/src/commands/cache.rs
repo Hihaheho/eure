@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use clap::Subcommand;
 use eure_env::cache::{
-    self, CacheOptions, CacheStorage, FsStorage, GcOptions, clean, clean_with_dir,
-    default_cache_dir, gc, gc_with_dir, parse_duration, parse_size,
+    self, CacheOptions, CacheStorage, FsStorage, GcOptions, base_cache_dir, clean, clean_with_dir,
+    gc, gc_with_dir, https_cache_dir, parse_duration, parse_size,
 };
 use url::Url;
 
@@ -75,7 +75,7 @@ pub fn run(args: Args) {
 }
 
 fn run_list(cache_dir: Option<PathBuf>) {
-    let dir = cache_dir.unwrap_or_else(default_cache_dir);
+    let dir = cache_dir.unwrap_or_else(https_cache_dir);
     let storage = FsStorage::new(dir);
 
     match storage.list() {
@@ -164,7 +164,7 @@ fn run_clean(cache_dir: Option<PathBuf>) {
 }
 
 fn run_path() {
-    println!("{}", default_cache_dir().display());
+    println!("{}", base_cache_dir().display());
 }
 
 fn run_fetch(url_str: String, refresh: bool, cache_dir: Option<PathBuf>) {

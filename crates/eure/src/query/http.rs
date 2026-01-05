@@ -13,7 +13,7 @@ use crate::query::error::EureQueryError;
 use super::TextFileContent;
 
 #[cfg(feature = "native")]
-pub use eure_env::cache::{CacheOptions, default_cache_dir, parse_duration};
+pub use eure_env::cache::{CacheOptions, base_cache_dir, https_cache_dir, parse_duration};
 
 /// Rate limit: minimum interval between requests to the same URL.
 const RATE_LIMIT_INTERVAL: Duration = Duration::from_secs(10);
