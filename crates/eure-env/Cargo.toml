@@ -30,7 +30,7 @@ reqwest = { workspace = true, optional = true }
 tempfile = { version = "3", optional = true }
 fs2 = { version = "0.4", optional = true }
 walkdir = { version = "2", optional = true }
-dirs = { version = "5", optional = true }
+dirs = { version = "6", optional = true }
 
 [features]
 default = []
