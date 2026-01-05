@@ -35,7 +35,6 @@ pub fn validate_document(
     doc_file: TextFile,
     schema_file: Option<TextFile>,
 ) -> Result<ErrorReports, QueryError> {
-    // 3. If no schema, syntax check passed
     if let Some(sf) = schema_file {
         db.query(ValidateAgainstSchema::new(doc_file, sf))
             .map(|reports| reports.as_ref().clone())
