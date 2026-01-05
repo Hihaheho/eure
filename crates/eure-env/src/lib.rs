@@ -86,11 +86,26 @@ pub struct LsConfig {
     pub format_on_save: bool,
 }
 
+/// Security configuration for remote URL access.
+#[derive(Debug, Clone, Default, ParseDocument, PartialEq)]
+#[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
+pub struct SecurityConfig {
+    /// Additional allowed hosts for remote URL fetching (beyond eure.dev).
+    ///
+    /// Supports exact matches (e.g., "example.com") and wildcard subdomains
+    /// (e.g., "*.example.com" matches "sub.example.com" and "example.com").
+    #[eure(default)]
+    pub allowed_hosts: Vec<String>,
+}
+
 /// The main Eure configuration.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct EureConfig {
     /// Check targets (name -> target definition).
     pub targets: HashMap<String, Target>,
+
+    /// Security configuration (remote URL access control).
+    pub security: Option<SecurityConfig>,
 
     /// CLI-specific configuration.
     #[cfg(feature = "cli")]
@@ -121,6 +136,11 @@ impl ParseDocument<'_> for EureConfig {
             HashMap::new()
         };
 
+        let security = rec
+            .field_optional("security")
+            .map(|ctx| ctx.parse::<SecurityConfig>())
+            .transpose()?;
+
         #[cfg(feature = "cli")]
         let cli = rec
             .field_optional("cli")
@@ -137,6 +157,7 @@ impl ParseDocument<'_> for EureConfig {
 
         Ok(EureConfig {
             targets,
+            security,
             #[cfg(feature = "cli")]
             cli,
             #[cfg(feature = "ls")]
@@ -205,5 +226,17 @@ impl EureConfig {
             }
         }
         None
+    }
+
+    /// Get the allowed hosts for remote URL fetching from security config.
+    ///
+    /// Returns an empty slice if no security config is present.
+    /// Note: This does NOT include the default `eure.dev` - callers should
+    /// check that separately.
+    pub fn allowed_hosts(&self) -> &[String] {
+        self.security
+            .as_ref()
+            .map(|s| s.allowed_hosts.as_slice())
+            .unwrap_or(&[])
     }
 }

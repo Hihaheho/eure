@@ -4,6 +4,7 @@
 //! All consumers (eure-ls, eure-cli, test-suite) use these queries
 //! as the single source of truth.
 
+pub mod asset_locator;
 pub mod assets;
 pub mod config;
 pub mod diagnostics;
@@ -15,7 +16,27 @@ pub mod schema;
 pub mod semantic_token;
 pub mod validation;
 
+pub use asset_locator::TextFileLocator;
 pub use assets::{Glob, GlobResult, TextFile, TextFileContent, Workspace, WorkspaceId};
+
+use query_flow::{QueryRuntime, QueryRuntimeBuilder};
+
+use crate::report::error_reports_comparator;
+
+/// Build a query runtime with the standard Eure configuration.
+///
+/// This includes:
+/// - TextFileLocator for URL host validation against security.allowed-hosts
+/// - error_reports_comparator for proper ErrorReports comparison
+///
+/// All consumers should use this function to ensure consistent behavior.
+pub fn build_runtime() -> QueryRuntime {
+    let runtime = QueryRuntimeBuilder::new()
+        .error_comparator(error_reports_comparator)
+        .build();
+    runtime.register_asset_locator(TextFileLocator);
+    runtime
+}
 pub use config::{GetConfig, LoadConfigError, load_config};
 pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
 #[cfg(feature = "http")]

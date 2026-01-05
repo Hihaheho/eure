@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use eure::query::{TextFile, TextFileContent, UnionTagMode};
+use eure::query::{TextFile, TextFileContent, UnionTagMode, build_runtime};
 use eure_document::Text;
-use query_flow::{Db, DurabilityLevel, QueryRuntime, QueryRuntimeBuilder};
+use query_flow::{Db, DurabilityLevel, QueryRuntime};
 
 use crate::parser::{CaseData, InputUnionTagMode};
 
@@ -524,7 +524,7 @@ impl Case {
     /// This does not panic on assertion failures - it captures them as failed scenarios.
     pub fn run_all(&self, config: &RunConfig) -> CaseResult {
         // Create a new QueryRuntime for this case
-        let runtime = QueryRuntimeBuilder::new().build();
+        let runtime = build_runtime();
         self.resolve_assets(&runtime)
             .expect("Failed to resolve assets");
 

@@ -1,5 +1,5 @@
-use eure::query::{ParseCst, TextFile, TextFileContent};
-use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
+use eure::query::{ParseCst, TextFile, TextFileContent, build_runtime};
+use eure::query_flow::DurabilityLevel;
 use eure::report::{format_error_reports, report_parse_error};
 use eure::tree::inspect_cst;
 
@@ -21,7 +21,7 @@ pub fn run(args: Args) {
     };
 
     // Create query runtime
-    let runtime = QueryRuntimeBuilder::new().build();
+    let runtime = build_runtime();
 
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
     runtime.resolve_asset(

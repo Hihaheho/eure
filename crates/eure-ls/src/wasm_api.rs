@@ -5,8 +5,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use eure::query::{Glob, GlobResult, TextFile, TextFileContent, error::EureQueryError};
-use eure::report::error_reports_comparator;
+use eure::query::{
+    Glob, GlobResult, TextFile, TextFileContent, build_runtime, error::EureQueryError,
+};
 use js_sys::Array;
 use lsp_types::{
     Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
@@ -16,7 +17,7 @@ use lsp_types::{
     },
     request::{Initialize, Request, SemanticTokensFullRequest, Shutdown},
 };
-use query_flow::{DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, RevisionCounter};
+use query_flow::{DurabilityLevel, QueryError, QueryRuntime, RevisionCounter};
 use serde::Serialize;
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
@@ -169,9 +170,7 @@ impl WasmCore {
         // Set up panic hook to display panic messages in the console
         console_error_panic_hook::set_once();
 
-        let runtime = QueryRuntimeBuilder::new()
-            .error_comparator(error_reports_comparator)
-            .build();
+        let runtime = build_runtime();
 
         Self {
             runtime,

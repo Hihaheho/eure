@@ -6,9 +6,10 @@ use crate::{
 use dioxus::prelude::*;
 use eure::query::{
     GetSemanticTokens, ParseDocument, SemanticToken, TextFile, TextFileContent, ValidateDocument,
+    build_runtime,
 };
-use eure::report::{ErrorReports, error_reports_comparator, format_error_report};
-use query_flow::{Db, DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, query};
+use eure::report::{ErrorReports, format_error_report};
+use query_flow::{Db, DurabilityLevel, QueryError, QueryRuntime, query};
 
 /// Convert document to pretty-printed JSON.
 #[query]
@@ -361,9 +362,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
     let theme: Signal<Theme> = use_context();
     let navigator = use_navigator();
     let runtime = use_signal(|| {
-        let runtime = QueryRuntimeBuilder::new()
-            .error_comparator(error_reports_comparator)
-            .build();
+        let runtime = build_runtime();
         EureExample::register_all(&runtime);
         runtime
     });

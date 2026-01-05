@@ -8,9 +8,9 @@ use std::time::Instant;
 
 use eure::query::{
     TextFile, TextFileContent, ValidateDocument, ValidateTargetResult, ValidateTargets,
-    ValidateTargetsResult, load_config,
+    ValidateTargetsResult, build_runtime, load_config,
 };
-use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
+use eure::query_flow::DurabilityLevel;
 use eure::report::{ErrorReports, format_error_reports};
 use eure_env::{CONFIG_FILENAME, EureConfig};
 use nu_ansi_term::Color;
@@ -131,7 +131,7 @@ fn run_project_mode(args: Args, config_path: &Path) {
     }
 
     // Create runtime and run validation
-    let runtime = QueryRuntimeBuilder::new().build();
+    let runtime = build_runtime();
     let cache_opts = args.cache.to_cache_options();
 
     let result = match run_query_with_file_loading_cached(
@@ -162,7 +162,7 @@ fn run_file_mode(args: Args) {
     };
 
     // Create runtime
-    let runtime = QueryRuntimeBuilder::new().build();
+    let runtime = build_runtime();
 
     // Read and register document content
     let doc_contents = match read_input(file_opt) {

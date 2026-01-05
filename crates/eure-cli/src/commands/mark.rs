@@ -1,8 +1,8 @@
 //! Eure Markdown commands
 
 use clap::{Parser, Subcommand};
-use eure::query::{TextFile, TextFileContent};
-use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
+use eure::query::{TextFile, TextFileContent, build_runtime};
+use eure::query_flow::DurabilityLevel;
 use eure::report::format_error_reports;
 use eure_mark::CheckEumdReferences;
 
@@ -42,7 +42,7 @@ fn run_check(args: CheckArgs) {
     };
 
     // Create query runtime
-    let runtime = QueryRuntimeBuilder::new().build();
+    let runtime = build_runtime();
 
     let path = display_path(args.file.as_deref());
     let file: TextFile = TextFile::from_path(path.into());

@@ -1,6 +1,6 @@
 use eure::data_model::VariantRepr;
-use eure::query::{TextFile, TextFileContent};
-use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
+use eure::query::{TextFile, TextFileContent, build_runtime};
+use eure::query_flow::DurabilityLevel;
 use eure_json::{Config as JsonConfig, EureToJson};
 
 use crate::util::{VariantFormat, display_path, handle_query_error, read_input};
@@ -39,7 +39,7 @@ pub fn run(args: Args) {
     };
 
     // Create query runtime
-    let runtime = QueryRuntimeBuilder::new().build();
+    let runtime = build_runtime();
 
     let file = TextFile::from_path(display_path(file_opt).into());
     runtime.resolve_asset(

@@ -1,5 +1,5 @@
-use eure::query::{TextFile, TextFileContent, ValidCst};
-use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
+use eure::query::{TextFile, TextFileContent, ValidCst, build_runtime};
+use eure::query_flow::DurabilityLevel;
 use eure::tree::write_cst;
 use eure_fmt::unformat::{unformat, unformat_with_seed};
 
@@ -24,7 +24,7 @@ pub fn run(args: Args) {
     };
 
     // Create query runtime
-    let runtime = QueryRuntimeBuilder::new().build();
+    let runtime = build_runtime();
 
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
     runtime.resolve_asset(

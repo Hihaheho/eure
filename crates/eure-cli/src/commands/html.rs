@@ -1,9 +1,9 @@
 use catppuccin::{FlavorColors, PALETTE};
 use eure::query::{
     GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, TextFile,
-    TextFileContent,
+    TextFileContent, build_runtime,
 };
-use eure::query_flow::{DurabilityLevel, QueryRuntimeBuilder};
+use eure::query_flow::DurabilityLevel;
 use maud::{Markup, html};
 
 use crate::util::{display_path, handle_query_error, read_input};
@@ -37,7 +37,7 @@ pub fn run(args: Args) {
     };
 
     // Create query runtime
-    let runtime = QueryRuntimeBuilder::new().build();
+    let runtime = build_runtime();
 
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
     runtime.resolve_asset(
