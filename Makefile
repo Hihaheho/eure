@@ -10,22 +10,22 @@ check: clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eu
 	@echo "All checks passed."
 
 clippy:
-	@cargo clippy -q -- -D warnings && echo "clippy passed"
+	@cargo clippy -q --offline -- -D warnings && echo "clippy passed"
 
 eure-ls-wasm:
-	@rustup target add wasm32-unknown-unknown &&cargo clippy -p eure-ls --target wasm32-unknown-unknown -- -D warnings && echo "eure-ls-wasm passed"
+	@cargo clippy -p eure-ls --target wasm32-unknown-unknown --offline -- -D warnings && echo "eure-ls-wasm passed"
 
 test:
-	@if command -v cargo-nextest >/dev/null 2>&1; then cargo nextest run --all-targets --all-features --show-progress none --status-level fail --final-status-level fail; else cargo test -q --all-targets --all-features; fi && echo "test passed"
+	@if command -v cargo-nextest >/dev/null 2>&1; then cargo nextest run --all-targets --all-features --offline --show-progress none --status-level fail --final-status-level fail; else cargo test -q --all-targets --all-features; fi && echo "test passed"
 
 test-no-default-features:
-	@if command -v cargo-nextest >/dev/null 2>&1; then cargo nextest run --all-targets --no-default-features --show-progress none --status-level fail --final-status-level fail; else cargo test -q --all-targets --no-default-features; fi && echo "test passed"
+	@if command -v cargo-nextest >/dev/null 2>&1; then cargo nextest run --all-targets --no-default-features --offline --show-progress none --status-level fail --final-status-level fail; else cargo test -q --all-targets --no-default-features; fi && echo "test passed"
 
 fmt-check:
 	@cargo fmt --check && echo "fmt-check passed"
 
 test-suite:
-	@cargo run --quiet -p test-suite -- --quiet
+	@cargo run --quiet --offline -p test-suite -- --quiet
 
 eure-check:
-	@cargo run --quiet --bin eure -- check --all --quiet
+	@cargo run --quiet --offline --bin eure -- check --all --quiet --offline
