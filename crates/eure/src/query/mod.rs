@@ -37,7 +37,7 @@ pub fn build_runtime() -> QueryRuntime {
     runtime.register_asset_locator(TextFileLocator);
     runtime
 }
-pub use config::{GetConfig, LoadConfigError, load_config};
+pub use config::{LoadConfigError, ParseConfig, ResolveConfig, ResolvedConfig, load_config};
 pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
 #[cfg(feature = "http")]
 pub use http::fetch_url;

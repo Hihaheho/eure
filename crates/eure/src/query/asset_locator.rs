@@ -4,13 +4,12 @@
 //! - `eure.dev` is always allowed (default trusted host)
 //! - Additional hosts can be configured via `@ security.allowed-hosts` in Eure.eure
 
-use std::sync::Arc;
-
 use query_flow::{Db, LocateResult, QueryError, asset_locator};
 use url::Url;
 
-use super::assets::{TextFile, TextFileContent, Workspace, WorkspaceId};
-use super::config::GetConfig;
+use crate::query::config::WorkspaceConfig;
+
+use super::assets::{TextFile, TextFileContent, WorkspaceId};
 use super::error::EureQueryError;
 
 /// The default allowed host (always trusted).
@@ -93,34 +92,18 @@ fn host_matches(host: &str, pattern: &str) -> bool {
     }
 }
 
-/// Get allowed hosts from workspace config.
+/// Get allowed hosts from all workspace configs.
 ///
-/// Returns an empty vec if no workspace or config is available.
+/// Aggregates allowed hosts from all registered workspaces.
 fn get_allowed_hosts_from_workspace(db: &impl Db) -> Result<Vec<String>, QueryError> {
-    // Get workspace - if none exists, return empty (only eure.dev allowed)
-    let workspace_ids = db.list_asset_keys::<WorkspaceId>();
-    let Some(workspace_id) = workspace_ids.into_iter().next() else {
-        return Ok(Vec::new());
-    };
+    let mut allowed_hosts = Vec::new();
 
-    // Get workspace asset
-    let workspace: Arc<Workspace> = db.asset(workspace_id)?.suspend()?;
-
-    // Create a TextFile for the config
-    let config_file = TextFile::from_path(workspace.config_path.clone());
-
-    // Query the config - if it fails or doesn't exist, return empty
-    let config_opt = match db.query(GetConfig::new(config_file)) {
-        Ok(config_opt) => config_opt,
-        Err(QueryError::Suspend { asset }) => return Err(QueryError::Suspend { asset }),
-        Err(_) => return Ok(Vec::new()), // Config parse error - use defaults
-    };
-
-    // Extract allowed hosts from security config
-    match config_opt.as_ref() {
-        Some(config) => Ok(config.allowed_hosts().to_vec()),
-        None => Ok(Vec::new()),
+    for workspace_id in db.list_asset_keys::<WorkspaceId>() {
+        let config = db.query(WorkspaceConfig::new(workspace_id))?;
+        allowed_hosts.extend(config.config.allowed_hosts().iter().cloned());
     }
+
+    Ok(allowed_hosts)
 }
 
 #[cfg(test)]

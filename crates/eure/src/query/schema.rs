@@ -18,8 +18,8 @@ use crate::report::{
     ErrorReport, ErrorReports, Origin, format_error_reports, report_schema_validation_errors,
 };
 
-use super::assets::{TextFile, Workspace, WorkspaceId};
-use super::config::GetConfig;
+use super::assets::TextFile;
+use super::config::ResolveConfig;
 use super::parse::{ParseCst, ParseDocument, ParsedDocument};
 
 /// Validated schema with the SchemaDocument and source map.
@@ -258,18 +258,12 @@ pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<TextFile>, 
 
     // 2. Check workspace config (only for local files)
     if let Some(file_path) = file.as_local_path()
-        && let Some(config) = db.query(GetConfig::new(file.clone()))?.as_ref()
+        && let Some(resolved) = db.query(ResolveConfig::new(file.clone()))?.as_ref()
+        && let Some(schema_path) = resolved
+            .config
+            .schema_for_path(file_path, &resolved.config_dir)
     {
-        // Get config directory from workspace
-        let workspace_ids = db.list_asset_keys::<WorkspaceId>();
-        if let Some(workspace_id) = workspace_ids.into_iter().next() {
-            let workspace: Arc<Workspace> = db.asset(workspace_id)?.suspend()?;
-            if let Some(config_dir) = workspace.config_path.parent()
-                && let Some(schema_path) = config.schema_for_path(file_path, config_dir)
-            {
-                return Ok(Some(TextFile::resolve(&schema_path, config_dir)));
-            }
-        }
+        return Ok(Some(TextFile::resolve(&schema_path, &resolved.config_dir)));
     }
 
     // 3. File name heuristics (works for both local and remote)

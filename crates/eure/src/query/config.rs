@@ -1,6 +1,7 @@
 //! Configuration and parsing queries.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use eure_env::EureConfig;
 use query_flow::{Db, QueryError, query};
@@ -11,40 +12,77 @@ use crate::report::report_config_error;
 use super::assets::{TextFile, WorkspaceId};
 use super::parse::{ParseCst, ParseDocument};
 
-/// Step 3: Parse EureConfig from document.
-#[query]
-pub fn get_config(db: &impl Db, file: TextFile) -> Result<Option<EureConfig>, QueryError> {
-    let workspace_ids = db.list_asset_keys::<WorkspaceId>();
-    if let Some(workspace_id) = workspace_ids.into_iter().next() {
-        let workspace = db.asset(workspace_id)?.suspend()?;
-        // Only local files can be in a workspace
-        if let Some(file_path) = file.as_local_path()
-            && detect_workspace(&workspace.path, file_path)
-        {
-            let config_file = TextFile::from_path(workspace.config_path.clone());
-            // UserError propagates automatically via ?
-            let parsed = db.query(ParseDocument::new(config_file.clone()))?;
+/// Resolved configuration with its directory.
+#[derive(Clone, PartialEq)]
+pub struct ResolvedConfig {
+    pub config: Arc<EureConfig>,
+    pub config_dir: PathBuf,
+    pub workspace_path: PathBuf,
+}
 
-            let root_id = parsed.doc.get_root_id();
-            match parsed.doc.parse::<EureConfig>(root_id) {
-                Ok(config) => return Ok(Some(config)),
-                Err(e) => {
-                    let cst = db.query(ParseCst::new(config_file.clone()))?;
-                    Err(report_config_error(
-                        &eure_env::ConfigError::from(e),
-                        file,
-                        &cst.cst,
-                        &parsed.origins,
-                    ))?;
-                }
-            }
+/// Parse EureConfig from a config file.
+#[query]
+pub fn parse_config(db: &impl Db, config_file: TextFile) -> Result<EureConfig, QueryError> {
+    let parsed = db.query(ParseDocument::new(config_file.clone()))?;
+    let root_id = parsed.doc.get_root_id();
+
+    match parsed.doc.parse::<EureConfig>(root_id) {
+        Ok(config) => Ok(config),
+        Err(e) => {
+            let cst = db.query(ParseCst::new(config_file.clone()))?;
+            Err(report_config_error(
+                &eure_env::ConfigError::from(e),
+                config_file,
+                &cst.cst,
+                &parsed.origins,
+            ))?
         }
     }
+}
+
+/// Resolve the EureConfig that applies to a file.
+///
+/// Iterates through all registered workspaces and returns the config
+/// for the workspace that contains the file.
+///
+/// Returns `None` if the file is not in any workspace.
+#[query]
+pub fn resolve_config(db: &impl Db, file: TextFile) -> Result<Option<ResolvedConfig>, QueryError> {
+    let Some(file_path) = file.as_local_path() else {
+        return Ok(None);
+    };
+
+    for workspace_id in db.list_asset_keys::<WorkspaceId>() {
+        let workspace = db.asset(workspace_id)?.suspend()?;
+
+        if file_path.starts_with(&workspace.path) {
+            let config_file = TextFile::from_path(workspace.config_path.clone());
+            let config = db.query(ParseConfig::new(config_file))?;
+
+            return Ok(Some(ResolvedConfig {
+                config,
+                config_dir: workspace.path.clone(),
+                workspace_path: workspace.path.clone(),
+            }));
+        }
+    }
+
     Ok(None)
 }
 
-fn detect_workspace(workspace_path: &Path, file_path: &Path) -> bool {
-    file_path.starts_with(workspace_path)
+#[query]
+pub fn workspace_config(
+    db: &impl Db,
+    workspace_id: WorkspaceId,
+) -> Result<ResolvedConfig, QueryError> {
+    let workspace = db.asset(workspace_id)?.suspend()?;
+    let config_file = TextFile::from_path(workspace.config_path.clone());
+    let config = db.query(ParseConfig::new(config_file))?;
+    Ok(ResolvedConfig {
+        config,
+        config_dir: workspace.path.clone(),
+        workspace_path: workspace.path.clone(),
+    })
 }
 
 // ============================================================================
