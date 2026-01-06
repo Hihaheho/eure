@@ -1,24 +1,28 @@
-unimplemented = true
-
 // Test: validation error to diagnostic
 // From: crates/eure-editor-support/src/schema_validation.rs:test_validation_error_to_diagnostic
 // Tests converting ValidationError to LSP Diagnostic
 
+schema = ```eure
+// Schema expects all fields to be text
+field1 = `text`
+field2 = `text`
+field3 = `text`
+```
+
 editor = ```eure
+$schema = "schema.eure"
 field1 = "value1"
 field2 = 123
 field3 = "value3"
 ```
 
-// TODO: This test requires a schema to trigger type mismatch error
-// Original test used error.* fields to simulate an error:
-// error.kind = "TypeMismatch"
-// error.expected = "string"
-// error.actual = "number"
-
-// Expected diagnostic properties when schema validation triggers error
+// Type mismatch diagnostic for field2 (number instead of text)
+// Span should point to "123" value
+// Line 1: "$schema = \"schema.eure\"\n" = 24 bytes
+// Line 2: "field1 = \"value1\"\n" = 18 bytes
+// Line 3: "field2 = " = 9 bytes, "123" starts at 24 + 18 + 9 = 51, ends at 51 + 3 = 54
 @ diagnostics[]
 severity = "error"
-source = "eure-schema"
-message = "Type mismatch: expected string, found number"
-code = "eure-schema-type"
+message = "Type mismatch: expected text, got integer at path field2"
+start = 51
+end = 54
