@@ -15,12 +15,7 @@ value = "invalid type"
 
 // Type mismatch diagnostic should point to "invalid type" (the value)
 // The span should not include the leading newline or spaces
-// Line 1: "$schema = \"schema.eure\"\n" = 24 bytes
-// Line 2: "\n" = 1 byte
-// Line 3: "value = " = 8 bytes, "\"invalid type\"" starts at 24 + 1 + 8 = 33
-// The string is 14 chars, ends at 33 + 14 = 47
 @ diagnostics[]
 severity = "error"
 message = "Type mismatch: expected integer, got text at path value"
-start = 33
-end = 47
+span = "\"invalid type\""

@@ -151,6 +151,17 @@ pub enum ScenarioError {
         expected: i64,
         actual: i64,
     },
+    /// Span string not found in editor content
+    SpanStringNotFound {
+        diagnostic_index: usize,
+        span: String,
+    },
+    /// Span string found multiple times in editor content (ambiguous)
+    SpanStringAmbiguous {
+        diagnostic_index: usize,
+        span: String,
+        occurrences: usize,
+    },
     /// Query error
     QueryError(QueryError),
     FileNotFound(TextFile),
@@ -402,6 +413,27 @@ impl std::fmt::Display for ScenarioError {
                     f,
                     "Diagnostic span mismatch at index {}.\nField '{}': expected {}, got {}",
                     diagnostic_index, field, expected, actual
+                )
+            }
+            ScenarioError::SpanStringNotFound {
+                diagnostic_index,
+                span,
+            } => {
+                write!(
+                    f,
+                    "Diagnostic span string not found at index {}.\nSpan: {:?}",
+                    diagnostic_index, span
+                )
+            }
+            ScenarioError::SpanStringAmbiguous {
+                diagnostic_index,
+                span,
+                occurrences,
+            } => {
+                write!(
+                    f,
+                    "Diagnostic span string is ambiguous at index {}.\nSpan {:?} found {} times (must be unique)",
+                    diagnostic_index, span, occurrences
                 )
             }
             ScenarioError::QueryError(error) => {

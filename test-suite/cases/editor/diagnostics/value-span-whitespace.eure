@@ -15,12 +15,7 @@ $schema = "schema.eure"
 
 // Type mismatch diagnostic should point to the string value
 // The span should NOT include the preceding whitespace/newline
-// Line 1: "$schema = \"schema.eure\"\n" = 24 bytes
-// Line 2: "\n" = 1 byte
-// Line 3: "  myfield = " = 12 bytes, the string starts at 24 + 1 + 12 = 37
-// The string "\"string instead of integer\"" is 27 chars, ends at 37 + 27 = 64
 @ diagnostics[]
 severity = "error"
 message = "Type mismatch: expected integer, got text at path myfield"
-start = 37
-end = 64
+span = "\"string instead of integer\""

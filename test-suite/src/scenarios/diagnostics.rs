@@ -4,6 +4,60 @@ use query_flow::Db;
 use crate::parser::DiagnosticItem;
 use crate::scenarios::{Scenario, ScenarioError};
 
+/// Resolved span positions from either explicit start/end or span string lookup.
+struct ResolvedSpan {
+    start: Option<i64>,
+    end: Option<i64>,
+}
+
+/// Find a span string in editor content and return its byte offsets.
+/// Returns an error if the string is not found or found multiple times.
+fn resolve_span_string(
+    editor_content: &str,
+    span: &str,
+    diagnostic_index: usize,
+) -> Result<(i64, i64), ScenarioError> {
+    let matches: Vec<_> = editor_content.match_indices(span).collect();
+
+    match matches.len() {
+        0 => Err(ScenarioError::SpanStringNotFound {
+            diagnostic_index,
+            span: span.to_string(),
+        }),
+        1 => {
+            let start = matches[0].0 as i64;
+            let end = start + span.len() as i64;
+            Ok((start, end))
+        }
+        n => Err(ScenarioError::SpanStringAmbiguous {
+            diagnostic_index,
+            span: span.to_string(),
+            occurrences: n,
+        }),
+    }
+}
+
+/// Resolve span positions for a diagnostic item.
+/// Priority: span string > explicit start/end
+fn resolve_span(
+    expected: &DiagnosticItem,
+    editor_content: &str,
+    diagnostic_index: usize,
+) -> Result<ResolvedSpan, ScenarioError> {
+    if let Some(span) = &expected.span {
+        let (start, end) = resolve_span_string(editor_content, span, diagnostic_index)?;
+        Ok(ResolvedSpan {
+            start: Some(start),
+            end: Some(end),
+        })
+    } else {
+        Ok(ResolvedSpan {
+            start: expected.start,
+            end: expected.end,
+        })
+    }
+}
+
 /// Diagnostics test scenario
 #[derive(Debug, Clone)]
 pub struct DiagnosticsScenario {
@@ -44,22 +98,27 @@ impl Scenario for DiagnosticsScenario {
             });
         }
 
-        // Verify span positions if specified
-        verify_span_positions(&self.diagnostics, &actual)?;
+        // Verify span positions if specified (span string or start/end)
+        let editor_content = db.asset(self.editor)?.suspend()?;
+        verify_span_positions(&self.diagnostics, &actual, editor_content.get())?;
 
         Ok(())
     }
 }
 
 /// Verify that diagnostic spans match expected positions.
-/// Only checks diagnostics where start/end are explicitly specified.
+/// Supports both span string (resolved to offsets) and explicit start/end.
 fn verify_span_positions(
     expected: &[DiagnosticItem],
     actual: &[DiagnosticMessage],
+    editor_content: &str,
 ) -> Result<(), ScenarioError> {
     for (i, (exp, act)) in expected.iter().zip(actual.iter()).enumerate() {
+        // Resolve span positions (from span string or explicit start/end)
+        let resolved = resolve_span(exp, editor_content, i)?;
+
         // Check start position if specified
-        if let Some(expected_start) = exp.start {
+        if let Some(expected_start) = resolved.start {
             let actual_start = act.start as i64;
             if actual_start != expected_start {
                 return Err(ScenarioError::SpanMismatch {
@@ -72,7 +131,7 @@ fn verify_span_positions(
         }
 
         // Check end position if specified
-        if let Some(expected_end) = exp.end {
+        if let Some(expected_end) = resolved.end {
             let actual_end = act.end as i64;
             if actual_end != expected_end {
                 return Err(ScenarioError::SpanMismatch {
