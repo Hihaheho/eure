@@ -220,6 +220,9 @@ pub fn get_schema_extension_diagnostics(
     let cst = db.query(ParseCst::new(file.clone()))?;
     let span = parsed.origins.get_value_span(node_id, &cst.cst);
 
+    // FIXME: Fallback span (0, 1) points to file start instead of the actual $schema value.
+    // The is_fallback flag is set, but the span itself is misleading.
+    // Should find the actual span of the $schema extension key or value.
     let origin = crate::report::Origin {
         file,
         span: span.unwrap_or(eure_tree::tree::InputSpan { start: 0, end: 1 }),
@@ -333,6 +336,9 @@ fn report_schema_conversion_error(
     cst: &Cst,
     file: TextFile,
 ) -> ErrorReports {
+    // FIXME: Fallback to EMPTY span when span resolution fails or for non-ParseError errors.
+    // This reports errors at the file start instead of the actual error location.
+    // Non-ParseError cases should attempt to provide better location information.
     let span = match error {
         ConversionError::ParseError(parse_error) => parsed
             .origins

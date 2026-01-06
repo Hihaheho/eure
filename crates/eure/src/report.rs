@@ -331,6 +331,9 @@ pub fn report_parse_error(error: &EureParseError, file: TextFile) -> ErrorReport
 }
 
 fn report_parse_entry(entry: &ParseErrorEntry, file: TextFile) -> ErrorReport {
+    // FIXME: Fallback to EMPTY span when entry.span is None.
+    // This silently reports errors at file start without indicating the location is uncertain.
+    // Should set is_fallback flag on Origin when span is missing.
     let span = entry.span.unwrap_or(InputSpan::EMPTY);
     let origin = Origin::new(file.clone(), span);
 
@@ -348,6 +351,8 @@ fn report_parse_entry(entry: &ParseErrorEntry, file: TextFile) -> ErrorReport {
 
     // Recursively add source errors as nested elements
     for source in &entry.source {
+        // FIXME: Fallback to EMPTY span for source errors without span information.
+        // Nested error locations are lost when source.span is None.
         let source_span = source.span.unwrap_or(InputSpan::EMPTY);
         report = report.with_element(Element::Labelled {
             label: "caused by".into(),
@@ -419,6 +424,9 @@ fn report_validation_error(
         }
     };
 
+    // FIXME: While is_fallback is correctly set here, the EMPTY span still points to
+    // file start which is misleading. Should consider using a wider range or the
+    // parent node's span as a better fallback location.
     let (doc_span, is_fallback) = match resolved_span {
         Some(span) => (span, false),
         None => (InputSpan::EMPTY, true),
@@ -493,6 +501,8 @@ pub fn report_conversion_error(
     match error {
         ConversionError::ParseError(parse_error) => {
             // ParseError contains a NodeId, resolve it
+            // FIXME: Fallback to EMPTY span when node span resolution fails.
+            // Should set is_fallback flag on Origin.
             let span = origins
                 .get_value_span(parse_error.node_id, cst)
                 .unwrap_or(InputSpan::EMPTY);
@@ -506,7 +516,9 @@ pub fn report_conversion_error(
             ErrorReport::error(error.to_string(), origin)
         }
         _ => {
-            // Other conversion errors may not have precise spans
+            // FIXME: All non-ParseError conversion errors get EMPTY span.
+            // These errors report at file start with no attempt to provide location.
+            // Should attempt to extract location info from the error or mark as fallback.
             let origin = Origin::new(file, InputSpan::EMPTY);
             ErrorReport::error(error.to_string(), origin)
         }
@@ -836,12 +848,16 @@ pub fn report_config_error(
     use eure_env::ConfigError;
 
     match error {
+        // FIXME: IO errors have no location info, but EMPTY span is misleading.
+        // Should mark as fallback or use a different reporting strategy for file-level errors.
         ConfigError::Io(e) => ErrorReports::from(vec![ErrorReport::error(
             e.to_string(),
             Origin::new(file, InputSpan::EMPTY),
         )]),
         ConfigError::Syntax(e) => report_parse_error(e, file),
         ConfigError::Parse(e) => {
+            // FIXME: Fallback to EMPTY span when node span resolution fails.
+            // Should set is_fallback flag on Origin when span is missing.
             let span = origins
                 .get_value_span(e.node_id, cst)
                 .unwrap_or(InputSpan::EMPTY);

@@ -73,6 +73,9 @@ fn parse_error_to_diagnostics(error: &EureParseError) -> Vec<DiagnosticMessage> 
         .entries
         .iter()
         .map(|entry| {
+            // FIXME: Fallback to file start (0, 1) when span is missing.
+            // This causes errors to be reported at the wrong location.
+            // Should propagate the missing span information or use a better heuristic.
             let (start, end) = entry
                 .span
                 .map(|s| (s.start as usize, s.end as usize))
