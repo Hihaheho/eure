@@ -502,8 +502,15 @@ impl Case {
         // - Completions scenario: when trigger is specified
         if let Some(editor) = &self.data.editor {
             // Diagnostics scenario - always run when editor is present
+            // Include schema if present for validation tests
+            let schema = self
+                .data
+                .schema
+                .as_ref()
+                .map(|s| Self::resolve_path(s, SCHEMA_PATH));
             scenarios.push(Scenario::Diagnostics(DiagnosticsScenario {
                 editor: Self::resolve_path(editor, EDITOR_PATH),
+                schema,
                 diagnostics: self.data.diagnostics.clone(),
             }));
 

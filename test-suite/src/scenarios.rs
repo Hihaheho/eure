@@ -144,6 +144,13 @@ pub enum ScenarioError {
         expected: Vec<String>,
         actual: Vec<String>,
     },
+    /// Diagnostic span position mismatch
+    SpanMismatch {
+        diagnostic_index: usize,
+        field: String,
+        expected: i64,
+        actual: i64,
+    },
     /// Query error
     QueryError(QueryError),
     FileNotFound(TextFile),
@@ -384,6 +391,18 @@ impl std::fmt::Display for ScenarioError {
                     writeln!(f, "{}", diag)?;
                 }
                 Ok(())
+            }
+            ScenarioError::SpanMismatch {
+                diagnostic_index,
+                field,
+                expected,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "Diagnostic span mismatch at index {}.\nField '{}': expected {}, got {}",
+                    diagnostic_index, field, expected, actual
+                )
             }
             ScenarioError::QueryError(error) => {
                 write!(f, "Query error: {}", error)

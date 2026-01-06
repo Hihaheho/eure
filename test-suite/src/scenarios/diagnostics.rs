@@ -9,6 +9,8 @@ use crate::scenarios::{Scenario, ScenarioError};
 pub struct DiagnosticsScenario {
     /// Editor content with cursor position marked as `|_|`
     pub editor: TextFile,
+    /// Optional schema file for validation (registered as "./schema.eure")
+    pub schema: Option<TextFile>,
     /// Expected diagnostics (exact match, empty = no diagnostics expected)
     pub diagnostics: Vec<DiagnosticItem>,
 }
@@ -41,8 +43,48 @@ impl Scenario for DiagnosticsScenario {
                 actual: actual_strs,
             });
         }
+
+        // Verify span positions if specified
+        verify_span_positions(&self.diagnostics, &actual)?;
+
         Ok(())
     }
+}
+
+/// Verify that diagnostic spans match expected positions.
+/// Only checks diagnostics where start/end are explicitly specified.
+fn verify_span_positions(
+    expected: &[DiagnosticItem],
+    actual: &[DiagnosticMessage],
+) -> Result<(), ScenarioError> {
+    for (i, (exp, act)) in expected.iter().zip(actual.iter()).enumerate() {
+        // Check start position if specified
+        if let Some(expected_start) = exp.start {
+            let actual_start = act.start as i64;
+            if actual_start != expected_start {
+                return Err(ScenarioError::SpanMismatch {
+                    diagnostic_index: i,
+                    field: "start".to_string(),
+                    expected: expected_start,
+                    actual: actual_start,
+                });
+            }
+        }
+
+        // Check end position if specified
+        if let Some(expected_end) = exp.end {
+            let actual_end = act.end as i64;
+            if actual_end != expected_end {
+                return Err(ScenarioError::SpanMismatch {
+                    diagnostic_index: i,
+                    field: "end".to_string(),
+                    expected: expected_end,
+                    actual: actual_end,
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 fn format_expected_diagnostic(item: &DiagnosticItem) -> String {

@@ -1,0 +1,22 @@
+// Test: type mismatch error span points to the value, not file start
+// This test verifies that schema validation errors have correct span positions
+// Uses external schema with $schema reference
+
+schema = ```eure
+// Schema expects name to be a string
+name = `text`
+```
+
+editor = ```eure
+$schema = "schema.eure"
+name = 123
+```
+
+// Type mismatch diagnostic should point to "123" (the value)
+// Line 1: "$schema = \"schema.eure\"\n" = 24 bytes
+// Line 2: "name = " = 7 bytes, "123" starts at offset 24 + 7 = 31, ends at 31 + 3 = 34
+@ diagnostics[]
+severity = "error"
+message = "Type mismatch: expected text, got integer at path name"
+start = 31
+end = 34

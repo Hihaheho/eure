@@ -46,6 +46,8 @@ pub fn parse_eumd_document(db: &impl Db, file: TextFile) -> Result<ParsedEumd, Q
     let root_id = parsed_doc.doc.get_root_id();
     let eumd_doc: EumdDocument = parsed_doc.doc.parse(root_id).map_err(|e: ParseError| {
         // Convert parse error to ErrorReports
+        // FIXME: Fallback to EMPTY span when node span resolution fails.
+        // Should set is_fallback flag on Origin when span is missing.
         let span = parsed_doc
             .origins
             .get_value_span(e.node_id, &parsed_cst.cst)

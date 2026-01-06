@@ -85,6 +85,9 @@ fn report_document_error(
     file: TextFile,
     cst: &Cst,
 ) -> ErrorReport {
+    // FIXME: Fallback to EMPTY span when error.span() returns None.
+    // This silently reports errors at file start without is_fallback flag.
+    // Should set is_fallback flag on Origin when span is missing.
     let span = error.span(cst).unwrap_or(InputSpan::EMPTY);
     ErrorReport::error(error.to_string(), Origin::new(file, span))
 }

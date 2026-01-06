@@ -36,6 +36,10 @@ fn report_reference_error(error: &ReferenceError, ctx: &EumdReportContext<'_>) -
     );
 
     // Try to get span from NodeId if available
+    // FIXME: Multiple fallback paths to EMPTY span without is_fallback flag:
+    // 1. When node_id, offset, or len is None
+    // 2. When get_value_span returns None
+    // Both cases silently report errors at file start instead of indicating uncertainty.
     let span = if let (Some(node_id), Some(offset), Some(len)) =
         (error.node_id, error.offset, error.len)
     {
