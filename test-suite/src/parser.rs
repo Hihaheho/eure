@@ -35,6 +35,12 @@ pub struct DiagnosticItem {
     pub message: Option<String>,
     #[eure(default)]
     pub code: Option<String>,
+    /// Expected start byte offset (for span verification)
+    #[eure(default)]
+    pub start: Option<i64>,
+    /// Expected end byte offset (for span verification)
+    #[eure(default)]
+    pub end: Option<i64>,
 }
 
 /// Union tag mode for validation tests.
