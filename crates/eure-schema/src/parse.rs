@@ -599,7 +599,7 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
                 // Array shorthand: [type] represents an array schema
                 if arr.len() == 1 {
                     Ok(ParsedSchemaNodeContent::Array(ParsedArraySchema {
-                        item: arr.0[0],
+                        item: arr.get(0).unwrap(),
                         min_length: None,
                         max_length: None,
                         unique: false,
@@ -623,7 +623,7 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
             NodeValue::Tuple(tup) => {
                 // Tuple shorthand: (type1, type2, ...) represents a tuple schema
                 Ok(ParsedSchemaNodeContent::Tuple(ParsedTupleSchema {
-                    elements: tup.0.clone(),
+                    elements: tup.to_vec(),
                     binding_style: None,
                 }))
             }

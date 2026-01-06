@@ -130,7 +130,7 @@ impl<'a> Converter<'a> {
         if let Some(types_node_id) = node.extensions.get(&types_ident) {
             let types_node = self.doc.node(*types_node_id);
             if let NodeValue::Map(map) = &types_node.content {
-                for (key, &node_id) in map.0.iter() {
+                for (key, &node_id) in map.iter() {
                     if let ObjectKey::String(name) = key {
                         let type_name: Identifier = name
                             .parse()
@@ -469,16 +469,15 @@ impl<'a> Converter<'a> {
             }
             NodeValue::Array(arr) => {
                 dest.set_content(dest_node_id, NodeValue::empty_array());
-                arr.0.to_vec()
+                arr.to_vec()
             }
             NodeValue::Tuple(tup) => {
                 dest.set_content(dest_node_id, NodeValue::empty_tuple());
-                tup.0.to_vec()
+                tup.to_vec()
             }
             NodeValue::Map(map) => {
                 dest.set_content(dest_node_id, NodeValue::empty_map());
-                map.0
-                    .iter()
+                map.iter()
                     .map(|(k, &v)| (k.clone(), v))
                     .collect::<Vec<_>>()
                     .into_iter()
@@ -519,7 +518,7 @@ impl<'a> Converter<'a> {
                 }
             }
             NodeValue::Map(map) => {
-                for (key, &child_id) in map.0.iter() {
+                for (key, &child_id) in map.iter() {
                     let new_child_id = dest
                         .add_map_child(key.clone(), dest_node_id)
                         .map_err(|e| ConversionError::UnsupportedConstruct(e.to_string()))?
@@ -756,9 +755,7 @@ mod tests {
 
         // Create root as record with field: { name = `text` }
         let mut root_map = NodeMap::default();
-        root_map
-            .0
-            .insert(ObjectKey::String("name".to_string()), field_value_id);
+        root_map.insert(ObjectKey::String("name".to_string()), field_value_id);
         doc.node_mut(root_id).content = NodeValue::Map(root_map);
 
         doc
@@ -804,9 +801,7 @@ mod tests {
             Text::inline_implicit("text"),
         )));
         let mut ext_type_map = NodeMap::default();
-        ext_type_map
-            .0
-            .insert(ObjectKey::Number(0.into()), ext_type_value_id);
+        ext_type_map.insert(ObjectKey::Number(0.into()), ext_type_value_id);
 
         let ext_type_id = doc.create_node(NodeValue::Map(ext_type_map));
         doc.node_mut(field_value_id)
@@ -815,9 +810,7 @@ mod tests {
 
         // Create root as record
         let mut root_map = NodeMap::default();
-        root_map
-            .0
-            .insert(ObjectKey::String("name".to_string()), field_value_id);
+        root_map.insert(ObjectKey::String("name".to_string()), field_value_id);
         doc.node_mut(root_id).content = NodeValue::Map(root_map);
 
         let err = document_to_schema(&doc).unwrap_err();
@@ -855,9 +848,7 @@ mod tests {
 
         // Create $ext-type map
         let mut ext_type_map = NodeMap::default();
-        ext_type_map
-            .0
-            .insert(ObjectKey::String("desc".to_string()), ext_type_value_id);
+        ext_type_map.insert(ObjectKey::String("desc".to_string()), ext_type_value_id);
 
         let ext_type_id = doc.create_node(NodeValue::Map(ext_type_map));
         doc.node_mut(field_value_id)
@@ -866,9 +857,7 @@ mod tests {
 
         // Create root as record
         let mut root_map = NodeMap::default();
-        root_map
-            .0
-            .insert(ObjectKey::String("name".to_string()), field_value_id);
+        root_map.insert(ObjectKey::String("name".to_string()), field_value_id);
         doc.node_mut(root_id).content = NodeValue::Map(root_map);
 
         let err = document_to_schema(&doc).unwrap_err();
@@ -987,10 +976,8 @@ mod tests {
 
         // Create the variants map
         let mut variants_map = NodeMap::default();
-        variants_map
-            .0
-            .insert(ObjectKey::String("any".to_string()), any_variant_node);
-        variants_map.0.insert(
+        variants_map.insert(ObjectKey::String("any".to_string()), any_variant_node);
+        variants_map.insert(
             ObjectKey::String("literal".to_string()),
             literal_variant_node,
         );
@@ -1006,9 +993,7 @@ mod tests {
 
         // Create root map with variants
         let mut root_map = NodeMap::default();
-        root_map
-            .0
-            .insert(ObjectKey::String("variants".to_string()), variants_node);
+        root_map.insert(ObjectKey::String("variants".to_string()), variants_node);
 
         doc.node_mut(root_id).content = NodeValue::Map(root_map);
         doc.node_mut(root_id)

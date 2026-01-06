@@ -2,10 +2,9 @@ use indexmap::IndexMap;
 
 use crate::prelude_internal::*;
 
-// TODO: Remove `pub`
 #[derive(Debug, Clone, Plural)]
 #[plural(len, is_empty, iter, into_iter, into_iter_ref, new)]
-pub struct Map<K, V>(pub IndexMap<K, V>);
+pub struct Map<K, V>(IndexMap<K, V>);
 
 impl<K: Eq + std::hash::Hash, V: Eq> Eq for Map<K, V> {}
 impl<K: Eq + std::hash::Hash, V: PartialEq> PartialEq for Map<K, V> {

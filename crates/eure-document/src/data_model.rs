@@ -93,18 +93,16 @@ impl VariantRepr {
                 Some(VariantRepr::Untagged)
             }
             NodeValue::Map(map) => {
-                let tag =
-                    map.0
-                        .get(&ObjectKey::String("tag".to_string()))
-                        .and_then(|&id| match &doc.node(id).content {
-                            NodeValue::Primitive(PrimitiveValue::Text(t)) => {
-                                Some(t.as_str().to_string())
-                            }
-                            _ => None,
-                        });
+                let tag = map
+                    .get(&ObjectKey::String("tag".to_string()))
+                    .and_then(|&id| match &doc.node(id).content {
+                        NodeValue::Primitive(PrimitiveValue::Text(t)) => {
+                            Some(t.as_str().to_string())
+                        }
+                        _ => None,
+                    });
 
                 let content = map
-                    .0
                     .get(&ObjectKey::String("content".to_string()))
                     .and_then(|&id| match &doc.node(id).content {
                         NodeValue::Primitive(PrimitiveValue::Text(t)) => {

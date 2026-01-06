@@ -77,21 +77,21 @@ fn convert_node(
         NodeValue::Primitive(prim) => convert_primitive(prim),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
-            for &child_id in &arr.0 {
+            for &child_id in arr.iter() {
                 result.push(convert_node(doc, child_id, config)?);
             }
             Ok(JsonValue::Array(result))
         }
         NodeValue::Tuple(tuple) => {
             let mut result = Vec::new();
-            for &child_id in &tuple.0 {
+            for &child_id in tuple.iter() {
                 result.push(convert_node(doc, child_id, config)?);
             }
             Ok(JsonValue::Array(result))
         }
         NodeValue::Map(map) => {
             let mut result = serde_json::Map::new();
-            for (key, &child_id) in &map.0 {
+            for (key, &child_id) in map.iter() {
                 let key_string = convert_object_key(key)?;
                 let value = convert_node(doc, child_id, config)?;
                 result.insert(key_string, value);
@@ -212,21 +212,21 @@ fn convert_node_content_only(
         NodeValue::Primitive(prim) => convert_primitive(prim),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
-            for &child_id in &arr.0 {
+            for &child_id in arr.iter() {
                 result.push(convert_node(doc, child_id, config)?);
             }
             Ok(JsonValue::Array(result))
         }
         NodeValue::Tuple(tuple) => {
             let mut result = Vec::new();
-            for &child_id in &tuple.0 {
+            for &child_id in tuple.iter() {
                 result.push(convert_node(doc, child_id, config)?);
             }
             Ok(JsonValue::Array(result))
         }
         NodeValue::Map(map) => {
             let mut result = serde_json::Map::new();
-            for (key, &child_id) in &map.0 {
+            for (key, &child_id) in map.iter() {
                 let key_string = convert_object_key(key)?;
                 let value = convert_node(doc, child_id, config)?;
                 result.insert(key_string, value);
@@ -312,7 +312,7 @@ fn convert_json_to_node(doc: &mut EureDocument, node_id: NodeId, value: &JsonVal
                 let child_id = doc.create_node(NodeValue::hole());
                 convert_json_to_node(doc, child_id, item);
                 if let NodeValue::Array(ref mut array) = doc.node_mut(node_id).content {
-                    array.0.push(child_id);
+                    let _ = array.push(child_id);
                 }
             }
         }
@@ -322,7 +322,7 @@ fn convert_json_to_node(doc: &mut EureDocument, node_id: NodeId, value: &JsonVal
                 let child_id = doc.create_node(NodeValue::hole());
                 convert_json_to_node(doc, child_id, val);
                 if let NodeValue::Map(ref mut map) = doc.node_mut(node_id).content {
-                    map.0.insert(ObjectKey::String(key.clone()), child_id);
+                    map.insert(ObjectKey::String(key.clone()), child_id);
                 }
             }
         }
