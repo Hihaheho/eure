@@ -35,6 +35,11 @@ pub struct DiagnosticItem {
     pub message: Option<String>,
     #[eure(default)]
     pub code: Option<String>,
+    /// Expected span text (exact match in editor content).
+    /// More readable than start/end offsets. If specified, the text must appear
+    /// exactly once in the editor content.
+    #[eure(default)]
+    pub span: Option<String>,
     /// Expected start byte offset (for span verification)
     #[eure(default)]
     pub start: Option<i64>,
