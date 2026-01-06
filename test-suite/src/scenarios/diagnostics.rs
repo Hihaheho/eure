@@ -161,3 +161,67 @@ fn format_actual_diagnostic(diag: &DiagnosticMessage) -> String {
     };
     format!("[{}] {}", severity, diag.message)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_span_string_found_once() {
+        let content = "name = 123\nvalue = 456";
+        let (start, end) = resolve_span_string(content, "123", 0).unwrap();
+        assert_eq!(start, 7);
+        assert_eq!(end, 10);
+    }
+
+    #[test]
+    fn resolve_span_string_at_start() {
+        let content = "hello world";
+        let (start, end) = resolve_span_string(content, "hello", 0).unwrap();
+        assert_eq!(start, 0);
+        assert_eq!(end, 5);
+    }
+
+    #[test]
+    fn resolve_span_string_at_end() {
+        let content = "hello world";
+        let (start, end) = resolve_span_string(content, "world", 0).unwrap();
+        assert_eq!(start, 6);
+        assert_eq!(end, 11);
+    }
+
+    #[test]
+    fn resolve_span_string_not_found() {
+        let content = "name = 123";
+        let result = resolve_span_string(content, "xyz", 0);
+        assert!(matches!(
+            result,
+            Err(ScenarioError::SpanStringNotFound {
+                diagnostic_index: 0,
+                span,
+            }) if span == "xyz"
+        ));
+    }
+
+    #[test]
+    fn resolve_span_string_ambiguous() {
+        let content = "foo = 1\nfoo = 2";
+        let result = resolve_span_string(content, "foo", 0);
+        assert!(matches!(
+            result,
+            Err(ScenarioError::SpanStringAmbiguous {
+                diagnostic_index: 0,
+                span,
+                occurrences: 2,
+            }) if span == "foo"
+        ));
+    }
+
+    #[test]
+    fn resolve_span_string_with_quotes() {
+        let content = r#"value = "invalid type""#;
+        let (start, end) = resolve_span_string(content, "\"invalid type\"", 0).unwrap();
+        assert_eq!(start, 8);
+        assert_eq!(end, 22);
+    }
+}
