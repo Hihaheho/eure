@@ -227,13 +227,13 @@ impl From<PrimitiveValue> for NodeValue {
     }
 }
 
-// TODO: Remove `pub`
 #[derive(Debug, Default, Clone, PartialEq, Eq, Plural)]
-pub struct NodeArray(pub Vec<NodeId>);
+#[plural(len, is_empty, iter, into_iter, new)]
+pub struct NodeArray(Vec<NodeId>);
 
-// TODO: Remove `pub`
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Plural)]
-pub struct NodeTuple(pub Vec<NodeId>);
+#[plural(len, is_empty, iter, into_iter, new)]
+pub struct NodeTuple(Vec<NodeId>);
 
 pub type NodeMap = Map<ObjectKey, NodeId>;
 
@@ -257,6 +257,14 @@ impl NodeTuple {
         self.0.insert(index as usize, node_id);
         Ok(())
     }
+
+    pub fn to_vec(&self) -> Vec<NodeId> {
+        self.0.clone()
+    }
+
+    pub fn from_vec(vec: Vec<NodeId>) -> Self {
+        Self(vec)
+    }
 }
 
 impl NodeArray {
@@ -279,6 +287,14 @@ impl NodeArray {
         self.0.insert(index, node_id);
         Ok(())
     }
+
+    pub fn to_vec(&self) -> Vec<NodeId> {
+        self.0.clone()
+    }
+
+    pub fn from_vec(vec: Vec<NodeId>) -> Self {
+        Self(vec)
+    }
 }
 
 #[cfg(test)]
@@ -297,7 +313,7 @@ mod tests {
         };
 
         let map = node.require_map().expect("Should convert to map");
-        assert_eq!(map.0.len(), 0);
+        assert_eq!(map.len(), 0);
 
         // Verify content was changed
         assert!(node.as_map().is_some());
@@ -311,7 +327,7 @@ mod tests {
         };
 
         let map = node.require_map().expect("Should return existing map");
-        assert_eq!(map.0.len(), 0);
+        assert_eq!(map.len(), 0);
     }
 
     #[test]
@@ -333,7 +349,7 @@ mod tests {
         };
 
         let tuple = node.require_tuple().expect("Should convert to tuple");
-        assert_eq!(tuple.0.len(), 0);
+        assert_eq!(tuple.len(), 0);
 
         // Verify content was changed
         assert!(node.as_tuple().is_some());
@@ -347,7 +363,7 @@ mod tests {
         };
 
         let tuple = node.require_tuple().expect("Should return existing tuple");
-        assert_eq!(tuple.0.len(), 0);
+        assert_eq!(tuple.len(), 0);
     }
 
     #[test]
@@ -369,7 +385,7 @@ mod tests {
         };
 
         let array = node.require_array().expect("Should convert to array");
-        assert_eq!(array.0.len(), 0);
+        assert_eq!(array.len(), 0);
 
         // Verify content was changed
         assert!(node.as_array().is_some());
@@ -383,7 +399,7 @@ mod tests {
         };
 
         let array = node.require_array().expect("Should return existing array");
-        assert_eq!(array.0.len(), 0);
+        assert_eq!(array.len(), 0);
     }
 
     #[test]

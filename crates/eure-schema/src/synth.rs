@@ -66,10 +66,10 @@ pub fn synth(doc: &EureDocument, node_id: NodeId) -> SynthType {
         NodeValue::Primitive(prim) => synth_primitive(prim),
 
         NodeValue::Array(arr) => {
-            if arr.0.is_empty() {
+            if arr.is_empty() {
                 SynthType::Array(Box::new(SynthType::Any))
             } else {
-                let element_types: Vec<_> = arr.0.iter().map(|&id| synth(doc, id)).collect();
+                let element_types: Vec<_> = arr.iter().map(|&id| synth(doc, id)).collect();
                 let unified = element_types
                     .into_iter()
                     .reduce(unify)
@@ -79,16 +79,16 @@ pub fn synth(doc: &EureDocument, node_id: NodeId) -> SynthType {
         }
 
         NodeValue::Tuple(tuple) => {
-            let element_types: Vec<_> = tuple.0.iter().map(|&id| synth(doc, id)).collect();
+            let element_types: Vec<_> = tuple.iter().map(|&id| synth(doc, id)).collect();
             SynthType::Tuple(element_types)
         }
 
         NodeValue::Map(map) => {
-            if map.0.is_empty() {
+            if map.is_empty() {
                 SynthType::Record(SynthRecord::empty())
             } else {
-                let mut fields = Vec::with_capacity(map.0.len());
-                for (key, &value_id) in &map.0 {
+                let mut fields = Vec::with_capacity(map.len());
+                for (key, &value_id) in map.iter() {
                     let field_name = object_key_to_field_name(key);
                     let field_type = synth(doc, value_id);
                     fields.push((field_name, SynthField::required(field_type)));
@@ -274,7 +274,9 @@ mod tests {
         ])));
 
         // Create array
-        let arr_id = doc.create_node(NodeValue::Array(NodeArray(vec![rec1_id, rec2_id])));
+        let arr_id = doc.create_node(NodeValue::Array(NodeArray::from_vec(vec![
+            rec1_id, rec2_id,
+        ])));
 
         let ty = synth(&doc, arr_id);
 
@@ -336,7 +338,7 @@ mod tests {
         let i3 = doc.create_node(NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(
             3,
         ))));
-        let arr_id = doc.create_node(NodeValue::Array(NodeArray(vec![i1, hole, i3])));
+        let arr_id = doc.create_node(NodeValue::Array(NodeArray::from_vec(vec![i1, hole, i3])));
 
         assert_eq!(
             synth(&doc, arr_id),
@@ -365,7 +367,9 @@ mod tests {
             a2_id,
         )])));
 
-        let arr_id = doc.create_node(NodeValue::Array(NodeArray(vec![rec1_id, rec2_id])));
+        let arr_id = doc.create_node(NodeValue::Array(NodeArray::from_vec(vec![
+            rec1_id, rec2_id,
+        ])));
 
         // Same shape records should merge, resulting in Record { a: Integer | Text }
         let expected = SynthType::Array(Box::new(SynthType::Record(SynthRecord::new([(

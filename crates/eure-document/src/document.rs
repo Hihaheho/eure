@@ -100,11 +100,11 @@ impl EureDocument {
     }
 
     fn node_arrays_equal(&self, arr1: &NodeArray, other: &EureDocument, arr2: &NodeArray) -> bool {
-        if arr1.0.len() != arr2.0.len() {
+        if arr1.len() != arr2.len() {
             return false;
         }
 
-        for (child_id1, child_id2) in arr1.0.iter().zip(arr2.0.iter()) {
+        for (child_id1, child_id2) in arr1.iter().zip(arr2.iter()) {
             if !self.nodes_equal(*child_id1, other, *child_id2) {
                 return false;
             }
@@ -114,11 +114,11 @@ impl EureDocument {
     }
 
     fn node_tuples_equal(&self, tup1: &NodeTuple, other: &EureDocument, tup2: &NodeTuple) -> bool {
-        if tup1.0.len() != tup2.0.len() {
+        if tup1.len() != tup2.len() {
             return false;
         }
 
-        for (child_id1, child_id2) in tup1.0.iter().zip(tup2.0.iter()) {
+        for (child_id1, child_id2) in tup1.iter().zip(tup2.iter()) {
             if !self.nodes_equal(*child_id1, other, *child_id2) {
                 return false;
             }
@@ -128,12 +128,12 @@ impl EureDocument {
     }
 
     fn node_maps_equal(&self, map1: &NodeMap, other: &EureDocument, map2: &NodeMap) -> bool {
-        if map1.0.len() != map2.0.len() {
+        if map1.len() != map2.len() {
             return false;
         }
 
-        for (key1, &child_id1) in &map1.0 {
-            match map2.0.get(key1) {
+        for (key1, &child_id1) in map1.iter() {
+            match map2.get(key1) {
                 Some(&child_id2) => {
                     if !self.nodes_equal(child_id1, other, child_id2) {
                         return false;
@@ -515,7 +515,7 @@ mod tests {
             .node_id;
 
         let tuple = doc.node(tuple_id).as_tuple().expect("Expected tuple");
-        assert_eq!(tuple.0, vec![node_id]);
+        assert_eq!(tuple.to_vec(), vec![node_id]);
     }
 
     #[test]
@@ -537,7 +537,7 @@ mod tests {
             .node_id;
 
         let tuple = doc.node(tuple_id).as_tuple().expect("Expected tuple");
-        assert_eq!(tuple.0, vec![node_id1, node_id2]);
+        assert_eq!(tuple.to_vec(), vec![node_id1, node_id2]);
     }
 
     #[test]
@@ -584,7 +584,7 @@ mod tests {
             .node_id;
 
         let array = doc.node(array_id).as_array().expect("Expected array");
-        assert_eq!(array.0, vec![node_id]);
+        assert_eq!(array.to_vec(), vec![node_id]);
     }
 
     #[test]
@@ -606,7 +606,7 @@ mod tests {
             .node_id;
 
         let array = doc.node(array_id).as_array().expect("Expected array");
-        assert_eq!(array.0, vec![node_id1, node_id2]);
+        assert_eq!(array.to_vec(), vec![node_id1, node_id2]);
     }
 
     #[test]
@@ -695,7 +695,7 @@ mod tests {
         assert!(result.is_ok());
 
         let tuple = doc.node(tuple_id).as_tuple().expect("Expected tuple");
-        assert_eq!(tuple.0.len(), 1);
+        assert_eq!(tuple.len(), 1);
     }
 
     #[test]
@@ -711,7 +711,7 @@ mod tests {
         assert!(result.is_ok());
 
         let array = doc.node(array_id).as_array().expect("Expected array");
-        assert_eq!(array.0.len(), 1);
+        assert_eq!(array.len(), 1);
     }
 
     #[test]
@@ -727,7 +727,7 @@ mod tests {
         assert!(result.is_ok());
 
         let array = doc.node(array_id).as_array().expect("Expected array");
-        assert_eq!(array.0.len(), 1);
+        assert_eq!(array.len(), 1);
     }
 
     #[test]
@@ -855,9 +855,9 @@ mod tests {
 
         // Verify both nodes exist in array
         let array = doc.node(parent_id).as_array().expect("Expected array");
-        assert_eq!(array.0.len(), 2);
-        assert_eq!(array.0[0], node_id1);
-        assert_eq!(array.0[1], node_id2);
+        assert_eq!(array.len(), 2);
+        assert_eq!(array.get(0).unwrap(), node_id1);
+        assert_eq!(array.get(1).unwrap(), node_id2);
     }
 
     #[test]
