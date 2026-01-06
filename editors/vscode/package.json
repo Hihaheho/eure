@@ -30,7 +30,8 @@
     "assets/**/*",
     "syntaxes/**/*",
     "language-configuration.json",
-    "LICENSE"
+    "LICENSE",
+    "README.md"
   ],
   "repository": {
     "type": "git",
