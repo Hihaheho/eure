@@ -43,7 +43,6 @@ value {
   variants.literal = "active"
   variants.literal.$deny-untagged = true
   variants.text = `text`
-  priority = ["literal", "text"]
 }
 ```
 
@@ -68,7 +67,6 @@ value {
   variants.literal = "active"
   variants.literal.$deny-untagged = true
   variants.text = `text`
-  priority = ["literal", "text"]
 }
 ```
 

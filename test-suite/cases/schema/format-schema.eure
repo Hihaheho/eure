@@ -21,6 +21,7 @@ nickname.$optional = true
 formatted_schema = ```eure
 name = `text`
 nickname = `text`
+nickname.$optional = true
 ```
 
 @ cases.array-shorthand
