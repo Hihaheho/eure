@@ -1,0 +1,50 @@
+// Test cases for format_schema query
+
+@ cases.primitives-simple
+schema = ```eure
+name = `text`
+age = `integer`
+active = `boolean`
+```
+formatted_schema = ```eure
+name = `text`
+age = `integer`
+active = `boolean`
+```
+
+@ cases.primitive-with-optional
+schema = ```eure
+name = `text`
+nickname = `text`
+nickname.$optional = true
+```
+formatted_schema = ```eure
+name = `text`
+nickname = `text`
+```
+
+@ cases.array-shorthand
+schema = ```eure
+items = [`text`]
+```
+formatted_schema = ```eure
+items = [`text`]
+```
+
+@ cases.tuple-shorthand
+schema = ```eure
+pair = (`text`, `integer`)
+```
+formatted_schema = ```eure
+pair = (`text`, `integer`)
+```
+
+@ cases.named-type-simple
+schema = ```eure
+$types.username = `text`
+name = `$types.username`
+```
+formatted_schema = ```eure
+$types.username = `text`
+name = `$types.username`
+```

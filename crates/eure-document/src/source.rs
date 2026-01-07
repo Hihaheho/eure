@@ -45,7 +45,7 @@ use crate::prelude_internal::*;
 ///
 /// Combines semantic data ([`EureDocument`]) with presentation information ([`Layout`])
 /// for round-trip conversions from formats like TOML, preserving comments and ordering.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SourceDocument {
     /// The semantic data (values, structure)
     pub document: EureDocument,
@@ -69,7 +69,7 @@ impl SourceDocument {
 }
 
 /// Layout information describing how to render the document.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Layout {
     /// Top-level items in order
     pub items: Vec<LayoutItem>,

@@ -196,6 +196,12 @@ pub struct CaseData {
     pub json_schema: JsonSchemaData,
     #[eure(default)]
     pub json_schema_errors: Vec<Text>,
+    /// Expected output of format_schema query
+    #[eure(default)]
+    pub formatted_schema: Option<Text>,
+    /// Enable schema roundtrip test (format_schema output == original schema)
+    #[eure(default)]
+    pub schema_roundtrip: bool,
     #[eure(default)]
     pub unimplemented: Option<UnimplementedReason>,
     /// Union tag mode for validation (default: eure)

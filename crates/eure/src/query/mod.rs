@@ -47,10 +47,10 @@ pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst};
 #[cfg(feature = "http")]
 pub use reqwest;
 pub use schema::{
-    DocumentToSchemaQuery, GetSchemaConversionErrorFormatted, GetSchemaExtension,
+    DocumentToSchemaQuery, FormatSchema, GetSchemaConversionErrorFormatted, GetSchemaExtension,
     GetSchemaExtensionDiagnostics, GetValidationErrorsFormatted,
-    GetValidationErrorsFormattedWithMode, ResolveSchema, UnionTagMode, ValidateAgainstSchema,
-    ValidateAgainstSchemaWithMode, ValidatedSchema,
+    GetValidationErrorsFormattedWithMode, ResolveSchema, SchemaToSource, UnionTagMode,
+    ValidateAgainstSchema, ValidateAgainstSchemaWithMode, ValidatedSchema,
 };
 pub use semantic_token::{
     GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens,

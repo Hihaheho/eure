@@ -21,12 +21,14 @@ use crate::scenarios::eumd_error_validation::EumdErrorValidationScenario;
 use crate::scenarios::eure_schema_to_json_schema::EureSchemaToJsonSchemaScenario;
 use crate::scenarios::eure_schema_to_json_schema_error::EureSchemaToJsonSchemaErrorScenario;
 use crate::scenarios::eure_to_json::EureToJsonScenario;
+use crate::scenarios::format_schema::FormatSchemaScenario;
 use crate::scenarios::formatting::FormattingScenario;
 use crate::scenarios::json_to_eure::JsonToEureScenario;
 use crate::scenarios::meta_schema::MetaSchemaScenario;
 use crate::scenarios::normalization::NormalizationScenario;
 use crate::scenarios::schema_conversion_error::SchemaConversionErrorScenario;
 use crate::scenarios::schema_error_validation::SchemaErrorValidationScenario;
+use crate::scenarios::schema_roundtrip::SchemaRoundtripScenario;
 use crate::scenarios::schema_validation::SchemaValidationScenario;
 use crate::scenarios::toml_to_eure_document::TomlToEureDocumentScenario;
 use crate::scenarios::toml_to_eure_source::TomlToEureSourceScenario;
@@ -105,6 +107,7 @@ impl CaseResult {
 const INPUT_EURE_PATH: &str = "input.eure";
 const NORMALIZED_PATH: &str = "normalized.eure";
 const SCHEMA_PATH: &str = "schema.eure";
+const FORMATTED_SCHEMA_PATH: &str = "formatted_schema.eure";
 const INPUT_TOML_PATH: &str = "input.toml";
 const INPUT_JSON_PATH: &str = "input.json";
 const OUTPUT_JSON_PATH: &str = "output.json";
@@ -136,6 +139,8 @@ pub enum Scenario {
     SchemaValidation(SchemaValidationScenario),
     SchemaErrorValidation(SchemaErrorValidationScenario),
     SchemaConversionError(SchemaConversionErrorScenario),
+    FormatSchema(FormatSchemaScenario),
+    SchemaRoundtrip(SchemaRoundtripScenario),
     MetaSchema(MetaSchemaScenario),
     EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario),
     EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario),
@@ -157,6 +162,8 @@ impl Scenario {
             Scenario::SchemaValidation(_) => "schema_validation".to_string(),
             Scenario::SchemaErrorValidation(_) => "schema_error_validation".to_string(),
             Scenario::SchemaConversionError(_) => "schema_conversion_error".to_string(),
+            Scenario::FormatSchema(_) => "format_schema".to_string(),
+            Scenario::SchemaRoundtrip(_) => "schema_roundtrip".to_string(),
             Scenario::MetaSchema(_) => "meta_schema".to_string(),
             Scenario::EureSchemaToJsonSchema(_) => "eure_schema_to_json_schema".to_string(),
             Scenario::EureSchemaToJsonSchemaError(_) => {
@@ -180,6 +187,8 @@ impl Scenario {
             Scenario::SchemaValidation(s) => s.run(db),
             Scenario::SchemaErrorValidation(s) => s.run(db),
             Scenario::SchemaConversionError(s) => s.run(db),
+            Scenario::FormatSchema(s) => s.run(db),
+            Scenario::SchemaRoundtrip(s) => s.run(db),
             Scenario::MetaSchema(s) => s.run(db),
             Scenario::EureSchemaToJsonSchema(s) => s.run(db),
             Scenario::EureSchemaToJsonSchemaError(s) => s.run(db),
@@ -257,6 +266,11 @@ impl Case {
         // schema → "schema.eure"
         if let Some(schema) = &self.data.schema {
             Self::resolve_asset(runtime, SCHEMA_PATH, schema)?;
+        }
+
+        // formatted_schema → "formatted_schema.eure"
+        if let Some(formatted_schema) = &self.data.formatted_schema {
+            Self::resolve_asset(runtime, FORMATTED_SCHEMA_PATH, formatted_schema)?;
         }
 
         // input_toml → "input.toml"
@@ -417,6 +431,23 @@ impl Case {
                         .map(|e| e.as_str().to_string()),
                 },
             ));
+
+            // Format schema scenario (only when formatted_schema is provided and no conversion error)
+            if let Some(formatted_schema) = &self.data.formatted_schema
+                && self.data.schema_conversion_error.is_none()
+            {
+                scenarios.push(Scenario::FormatSchema(FormatSchemaScenario {
+                    schema: Self::resolve_path(schema, SCHEMA_PATH),
+                    formatted_schema: Self::resolve_path(formatted_schema, FORMATTED_SCHEMA_PATH),
+                }));
+            }
+
+            // Schema roundtrip scenario (only when schema_roundtrip is true and no conversion error)
+            if self.data.schema_roundtrip && self.data.schema_conversion_error.is_none() {
+                scenarios.push(Scenario::SchemaRoundtrip(SchemaRoundtripScenario {
+                    schema: Self::resolve_path(schema, SCHEMA_PATH),
+                }));
+            }
         }
 
         // Meta schema validation scenario

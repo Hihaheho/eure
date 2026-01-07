@@ -350,3 +350,33 @@ fn report_schema_conversion_error(
     let origin = Origin::new(file, span);
     ErrorReports::from(vec![ErrorReport::error(error.to_string(), origin)])
 }
+
+// =============================================================================
+// Schema to Source Conversion Queries
+// =============================================================================
+
+use eure_document::source::SourceDocument;
+use eure_fmt::format_source_document;
+use eure_schema::schema_to_source_document;
+
+/// Convert SchemaDocument to SourceDocument.
+///
+/// This query parses the schema file, converts it to a SchemaDocument,
+/// then converts it back to a SourceDocument.
+#[query]
+pub fn schema_to_source(db: &impl Db, file: TextFile) -> Result<Arc<SourceDocument>, QueryError> {
+    let validated = db.query(DocumentToSchemaQuery::new(file))?;
+    let source_doc = schema_to_source_document(&validated.schema)
+        .map_err(|e| QueryError::from(anyhow::anyhow!(e)))?;
+    Ok(Arc::new(source_doc))
+}
+
+/// Format schema as Eure source string.
+///
+/// This query parses the schema file, converts it to a SchemaDocument,
+/// converts it back to a SourceDocument, and then formats it as a string.
+#[query]
+pub fn format_schema(db: &impl Db, file: TextFile) -> Result<Arc<String>, QueryError> {
+    let source_doc = db.query(SchemaToSource::new(file))?;
+    Ok(Arc::new(format_source_document(&source_doc)))
+}

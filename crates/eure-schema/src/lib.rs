@@ -33,9 +33,11 @@ pub mod convert;
 pub mod identifiers;
 pub mod parse;
 pub mod synth;
+pub mod to_source;
 pub mod validate;
 
 pub use build::{BuildSchema, SchemaBuilder};
+pub use to_source::{ToSourceError, schema_to_source_document};
 
 use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;

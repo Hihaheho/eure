@@ -9,12 +9,14 @@ pub mod eumd_error_validation;
 pub mod eure_schema_to_json_schema;
 pub mod eure_schema_to_json_schema_error;
 pub mod eure_to_json;
+pub mod format_schema;
 pub mod formatting;
 pub mod json_to_eure;
 pub mod meta_schema;
 pub mod normalization;
 pub mod schema_conversion_error;
 pub mod schema_error_validation;
+pub mod schema_roundtrip;
 pub mod schema_validation;
 pub mod toml_to_eure_document;
 pub mod toml_to_eure_source;
@@ -102,6 +104,16 @@ pub enum ScenarioError {
     /// Expected schema conversion (document_to_schema) to fail but it succeeded
     ExpectedSchemaConversionToFail {
         expected_errors: Vec<String>,
+    },
+    /// Format schema mismatch (format_schema output != expected formatted_schema)
+    FormatSchemaMismatch {
+        expected: String,
+        actual: String,
+    },
+    /// Schema roundtrip mismatch (format_schema output != original schema)
+    SchemaRoundtripMismatch {
+        expected: String,
+        actual: String,
     },
     /// Preprocessing error (parse error, file read error, etc.)
     PreprocessingError {
@@ -297,6 +309,112 @@ impl std::fmt::Display for ScenarioError {
                 for (i, error) in expected_errors.iter().enumerate() {
                     writeln!(f, "\n--- Expected Error {} ---", i + 1)?;
                     write!(f, "{}", error)?;
+                }
+                Ok(())
+            }
+            ScenarioError::FormatSchemaMismatch { expected, actual } => {
+                use similar::{ChangeTag, TextDiff};
+                writeln!(f, "Format schema mismatch.")?;
+                let diff = TextDiff::from_lines(expected, actual);
+                let changes: Vec<_> = diff
+                    .iter_all_changes()
+                    .filter(|c| c.tag() != ChangeTag::Equal)
+                    .collect();
+                if changes.is_empty() {
+                    writeln!(f, "No visible line differences. Checking char-by-char...")?;
+                    let expected_bytes = expected.as_bytes();
+                    let actual_bytes = actual.as_bytes();
+                    writeln!(
+                        f,
+                        "Expected length: {}, Actual length: {}",
+                        expected_bytes.len(),
+                        actual_bytes.len()
+                    )?;
+                    for (i, (e, a)) in expected_bytes.iter().zip(actual_bytes.iter()).enumerate() {
+                        if e != a {
+                            writeln!(
+                                f,
+                                "First diff at byte {}: expected {:02x} ({:?}), actual {:02x} ({:?})",
+                                i,
+                                e,
+                                char::from(*e),
+                                a,
+                                char::from(*a)
+                            )?;
+                            let start = i.saturating_sub(20);
+                            let end = (i + 20).min(expected_bytes.len()).min(actual_bytes.len());
+                            writeln!(f, "Context expected: {:?}", &expected[start..end])?;
+                            writeln!(f, "Context actual:   {:?}", &actual[start..end])?;
+                            break;
+                        }
+                    }
+                    if expected_bytes.len() != actual_bytes.len() {
+                        let min_len = expected_bytes.len().min(actual_bytes.len());
+                        writeln!(f, "Length mismatch after byte {}", min_len)?;
+                    }
+                } else {
+                    writeln!(f, "Diff (expected → actual):")?;
+                    for change in diff.iter_all_changes() {
+                        let sign = match change.tag() {
+                            ChangeTag::Delete => "-",
+                            ChangeTag::Insert => "+",
+                            ChangeTag::Equal => " ",
+                        };
+                        write!(f, "{}{}", sign, change)?;
+                    }
+                }
+                Ok(())
+            }
+            ScenarioError::SchemaRoundtripMismatch { expected, actual } => {
+                use similar::{ChangeTag, TextDiff};
+                writeln!(f, "Schema roundtrip mismatch.")?;
+                let diff = TextDiff::from_lines(expected, actual);
+                let changes: Vec<_> = diff
+                    .iter_all_changes()
+                    .filter(|c| c.tag() != ChangeTag::Equal)
+                    .collect();
+                if changes.is_empty() {
+                    writeln!(f, "No visible line differences. Checking char-by-char...")?;
+                    let expected_bytes = expected.as_bytes();
+                    let actual_bytes = actual.as_bytes();
+                    writeln!(
+                        f,
+                        "Expected length: {}, Actual length: {}",
+                        expected_bytes.len(),
+                        actual_bytes.len()
+                    )?;
+                    for (i, (e, a)) in expected_bytes.iter().zip(actual_bytes.iter()).enumerate() {
+                        if e != a {
+                            writeln!(
+                                f,
+                                "First diff at byte {}: expected {:02x} ({:?}), actual {:02x} ({:?})",
+                                i,
+                                e,
+                                char::from(*e),
+                                a,
+                                char::from(*a)
+                            )?;
+                            let start = i.saturating_sub(20);
+                            let end = (i + 20).min(expected_bytes.len()).min(actual_bytes.len());
+                            writeln!(f, "Context expected: {:?}", &expected[start..end])?;
+                            writeln!(f, "Context actual:   {:?}", &actual[start..end])?;
+                            break;
+                        }
+                    }
+                    if expected_bytes.len() != actual_bytes.len() {
+                        let min_len = expected_bytes.len().min(actual_bytes.len());
+                        writeln!(f, "Length mismatch after byte {}", min_len)?;
+                    }
+                } else {
+                    writeln!(f, "Diff (expected → actual):")?;
+                    for change in diff.iter_all_changes() {
+                        let sign = match change.tag() {
+                            ChangeTag::Delete => "-",
+                            ChangeTag::Insert => "+",
+                            ChangeTag::Equal => " ",
+                        };
+                        write!(f, "{}{}", sign, change)?;
+                    }
                 }
                 Ok(())
             }
