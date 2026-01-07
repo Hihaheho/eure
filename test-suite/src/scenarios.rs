@@ -3,6 +3,7 @@ use std::sync::Arc;
 use eure::query::TextFile;
 use query_flow::{Db, QueryError};
 
+pub mod canonical_schema;
 pub mod completions;
 pub mod diagnostics;
 pub mod eumd_error_validation;
@@ -110,17 +111,17 @@ pub enum ScenarioError {
         expected: String,
         actual: String,
     },
-    /// Schema roundtrip mismatch (format_schema output != original schema)
+    /// Schema roundtrip mismatch (parsed EureDocuments differ)
     SchemaRoundtripMismatch {
-        expected: String,
-        actual: String,
-    },
-    /// Schema roundtrip document mismatch (parsed documents differ)
-    SchemaRoundtripDocumentMismatch {
         original_source: String,
         formatted_source: String,
         original_doc: String,
         formatted_doc: String,
+    },
+    /// Canonical schema mismatch (format(schema) != schema)
+    CanonicalSchemaMismatch {
+        expected: String,
+        actual: String,
     },
     /// Preprocessing error (parse error, file read error, etc.)
     PreprocessingError {
@@ -372,9 +373,26 @@ impl std::fmt::Display for ScenarioError {
                 }
                 Ok(())
             }
-            ScenarioError::SchemaRoundtripMismatch { expected, actual } => {
-                use similar::{ChangeTag, TextDiff};
+            ScenarioError::SchemaRoundtripMismatch {
+                original_source,
+                formatted_source,
+                original_doc,
+                formatted_doc,
+            } => {
                 writeln!(f, "Schema roundtrip mismatch.")?;
+                writeln!(
+                    f,
+                    "EureDocuments parsed from original and formatted sources differ."
+                )?;
+                writeln!(f, "\nOriginal source:\n{}", original_source)?;
+                writeln!(f, "\nFormatted source:\n{}", formatted_source)?;
+                writeln!(f, "\nOriginal doc:\n{}", original_doc)?;
+                writeln!(f, "\nFormatted doc:\n{}", formatted_doc)?;
+                Ok(())
+            }
+            ScenarioError::CanonicalSchemaMismatch { expected, actual } => {
+                use similar::{ChangeTag, TextDiff};
+                writeln!(f, "Canonical schema mismatch.")?;
                 let diff = TextDiff::from_lines(expected, actual);
                 let changes: Vec<_> = diff
                     .iter_all_changes()
@@ -423,23 +441,6 @@ impl std::fmt::Display for ScenarioError {
                         write!(f, "{}{}", sign, change)?;
                     }
                 }
-                Ok(())
-            }
-            ScenarioError::SchemaRoundtripDocumentMismatch {
-                original_source,
-                formatted_source,
-                original_doc,
-                formatted_doc,
-            } => {
-                writeln!(f, "Schema roundtrip document mismatch.")?;
-                writeln!(
-                    f,
-                    "Documents parsed from original and formatted sources differ."
-                )?;
-                writeln!(f, "\nOriginal source:\n{}", original_source)?;
-                writeln!(f, "\nFormatted source:\n{}", formatted_source)?;
-                writeln!(f, "\nOriginal doc:\n{}", original_doc)?;
-                writeln!(f, "\nFormatted doc:\n{}", formatted_doc)?;
                 Ok(())
             }
             ScenarioError::PreprocessingError { message } => {

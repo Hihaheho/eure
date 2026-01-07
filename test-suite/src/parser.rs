@@ -59,21 +59,6 @@ pub enum InputUnionTagMode {
     Repr,
 }
 
-/// Schema roundtrip test mode.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ParseDocument, BuildSchema)]
-pub enum SchemaRoundtripMode {
-    /// Disabled (default)
-    #[default]
-    #[eure(rename = "disabled")]
-    Disabled,
-    /// String comparison (formatted output must match exactly)
-    #[eure(rename = "format")]
-    Format,
-    /// Document comparison (parsed documents must be equal, format differences allowed)
-    #[eure(rename = "document")]
-    Document,
-}
-
 #[derive(Debug, Clone, ParseDocument, BuildSchema)]
 pub enum JsonData {
     Both {
@@ -214,9 +199,9 @@ pub struct CaseData {
     /// Expected output of format_schema query
     #[eure(default)]
     pub formatted_schema: Option<Text>,
-    /// Schema roundtrip test mode
+    /// Schema is in canonical format (format(schema) == schema)
     #[eure(default)]
-    pub schema_roundtrip: SchemaRoundtripMode,
+    pub canonical_schema: bool,
     #[eure(default)]
     pub unimplemented: Option<UnimplementedReason>,
     /// Union tag mode for validation (default: eure)

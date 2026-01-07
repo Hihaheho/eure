@@ -4,7 +4,7 @@ use eure::query::{TextFile, TextFileContent, UnionTagMode, build_runtime};
 use eure_document::Text;
 use query_flow::{Db, DurabilityLevel, QueryRuntime};
 
-use crate::parser::{CaseData, InputUnionTagMode, SchemaRoundtripMode};
+use crate::parser::{CaseData, InputUnionTagMode};
 
 // Convert InputUnionTagMode to UnionTagMode
 impl From<InputUnionTagMode> for UnionTagMode {
@@ -15,6 +15,7 @@ impl From<InputUnionTagMode> for UnionTagMode {
         }
     }
 }
+use crate::scenarios::canonical_schema::CanonicalSchemaScenario;
 use crate::scenarios::completions::CompletionsScenario;
 use crate::scenarios::diagnostics::DiagnosticsScenario;
 use crate::scenarios::eumd_error_validation::EumdErrorValidationScenario;
@@ -141,6 +142,7 @@ pub enum Scenario {
     SchemaConversionError(SchemaConversionErrorScenario),
     FormatSchema(FormatSchemaScenario),
     SchemaRoundtrip(SchemaRoundtripScenario),
+    CanonicalSchema(CanonicalSchemaScenario),
     MetaSchema(MetaSchemaScenario),
     EureSchemaToJsonSchema(EureSchemaToJsonSchemaScenario),
     EureSchemaToJsonSchemaError(EureSchemaToJsonSchemaErrorScenario),
@@ -164,6 +166,7 @@ impl Scenario {
             Scenario::SchemaConversionError(_) => "schema_conversion_error".to_string(),
             Scenario::FormatSchema(_) => "format_schema".to_string(),
             Scenario::SchemaRoundtrip(_) => "schema_roundtrip".to_string(),
+            Scenario::CanonicalSchema(_) => "canonical_schema".to_string(),
             Scenario::MetaSchema(_) => "meta_schema".to_string(),
             Scenario::EureSchemaToJsonSchema(_) => "eure_schema_to_json_schema".to_string(),
             Scenario::EureSchemaToJsonSchemaError(_) => {
@@ -189,6 +192,7 @@ impl Scenario {
             Scenario::SchemaConversionError(s) => s.run(db),
             Scenario::FormatSchema(s) => s.run(db),
             Scenario::SchemaRoundtrip(s) => s.run(db),
+            Scenario::CanonicalSchema(s) => s.run(db),
             Scenario::MetaSchema(s) => s.run(db),
             Scenario::EureSchemaToJsonSchema(s) => s.run(db),
             Scenario::EureSchemaToJsonSchemaError(s) => s.run(db),
@@ -442,13 +446,17 @@ impl Case {
                 }));
             }
 
-            // Schema roundtrip scenario (only when schema_roundtrip is not disabled and no conversion error)
-            if self.data.schema_roundtrip != SchemaRoundtripMode::Disabled
-                && self.data.schema_conversion_error.is_none()
-            {
+            // Schema roundtrip scenario (always runs when schema is present and no conversion error)
+            if self.data.schema_conversion_error.is_none() {
                 scenarios.push(Scenario::SchemaRoundtrip(SchemaRoundtripScenario {
                     schema: Self::resolve_path(schema, SCHEMA_PATH),
-                    mode: self.data.schema_roundtrip,
+                }));
+            }
+
+            // Canonical schema scenario (when canonical_schema = true and no conversion error)
+            if self.data.canonical_schema && self.data.schema_conversion_error.is_none() {
+                scenarios.push(Scenario::CanonicalSchema(CanonicalSchemaScenario {
+                    schema: Self::resolve_path(schema, SCHEMA_PATH),
                 }));
             }
         }
