@@ -115,6 +115,13 @@ pub enum ScenarioError {
         expected: String,
         actual: String,
     },
+    /// Schema roundtrip document mismatch (parsed documents differ)
+    SchemaRoundtripDocumentMismatch {
+        original_source: String,
+        formatted_source: String,
+        original_doc: String,
+        formatted_doc: String,
+    },
     /// Preprocessing error (parse error, file read error, etc.)
     PreprocessingError {
         message: String,
@@ -416,6 +423,23 @@ impl std::fmt::Display for ScenarioError {
                         write!(f, "{}{}", sign, change)?;
                     }
                 }
+                Ok(())
+            }
+            ScenarioError::SchemaRoundtripDocumentMismatch {
+                original_source,
+                formatted_source,
+                original_doc,
+                formatted_doc,
+            } => {
+                writeln!(f, "Schema roundtrip document mismatch.")?;
+                writeln!(
+                    f,
+                    "Documents parsed from original and formatted sources differ."
+                )?;
+                writeln!(f, "\nOriginal source:\n{}", original_source)?;
+                writeln!(f, "\nFormatted source:\n{}", formatted_source)?;
+                writeln!(f, "\nOriginal doc:\n{}", original_doc)?;
+                writeln!(f, "\nFormatted doc:\n{}", formatted_doc)?;
                 Ok(())
             }
             ScenarioError::PreprocessingError { message } => {

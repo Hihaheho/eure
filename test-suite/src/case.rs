@@ -4,7 +4,7 @@ use eure::query::{TextFile, TextFileContent, UnionTagMode, build_runtime};
 use eure_document::Text;
 use query_flow::{Db, DurabilityLevel, QueryRuntime};
 
-use crate::parser::{CaseData, InputUnionTagMode};
+use crate::parser::{CaseData, InputUnionTagMode, SchemaRoundtripMode};
 
 // Convert InputUnionTagMode to UnionTagMode
 impl From<InputUnionTagMode> for UnionTagMode {
@@ -442,10 +442,13 @@ impl Case {
                 }));
             }
 
-            // Schema roundtrip scenario (only when schema_roundtrip is true and no conversion error)
-            if self.data.schema_roundtrip && self.data.schema_conversion_error.is_none() {
+            // Schema roundtrip scenario (only when schema_roundtrip is not disabled and no conversion error)
+            if self.data.schema_roundtrip != SchemaRoundtripMode::Disabled
+                && self.data.schema_conversion_error.is_none()
+            {
                 scenarios.push(Scenario::SchemaRoundtrip(SchemaRoundtripScenario {
                     schema: Self::resolve_path(schema, SCHEMA_PATH),
+                    mode: self.data.schema_roundtrip,
                 }));
             }
         }

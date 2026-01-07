@@ -109,7 +109,6 @@ numbers[] = 3
 schema = ```eure
 numbers = [`integer`]
 ```
-schema_roundtrip = true
 
 schema_errors = [
   ```

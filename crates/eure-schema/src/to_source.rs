@@ -573,6 +573,19 @@ impl<'a> SchemaToSourceConverter<'a> {
 
         for (variant_name, &variant_id) in &union.variants {
             let variant_node = self.convert_schema_node(variant_id)?;
+
+            // Add $deny-untagged = true extension if this variant is in deny_untagged set
+            if union.deny_untagged.contains(variant_name) {
+                let true_node = self
+                    .document
+                    .create_node(NodeValue::Primitive(PrimitiveValue::Bool(true)));
+                let deny_untagged_key = Identifier::new_unchecked("deny-untagged");
+                self.document
+                    .node_mut(variant_node)
+                    .extensions
+                    .insert(deny_untagged_key, true_node);
+            }
+
             fields.push((variant_name.clone(), variant_node));
         }
 

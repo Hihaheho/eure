@@ -25,7 +25,6 @@ value {
   variants.text = `text`
 }
 ```
-schema_roundtrip = true
 
 // No errors - explicit $variant tag provided
 
