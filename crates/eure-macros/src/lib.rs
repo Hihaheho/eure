@@ -8,6 +8,7 @@ mod build_schema;
 pub(crate) mod config;
 pub(crate) mod context;
 mod into_document;
+mod must_be_text;
 mod parse_document;
 
 #[proc_macro_derive(IntoDocument, attributes(eure))]
@@ -31,4 +32,29 @@ pub fn build_schema_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 fn create_context(input: syn::DeriveInput) -> MacroContext {
     let attrs = ContainerAttrs::from_derive_input(&input).expect("Failed to parse eure attributes");
     MacroContext::new(MacroConfig::from_attrs(attrs), input)
+}
+
+/// Creates a zero-sized type that only parses from a specific Text value.
+///
+/// # Syntax
+///
+/// ```ignore
+/// MustBeText!("content")           // Implicit language: `content`
+/// MustBeText!(plaintext, "content") // Plaintext language: "content"
+/// MustBeText!(rust, "content")      // Other language: rust`content`
+/// ```
+///
+/// # Example
+///
+/// ```ignore
+/// use eure_macros::MustBeText;
+///
+/// // This type only successfully parses from the text value `any`
+/// let marker = MustBeText!("any");
+/// ```
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn MustBeText(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as must_be_text::MustBeTextInput);
+    must_be_text::expand(input).into()
 }
