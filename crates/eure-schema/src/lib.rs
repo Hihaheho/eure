@@ -52,7 +52,7 @@ use regex::Regex;
 // ============================================================================
 
 /// Schema document with arena-based node storage
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct SchemaDocument {
     /// All schema nodes stored in a flat vector
     pub nodes: Vec<SchemaNode>,
@@ -63,7 +63,7 @@ pub struct SchemaDocument {
 }
 
 /// Extension type definition with optionality
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ExtTypeSchema {
     /// Schema for the extension value
     pub schema: SchemaNodeId,
@@ -76,7 +76,7 @@ pub struct ExtTypeSchema {
 pub struct SchemaNodeId(pub usize);
 
 /// A single schema node
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct SchemaNode {
     /// The type definition, structure, and constraints
     pub content: SchemaNodeContent,
@@ -93,7 +93,7 @@ pub struct SchemaNode {
 /// Type definitions with their specific constraints
 ///
 /// See spec: `eure-schema.schema.eure` lines 298-525
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum SchemaNodeContent {
     // --- Primitives ---
     /// Any type - accepts any valid Eure value
@@ -238,6 +238,22 @@ pub enum Bound<T> {
     Exclusive(T),
 }
 
+/// Range notation style for preserving original source format during roundtrip.
+///
+/// There are two ways to express ranges in Eure schema:
+/// - Rust-style: `0..100`, `0..=100`, `0<..100`, etc.
+/// - Interval notation: `[0, 100]`, `(0, 100)`, `[0, 100)`, etc.
+///
+/// This enum tracks which style was used in the source so it can be preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RangeStyle {
+    /// Rust-style range: `0..100`, `0..=100`, etc. (default)
+    #[default]
+    Rust,
+    /// Mathematical interval notation: `[0, 100]`, `(0, 100)`, etc.
+    Interval,
+}
+
 /// Text type constraints
 ///
 /// The `language` field determines what kind of text is expected:
@@ -286,9 +302,6 @@ pub struct TextSchema {
     /// Pre-compiled at schema parse time for efficiency.
     #[eure(default)]
     pub pattern: Option<Regex>,
-    /// Unknown fields (for future extensions like "flatten")
-    #[eure(flatten)]
-    pub unknown_fields: IndexMap<String, eure_document::document::NodeId>,
 }
 
 impl PartialEq for TextSchema {
@@ -296,7 +309,6 @@ impl PartialEq for TextSchema {
         self.language == other.language
             && self.min_length == other.min_length
             && self.max_length == other.max_length
-            && self.unknown_fields == other.unknown_fields
             && match (&self.pattern, &other.pattern) {
                 (None, None) => true,
                 (Some(a), Some(b)) => a.as_str() == b.as_str(),
@@ -323,6 +335,8 @@ pub struct IntegerSchema {
     pub max: Bound<BigInt>,
     /// Multiple-of constraint
     pub multiple_of: Option<BigInt>,
+    /// Original range notation style for roundtrip preservation
+    pub range_style: RangeStyle,
 }
 
 /// Float precision specifier
@@ -356,6 +370,8 @@ pub struct FloatSchema {
     pub multiple_of: Option<f64>,
     /// Float precision (f32 or f64)
     pub precision: FloatPrecision,
+    /// Original range notation style for roundtrip preservation
+    pub range_style: RangeStyle,
 }
 
 // ============================================================================
@@ -374,7 +390,7 @@ pub struct FloatSchema {
 /// contains = .$types.type (optional)
 /// $ext-type.binding-style = .$types.binding-style (optional)
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ArraySchema {
     /// Schema for array elements (required)
     pub item: SchemaNodeId,
@@ -388,6 +404,12 @@ pub struct ArraySchema {
     pub contains: Option<SchemaNodeId>,
     /// Binding style for formatting
     pub binding_style: Option<BindingStyle>,
+    /// Whether to prefer inline/shorthand syntax (`[type]`) over explicit variant syntax
+    /// (`{ $variant = "array", item = ... }`). Set based on original source format.
+    /// - `None`: Auto-detect based on constraints (use inline if no constraints)
+    /// - `Some(true)`: Prefer inline syntax
+    /// - `Some(false)`: Prefer explicit variant syntax
+    pub prefer_inline: Option<bool>,
 }
 
 /// Map type constraints
@@ -400,7 +422,7 @@ pub struct ArraySchema {
 /// min-size = .integer (optional)
 /// max-size = .integer (optional)
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct MapSchema {
     /// Schema for keys
     pub key: SchemaNodeId,
@@ -419,7 +441,7 @@ pub struct MapSchema {
 /// value.$ext-type.optional = .boolean (optional)
 /// value.$ext-type.binding-style = .$types.binding-style (optional)
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct RecordFieldSchema {
     /// Schema for this field's value
     pub schema: SchemaNodeId,
@@ -439,7 +461,7 @@ pub struct RecordFieldSchema {
 /// value = .$types.type
 /// $ext-type.unknown-fields = .$types.unknown-fields-policy (optional)
 /// ```
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default)]
 pub struct RecordSchema {
     /// Fixed field schemas (field name -> field schema with metadata)
     pub properties: IndexMap<String, RecordFieldSchema>,
@@ -460,7 +482,7 @@ pub struct RecordSchema {
 /// @variants.allow = "allow"
 /// @variants.schema = .$types.type
 /// ```
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default)]
 pub enum UnknownFieldsPolicy {
     /// Deny unknown fields (default, strict)
     #[default]
@@ -479,7 +501,7 @@ pub enum UnknownFieldsPolicy {
 /// elements = [.$types.type]
 /// $ext-type.binding-style = .$types.binding-style (optional)
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct TupleSchema {
     /// Schema for each element by position
     pub elements: Vec<SchemaNodeId>,
@@ -495,15 +517,17 @@ pub struct TupleSchema {
 /// variants = { $variant: map, key => .text, value => .$types.type }
 /// $ext-type.variant-repr = .$types.variant-repr (optional)
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct UnionSchema {
     /// Variant definitions (variant name -> schema)
     pub variants: IndexMap<String, SchemaNodeId>,
     /// Variants that use unambiguous semantics (try all, detect conflicts).
     /// All other variants use short-circuit semantics (first match wins).
     pub unambiguous: IndexSet<String>,
-    /// Variant representation strategy (default: External)
+    /// Variant representation strategy (default: Untagged)
     pub repr: VariantRepr,
+    /// Whether repr was explicitly specified in the source (for roundtrip preservation)
+    pub repr_explicit: bool,
     /// Variants that deny untagged matching (require explicit $variant)
     pub deny_untagged: IndexSet<String>,
 }
@@ -650,6 +674,218 @@ impl SchemaDocument {
 impl Default for SchemaDocument {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl PartialEq for SchemaDocument {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare types (must have same keys and structurally equal nodes)
+        if self.types.len() != other.types.len() {
+            return false;
+        }
+        for (name, &id1) in &self.types {
+            match other.types.get(name) {
+                Some(&id2) => {
+                    if !self.nodes_equal(id1, other, id2) {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+        // Compare root nodes
+        self.nodes_equal(self.root, other, other.root)
+    }
+}
+
+impl SchemaDocument {
+    /// Compare two nodes structurally, ignoring SchemaNodeId values
+    pub fn nodes_equal(&self, id1: SchemaNodeId, other: &SchemaDocument, id2: SchemaNodeId) -> bool {
+        let node1 = &self.nodes[id1.0];
+        let node2 = &other.nodes[id2.0];
+
+        // Compare metadata
+        if node1.metadata != node2.metadata {
+            return false;
+        }
+
+        // Compare ext_types
+        if node1.ext_types.len() != node2.ext_types.len() {
+            return false;
+        }
+        for (name, ext1) in &node1.ext_types {
+            match node2.ext_types.get(name) {
+                Some(ext2) => {
+                    if ext1.optional != ext2.optional {
+                        return false;
+                    }
+                    if !self.nodes_equal(ext1.schema, other, ext2.schema) {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+
+        // Compare content
+        self.contents_equal(&node1.content, other, &node2.content)
+    }
+
+    /// Compare two SchemaNodeContent values structurally
+    fn contents_equal(
+        &self,
+        c1: &SchemaNodeContent,
+        other: &SchemaDocument,
+        c2: &SchemaNodeContent,
+    ) -> bool {
+        match (c1, c2) {
+            (SchemaNodeContent::Any, SchemaNodeContent::Any) => true,
+            (SchemaNodeContent::Boolean, SchemaNodeContent::Boolean) => true,
+            (SchemaNodeContent::Null, SchemaNodeContent::Null) => true,
+            (SchemaNodeContent::Text(t1), SchemaNodeContent::Text(t2)) => t1 == t2,
+            (SchemaNodeContent::Integer(i1), SchemaNodeContent::Integer(i2)) => {
+                i1.min == i2.min && i1.max == i2.max && i1.multiple_of == i2.multiple_of
+                // Ignore range_style (formatting hint)
+            }
+            (SchemaNodeContent::Float(f1), SchemaNodeContent::Float(f2)) => {
+                f1.min == f2.min
+                    && f1.max == f2.max
+                    && f1.multiple_of == f2.multiple_of
+                    && f1.precision == f2.precision
+                // Ignore range_style (formatting hint)
+            }
+            (SchemaNodeContent::Literal(l1), SchemaNodeContent::Literal(l2)) => l1 == l2,
+            (SchemaNodeContent::Reference(r1), SchemaNodeContent::Reference(r2)) => r1 == r2,
+            (SchemaNodeContent::Array(a1), SchemaNodeContent::Array(a2)) => {
+                self.arrays_equal(a1, other, a2)
+            }
+            (SchemaNodeContent::Tuple(t1), SchemaNodeContent::Tuple(t2)) => {
+                self.tuples_equal(t1, other, t2)
+            }
+            (SchemaNodeContent::Map(m1), SchemaNodeContent::Map(m2)) => {
+                self.maps_equal(m1, other, m2)
+            }
+            (SchemaNodeContent::Record(r1), SchemaNodeContent::Record(r2)) => {
+                self.records_equal(r1, other, r2)
+            }
+            (SchemaNodeContent::Union(u1), SchemaNodeContent::Union(u2)) => {
+                self.unions_equal(u1, other, u2)
+            }
+            _ => false,
+        }
+    }
+
+    fn arrays_equal(&self, a1: &ArraySchema, other: &SchemaDocument, a2: &ArraySchema) -> bool {
+        // Ignore prefer_inline, binding_style (formatting hints)
+        a1.min_length == a2.min_length
+            && a1.max_length == a2.max_length
+            && a1.unique == a2.unique
+            && match (&a1.contains, &a2.contains) {
+                (Some(c1), Some(c2)) => self.nodes_equal(*c1, other, *c2),
+                (None, None) => true,
+                _ => false,
+            }
+            && self.nodes_equal(a1.item, other, a2.item)
+    }
+
+    fn tuples_equal(&self, t1: &TupleSchema, other: &SchemaDocument, t2: &TupleSchema) -> bool {
+        // Ignore binding_style (formatting hint)
+        if t1.elements.len() != t2.elements.len() {
+            return false;
+        }
+        t1.elements
+            .iter()
+            .zip(t2.elements.iter())
+            .all(|(&e1, &e2)| self.nodes_equal(e1, other, e2))
+    }
+
+    fn maps_equal(&self, m1: &MapSchema, other: &SchemaDocument, m2: &MapSchema) -> bool {
+        // Ignore min_size, max_size for semantic equality? No, those are constraints.
+        m1.min_size == m2.min_size
+            && m1.max_size == m2.max_size
+            && self.nodes_equal(m1.key, other, m2.key)
+            && self.nodes_equal(m1.value, other, m2.value)
+    }
+
+    fn records_equal(&self, r1: &RecordSchema, other: &SchemaDocument, r2: &RecordSchema) -> bool {
+        if r1.properties.len() != r2.properties.len() {
+            return false;
+        }
+
+        // Compare unknown_fields policy
+        if !self.unknown_fields_equal(&r1.unknown_fields, other, &r2.unknown_fields) {
+            return false;
+        }
+
+        // Compare flatten
+        if r1.flatten.len() != r2.flatten.len() {
+            return false;
+        }
+        for (&f1, &f2) in r1.flatten.iter().zip(r2.flatten.iter()) {
+            if !self.nodes_equal(f1, other, f2) {
+                return false;
+            }
+        }
+
+        // Compare properties
+        for (name, field1) in &r1.properties {
+            match r2.properties.get(name) {
+                Some(field2) => {
+                    // Ignore binding_style (formatting hint)
+                    if field1.optional != field2.optional {
+                        return false;
+                    }
+                    if !self.nodes_equal(field1.schema, other, field2.schema) {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+        true
+    }
+
+    fn unknown_fields_equal(
+        &self,
+        p1: &UnknownFieldsPolicy,
+        other: &SchemaDocument,
+        p2: &UnknownFieldsPolicy,
+    ) -> bool {
+        match (p1, p2) {
+            (UnknownFieldsPolicy::Deny, UnknownFieldsPolicy::Deny) => true,
+            (UnknownFieldsPolicy::Allow, UnknownFieldsPolicy::Allow) => true,
+            (UnknownFieldsPolicy::Schema(s1), UnknownFieldsPolicy::Schema(s2)) => {
+                self.nodes_equal(*s1, other, *s2)
+            }
+            _ => false,
+        }
+    }
+
+    fn unions_equal(&self, u1: &UnionSchema, other: &SchemaDocument, u2: &UnionSchema) -> bool {
+        // Ignore repr_explicit (formatting hint)
+        if u1.repr != u2.repr {
+            return false;
+        }
+        if u1.variants.len() != u2.variants.len() {
+            return false;
+        }
+        if u1.unambiguous != u2.unambiguous {
+            return false;
+        }
+        if u1.deny_untagged != u2.deny_untagged {
+            return false;
+        }
+        for (name, &v1) in &u1.variants {
+            match u2.variants.get(name) {
+                Some(&v2) => {
+                    if !self.nodes_equal(v1, other, v2) {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+        true
     }
 }
 

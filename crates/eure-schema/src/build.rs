@@ -370,7 +370,6 @@ impl BuildSchema for Text {
             min_length: None,
             max_length: None,
             pattern: None,
-            unknown_fields: IndexMap::new(),
         })
     }
 }
@@ -392,6 +391,7 @@ impl<T: BuildSchema + 'static> BuildSchema for Option<T> {
             ]),
             unambiguous: Default::default(),
             repr: eure_document::data_model::VariantRepr::default(),
+            repr_explicit: false,
             deny_untagged: Default::default(),
         })
     }
@@ -410,6 +410,7 @@ impl<T: BuildSchema + 'static, E: BuildSchema + 'static> BuildSchema for Result<
             ]),
             unambiguous: Default::default(),
             repr: eure_document::data_model::VariantRepr::default(),
+            repr_explicit: false,
             deny_untagged: Default::default(),
         })
     }
@@ -426,6 +427,7 @@ impl<T: BuildSchema + 'static> BuildSchema for Vec<T> {
             unique: false,
             contains: None,
             binding_style: None,
+            prefer_inline: None,
         })
     }
 }

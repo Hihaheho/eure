@@ -377,7 +377,7 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
 mod tests {
     use super::*;
     use crate::{
-        ArraySchema, Bound, IntegerSchema, RecordFieldSchema, RecordSchema, TextSchema,
+        ArraySchema, Bound, IntegerSchema, RangeStyle, RecordFieldSchema, RecordSchema, TextSchema,
         UnionSchema, UnknownFieldsPolicy,
     };
     use eure_document::data_model::VariantRepr;
@@ -438,6 +438,7 @@ mod tests {
             min: Bound::Inclusive(BigInt::from(0)),
             max: Bound::Inclusive(BigInt::from(100)),
             multiple_of: None,
+            range_style: RangeStyle::default(),
         }));
 
         let doc = create_doc_with_primitive(PrimitiveValue::Integer(BigInt::from(50)));
@@ -474,6 +475,7 @@ mod tests {
             unique: false,
             contains: None,
             binding_style: None,
+            prefer_inline: None,
         });
 
         let mut doc = EureDocument::new();
@@ -577,6 +579,7 @@ mod tests {
             variants,
             unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged,
         });
 
@@ -613,6 +616,7 @@ mod tests {
             variants,
             unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged,
         });
 
@@ -656,6 +660,7 @@ mod tests {
             variants,
             unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged,
         });
 

@@ -376,8 +376,8 @@ impl std::fmt::Display for ScenarioError {
             ScenarioError::SchemaRoundtripMismatch {
                 original_source,
                 formatted_source,
-                original_doc,
-                formatted_doc,
+                original_doc: _,
+                formatted_doc: _,
             } => {
                 writeln!(f, "Schema roundtrip mismatch.")?;
                 writeln!(
@@ -386,8 +386,8 @@ impl std::fmt::Display for ScenarioError {
                 )?;
                 writeln!(f, "\nOriginal source:\n{}", original_source)?;
                 writeln!(f, "\nFormatted source:\n{}", formatted_source)?;
-                writeln!(f, "\nOriginal doc:\n{}", original_doc)?;
-                writeln!(f, "\nFormatted doc:\n{}", formatted_doc)?;
+                // Note: Debug output of EureDocument is omitted for readability.
+                // The source diff above should be sufficient for investigation.
                 Ok(())
             }
             ScenarioError::CanonicalSchemaMismatch { expected, actual } => {

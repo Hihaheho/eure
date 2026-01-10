@@ -450,6 +450,7 @@ impl Case {
             if self.data.schema_conversion_error.is_none() {
                 scenarios.push(Scenario::SchemaRoundtrip(SchemaRoundtripScenario {
                     schema: Self::resolve_path(schema, SCHEMA_PATH),
+                    mode: self.data.schema_roundtrip_mode,
                 }));
             }
 

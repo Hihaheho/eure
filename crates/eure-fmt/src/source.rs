@@ -207,13 +207,54 @@ impl<'a> SourceDocBuilder<'a> {
 
     fn build_value(&self, node_id: NodeId) -> Doc {
         let node = self.doc.node(node_id);
+
+        // Check if node has extensions - if so, wrap in object syntax: { = value, $ext => ... }
+        if !node.extensions.is_empty() {
+            return self.build_value_with_extensions(node_id);
+        }
+
         match &node.content {
             NodeValue::Hole(_) => Doc::text("null"),
             NodeValue::Primitive(prim) => self.build_primitive(prim),
             NodeValue::Array(arr) => self.build_array(node_id, arr),
             NodeValue::Tuple(tuple) => self.build_tuple(tuple),
-            NodeValue::Map(map) => self.build_map(map),
+            NodeValue::Map(map) => self.build_map(node_id, map),
         }
+    }
+
+    /// Build a value that has extensions using object syntax: { = value, $ext => ext_value, ... }
+    fn build_value_with_extensions(&self, node_id: NodeId) -> Doc {
+        let node = self.doc.node(node_id);
+
+        // Build the root value
+        let root_value = match &node.content {
+            NodeValue::Hole(_) => Doc::text("null"),
+            NodeValue::Primitive(prim) => self.build_primitive(prim),
+            NodeValue::Array(arr) => self.build_array(node_id, arr),
+            NodeValue::Tuple(tuple) => self.build_tuple(tuple),
+            NodeValue::Map(map) => {
+                // For maps, merge extensions into the map entries
+                return self.build_map(node_id, map);
+            }
+        };
+
+        // Build: { = value, $ext1 => v1, $ext2 => v2, ... }
+        let mut parts = Vec::new();
+
+        // Add the root value binding: = value
+        parts.push(Doc::text("= ").concat(root_value));
+
+        // Add extension entries: $ext => value
+        for (ident, &ext_id) in &node.extensions {
+            let ext_doc = Doc::text("$")
+                .concat(Doc::text(ident.as_ref()))
+                .concat(Doc::text(" => "))
+                .concat(self.build_value(ext_id));
+            parts.push(ext_doc);
+        }
+
+        let entries = Doc::join(parts, Doc::text(", "));
+        Doc::text("{ ").concat(entries).concat(Doc::text(" }"))
     }
 
     fn build_primitive(&self, prim: &PrimitiveValue) -> Doc {
@@ -430,19 +471,29 @@ impl<'a> SourceDocBuilder<'a> {
         Doc::text("(").concat(elements).concat(Doc::text(")"))
     }
 
-    fn build_map(&self, map: &NodeMap) -> Doc {
-        if map.is_empty() {
+    fn build_map(&self, node_id: NodeId, map: &NodeMap) -> Doc {
+        let node = self.doc.node(node_id);
+
+        if map.is_empty() && node.extensions.is_empty() {
             return Doc::text("{}");
         }
 
-        let entries = Doc::join(
-            map.iter().map(|(key, &child_id)| {
-                self.build_object_key(key)
-                    .concat(Doc::text(" => "))
-                    .concat(self.build_value(child_id))
-            }),
-            Doc::text(", "),
-        );
+        // Build extension entries first (e.g., $variant => "text")
+        let ext_entries = node.extensions.iter().map(|(ident, &ext_id)| {
+            Doc::text("$")
+                .concat(Doc::text(ident.as_ref()))
+                .concat(Doc::text(" => "))
+                .concat(self.build_value(ext_id))
+        });
+
+        // Build regular map entries
+        let map_entries = map.iter().map(|(key, &child_id)| {
+            self.build_object_key(key)
+                .concat(Doc::text(" => "))
+                .concat(self.build_value(child_id))
+        });
+
+        let entries = Doc::join(ext_entries.chain(map_entries), Doc::text(", "));
 
         Doc::text("{ ").concat(entries).concat(Doc::text(" }"))
     }

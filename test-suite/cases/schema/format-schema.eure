@@ -46,6 +46,6 @@ $types.username = `text`
 name = `$types.username`
 ```
 formatted_schema = ```eure
-$types.username = `text`
 name = `$types.username`
+$types.username = `text`
 ```

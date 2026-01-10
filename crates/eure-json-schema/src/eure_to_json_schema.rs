@@ -814,6 +814,7 @@ mod tests {
             min: Bound::Inclusive(0.into()),
             max: Bound::Exclusive(100.into()),
             multiple_of: None,
+            range_style: Default::default(),
         }));
 
         let result = eure_to_json_schema(&doc).unwrap();
@@ -885,6 +886,7 @@ mod tests {
             variants,
             unambiguous: Default::default(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged: Default::default(),
         }));
 
@@ -912,6 +914,7 @@ mod tests {
             variants,
             unambiguous: Default::default(),
             repr: VariantRepr::External,
+            repr_explicit: false,
             deny_untagged: Default::default(),
         }));
 

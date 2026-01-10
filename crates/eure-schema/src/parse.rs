@@ -22,6 +22,7 @@ use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use eure_macros::ParseDocument;
 use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 
@@ -149,6 +150,9 @@ pub struct ParsedArraySchema {
     /// Binding style for formatting
     #[eure(ext, default)]
     pub binding_style: Option<BindingStyle>,
+    /// Whether to prefer inline/shorthand syntax (set during parsing, not from document)
+    #[eure(default)]
+    pub prefer_inline: Option<bool>,
 }
 
 /// Parsed map schema with NodeId references.
@@ -282,6 +286,8 @@ pub struct ParsedUnionSchema {
     pub unambiguous: IndexSet<String>,
     /// Variant representation strategy
     pub repr: VariantRepr,
+    /// Whether repr was explicitly specified in the source
+    pub repr_explicit: bool,
     /// Variants that deny untagged matching (require explicit $variant)
     pub deny_untagged: IndexSet<String>,
 }
@@ -318,15 +324,16 @@ impl ParseDocument<'_> for ParsedUnionSchema {
 
         rec.allow_unknown_fields()?;
 
-        // Parse $variant-repr extension
-        let repr = ctx
-            .parse_ext_optional::<VariantRepr>("variant-repr")?
-            .unwrap_or_default();
+        // Parse $variant-repr extension - track if it was explicitly specified
+        let repr_opt = ctx.parse_ext_optional::<VariantRepr>("variant-repr")?;
+        let repr_explicit = repr_opt.is_some();
+        let repr = repr_opt.unwrap_or_default();
 
         Ok(ParsedUnionSchema {
             variants,
             unambiguous,
             repr,
+            repr_explicit,
             deny_untagged,
         })
     }
@@ -345,7 +352,8 @@ pub struct ParsedExtTypeSchema {
 }
 
 /// Parsed schema metadata - extension metadata via $ext-type on $types.type.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case", parse_ext)]
 pub struct ParsedSchemaMetadata {
     /// Documentation/description
     pub description: Option<Description>,
@@ -377,7 +385,8 @@ impl ParsedSchemaMetadata {
 }
 
 /// Parsed schema node content - the type definition with NodeId references.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
+#[eure(crate = eure_document, rename_all = "kebab-case")]
 pub enum ParsedSchemaNodeContent {
     /// Any type - accepts any valid Eure value
     Any,
@@ -408,13 +417,16 @@ pub enum ParsedSchemaNodeContent {
 }
 
 /// Parsed schema node - full syntactic representation of a schema node.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ParseDocument)]
 pub struct ParsedSchemaNode {
     /// The type definition content
+    #[eure(flatten)]
     pub content: ParsedSchemaNodeContent,
     /// Cascading metadata
+    #[eure(flatten)]
     pub metadata: ParsedSchemaMetadata,
     /// Extension type definitions for this node
+    #[eure(rename = "ext-type")]
     pub ext_types: IndexMap<Identifier, ParsedExtTypeSchema>,
 }
 
@@ -561,7 +573,11 @@ fn parse_map_as_schema(
         Some("boolean") => Ok(ParsedSchemaNodeContent::Boolean),
         Some("null") => Ok(ParsedSchemaNodeContent::Null),
         Some("any") => Ok(ParsedSchemaNodeContent::Any),
-        Some("array") => Ok(ParsedSchemaNodeContent::Array(ctx.parse()?)),
+        Some("array") => {
+            let mut array: ParsedArraySchema = ctx.parse()?;
+            array.prefer_inline = Some(false); // Explicit $variant = "array" syntax
+            Ok(ParsedSchemaNodeContent::Array(array))
+        }
         Some("map") => Ok(ParsedSchemaNodeContent::Map(ctx.parse()?)),
         Some("tuple") => Ok(ParsedSchemaNodeContent::Tuple(ctx.parse()?)),
         Some("union") => Ok(ParsedSchemaNodeContent::Union(ctx.parse()?)),
@@ -605,6 +621,7 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
                         unique: false,
                         contains: None,
                         binding_style: None,
+                        prefer_inline: Some(true), // Shorthand syntax used
                     }))
                 } else {
                     Err(ParseError {

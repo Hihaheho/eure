@@ -1,4 +1,5 @@
 // Test cases for array type schemas
+schema_roundtrip_mode = `schema`
 
 // ============================================================================
 // Valid Cases
@@ -131,6 +132,7 @@ note: constraint defined here
 // ============================================================================
 
 @ cases.contains-valid
+schema_roundtrip_mode = `schema`
 input_eure = ```eure
 items = [1, 2, 42, 3]
 ```
@@ -148,6 +150,7 @@ items {
 // ============================================================================
 
 @ cases.contains-missing
+schema_roundtrip_mode = `schema`
 input_eure = ```eure
 items = [1, 2, 3]
 ```

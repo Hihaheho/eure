@@ -23,7 +23,6 @@ a.$b = "from use-site"
 
 schema = ```eure
 $types.my-type = `text`
-
 a = `$types.my-type`
 a.$ext-type.b = `text`
 a.$ext-type.b.$optional = true

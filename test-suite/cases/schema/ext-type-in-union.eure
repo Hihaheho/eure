@@ -1,0 +1,26 @@
+// Test: ext_types on union should not be associated with variants
+// When a union has ext_types defined, they should stay on the union node,
+// not be inherited by variant nodes after roundtrip.
+schema_roundtrip_mode = `schema`
+
+schema = ```eure
+$types.my-union {
+  $variant = "union"
+
+  // Simple variant
+  variants.a = `text`
+
+  // Variant with its own ext_types (uses section format)
+  @ variants.b
+  $variant = "record"
+  name = `text`
+  $ext-type.variant-ext = `boolean`
+  $ext-type.variant-ext.$optional = true
+
+  // ext_type on the union itself (should NOT be on variants)
+  $ext-type.union-ext = `text`
+  $ext-type.union-ext.$optional = true
+}
+
+root = `$types.my-union`
+```

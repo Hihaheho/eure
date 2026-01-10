@@ -49,7 +49,7 @@ use crate::parse::{
 };
 use crate::{
     ArraySchema, Bound, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema, MapSchema,
-    RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent,
+    RangeStyle, RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent,
     SchemaNodeId, TupleSchema, UnionSchema, UnknownFieldsPolicy,
 };
 use eure_document::document::node::{Node, NodeValue};
@@ -232,16 +232,19 @@ impl<'a> Converter<'a> {
         &self,
         parsed: ParsedIntegerSchema,
     ) -> Result<IntegerSchema, ConversionError> {
-        let (min, max) = if let Some(range_str) = &parsed.range {
-            parse_integer_range(range_str)?
+        let (min, max, range_style) = if let Some(range_str) = &parsed.range {
+            let (min, max) = parse_integer_range(range_str)?;
+            let style = detect_range_style(range_str);
+            (min, max, style)
         } else {
-            (Bound::Unbounded, Bound::Unbounded)
+            (Bound::Unbounded, Bound::Unbounded, RangeStyle::default())
         };
 
         Ok(IntegerSchema {
             min,
             max,
             multiple_of: parsed.multiple_of,
+            range_style,
         })
     }
 
@@ -250,10 +253,12 @@ impl<'a> Converter<'a> {
         &self,
         parsed: ParsedFloatSchema,
     ) -> Result<FloatSchema, ConversionError> {
-        let (min, max) = if let Some(range_str) = &parsed.range {
-            parse_float_range(range_str)?
+        let (min, max, range_style) = if let Some(range_str) = &parsed.range {
+            let (min, max) = parse_float_range(range_str)?;
+            let style = detect_range_style(range_str);
+            (min, max, style)
         } else {
-            (Bound::Unbounded, Bound::Unbounded)
+            (Bound::Unbounded, Bound::Unbounded, RangeStyle::default())
         };
 
         let precision = match parsed.precision.as_deref() {
@@ -269,6 +274,7 @@ impl<'a> Converter<'a> {
             max,
             multiple_of: parsed.multiple_of,
             precision,
+            range_style,
         })
     }
 
@@ -290,6 +296,7 @@ impl<'a> Converter<'a> {
             unique: parsed.unique,
             contains,
             binding_style: parsed.binding_style,
+            prefer_inline: parsed.prefer_inline,
         })
     }
 
@@ -377,6 +384,7 @@ impl<'a> Converter<'a> {
             variants,
             unambiguous: parsed.unambiguous,
             repr: parsed.repr,
+            repr_explicit: parsed.repr_explicit,
             deny_untagged: parsed.deny_untagged,
         })
     }
@@ -687,6 +695,19 @@ fn parse_bigint(s: &str) -> Result<BigInt, ConversionError> {
 fn parse_f64(s: &str) -> Result<f64, ConversionError> {
     s.parse()
         .map_err(|_| ConversionError::InvalidRangeString(format!("Invalid float: {}", s)))
+}
+
+/// Detect the range notation style from a range string.
+///
+/// Interval notation starts with `[` or `(` and ends with `]` or `)`.
+/// Rust-style uses `..` notation.
+fn detect_range_style(s: &str) -> RangeStyle {
+    let s = s.trim();
+    if (s.starts_with('[') || s.starts_with('(')) && (s.ends_with(']') || s.ends_with(')')) {
+        RangeStyle::Interval
+    } else {
+        RangeStyle::Rust
+    }
 }
 
 /// Convert an EureDocument containing schema definitions to a SchemaDocument

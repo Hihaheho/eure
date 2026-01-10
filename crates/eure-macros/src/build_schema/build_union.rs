@@ -152,6 +152,7 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
             variants: [#(#variant_entries),*].into_iter().collect(),
             unambiguous: Default::default(),
             repr: ::eure_document::data_model::VariantRepr::default(),
+            repr_explicit: false,
             deny_untagged: Default::default(),
         })
     };

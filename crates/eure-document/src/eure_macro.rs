@@ -122,6 +122,10 @@ macro_rules! eure {
         c.finish()
     }};
 
+    ($ctx:ident; { $($body:tt)* }) => {{
+        $crate::eure!(@stmt $ctx; $($body)*);
+    }};
+
     // ========================================================================
     // Value conversion helper (@value_tt)
     //

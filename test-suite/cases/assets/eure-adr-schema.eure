@@ -9,3 +9,4 @@ consequences = `These are the consequences of the ADR`
 ```
 
 schema = path`assets/schemas/eure-adr.schema.eure`
+schema_roundtrip_mode = `schema`

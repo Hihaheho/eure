@@ -1,2 +1,3 @@
 input_eure = path`assets/schemas/eure-schema.schema.eure`
 schema = path`assets/schemas/eure-schema.schema.eure`
+schema_roundtrip_mode = `schema`
