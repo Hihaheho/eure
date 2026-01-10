@@ -4,6 +4,9 @@
 # It is NOT intended as a build system, task runner, or CI configuration.
 # Please do not extend it for other purposes.
 
+# Disable incremental compilation to prevent cache bloat
+export CARGO_INCREMENTAL=0
+
 .PHONY: check clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eure-check
 
 check: clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eure-check
