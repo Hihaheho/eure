@@ -156,7 +156,7 @@ impl<'a> CstInterpreter<'a> {
         let language = if lang.is_empty() {
             Language::Implicit
         } else {
-            Language::new(lang)
+            Language::new(lang.to_string())
         };
         Ok((language, content.to_string()))
     }
@@ -173,7 +173,7 @@ impl<'a> CstInterpreter<'a> {
         let language = if lang.is_empty() {
             Language::Implicit
         } else {
-            Language::new(lang)
+            Language::new(lang.to_string())
         };
         Ok(language)
     }
@@ -190,7 +190,7 @@ impl<'a> CstInterpreter<'a> {
         let language = if lang.is_empty() {
             Language::Implicit
         } else {
-            Language::new(lang)
+            Language::new(lang.to_string())
         };
         Ok(language)
     }
@@ -1373,7 +1373,7 @@ mod tests {
             let result = CstInterpreter::parse_inline_code_1("rust`fn main() {}`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
-            assert_eq!(language, Language::Other("rust".to_string()));
+            assert_eq!(language, Language::Other("rust".into()));
             assert_eq!(content, "fn main() {}");
         }
 
@@ -1400,7 +1400,7 @@ mod tests {
             let result = CstInterpreter::parse_inline_code_1("foo-bar_123`content`");
             assert!(result.is_ok());
             let (language, content) = result.unwrap();
-            assert_eq!(language, Language::Other("foo-bar_123".to_string()));
+            assert_eq!(language, Language::Other("foo-bar_123".into()));
             assert_eq!(content, "content");
         }
 
@@ -1440,14 +1440,14 @@ mod tests {
         fn test_with_language() {
             let result = CstInterpreter::parse_inline_code_start_2("rust``");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".into()));
         }
 
         #[test]
         fn test_with_complex_language() {
             let result = CstInterpreter::parse_inline_code_start_2("foo-bar_123``");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("foo-bar_123".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("foo-bar_123".into()));
         }
 
         #[test]
@@ -1478,35 +1478,35 @@ mod tests {
         fn test_with_language_3_backticks() {
             let result = CstInterpreter::parse_code_block_start("```rust\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".into()));
         }
 
         #[test]
         fn test_with_language_4_backticks() {
             let result = CstInterpreter::parse_code_block_start("````python\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("python".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("python".into()));
         }
 
         #[test]
         fn test_with_language_5_backticks() {
             let result = CstInterpreter::parse_code_block_start("`````javascript\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("javascript".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("javascript".into()));
         }
 
         #[test]
         fn test_with_language_6_backticks() {
             let result = CstInterpreter::parse_code_block_start("``````typescript\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("typescript".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("typescript".into()));
         }
 
         #[test]
         fn test_language_with_trailing_whitespace() {
             let result = CstInterpreter::parse_code_block_start("```rust  \n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".into()));
         }
 
         #[test]
@@ -1525,14 +1525,14 @@ mod tests {
         fn test_language_with_carriage_return() {
             let result = CstInterpreter::parse_code_block_start("```rust\r\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".into()));
         }
 
         #[test]
         fn test_language_with_only_carriage_return() {
             let result = CstInterpreter::parse_code_block_start("```rust\r");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("rust".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("rust".into()));
         }
 
         #[test]
@@ -1556,7 +1556,7 @@ mod tests {
         fn test_complex_language_tag() {
             let result = CstInterpreter::parse_code_block_start("```foo-bar_123\n");
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), Language::Other("foo-bar_123".to_string()));
+            assert_eq!(result.unwrap(), Language::Other("foo-bar_123".into()));
         }
     }
 

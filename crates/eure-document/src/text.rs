@@ -46,7 +46,7 @@ pub enum Language {
     /// Explicit language tag (from `` lang`...` `` syntax).
     ///
     /// The string contains the language identifier (e.g., "rust", "sql", "email").
-    Other(String),
+    Other(Cow<'static, str>),
 }
 
 impl Language {
@@ -57,7 +57,7 @@ impl Language {
     ///
     /// Note: This does NOT produce [`Implicit`](Language::Implicit). Use `Language::Implicit`
     /// directly when parsing code syntax without a language tag.
-    pub fn new(s: impl Into<String>) -> Self {
+    pub fn new(s: impl Into<Cow<'static, str>>) -> Self {
         let s = s.into();
         if s == "plaintext" || s.is_empty() {
             Language::Plaintext
@@ -71,7 +71,7 @@ impl Language {
         match self {
             Language::Plaintext => Some("plaintext"),
             Language::Implicit => None,
-            Language::Other(s) => Some(s),
+            Language::Other(s) => Some(s.as_ref()),
         }
     }
 
@@ -245,7 +245,7 @@ impl Text {
     }
 
     /// Create an inline code value with explicit language (from `` lang`...` `` syntax).
-    pub fn inline(content: impl Into<String>, language: impl Into<String>) -> Self {
+    pub fn inline(content: impl Into<String>, language: impl Into<Cow<'static, str>>) -> Self {
         Self {
             content: content.into(),
             language: Language::new(language),
@@ -267,7 +267,7 @@ impl Text {
     }
 
     /// Create a block code value with explicit language.
-    pub fn block(content: impl Into<String>, language: impl Into<String>) -> Self {
+    pub fn block(content: impl Into<String>, language: impl Into<Cow<'static, str>>) -> Self {
         let mut content = content.into();
         if !content.ends_with('\n') {
             content.push('\n');
@@ -282,7 +282,7 @@ impl Text {
     /// Create a block code value without adding a trailing newline. This must be used only when performing convertion to eure from another data format.
     pub fn block_without_trailing_newline(
         content: impl Into<String>,
-        language: impl Into<String>,
+        language: impl Into<Cow<'static, str>>,
     ) -> Self {
         Self {
             content: content.into(),

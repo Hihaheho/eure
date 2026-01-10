@@ -482,10 +482,7 @@ impl<'a> TomlParserConverter<'a> {
                     // Date only
                     "date"
                 };
-                PrimitiveValue::Text(Text::new(
-                    value.to_string(),
-                    Language::Other(lang.to_string()),
-                ))
+                PrimitiveValue::Text(Text::new(value.to_string(), Language::Other(lang.into())))
             }
         }
     }
