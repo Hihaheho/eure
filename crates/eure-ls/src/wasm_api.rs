@@ -440,13 +440,16 @@ impl WasmCore {
 
         match method {
             Initialize::METHOD => {
-                let _params: InitializeParams = match serde_json::from_value(params) {
+                let params: InitializeParams = match serde_json::from_value(params) {
                     Ok(p) => p,
                     Err(e) => {
                         self.send_error(id, -32602, &format!("Invalid params: {}", e));
                         return;
                     }
                 };
+
+                // Register workspaces from initialization
+                crate::register_workspaces_from_init(&mut self.runtime, &params);
 
                 let result = InitializeResult {
                     capabilities: server_capabilities(),

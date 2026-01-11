@@ -44,13 +44,16 @@ fn main() -> Result<()> {
     // Initialize LSP
     let server_capabilities = serde_json::to_value(server_capabilities())?;
     let init_params = connection.initialize(server_capabilities)?;
-    let _init_params: InitializeParams = serde_json::from_value(init_params)?;
+    let init_params: InitializeParams = serde_json::from_value(init_params)?;
 
     info!("Eure Language Server initialized");
 
     // Create components
     let io_pool = IoPool::new(4);
     let mut executor = QueryExecutor::new(io_pool);
+
+    // Register workspaces from initialization
+    executor.register_workspaces_from_init(&init_params);
 
     // Track open documents and their content (keyed by URI string)
     let mut documents: HashMap<String, String> = HashMap::new();

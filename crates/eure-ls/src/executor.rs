@@ -6,7 +6,8 @@ use crossbeam_channel::Receiver;
 use eure::query::{Glob, GlobResult, TextFile, TextFileContent, build_runtime};
 use lsp_server::{Notification, RequestId, Response};
 use lsp_types::{
-    Diagnostic, PublishDiagnosticsParams, SemanticTokens, notification::PublishDiagnostics,
+    Diagnostic, InitializeParams, PublishDiagnosticsParams, SemanticTokens,
+    notification::PublishDiagnostics,
 };
 use query_flow::{DurabilityLevel, QueryError, QueryRuntime, RevisionCounter};
 use tracing::{info, warn};
@@ -315,6 +316,11 @@ impl QueryExecutor {
     pub fn resolve_open_document(&mut self, file: TextFile, content: String) {
         self.runtime
             .resolve_asset(file, TextFileContent(content), DurabilityLevel::Volatile);
+    }
+
+    /// Register workspaces from LSP initialization parameters.
+    pub fn register_workspaces_from_init(&mut self, params: &InitializeParams) {
+        eure_ls::register_workspaces_from_init(&mut self.runtime, params);
     }
 
     /// Invalidate a file (e.g., when it's closed or changed externally).
