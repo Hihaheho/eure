@@ -1,7 +1,7 @@
 title: Query System Wins
 
-@ `#`.`Introduction` {
-  @ `##`.`What's query system?` {
+@ '# Introduction' {
+  @ <'## What's query system?'> {
     body = ```markdown
     In this article, "query system" is defined as follows.
     > A query system is a design pattern for building a language processing system that, instead of sequentially processing the input to output as traditional multi-stage pipeline, it allows you to compose the processing steps into queries that can fetch inputs and call other queries.
@@ -13,14 +13,63 @@ title: Query System Wins
     ```
   }
 
-  @ `##`.`What are the benefits of query system?` {
+  @ <'## What are the benefits of query system?'> {
     body = ```markdown
     The benefits of query systems vary depending on their implementation, but typically include:
     - **Modularity**: You can compose processing steps as queries that have a **single responsibility** by calling other queries.
-    - **Stateless**: You don't need to manage state across processing steps. Each query can be written as a pure function that takes inputs and returns outputs.
-    - **Incremental**: Query outputs can be cached and reused, with automatic invalidation when inputs change.
     - **Consistency**: Within a query execution, all subqueries operate on the same consistent snapshot of input data.
     ```
   }
 
+  @ <'## What's Eure language'> {
+    body = ```markdown
+    Eure language is a minimalist, schema-friendly data format designed for representing rich data models in a human-readable and programmatically editable way.
+
+    Since it's "data format" and not "programming language", it differs from normal programming language compilers but it shares the same or similar parts with them:
+    - Lexer and Parser
+    - AST and CST
+    - AST to IR conversion
+    - Type checking
+    - Formatting
+    - Error reporting
+    - LSP Server
+    - Test Suite of the language
+    - CLI tool
+    - Web Playground
+    ```
+  }
 }
+
+@ '# Why migrate to query system?' {}
+@ '# Designing `query-flow`' {
+  @ '## Why not salsa-rs?' {
+    body = ```markdown
+    Salsa-rs is an incremental computation library for Rust that provides sophisticated caching and dependency tracking. It's battle-tested in large projects like rust-analyzer, where it efficiently handles complex scenarios.
+
+    That said, for short: I'm not smart enough to leverage salsa's full potential.
+
+    I was the user of salsa-rs before so-called ["Salsa 2022"](https://github.com/salsa-rs/salsa/issues/305). The only concern I had was it does not fit in my brain, and the direction of "Salsa 2022" would not ease my pain. So I planned to create my own one since the beginning of 2023.
+
+    > Disclaimer:
+    > I did not try "Salsa 2022" yet.
+
+    Reasons why I chose to build my own solution instead:
+    - The extensive macro system, while powerful, made code expansion unpredictable and harder to debug in my development workflow.
+    - For my project's scale and complexity, I needed simpler APIs that I could quickly understand and maintain without deep expertise.
+    - While salsa-rs excels at handling extreme performance scenarios like those in rust-analyzer, my use case involves more straightforward incremental computations where the full power of salsa-rs wasn't necessary.
+    ```
+  }
+  @ '## Design goals of `query-flow`?' {
+    body = ```markdown
+    - **Intuitive**: Easy to understand and few concepts to learn.
+    - **No magic**: Macro expansion is predictable and straightforward.
+    - **Flexible**: User can use queries defined in other crates as building blocks.
+    - **Runtime-free**: User can write sync query logic with suspense pattern, works with any event loop or async runtime.
+    - **`Send` and `Sync` Lock-free API**: Concurrent access from multiple threads.
+    ```
+  }
+}
+@ '# How to migrate to query system?' {}
+@ '# One downside: AI does not familiar with query system' {
+}
+@ <'# What's the next steps?'> {}
