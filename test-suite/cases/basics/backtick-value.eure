@@ -1,0 +1,87 @@
+// Test: Backtick strings as inline code values
+// Backtick strings without language prefix are valid inline code values
+
+// Simple backtick value
+input_eure = ```eure
+code = `hello world`
+```
+
+normalized = ```eure
+= { code => `hello world` }
+```
+
+output_json = json`{ "code": "hello world" }`
+
+// Backtick value with special characters
+@ cases.special-chars
+input_eure = ```eure
+expr = `x > 0 && y < 10`
+```
+
+normalized = ```eure
+= { expr => `x > 0 && y < 10` }
+```
+
+output_json = json`{ "expr": "x > 0 && y < 10" }`
+
+// Backtick value with quotes
+@ cases.with-quotes
+input_eure = ```eure
+msg = `Say "hello" to 'world'`
+```
+
+normalized = ```eure
+= { msg => `Say "hello" to 'world'` }
+```
+
+output_json = json`{ "msg": "Say \"hello\" to 'world'" }`
+
+// Multiple backtick values
+@ cases.multiple-values
+input_eure = ```eure
+a = `first`
+b = `second`
+c = `third`
+```
+
+normalized = ```eure
+= { a => `first`, b => `second`, c => `third` }
+```
+
+output_json = json`{ "a": "first", "b": "second", "c": "third" }`
+
+// Empty backtick value
+@ cases.empty-value
+input_eure = ```eure
+empty = ``
+```
+
+normalized = ```eure
+= { empty => `` }
+```
+
+output_json = json`{ "empty": "" }`
+
+// Backtick value in array
+@ cases.in-array
+input_eure = ```eure
+items = [`one`, `two`, `three`]
+```
+
+normalized = ```eure
+= { items => [`one`, `two`, `three`] }
+```
+
+output_json = json`{ "items": ["one", "two", "three"] }`
+
+// Inline code with language prefix (requires 1+ chars now)
+@ cases.with-language
+input_eure = ```eure
+sql = sql`SELECT * FROM users`
+```
+
+normalized = ```eure
+= { sql => sql`SELECT * FROM users` }
+```
+
+output_json = json`{ "sql": "SELECT * FROM users" }`

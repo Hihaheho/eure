@@ -769,6 +769,54 @@ pub struct Backtick5View {
 }
 impl Backtick5View {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BacktickStrHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for BacktickStrHandle {
+    type View = BacktickStrView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::BacktickStr)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::BacktickStr
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        tree.collect_nodes(
+            self.0,
+            [NodeKind::Terminal(TerminalKind::BacktickStr)],
+            |[backtick_str], visit_ignored| {
+                Ok(visit(
+                    BacktickStrView {
+                        backtick_str: BacktickStr(backtick_str),
+                    },
+                    visit_ignored,
+                ))
+            },
+            visit_ignored,
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BacktickStrView {
+    pub backtick_str: BacktickStr,
+}
+impl BacktickStrView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BeginHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for BeginHandle {
     type View = BeginView;
@@ -3140,6 +3188,9 @@ impl NonTerminalHandle for InlineCodeHandle {
             return Err(ViewConstructionError::NodeIdNotFound { node: child });
         };
         let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::BacktickStr) => {
+                InlineCodeView::BacktickStr(BacktickStrHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::InlineCode2) => {
                 InlineCodeView::InlineCode2(InlineCode2Handle(child))
             }
@@ -3163,6 +3214,7 @@ impl NonTerminalHandle for InlineCodeHandle {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InlineCodeView {
+    BacktickStr(BacktickStrHandle),
     InlineCode2(InlineCode2Handle),
     InlineCode1(InlineCode1Handle),
 }
@@ -3658,6 +3710,9 @@ impl NonTerminalHandle for KeyBaseHandle {
                 KeyBaseView::ExtensionNameSpace(ExtensionNameSpaceHandle(child))
             }
             NodeKind::NonTerminal(NonTerminalKind::Str) => KeyBaseView::Str(StrHandle(child)),
+            NodeKind::NonTerminal(NonTerminalKind::BacktickStr) => {
+                KeyBaseView::BacktickStr(BacktickStrHandle(child))
+            }
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 KeyBaseView::Integer(IntegerHandle(child))
             }
@@ -3687,6 +3742,7 @@ pub enum KeyBaseView {
     KeyIdent(KeyIdentHandle),
     ExtensionNameSpace(ExtensionNameSpaceHandle),
     Str(StrHandle),
+    BacktickStr(BacktickStrHandle),
     Integer(IntegerHandle),
     KeyTuple(KeyTupleHandle),
     TupleIndex(TupleIndexHandle),
@@ -6504,6 +6560,16 @@ impl TerminalHandle for Text {
     }
     fn kind(&self) -> TerminalKind {
         TerminalKind::Text
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BacktickStr(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for BacktickStr {
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn kind(&self) -> TerminalKind {
+        TerminalKind::BacktickStr
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

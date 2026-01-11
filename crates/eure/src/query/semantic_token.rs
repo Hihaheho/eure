@@ -318,7 +318,9 @@ impl<'a> SemanticTokenVisitor<'a> {
             }
 
             // Strings
-            TerminalKind::Str | TerminalKind::Text => Some(SemanticTokenType::String),
+            TerminalKind::Str | TerminalKind::Text | TerminalKind::BacktickStr => {
+                Some(SemanticTokenType::String)
+            }
 
             // Comments
             TerminalKind::LineComment | TerminalKind::BlockComment => {

@@ -266,12 +266,41 @@ impl SourcePathSegment {
         self.array = Some(Some(index));
         self
     }
+
+    /// Create a quoted string segment without array marker.
+    pub fn quoted_string(s: impl Into<String>) -> Self {
+        Self {
+            key: SourceKey::quoted(s),
+            array: None,
+        }
+    }
+
+    /// Create a backtick string segment without array marker.
+    pub fn backtick_string(s: impl Into<String>) -> Self {
+        Self {
+            key: SourceKey::backtick(s),
+            array: None,
+        }
+    }
+}
+
+/// Syntax style for string keys (for round-trip formatting).
+///
+/// This preserves whether a string key was written with quotes or backticks,
+/// similar to how `SyntaxHint` preserves code block formatting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StringStyle {
+    /// Quoted string: `"..."`
+    #[default]
+    Quoted,
+    /// Backtick string: `` `...` ``
+    Backtick,
 }
 
 /// A key in source representation.
 ///
 /// This determines how the key should be rendered in the output.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum SourceKey {
     /// Bare identifier: `foo`, `bar_baz`
     Ident(Identifier),
@@ -279,8 +308,12 @@ pub enum SourceKey {
     /// Extension namespace: `$variant`, `$eure`
     Extension(Identifier),
 
-    /// Quoted string key: `"hello world"`
-    String(String),
+    /// String key with syntax style hint.
+    /// - `StringStyle::Quoted`: `"hello world"`
+    /// - `StringStyle::Backtick`: `` `hello world` ``
+    ///
+    /// Note: `PartialEq` ignores the style - only content matters for equality.
+    String(String, StringStyle),
 
     /// Integer key: `123`
     Integer(i64),
@@ -290,6 +323,35 @@ pub enum SourceKey {
 
     /// Tuple index: `#0`, `#1`
     TupleIndex(u8),
+}
+
+impl PartialEq for SourceKey {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Ident(a), Self::Ident(b)) => a == b,
+            (Self::Extension(a), Self::Extension(b)) => a == b,
+            // String equality ignores style hint - only content matters
+            (Self::String(a, _), Self::String(b, _)) => a == b,
+            (Self::Integer(a), Self::Integer(b)) => a == b,
+            (Self::Tuple(a), Self::Tuple(b)) => a == b,
+            (Self::TupleIndex(a), Self::TupleIndex(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for SourceKey {}
+
+impl SourceKey {
+    /// Create a quoted string key: `"..."`
+    pub fn quoted(s: impl Into<String>) -> Self {
+        SourceKey::String(s.into(), StringStyle::Quoted)
+    }
+
+    /// Create a backtick string key: `` `...` ``
+    pub fn backtick(s: impl Into<String>) -> Self {
+        SourceKey::String(s.into(), StringStyle::Backtick)
+    }
 }
 
 impl From<Identifier> for SourceKey {

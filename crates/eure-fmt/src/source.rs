@@ -14,7 +14,7 @@ use eure_document::document::node::{NodeArray, NodeMap, NodeTuple, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::source::{
     ArrayElementSource, BindSource, BindingSource, Comment, EureSource, SectionBody, SectionSource,
-    SourceDocument, SourceId, SourceKey, SourcePathSegment, Trivia,
+    SourceDocument, SourceId, SourceKey, SourcePathSegment, StringStyle, Trivia,
 };
 use eure_document::text::{Language, SyntaxHint};
 use eure_document::value::{ObjectKey, PrimitiveValue};
@@ -281,9 +281,14 @@ impl<'a> SourceDocBuilder<'a> {
         match key {
             SourceKey::Ident(s) => Doc::text(s.as_ref()),
             SourceKey::Extension(s) => Doc::text("$").concat(Doc::text(s.as_ref())),
-            SourceKey::String(s) => Doc::text("\"")
-                .concat(Doc::text(escape_string(s)))
-                .concat(Doc::text("\"")),
+            SourceKey::String(s, style) => match style {
+                StringStyle::Quoted => Doc::text("\"")
+                    .concat(Doc::text(escape_string(s)))
+                    .concat(Doc::text("\"")),
+                StringStyle::Backtick => Doc::text("`")
+                    .concat(Doc::text(s.clone()))
+                    .concat(Doc::text("`")),
+            },
             SourceKey::Integer(n) => Doc::text(n.to_string()),
             SourceKey::Tuple(keys) => {
                 let inner = Doc::join(keys.iter().map(|k| self.build_key(k)), Doc::text(", "));

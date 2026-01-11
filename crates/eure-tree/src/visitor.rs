@@ -134,6 +134,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_backtick_5_super(handle, view, tree)
     }
+    fn visit_backtick_str(
+        &mut self,
+        handle: BacktickStrHandle,
+        view: BacktickStrView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_backtick_str_super(handle, view, tree)
+    }
     fn visit_begin(
         &mut self,
         handle: BeginHandle,
@@ -1035,6 +1043,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_text_terminal_super(terminal, data, tree)
     }
+    fn visit_backtick_str_terminal(
+        &mut self,
+        terminal: BacktickStr,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_backtick_str_terminal_super(terminal, data, tree)
+    }
     fn visit_inline_code_1_terminal(
         &mut self,
         terminal: InlineCode1,
@@ -1477,6 +1493,13 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: Backtick5Handle,
         view: Backtick5View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_backtick_str_handle(&mut self, handle: BacktickStrHandle, tree: &F) -> Result<(), E>;
+    fn visit_backtick_str_super(
+        &mut self,
+        handle: BacktickStrHandle,
+        view: BacktickStrView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_begin_handle(&mut self, handle: BeginHandle, tree: &F) -> Result<(), E>;
@@ -2346,6 +2369,12 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_text_terminal_super(
         &mut self,
         terminal: Text,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_backtick_str_terminal_super(
+        &mut self,
+        terminal: BacktickStr,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -3230,6 +3259,46 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_backtick_5(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_backtick_str_handle(
+        &mut self,
+        handle: BacktickStrHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_backtick_str(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -7681,6 +7750,29 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_backtick_5_terminal(backtick_5, data, tree)?;
         Ok(())
     }
+    fn visit_backtick_str_super(
+        &mut self,
+        handle: BacktickStrHandle,
+        view_param: BacktickStrView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let BacktickStrView { backtick_str } = view_param;
+        let data = match backtick_str.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    backtick_str.0,
+                    NodeKind::Terminal(backtick_str.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_backtick_str_terminal(backtick_str, data, tree)?;
+        Ok(())
+    }
     fn visit_begin_super(
         &mut self,
         handle: BeginHandle,
@@ -8509,6 +8601,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     ) -> Result<(), V::Error> {
         let _handle = handle;
         match view_param {
+            InlineCodeView::BacktickStr(item) => {
+                self.visit_backtick_str_handle(item, tree)?;
+            }
             InlineCodeView::InlineCode2(item) => {
                 self.visit_inline_code_2_handle(item, tree)?;
             }
@@ -8689,6 +8784,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
             KeyBaseView::Str(item) => {
                 self.visit_str_handle(item, tree)?;
+            }
+            KeyBaseView::BacktickStr(item) => {
+                self.visit_backtick_str_handle(item, tree)?;
             }
             KeyBaseView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
@@ -9695,6 +9793,15 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
+    fn visit_backtick_str_terminal_super(
+        &mut self,
+        terminal: BacktickStr,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
     fn visit_inline_code_1_terminal_super(
         &mut self,
         terminal: InlineCode1,
@@ -10115,6 +10222,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 NonTerminalKind::Backtick5 => {
                     let handle = Backtick5Handle(id);
                     self.visit_backtick_5_handle(handle, tree)?;
+                }
+                NonTerminalKind::BacktickStr => {
+                    let handle = BacktickStrHandle(id);
+                    self.visit_backtick_str_handle(handle, tree)?;
                 }
                 NonTerminalKind::Begin => {
                     let handle = BeginHandle(id);
@@ -10585,6 +10696,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 TerminalKind::Text => {
                     let terminal = Text(id);
                     self.visit_text_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::BacktickStr => {
+                    let terminal = BacktickStr(id);
+                    self.visit_backtick_str_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::InlineCode1 => {
                     let terminal = InlineCode1(id);

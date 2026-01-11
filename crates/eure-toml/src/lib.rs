@@ -279,7 +279,7 @@ impl<'a> TomlParserConverter<'a> {
         match key.parse::<Identifier>() {
             Ok(id) => (SourceKey::Ident(id.clone()), PathSegment::Ident(id)),
             Err(_) => (
-                SourceKey::String(key.to_string()),
+                SourceKey::quoted(key.to_string()),
                 PathSegment::Value(ObjectKey::String(key.to_string())),
             ),
         }
@@ -522,7 +522,7 @@ impl<'a> EventReceiver for TomlParserConverter<'a> {
         for seg in &path {
             let path_seg = match &seg.key {
                 SourceKey::Ident(id) => PathSegment::Ident(id.clone()),
-                SourceKey::String(s) => PathSegment::Value(ObjectKey::String(s.clone())),
+                SourceKey::String(s, _) => PathSegment::Value(ObjectKey::String(s.clone())),
                 _ => continue,
             };
             self.constructor

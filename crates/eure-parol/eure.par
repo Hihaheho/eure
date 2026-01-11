@@ -37,7 +37,7 @@ Section: At Keys SectionBody ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: KeyIdent | ExtensionNameSpace | Str | Integer | KeyTuple | TupleIndex ;
+  KeyBase: KeyIdent | ExtensionNameSpace | Str | BacktickStr | Integer | KeyTuple | TupleIndex ;
   TupleIndex: '#' Integer ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext KeyIdent ;
@@ -80,8 +80,11 @@ Str: /"([^"]|\\")*"/ ;
 // No escape character in text
 Text: <Text>/[^\r\n]*/ ;
 
-InlineCode: InlineCode2 | InlineCode1 ;
-InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/ ;
+InlineCode: BacktickStr | InlineCode2 | InlineCode1 ;
+// Backtick string without language prefix (used in keys and as inline code value)
+BacktickStr: /`[^`\r\n]*`/ ;
+// InlineCode1 REQUIRES language prefix (1+ chars before backtick)
+InlineCode1: /[a-zA-Z0-9-_]+`[^`\r\n]*`/ ;
 InlineCode2: InlineCodeStart2 { NoBacktickInline | Backtick1 } InlineCodeEnd2;
 
 CodeBlock: CodeBlock3 | CodeBlock4 | CodeBlock5 | CodeBlock6;

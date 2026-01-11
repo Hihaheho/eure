@@ -538,6 +538,22 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     Some((object_key, str_handle.node_id())),
                 )
             }
+            KeyBaseView::BacktickStr(handle) => {
+                let view = handle.get_view(tree)?;
+                let token = self.get_terminal_str(tree, view.backtick_str)?;
+                // Strip surrounding backticks: `content` -> content
+                let content = token
+                    .strip_prefix('`')
+                    .and_then(|s| s.strip_suffix('`'))
+                    .ok_or_else(|| DocumentConstructionError::InvalidBacktickStr {
+                        node_id: handle.node_id(),
+                    })?;
+                let object_key = ObjectKey::String(content.to_string());
+                (
+                    PathSegment::Value(object_key.clone()),
+                    Some((object_key, handle.node_id())),
+                )
+            }
             KeyBaseView::Integer(int_handle) => {
                 let int_view = int_handle.get_view(tree)?;
                 let str = self.get_terminal_str(tree, int_view.integer)?;
@@ -1017,6 +1033,36 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         let node_id = self.document.current_node_id();
         self.document
             .bind_hole(label)
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+            })?;
+        self.record_value(node_id, handle.node_id());
+        Ok(())
+    }
+
+    /// Handle BacktickStr when used as a Value (in InlineCode context).
+    /// When used in KeyBase context, it's handled directly in visit_key.
+    fn visit_backtick_str(
+        &mut self,
+        handle: BacktickStrHandle,
+        view: BacktickStrView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.backtick_str)?;
+        // Strip surrounding backticks: `content` -> content
+        let content = token_str
+            .strip_prefix('`')
+            .and_then(|s| s.strip_suffix('`'))
+            .ok_or_else(|| DocumentConstructionError::InvalidBacktickStr {
+                node_id: handle.node_id(),
+            })?;
+        // BacktickStr without language prefix uses Language::Implicit
+        let text =
+            Text::with_syntax_hint(content.to_string(), Language::Implicit, SyntaxHint::Inline1);
+        let node_id = self.document.current_node_id();
+        self.document
+            .bind_primitive(PrimitiveValue::Text(text))
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),

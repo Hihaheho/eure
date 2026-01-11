@@ -206,6 +206,23 @@ impl From<TextToken> for BuilderNodeId {
         token.node_id
     }
 }
+///Branded type for BacktickStr terminal
+#[derive(Debug, Clone)]
+pub struct BacktickStrToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl BacktickStrToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<BacktickStrToken> for BuilderNodeId {
+    fn from(token: BacktickStrToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for InlineCode1 terminal
 #[derive(Debug, Clone)]
 pub struct InlineCode1Token {
@@ -1053,6 +1070,23 @@ impl Backtick5Node {
 }
 impl From<Backtick5Node> for BuilderNodeId {
     fn from(node: Backtick5Node) -> Self {
+        node.node_id
+    }
+}
+///Branded type for BacktickStr non-terminal
+#[derive(Debug, Clone)]
+pub struct BacktickStrNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl BacktickStrNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<BacktickStrNode> for BuilderNodeId {
+    fn from(node: BacktickStrNode) -> Self {
         node.node_id
     }
 }
@@ -3006,6 +3040,18 @@ impl Backtick5Constructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct BacktickStrConstructor {
+    backtick_str: BacktickStrToken,
+}
+impl BacktickStrConstructor {
+    pub fn build(self) -> BacktickStrNode {
+        let mut builder = CstBuilder::new();
+        let backtick_str = builder.embed(self.backtick_str.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::BacktickStr, vec![backtick_str]);
+        BacktickStrNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct BeginConstructor {
     l_brace: LBraceToken,
 }
@@ -3656,6 +3702,7 @@ impl InfConstructor {
     }
 }
 pub enum InlineCodeConstructor {
+    BacktickStr(BacktickStrNode),
     InlineCode2(InlineCode2Node),
     InlineCode1(InlineCode1Node),
 }
@@ -3663,6 +3710,7 @@ impl InlineCodeConstructor {
     pub fn build(self) -> InlineCodeNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
+            Self::BacktickStr(node) => builder.embed(node.builder),
             Self::InlineCode2(node) => builder.embed(node.builder),
             Self::InlineCode1(node) => builder.embed(node.builder),
         };
@@ -3799,6 +3847,7 @@ pub enum KeyBaseConstructor {
     KeyIdent(KeyIdentNode),
     ExtensionNameSpace(ExtensionNameSpaceNode),
     Str(StrNode),
+    BacktickStr(BacktickStrNode),
     Integer(IntegerNode),
     KeyTuple(KeyTupleNode),
     TupleIndex(TupleIndexNode),
@@ -3810,6 +3859,7 @@ impl KeyBaseConstructor {
             Self::KeyIdent(node) => builder.embed(node.builder),
             Self::ExtensionNameSpace(node) => builder.embed(node.builder),
             Self::Str(node) => builder.embed(node.builder),
+            Self::BacktickStr(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
             Self::KeyTuple(node) => builder.embed(node.builder),
             Self::TupleIndex(node) => builder.embed(node.builder),
@@ -4690,6 +4740,11 @@ pub mod terminals {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::Text, value);
         TextToken { node_id, builder }
+    }
+    pub fn backtick_str() -> BacktickStrToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::BacktickStr, "");
+        BacktickStrToken { node_id, builder }
     }
     pub fn inline_code_1() -> InlineCode1Token {
         let mut builder = CstBuilder::new();

@@ -1,0 +1,104 @@
+// Test: Backtick string keys
+// Backtick-quoted strings can be used as keys, allowing special characters without escaping
+
+// Simple backtick key
+input_eure = ```eure
+`#` = 1
+```
+
+normalized = ```eure
+= { "#" => 1 }
+```
+
+output_json = json`{ "#": 1 }`
+
+// Backtick key with quotes inside
+@ cases.key-with-quotes
+input_eure = ```eure
+`What's "query?"` = "answer"
+```
+
+normalized = ```eure
+= { "What's \"query?\"" => "answer" }
+```
+
+output_json = json`{ "What's \"query?\"": "answer" }`
+
+// Multiple backtick keys in path
+@ cases.path-with-backtick-keys
+input_eure = ```eure
+`#`.`Introduction` = 1
+```
+
+normalized = ```eure
+= { "#" => { "Introduction" => 1 } }
+```
+
+output_json = json`{ "#": { "Introduction": 1 } }`
+
+// Backtick key in section
+@ cases.section-with-backtick-key
+input_eure = ```eure
+@ `#`.`What's this?`
+value = 42
+```
+
+normalized = ```eure
+= { "#" => { "What's this?" => { value => 42 } } }
+```
+
+output_json = json`{ "#": { "What's this?": { "value": 42 } } }`
+
+// Nested sections with backtick keys
+@ cases.nested-sections
+input_eure = ```eure
+@ `#` {
+  @ `##` {
+    content = "hello"
+  }
+}
+```
+
+normalized = ```eure
+= { "#" => { "##" => { content => "hello" } } }
+```
+
+output_json = json`{ "#": { "##": { "content": "hello" } } }`
+
+// Mixed regular and backtick keys
+@ cases.mixed-keys
+input_eure = ```eure
+regular = 1
+`special key` = 2
+"quoted" = 3
+```
+
+normalized = ```eure
+= { regular => 1, "special key" => 2, "quoted" => 3 }
+```
+
+output_json = json`{ "regular": 1, "special key": 2, "quoted": 3 }`
+
+// Backtick key with spaces
+@ cases.key-with-spaces
+input_eure = ```eure
+`key with spaces` = "value"
+```
+
+normalized = ```eure
+= { "key with spaces" => "value" }
+```
+
+output_json = json`{ "key with spaces": "value" }`
+
+// Empty backtick key
+@ cases.empty-key
+input_eure = ```eure
+`` = "empty key"
+```
+
+normalized = ```eure
+= { "" => "empty key" }
+```
+
+output_json = json`{ "": "empty key" }`

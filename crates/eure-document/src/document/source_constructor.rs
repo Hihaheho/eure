@@ -343,7 +343,7 @@ impl SourceConstructor {
                 if let Ok(id) = s.parse::<Identifier>() {
                     SourceKey::Ident(id)
                 } else {
-                    SourceKey::String(s.clone())
+                    SourceKey::quoted(s.clone())
                 }
             }
             ObjectKey::Number(n) => {
@@ -351,7 +351,7 @@ impl SourceConstructor {
                 if let Ok(n64) = i64::try_from(n) {
                     SourceKey::Integer(n64)
                 } else {
-                    SourceKey::String(n.to_string())
+                    SourceKey::quoted(n.to_string())
                 }
             }
             ObjectKey::Tuple(keys) => {

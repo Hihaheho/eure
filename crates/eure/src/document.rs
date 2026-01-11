@@ -146,6 +146,8 @@ pub enum DocumentConstructionError {
     EndScope(#[from] ScopeError),
     #[error("Failed to parse tuple index: {value}")]
     InvalidTupleIndex { node_id: CstNodeId, value: String },
+    #[error("Invalid backtick string at node {node_id:?}")]
+    InvalidBacktickStr { node_id: CstNodeId },
 }
 
 impl DocumentConstructionError {
