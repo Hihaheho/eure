@@ -28,6 +28,8 @@ make check
 ```bash
 cargo run -p eure-gen # Regenerate eure-parol and eure-tree based on @crates/eure-parol/eure.par
 cargo run --bin eure -- <commands> # Run eure CLI for validating file or conversion reasons.
+cargo run --bin eure -- check <file> # Validate a Eure file syntax and against schema.
+cargo run -p test-suite -- [--filter <filter>]# Run Eure test suite.
 ```
 
 ## Architecture
@@ -53,10 +55,12 @@ cargo run --bin eure -- <commands> # Run eure CLI for validating file or convers
 
 **Language Server (eure-ls):**
 Implements LSP for IDE integration with semantic tokens, diagnostics, and formatting support.
+`crates/eure-ls` is the main crate and `editors/vscode` is the user of the wasm module.
 
 **Development Notes:**
 - Refer @crates/eure-parol/eure.par to understand the latest grammar.
 - Refer EureDocument struct in crates/eure-document for understanding the data model.
+- Use module files named after their module (e.g., `foo.rs` instead of `foo/mod.rs`).
 
 **Testing Guidelines:**
 - Use `eure!` macro for both test input and expected documents
