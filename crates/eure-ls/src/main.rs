@@ -1,29 +1,13 @@
 //! Eure Language Server - LSP implementation for the Eure data format.
 
-pub mod executor;
 pub mod io_pool;
-pub mod types;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use crate::executor::QueryExecutor;
 use crate::io_pool::IoPool;
-use crate::types::CommandQuery;
 use anyhow::Result;
 use crossbeam_channel::select;
-use eure::query::TextFile;
-use eure_ls::{LspDiagnostics, LspSemanticTokens, server_capabilities};
-use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
-use lsp_types::{
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    InitializeParams, PublishDiagnosticsParams, SemanticTokensParams, Uri,
-    notification::{
-        DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification as _,
-        PublishDiagnostics,
-    },
-    request::{Request as _, SemanticTokensFullRequest},
-};
+use eure::query::{Glob, TextFile};
+use eure_ls::{CoreRequestId, Effect, LspCore, LspOutput};
+use lsp_server::{Connection, Message, Notification, Request, Response};
 use tracing::{error, info};
 
 fn main() -> Result<()> {
@@ -41,22 +25,21 @@ fn main() -> Result<()> {
     // Create LSP connection
     let (connection, io_threads) = Connection::stdio();
 
-    // Initialize LSP
-    let server_capabilities = serde_json::to_value(server_capabilities())?;
+    // Initialize LSP - this happens before we create LspCore because lsp-server
+    // handles the initialize handshake
+    let server_capabilities = serde_json::to_value(eure_ls::server_capabilities())?;
     let init_params = connection.initialize(server_capabilities)?;
-    let init_params: InitializeParams = serde_json::from_value(init_params)?;
+    let init_params: lsp_types::InitializeParams = serde_json::from_value(init_params)?;
 
     info!("Eure Language Server initialized");
 
     // Create components
     let io_pool = IoPool::new(4);
-    let mut executor = QueryExecutor::new(io_pool);
+    let mut core = LspCore::new();
 
     // Register workspaces from initialization
-    executor.register_workspaces_from_init(&init_params);
-
-    // Track open documents and their content (keyed by URI string)
-    let mut documents: HashMap<String, String> = HashMap::new();
+    eure_ls::register_workspaces_from_init(core.runtime_mut(), &init_params);
+    core.set_initialized();
 
     // Main event loop
     loop {
@@ -68,10 +51,10 @@ fn main() -> Result<()> {
                             info!("Shutdown requested");
                             break;
                         }
-                        handle_request(req, &connection, &mut executor, &documents);
+                        handle_request(req, &connection, &mut core, &io_pool);
                     }
                     Ok(Message::Notification(not)) => {
-                        handle_notification(not, &connection, &mut executor, &mut documents);
+                        handle_notification(not, &connection, &mut core, &io_pool);
                     }
                     Ok(Message::Response(_)) => {
                         // We don't send requests, so we shouldn't receive responses
@@ -82,33 +65,15 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            recv(executor.io_receiver()) -> response => {
+            recv(io_pool.receiver()) -> response => {
                 if let Ok(response) = response {
-                    match response.result {
-                        Ok(content) => {
-                            let (responses, notifications) = executor.on_asset_resolved(
-                                response.file,
-                                content,
-                                &documents,
-                            );
-                            for resp in responses {
-                                connection.sender.send(Message::Response(resp))?;
-                            }
-                            for notif in notifications {
-                                connection.sender.send(Message::Notification(notif))?;
-                            }
-                        }
-                        Err(e) => {
-                            let (responses, notifications) =
-                                executor.on_asset_error(response.file, e, &documents);
-                            for resp in responses {
-                                connection.sender.send(Message::Response(resp))?;
-                            }
-                            for notif in notifications {
-                                connection.sender.send(Message::Notification(notif))?;
-                            }
-                        }
-                    }
+                    let result = match response.result {
+                        Ok(content) => Ok(content.0),
+                        Err(e) => Err(e.to_string()),
+                    };
+                    let (outputs, effects) = core.resolve_file(response.file, result);
+                    send_outputs(&connection, outputs);
+                    process_effects(&io_pool, &mut core, effects);
                 }
             }
         }
@@ -120,172 +85,96 @@ fn main() -> Result<()> {
 }
 
 /// Handle an incoming LSP request.
-fn handle_request(
-    req: Request,
-    connection: &Connection,
-    executor: &mut QueryExecutor,
-    documents: &HashMap<String, String>,
-) {
-    if let Some(response) = dispatch_request(req, executor, documents)
-        && let Err(e) = connection.sender.send(Message::Response(response))
-    {
-        error!("Failed to send response: {}", e);
-    }
-    // If dispatch_request returns None, the request is pending
-}
+fn handle_request(req: Request, connection: &Connection, core: &mut LspCore, io_pool: &IoPool) {
+    let id = CoreRequestId::from(req.id.clone());
+    let (outputs, effects) = core.handle_request(id, &req.method, req.params);
 
-/// Dispatch a request to the appropriate handler.
-fn dispatch_request(
-    req: Request,
-    executor: &mut QueryExecutor,
-    documents: &HashMap<String, String>,
-) -> Option<Response> {
-    match req.method.as_str() {
-        SemanticTokensFullRequest::METHOD => {
-            let params: SemanticTokensParams = serde_json::from_value(req.params).ok()?;
-            let uri = params.text_document.uri;
-            let uri_str = uri.as_str();
-            let file = uri_to_text_file(&uri);
-            let source = documents.get(uri_str).map(String::as_str).unwrap_or("");
+    // Send outputs that are ready
+    send_outputs(connection, outputs);
 
-            let query = LspSemanticTokens::new(file, source.to_string());
-            let command = CommandQuery::SemanticTokensFull(query);
-
-            executor.execute(req.id, command, source)
-        }
-        _ => {
-            // Unknown request - return method not found
-            Some(Response::new_err(
-                req.id,
-                lsp_server::ErrorCode::MethodNotFound as i32,
-                format!("Unknown method: {}", req.method),
-            ))
-        }
-    }
+    // Process effects (file fetches, glob expansions)
+    process_effects(io_pool, core, effects);
 }
 
 /// Handle an incoming LSP notification.
 fn handle_notification(
     not: Notification,
     connection: &Connection,
-    executor: &mut QueryExecutor,
-    documents: &mut HashMap<String, String>,
+    core: &mut LspCore,
+    io_pool: &IoPool,
 ) {
-    match not.method.as_str() {
-        DidOpenTextDocument::METHOD => {
-            if let Ok(params) = serde_json::from_value::<DidOpenTextDocumentParams>(not.params) {
-                let uri = params.text_document.uri;
-                let content = params.text_document.text;
+    let (outputs, effects) = core.handle_notification(&not.method, not.params);
 
-                // Update document cache
-                documents.insert(uri.as_str().to_string(), content.clone());
+    // Send outputs
+    send_outputs(connection, outputs);
 
-                // Resolve in query runtime
-                let file = uri_to_text_file(&uri);
-                executor.resolve_open_document(file.clone(), content.clone());
+    // Process effects
+    process_effects(io_pool, core, effects);
+}
 
-                // Publish diagnostics
-                publish_diagnostics(connection, executor, &uri, &content);
-            }
-        }
-        DidChangeTextDocument::METHOD => {
-            if let Ok(params) = serde_json::from_value::<DidChangeTextDocumentParams>(not.params) {
-                let uri = params.text_document.uri;
-                // We use FULL sync, so there's only one change with the full content
-                if let Some(change) = params.content_changes.into_iter().next() {
-                    let content = change.text;
-
-                    // Update document cache
-                    documents.insert(uri.as_str().to_string(), content.clone());
-
-                    // Resolve in query runtime
-                    let file = uri_to_text_file(&uri);
-                    executor.resolve_open_document(file.clone(), content.clone());
-
-                    // Publish diagnostics
-                    publish_diagnostics(connection, executor, &uri, &content);
-                }
-            }
-        }
-        DidCloseTextDocument::METHOD => {
-            if let Ok(params) = serde_json::from_value::<DidCloseTextDocumentParams>(not.params) {
-                let uri = params.text_document.uri;
-                let uri_str = uri.as_str();
-
-                // Remove from document cache
-                documents.remove(uri_str);
-
-                // Unsubscribe from diagnostics
-                executor.unsubscribe_diagnostics(uri_str);
-
-                // Invalidate in query runtime
-                let file = uri_to_text_file(&uri);
-                executor.invalidate_file(&file);
-
-                // Clear diagnostics
-                let params = PublishDiagnosticsParams {
-                    uri,
-                    diagnostics: vec![],
-                    version: None,
+/// Send LspOutputs to the client.
+fn send_outputs(connection: &Connection, outputs: Vec<LspOutput>) {
+    for output in outputs {
+        let msg = match output {
+            LspOutput::Response { id, result } => {
+                let response = match result {
+                    Ok(value) => Response::new_ok(lsp_request_id(&id), value),
+                    Err(err) => Response::new_err(lsp_request_id(&id), err.code, err.message),
                 };
-                let notification =
-                    Notification::new(PublishDiagnostics::METHOD.to_string(), params);
-                if let Err(e) = connection.sender.send(Message::Notification(notification)) {
-                    error!("Failed to send diagnostics: {}", e);
+                Message::Response(response)
+            }
+            LspOutput::Notification { method, params } => {
+                Message::Notification(Notification::new(method, params))
+            }
+        };
+
+        if let Err(e) = connection.sender.send(msg) {
+            error!("Failed to send message: {}", e);
+        }
+    }
+}
+
+/// Process effects by dispatching them to the appropriate handler.
+fn process_effects(io_pool: &IoPool, core: &mut LspCore, effects: Vec<Effect>) {
+    for effect in effects {
+        match effect {
+            Effect::FetchFile(file) => {
+                io_pool.request_file(file);
+            }
+            Effect::ExpandGlob { id, glob } => {
+                // Expand glob synchronously on native
+                let files = expand_glob(&glob);
+                // Resolve immediately - this may trigger more effects
+                let (outputs, new_effects) = core.resolve_glob(&id, files);
+                // We can't send outputs here since we don't have connection,
+                // but glob expansion shouldn't produce immediate outputs anyway.
+                // The effects will be processed when this function returns.
+                drop(outputs);
+                // Recursively process new effects
+                if !new_effects.is_empty() {
+                    process_effects(io_pool, core, new_effects);
                 }
             }
         }
-        "$/cancelRequest" => {
-            if let Ok(params) = serde_json::from_value::<CancelParams>(not.params) {
-                executor.cancel(&params.id);
-            }
-        }
-        _ => {
-            // Unknown notification - ignore
-        }
     }
 }
 
-/// Publish diagnostics for a document (and any related files like schemas).
-fn publish_diagnostics(
-    connection: &Connection,
-    executor: &mut QueryExecutor,
-    uri: &Uri,
-    _source: &str,
-) {
-    let uri_str = uri.as_str().to_string();
-    let file = uri_to_text_file(uri);
-    let query = LspDiagnostics::new(file);
+/// Expand a glob pattern to matching files.
+fn expand_glob(glob: &Glob) -> Vec<TextFile> {
+    let pattern = glob.full_pattern();
+    let pattern_str = pattern.to_string_lossy();
+    glob::glob(&pattern_str)
+        .into_iter()
+        .flat_map(|paths| paths.flatten().map(TextFile::from_path))
+        .collect()
+}
 
-    // Execute the diagnostics query - returns notifications for all affected files
-    let notifications = executor.get_diagnostics(uri_str, query);
-
-    // Send all notifications (may include diagnostics for schema files, etc.)
-    for notification in notifications {
-        if let Err(e) = connection.sender.send(Message::Notification(notification)) {
-            error!("Failed to send diagnostics: {}", e);
-        }
+/// Convert CoreRequestId to lsp_server RequestId.
+fn lsp_request_id(id: &CoreRequestId) -> lsp_server::RequestId {
+    // Try to parse as i32 first (most common case)
+    if let Ok(n) = id.as_str().parse::<i32>() {
+        lsp_server::RequestId::from(n)
+    } else {
+        lsp_server::RequestId::from(id.as_str().to_string())
     }
-}
-
-/// Convert an LSP URI to a TextFile.
-fn uri_to_text_file(uri: &Uri) -> TextFile {
-    // Extract path from file:// URI, decoding percent-encoding
-    let path_str = uri.path().as_str();
-    // Simple percent-decoding for common cases
-    let decoded = percent_decode(path_str);
-    TextFile::from_path(PathBuf::from(decoded))
-}
-
-/// Parameters for the `$/cancelRequest` notification.
-#[derive(serde::Deserialize)]
-struct CancelParams {
-    id: RequestId,
-}
-
-/// Percent-decode a URI path to a string.
-fn percent_decode(s: &str) -> String {
-    percent_encoding::percent_decode_str(s)
-        .decode_utf8_lossy()
-        .into_owned()
 }

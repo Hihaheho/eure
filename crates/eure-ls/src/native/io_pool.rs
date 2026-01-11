@@ -10,7 +10,17 @@ use crossbeam_channel::{Receiver, Sender, unbounded};
 use eure::query::fetch_url;
 use eure::query::{TextFile, TextFileContent};
 
-use eure_ls::types::{IoRequest, IoResponse};
+/// Request to read a file from disk.
+pub struct IoRequest {
+    pub file: TextFile,
+}
+
+/// Response from reading a file.
+pub struct IoResponse {
+    pub file: TextFile,
+    /// Content or error from fetching the file.
+    pub result: Result<TextFileContent, anyhow::Error>,
+}
 
 /// Thread pool for handling file I/O operations.
 ///
@@ -90,10 +100,16 @@ fn worker_loop(request_rx: Receiver<IoRequest>, response_tx: Sender<IoResponse>)
 fn read_file(file: &TextFile) -> Result<TextFileContent, anyhow::Error> {
     match file {
         TextFile::Local(path) => Ok(TextFileContent(fs::read_to_string(path.as_ref())?)),
+        #[cfg(feature = "http")]
         TextFile::Remote(url) => match fetch_url(url) {
             Ok(content) => Ok(content),
             Err(e) => Err(anyhow!("Failed to fetch {}: {}", url, e)),
         },
+        #[cfg(not(feature = "http"))]
+        TextFile::Remote(url) => Err(anyhow::anyhow!(
+            "HTTP support not enabled, cannot fetch {}",
+            url
+        )),
     }
 }
 

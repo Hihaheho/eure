@@ -118,6 +118,14 @@ export class WasmEventLoop {
             const parsedUri = Uri.parse(uri);
             if (parsedUri.scheme === 'file') {
               // Local file: read from filesystem
+              // Check if file exists first to avoid VS Code's error logging
+              try {
+                await workspace.fs.stat(parsedUri);
+              } catch {
+                // File doesn't exist - resolve with error without triggering readFile's error log
+                this.bridge.resolveTextFile(uri, null, `File not found: ${parsedUri.fsPath}`);
+                return;
+              }
               const content = await workspace.fs.readFile(parsedUri);
               this.bridge.resolveTextFile(uri, new TextDecoder().decode(content), null);
             } else if (parsedUri.scheme === 'https') {
