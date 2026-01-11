@@ -46,6 +46,8 @@
 !/.devcontainer/devcontainer.json
 !/.devcontainer/post-create.sh
 
+!/.vscode/tasks.json
+
 !/scripts/**/*.rs
 
 .pnpm-store
