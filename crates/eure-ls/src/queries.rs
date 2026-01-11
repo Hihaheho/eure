@@ -33,11 +33,14 @@ pub fn lsp_diagnostics(
     db: &impl Db,
     file: TextFile,
 ) -> Result<Vec<(TextFile, Vec<Diagnostic>)>, QueryError> {
-    let diagnostics = db.query(GetDiagnostics::new(file))?;
+    let diagnostics = db.query(GetDiagnostics::new(file.clone()))?;
 
     // Group diagnostics by file
     let mut by_file: std::collections::HashMap<TextFile, Vec<DiagnosticMessage>> =
         std::collections::HashMap::new();
+
+    // Always include the target file so diagnostics are cleared when errors are fixed
+    by_file.insert(file, vec![]);
 
     for d in diagnostics.iter() {
         by_file.entry(d.file.clone()).or_default().push(d.clone());
