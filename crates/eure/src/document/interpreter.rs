@@ -679,6 +679,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: BindingView,
         tree: &F,
     ) -> Result<(), Self::Error> {
+        self.document.begin_binding();
         let scope = self.document.begin_scope();
 
         // Navigate through the keys
@@ -694,8 +695,43 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             })?;
 
         self.record_value(node_id, handle.node_id());
+
+        // Determine if this is a block binding (SectionBinding) or value binding
+        let binding_rhs_view = view.binding_rhs.get_view(tree)?;
+        let is_block = matches!(binding_rhs_view, BindingRhsView::SectionBinding(_));
+
+        if is_block {
+            self.document.begin_eure_block();
+        }
+
         self.visit_binding_rhs_handle(view.binding_rhs, tree)?;
+
+        if is_block {
+            self.document.end_eure_block().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        }
+
         self.document.end_scope(scope)?;
+
+        if is_block {
+            self.document.end_binding_block().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        } else {
+            self.document.end_binding_value().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        }
         Ok(())
     }
 
@@ -710,6 +746,8 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             keys,
             section_body,
         } = view;
+
+        self.document.begin_section();
         let scope = self.document.begin_scope();
 
         // Navigate through the keys
@@ -725,8 +763,45 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             })?;
 
         self.record_value(node_id, handle.node_id());
+
+        // Determine if this is a block section (@ path { }) or item section (@ path)
+        let section_body_view = section_body.get_view(tree)?;
+        let is_block = matches!(section_body_view, SectionBodyView::Alt1(_));
+
+        if is_block {
+            self.document.begin_eure_block();
+        } else {
+            self.document.begin_section_items();
+        }
+
         self.visit_section_body_handle(section_body, tree)?;
+
+        if is_block {
+            self.document.end_eure_block().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        }
+
         self.document.end_scope(scope)?;
+
+        if is_block {
+            self.document.end_section_block().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        } else {
+            self.document.end_section_items().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                }
+            })?;
+        }
         Ok(())
     }
 

@@ -1,0 +1,26 @@
+title: Query System Wins
+
+@ `#`.`Introduction` {
+  @ `##`.`What's query system?` {
+    body = ```markdown
+    In this article, "query system" is defined as follows.
+    > A query system is a design pattern for building a language processing system that, instead of sequentially processing the input to output as traditional multi-stage pipeline, it allows you to compose the processing steps into queries that can fetch inputs and call other queries.
+    The Rust compiler `rustc` and `rust-analyzer` are good examples of query systems.
+
+    In programming languages, inputs are typically represented as source files, and queries are typically `tokenize`, `parse`, `ast_to_ir`, `type_check`, `codegen`, etc. as I say "In programming languages", query system is not limited to programming languages, but it can be applied to any domain that needs incremental and on-demand processing. Compilers and Language Servers are good examples of those domains that can benefit from query system.
+
+    In early stage of Eure (I describe it in the later section), query system is not implemented, but implementing many features made the code more complex and harder to maintain. So I decided to migrate the whole codebase to adapt query system.
+    ```
+  }
+
+  @ `##`.`What are the benefits of query system?` {
+    body = ```markdown
+    The benefits of query systems vary depending on their implementation, but typically include:
+    - **Modularity**: You can compose processing steps as queries that have a **single responsibility** by calling other queries.
+    - **Stateless**: You don't need to manage state across processing steps. Each query can be written as a pure function that takes inputs and returns outputs.
+    - **Incremental**: Query outputs can be cached and reused, with automatic invalidation when inputs change.
+    - **Consistency**: Within a query execution, all subqueries operate on the same consistent snapshot of input data.
+    ```
+  }
+
+}

@@ -1,3 +1,4 @@
+use crate::document::interpreter_sink::InterpreterSink;
 use crate::prelude_internal::*;
 
 /// Represents a scope in the document constructor.
@@ -215,6 +216,115 @@ impl DocumentConstructor {
         }
         node.content = NodeValue::Tuple(Default::default());
         Ok(())
+    }
+
+    // =========================================================================
+    // Source Layout Markers (no-op for DocumentConstructor)
+    //
+    // These methods allow the eure! macro to call them without importing the
+    // InterpreterSink trait. They use the trait's default no-op implementations.
+    // =========================================================================
+
+    /// Enter a new EureSource block. No-op for DocumentConstructor.
+    pub fn begin_eure_block(&mut self) {}
+
+    /// Set the value binding for current block. No-op for DocumentConstructor.
+    pub fn set_block_value(&mut self) -> Result<(), InsertError> {
+        Ok(())
+    }
+
+    /// End current EureSource block. No-op for DocumentConstructor.
+    pub fn end_eure_block(&mut self) -> Result<(), InsertError> {
+        Ok(())
+    }
+
+    /// Mark the start of a binding statement. No-op for DocumentConstructor.
+    pub fn begin_binding(&mut self) {}
+
+    /// End binding #1: path = value. No-op for DocumentConstructor.
+    pub fn end_binding_value(&mut self) -> Result<(), InsertError> {
+        Ok(())
+    }
+
+    /// End binding #2/#3: path { eure }. No-op for DocumentConstructor.
+    pub fn end_binding_block(&mut self) -> Result<(), InsertError> {
+        Ok(())
+    }
+
+    /// Start a section header. No-op for DocumentConstructor.
+    pub fn begin_section(&mut self) {}
+
+    /// Begin section #4: items follow. No-op for DocumentConstructor.
+    pub fn begin_section_items(&mut self) {}
+
+    /// End section #4: finalize section with items. No-op for DocumentConstructor.
+    pub fn end_section_items(&mut self) -> Result<(), InsertError> {
+        Ok(())
+    }
+
+    /// End section #5/#6: block. No-op for DocumentConstructor.
+    pub fn end_section_block(&mut self) -> Result<(), InsertError> {
+        Ok(())
+    }
+}
+
+impl InterpreterSink for DocumentConstructor {
+    type Error = InsertError;
+    type Scope = Scope;
+
+    fn begin_scope(&mut self) -> Self::Scope {
+        DocumentConstructor::begin_scope(self)
+    }
+
+    fn end_scope(&mut self, scope: Self::Scope) -> Result<(), Self::Error> {
+        DocumentConstructor::end_scope(self, scope).map_err(|e| InsertError {
+            kind: InsertErrorKind::ScopeError(e),
+            path: EurePath::from_iter(self.current_path().iter().cloned()),
+        })
+    }
+
+    fn navigate(&mut self, segment: PathSegment) -> Result<NodeId, Self::Error> {
+        DocumentConstructor::navigate(self, segment)
+    }
+
+    fn require_hole(&self) -> Result<(), Self::Error> {
+        DocumentConstructor::require_hole(self)
+    }
+
+    fn bind_primitive(&mut self, value: PrimitiveValue) -> Result<(), Self::Error> {
+        DocumentConstructor::bind_primitive(self, value)
+    }
+
+    fn bind_hole(&mut self, label: Option<Identifier>) -> Result<(), Self::Error> {
+        DocumentConstructor::bind_hole(self, label)
+    }
+
+    fn bind_empty_map(&mut self) -> Result<(), Self::Error> {
+        DocumentConstructor::bind_empty_map(self)
+    }
+
+    fn bind_empty_array(&mut self) -> Result<(), Self::Error> {
+        DocumentConstructor::bind_empty_array(self)
+    }
+
+    fn bind_empty_tuple(&mut self) -> Result<(), Self::Error> {
+        DocumentConstructor::bind_empty_tuple(self)
+    }
+
+    fn current_node_id(&self) -> NodeId {
+        DocumentConstructor::current_node_id(self)
+    }
+
+    fn current_path(&self) -> &[PathSegment] {
+        DocumentConstructor::current_path(self)
+    }
+
+    fn document(&self) -> &EureDocument {
+        DocumentConstructor::document(self)
+    }
+
+    fn document_mut(&mut self) -> &mut EureDocument {
+        DocumentConstructor::document_mut(self)
     }
 }
 

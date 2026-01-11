@@ -1,5 +1,7 @@
 pub mod constructor;
+pub mod interpreter_sink;
 pub mod node;
+pub mod source_constructor;
 
 use crate::document::node::{NodeArray, NodeTuple};
 use crate::prelude_internal::*;
@@ -38,6 +40,29 @@ pub enum InsertErrorKind {
     TupleIndexInvalid { index: u8, expected_index: usize },
     #[error("Binding target already has a value")]
     BindingTargetHasValue,
+    #[error("Scope error: {0}")]
+    ScopeError(#[from] constructor::ScopeError),
+    #[error("Constructor error: {0}")]
+    ConstructorError(#[from] ConstructorError),
+}
+
+/// Protocol errors for SourceConstructor operations.
+#[derive(Debug, PartialEq, thiserror::Error, Clone)]
+pub enum ConstructorError {
+    #[error("set_block_value called without a preceding bind operation")]
+    MissingBindBeforeSetBlockValue,
+    #[error("end_binding_value called without a preceding bind operation")]
+    MissingBindBeforeEndBindingValue,
+    #[error("end_binding_block called without a preceding end_eure_block")]
+    MissingEndEureBlockBeforeEndBindingBlock,
+    #[error("end_section_block called without a preceding end_eure_block")]
+    MissingEndEureBlockBeforeEndSectionBlock,
+    #[error("end_eure_block called but builder stack is not in EureBlock state")]
+    InvalidBuilderStackForEndEureBlock,
+    #[error("end_section_items called but builder stack is not in SectionItems state")]
+    InvalidBuilderStackForEndSectionItems,
+    #[error("ArrayIndex must follow a key segment; standalone [] is not valid")]
+    StandaloneArrayIndex,
 }
 
 impl Default for EureDocument {

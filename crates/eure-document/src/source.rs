@@ -1,169 +1,227 @@
 //! Source-level document representation for programmatic construction and formatting.
 //!
-//! This module provides types for representing Eure source structure with layout metadata,
+//! This module provides types for representing Eure source structure as an AST,
 //! while actual values are referenced via [`NodeId`] into an [`EureDocument`].
+//!
+//! The structure directly mirrors the Eure grammar from `eure.par`:
+//!
+//! ```text
+//! Eure: [ ValueBinding ] { Binding } { Section } ;
+//! Binding: Keys BindingRhs ;
+//!   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
+//! Section: At Keys SectionBody ;
+//!   SectionBody: [ ValueBinding ] { Binding } | Begin Eure End ;
+//! ```
 //!
 //! # Design
 //!
 //! ```text
-//! ┌─────────────────────────────────────────────┐
-//! │              SourceDocument                  │
-//! │  ┌─────────────────┐  ┌──────────────────┐  │
-//! │  │  EureDocument   │  │     Layout       │  │
-//! │  │  ┌───────────┐  │  │                  │  │
-//! │  │  │ NodeId(0) │◄─┼──┼─ Binding.node    │  │
-//! │  │  │ NodeId(1) │◄─┼──┼─ Binding.node    │  │
-//! │  │  │ NodeId(2) │◄─┼──┼─ Binding.node    │  │
-//! │  │  └───────────┘  │  │                  │  │
-//! │  └─────────────────┘  └──────────────────┘  │
-//! └─────────────────────────────────────────────┘
+//! SourceDocument
+//! ├── EureDocument (semantic data)
+//! └── sources: Vec<EureSource> (arena)
+//!     └── EureSource
+//!         ├── leading_trivia: Vec<Trivia>
+//!         ├── value: Option<NodeId>
+//!         ├── bindings: Vec<BindingSource>
+//!         │   └── trivia_before: Vec<Trivia>
+//!         ├── sections: Vec<SectionSource>
+//!         │   └── trivia_before: Vec<Trivia>
+//!         └── trailing_trivia: Vec<Trivia>
 //! ```
 //!
-//! - **EureDocument**: Holds semantic data (values)
-//! - **Layout**: Holds presentation metadata (comments, ordering, section structure)
-//!
-//! # Example
-//!
-//! ```ignore
-//! // Convert from TOML, preserving comments and section ordering
-//! let source = eure_toml::to_source_document(&toml_doc);
-//!
-//! // Modify values (layout is preserved)
-//! let node = source.find_binding(&["server", "port"]).unwrap();
-//! source.document.node_mut(node).set_primitive(8080.into());
-//!
-//! // Format to Eure string
-//! let output = eure_fmt::format_source(&source, &config);
-//! ```
+//! Trivia (comments and blank lines) is preserved for round-trip formatting.
 
 use std::collections::HashSet;
 
 use crate::document::{EureDocument, NodeId};
 use crate::prelude_internal::*;
 
-/// A document with layout/presentation metadata.
+// ============================================================================
+// Core AST Types (mirrors grammar)
+// ============================================================================
+
+/// Index into the sources arena.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SourceId(pub usize);
+
+/// A source-level Eure document/block.
 ///
-/// Combines semantic data ([`EureDocument`]) with presentation information ([`Layout`])
-/// for round-trip conversions from formats like TOML, preserving comments and ordering.
+/// Mirrors grammar: `Eure: [ ValueBinding ] { Binding } { Section } ;`
+#[derive(Debug, Clone, Default)]
+pub struct EureSource {
+    /// Comments/blank lines before the first item (value, binding, or section)
+    pub leading_trivia: Vec<Trivia>,
+    /// Optional initial value binding: `[ ValueBinding ]`
+    pub value: Option<NodeId>,
+    /// Bindings in order: `{ Binding }`
+    pub bindings: Vec<BindingSource>,
+    /// Sections in order: `{ Section }`
+    pub sections: Vec<SectionSource>,
+    /// Comments/blank lines after the last item
+    pub trailing_trivia: Vec<Trivia>,
+}
+
+/// A binding statement: path followed by value or block.
+///
+/// Mirrors grammar: `Binding: Keys BindingRhs ;`
+#[derive(Debug, Clone)]
+pub struct BindingSource {
+    /// Comments/blank lines before this binding
+    pub trivia_before: Vec<Trivia>,
+    /// The path (Keys)
+    pub path: SourcePath,
+    /// The binding body (BindingRhs)
+    pub bind: BindSource,
+    /// Optional trailing comment (same line)
+    pub trailing_comment: Option<Comment>,
+}
+
+/// The right-hand side of a binding.
+///
+/// Mirrors grammar: `BindingRhs: ValueBinding | SectionBinding | TextBinding ;`
+#[derive(Debug, Clone)]
+pub enum BindSource {
+    /// Pattern #1: `path = value` (ValueBinding or TextBinding)
+    Value(NodeId),
+    /// Pattern #1b: `path = [array with element trivia]`
+    ///
+    /// Used when an array has comments between elements that need to be preserved.
+    Array {
+        /// Reference to the array node in EureDocument
+        node: NodeId,
+        /// Per-element layout information (comments before each element)
+        elements: Vec<ArrayElementSource>,
+    },
+    /// Pattern #2/#3: `path { eure }` (SectionBinding -> nested EureSource)
+    Block(SourceId),
+}
+
+/// Layout information for an array element.
+///
+/// Used to preserve comments that appear before array elements when converting
+/// from formats like TOML.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArrayElementSource {
+    /// Trivia (comments/blank lines) before this element
+    pub trivia_before: Vec<Trivia>,
+    /// The index of this element in the NodeArray
+    pub index: usize,
+    /// Trailing comment on the same line as this element
+    pub trailing_comment: Option<Comment>,
+}
+
+/// A section statement: `@ path` followed by body.
+///
+/// Mirrors grammar: `Section: At Keys SectionBody ;`
+#[derive(Debug, Clone)]
+pub struct SectionSource {
+    /// Comments/blank lines before this section
+    pub trivia_before: Vec<Trivia>,
+    /// The path (Keys)
+    pub path: SourcePath,
+    /// The section body (SectionBody)
+    pub body: SectionBody,
+    /// Optional trailing comment (same line)
+    pub trailing_comment: Option<Comment>,
+}
+
+/// The body of a section.
+///
+/// Mirrors grammar: `SectionBody: [ ValueBinding ] { Binding } | Begin Eure End ;`
+#[derive(Debug, Clone)]
+pub enum SectionBody {
+    /// Pattern #4: `@ section` (items follow) - `[ ValueBinding ] { Binding }`
+    Items {
+        /// Optional initial value binding
+        value: Option<NodeId>,
+        /// Bindings in the section
+        bindings: Vec<BindingSource>,
+    },
+    /// Pattern #5/#6: `@ section { eure }` - `Begin Eure End`
+    Block(SourceId),
+}
+
+// ============================================================================
+// Source Document
+// ============================================================================
+
+/// A document with source structure metadata.
+///
+/// Combines semantic data ([`EureDocument`]) with source AST information
+/// for round-trip conversions, preserving the exact source structure.
 #[derive(Debug, Clone)]
 pub struct SourceDocument {
     /// The semantic data (values, structure)
     pub document: EureDocument,
-    /// The presentation layout (comments, ordering, sections)
-    pub layout: Layout,
+    /// Arena of all EureSource blocks
+    pub sources: Vec<EureSource>,
+    /// Root source index (always 0)
+    pub root: SourceId,
+    /// Array nodes that should be formatted multi-line (even without trivia)
+    pub multiline_arrays: HashSet<NodeId>,
 }
 
 impl SourceDocument {
-    /// Create a new source document with the given document and layout.
-    pub fn new(document: EureDocument, layout: Layout) -> Self {
-        Self { document, layout }
+    /// Create a new source document with the given document and sources.
+    #[must_use]
+    pub fn new(document: EureDocument, sources: Vec<EureSource>) -> Self {
+        Self {
+            document,
+            sources,
+            root: SourceId(0),
+            multiline_arrays: HashSet::new(),
+        }
     }
 
     /// Create an empty source document.
     pub fn empty() -> Self {
         Self {
             document: EureDocument::new_empty(),
-            layout: Layout::new(),
-        }
-    }
-}
-
-/// Layout information describing how to render the document.
-#[derive(Debug, Clone, Default)]
-pub struct Layout {
-    /// Top-level items in order
-    pub items: Vec<LayoutItem>,
-    /// Nodes that should be formatted with multiple lines
-    pub multiline_nodes: HashSet<NodeId>,
-}
-
-impl Layout {
-    /// Create an empty layout.
-    pub fn new() -> Self {
-        Self {
-            items: Vec::new(),
-            multiline_nodes: HashSet::new(),
+            sources: vec![EureSource::default()],
+            root: SourceId(0),
+            multiline_arrays: HashSet::new(),
         }
     }
 
-    /// Add an item to the layout.
-    pub fn push(&mut self, item: LayoutItem) {
-        self.items.push(item);
+    /// Mark an array node as needing multi-line formatting.
+    pub fn mark_multiline_array(&mut self, node_id: NodeId) {
+        self.multiline_arrays.insert(node_id);
+    }
+
+    /// Check if an array node should be formatted multi-line.
+    pub fn is_multiline_array(&self, node_id: NodeId) -> bool {
+        self.multiline_arrays.contains(&node_id)
+    }
+
+    /// Get a reference to the document.
+    pub fn document(&self) -> &EureDocument {
+        &self.document
+    }
+
+    /// Get a mutable reference to the document.
+    pub fn document_mut(&mut self) -> &mut EureDocument {
+        &mut self.document
+    }
+
+    /// Get the root EureSource.
+    pub fn root_source(&self) -> &EureSource {
+        &self.sources[self.root.0]
+    }
+
+    /// Get a reference to an EureSource by ID.
+    pub fn source(&self, id: SourceId) -> &EureSource {
+        &self.sources[id.0]
+    }
+
+    /// Get a mutable reference to an EureSource by ID.
+    pub fn source_mut(&mut self, id: SourceId) -> &mut EureSource {
+        &mut self.sources[id.0]
     }
 }
 
-/// An item in the layout.
-#[derive(Debug, Clone, PartialEq)]
-pub enum LayoutItem {
-    /// A comment (line or block)
-    Comment(Comment),
-
-    /// A blank line for visual separation
-    BlankLine,
-
-    /// A key-value binding: `path.to.key = <value from NodeId>`
-    Binding {
-        /// Path to the binding target
-        path: SourcePath,
-        /// Reference to the value node in EureDocument
-        node: NodeId,
-        /// Optional trailing comment: `key = value // comment`
-        trailing_comment: Option<String>,
-    },
-
-    /// A section header: `@ path.to.section`
-    Section {
-        /// Path to the section
-        path: SourcePath,
-        /// Optional trailing comment: `@ section // comment`
-        trailing_comment: Option<String>,
-        /// Section body
-        body: SectionBody,
-    },
-
-    /// An array binding with per-element layout information.
-    ///
-    /// Used when an array has comments between elements that need to be preserved.
-    /// ```eure
-    /// items = [
-    ///   // First item
-    ///   "one",
-    ///   // Second item
-    ///   "two",
-    /// ]
-    /// ```
-    ArrayBinding {
-        /// Path to the binding target
-        path: SourcePath,
-        /// Reference to the array node in EureDocument
-        node: NodeId,
-        /// Per-element layout information (comments before each element)
-        elements: Vec<ArrayElementLayout>,
-        /// Optional trailing comment
-        trailing_comment: Option<String>,
-    },
-}
-
-/// The body of a section.
-#[derive(Debug, Clone, PartialEq)]
-pub enum SectionBody {
-    /// Items following the section header (newline-separated)
-    /// ```eure
-    /// @ section
-    /// key1 = value1
-    /// key2 = value2
-    /// ```
-    Items(Vec<LayoutItem>),
-
-    /// Block syntax with braces
-    /// ```eure
-    /// @ section {
-    ///     key1 = value1
-    ///     key2 = value2
-    /// }
-    /// ```
-    Block(Vec<LayoutItem>),
-}
+// ============================================================================
+// Path Types
+// ============================================================================
 
 /// A path in source representation.
 pub type SourcePath = Vec<SourcePathSegment>;
@@ -246,6 +304,10 @@ impl From<i64> for SourceKey {
     }
 }
 
+// ============================================================================
+// Comment and Trivia Types
+// ============================================================================
+
 /// A comment in the source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Comment {
@@ -274,100 +336,159 @@ impl Comment {
     }
 }
 
-/// Layout information for an array element.
+/// Trivia: comments and blank lines that appear between statements.
 ///
-/// Used to preserve comments that appear before array elements when converting
-/// from formats like TOML.
+/// Trivia is used to preserve whitespace and comments for round-trip formatting.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArrayElementLayout {
-    /// Comments that appear before this element in the source
-    pub comments_before: Vec<Comment>,
-    /// Trailing comment on the same line as this element
-    pub trailing_comment: Option<String>,
-    /// The index of this element in the array (corresponds to NodeArray)
-    pub index: usize,
+pub enum Trivia {
+    /// A comment (line or block)
+    Comment(Comment),
+    /// A blank line (empty line separating statements)
+    BlankLine,
+}
+
+impl Trivia {
+    /// Create a line comment trivia.
+    pub fn line_comment(s: impl Into<String>) -> Self {
+        Trivia::Comment(Comment::Line(s.into()))
+    }
+
+    /// Create a block comment trivia.
+    pub fn block_comment(s: impl Into<String>) -> Self {
+        Trivia::Comment(Comment::Block(s.into()))
+    }
+
+    /// Create a blank line trivia.
+    pub fn blank_line() -> Self {
+        Trivia::BlankLine
+    }
+}
+
+impl From<Comment> for Trivia {
+    fn from(comment: Comment) -> Self {
+        Trivia::Comment(comment)
+    }
 }
 
 // ============================================================================
-// Builder helpers
+// Builder Helpers
 // ============================================================================
 
-impl LayoutItem {
-    /// Create a line comment item.
-    pub fn line_comment(s: impl Into<String>) -> Self {
-        LayoutItem::Comment(Comment::Line(s.into()))
+impl EureSource {
+    /// Create an empty EureSource.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Create a block comment item.
-    pub fn block_comment(s: impl Into<String>) -> Self {
-        LayoutItem::Comment(Comment::Block(s.into()))
+    /// Add a binding to this source.
+    pub fn push_binding(&mut self, binding: BindingSource) {
+        self.bindings.push(binding);
     }
 
-    /// Create a binding item.
-    pub fn binding(path: SourcePath, node: NodeId) -> Self {
-        LayoutItem::Binding {
+    /// Add a section to this source.
+    pub fn push_section(&mut self, section: SectionSource) {
+        self.sections.push(section);
+    }
+}
+
+impl BindingSource {
+    /// Create a value binding: `path = value`
+    pub fn value(path: SourcePath, node: NodeId) -> Self {
+        Self {
+            trivia_before: Vec::new(),
             path,
-            node,
+            bind: BindSource::Value(node),
             trailing_comment: None,
         }
     }
 
-    /// Create a binding item with trailing comment.
-    pub fn binding_with_comment(
-        path: SourcePath,
-        node: NodeId,
-        comment: impl Into<String>,
-    ) -> Self {
-        LayoutItem::Binding {
+    /// Create a block binding: `path { eure }`
+    pub fn block(path: SourcePath, source_id: SourceId) -> Self {
+        Self {
+            trivia_before: Vec::new(),
             path,
-            node,
-            trailing_comment: Some(comment.into()),
-        }
-    }
-
-    /// Create a section item with items body.
-    pub fn section(path: SourcePath, items: Vec<LayoutItem>) -> Self {
-        LayoutItem::Section {
-            path,
-            trailing_comment: None,
-            body: SectionBody::Items(items),
-        }
-    }
-
-    /// Create a section item with block body.
-    pub fn section_block(path: SourcePath, items: Vec<LayoutItem>) -> Self {
-        LayoutItem::Section {
-            path,
-            trailing_comment: None,
-            body: SectionBody::Block(items),
-        }
-    }
-
-    /// Create a section item with trailing comment.
-    pub fn section_with_comment(
-        path: SourcePath,
-        comment: impl Into<String>,
-        items: Vec<LayoutItem>,
-    ) -> Self {
-        LayoutItem::Section {
-            path,
-            trailing_comment: Some(comment.into()),
-            body: SectionBody::Items(items),
-        }
-    }
-
-    /// Create an array binding item with per-element layout.
-    pub fn array_binding(
-        path: SourcePath,
-        node: NodeId,
-        elements: Vec<ArrayElementLayout>,
-    ) -> Self {
-        LayoutItem::ArrayBinding {
-            path,
-            node,
-            elements,
+            bind: BindSource::Block(source_id),
             trailing_comment: None,
         }
+    }
+
+    /// Add a trailing comment.
+    pub fn with_trailing_comment(mut self, comment: Comment) -> Self {
+        self.trailing_comment = Some(comment);
+        self
+    }
+
+    /// Add trivia before this binding.
+    pub fn with_trivia(mut self, trivia: Vec<Trivia>) -> Self {
+        self.trivia_before = trivia;
+        self
+    }
+
+    /// Create an array binding with per-element layout: `path = [...]`
+    pub fn array(path: SourcePath, node: NodeId, elements: Vec<ArrayElementSource>) -> Self {
+        Self {
+            trivia_before: Vec::new(),
+            path,
+            bind: BindSource::Array { node, elements },
+            trailing_comment: None,
+        }
+    }
+}
+
+impl SectionSource {
+    /// Create a section with items body: `@ path` (items follow)
+    pub fn items(path: SourcePath, value: Option<NodeId>, bindings: Vec<BindingSource>) -> Self {
+        Self {
+            trivia_before: Vec::new(),
+            path,
+            body: SectionBody::Items { value, bindings },
+            trailing_comment: None,
+        }
+    }
+
+    /// Create a section with block body: `@ path { eure }`
+    pub fn block(path: SourcePath, source_id: SourceId) -> Self {
+        Self {
+            trivia_before: Vec::new(),
+            path,
+            body: SectionBody::Block(source_id),
+            trailing_comment: None,
+        }
+    }
+
+    /// Add a trailing comment.
+    pub fn with_trailing_comment(mut self, comment: Comment) -> Self {
+        self.trailing_comment = Some(comment);
+        self
+    }
+
+    /// Add trivia before this section.
+    pub fn with_trivia(mut self, trivia: Vec<Trivia>) -> Self {
+        self.trivia_before = trivia;
+        self
+    }
+}
+
+impl ArrayElementSource {
+    /// Create an array element source.
+    pub fn new(index: usize) -> Self {
+        Self {
+            trivia_before: Vec::new(),
+            index,
+            trailing_comment: None,
+        }
+    }
+
+    /// Add trivia before this element.
+    pub fn with_trivia(mut self, trivia: Vec<Trivia>) -> Self {
+        self.trivia_before = trivia;
+        self
+    }
+
+    /// Add a trailing comment.
+    pub fn with_trailing_comment(mut self, comment: Comment) -> Self {
+        self.trailing_comment = Some(comment);
+        self
     }
 }
 
@@ -407,35 +528,75 @@ mod tests {
     }
 
     #[test]
-    fn test_layout_item_binding() {
+    fn test_binding_source_value() {
         let path = vec![SourcePathSegment::ident(Identifier::new_unchecked("foo"))];
-        let actual = LayoutItem::binding(path.clone(), NodeId(0));
-        let expected = LayoutItem::Binding {
-            path,
-            node: NodeId(0),
-            trailing_comment: None,
-        };
-        assert_eq!(actual, expected);
+        let binding = BindingSource::value(path.clone(), NodeId(1));
+        assert_eq!(binding.path, path);
+        assert!(matches!(binding.bind, BindSource::Value(NodeId(1))));
+        assert!(binding.trivia_before.is_empty());
     }
 
     #[test]
-    fn test_layout_item_section_with_comment() {
+    fn test_binding_source_block() {
+        let path = vec![SourcePathSegment::ident(Identifier::new_unchecked("user"))];
+        let binding = BindingSource::block(path.clone(), SourceId(1));
+        assert_eq!(binding.path, path);
+        assert!(matches!(binding.bind, BindSource::Block(SourceId(1))));
+        assert!(binding.trivia_before.is_empty());
+    }
+
+    #[test]
+    fn test_binding_with_trivia() {
+        let path = vec![SourcePathSegment::ident(Identifier::new_unchecked("foo"))];
+        let trivia = vec![Trivia::BlankLine, Trivia::line_comment("comment")];
+        let binding = BindingSource::value(path.clone(), NodeId(1)).with_trivia(trivia.clone());
+        assert_eq!(binding.trivia_before, trivia);
+    }
+
+    #[test]
+    fn test_section_source_items() {
+        let path = vec![SourcePathSegment::ident(Identifier::new_unchecked(
+            "server",
+        ))];
+        let section = SectionSource::items(path.clone(), None, vec![]);
+        assert_eq!(section.path, path);
+        assert!(matches!(
+            section.body,
+            SectionBody::Items {
+                value: None,
+                bindings
+            } if bindings.is_empty()
+        ));
+        assert!(section.trivia_before.is_empty());
+    }
+
+    #[test]
+    fn test_section_source_block() {
         let path = vec![SourcePathSegment::ident(Identifier::new_unchecked(
             "config",
         ))];
-        let actual = LayoutItem::section_with_comment(path.clone(), "this is config", vec![]);
-        let expected = LayoutItem::Section {
-            path,
-            trailing_comment: Some("this is config".into()),
-            body: SectionBody::Items(vec![]),
-        };
-        assert_eq!(actual, expected);
+        let section = SectionSource::block(path.clone(), SourceId(2));
+        assert_eq!(section.path, path);
+        assert!(matches!(section.body, SectionBody::Block(SourceId(2))));
+        assert!(section.trivia_before.is_empty());
+    }
+
+    #[test]
+    fn test_section_with_trivia() {
+        let path = vec![SourcePathSegment::ident(Identifier::new_unchecked(
+            "server",
+        ))];
+        let trivia = vec![Trivia::BlankLine];
+        let section = SectionSource::items(path.clone(), None, vec![]).with_trivia(trivia.clone());
+        assert_eq!(section.trivia_before, trivia);
     }
 
     #[test]
     fn test_source_document_empty() {
         let doc = SourceDocument::empty();
-        assert!(doc.layout.items.is_empty());
-        assert!(doc.layout.multiline_nodes.is_empty());
+        assert_eq!(doc.sources.len(), 1);
+        assert_eq!(doc.root, SourceId(0));
+        assert!(doc.root_source().bindings.is_empty());
+        assert!(doc.root_source().sections.is_empty());
     }
 }

@@ -122,6 +122,12 @@ macro_rules! eure {
         c.finish()
     }};
 
+    // Generic entry point with explicit constructor: `eure!($constructor; { ... })`
+    // Works with any InterpreterSink implementation (DocumentConstructor, SourceConstructor, etc.)
+    ($c:ident; { $($body:tt)* }) => {{
+        $crate::eure!(@stmt $c; $($body)*);
+    }};
+
     // ========================================================================
     // Value conversion helper (@value_tt)
     //
@@ -443,6 +449,7 @@ macro_rules! eure {
 
     // Section: @path followed by bindings
     (@stmt $c:ident; @ $seg:ident $($rest:tt)*) => {{
+        $c.begin_section();
         let scope = $c.begin_scope();
         $c.navigate($crate::path::PathSegment::Ident(
             $crate::identifier::Identifier::new_unchecked(stringify!($seg))
@@ -453,6 +460,7 @@ macro_rules! eure {
     // Start parsing a path-based statement - delegate to path parser
     // Creates a scope that will be closed when the statement ends
     (@stmt $c:ident; $($tokens:tt)+) => {{
+        $c.begin_binding();
         let scope = $c.begin_scope();
         $crate::eure!(@path $c scope; $($tokens)+);
     }};
@@ -471,34 +479,43 @@ macro_rules! eure {
         $crate::eure!(@section_after_seg $c $scope; $($rest)*);
     }};
 
-    // Section with value binding: @path = value
+    // Section with value binding: @path = value (pattern #4 with value)
     (@section_after_seg $c:ident $scope:ident; = $v:tt $($rest:tt)*) => {{
         $c.bind_from($crate::eure!(@value_tt $v)).unwrap();
+        $c.begin_section_items();
         // Continue parsing bindings within this section
         $crate::eure!(@section_bindings $c $scope; $($rest)*);
     }};
 
-    // Section with empty block: @path {}
+    // Section with empty block: @path {} (pattern #5)
     (@section_after_seg $c:ident $scope:ident; {} $($rest:tt)*) => {{
+        $c.begin_eure_block();
         $c.bind_empty_map().unwrap();
+        $c.end_eure_block().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_section_block().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
-    // Section with non-empty block: @path { ... }
+    // Section with non-empty block: @path { ... } (pattern #5/#6)
     (@section_after_seg $c:ident $scope:ident; { $($inner:tt)+ } $($rest:tt)*) => {{
+        $c.begin_eure_block();
         $crate::eure!(@stmt $c; $($inner)+);
+        $c.end_eure_block().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_section_block().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
-    // Section body starts (no value binding, no block)
+    // Section body starts (no value binding, no block) (pattern #4)
     (@section_after_seg $c:ident $scope:ident; $($rest:tt)*) => {{
+        $c.begin_section_items();
         $crate::eure!(@section_bindings $c $scope; $($rest)*);
     }};
 
     // Section bindings: empty - close scope
     (@section_bindings $c:ident $scope:ident;) => {{
+        $c.end_section_items().unwrap();
         $c.end_scope($scope).unwrap();
     }};
 
@@ -509,12 +526,14 @@ macro_rules! eure {
 
     // Section bindings: new section starts - close current and start new
     (@section_bindings $c:ident $scope:ident; @ $seg:ident $($rest:tt)*) => {{
+        $c.end_section_items().unwrap();
         $c.end_scope($scope).unwrap();
         $crate::eure!(@stmt $c; @ $seg $($rest)*);
     }};
 
     // Section bindings: regular binding (path-based)
     (@section_bindings $c:ident $scope:ident; $($tokens:tt)+) => {{
+        $c.begin_binding();
         let inner_scope = $c.begin_scope();
         $crate::eure!(@section_path $c $scope inner_scope; $($tokens)+);
     }};
@@ -592,6 +611,7 @@ macro_rules! eure {
     // Section terminal: hole
     (@section_terminal $c:ident $section_scope:ident $scope:ident; = ! $($rest:tt)*) => {{
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
@@ -599,6 +619,7 @@ macro_rules! eure {
     (@section_terminal $c:ident $section_scope:ident $scope:ident; = @ code ($content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
@@ -606,6 +627,7 @@ macro_rules! eure {
     (@section_terminal $c:ident $section_scope:ident $scope:ident; = @ code ($lang:literal, $content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
@@ -613,6 +635,7 @@ macro_rules! eure {
     (@section_terminal $c:ident $section_scope:ident $scope:ident; = @ block ($content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::block_implicit($content)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
@@ -620,6 +643,7 @@ macro_rules! eure {
     (@section_terminal $c:ident $section_scope:ident $scope:ident; = @ block ($lang:literal, $content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::block($content, $lang)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
@@ -627,20 +651,27 @@ macro_rules! eure {
     (@section_terminal $c:ident $section_scope:ident $scope:ident; = $v:tt $($rest:tt)*) => {{
         $c.bind_from($crate::eure!(@value_tt $v)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
     // Section terminal: empty block
     (@section_terminal $c:ident $section_scope:ident $scope:ident; {} $($rest:tt)*) => {{
+        $c.begin_eure_block();
         $c.bind_empty_map().unwrap();
+        $c.end_eure_block().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_block().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
     // Section terminal: non-empty block
     (@section_terminal $c:ident $section_scope:ident $scope:ident; { $($inner:tt)+ } $($rest:tt)*) => {{
+        $c.begin_eure_block();
         $crate::eure!(@stmt $c; $($inner)+);
+        $c.end_eure_block().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_block().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
     }};
 
@@ -786,6 +817,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = ! $($rest:tt)*) => {{
         // Hole is the default state, so we just close the scope
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -793,6 +825,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = - $v:literal $($rest:tt)*) => {{
         $c.bind_from(-$v).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -800,6 +833,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = @ code ($content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::inline_implicit($content)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -807,6 +841,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = @ code ($lang:literal, $content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::inline($content, $lang)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -814,6 +849,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = @ block ($content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::block_implicit($content)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -821,6 +857,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = @ block ($lang:literal, $content:literal) $($rest:tt)*) => {{
         $c.bind_from($crate::text::Text::block($content, $lang)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -828,6 +865,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = [] $($rest:tt)*) => {{
         $c.bind_empty_array().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -836,6 +874,7 @@ macro_rules! eure {
         $c.bind_empty_array().unwrap();
         $crate::eure!(@array_items $c; $($items)+);
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -843,6 +882,7 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = () $($rest:tt)*) => {{
         $c.bind_empty_tuple().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -851,6 +891,7 @@ macro_rules! eure {
         $c.bind_empty_tuple().unwrap();
         $crate::eure!(@tuple_items $c 0; $($items)+);
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -859,6 +900,7 @@ macro_rules! eure {
         $c.bind_empty_map().unwrap();
         $crate::eure!(@object_items $c; $key => $($inner)+);
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -866,21 +908,63 @@ macro_rules! eure {
     (@terminal $c:ident $scope:ident; = $v:tt $($rest:tt)*) => {{
         $c.bind_from($crate::eure!(@value_tt $v)).unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
     // Terminal: empty block -> empty map
     (@terminal $c:ident $scope:ident; {} $($rest:tt)*) => {{
+        $c.begin_eure_block();
         $c.bind_empty_map().unwrap();
+        $c.end_eure_block().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_block().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
     // Terminal: non-empty block
     (@terminal $c:ident $scope:ident; { $($inner:tt)+ } $($rest:tt)*) => {{
+        $c.begin_eure_block();
         $crate::eure!(@stmt $c; $($inner)+);
+        $c.end_eure_block().unwrap();
         $c.end_scope($scope).unwrap();
+        $c.end_binding_block().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
+    }};
+}
+
+/// A macro for building [`SourceDocument`]s with source layout tracking.
+///
+/// This macro is similar to [`eure!`] but creates a [`SourceDocument`] which
+/// preserves source structure information for round-trip formatting.
+///
+/// # Example
+///
+/// ```
+/// use eure_document::eure_source;
+///
+/// let source_doc = eure_source!({
+///     name = "Alice"
+///     age = 30
+/// });
+///
+/// // The SourceDocument contains both the document and source structure
+/// let doc = source_doc.document();
+/// let root_source = source_doc.root_source();
+/// ```
+#[macro_export]
+macro_rules! eure_source {
+    // Empty source document
+    ({}) => {{
+        $crate::source::SourceDocument::empty()
+    }};
+
+    // Source document with body
+    ({ $($body:tt)* }) => {{
+        #[allow(unused_mut)]
+        let mut c = $crate::document::source_constructor::SourceConstructor::new();
+        $crate::eure!(c; { $($body)* });
+        c.finish()
     }};
 }
 
@@ -2312,5 +2396,98 @@ mod tests {
             optional_node.as_primitive().unwrap(),
             PrimitiveValue::Null
         ));
+    }
+
+    // ========================================================================
+    // eure_source! macro tests
+    // ========================================================================
+
+    #[test]
+    fn test_eure_source_empty() {
+        let source_doc = eure_source!({});
+        assert_eq!(source_doc.document(), &EureDocument::new_empty());
+        assert!(source_doc.root_source().bindings.is_empty());
+        assert!(source_doc.root_source().sections.is_empty());
+    }
+
+    #[test]
+    fn test_eure_source_simple_bindings() {
+        let source_doc = eure_source!({
+            name = "Alice"
+            age = 30
+        });
+
+        // Verify document content
+        let doc = source_doc.document();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        assert_eq!(root.parse_field::<&str>("name").unwrap(), "Alice");
+        assert_eq!(root.parse_field::<i64>("age").unwrap(), 30);
+
+        // Verify source structure
+        let root_source = source_doc.root_source();
+        assert_eq!(root_source.bindings.len(), 2);
+        assert!(root_source.sections.is_empty());
+    }
+
+    #[test]
+    fn test_eure_source_nested() {
+        use crate::source::BindSource;
+
+        let source_doc = eure_source!({
+            user {
+                name = "Bob"
+                active = true
+            }
+        });
+
+        let doc = source_doc.document();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        let user = root.field_record("user").unwrap();
+        assert_eq!(user.parse_field::<&str>("name").unwrap(), "Bob");
+        assert!(user.parse_field::<bool>("active").unwrap());
+
+        // Verify source structure - should have one binding with a block
+        let root_source = source_doc.root_source();
+        assert_eq!(root_source.bindings.len(), 1);
+        match &root_source.bindings[0].bind {
+            BindSource::Block(source_id) => {
+                let inner = source_doc.source(*source_id);
+                assert_eq!(inner.bindings.len(), 2);
+            }
+            _ => panic!("Expected BindSource::Block"),
+        }
+    }
+
+    #[test]
+    fn test_eure_generic_entry_point() {
+        // Test the generic entry point with explicit constructor
+        use crate::document::constructor::DocumentConstructor;
+
+        let mut c = DocumentConstructor::new();
+        eure!(c; {
+            x = 1
+            y = 2
+        });
+        let doc = c.finish();
+
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        assert_eq!(root.parse_field::<i64>("x").unwrap(), 1);
+        assert_eq!(root.parse_field::<i64>("y").unwrap(), 2);
+    }
+
+    #[test]
+    fn test_eure_source_generic_entry_point() {
+        // Test the generic entry point with SourceConstructor
+        use crate::document::source_constructor::SourceConstructor;
+
+        let mut c = SourceConstructor::new();
+        eure!(c; {
+            message = "hello"
+        });
+        let source_doc = c.finish();
+
+        let doc = source_doc.document();
+        let root = doc.parse_context(doc.get_root_id()).parse_record().unwrap();
+        assert_eq!(root.parse_field::<&str>("message").unwrap(), "hello");
     }
 }

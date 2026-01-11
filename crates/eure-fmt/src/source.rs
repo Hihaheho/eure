@@ -13,8 +13,8 @@ use crate::printer::Printer;
 use eure_document::document::node::{NodeArray, NodeMap, NodeTuple, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::source::{
-    ArrayElementLayout, Comment, Layout, LayoutItem, SectionBody, SourceDocument, SourceKey,
-    SourcePathSegment,
+    ArrayElementSource, BindSource, BindingSource, Comment, EureSource, SectionBody, SectionSource,
+    SourceDocument, SourceId, SourceKey, SourcePathSegment, Trivia,
 };
 use eure_document::text::{Language, SyntaxHint};
 use eure_document::value::{ObjectKey, PrimitiveValue};
@@ -23,53 +23,87 @@ use eure_document::value::{ObjectKey, PrimitiveValue};
 ///
 /// This produces a document IR that can be printed with the pretty-printer.
 pub fn build_source_doc(source: &SourceDocument) -> Doc {
-    SourceDocBuilder::new(&source.document, &source.layout).build()
+    SourceDocBuilder::new(source).build()
 }
 
 /// Format a SourceDocument to Eure source string.
 ///
 /// This produces output that can be parsed back to an equivalent EureDocument.
-/// Comments and section ordering from the Layout are preserved.
+/// Comments and section ordering from the source structure are preserved.
 pub fn format_source_document(source: &SourceDocument) -> String {
     let doc = build_source_doc(source);
     Printer::new(FormatConfig::default()).print(&doc)
 }
 
 struct SourceDocBuilder<'a> {
-    doc: &'a EureDocument,
-    layout: &'a Layout,
+    source: &'a SourceDocument,
 }
 
 impl<'a> SourceDocBuilder<'a> {
-    fn new(doc: &'a EureDocument, layout: &'a Layout) -> Self {
-        Self { doc, layout }
+    fn new(source: &'a SourceDocument) -> Self {
+        Self { source }
+    }
+
+    fn doc(&self) -> &EureDocument {
+        &self.source.document
+    }
+
+    fn get_source(&self, id: SourceId) -> &EureSource {
+        self.source.source(id)
     }
 
     fn build(&self) -> Doc {
-        Doc::concat_all(self.layout.items.iter().map(|item| self.build_item(item)))
+        self.build_eure_source(self.source.root_source())
     }
 
-    fn build_item(&self, item: &LayoutItem) -> Doc {
-        match item {
-            LayoutItem::Comment(comment) => self.build_comment(comment),
-            LayoutItem::BlankLine => Doc::hardline(),
-            LayoutItem::Binding {
-                path,
-                node,
-                trailing_comment,
-            } => self.build_binding(path, *node, trailing_comment.as_deref()),
-            LayoutItem::Section {
-                path,
-                trailing_comment,
-                body,
-            } => self.build_section(path, trailing_comment.as_deref(), body),
-            LayoutItem::ArrayBinding {
-                path,
-                node,
-                elements,
-                trailing_comment,
-            } => self.build_array_binding(path, *node, elements, trailing_comment.as_deref()),
+    fn build_eure_source(&self, eure: &EureSource) -> Doc {
+        let mut parts = Vec::new();
+
+        // Leading trivia
+        if !eure.leading_trivia.is_empty() {
+            parts.push(self.build_trivia(&eure.leading_trivia));
         }
+
+        // Value binding (if present)
+        if let Some(node_id) = eure.value {
+            parts.push(
+                Doc::text("= ")
+                    .concat(self.build_value(node_id))
+                    .concat(Doc::hardline()),
+            );
+        }
+
+        // Bindings
+        for binding in &eure.bindings {
+            parts.push(self.build_binding(binding));
+        }
+
+        // Sections
+        for section in &eure.sections {
+            parts.push(self.build_section(section));
+        }
+
+        // Trailing trivia
+        if !eure.trailing_trivia.is_empty() {
+            parts.push(self.build_trivia(&eure.trailing_trivia));
+        }
+
+        Doc::concat_all(parts)
+    }
+
+    fn build_trivia(&self, trivia: &[Trivia]) -> Doc {
+        let mut parts = Vec::new();
+        for item in trivia {
+            match item {
+                Trivia::Comment(comment) => {
+                    parts.push(self.build_comment(comment));
+                }
+                Trivia::BlankLine => {
+                    parts.push(Doc::hardline());
+                }
+            }
+        }
+        Doc::concat_all(parts)
     }
 
     fn build_comment(&self, comment: &Comment) -> Doc {
@@ -96,79 +130,133 @@ impl<'a> SourceDocBuilder<'a> {
         }
     }
 
-    fn build_binding(
-        &self,
-        path: &[SourcePathSegment],
-        node: NodeId,
-        trailing_comment: Option<&str>,
-    ) -> Doc {
-        let mut doc = self
-            .build_path(path)
-            .concat(Doc::text(" = "))
-            .concat(self.build_value(node));
-
-        if let Some(comment) = trailing_comment {
-            doc = doc.concat(Doc::text(" //"));
-            if !comment.is_empty() {
-                doc = doc.concat(Doc::text(" ")).concat(Doc::text(comment));
+    /// Build a comment for array elements (no trailing hardline, caller controls line breaks).
+    fn build_array_comment(&self, comment: &Comment) -> Doc {
+        match comment {
+            Comment::Line(s) => {
+                if s.is_empty() {
+                    Doc::text("//")
+                } else {
+                    Doc::text("// ").concat(Doc::text(s.clone()))
+                }
+            }
+            Comment::Block(s) => {
+                if s.is_empty() {
+                    Doc::text("/**/")
+                } else {
+                    Doc::text("/* ")
+                        .concat(Doc::text(s.clone()))
+                        .concat(Doc::text(" */"))
+                }
             }
         }
-
-        doc.concat(Doc::hardline())
     }
 
-    fn build_section(
-        &self,
-        path: &[SourcePathSegment],
-        trailing_comment: Option<&str>,
-        body: &SectionBody,
-    ) -> Doc {
-        let mut header = Doc::text("@ ").concat(self.build_path(path));
-
-        if let Some(comment) = trailing_comment {
-            header = header.concat(Doc::text(" //"));
-            if !comment.is_empty() {
-                header = header.concat(Doc::text(" ")).concat(Doc::text(comment));
+    /// Build a trailing comment (same line, no hardline at end).
+    fn build_trailing_comment(&self, comment: &Comment) -> Doc {
+        match comment {
+            Comment::Line(s) => {
+                if s.is_empty() {
+                    Doc::text(" //")
+                } else {
+                    Doc::text(" // ").concat(Doc::text(s.clone()))
+                }
+            }
+            Comment::Block(s) => {
+                if s.is_empty() {
+                    Doc::text(" /**/")
+                } else {
+                    Doc::text(" /* ")
+                        .concat(Doc::text(s.clone()))
+                        .concat(Doc::text(" */"))
+                }
             }
         }
+    }
 
-        match body {
-            SectionBody::Items(items) => {
-                let items_doc = Doc::concat_all(items.iter().map(|item| self.build_item(item)));
-                header.concat(Doc::hardline()).concat(items_doc)
+    fn build_binding(&self, binding: &BindingSource) -> Doc {
+        let mut parts = Vec::new();
+
+        // Trivia before this binding
+        if !binding.trivia_before.is_empty() {
+            parts.push(self.build_trivia(&binding.trivia_before));
+        }
+
+        let path_doc = self.build_path(&binding.path);
+
+        let body_doc = match &binding.bind {
+            BindSource::Value(node_id) => Doc::text(" = ").concat(self.build_value(*node_id)),
+            BindSource::Array { node, elements } => {
+                Doc::text(" = ").concat(self.build_array_with_trivia(*node, elements))
             }
-            SectionBody::Block(items) => {
-                let items_doc = Doc::concat_all(items.iter().map(|item| self.build_item(item)));
+            BindSource::Block(source_id) => {
+                let inner = self.build_eure_source(self.get_source(*source_id));
+                Doc::text(" {")
+                    .concat(Doc::hardline())
+                    .concat(Doc::indent(inner))
+                    .concat(Doc::text("}"))
+            }
+        };
+
+        let mut doc = path_doc.concat(body_doc);
+
+        if let Some(comment) = &binding.trailing_comment {
+            doc = doc.concat(self.build_trailing_comment(comment));
+        }
+
+        parts.push(doc.concat(Doc::hardline()));
+        Doc::concat_all(parts)
+    }
+
+    fn build_section(&self, section: &SectionSource) -> Doc {
+        let mut parts = Vec::new();
+
+        // Trivia before this section
+        if !section.trivia_before.is_empty() {
+            parts.push(self.build_trivia(&section.trivia_before));
+        }
+
+        let mut header = Doc::text("@ ").concat(self.build_path(&section.path));
+
+        if let Some(comment) = &section.trailing_comment {
+            header = header.concat(self.build_trailing_comment(comment));
+        }
+
+        let section_doc = match &section.body {
+            SectionBody::Items { value, bindings } => {
+                let mut body_parts = Vec::new();
+
+                // Value binding (if present)
+                if let Some(node_id) = value {
+                    body_parts.push(
+                        Doc::text("= ")
+                            .concat(self.build_value(*node_id))
+                            .concat(Doc::hardline()),
+                    );
+                }
+
+                // Bindings in section
+                for binding in bindings {
+                    body_parts.push(self.build_binding(binding));
+                }
+
+                header
+                    .concat(Doc::hardline())
+                    .concat(Doc::concat_all(body_parts))
+            }
+            SectionBody::Block(source_id) => {
+                let inner = self.build_eure_source(self.get_source(*source_id));
                 header
                     .concat(Doc::text(" {"))
                     .concat(Doc::hardline())
-                    .concat(Doc::indent(items_doc))
+                    .concat(Doc::indent(inner))
                     .concat(Doc::text("}"))
                     .concat(Doc::hardline())
             }
-        }
-    }
+        };
 
-    fn build_array_binding(
-        &self,
-        path: &[SourcePathSegment],
-        node: NodeId,
-        elements: &[ArrayElementLayout],
-        trailing_comment: Option<&str>,
-    ) -> Doc {
-        let mut doc = self
-            .build_path(path)
-            .concat(Doc::text(" = "))
-            .concat(self.build_array_with_comments(node, elements));
-
-        if let Some(comment) = trailing_comment {
-            doc = doc.concat(Doc::text(" //"));
-            if !comment.is_empty() {
-                doc = doc.concat(Doc::text(" ")).concat(Doc::text(comment));
-            }
-        }
-
-        doc.concat(Doc::hardline())
+        parts.push(section_doc);
+        Doc::concat_all(parts)
     }
 
     fn build_path(&self, path: &[SourcePathSegment]) -> Doc {
@@ -206,7 +294,7 @@ impl<'a> SourceDocBuilder<'a> {
     }
 
     fn build_value(&self, node_id: NodeId) -> Doc {
-        let node = self.doc.node(node_id);
+        let node = self.doc().node(node_id);
         match &node.content {
             NodeValue::Hole(_) => Doc::text("null"),
             NodeValue::Primitive(prim) => self.build_primitive(prim),
@@ -321,17 +409,19 @@ impl<'a> SourceDocBuilder<'a> {
             return Doc::text("[]");
         }
 
-        // Check if this array should be formatted multi-line
-        if self.layout.multiline_nodes.contains(&node_id) {
-            // Force multiline format
-            let elements = Doc::concat_all(arr.iter().map(|&id| {
-                Doc::hardline()
-                    .concat(self.build_value(id))
-                    .concat(Doc::text(","))
-            }));
+        // Check if this array should be forced multi-line (from source tracking)
+        let force_multiline = self.source.is_multiline_array(node_id);
+
+        if force_multiline {
+            // Force multi-line: use hardline, no group
+            let elements = Doc::join(
+                arr.iter()
+                    .map(|&id| self.build_value(id).concat(Doc::text(","))),
+                Doc::hardline(),
+            );
 
             Doc::text("[")
-                .concat(Doc::indent(elements))
+                .concat(Doc::indent(Doc::hardline().concat(elements)))
                 .concat(Doc::hardline())
                 .concat(Doc::text("]"))
         } else {
@@ -351,70 +441,64 @@ impl<'a> SourceDocBuilder<'a> {
         }
     }
 
-    fn build_array_with_comments(&self, node_id: NodeId, elements: &[ArrayElementLayout]) -> Doc {
-        let node = self.doc.node(node_id);
-        if let NodeValue::Array(arr) = &node.content {
-            if arr.is_empty() {
-                return Doc::text("[]");
-            }
+    /// Build an array with per-element trivia (comments/blank lines).
+    fn build_array_with_trivia(&self, node_id: NodeId, elements: &[ArrayElementSource]) -> Doc {
+        let arr = match &self.doc().node(node_id).content {
+            NodeValue::Array(arr) => arr,
+            _ => return self.build_value(node_id), // Fallback if not an array
+        };
 
-            let mut items = Vec::new();
-
-            for (i, &child_id) in arr.iter().enumerate() {
-                // Add comments before this element
-                if let Some(el) = elements.iter().find(|e| e.index == i) {
-                    for comment in &el.comments_before {
-                        // Build comment without the trailing hardline (we'll add separators later)
-                        let comment_doc = match comment {
-                            Comment::Line(s) => {
-                                if s.is_empty() {
-                                    Doc::text("//")
-                                } else {
-                                    Doc::text("// ").concat(Doc::text(s.clone()))
-                                }
-                            }
-                            Comment::Block(s) => {
-                                if s.is_empty() {
-                                    Doc::text("/**/")
-                                } else {
-                                    Doc::text("/* ")
-                                        .concat(Doc::text(s.clone()))
-                                        .concat(Doc::text(" */"))
-                                }
-                            }
-                        };
-                        items.push(comment_doc);
-                    }
-                }
-
-                // Add the element value with trailing comma
-                let mut elem_doc = self.build_value(child_id).concat(Doc::text(","));
-
-                // Add trailing comment if present
-                if let Some(el) = elements.iter().find(|e| e.index == i)
-                    && let Some(ref trailing) = el.trailing_comment
-                {
-                    elem_doc = elem_doc.concat(Doc::text(" //"));
-                    if !trailing.is_empty() {
-                        elem_doc = elem_doc
-                            .concat(Doc::text(" "))
-                            .concat(Doc::text(trailing.clone()));
-                    }
-                }
-
-                items.push(elem_doc);
-            }
-
-            // Join items with hardline, wrap in indent, add brackets
-            let content = Doc::join(items, Doc::hardline());
-            Doc::text("[")
-                .concat(Doc::indent(Doc::hardline().concat(content)))
-                .concat(Doc::hardline())
-                .concat(Doc::text("]"))
-        } else {
-            // Fallback: format as regular value
-            self.build_value(node_id)
+        if elements.is_empty() {
+            // Fallback to regular array formatting
+            return self.build_array(node_id, arr);
         }
+
+        // Build inner content without per-item indent wrapping
+        let mut inner_parts = Vec::new();
+
+        for (i, elem_source) in elements.iter().enumerate() {
+            // Trivia before element (comments, blank lines)
+            for trivia in &elem_source.trivia_before {
+                match trivia {
+                    Trivia::Comment(comment) => {
+                        // Build comment without trailing hardline (we control line breaks)
+                        inner_parts.push(self.build_array_comment(comment));
+                        inner_parts.push(Doc::hardline());
+                    }
+                    Trivia::BlankLine => {
+                        inner_parts.push(Doc::hardline());
+                    }
+                }
+            }
+
+            // Element value
+            let value_id = arr.get(elem_source.index).unwrap();
+            let mut elem_doc = self.build_value(value_id);
+
+            // Always add trailing comma for Eure style
+            elem_doc = elem_doc.concat(Doc::text(","));
+
+            // Trailing comment
+            if let Some(comment) = &elem_source.trailing_comment {
+                elem_doc = elem_doc.concat(self.build_trailing_comment(comment));
+            }
+
+            inner_parts.push(elem_doc);
+            // Add newline after each element except the last
+            if i < elements.len() - 1 {
+                inner_parts.push(Doc::hardline());
+            }
+        }
+
+        // Wrap all content in indent block
+        // - Hardline inside Indent for proper indentation of first element
+        // - Hardline after Indent for closing bracket at column 0
+        Doc::text("[")
+            .concat(Doc::indent(
+                Doc::hardline().concat(Doc::concat_all(inner_parts)),
+            ))
+            .concat(Doc::hardline())
+            .concat(Doc::text("]"))
     }
 
     fn build_tuple(&self, tuple: &NodeTuple) -> Doc {
