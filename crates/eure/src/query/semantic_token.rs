@@ -249,32 +249,6 @@ impl<'a> SemanticTokenVisitor<'a> {
         }
     }
 
-    /// Emit inline code start token (double backtick) with language tag prefix.
-    fn emit_inline_code_start_2(&mut self, span: InputSpan) {
-        let text = span.as_str(self.input);
-
-        // Format: lang`` - find the double backtick position
-        if let Some(backtick_pos) = text.find("``") {
-            let tag_len = backtick_pos;
-
-            // Emit language tag as Decorator (if present)
-            if tag_len > 0 {
-                self.tokens.push(SemanticToken::new(
-                    span.start,
-                    tag_len as u32,
-                    SemanticTokenType::Decorator,
-                ));
-            }
-
-            // Emit backticks as Macro
-            self.tokens.push(SemanticToken::new(
-                span.start + tag_len as u32,
-                2,
-                SemanticTokenType::Macro,
-            ));
-        }
-    }
-
     /// Compute modifiers for the current context.
     fn current_modifiers(&self, is_ident: bool) -> u32 {
         let mut modifiers = 0;
@@ -317,8 +291,8 @@ impl<'a> SemanticTokenVisitor<'a> {
                 Some(SemanticTokenType::Number)
             }
 
-            // Strings
-            TerminalKind::Str | TerminalKind::Text | TerminalKind::BacktickStr => {
+            // Strings (escaped and literal)
+            TerminalKind::Str | TerminalKind::Text | TerminalKind::LitStr => {
                 Some(SemanticTokenType::String)
             }
 
@@ -362,18 +336,34 @@ impl<'a> SemanticTokenVisitor<'a> {
             }
 
             // Code block content and ends
-            TerminalKind::InlineCodeEnd2
-            | TerminalKind::CodeBlockEnd3
+            TerminalKind::CodeBlockEnd3
             | TerminalKind::CodeBlockEnd4
             | TerminalKind::CodeBlockEnd5
             | TerminalKind::CodeBlockEnd6
             | TerminalKind::NoBacktick
-            | TerminalKind::NoBacktickInline
-            | TerminalKind::Backtick1
+            | TerminalKind::BacktickDelim1
             | TerminalKind::Backtick2
             | TerminalKind::Backtick3
             | TerminalKind::Backtick4
-            | TerminalKind::Backtick5 => Some(SemanticTokenType::Macro),
+            | TerminalKind::Backtick5
+            | TerminalKind::DelimCodeEnd1
+            | TerminalKind::DelimCodeEnd2
+            | TerminalKind::DelimCodeEnd3 => Some(SemanticTokenType::Macro),
+
+            // Delimited escaped string content and ends (Str1/2/3)
+            TerminalKind::NoQuote
+            | TerminalKind::Quote1
+            | TerminalKind::Quote2
+            | TerminalKind::Str1End
+            | TerminalKind::Str2End
+            | TerminalKind::Str3End
+            // Delimited literal string content and ends (LitStr1/2/3)
+            | TerminalKind::NoSQuote
+            | TerminalKind::SQuote1
+            | TerminalKind::SQuote2
+            | TerminalKind::LitStr1End
+            | TerminalKind::LitStr2End
+            | TerminalKind::LitStr3End => Some(SemanticTokenType::String),
 
             // Skip whitespace/newlines
             TerminalKind::Whitespace
@@ -381,13 +371,21 @@ impl<'a> SemanticTokenVisitor<'a> {
             | TerminalKind::GrammarNewline
             | TerminalKind::Ws => None,
 
-            // Skip code block starts (handled specially via visit methods)
+            // Skip code block/inline starts (handled specially via visit methods)
             TerminalKind::InlineCode1
-            | TerminalKind::InlineCodeStart2
             | TerminalKind::CodeBlockStart3
             | TerminalKind::CodeBlockStart4
             | TerminalKind::CodeBlockStart5
-            | TerminalKind::CodeBlockStart6 => None,
+            | TerminalKind::CodeBlockStart6
+            | TerminalKind::Str1Start
+            | TerminalKind::Str2Start
+            | TerminalKind::Str3Start
+            | TerminalKind::LitStr1Start
+            | TerminalKind::LitStr2Start
+            | TerminalKind::LitStr3Start
+            | TerminalKind::DelimCodeStart1
+            | TerminalKind::DelimCodeStart2
+            | TerminalKind::DelimCodeStart3 => None,
         }
     }
 }
@@ -508,29 +506,6 @@ impl<F: CstFacade> CstVisitor<F> for SemanticTokenVisitor<'_> {
         if let Ok(TerminalData::Input(span)) = view.inline_code_1.get_data(tree) {
             self.emit_inline_code_1(span);
         }
-        Ok(())
-    }
-
-    // Handle inline code 2 specially (lang``code``)
-    fn visit_inline_code_2(
-        &mut self,
-        handle: InlineCode2Handle,
-        view: InlineCode2View,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        // Handle the start token specially - get the view first, then the terminal data
-        if let Ok(start_view) = view.inline_code_start_2.get_view(tree)
-            && let Ok(TerminalData::Input(span)) = start_view.inline_code_start_2.get_data(tree)
-        {
-            self.emit_inline_code_start_2(span);
-        }
-
-        // Visit content and end normally via super
-        self.visit_inline_code_2_list_handle(view.inline_code_2_list, tree)?;
-        self.visit_inline_code_end_2_handle(view.inline_code_end_2, tree)?;
-
-        // Suppress auto-traversal
-        let _ = handle;
         Ok(())
     }
 

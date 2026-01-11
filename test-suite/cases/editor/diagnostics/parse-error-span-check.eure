@@ -38,5 +38,5 @@ message = ```
 Syntax error: found $ (EndOfInput) at test.eure:0:0-0:0[6]
 Current scanner is INITIAL
 Current production is:
-/* 174 */ End: "End";
+/* 244 */ End: "End";
 ```

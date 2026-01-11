@@ -92,8 +92,13 @@
           "name": "entity.name.section.eure"
         },
         {
-          "comment": "Backtick string as section key",
-          "match": "`[^`\\r\\n]*`",
+          "comment": "Literal string as section key",
+          "match": "'[^']*'",
+          "name": "entity.name.section.eure"
+        },
+        {
+          "comment": "Delimited literal string as section key: <'...'>, <<'...'>>, <<<'...'>>>",
+          "match": "<{1,3}'[^']*'>{1,3}",
           "name": "entity.name.section.eure"
         },
         {
@@ -247,8 +252,13 @@
           "name": "variable.other.property.eure"
         },
         {
-          "comment": "Backtick string as binding key",
-          "match": "`[^`\\r\\n]*`(?=\\s*[.\\[=:{])",
+          "comment": "Literal string as binding key",
+          "match": "'[^']*'(?=\\s*[.\\[=:{])",
+          "name": "variable.other.property.eure"
+        },
+        {
+          "comment": "Delimited literal string as binding key: <'...'>, <<'...'>>, <<<'...'>>>",
+          "match": "<{1,3}'[^']*'>{1,3}(?=\\s*[.\\[=:{])",
           "name": "variable.other.property.eure"
         },
         {
@@ -437,6 +447,88 @@
     "strings": {
       "patterns": [
         {
+          "comment": "Triple-delimited string: <<<\"...\">>>",
+          "begin": "(<<<)(\")",
+          "end": "(\")(>>>)",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.string.begin.eure" },
+            "2": { "name": "punctuation.definition.string.begin.eure" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.eure" },
+            "2": { "name": "punctuation.definition.string.end.eure" }
+          },
+          "contentName": "string.quoted.double.eure"
+        },
+        {
+          "comment": "Double-delimited string: <<\"...\">>",
+          "begin": "(<<)(\")",
+          "end": "(\")(>>)",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.string.begin.eure" },
+            "2": { "name": "punctuation.definition.string.begin.eure" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.eure" },
+            "2": { "name": "punctuation.definition.string.end.eure" }
+          },
+          "contentName": "string.quoted.double.eure"
+        },
+        {
+          "comment": "Single-delimited string: <\"...\">",
+          "begin": "(<)(\")",
+          "end": "(\">)",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.string.begin.eure" },
+            "2": { "name": "punctuation.definition.string.begin.eure" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.eure" }
+          },
+          "contentName": "string.quoted.double.eure"
+        },
+        {
+          "comment": "Triple-delimited literal string: <<<'...'>>>",
+          "begin": "(<<<)(')",
+          "end": "(')(>>>)",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.string.begin.eure" },
+            "2": { "name": "punctuation.definition.string.begin.eure" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.eure" },
+            "2": { "name": "punctuation.definition.string.end.eure" }
+          },
+          "contentName": "string.quoted.single.eure"
+        },
+        {
+          "comment": "Double-delimited literal string: <<'...'>>",
+          "begin": "(<<)(')",
+          "end": "(')(>>)",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.string.begin.eure" },
+            "2": { "name": "punctuation.definition.string.begin.eure" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.definition.string.end.eure" },
+            "2": { "name": "punctuation.definition.string.end.eure" }
+          },
+          "contentName": "string.quoted.single.eure"
+        },
+        {
+          "comment": "Single-delimited literal string: <'...'>",
+          "begin": "(<)(')",
+          "end": "('>)",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.string.begin.eure" },
+            "2": { "name": "punctuation.definition.string.begin.eure" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.eure" }
+          },
+          "contentName": "string.quoted.single.eure"
+        },
+        {
           "comment": "String with continuation",
           "begin": "\"",
           "end": "\"",
@@ -455,8 +547,20 @@
           ]
         },
         {
+          "comment": "Literal string (single-quoted)",
+          "begin": "'",
+          "end": "'",
+          "name": "string.quoted.single.eure",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.eure" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.eure" }
+          }
+        },
+        {
           "comment": "String continuation: \\",
-          "match": "\\\\(?=\\s*\")",
+          "match": "\\\\(?=\\s*[\"'])",
           "name": "punctuation.separator.continuation.eure"
         }
       ]
@@ -1038,6 +1142,7 @@
 
     "inline-code": {
       "patterns": [
+        { "include": "#delim-code" },
         { "include": "#inline-code-rust" },
         { "include": "#inline-code-json" },
         { "include": "#inline-code-yaml" },
@@ -1058,252 +1163,299 @@
     "inline-code-rust": {
       "patterns": [
         {
-          "begin": "(rust)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.rust",
-          "patterns": [{ "include": "source.rust" }]
+          "match": "(rust)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.rust markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(rust)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.rust",
-          "patterns": [{ "include": "source.rust" }]
+          "match": "(rust)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.rust markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-json": {
       "patterns": [
         {
-          "begin": "(json)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.json",
-          "patterns": [{ "include": "source.json" }]
+          "match": "(json)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.json markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(json)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.json",
-          "patterns": [{ "include": "source.json" }]
+          "match": "(json)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.json markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-yaml": {
       "patterns": [
         {
-          "begin": "(ya?ml)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.yaml",
-          "patterns": [{ "include": "source.yaml" }]
+          "match": "(ya?ml)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.yaml markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(ya?ml)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.yaml",
-          "patterns": [{ "include": "source.yaml" }]
+          "match": "(ya?ml)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.yaml markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-toml": {
       "patterns": [
         {
-          "begin": "(toml)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.toml",
-          "patterns": [{ "include": "source.toml" }]
+          "match": "(toml)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.toml markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(toml)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.toml",
-          "patterns": [{ "include": "source.toml" }]
+          "match": "(toml)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.toml markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-javascript": {
       "patterns": [
         {
-          "begin": "(javascript|js)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.javascript",
-          "patterns": [{ "include": "source.js" }]
+          "match": "(javascript|js)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.javascript markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(javascript|js)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.javascript",
-          "patterns": [{ "include": "source.js" }]
+          "match": "(javascript|js)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.javascript markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-typescript": {
       "patterns": [
         {
-          "begin": "(typescript|ts)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.typescript",
-          "patterns": [{ "include": "source.ts" }]
+          "match": "(typescript|ts)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.typescript markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(typescript|ts)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.typescript",
-          "patterns": [{ "include": "source.ts" }]
+          "match": "(typescript|ts)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.typescript markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-python": {
       "patterns": [
         {
-          "begin": "(python|py)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.python",
-          "patterns": [{ "include": "source.python" }]
+          "match": "(python|py)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.python markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(python|py)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.python",
-          "patterns": [{ "include": "source.python" }]
+          "match": "(python|py)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.python markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-html": {
       "patterns": [
         {
-          "begin": "(html)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.html",
-          "patterns": [{ "include": "text.html.basic" }]
+          "match": "(html)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.html markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(html)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.html",
-          "patterns": [{ "include": "text.html.basic" }]
+          "match": "(html)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.html markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-css": {
       "patterns": [
         {
-          "begin": "(css)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.css",
-          "patterns": [{ "include": "source.css" }]
+          "match": "(css)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.css markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(css)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.css",
-          "patterns": [{ "include": "source.css" }]
+          "match": "(css)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.css markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-sql": {
       "patterns": [
         {
-          "begin": "(sql)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.sql",
-          "patterns": [{ "include": "source.sql" }]
+          "match": "(sql)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.sql markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(sql)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.sql",
-          "patterns": [{ "include": "source.sql" }]
+          "match": "(sql)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.sql markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-markdown": {
       "patterns": [
         {
-          "begin": "(markdown|md)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.markdown",
-          "patterns": [{ "include": "text.html.markdown" }]
+          "match": "(markdown|md)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.markdown markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(markdown|md)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.markdown",
-          "patterns": [{ "include": "text.html.markdown" }]
+          "match": "(markdown|md)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.markdown markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-shell": {
       "patterns": [
         {
-          "begin": "(shell|bash|sh|zsh)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.shellscript",
-          "patterns": [{ "include": "source.shell" }]
+          "match": "(shell|bash|sh|zsh)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.shellscript markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(shell|bash|sh|zsh)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.shellscript",
-          "patterns": [{ "include": "source.shell" }]
+          "match": "(shell|bash|sh|zsh)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.shellscript markup.inline.raw.string.markdown" }
+          }
         }
       ]
     },
     "inline-code-eure": {
       "patterns": [
         {
-          "begin": "(eure)(``)(?!`)", "end": "``",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.eure",
-          "patterns": [{ "include": "source.eure" }]
+          "match": "(eure)(``)((?:[^`\\r\\n]|`(?!`))*)(``)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "meta.embedded.inline.eure markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         },
         {
-          "begin": "(eure)(`)(?!`)", "end": "`",
-          "beginCaptures": { "1": { "name": "entity.name.function.eure" }, "2": { "name": "punctuation.definition.raw.begin.markdown" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.raw.end.markdown" } },
-          "contentName": "meta.embedded.inline.eure",
-          "patterns": [{ "include": "source.eure" }]
+          "match": "(eure)(`[^`\\r\\n]*`)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "meta.embedded.inline.eure markup.inline.raw.string.markdown" }
+          }
+        }
+      ]
+    },
+    "delim-code": {
+      "patterns": [
+        {
+          "comment": "Triple-delimited code: lang<<<`...`>>>",
+          "match": "([a-zA-Z0-9_-]*)(<<<`)([^`]*(?:`(?!>>>)[^`]*)*)(\\`>>>)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
+        },
+        {
+          "comment": "Double-delimited code: lang<<`...`>>",
+          "match": "([a-zA-Z0-9_-]*)(<<`)([^`]*(?:`(?!>>)[^`]*)*)(\\`>>)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
+        },
+        {
+          "comment": "Single-delimited code: lang<`...`>",
+          "match": "([a-zA-Z0-9_-]*)(<`)([^`]*(?:`(?!>)[^`]*)*)(\\`>)",
+          "captures": {
+            "1": { "name": "entity.name.function.eure" },
+            "2": { "name": "punctuation.definition.raw.begin.markdown" },
+            "3": { "name": "markup.inline.raw.string.markdown" },
+            "4": { "name": "punctuation.definition.raw.end.markdown" }
+          }
         }
       ]
     },
     "inline-code-generic": {
       "patterns": [
-        {
-          "comment": "Double backtick inline code: lang``code``",
-          "begin": "([a-zA-Z0-9_-]*)(``)(?!`)",
-          "end": "``",
-          "beginCaptures": {
-            "1": { "name": "entity.name.function.eure" },
-            "2": { "name": "punctuation.definition.raw.begin.markdown" }
-          },
-          "endCaptures": {
-            "0": { "name": "punctuation.definition.raw.end.markdown" }
-          },
-          "contentName": "markup.inline.raw.string.markdown"
-        },
         {
           "comment": "Single backtick inline code: lang`code`",
           "match": "([a-zA-Z0-9_-]*)(`[^`\\r\\n]*`)",

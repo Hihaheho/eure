@@ -94,14 +94,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     fn visit_at(&mut self, handle: AtHandle, view: AtView, tree: &F) -> Result<(), Self::Error> {
         self.visit_at_super(handle, view, tree)
     }
-    fn visit_backtick_1(
-        &mut self,
-        handle: Backtick1Handle,
-        view: Backtick1View,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_backtick_1_super(handle, view, tree)
-    }
     fn visit_backtick_2(
         &mut self,
         handle: Backtick2Handle,
@@ -134,13 +126,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_backtick_5_super(handle, view, tree)
     }
-    fn visit_backtick_str(
+    fn visit_backtick_delim_1(
         &mut self,
-        handle: BacktickStrHandle,
-        view: BacktickStrView,
+        handle: BacktickDelim1Handle,
+        view: BacktickDelim1View,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_backtick_str_super(handle, view, tree)
+        self.visit_backtick_delim_1_super(handle, view, tree)
     }
     fn visit_begin(
         &mut self,
@@ -366,6 +358,134 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_continue_super(handle, view, tree)
     }
+    fn visit_delim_code(
+        &mut self,
+        handle: DelimCodeHandle,
+        view: DelimCodeView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_super(handle, view, tree)
+    }
+    fn visit_delim_code_1(
+        &mut self,
+        handle: DelimCode1Handle,
+        view: DelimCode1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_1_super(handle, view, tree)
+    }
+    fn visit_delim_code_1_list(
+        &mut self,
+        handle: DelimCode1ListHandle,
+        view: DelimCode1ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_1_list_super(handle, view, tree)
+    }
+    fn visit_delim_code_1_list_group(
+        &mut self,
+        handle: DelimCode1ListGroupHandle,
+        view: DelimCode1ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_1_list_group_super(handle, view, tree)
+    }
+    fn visit_delim_code_2(
+        &mut self,
+        handle: DelimCode2Handle,
+        view: DelimCode2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_2_super(handle, view, tree)
+    }
+    fn visit_delim_code_2_list(
+        &mut self,
+        handle: DelimCode2ListHandle,
+        view: DelimCode2ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_2_list_super(handle, view, tree)
+    }
+    fn visit_delim_code_2_list_group(
+        &mut self,
+        handle: DelimCode2ListGroupHandle,
+        view: DelimCode2ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_2_list_group_super(handle, view, tree)
+    }
+    fn visit_delim_code_3(
+        &mut self,
+        handle: DelimCode3Handle,
+        view: DelimCode3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_3_super(handle, view, tree)
+    }
+    fn visit_delim_code_3_list(
+        &mut self,
+        handle: DelimCode3ListHandle,
+        view: DelimCode3ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_3_list_super(handle, view, tree)
+    }
+    fn visit_delim_code_3_list_group(
+        &mut self,
+        handle: DelimCode3ListGroupHandle,
+        view: DelimCode3ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_3_list_group_super(handle, view, tree)
+    }
+    fn visit_delim_code_end_1(
+        &mut self,
+        handle: DelimCodeEnd1Handle,
+        view: DelimCodeEnd1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_end_1_super(handle, view, tree)
+    }
+    fn visit_delim_code_end_2(
+        &mut self,
+        handle: DelimCodeEnd2Handle,
+        view: DelimCodeEnd2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_end_2_super(handle, view, tree)
+    }
+    fn visit_delim_code_end_3(
+        &mut self,
+        handle: DelimCodeEnd3Handle,
+        view: DelimCodeEnd3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_end_3_super(handle, view, tree)
+    }
+    fn visit_delim_code_start_1(
+        &mut self,
+        handle: DelimCodeStart1Handle,
+        view: DelimCodeStart1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_start_1_super(handle, view, tree)
+    }
+    fn visit_delim_code_start_2(
+        &mut self,
+        handle: DelimCodeStart2Handle,
+        view: DelimCodeStart2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_start_2_super(handle, view, tree)
+    }
+    fn visit_delim_code_start_3(
+        &mut self,
+        handle: DelimCodeStart3Handle,
+        view: DelimCodeStart3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_start_3_super(handle, view, tree)
+    }
     fn visit_dot(&mut self, handle: DotHandle, view: DotView, tree: &F) -> Result<(), Self::Error> {
         self.visit_dot_super(handle, view, tree)
     }
@@ -473,46 +593,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_inline_code_1_super(handle, view, tree)
-    }
-    fn visit_inline_code_2(
-        &mut self,
-        handle: InlineCode2Handle,
-        view: InlineCode2View,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_inline_code_2_super(handle, view, tree)
-    }
-    fn visit_inline_code_2_list(
-        &mut self,
-        handle: InlineCode2ListHandle,
-        view: InlineCode2ListView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_inline_code_2_list_super(handle, view, tree)
-    }
-    fn visit_inline_code_2_list_group(
-        &mut self,
-        handle: InlineCode2ListGroupHandle,
-        view: InlineCode2ListGroupView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_inline_code_2_list_group_super(handle, view, tree)
-    }
-    fn visit_inline_code_end_2(
-        &mut self,
-        handle: InlineCodeEnd2Handle,
-        view: InlineCodeEnd2View,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_inline_code_end_2_super(handle, view, tree)
-    }
-    fn visit_inline_code_start_2(
-        &mut self,
-        handle: InlineCodeStart2Handle,
-        view: InlineCodeStart2View,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_inline_code_start_2_super(handle, view, tree)
     }
     fn visit_integer(
         &mut self,
@@ -629,6 +709,134 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_l_paren_super(handle, view, tree)
     }
+    fn visit_lit_str(
+        &mut self,
+        handle: LitStrHandle,
+        view: LitStrView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_super(handle, view, tree)
+    }
+    fn visit_lit_str_1(
+        &mut self,
+        handle: LitStr1Handle,
+        view: LitStr1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_1_super(handle, view, tree)
+    }
+    fn visit_lit_str_1_end(
+        &mut self,
+        handle: LitStr1EndHandle,
+        view: LitStr1EndView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_1_end_super(handle, view, tree)
+    }
+    fn visit_lit_str_1_list(
+        &mut self,
+        handle: LitStr1ListHandle,
+        view: LitStr1ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_1_list_super(handle, view, tree)
+    }
+    fn visit_lit_str_1_list_group(
+        &mut self,
+        handle: LitStr1ListGroupHandle,
+        view: LitStr1ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_1_list_group_super(handle, view, tree)
+    }
+    fn visit_lit_str_1_start(
+        &mut self,
+        handle: LitStr1StartHandle,
+        view: LitStr1StartView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_1_start_super(handle, view, tree)
+    }
+    fn visit_lit_str_2(
+        &mut self,
+        handle: LitStr2Handle,
+        view: LitStr2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_2_super(handle, view, tree)
+    }
+    fn visit_lit_str_2_end(
+        &mut self,
+        handle: LitStr2EndHandle,
+        view: LitStr2EndView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_2_end_super(handle, view, tree)
+    }
+    fn visit_lit_str_2_list(
+        &mut self,
+        handle: LitStr2ListHandle,
+        view: LitStr2ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_2_list_super(handle, view, tree)
+    }
+    fn visit_lit_str_2_list_group(
+        &mut self,
+        handle: LitStr2ListGroupHandle,
+        view: LitStr2ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_2_list_group_super(handle, view, tree)
+    }
+    fn visit_lit_str_2_start(
+        &mut self,
+        handle: LitStr2StartHandle,
+        view: LitStr2StartView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_2_start_super(handle, view, tree)
+    }
+    fn visit_lit_str_3(
+        &mut self,
+        handle: LitStr3Handle,
+        view: LitStr3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_3_super(handle, view, tree)
+    }
+    fn visit_lit_str_3_end(
+        &mut self,
+        handle: LitStr3EndHandle,
+        view: LitStr3EndView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_3_end_super(handle, view, tree)
+    }
+    fn visit_lit_str_3_list(
+        &mut self,
+        handle: LitStr3ListHandle,
+        view: LitStr3ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_3_list_super(handle, view, tree)
+    }
+    fn visit_lit_str_3_list_group(
+        &mut self,
+        handle: LitStr3ListGroupHandle,
+        view: LitStr3ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_3_list_group_super(handle, view, tree)
+    }
+    fn visit_lit_str_3_start(
+        &mut self,
+        handle: LitStr3StartHandle,
+        view: LitStr3StartView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_3_start_super(handle, view, tree)
+    }
     fn visit_map_bind(
         &mut self,
         handle: MapBindHandle,
@@ -653,13 +861,21 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_no_backtick_super(handle, view, tree)
     }
-    fn visit_no_backtick_inline(
+    fn visit_no_quote(
         &mut self,
-        handle: NoBacktickInlineHandle,
-        view: NoBacktickInlineView,
+        handle: NoQuoteHandle,
+        view: NoQuoteView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_no_backtick_inline_super(handle, view, tree)
+        self.visit_no_quote_super(handle, view, tree)
+    }
+    fn visit_no_s_quote(
+        &mut self,
+        handle: NoSQuoteHandle,
+        view: NoSQuoteView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_no_s_quote_super(handle, view, tree)
     }
     fn visit_null(
         &mut self,
@@ -717,6 +933,22 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_object_opt_1_super(handle, view, tree)
     }
+    fn visit_quote_1(
+        &mut self,
+        handle: Quote1Handle,
+        view: Quote1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_quote_1_super(handle, view, tree)
+    }
+    fn visit_quote_2(
+        &mut self,
+        handle: Quote2Handle,
+        view: Quote2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_quote_2_super(handle, view, tree)
+    }
     fn visit_r_paren(
         &mut self,
         handle: RParenHandle,
@@ -724,6 +956,22 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_r_paren_super(handle, view, tree)
+    }
+    fn visit_s_quote_1(
+        &mut self,
+        handle: SQuote1Handle,
+        view: SQuote1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_s_quote_1_super(handle, view, tree)
+    }
+    fn visit_s_quote_2(
+        &mut self,
+        handle: SQuote2Handle,
+        view: SQuote2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_s_quote_2_super(handle, view, tree)
     }
     fn visit_section(
         &mut self,
@@ -767,6 +1015,134 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     }
     fn visit_str(&mut self, handle: StrHandle, view: StrView, tree: &F) -> Result<(), Self::Error> {
         self.visit_str_super(handle, view, tree)
+    }
+    fn visit_str_1(
+        &mut self,
+        handle: Str1Handle,
+        view: Str1View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_1_super(handle, view, tree)
+    }
+    fn visit_str_1_end(
+        &mut self,
+        handle: Str1EndHandle,
+        view: Str1EndView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_1_end_super(handle, view, tree)
+    }
+    fn visit_str_1_list(
+        &mut self,
+        handle: Str1ListHandle,
+        view: Str1ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_1_list_super(handle, view, tree)
+    }
+    fn visit_str_1_list_group(
+        &mut self,
+        handle: Str1ListGroupHandle,
+        view: Str1ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_1_list_group_super(handle, view, tree)
+    }
+    fn visit_str_1_start(
+        &mut self,
+        handle: Str1StartHandle,
+        view: Str1StartView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_1_start_super(handle, view, tree)
+    }
+    fn visit_str_2(
+        &mut self,
+        handle: Str2Handle,
+        view: Str2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_2_super(handle, view, tree)
+    }
+    fn visit_str_2_end(
+        &mut self,
+        handle: Str2EndHandle,
+        view: Str2EndView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_2_end_super(handle, view, tree)
+    }
+    fn visit_str_2_list(
+        &mut self,
+        handle: Str2ListHandle,
+        view: Str2ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_2_list_super(handle, view, tree)
+    }
+    fn visit_str_2_list_group(
+        &mut self,
+        handle: Str2ListGroupHandle,
+        view: Str2ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_2_list_group_super(handle, view, tree)
+    }
+    fn visit_str_2_start(
+        &mut self,
+        handle: Str2StartHandle,
+        view: Str2StartView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_2_start_super(handle, view, tree)
+    }
+    fn visit_str_3(
+        &mut self,
+        handle: Str3Handle,
+        view: Str3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_3_super(handle, view, tree)
+    }
+    fn visit_str_3_end(
+        &mut self,
+        handle: Str3EndHandle,
+        view: Str3EndView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_3_end_super(handle, view, tree)
+    }
+    fn visit_str_3_list(
+        &mut self,
+        handle: Str3ListHandle,
+        view: Str3ListView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_3_list_super(handle, view, tree)
+    }
+    fn visit_str_3_list_group(
+        &mut self,
+        handle: Str3ListGroupHandle,
+        view: Str3ListGroupView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_3_list_group_super(handle, view, tree)
+    }
+    fn visit_str_3_start(
+        &mut self,
+        handle: Str3StartHandle,
+        view: Str3StartView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_3_start_super(handle, view, tree)
+    }
+    fn visit_string(
+        &mut self,
+        handle: StringHandle,
+        view: StringView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_string_super(handle, view, tree)
     }
     fn visit_strings(
         &mut self,
@@ -1035,6 +1411,14 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_str_terminal_super(terminal, data, tree)
     }
+    fn visit_lit_str_terminal(
+        &mut self,
+        terminal: LitStr,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_terminal_super(terminal, data, tree)
+    }
     fn visit_text_terminal(
         &mut self,
         terminal: Text,
@@ -1042,14 +1426,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_text_terminal_super(terminal, data, tree)
-    }
-    fn visit_backtick_str_terminal(
-        &mut self,
-        terminal: BacktickStr,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_backtick_str_terminal_super(terminal, data, tree)
     }
     fn visit_inline_code_1_terminal(
         &mut self,
@@ -1059,13 +1435,77 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_inline_code_1_terminal_super(terminal, data, tree)
     }
-    fn visit_inline_code_start_2_terminal(
+    fn visit_str_3_start_terminal(
         &mut self,
-        terminal: InlineCodeStart2,
+        terminal: Str3Start,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_inline_code_start_2_terminal_super(terminal, data, tree)
+        self.visit_str_3_start_terminal_super(terminal, data, tree)
+    }
+    fn visit_str_2_start_terminal(
+        &mut self,
+        terminal: Str2Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_2_start_terminal_super(terminal, data, tree)
+    }
+    fn visit_str_1_start_terminal(
+        &mut self,
+        terminal: Str1Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_1_start_terminal_super(terminal, data, tree)
+    }
+    fn visit_lit_str_3_start_terminal(
+        &mut self,
+        terminal: LitStr3Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_3_start_terminal_super(terminal, data, tree)
+    }
+    fn visit_lit_str_2_start_terminal(
+        &mut self,
+        terminal: LitStr2Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_2_start_terminal_super(terminal, data, tree)
+    }
+    fn visit_lit_str_1_start_terminal(
+        &mut self,
+        terminal: LitStr1Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_1_start_terminal_super(terminal, data, tree)
+    }
+    fn visit_delim_code_start_3_terminal(
+        &mut self,
+        terminal: DelimCodeStart3,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_start_3_terminal_super(terminal, data, tree)
+    }
+    fn visit_delim_code_start_2_terminal(
+        &mut self,
+        terminal: DelimCodeStart2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_start_2_terminal_super(terminal, data, tree)
+    }
+    fn visit_delim_code_start_1_terminal(
+        &mut self,
+        terminal: DelimCodeStart1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_start_1_terminal_super(terminal, data, tree)
     }
     fn visit_code_block_start_3_terminal(
         &mut self,
@@ -1163,22 +1603,6 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_backtick_5_terminal_super(terminal, data, tree)
     }
-    fn visit_inline_code_end_2_terminal(
-        &mut self,
-        terminal: InlineCodeEnd2,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_inline_code_end_2_terminal_super(terminal, data, tree)
-    }
-    fn visit_backtick_1_terminal(
-        &mut self,
-        terminal: Backtick1,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_backtick_1_terminal_super(terminal, data, tree)
-    }
     fn visit_no_backtick_terminal(
         &mut self,
         terminal: NoBacktick,
@@ -1187,13 +1611,133 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_no_backtick_terminal_super(terminal, data, tree)
     }
-    fn visit_no_backtick_inline_terminal(
+    fn visit_str_3_end_terminal(
         &mut self,
-        terminal: NoBacktickInline,
+        terminal: Str3End,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_no_backtick_inline_terminal_super(terminal, data, tree)
+        self.visit_str_3_end_terminal_super(terminal, data, tree)
+    }
+    fn visit_str_2_end_terminal(
+        &mut self,
+        terminal: Str2End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_2_end_terminal_super(terminal, data, tree)
+    }
+    fn visit_str_1_end_terminal(
+        &mut self,
+        terminal: Str1End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_str_1_end_terminal_super(terminal, data, tree)
+    }
+    fn visit_quote_2_terminal(
+        &mut self,
+        terminal: Quote2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_quote_2_terminal_super(terminal, data, tree)
+    }
+    fn visit_quote_1_terminal(
+        &mut self,
+        terminal: Quote1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_quote_1_terminal_super(terminal, data, tree)
+    }
+    fn visit_no_quote_terminal(
+        &mut self,
+        terminal: NoQuote,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_no_quote_terminal_super(terminal, data, tree)
+    }
+    fn visit_lit_str_3_end_terminal(
+        &mut self,
+        terminal: LitStr3End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_3_end_terminal_super(terminal, data, tree)
+    }
+    fn visit_lit_str_2_end_terminal(
+        &mut self,
+        terminal: LitStr2End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_2_end_terminal_super(terminal, data, tree)
+    }
+    fn visit_lit_str_1_end_terminal(
+        &mut self,
+        terminal: LitStr1End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_lit_str_1_end_terminal_super(terminal, data, tree)
+    }
+    fn visit_s_quote_2_terminal(
+        &mut self,
+        terminal: SQuote2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_s_quote_2_terminal_super(terminal, data, tree)
+    }
+    fn visit_s_quote_1_terminal(
+        &mut self,
+        terminal: SQuote1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_s_quote_1_terminal_super(terminal, data, tree)
+    }
+    fn visit_no_s_quote_terminal(
+        &mut self,
+        terminal: NoSQuote,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_no_s_quote_terminal_super(terminal, data, tree)
+    }
+    fn visit_delim_code_end_3_terminal(
+        &mut self,
+        terminal: DelimCodeEnd3,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_end_3_terminal_super(terminal, data, tree)
+    }
+    fn visit_delim_code_end_2_terminal(
+        &mut self,
+        terminal: DelimCodeEnd2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_end_2_terminal_super(terminal, data, tree)
+    }
+    fn visit_delim_code_end_1_terminal(
+        &mut self,
+        terminal: DelimCodeEnd1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_delim_code_end_1_terminal_super(terminal, data, tree)
+    }
+    fn visit_backtick_delim_1_terminal(
+        &mut self,
+        terminal: BacktickDelim1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_backtick_delim_1_terminal_super(terminal, data, tree)
     }
     fn visit_grammar_newline_terminal(
         &mut self,
@@ -1460,13 +2004,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     ) -> Result<(), E>;
     fn visit_at_handle(&mut self, handle: AtHandle, tree: &F) -> Result<(), E>;
     fn visit_at_super(&mut self, handle: AtHandle, view: AtView, tree: &F) -> Result<(), E>;
-    fn visit_backtick_1_handle(&mut self, handle: Backtick1Handle, tree: &F) -> Result<(), E>;
-    fn visit_backtick_1_super(
-        &mut self,
-        handle: Backtick1Handle,
-        view: Backtick1View,
-        tree: &F,
-    ) -> Result<(), E>;
     fn visit_backtick_2_handle(&mut self, handle: Backtick2Handle, tree: &F) -> Result<(), E>;
     fn visit_backtick_2_super(
         &mut self,
@@ -1495,11 +2032,15 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: Backtick5View,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_backtick_str_handle(&mut self, handle: BacktickStrHandle, tree: &F) -> Result<(), E>;
-    fn visit_backtick_str_super(
+    fn visit_backtick_delim_1_handle(
         &mut self,
-        handle: BacktickStrHandle,
-        view: BacktickStrView,
+        handle: BacktickDelim1Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_backtick_delim_1_super(
+        &mut self,
+        handle: BacktickDelim1Handle,
+        view: BacktickDelim1View,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_begin_handle(&mut self, handle: BeginHandle, tree: &F) -> Result<(), E>;
@@ -1757,6 +2298,166 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: ContinueView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_delim_code_handle(&mut self, handle: DelimCodeHandle, tree: &F) -> Result<(), E>;
+    fn visit_delim_code_super(
+        &mut self,
+        handle: DelimCodeHandle,
+        view: DelimCodeView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_1_handle(&mut self, handle: DelimCode1Handle, tree: &F) -> Result<(), E>;
+    fn visit_delim_code_1_super(
+        &mut self,
+        handle: DelimCode1Handle,
+        view: DelimCode1View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_1_list_handle(
+        &mut self,
+        handle: DelimCode1ListHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_1_list_super(
+        &mut self,
+        handle: DelimCode1ListHandle,
+        view: DelimCode1ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_1_list_group_handle(
+        &mut self,
+        handle: DelimCode1ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_1_list_group_super(
+        &mut self,
+        handle: DelimCode1ListGroupHandle,
+        view: DelimCode1ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_2_handle(&mut self, handle: DelimCode2Handle, tree: &F) -> Result<(), E>;
+    fn visit_delim_code_2_super(
+        &mut self,
+        handle: DelimCode2Handle,
+        view: DelimCode2View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_2_list_handle(
+        &mut self,
+        handle: DelimCode2ListHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_2_list_super(
+        &mut self,
+        handle: DelimCode2ListHandle,
+        view: DelimCode2ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_2_list_group_handle(
+        &mut self,
+        handle: DelimCode2ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_2_list_group_super(
+        &mut self,
+        handle: DelimCode2ListGroupHandle,
+        view: DelimCode2ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_3_handle(&mut self, handle: DelimCode3Handle, tree: &F) -> Result<(), E>;
+    fn visit_delim_code_3_super(
+        &mut self,
+        handle: DelimCode3Handle,
+        view: DelimCode3View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_3_list_handle(
+        &mut self,
+        handle: DelimCode3ListHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_3_list_super(
+        &mut self,
+        handle: DelimCode3ListHandle,
+        view: DelimCode3ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_3_list_group_handle(
+        &mut self,
+        handle: DelimCode3ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_3_list_group_super(
+        &mut self,
+        handle: DelimCode3ListGroupHandle,
+        view: DelimCode3ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_1_handle(
+        &mut self,
+        handle: DelimCodeEnd1Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_1_super(
+        &mut self,
+        handle: DelimCodeEnd1Handle,
+        view: DelimCodeEnd1View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_2_handle(
+        &mut self,
+        handle: DelimCodeEnd2Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_2_super(
+        &mut self,
+        handle: DelimCodeEnd2Handle,
+        view: DelimCodeEnd2View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_3_handle(
+        &mut self,
+        handle: DelimCodeEnd3Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_3_super(
+        &mut self,
+        handle: DelimCodeEnd3Handle,
+        view: DelimCodeEnd3View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_1_handle(
+        &mut self,
+        handle: DelimCodeStart1Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_1_super(
+        &mut self,
+        handle: DelimCodeStart1Handle,
+        view: DelimCodeStart1View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_2_handle(
+        &mut self,
+        handle: DelimCodeStart2Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_2_super(
+        &mut self,
+        handle: DelimCodeStart2Handle,
+        view: DelimCodeStart2View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_3_handle(
+        &mut self,
+        handle: DelimCodeStart3Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_3_super(
+        &mut self,
+        handle: DelimCodeStart3Handle,
+        view: DelimCodeStart3View,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_dot_handle(&mut self, handle: DotHandle, tree: &F) -> Result<(), E>;
     fn visit_dot_super(&mut self, handle: DotHandle, view: DotView, tree: &F) -> Result<(), E>;
     fn visit_end_handle(&mut self, handle: EndHandle, tree: &F) -> Result<(), E>;
@@ -1847,57 +2548,6 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         &mut self,
         handle: InlineCode1Handle,
         view: InlineCode1View,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_2_handle(&mut self, handle: InlineCode2Handle, tree: &F) -> Result<(), E>;
-    fn visit_inline_code_2_super(
-        &mut self,
-        handle: InlineCode2Handle,
-        view: InlineCode2View,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_2_list_handle(
-        &mut self,
-        handle: InlineCode2ListHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_2_list_super(
-        &mut self,
-        handle: InlineCode2ListHandle,
-        view: InlineCode2ListView,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_2_list_group_handle(
-        &mut self,
-        handle: InlineCode2ListGroupHandle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_2_list_group_super(
-        &mut self,
-        handle: InlineCode2ListGroupHandle,
-        view: InlineCode2ListGroupView,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_end_2_handle(
-        &mut self,
-        handle: InlineCodeEnd2Handle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_end_2_super(
-        &mut self,
-        handle: InlineCodeEnd2Handle,
-        view: InlineCodeEnd2View,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_start_2_handle(
-        &mut self,
-        handle: InlineCodeStart2Handle,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_inline_code_start_2_super(
-        &mut self,
-        handle: InlineCodeStart2Handle,
-        view: InlineCodeStart2View,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_integer_handle(&mut self, handle: IntegerHandle, tree: &F) -> Result<(), E>;
@@ -2011,6 +2661,145 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: LParenView,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_lit_str_handle(&mut self, handle: LitStrHandle, tree: &F) -> Result<(), E>;
+    fn visit_lit_str_super(
+        &mut self,
+        handle: LitStrHandle,
+        view: LitStrView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_handle(&mut self, handle: LitStr1Handle, tree: &F) -> Result<(), E>;
+    fn visit_lit_str_1_super(
+        &mut self,
+        handle: LitStr1Handle,
+        view: LitStr1View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_end_handle(&mut self, handle: LitStr1EndHandle, tree: &F) -> Result<(), E>;
+    fn visit_lit_str_1_end_super(
+        &mut self,
+        handle: LitStr1EndHandle,
+        view: LitStr1EndView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_list_handle(&mut self, handle: LitStr1ListHandle, tree: &F)
+    -> Result<(), E>;
+    fn visit_lit_str_1_list_super(
+        &mut self,
+        handle: LitStr1ListHandle,
+        view: LitStr1ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_list_group_handle(
+        &mut self,
+        handle: LitStr1ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_list_group_super(
+        &mut self,
+        handle: LitStr1ListGroupHandle,
+        view: LitStr1ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_start_handle(
+        &mut self,
+        handle: LitStr1StartHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_start_super(
+        &mut self,
+        handle: LitStr1StartHandle,
+        view: LitStr1StartView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_handle(&mut self, handle: LitStr2Handle, tree: &F) -> Result<(), E>;
+    fn visit_lit_str_2_super(
+        &mut self,
+        handle: LitStr2Handle,
+        view: LitStr2View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_end_handle(&mut self, handle: LitStr2EndHandle, tree: &F) -> Result<(), E>;
+    fn visit_lit_str_2_end_super(
+        &mut self,
+        handle: LitStr2EndHandle,
+        view: LitStr2EndView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_list_handle(&mut self, handle: LitStr2ListHandle, tree: &F)
+    -> Result<(), E>;
+    fn visit_lit_str_2_list_super(
+        &mut self,
+        handle: LitStr2ListHandle,
+        view: LitStr2ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_list_group_handle(
+        &mut self,
+        handle: LitStr2ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_list_group_super(
+        &mut self,
+        handle: LitStr2ListGroupHandle,
+        view: LitStr2ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_start_handle(
+        &mut self,
+        handle: LitStr2StartHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_start_super(
+        &mut self,
+        handle: LitStr2StartHandle,
+        view: LitStr2StartView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_handle(&mut self, handle: LitStr3Handle, tree: &F) -> Result<(), E>;
+    fn visit_lit_str_3_super(
+        &mut self,
+        handle: LitStr3Handle,
+        view: LitStr3View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_end_handle(&mut self, handle: LitStr3EndHandle, tree: &F) -> Result<(), E>;
+    fn visit_lit_str_3_end_super(
+        &mut self,
+        handle: LitStr3EndHandle,
+        view: LitStr3EndView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_list_handle(&mut self, handle: LitStr3ListHandle, tree: &F)
+    -> Result<(), E>;
+    fn visit_lit_str_3_list_super(
+        &mut self,
+        handle: LitStr3ListHandle,
+        view: LitStr3ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_list_group_handle(
+        &mut self,
+        handle: LitStr3ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_list_group_super(
+        &mut self,
+        handle: LitStr3ListGroupHandle,
+        view: LitStr3ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_start_handle(
+        &mut self,
+        handle: LitStr3StartHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_start_super(
+        &mut self,
+        handle: LitStr3StartHandle,
+        view: LitStr3StartView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_map_bind_handle(&mut self, handle: MapBindHandle, tree: &F) -> Result<(), E>;
     fn visit_map_bind_super(
         &mut self,
@@ -2027,15 +2816,18 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: NoBacktickView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_no_backtick_inline_handle(
+    fn visit_no_quote_handle(&mut self, handle: NoQuoteHandle, tree: &F) -> Result<(), E>;
+    fn visit_no_quote_super(
         &mut self,
-        handle: NoBacktickInlineHandle,
+        handle: NoQuoteHandle,
+        view: NoQuoteView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_no_backtick_inline_super(
+    fn visit_no_s_quote_handle(&mut self, handle: NoSQuoteHandle, tree: &F) -> Result<(), E>;
+    fn visit_no_s_quote_super(
         &mut self,
-        handle: NoBacktickInlineHandle,
-        view: NoBacktickInlineView,
+        handle: NoSQuoteHandle,
+        view: NoSQuoteView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_null_handle(&mut self, handle: NullHandle, tree: &F) -> Result<(), E>;
@@ -2082,11 +2874,39 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: CommaHandle,
         tree: &F,
     ) -> Result<(), E>;
+    fn visit_quote_1_handle(&mut self, handle: Quote1Handle, tree: &F) -> Result<(), E>;
+    fn visit_quote_1_super(
+        &mut self,
+        handle: Quote1Handle,
+        view: Quote1View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_quote_2_handle(&mut self, handle: Quote2Handle, tree: &F) -> Result<(), E>;
+    fn visit_quote_2_super(
+        &mut self,
+        handle: Quote2Handle,
+        view: Quote2View,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_r_paren_handle(&mut self, handle: RParenHandle, tree: &F) -> Result<(), E>;
     fn visit_r_paren_super(
         &mut self,
         handle: RParenHandle,
         view: RParenView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_s_quote_1_handle(&mut self, handle: SQuote1Handle, tree: &F) -> Result<(), E>;
+    fn visit_s_quote_1_super(
+        &mut self,
+        handle: SQuote1Handle,
+        view: SQuote1View,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_s_quote_2_handle(&mut self, handle: SQuote2Handle, tree: &F) -> Result<(), E>;
+    fn visit_s_quote_2_super(
+        &mut self,
+        handle: SQuote2Handle,
+        view: SQuote2View,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_section_handle(&mut self, handle: SectionHandle, tree: &F) -> Result<(), E>;
@@ -2138,6 +2958,115 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     ) -> Result<(), E>;
     fn visit_str_handle(&mut self, handle: StrHandle, tree: &F) -> Result<(), E>;
     fn visit_str_super(&mut self, handle: StrHandle, view: StrView, tree: &F) -> Result<(), E>;
+    fn visit_str_1_handle(&mut self, handle: Str1Handle, tree: &F) -> Result<(), E>;
+    fn visit_str_1_super(&mut self, handle: Str1Handle, view: Str1View, tree: &F) -> Result<(), E>;
+    fn visit_str_1_end_handle(&mut self, handle: Str1EndHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_1_end_super(
+        &mut self,
+        handle: Str1EndHandle,
+        view: Str1EndView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_1_list_handle(&mut self, handle: Str1ListHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_1_list_super(
+        &mut self,
+        handle: Str1ListHandle,
+        view: Str1ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_1_list_group_handle(
+        &mut self,
+        handle: Str1ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_1_list_group_super(
+        &mut self,
+        handle: Str1ListGroupHandle,
+        view: Str1ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_1_start_handle(&mut self, handle: Str1StartHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_1_start_super(
+        &mut self,
+        handle: Str1StartHandle,
+        view: Str1StartView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_2_handle(&mut self, handle: Str2Handle, tree: &F) -> Result<(), E>;
+    fn visit_str_2_super(&mut self, handle: Str2Handle, view: Str2View, tree: &F) -> Result<(), E>;
+    fn visit_str_2_end_handle(&mut self, handle: Str2EndHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_2_end_super(
+        &mut self,
+        handle: Str2EndHandle,
+        view: Str2EndView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_2_list_handle(&mut self, handle: Str2ListHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_2_list_super(
+        &mut self,
+        handle: Str2ListHandle,
+        view: Str2ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_2_list_group_handle(
+        &mut self,
+        handle: Str2ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_2_list_group_super(
+        &mut self,
+        handle: Str2ListGroupHandle,
+        view: Str2ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_2_start_handle(&mut self, handle: Str2StartHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_2_start_super(
+        &mut self,
+        handle: Str2StartHandle,
+        view: Str2StartView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_3_handle(&mut self, handle: Str3Handle, tree: &F) -> Result<(), E>;
+    fn visit_str_3_super(&mut self, handle: Str3Handle, view: Str3View, tree: &F) -> Result<(), E>;
+    fn visit_str_3_end_handle(&mut self, handle: Str3EndHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_3_end_super(
+        &mut self,
+        handle: Str3EndHandle,
+        view: Str3EndView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_3_list_handle(&mut self, handle: Str3ListHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_3_list_super(
+        &mut self,
+        handle: Str3ListHandle,
+        view: Str3ListView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_3_list_group_handle(
+        &mut self,
+        handle: Str3ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_3_list_group_super(
+        &mut self,
+        handle: Str3ListGroupHandle,
+        view: Str3ListGroupView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_3_start_handle(&mut self, handle: Str3StartHandle, tree: &F) -> Result<(), E>;
+    fn visit_str_3_start_super(
+        &mut self,
+        handle: Str3StartHandle,
+        view: Str3StartView,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_string_handle(&mut self, handle: StringHandle, tree: &F) -> Result<(), E>;
+    fn visit_string_super(
+        &mut self,
+        handle: StringHandle,
+        view: StringView,
+        tree: &F,
+    ) -> Result<(), E>;
     fn visit_strings_handle(&mut self, handle: StringsHandle, tree: &F) -> Result<(), E>;
     fn visit_strings_super(
         &mut self,
@@ -2366,15 +3295,15 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_text_terminal_super(
+    fn visit_lit_str_terminal_super(
         &mut self,
-        terminal: Text,
+        terminal: LitStr,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_backtick_str_terminal_super(
+    fn visit_text_terminal_super(
         &mut self,
-        terminal: BacktickStr,
+        terminal: Text,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -2384,9 +3313,57 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_inline_code_start_2_terminal_super(
+    fn visit_str_3_start_terminal_super(
         &mut self,
-        terminal: InlineCodeStart2,
+        terminal: Str3Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_2_start_terminal_super(
+        &mut self,
+        terminal: Str2Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_1_start_terminal_super(
+        &mut self,
+        terminal: Str1Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_start_terminal_super(
+        &mut self,
+        terminal: LitStr3Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_start_terminal_super(
+        &mut self,
+        terminal: LitStr2Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_start_terminal_super(
+        &mut self,
+        terminal: LitStr1Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_3_terminal_super(
+        &mut self,
+        terminal: DelimCodeStart3,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_2_terminal_super(
+        &mut self,
+        terminal: DelimCodeStart2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_start_1_terminal_super(
+        &mut self,
+        terminal: DelimCodeStart1,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -2462,27 +3439,105 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_inline_code_end_2_terminal_super(
-        &mut self,
-        terminal: InlineCodeEnd2,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_backtick_1_terminal_super(
-        &mut self,
-        terminal: Backtick1,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), E>;
     fn visit_no_backtick_terminal_super(
         &mut self,
         terminal: NoBacktick,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_no_backtick_inline_terminal_super(
+    fn visit_str_3_end_terminal_super(
         &mut self,
-        terminal: NoBacktickInline,
+        terminal: Str3End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_2_end_terminal_super(
+        &mut self,
+        terminal: Str2End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_str_1_end_terminal_super(
+        &mut self,
+        terminal: Str1End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_quote_2_terminal_super(
+        &mut self,
+        terminal: Quote2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_quote_1_terminal_super(
+        &mut self,
+        terminal: Quote1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_no_quote_terminal_super(
+        &mut self,
+        terminal: NoQuote,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_3_end_terminal_super(
+        &mut self,
+        terminal: LitStr3End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_2_end_terminal_super(
+        &mut self,
+        terminal: LitStr2End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_lit_str_1_end_terminal_super(
+        &mut self,
+        terminal: LitStr1End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_s_quote_2_terminal_super(
+        &mut self,
+        terminal: SQuote2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_s_quote_1_terminal_super(
+        &mut self,
+        terminal: SQuote1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_no_s_quote_terminal_super(
+        &mut self,
+        terminal: NoSQuote,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_3_terminal_super(
+        &mut self,
+        terminal: DelimCodeEnd3,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_2_terminal_super(
+        &mut self,
+        terminal: DelimCodeEnd2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_delim_code_end_1_terminal_super(
+        &mut self,
+        terminal: DelimCodeEnd1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_backtick_delim_1_terminal_super(
+        &mut self,
+        terminal: BacktickDelim1,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -3077,46 +4132,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_backtick_1_handle(
-        &mut self,
-        handle: Backtick1Handle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_backtick_1(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
     fn visit_backtick_2_handle(
         &mut self,
         handle: Backtick2Handle,
@@ -3277,9 +4292,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_backtick_str_handle(
+    fn visit_backtick_delim_1_handle(
         &mut self,
-        handle: BacktickStrHandle,
+        handle: BacktickDelim1Handle,
         tree: &F,
     ) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
@@ -3298,7 +4313,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let result = match handle
             .get_view_with_visit(
                 tree,
-                |view, visit: &mut Self| (visit.visit_backtick_str(handle, view, tree), visit),
+                |view, visit: &mut Self| (visit.visit_backtick_delim_1(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -4477,6 +5492,694 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_delim_code_handle(
+        &mut self,
+        handle: DelimCodeHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_delim_code(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_1_handle(
+        &mut self,
+        handle: DelimCode1Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_delim_code_1(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_1_list_handle(
+        &mut self,
+        handle: DelimCode1ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_delim_code_1_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_1_list_group_handle(
+        &mut self,
+        handle: DelimCode1ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        visit.visit_delim_code_1_list_group(handle, view, tree),
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_2_handle(
+        &mut self,
+        handle: DelimCode2Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_delim_code_2(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_2_list_handle(
+        &mut self,
+        handle: DelimCode2ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_delim_code_2_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_2_list_group_handle(
+        &mut self,
+        handle: DelimCode2ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        visit.visit_delim_code_2_list_group(handle, view, tree),
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_3_handle(
+        &mut self,
+        handle: DelimCode3Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_delim_code_3(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_3_list_handle(
+        &mut self,
+        handle: DelimCode3ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_delim_code_3_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_3_list_group_handle(
+        &mut self,
+        handle: DelimCode3ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        visit.visit_delim_code_3_list_group(handle, view, tree),
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_end_1_handle(
+        &mut self,
+        handle: DelimCodeEnd1Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_delim_code_end_1(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_end_2_handle(
+        &mut self,
+        handle: DelimCodeEnd2Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_delim_code_end_2(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_end_3_handle(
+        &mut self,
+        handle: DelimCodeEnd3Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_delim_code_end_3(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_start_1_handle(
+        &mut self,
+        handle: DelimCodeStart1Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (visit.visit_delim_code_start_1(handle, view, tree), visit)
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_start_2_handle(
+        &mut self,
+        handle: DelimCodeStart2Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (visit.visit_delim_code_start_2(handle, view, tree), visit)
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_delim_code_start_3_handle(
+        &mut self,
+        handle: DelimCodeStart3Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (visit.visit_delim_code_start_3(handle, view, tree), visit)
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_dot_handle(&mut self, handle: DotHandle, tree: &F) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
             Ok(nt_data) => nt_data,
@@ -5088,222 +6791,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_inline_code_1(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_inline_code_2_handle(
-        &mut self,
-        handle: InlineCode2Handle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_inline_code_2(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_inline_code_2_list_handle(
-        &mut self,
-        handle: InlineCode2ListHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| {
-                    (
-                        if let Some(view) = view {
-                            visit.visit_inline_code_2_list(handle, view, tree)
-                        } else {
-                            Ok(())
-                        },
-                        visit,
-                    )
-                },
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_inline_code_2_list_group_handle(
-        &mut self,
-        handle: InlineCode2ListGroupHandle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| {
-                    (
-                        visit.visit_inline_code_2_list_group(handle, view, tree),
-                        visit,
-                    )
-                },
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_inline_code_end_2_handle(
-        &mut self,
-        handle: InlineCodeEnd2Handle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_inline_code_end_2(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_inline_code_start_2_handle(
-        &mut self,
-        handle: InlineCodeStart2Handle,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| {
-                    (visit.visit_inline_code_start_2(handle, view, tree), visit)
-                },
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -5934,6 +7421,663 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_lit_str_handle(&mut self, handle: LitStrHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_1_handle(&mut self, handle: LitStr1Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_1(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_1_end_handle(
+        &mut self,
+        handle: LitStr1EndHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_1_end(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_1_list_handle(
+        &mut self,
+        handle: LitStr1ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_lit_str_1_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_1_list_group_handle(
+        &mut self,
+        handle: LitStr1ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (visit.visit_lit_str_1_list_group(handle, view, tree), visit)
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_1_start_handle(
+        &mut self,
+        handle: LitStr1StartHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_1_start(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_2_handle(&mut self, handle: LitStr2Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_2(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_2_end_handle(
+        &mut self,
+        handle: LitStr2EndHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_2_end(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_2_list_handle(
+        &mut self,
+        handle: LitStr2ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_lit_str_2_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_2_list_group_handle(
+        &mut self,
+        handle: LitStr2ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (visit.visit_lit_str_2_list_group(handle, view, tree), visit)
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_2_start_handle(
+        &mut self,
+        handle: LitStr2StartHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_2_start(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_3_handle(&mut self, handle: LitStr3Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_3(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_3_end_handle(
+        &mut self,
+        handle: LitStr3EndHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_3_end(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_3_list_handle(
+        &mut self,
+        handle: LitStr3ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_lit_str_3_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_3_list_group_handle(
+        &mut self,
+        handle: LitStr3ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (visit.visit_lit_str_3_list_group(handle, view, tree), visit)
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_lit_str_3_start_handle(
+        &mut self,
+        handle: LitStr3StartHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_lit_str_3_start(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_map_bind_handle(&mut self, handle: MapBindHandle, tree: &F) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
             Ok(nt_data) => nt_data,
@@ -6046,9 +8190,45 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_no_backtick_inline_handle(
+    fn visit_no_quote_handle(&mut self, handle: NoQuoteHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_no_quote(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_no_s_quote_handle(
         &mut self,
-        handle: NoBacktickInlineHandle,
+        handle: NoSQuoteHandle,
         tree: &F,
     ) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
@@ -6067,9 +8247,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let result = match handle
             .get_view_with_visit(
                 tree,
-                |view, visit: &mut Self| {
-                    (visit.visit_no_backtick_inline(handle, view, tree), visit)
-                },
+                |view, visit: &mut Self| (visit.visit_no_s_quote(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -6392,6 +8570,78 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_quote_1_handle(&mut self, handle: Quote1Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_quote_1(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_quote_2_handle(&mut self, handle: Quote2Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_quote_2(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_r_paren_handle(&mut self, handle: RParenHandle, tree: &F) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
             Ok(nt_data) => nt_data,
@@ -6410,6 +8660,78 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_r_paren(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_s_quote_1_handle(&mut self, handle: SQuote1Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_s_quote_1(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_s_quote_2_handle(&mut self, handle: SQuote2Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_s_quote_2(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -6660,6 +8982,645 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             .get_view_with_visit(
                 tree,
                 |view, visit: &mut Self| (visit.visit_str(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_1_handle(&mut self, handle: Str1Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_1(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_1_end_handle(&mut self, handle: Str1EndHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_1_end(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_1_list_handle(
+        &mut self,
+        handle: Str1ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_str_1_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_1_list_group_handle(
+        &mut self,
+        handle: Str1ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_1_list_group(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_1_start_handle(
+        &mut self,
+        handle: Str1StartHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_1_start(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_2_handle(&mut self, handle: Str2Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_2(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_2_end_handle(&mut self, handle: Str2EndHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_2_end(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_2_list_handle(
+        &mut self,
+        handle: Str2ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_str_2_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_2_list_group_handle(
+        &mut self,
+        handle: Str2ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_2_list_group(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_2_start_handle(
+        &mut self,
+        handle: Str2StartHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_2_start(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_3_handle(&mut self, handle: Str3Handle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_3(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_3_end_handle(&mut self, handle: Str3EndHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_3_end(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_3_list_handle(
+        &mut self,
+        handle: Str3ListHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_str_3_list(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_3_list_group_handle(
+        &mut self,
+        handle: Str3ListGroupHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_3_list_group(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_str_3_start_handle(
+        &mut self,
+        handle: Str3StartHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_str_3_start(handle, view, tree), visit),
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
+    fn visit_string_handle(&mut self, handle: StringHandle, tree: &F) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| (visit.visit_string(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -7635,29 +10596,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_at_terminal(at, data, tree)?;
         Ok(())
     }
-    fn visit_backtick_1_super(
-        &mut self,
-        handle: Backtick1Handle,
-        view_param: Backtick1View,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let Backtick1View { backtick_1 } = view_param;
-        let data = match backtick_1.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    backtick_1.0,
-                    NodeKind::Terminal(backtick_1.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_backtick_1_terminal(backtick_1, data, tree)?;
-        Ok(())
-    }
     fn visit_backtick_2_super(
         &mut self,
         handle: Backtick2Handle,
@@ -7750,27 +10688,27 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_backtick_5_terminal(backtick_5, data, tree)?;
         Ok(())
     }
-    fn visit_backtick_str_super(
+    fn visit_backtick_delim_1_super(
         &mut self,
-        handle: BacktickStrHandle,
-        view_param: BacktickStrView,
+        handle: BacktickDelim1Handle,
+        view_param: BacktickDelim1View,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let BacktickStrView { backtick_str } = view_param;
-        let data = match backtick_str.get_data(tree) {
+        let BacktickDelim1View { backtick_delim_1 } = view_param;
+        let data = match backtick_delim_1.get_data(tree) {
             Ok(data) => data,
             Err(error) => {
                 return self.then_construct_error(
                     None,
-                    backtick_str.0,
-                    NodeKind::Terminal(backtick_str.kind()),
+                    backtick_delim_1.0,
+                    NodeKind::Terminal(backtick_delim_1.kind()),
                     error,
                     tree,
                 );
             }
         };
-        self.visit_backtick_str_terminal(backtick_str, data, tree)?;
+        self.visit_backtick_delim_1_terminal(backtick_delim_1, data, tree)?;
         Ok(())
     }
     fn visit_begin_super(
@@ -8317,6 +11255,311 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_esc_terminal(esc, data, tree)?;
         Ok(())
     }
+    fn visit_delim_code_super(
+        &mut self,
+        handle: DelimCodeHandle,
+        view_param: DelimCodeView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            DelimCodeView::DelimCode3(item) => {
+                self.visit_delim_code_3_handle(item, tree)?;
+            }
+            DelimCodeView::DelimCode2(item) => {
+                self.visit_delim_code_2_handle(item, tree)?;
+            }
+            DelimCodeView::DelimCode1(item) => {
+                self.visit_delim_code_1_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_delim_code_1_super(
+        &mut self,
+        handle: DelimCode1Handle,
+        view_param: DelimCode1View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCode1View {
+            delim_code_start_1,
+            delim_code_1_list,
+            delim_code_end_1,
+        } = view_param;
+        self.visit_delim_code_start_1_handle(delim_code_start_1, tree)?;
+        self.visit_delim_code_1_list_handle(delim_code_1_list, tree)?;
+        self.visit_delim_code_end_1_handle(delim_code_end_1, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_1_list_super(
+        &mut self,
+        handle: DelimCode1ListHandle,
+        view_param: DelimCode1ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCode1ListView {
+            delim_code_1_list_group,
+            delim_code_1_list,
+        } = view_param;
+        self.visit_delim_code_1_list_group_handle(delim_code_1_list_group, tree)?;
+        self.visit_delim_code_1_list_handle(delim_code_1_list, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_1_list_group_super(
+        &mut self,
+        handle: DelimCode1ListGroupHandle,
+        view_param: DelimCode1ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            DelimCode1ListGroupView::NoBacktick(item) => {
+                self.visit_no_backtick_handle(item, tree)?;
+            }
+            DelimCode1ListGroupView::BacktickDelim1(item) => {
+                self.visit_backtick_delim_1_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_delim_code_2_super(
+        &mut self,
+        handle: DelimCode2Handle,
+        view_param: DelimCode2View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCode2View {
+            delim_code_start_2,
+            delim_code_2_list,
+            delim_code_end_2,
+        } = view_param;
+        self.visit_delim_code_start_2_handle(delim_code_start_2, tree)?;
+        self.visit_delim_code_2_list_handle(delim_code_2_list, tree)?;
+        self.visit_delim_code_end_2_handle(delim_code_end_2, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_2_list_super(
+        &mut self,
+        handle: DelimCode2ListHandle,
+        view_param: DelimCode2ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCode2ListView {
+            delim_code_2_list_group,
+            delim_code_2_list,
+        } = view_param;
+        self.visit_delim_code_2_list_group_handle(delim_code_2_list_group, tree)?;
+        self.visit_delim_code_2_list_handle(delim_code_2_list, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_2_list_group_super(
+        &mut self,
+        handle: DelimCode2ListGroupHandle,
+        view_param: DelimCode2ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            DelimCode2ListGroupView::NoBacktick(item) => {
+                self.visit_no_backtick_handle(item, tree)?;
+            }
+            DelimCode2ListGroupView::BacktickDelim1(item) => {
+                self.visit_backtick_delim_1_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_delim_code_3_super(
+        &mut self,
+        handle: DelimCode3Handle,
+        view_param: DelimCode3View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCode3View {
+            delim_code_start_3,
+            delim_code_3_list,
+            delim_code_end_3,
+        } = view_param;
+        self.visit_delim_code_start_3_handle(delim_code_start_3, tree)?;
+        self.visit_delim_code_3_list_handle(delim_code_3_list, tree)?;
+        self.visit_delim_code_end_3_handle(delim_code_end_3, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_3_list_super(
+        &mut self,
+        handle: DelimCode3ListHandle,
+        view_param: DelimCode3ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCode3ListView {
+            delim_code_3_list_group,
+            delim_code_3_list,
+        } = view_param;
+        self.visit_delim_code_3_list_group_handle(delim_code_3_list_group, tree)?;
+        self.visit_delim_code_3_list_handle(delim_code_3_list, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_3_list_group_super(
+        &mut self,
+        handle: DelimCode3ListGroupHandle,
+        view_param: DelimCode3ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            DelimCode3ListGroupView::NoBacktick(item) => {
+                self.visit_no_backtick_handle(item, tree)?;
+            }
+            DelimCode3ListGroupView::Backtick2(item) => {
+                self.visit_backtick_2_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_delim_code_end_1_super(
+        &mut self,
+        handle: DelimCodeEnd1Handle,
+        view_param: DelimCodeEnd1View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCodeEnd1View { delim_code_end_1 } = view_param;
+        let data = match delim_code_end_1.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    delim_code_end_1.0,
+                    NodeKind::Terminal(delim_code_end_1.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_delim_code_end_1_terminal(delim_code_end_1, data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_end_2_super(
+        &mut self,
+        handle: DelimCodeEnd2Handle,
+        view_param: DelimCodeEnd2View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCodeEnd2View { delim_code_end_2 } = view_param;
+        let data = match delim_code_end_2.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    delim_code_end_2.0,
+                    NodeKind::Terminal(delim_code_end_2.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_delim_code_end_2_terminal(delim_code_end_2, data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_end_3_super(
+        &mut self,
+        handle: DelimCodeEnd3Handle,
+        view_param: DelimCodeEnd3View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCodeEnd3View { delim_code_end_3 } = view_param;
+        let data = match delim_code_end_3.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    delim_code_end_3.0,
+                    NodeKind::Terminal(delim_code_end_3.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_delim_code_end_3_terminal(delim_code_end_3, data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_start_1_super(
+        &mut self,
+        handle: DelimCodeStart1Handle,
+        view_param: DelimCodeStart1View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCodeStart1View { delim_code_start_1 } = view_param;
+        let data = match delim_code_start_1.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    delim_code_start_1.0,
+                    NodeKind::Terminal(delim_code_start_1.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_delim_code_start_1_terminal(delim_code_start_1, data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_start_2_super(
+        &mut self,
+        handle: DelimCodeStart2Handle,
+        view_param: DelimCodeStart2View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCodeStart2View { delim_code_start_2 } = view_param;
+        let data = match delim_code_start_2.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    delim_code_start_2.0,
+                    NodeKind::Terminal(delim_code_start_2.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_delim_code_start_2_terminal(delim_code_start_2, data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_start_3_super(
+        &mut self,
+        handle: DelimCodeStart3Handle,
+        view_param: DelimCodeStart3View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let DelimCodeStart3View { delim_code_start_3 } = view_param;
+        let data = match delim_code_start_3.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    delim_code_start_3.0,
+                    NodeKind::Terminal(delim_code_start_3.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_delim_code_start_3_terminal(delim_code_start_3, data, tree)?;
+        Ok(())
+    }
     fn visit_dot_super(
         &mut self,
         handle: DotHandle,
@@ -8601,11 +11844,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     ) -> Result<(), V::Error> {
         let _handle = handle;
         match view_param {
-            InlineCodeView::BacktickStr(item) => {
-                self.visit_backtick_str_handle(item, tree)?;
-            }
-            InlineCodeView::InlineCode2(item) => {
-                self.visit_inline_code_2_handle(item, tree)?;
+            InlineCodeView::DelimCode(item) => {
+                self.visit_delim_code_handle(item, tree)?;
             }
             InlineCodeView::InlineCode1(item) => {
                 self.visit_inline_code_1_handle(item, tree)?;
@@ -8634,103 +11874,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
         };
         self.visit_inline_code_1_terminal(inline_code_1, data, tree)?;
-        Ok(())
-    }
-    fn visit_inline_code_2_super(
-        &mut self,
-        handle: InlineCode2Handle,
-        view_param: InlineCode2View,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let InlineCode2View {
-            inline_code_start_2,
-            inline_code_2_list,
-            inline_code_end_2,
-        } = view_param;
-        self.visit_inline_code_start_2_handle(inline_code_start_2, tree)?;
-        self.visit_inline_code_2_list_handle(inline_code_2_list, tree)?;
-        self.visit_inline_code_end_2_handle(inline_code_end_2, tree)?;
-        Ok(())
-    }
-    fn visit_inline_code_2_list_super(
-        &mut self,
-        handle: InlineCode2ListHandle,
-        view_param: InlineCode2ListView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let InlineCode2ListView {
-            inline_code_2_list_group,
-            inline_code_2_list,
-        } = view_param;
-        self.visit_inline_code_2_list_group_handle(inline_code_2_list_group, tree)?;
-        self.visit_inline_code_2_list_handle(inline_code_2_list, tree)?;
-        Ok(())
-    }
-    fn visit_inline_code_2_list_group_super(
-        &mut self,
-        handle: InlineCode2ListGroupHandle,
-        view_param: InlineCode2ListGroupView,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        match view_param {
-            InlineCode2ListGroupView::NoBacktickInline(item) => {
-                self.visit_no_backtick_inline_handle(item, tree)?;
-            }
-            InlineCode2ListGroupView::Backtick1(item) => {
-                self.visit_backtick_1_handle(item, tree)?;
-            }
-        }
-        Ok(())
-    }
-    fn visit_inline_code_end_2_super(
-        &mut self,
-        handle: InlineCodeEnd2Handle,
-        view_param: InlineCodeEnd2View,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let InlineCodeEnd2View { inline_code_end_2 } = view_param;
-        let data = match inline_code_end_2.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    inline_code_end_2.0,
-                    NodeKind::Terminal(inline_code_end_2.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_inline_code_end_2_terminal(inline_code_end_2, data, tree)?;
-        Ok(())
-    }
-    fn visit_inline_code_start_2_super(
-        &mut self,
-        handle: InlineCodeStart2Handle,
-        view_param: InlineCodeStart2View,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let InlineCodeStart2View {
-            inline_code_start_2,
-        } = view_param;
-        let data = match inline_code_start_2.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    inline_code_start_2.0,
-                    NodeKind::Terminal(inline_code_start_2.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_inline_code_start_2_terminal(inline_code_start_2, data, tree)?;
         Ok(())
     }
     fn visit_integer_super(
@@ -8782,11 +11925,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             KeyBaseView::ExtensionNameSpace(item) => {
                 self.visit_extension_name_space_handle(item, tree)?;
             }
-            KeyBaseView::Str(item) => {
-                self.visit_str_handle(item, tree)?;
-            }
-            KeyBaseView::BacktickStr(item) => {
-                self.visit_backtick_str_handle(item, tree)?;
+            KeyBaseView::String(item) => {
+                self.visit_string_handle(item, tree)?;
             }
             KeyBaseView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
@@ -8985,6 +12125,314 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_l_paren_terminal(l_paren, data, tree)?;
         Ok(())
     }
+    fn visit_lit_str_super(
+        &mut self,
+        handle: LitStrHandle,
+        view_param: LitStrView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStrView { lit_str } = view_param;
+        let data = match lit_str.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    lit_str.0,
+                    NodeKind::Terminal(lit_str.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_lit_str_terminal(lit_str, data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_1_super(
+        &mut self,
+        handle: LitStr1Handle,
+        view_param: LitStr1View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr1View {
+            lit_str_1_start,
+            lit_str_1_list,
+            lit_str_1_end,
+        } = view_param;
+        self.visit_lit_str_1_start_handle(lit_str_1_start, tree)?;
+        self.visit_lit_str_1_list_handle(lit_str_1_list, tree)?;
+        self.visit_lit_str_1_end_handle(lit_str_1_end, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_1_end_super(
+        &mut self,
+        handle: LitStr1EndHandle,
+        view_param: LitStr1EndView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr1EndView { lit_str_1_end } = view_param;
+        let data = match lit_str_1_end.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    lit_str_1_end.0,
+                    NodeKind::Terminal(lit_str_1_end.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_lit_str_1_end_terminal(lit_str_1_end, data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_1_list_super(
+        &mut self,
+        handle: LitStr1ListHandle,
+        view_param: LitStr1ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr1ListView {
+            lit_str_1_list_group,
+            lit_str_1_list,
+        } = view_param;
+        self.visit_lit_str_1_list_group_handle(lit_str_1_list_group, tree)?;
+        self.visit_lit_str_1_list_handle(lit_str_1_list, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_1_list_group_super(
+        &mut self,
+        handle: LitStr1ListGroupHandle,
+        view_param: LitStr1ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            LitStr1ListGroupView::NoSQuote(item) => {
+                self.visit_no_s_quote_handle(item, tree)?;
+            }
+            LitStr1ListGroupView::SQuote1(item) => {
+                self.visit_s_quote_1_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_lit_str_1_start_super(
+        &mut self,
+        handle: LitStr1StartHandle,
+        view_param: LitStr1StartView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr1StartView { lit_str_1_start } = view_param;
+        let data = match lit_str_1_start.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    lit_str_1_start.0,
+                    NodeKind::Terminal(lit_str_1_start.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_lit_str_1_start_terminal(lit_str_1_start, data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_2_super(
+        &mut self,
+        handle: LitStr2Handle,
+        view_param: LitStr2View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr2View {
+            lit_str_2_start,
+            lit_str_2_list,
+            lit_str_2_end,
+        } = view_param;
+        self.visit_lit_str_2_start_handle(lit_str_2_start, tree)?;
+        self.visit_lit_str_2_list_handle(lit_str_2_list, tree)?;
+        self.visit_lit_str_2_end_handle(lit_str_2_end, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_2_end_super(
+        &mut self,
+        handle: LitStr2EndHandle,
+        view_param: LitStr2EndView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr2EndView { lit_str_2_end } = view_param;
+        let data = match lit_str_2_end.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    lit_str_2_end.0,
+                    NodeKind::Terminal(lit_str_2_end.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_lit_str_2_end_terminal(lit_str_2_end, data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_2_list_super(
+        &mut self,
+        handle: LitStr2ListHandle,
+        view_param: LitStr2ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr2ListView {
+            lit_str_2_list_group,
+            lit_str_2_list,
+        } = view_param;
+        self.visit_lit_str_2_list_group_handle(lit_str_2_list_group, tree)?;
+        self.visit_lit_str_2_list_handle(lit_str_2_list, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_2_list_group_super(
+        &mut self,
+        handle: LitStr2ListGroupHandle,
+        view_param: LitStr2ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            LitStr2ListGroupView::NoSQuote(item) => {
+                self.visit_no_s_quote_handle(item, tree)?;
+            }
+            LitStr2ListGroupView::SQuote1(item) => {
+                self.visit_s_quote_1_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_lit_str_2_start_super(
+        &mut self,
+        handle: LitStr2StartHandle,
+        view_param: LitStr2StartView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr2StartView { lit_str_2_start } = view_param;
+        let data = match lit_str_2_start.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    lit_str_2_start.0,
+                    NodeKind::Terminal(lit_str_2_start.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_lit_str_2_start_terminal(lit_str_2_start, data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_3_super(
+        &mut self,
+        handle: LitStr3Handle,
+        view_param: LitStr3View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr3View {
+            lit_str_3_start,
+            lit_str_3_list,
+            lit_str_3_end,
+        } = view_param;
+        self.visit_lit_str_3_start_handle(lit_str_3_start, tree)?;
+        self.visit_lit_str_3_list_handle(lit_str_3_list, tree)?;
+        self.visit_lit_str_3_end_handle(lit_str_3_end, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_3_end_super(
+        &mut self,
+        handle: LitStr3EndHandle,
+        view_param: LitStr3EndView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr3EndView { lit_str_3_end } = view_param;
+        let data = match lit_str_3_end.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    lit_str_3_end.0,
+                    NodeKind::Terminal(lit_str_3_end.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_lit_str_3_end_terminal(lit_str_3_end, data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_3_list_super(
+        &mut self,
+        handle: LitStr3ListHandle,
+        view_param: LitStr3ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr3ListView {
+            lit_str_3_list_group,
+            lit_str_3_list,
+        } = view_param;
+        self.visit_lit_str_3_list_group_handle(lit_str_3_list_group, tree)?;
+        self.visit_lit_str_3_list_handle(lit_str_3_list, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_3_list_group_super(
+        &mut self,
+        handle: LitStr3ListGroupHandle,
+        view_param: LitStr3ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            LitStr3ListGroupView::NoSQuote(item) => {
+                self.visit_no_s_quote_handle(item, tree)?;
+            }
+            LitStr3ListGroupView::SQuote2(item) => {
+                self.visit_s_quote_2_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_lit_str_3_start_super(
+        &mut self,
+        handle: LitStr3StartHandle,
+        view_param: LitStr3StartView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let LitStr3StartView { lit_str_3_start } = view_param;
+        let data = match lit_str_3_start.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    lit_str_3_start.0,
+                    NodeKind::Terminal(lit_str_3_start.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_lit_str_3_start_terminal(lit_str_3_start, data, tree)?;
+        Ok(())
+    }
     fn visit_map_bind_super(
         &mut self,
         handle: MapBindHandle,
@@ -9054,27 +12502,50 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_no_backtick_terminal(no_backtick, data, tree)?;
         Ok(())
     }
-    fn visit_no_backtick_inline_super(
+    fn visit_no_quote_super(
         &mut self,
-        handle: NoBacktickInlineHandle,
-        view_param: NoBacktickInlineView,
+        handle: NoQuoteHandle,
+        view_param: NoQuoteView,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let NoBacktickInlineView { no_backtick_inline } = view_param;
-        let data = match no_backtick_inline.get_data(tree) {
+        let NoQuoteView { no_quote } = view_param;
+        let data = match no_quote.get_data(tree) {
             Ok(data) => data,
             Err(error) => {
                 return self.then_construct_error(
                     None,
-                    no_backtick_inline.0,
-                    NodeKind::Terminal(no_backtick_inline.kind()),
+                    no_quote.0,
+                    NodeKind::Terminal(no_quote.kind()),
                     error,
                     tree,
                 );
             }
         };
-        self.visit_no_backtick_inline_terminal(no_backtick_inline, data, tree)?;
+        self.visit_no_quote_terminal(no_quote, data, tree)?;
+        Ok(())
+    }
+    fn visit_no_s_quote_super(
+        &mut self,
+        handle: NoSQuoteHandle,
+        view_param: NoSQuoteView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let NoSQuoteView { no_s_quote } = view_param;
+        let data = match no_s_quote.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    no_s_quote.0,
+                    NodeKind::Terminal(no_s_quote.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_no_s_quote_terminal(no_s_quote, data, tree)?;
         Ok(())
     }
     fn visit_null_super(
@@ -9198,6 +12669,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_comma_handle(view_param, tree)?;
         Ok(())
     }
+    fn visit_quote_1_super(
+        &mut self,
+        handle: Quote1Handle,
+        view_param: Quote1View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Quote1View { quote_1 } = view_param;
+        let data = match quote_1.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    quote_1.0,
+                    NodeKind::Terminal(quote_1.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_quote_1_terminal(quote_1, data, tree)?;
+        Ok(())
+    }
+    fn visit_quote_2_super(
+        &mut self,
+        handle: Quote2Handle,
+        view_param: Quote2View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Quote2View { quote_2 } = view_param;
+        let data = match quote_2.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    quote_2.0,
+                    NodeKind::Terminal(quote_2.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_quote_2_terminal(quote_2, data, tree)?;
+        Ok(())
+    }
     fn visit_r_paren_super(
         &mut self,
         handle: RParenHandle,
@@ -9219,6 +12736,52 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             }
         };
         self.visit_r_paren_terminal(r_paren, data, tree)?;
+        Ok(())
+    }
+    fn visit_s_quote_1_super(
+        &mut self,
+        handle: SQuote1Handle,
+        view_param: SQuote1View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let SQuote1View { s_quote_1 } = view_param;
+        let data = match s_quote_1.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    s_quote_1.0,
+                    NodeKind::Terminal(s_quote_1.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_s_quote_1_terminal(s_quote_1, data, tree)?;
+        Ok(())
+    }
+    fn visit_s_quote_2_super(
+        &mut self,
+        handle: SQuote2Handle,
+        view_param: SQuote2View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let SQuote2View { s_quote_2 } = view_param;
+        let data = match s_quote_2.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    s_quote_2.0,
+                    NodeKind::Terminal(s_quote_2.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_s_quote_2_terminal(s_quote_2, data, tree)?;
         Ok(())
     }
     fn visit_section_super(
@@ -9324,6 +12887,326 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_str_terminal(str, data, tree)?;
         Ok(())
     }
+    fn visit_str_1_super(
+        &mut self,
+        handle: Str1Handle,
+        view_param: Str1View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str1View {
+            str_1_start,
+            str_1_list,
+            str_1_end,
+        } = view_param;
+        self.visit_str_1_start_handle(str_1_start, tree)?;
+        self.visit_str_1_list_handle(str_1_list, tree)?;
+        self.visit_str_1_end_handle(str_1_end, tree)?;
+        Ok(())
+    }
+    fn visit_str_1_end_super(
+        &mut self,
+        handle: Str1EndHandle,
+        view_param: Str1EndView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str1EndView { str_1_end } = view_param;
+        let data = match str_1_end.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    str_1_end.0,
+                    NodeKind::Terminal(str_1_end.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_str_1_end_terminal(str_1_end, data, tree)?;
+        Ok(())
+    }
+    fn visit_str_1_list_super(
+        &mut self,
+        handle: Str1ListHandle,
+        view_param: Str1ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str1ListView {
+            str_1_list_group,
+            str_1_list,
+        } = view_param;
+        self.visit_str_1_list_group_handle(str_1_list_group, tree)?;
+        self.visit_str_1_list_handle(str_1_list, tree)?;
+        Ok(())
+    }
+    fn visit_str_1_list_group_super(
+        &mut self,
+        handle: Str1ListGroupHandle,
+        view_param: Str1ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            Str1ListGroupView::NoQuote(item) => {
+                self.visit_no_quote_handle(item, tree)?;
+            }
+            Str1ListGroupView::Quote1(item) => {
+                self.visit_quote_1_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_str_1_start_super(
+        &mut self,
+        handle: Str1StartHandle,
+        view_param: Str1StartView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str1StartView { str_1_start } = view_param;
+        let data = match str_1_start.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    str_1_start.0,
+                    NodeKind::Terminal(str_1_start.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_str_1_start_terminal(str_1_start, data, tree)?;
+        Ok(())
+    }
+    fn visit_str_2_super(
+        &mut self,
+        handle: Str2Handle,
+        view_param: Str2View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str2View {
+            str_2_start,
+            str_2_list,
+            str_2_end,
+        } = view_param;
+        self.visit_str_2_start_handle(str_2_start, tree)?;
+        self.visit_str_2_list_handle(str_2_list, tree)?;
+        self.visit_str_2_end_handle(str_2_end, tree)?;
+        Ok(())
+    }
+    fn visit_str_2_end_super(
+        &mut self,
+        handle: Str2EndHandle,
+        view_param: Str2EndView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str2EndView { str_2_end } = view_param;
+        let data = match str_2_end.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    str_2_end.0,
+                    NodeKind::Terminal(str_2_end.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_str_2_end_terminal(str_2_end, data, tree)?;
+        Ok(())
+    }
+    fn visit_str_2_list_super(
+        &mut self,
+        handle: Str2ListHandle,
+        view_param: Str2ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str2ListView {
+            str_2_list_group,
+            str_2_list,
+        } = view_param;
+        self.visit_str_2_list_group_handle(str_2_list_group, tree)?;
+        self.visit_str_2_list_handle(str_2_list, tree)?;
+        Ok(())
+    }
+    fn visit_str_2_list_group_super(
+        &mut self,
+        handle: Str2ListGroupHandle,
+        view_param: Str2ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            Str2ListGroupView::NoQuote(item) => {
+                self.visit_no_quote_handle(item, tree)?;
+            }
+            Str2ListGroupView::Quote1(item) => {
+                self.visit_quote_1_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_str_2_start_super(
+        &mut self,
+        handle: Str2StartHandle,
+        view_param: Str2StartView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str2StartView { str_2_start } = view_param;
+        let data = match str_2_start.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    str_2_start.0,
+                    NodeKind::Terminal(str_2_start.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_str_2_start_terminal(str_2_start, data, tree)?;
+        Ok(())
+    }
+    fn visit_str_3_super(
+        &mut self,
+        handle: Str3Handle,
+        view_param: Str3View,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str3View {
+            str_3_start,
+            str_3_list,
+            str_3_end,
+        } = view_param;
+        self.visit_str_3_start_handle(str_3_start, tree)?;
+        self.visit_str_3_list_handle(str_3_list, tree)?;
+        self.visit_str_3_end_handle(str_3_end, tree)?;
+        Ok(())
+    }
+    fn visit_str_3_end_super(
+        &mut self,
+        handle: Str3EndHandle,
+        view_param: Str3EndView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str3EndView { str_3_end } = view_param;
+        let data = match str_3_end.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    str_3_end.0,
+                    NodeKind::Terminal(str_3_end.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_str_3_end_terminal(str_3_end, data, tree)?;
+        Ok(())
+    }
+    fn visit_str_3_list_super(
+        &mut self,
+        handle: Str3ListHandle,
+        view_param: Str3ListView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str3ListView {
+            str_3_list_group,
+            str_3_list,
+        } = view_param;
+        self.visit_str_3_list_group_handle(str_3_list_group, tree)?;
+        self.visit_str_3_list_handle(str_3_list, tree)?;
+        Ok(())
+    }
+    fn visit_str_3_list_group_super(
+        &mut self,
+        handle: Str3ListGroupHandle,
+        view_param: Str3ListGroupView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            Str3ListGroupView::NoQuote(item) => {
+                self.visit_no_quote_handle(item, tree)?;
+            }
+            Str3ListGroupView::Quote2(item) => {
+                self.visit_quote_2_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
+    fn visit_str_3_start_super(
+        &mut self,
+        handle: Str3StartHandle,
+        view_param: Str3StartView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        let Str3StartView { str_3_start } = view_param;
+        let data = match str_3_start.get_data(tree) {
+            Ok(data) => data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    str_3_start.0,
+                    NodeKind::Terminal(str_3_start.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_str_3_start_terminal(str_3_start, data, tree)?;
+        Ok(())
+    }
+    fn visit_string_super(
+        &mut self,
+        handle: StringHandle,
+        view_param: StringView,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        match view_param {
+            StringView::Str(item) => {
+                self.visit_str_handle(item, tree)?;
+            }
+            StringView::Str1(item) => {
+                self.visit_str_1_handle(item, tree)?;
+            }
+            StringView::Str2(item) => {
+                self.visit_str_2_handle(item, tree)?;
+            }
+            StringView::Str3(item) => {
+                self.visit_str_3_handle(item, tree)?;
+            }
+            StringView::LitStr(item) => {
+                self.visit_lit_str_handle(item, tree)?;
+            }
+            StringView::LitStr1(item) => {
+                self.visit_lit_str_1_handle(item, tree)?;
+            }
+            StringView::LitStr2(item) => {
+                self.visit_lit_str_2_handle(item, tree)?;
+            }
+            StringView::LitStr3(item) => {
+                self.visit_lit_str_3_handle(item, tree)?;
+            }
+        }
+        Ok(())
+    }
     fn visit_strings_super(
         &mut self,
         handle: StringsHandle,
@@ -9331,8 +13214,11 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let StringsView { str, strings_list } = view_param;
-        self.visit_str_handle(str, tree)?;
+        let StringsView {
+            string,
+            strings_list,
+        } = view_param;
+        self.visit_string_handle(string, tree)?;
         self.visit_strings_list_handle(strings_list, tree)?;
         Ok(())
     }
@@ -9345,11 +13231,11 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let _handle = handle;
         let StringsListView {
             r#continue,
-            str,
+            string,
             strings_list,
         } = view_param;
         self.visit_continue_handle(r#continue, tree)?;
-        self.visit_str_handle(str, tree)?;
+        self.visit_string_handle(string, tree)?;
         self.visit_strings_list_handle(strings_list, tree)?;
         Ok(())
     }
@@ -9784,18 +13670,18 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_text_terminal_super(
+    fn visit_lit_str_terminal_super(
         &mut self,
-        terminal: Text,
+        terminal: LitStr,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_backtick_str_terminal_super(
+    fn visit_text_terminal_super(
         &mut self,
-        terminal: BacktickStr,
+        terminal: Text,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -9811,9 +13697,81 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_inline_code_start_2_terminal_super(
+    fn visit_str_3_start_terminal_super(
         &mut self,
-        terminal: InlineCodeStart2,
+        terminal: Str3Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_str_2_start_terminal_super(
+        &mut self,
+        terminal: Str2Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_str_1_start_terminal_super(
+        &mut self,
+        terminal: Str1Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_3_start_terminal_super(
+        &mut self,
+        terminal: LitStr3Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_2_start_terminal_super(
+        &mut self,
+        terminal: LitStr2Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_1_start_terminal_super(
+        &mut self,
+        terminal: LitStr1Start,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_start_3_terminal_super(
+        &mut self,
+        terminal: DelimCodeStart3,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_start_2_terminal_super(
+        &mut self,
+        terminal: DelimCodeStart2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_start_1_terminal_super(
+        &mut self,
+        terminal: DelimCodeStart1,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -9928,24 +13886,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_inline_code_end_2_terminal_super(
-        &mut self,
-        terminal: InlineCodeEnd2,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
-        Ok(())
-    }
-    fn visit_backtick_1_terminal_super(
-        &mut self,
-        terminal: Backtick1,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
-        Ok(())
-    }
     fn visit_no_backtick_terminal_super(
         &mut self,
         terminal: NoBacktick,
@@ -9955,9 +13895,144 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_no_backtick_inline_terminal_super(
+    fn visit_str_3_end_terminal_super(
         &mut self,
-        terminal: NoBacktickInline,
+        terminal: Str3End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_str_2_end_terminal_super(
+        &mut self,
+        terminal: Str2End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_str_1_end_terminal_super(
+        &mut self,
+        terminal: Str1End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_quote_2_terminal_super(
+        &mut self,
+        terminal: Quote2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_quote_1_terminal_super(
+        &mut self,
+        terminal: Quote1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_no_quote_terminal_super(
+        &mut self,
+        terminal: NoQuote,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_3_end_terminal_super(
+        &mut self,
+        terminal: LitStr3End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_2_end_terminal_super(
+        &mut self,
+        terminal: LitStr2End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_lit_str_1_end_terminal_super(
+        &mut self,
+        terminal: LitStr1End,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_s_quote_2_terminal_super(
+        &mut self,
+        terminal: SQuote2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_s_quote_1_terminal_super(
+        &mut self,
+        terminal: SQuote1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_no_s_quote_terminal_super(
+        &mut self,
+        terminal: NoSQuote,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_end_3_terminal_super(
+        &mut self,
+        terminal: DelimCodeEnd3,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_end_2_terminal_super(
+        &mut self,
+        terminal: DelimCodeEnd2,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_delim_code_end_1_terminal_super(
+        &mut self,
+        terminal: DelimCodeEnd1,
+        data: TerminalData,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
+        Ok(())
+    }
+    fn visit_backtick_delim_1_terminal_super(
+        &mut self,
+        terminal: BacktickDelim1,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -10203,10 +14278,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = AtHandle(id);
                     self.visit_at_handle(handle, tree)?;
                 }
-                NonTerminalKind::Backtick1 => {
-                    let handle = Backtick1Handle(id);
-                    self.visit_backtick_1_handle(handle, tree)?;
-                }
                 NonTerminalKind::Backtick2 => {
                     let handle = Backtick2Handle(id);
                     self.visit_backtick_2_handle(handle, tree)?;
@@ -10223,9 +14294,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = Backtick5Handle(id);
                     self.visit_backtick_5_handle(handle, tree)?;
                 }
-                NonTerminalKind::BacktickStr => {
-                    let handle = BacktickStrHandle(id);
-                    self.visit_backtick_str_handle(handle, tree)?;
+                NonTerminalKind::BacktickDelim1 => {
+                    let handle = BacktickDelim1Handle(id);
+                    self.visit_backtick_delim_1_handle(handle, tree)?;
                 }
                 NonTerminalKind::Begin => {
                     let handle = BeginHandle(id);
@@ -10339,6 +14410,70 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = ContinueHandle(id);
                     self.visit_continue_handle(handle, tree)?;
                 }
+                NonTerminalKind::DelimCode => {
+                    let handle = DelimCodeHandle(id);
+                    self.visit_delim_code_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode1 => {
+                    let handle = DelimCode1Handle(id);
+                    self.visit_delim_code_1_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode1List => {
+                    let handle = DelimCode1ListHandle(id);
+                    self.visit_delim_code_1_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode1ListGroup => {
+                    let handle = DelimCode1ListGroupHandle(id);
+                    self.visit_delim_code_1_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode2 => {
+                    let handle = DelimCode2Handle(id);
+                    self.visit_delim_code_2_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode2List => {
+                    let handle = DelimCode2ListHandle(id);
+                    self.visit_delim_code_2_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode2ListGroup => {
+                    let handle = DelimCode2ListGroupHandle(id);
+                    self.visit_delim_code_2_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode3 => {
+                    let handle = DelimCode3Handle(id);
+                    self.visit_delim_code_3_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode3List => {
+                    let handle = DelimCode3ListHandle(id);
+                    self.visit_delim_code_3_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCode3ListGroup => {
+                    let handle = DelimCode3ListGroupHandle(id);
+                    self.visit_delim_code_3_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCodeEnd1 => {
+                    let handle = DelimCodeEnd1Handle(id);
+                    self.visit_delim_code_end_1_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCodeEnd2 => {
+                    let handle = DelimCodeEnd2Handle(id);
+                    self.visit_delim_code_end_2_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCodeEnd3 => {
+                    let handle = DelimCodeEnd3Handle(id);
+                    self.visit_delim_code_end_3_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCodeStart1 => {
+                    let handle = DelimCodeStart1Handle(id);
+                    self.visit_delim_code_start_1_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCodeStart2 => {
+                    let handle = DelimCodeStart2Handle(id);
+                    self.visit_delim_code_start_2_handle(handle, tree)?;
+                }
+                NonTerminalKind::DelimCodeStart3 => {
+                    let handle = DelimCodeStart3Handle(id);
+                    self.visit_delim_code_start_3_handle(handle, tree)?;
+                }
                 NonTerminalKind::Dot => {
                     let handle = DotHandle(id);
                     self.visit_dot_handle(handle, tree)?;
@@ -10403,26 +14538,6 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = InlineCode1Handle(id);
                     self.visit_inline_code_1_handle(handle, tree)?;
                 }
-                NonTerminalKind::InlineCode2 => {
-                    let handle = InlineCode2Handle(id);
-                    self.visit_inline_code_2_handle(handle, tree)?;
-                }
-                NonTerminalKind::InlineCode2List => {
-                    let handle = InlineCode2ListHandle(id);
-                    self.visit_inline_code_2_list_handle(handle, tree)?;
-                }
-                NonTerminalKind::InlineCode2ListGroup => {
-                    let handle = InlineCode2ListGroupHandle(id);
-                    self.visit_inline_code_2_list_group_handle(handle, tree)?;
-                }
-                NonTerminalKind::InlineCodeEnd2 => {
-                    let handle = InlineCodeEnd2Handle(id);
-                    self.visit_inline_code_end_2_handle(handle, tree)?;
-                }
-                NonTerminalKind::InlineCodeStart2 => {
-                    let handle = InlineCodeStart2Handle(id);
-                    self.visit_inline_code_start_2_handle(handle, tree)?;
-                }
                 NonTerminalKind::Integer => {
                     let handle = IntegerHandle(id);
                     self.visit_integer_handle(handle, tree)?;
@@ -10483,6 +14598,70 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = LParenHandle(id);
                     self.visit_l_paren_handle(handle, tree)?;
                 }
+                NonTerminalKind::LitStr => {
+                    let handle = LitStrHandle(id);
+                    self.visit_lit_str_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr1 => {
+                    let handle = LitStr1Handle(id);
+                    self.visit_lit_str_1_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr1End => {
+                    let handle = LitStr1EndHandle(id);
+                    self.visit_lit_str_1_end_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr1List => {
+                    let handle = LitStr1ListHandle(id);
+                    self.visit_lit_str_1_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr1ListGroup => {
+                    let handle = LitStr1ListGroupHandle(id);
+                    self.visit_lit_str_1_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr1Start => {
+                    let handle = LitStr1StartHandle(id);
+                    self.visit_lit_str_1_start_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr2 => {
+                    let handle = LitStr2Handle(id);
+                    self.visit_lit_str_2_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr2End => {
+                    let handle = LitStr2EndHandle(id);
+                    self.visit_lit_str_2_end_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr2List => {
+                    let handle = LitStr2ListHandle(id);
+                    self.visit_lit_str_2_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr2ListGroup => {
+                    let handle = LitStr2ListGroupHandle(id);
+                    self.visit_lit_str_2_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr2Start => {
+                    let handle = LitStr2StartHandle(id);
+                    self.visit_lit_str_2_start_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr3 => {
+                    let handle = LitStr3Handle(id);
+                    self.visit_lit_str_3_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr3End => {
+                    let handle = LitStr3EndHandle(id);
+                    self.visit_lit_str_3_end_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr3List => {
+                    let handle = LitStr3ListHandle(id);
+                    self.visit_lit_str_3_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr3ListGroup => {
+                    let handle = LitStr3ListGroupHandle(id);
+                    self.visit_lit_str_3_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::LitStr3Start => {
+                    let handle = LitStr3StartHandle(id);
+                    self.visit_lit_str_3_start_handle(handle, tree)?;
+                }
                 NonTerminalKind::MapBind => {
                     let handle = MapBindHandle(id);
                     self.visit_map_bind_handle(handle, tree)?;
@@ -10495,9 +14674,13 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = NoBacktickHandle(id);
                     self.visit_no_backtick_handle(handle, tree)?;
                 }
-                NonTerminalKind::NoBacktickInline => {
-                    let handle = NoBacktickInlineHandle(id);
-                    self.visit_no_backtick_inline_handle(handle, tree)?;
+                NonTerminalKind::NoQuote => {
+                    let handle = NoQuoteHandle(id);
+                    self.visit_no_quote_handle(handle, tree)?;
+                }
+                NonTerminalKind::NoSQuote => {
+                    let handle = NoSQuoteHandle(id);
+                    self.visit_no_s_quote_handle(handle, tree)?;
                 }
                 NonTerminalKind::Null => {
                     let handle = NullHandle(id);
@@ -10527,9 +14710,25 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = ObjectOpt1Handle(id);
                     self.visit_object_opt_1_handle(handle, tree)?;
                 }
+                NonTerminalKind::Quote1 => {
+                    let handle = Quote1Handle(id);
+                    self.visit_quote_1_handle(handle, tree)?;
+                }
+                NonTerminalKind::Quote2 => {
+                    let handle = Quote2Handle(id);
+                    self.visit_quote_2_handle(handle, tree)?;
+                }
                 NonTerminalKind::RParen => {
                     let handle = RParenHandle(id);
                     self.visit_r_paren_handle(handle, tree)?;
+                }
+                NonTerminalKind::SQuote1 => {
+                    let handle = SQuote1Handle(id);
+                    self.visit_s_quote_1_handle(handle, tree)?;
+                }
+                NonTerminalKind::SQuote2 => {
+                    let handle = SQuote2Handle(id);
+                    self.visit_s_quote_2_handle(handle, tree)?;
                 }
                 NonTerminalKind::Section => {
                     let handle = SectionHandle(id);
@@ -10554,6 +14753,70 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 NonTerminalKind::Str => {
                     let handle = StrHandle(id);
                     self.visit_str_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str1 => {
+                    let handle = Str1Handle(id);
+                    self.visit_str_1_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str1End => {
+                    let handle = Str1EndHandle(id);
+                    self.visit_str_1_end_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str1List => {
+                    let handle = Str1ListHandle(id);
+                    self.visit_str_1_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str1ListGroup => {
+                    let handle = Str1ListGroupHandle(id);
+                    self.visit_str_1_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str1Start => {
+                    let handle = Str1StartHandle(id);
+                    self.visit_str_1_start_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str2 => {
+                    let handle = Str2Handle(id);
+                    self.visit_str_2_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str2End => {
+                    let handle = Str2EndHandle(id);
+                    self.visit_str_2_end_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str2List => {
+                    let handle = Str2ListHandle(id);
+                    self.visit_str_2_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str2ListGroup => {
+                    let handle = Str2ListGroupHandle(id);
+                    self.visit_str_2_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str2Start => {
+                    let handle = Str2StartHandle(id);
+                    self.visit_str_2_start_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str3 => {
+                    let handle = Str3Handle(id);
+                    self.visit_str_3_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str3End => {
+                    let handle = Str3EndHandle(id);
+                    self.visit_str_3_end_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str3List => {
+                    let handle = Str3ListHandle(id);
+                    self.visit_str_3_list_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str3ListGroup => {
+                    let handle = Str3ListGroupHandle(id);
+                    self.visit_str_3_list_group_handle(handle, tree)?;
+                }
+                NonTerminalKind::Str3Start => {
+                    let handle = Str3StartHandle(id);
+                    self.visit_str_3_start_handle(handle, tree)?;
+                }
+                NonTerminalKind::String => {
+                    let handle = StringHandle(id);
+                    self.visit_string_handle(handle, tree)?;
                 }
                 NonTerminalKind::Strings => {
                     let handle = StringsHandle(id);
@@ -10693,21 +14956,53 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let terminal = Str(id);
                     self.visit_str_terminal(terminal, data, tree)?;
                 }
+                TerminalKind::LitStr => {
+                    let terminal = LitStr(id);
+                    self.visit_lit_str_terminal(terminal, data, tree)?;
+                }
                 TerminalKind::Text => {
                     let terminal = Text(id);
                     self.visit_text_terminal(terminal, data, tree)?;
-                }
-                TerminalKind::BacktickStr => {
-                    let terminal = BacktickStr(id);
-                    self.visit_backtick_str_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::InlineCode1 => {
                     let terminal = InlineCode1(id);
                     self.visit_inline_code_1_terminal(terminal, data, tree)?;
                 }
-                TerminalKind::InlineCodeStart2 => {
-                    let terminal = InlineCodeStart2(id);
-                    self.visit_inline_code_start_2_terminal(terminal, data, tree)?;
+                TerminalKind::Str3Start => {
+                    let terminal = Str3Start(id);
+                    self.visit_str_3_start_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Str2Start => {
+                    let terminal = Str2Start(id);
+                    self.visit_str_2_start_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Str1Start => {
+                    let terminal = Str1Start(id);
+                    self.visit_str_1_start_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::LitStr3Start => {
+                    let terminal = LitStr3Start(id);
+                    self.visit_lit_str_3_start_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::LitStr2Start => {
+                    let terminal = LitStr2Start(id);
+                    self.visit_lit_str_2_start_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::LitStr1Start => {
+                    let terminal = LitStr1Start(id);
+                    self.visit_lit_str_1_start_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::DelimCodeStart3 => {
+                    let terminal = DelimCodeStart3(id);
+                    self.visit_delim_code_start_3_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::DelimCodeStart2 => {
+                    let terminal = DelimCodeStart2(id);
+                    self.visit_delim_code_start_2_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::DelimCodeStart1 => {
+                    let terminal = DelimCodeStart1(id);
+                    self.visit_delim_code_start_1_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::CodeBlockStart3 => {
                     let terminal = CodeBlockStart3(id);
@@ -10757,21 +15052,73 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let terminal = Backtick5(id);
                     self.visit_backtick_5_terminal(terminal, data, tree)?;
                 }
-                TerminalKind::InlineCodeEnd2 => {
-                    let terminal = InlineCodeEnd2(id);
-                    self.visit_inline_code_end_2_terminal(terminal, data, tree)?;
-                }
-                TerminalKind::Backtick1 => {
-                    let terminal = Backtick1(id);
-                    self.visit_backtick_1_terminal(terminal, data, tree)?;
-                }
                 TerminalKind::NoBacktick => {
                     let terminal = NoBacktick(id);
                     self.visit_no_backtick_terminal(terminal, data, tree)?;
                 }
-                TerminalKind::NoBacktickInline => {
-                    let terminal = NoBacktickInline(id);
-                    self.visit_no_backtick_inline_terminal(terminal, data, tree)?;
+                TerminalKind::Str3End => {
+                    let terminal = Str3End(id);
+                    self.visit_str_3_end_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Str2End => {
+                    let terminal = Str2End(id);
+                    self.visit_str_2_end_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Str1End => {
+                    let terminal = Str1End(id);
+                    self.visit_str_1_end_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Quote2 => {
+                    let terminal = Quote2(id);
+                    self.visit_quote_2_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::Quote1 => {
+                    let terminal = Quote1(id);
+                    self.visit_quote_1_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::NoQuote => {
+                    let terminal = NoQuote(id);
+                    self.visit_no_quote_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::LitStr3End => {
+                    let terminal = LitStr3End(id);
+                    self.visit_lit_str_3_end_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::LitStr2End => {
+                    let terminal = LitStr2End(id);
+                    self.visit_lit_str_2_end_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::LitStr1End => {
+                    let terminal = LitStr1End(id);
+                    self.visit_lit_str_1_end_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::SQuote2 => {
+                    let terminal = SQuote2(id);
+                    self.visit_s_quote_2_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::SQuote1 => {
+                    let terminal = SQuote1(id);
+                    self.visit_s_quote_1_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::NoSQuote => {
+                    let terminal = NoSQuote(id);
+                    self.visit_no_s_quote_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::DelimCodeEnd3 => {
+                    let terminal = DelimCodeEnd3(id);
+                    self.visit_delim_code_end_3_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::DelimCodeEnd2 => {
+                    let terminal = DelimCodeEnd2(id);
+                    self.visit_delim_code_end_2_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::DelimCodeEnd1 => {
+                    let terminal = DelimCodeEnd1(id);
+                    self.visit_delim_code_end_1_terminal(terminal, data, tree)?;
+                }
+                TerminalKind::BacktickDelim1 => {
+                    let terminal = BacktickDelim1(id);
+                    self.visit_backtick_delim_1_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::GrammarNewline => {
                     let terminal = GrammarNewline(id);

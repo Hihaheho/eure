@@ -275,10 +275,10 @@ impl SourcePathSegment {
         }
     }
 
-    /// Create a backtick string segment without array marker.
-    pub fn backtick_string(s: impl Into<String>) -> Self {
+    /// Create a literal string segment (single-quoted) without array marker.
+    pub fn literal_string(s: impl Into<String>) -> Self {
         Self {
-            key: SourceKey::backtick(s),
+            key: SourceKey::literal(s),
             array: None,
         }
     }
@@ -286,15 +286,26 @@ impl SourcePathSegment {
 
 /// Syntax style for string keys (for round-trip formatting).
 ///
-/// This preserves whether a string key was written with quotes or backticks,
+/// This preserves whether a string key was written with quotes, single quotes, or delimiters,
 /// similar to how `SyntaxHint` preserves code block formatting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum StringStyle {
     /// Quoted string: `"..."`
     #[default]
     Quoted,
-    /// Backtick string: `` `...` ``
-    Backtick,
+    /// Literal string (single-quoted): `'...'`
+    /// Content is taken literally, no escape processing
+    Literal,
+    /// Delimited escaped string: `<"...">`, `<<"...">>`, `<<<"...">>>`
+    /// The u8 indicates the delimiter level (1, 2, or 3)
+    DelimitedStr(u8),
+    /// Delimited literal string: `<'...'>`, `<<'...'>>`, `<<<'...'>>>`
+    /// The u8 indicates the delimiter level (1, 2, or 3)
+    /// Content is taken literally, no escape processing
+    DelimitedLitStr(u8),
+    /// Delimited code: `<`...`>`, `<<`...`>>`, `<<<`...`>>>`
+    /// The u8 indicates the delimiter level (1, 2, or 3)
+    DelimitedCode(u8),
 }
 
 /// A key in source representation.
@@ -310,7 +321,7 @@ pub enum SourceKey {
 
     /// String key with syntax style hint.
     /// - `StringStyle::Quoted`: `"hello world"`
-    /// - `StringStyle::Backtick`: `` `hello world` ``
+    /// - `StringStyle::Literal`: `'hello world'`
     ///
     /// Note: `PartialEq` ignores the style - only content matters for equality.
     String(String, StringStyle),
@@ -348,9 +359,24 @@ impl SourceKey {
         SourceKey::String(s.into(), StringStyle::Quoted)
     }
 
-    /// Create a backtick string key: `` `...` ``
-    pub fn backtick(s: impl Into<String>) -> Self {
-        SourceKey::String(s.into(), StringStyle::Backtick)
+    /// Create a literal string key (single-quoted): `'...'`
+    pub fn literal(s: impl Into<String>) -> Self {
+        SourceKey::String(s.into(), StringStyle::Literal)
+    }
+
+    /// Create a delimited escaped string key: `<"...">`, `<<"...">>`, `<<<"...">>>`
+    pub fn delimited_str(s: impl Into<String>, level: u8) -> Self {
+        SourceKey::String(s.into(), StringStyle::DelimitedStr(level))
+    }
+
+    /// Create a delimited literal string key: `<'...'>`, `<<'...'>>`, `<<<'...'>>>`
+    pub fn delimited_lit_str(s: impl Into<String>, level: u8) -> Self {
+        SourceKey::String(s.into(), StringStyle::DelimitedLitStr(level))
+    }
+
+    /// Create a delimited code key: `<`...`>`, `<<`...`>>`, `<<<`...`>>>`
+    pub fn delimited_code(s: impl Into<String>, level: u8) -> Self {
+        SourceKey::String(s.into(), StringStyle::DelimitedCode(level))
     }
 }
 

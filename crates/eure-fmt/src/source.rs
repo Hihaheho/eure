@@ -285,9 +285,24 @@ impl<'a> SourceDocBuilder<'a> {
                 StringStyle::Quoted => Doc::text("\"")
                     .concat(Doc::text(escape_string(s)))
                     .concat(Doc::text("\"")),
-                StringStyle::Backtick => Doc::text("`")
+                StringStyle::Literal => Doc::text("'")
                     .concat(Doc::text(s.clone()))
-                    .concat(Doc::text("`")),
+                    .concat(Doc::text("'")),
+                StringStyle::DelimitedStr(level) => {
+                    let delim_open: String = "<".repeat(*level as usize);
+                    let delim_close: String = ">".repeat(*level as usize);
+                    Doc::text(format!("{delim_open}\"{s}\"{delim_close}"))
+                }
+                StringStyle::DelimitedLitStr(level) => {
+                    let delim_open: String = "<".repeat(*level as usize);
+                    let delim_close: String = ">".repeat(*level as usize);
+                    Doc::text(format!("{delim_open}'{s}'{delim_close}"))
+                }
+                StringStyle::DelimitedCode(level) => {
+                    let delim_open: String = "<".repeat(*level as usize);
+                    let delim_close: String = ">".repeat(*level as usize);
+                    Doc::text(format!("{delim_open}`{s}`{delim_close}"))
+                }
             },
             SourceKey::Integer(n) => Doc::text(n.to_string()),
             SourceKey::Tuple(keys) => {

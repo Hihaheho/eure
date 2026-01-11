@@ -908,9 +908,10 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
-    fn visit_inline_code_start_2_terminal(
+    // Delimited escaped strings (Str1/2/3)
+    fn visit_str_1_start_terminal(
         &mut self,
-        _terminal: InlineCodeStart2,
+        _terminal: Str1Start,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
@@ -920,9 +921,9 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
-    fn visit_inline_code_end_2_terminal(
+    fn visit_str_2_start_terminal(
         &mut self,
-        _terminal: InlineCodeEnd2,
+        _terminal: Str2Start,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
@@ -932,9 +933,9 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
-    fn visit_no_backtick_inline_terminal(
+    fn visit_str_3_start_terminal(
         &mut self,
-        _terminal: NoBacktickInline,
+        _terminal: Str3Start,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
@@ -944,9 +945,276 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
-    fn visit_backtick_1_terminal(
+    fn visit_str_1_end_terminal(
         &mut self,
-        _terminal: Backtick1,
+        _terminal: Str1End,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_str_2_end_terminal(
+        &mut self,
+        _terminal: Str2End,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_str_3_end_terminal(
+        &mut self,
+        _terminal: Str3End,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_quote_1_terminal(
+        &mut self,
+        _terminal: Quote1,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_quote_2_terminal(
+        &mut self,
+        _terminal: Quote2,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_no_quote_terminal(
+        &mut self,
+        _terminal: NoQuote,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    // Literal strings (LitStr)
+    fn visit_lit_str_terminal(
+        &mut self,
+        _terminal: LitStr,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    // Delimited literal strings (LitStr1/2/3)
+    fn visit_lit_str_1_start_terminal(
+        &mut self,
+        _terminal: LitStr1Start,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_lit_str_2_start_terminal(
+        &mut self,
+        _terminal: LitStr2Start,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_lit_str_3_start_terminal(
+        &mut self,
+        _terminal: LitStr3Start,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_lit_str_1_end_terminal(
+        &mut self,
+        _terminal: LitStr1End,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_lit_str_2_end_terminal(
+        &mut self,
+        _terminal: LitStr2End,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_lit_str_3_end_terminal(
+        &mut self,
+        _terminal: LitStr3End,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_s_quote_1_terminal(
+        &mut self,
+        _terminal: SQuote1,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_s_quote_2_terminal(
+        &mut self,
+        _terminal: SQuote2,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_no_s_quote_terminal(
+        &mut self,
+        _terminal: NoSQuote,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    // Delimited code
+    fn visit_delim_code_start_1_terminal(
+        &mut self,
+        _terminal: DelimCodeStart1,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_delim_code_start_2_terminal(
+        &mut self,
+        _terminal: DelimCodeStart2,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_delim_code_start_3_terminal(
+        &mut self,
+        _terminal: DelimCodeStart3,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_delim_code_end_1_terminal(
+        &mut self,
+        _terminal: DelimCodeEnd1,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_delim_code_end_2_terminal(
+        &mut self,
+        _terminal: DelimCodeEnd2,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_delim_code_end_3_terminal(
+        &mut self,
+        _terminal: DelimCodeEnd3,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        self.emit_text(text);
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_backtick_delim_1_terminal(
+        &mut self,
+        _terminal: BacktickDelim1,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {

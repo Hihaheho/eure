@@ -1,0 +1,150 @@
+// Test: String escaping - Str vs LitStr comparison
+// Each case shows BOTH escaped and literal side-by-side
+
+// === Level 0: Str vs LitStr ===
+
+@ cases.level0-newline
+input_eure = ```eure
+escaped = "line1\nline2"
+literal = 'line1\nline2'
+```
+
+normalized = ```eure
+= { escaped => "line1\nline2", literal => "line1\\nline2" }
+```
+
+@ cases.level0-backslash
+input_eure = ```eure
+escaped = "C:\\Users\\name"
+literal = 'C:\Users\name'
+```
+
+normalized = ```eure
+= { escaped => "C:\\Users\\name", literal => "C:\\Users\\name" }
+```
+
+@ cases.level0-tab
+input_eure = ```eure
+escaped = "col1\tcol2"
+literal = 'col1\tcol2'
+```
+
+normalized = ```eure
+= { escaped => "col1\tcol2", literal => "col1\\tcol2" }
+```
+
+// === Level 1: Str1 vs LitStr1 ===
+
+@ cases.level1-newline
+input_eure = ```eure
+escaped = <"line1\nline2">
+literal = <'line1\nline2'>
+```
+
+normalized = ```eure
+= { escaped => "line1\nline2", literal => "line1\\nline2" }
+```
+
+@ cases.level1-backslash
+input_eure = ```eure
+escaped = <"C:\\Users\\name">
+literal = <'C:\Users\name'>
+```
+
+normalized = ```eure
+= { escaped => "C:\\Users\\name", literal => "C:\\Users\\name" }
+```
+
+@ cases.level1-embedded-quotes
+input_eure = ```eure
+escaped = <"say \"hello\"">
+literal = <'it's working'>
+```
+
+normalized = ```eure
+= { escaped => "say \"hello\"", literal => "it's working" }
+```
+
+// === Level 2: Str2 vs LitStr2 ===
+
+@ cases.level2-newline
+input_eure = ```eure
+escaped = <<"line1\nline2">>
+literal = <<'line1\nline2'>>
+```
+
+normalized = ```eure
+= { escaped => "line1\nline2", literal => "line1\\nline2" }
+```
+
+@ cases.level2-backslash
+input_eure = ```eure
+escaped = <<"C:\\Users\\name">>
+literal = <<'C:\Users\name'>>
+```
+
+normalized = ```eure
+= { escaped => "C:\\Users\\name", literal => "C:\\Users\\name" }
+```
+
+@ cases.level2-partial-close
+input_eure = ```eure
+escaped = <<"text with \"> inside">>
+literal = <<'text with '> inside'>>
+```
+
+normalized = ```eure
+= { escaped => "text with \"> inside", literal => "text with '> inside" }
+```
+
+// === Level 3: Str3 vs LitStr3 ===
+
+@ cases.level3-newline
+input_eure = ```eure
+escaped = <<<"line1\nline2">>>
+literal = <<<'line1\nline2'>>>
+```
+
+normalized = ```eure
+= { escaped => "line1\nline2", literal => "line1\\nline2" }
+```
+
+@ cases.level3-backslash
+input_eure = ```eure
+escaped = <<<"C:\\Users\\name">>>
+literal = <<<'C:\Users\name'>>>
+```
+
+normalized = ```eure
+= { escaped => "C:\\Users\\name", literal => "C:\\Users\\name" }
+```
+
+@ cases.level3-complex-partial
+input_eure = ```eure
+escaped = <<<"text with \">> inside">>>
+literal = <<<'text with ''>> inside'>>>
+```
+
+normalized = ```eure
+= { escaped => "text with \">> inside", literal => "text with ''>> inside" }
+```
+
+// === Keys: Escaped vs Literal ===
+
+@ cases.keys-escaped
+input_eure = ```eure
+"C:\\path" = 1
+```
+
+normalized = ```eure
+= { "C:\\path" => 1 }
+```
+
+@ cases.keys-literal
+input_eure = ```eure
+'C:\path' = 1
+```
+
+normalized = ```eure
+= { "C:\\path" => 1 }
+```

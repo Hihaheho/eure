@@ -68,25 +68,179 @@ impl TerminalTokens {
         }
         Ok(string)
     }
+
+    /// Collect terminal tokens from Str1 content list
+    pub fn from_str_1_list<F: CstFacade>(
+        list: &Str1ListHandle,
+        tree: &F,
+    ) -> Result<Self, DocumentConstructionError> {
+        let mut tokens = Self::new();
+        if let Some(view) = list.get_view(tree)? {
+            let groups = view.get_all(tree)?;
+            for group in groups {
+                match group.get_view(tree)? {
+                    Str1ListGroupView::NoQuote(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.no_quote.get_data(tree)?);
+                    }
+                    Str1ListGroupView::Quote1(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.quote_1.get_data(tree)?);
+                    }
+                }
+            }
+        }
+        Ok(tokens)
+    }
+
+    /// Collect terminal tokens from Str2 content list
+    pub fn from_str_2_list<F: CstFacade>(
+        list: &Str2ListHandle,
+        tree: &F,
+    ) -> Result<Self, DocumentConstructionError> {
+        let mut tokens = Self::new();
+        if let Some(view) = list.get_view(tree)? {
+            let groups = view.get_all(tree)?;
+            for group in groups {
+                match group.get_view(tree)? {
+                    Str2ListGroupView::NoQuote(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.no_quote.get_data(tree)?);
+                    }
+                    Str2ListGroupView::Quote1(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.quote_1.get_data(tree)?);
+                    }
+                }
+            }
+        }
+        Ok(tokens)
+    }
+
+    /// Collect terminal tokens from Str3 content list
+    pub fn from_str_3_list<F: CstFacade>(
+        list: &Str3ListHandle,
+        tree: &F,
+    ) -> Result<Self, DocumentConstructionError> {
+        let mut tokens = Self::new();
+        if let Some(view) = list.get_view(tree)? {
+            let groups = view.get_all(tree)?;
+            for group in groups {
+                match group.get_view(tree)? {
+                    Str3ListGroupView::NoQuote(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.no_quote.get_data(tree)?);
+                    }
+                    Str3ListGroupView::Quote2(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.quote_2.get_data(tree)?);
+                    }
+                }
+            }
+        }
+        Ok(tokens)
+    }
+
+    /// Collect terminal tokens from LitStr1 content list
+    pub fn from_lit_str_1_list<F: CstFacade>(
+        list: &LitStr1ListHandle,
+        tree: &F,
+    ) -> Result<Self, DocumentConstructionError> {
+        let mut tokens = Self::new();
+        if let Some(view) = list.get_view(tree)? {
+            let groups = view.get_all(tree)?;
+            for group in groups {
+                match group.get_view(tree)? {
+                    LitStr1ListGroupView::NoSQuote(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.no_s_quote.get_data(tree)?);
+                    }
+                    LitStr1ListGroupView::SQuote1(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.s_quote_1.get_data(tree)?);
+                    }
+                }
+            }
+        }
+        Ok(tokens)
+    }
+
+    /// Collect terminal tokens from LitStr2 content list
+    pub fn from_lit_str_2_list<F: CstFacade>(
+        list: &LitStr2ListHandle,
+        tree: &F,
+    ) -> Result<Self, DocumentConstructionError> {
+        let mut tokens = Self::new();
+        if let Some(view) = list.get_view(tree)? {
+            let groups = view.get_all(tree)?;
+            for group in groups {
+                match group.get_view(tree)? {
+                    LitStr2ListGroupView::NoSQuote(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.no_s_quote.get_data(tree)?);
+                    }
+                    LitStr2ListGroupView::SQuote1(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.s_quote_1.get_data(tree)?);
+                    }
+                }
+            }
+        }
+        Ok(tokens)
+    }
+
+    /// Collect terminal tokens from LitStr3 content list
+    pub fn from_lit_str_3_list<F: CstFacade>(
+        list: &LitStr3ListHandle,
+        tree: &F,
+    ) -> Result<Self, DocumentConstructionError> {
+        let mut tokens = Self::new();
+        if let Some(view) = list.get_view(tree)? {
+            let groups = view.get_all(tree)?;
+            for group in groups {
+                match group.get_view(tree)? {
+                    LitStr3ListGroupView::NoSQuote(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.no_s_quote.get_data(tree)?);
+                    }
+                    LitStr3ListGroupView::SQuote2(h) => {
+                        let view = h.get_view(tree)?;
+                        tokens.push_terminal(view.s_quote_2.get_data(tree)?);
+                    }
+                }
+            }
+        }
+        Ok(tokens)
+    }
 }
 
 // Grammar: /[a-zA-Z0-9-_]*`[^`\r\n]*`/
 static INLINE_CODE_1_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^([a-zA-Z0-9_-]*)`([^`\r\n]*)`$").unwrap());
 
-// Grammar: /[a-zA-Z0-9-_]*``/
-static INLINE_CODE_START_2_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^([a-zA-Z0-9_-]*)``$").unwrap());
+// Grammar: /[a-zA-Z0-9-_]*<`/ (DelimCodeStart1)
+static DELIM_CODE_START_1_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^([a-zA-Z0-9_-]*)<`$").unwrap());
+
+// Grammar: /[a-zA-Z0-9-_]*<<`/ (DelimCodeStart2)
+static DELIM_CODE_START_2_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^([a-zA-Z0-9_-]*)<<`$").unwrap());
+
+// Grammar: /[a-zA-Z0-9-_]*<<<`/ (DelimCodeStart3)
+static DELIM_CODE_START_3_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^([a-zA-Z0-9_-]*)<<<`$").unwrap());
 
 // Grammar: /`{n}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/
 // [\s--\r\n]* means whitespace except \r\n, i.e., [ \t]*
 static CODE_BLOCK_START_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^`+([a-zA-Z0-9_-]*)[ \t]*(?:\r\n|\r|\n)$").unwrap());
 
-/// Stored origin for code blocks and inline code 2
+/// Stored origin for code blocks and delimited code
 #[derive(Debug, Clone, Copy)]
 enum CodeOrigin {
-    InlineCode2(InlineCode2Handle),
+    DelimCode1(DelimCode1Handle),
+    DelimCode2(DelimCode2Handle),
+    DelimCode3(DelimCode3Handle),
     CodeBlock(CodeBlockHandle),
 }
 
@@ -161,13 +315,44 @@ impl<'a> CstInterpreter<'a> {
         Ok((language, content.to_string()))
     }
 
-    /// Parse language from InlineCodeStart2 token: [lang]``
-    /// Grammar: /[a-zA-Z0-9-_]*``/
-    /// Language tag must be alphanumeric/hyphen/underscore only, no whitespace
-    fn parse_inline_code_start_2(token: &str) -> Result<Language, InlineCodeError> {
-        let caps = INLINE_CODE_START_2_REGEX
+    /// Parse language from DelimCodeStart1 token: [lang]<`
+    /// Grammar: /[a-zA-Z0-9-_]*<`/
+    fn parse_delim_code_start_1(token: &str) -> Result<Language, InlineCodeError> {
+        let caps = DELIM_CODE_START_1_REGEX
             .captures(token)
-            .ok_or(InlineCodeError::InvalidInlineCodeStart2Pattern)?;
+            .ok_or(InlineCodeError::InvalidDelimCodeStartPattern)?;
+
+        let lang = caps.get(1).unwrap().as_str();
+        let language = if lang.is_empty() {
+            Language::Implicit
+        } else {
+            Language::new(lang.to_string())
+        };
+        Ok(language)
+    }
+
+    /// Parse language from DelimCodeStart2 token: [lang]<<`
+    /// Grammar: /[a-zA-Z0-9-_]*<<`/
+    fn parse_delim_code_start_2(token: &str) -> Result<Language, InlineCodeError> {
+        let caps = DELIM_CODE_START_2_REGEX
+            .captures(token)
+            .ok_or(InlineCodeError::InvalidDelimCodeStartPattern)?;
+
+        let lang = caps.get(1).unwrap().as_str();
+        let language = if lang.is_empty() {
+            Language::Implicit
+        } else {
+            Language::new(lang.to_string())
+        };
+        Ok(language)
+    }
+
+    /// Parse language from DelimCodeStart3 token: [lang]<<<`
+    /// Grammar: /[a-zA-Z0-9-_]*<<<`/
+    fn parse_delim_code_start_3(token: &str) -> Result<Language, InlineCodeError> {
+        let caps = DELIM_CODE_START_3_REGEX
+            .captures(token)
+            .ok_or(InlineCodeError::InvalidDelimCodeStartPattern)?;
 
         let lang = caps.get(1).unwrap().as_str();
         let language = if lang.is_empty() {
@@ -530,28 +715,12 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 let identifier: Identifier = ident_str.parse()?;
                 (PathSegment::Extension(identifier), None)
             }
-            KeyBaseView::Str(str_handle) => {
-                let string = self.parse_str_terminal(str_handle, tree)?;
-                let object_key = ObjectKey::String(string);
+            KeyBaseView::String(string_handle) => {
+                let content = self.parse_string(string_handle, tree)?;
+                let object_key = ObjectKey::String(content);
                 (
                     PathSegment::Value(object_key.clone()),
-                    Some((object_key, str_handle.node_id())),
-                )
-            }
-            KeyBaseView::BacktickStr(handle) => {
-                let view = handle.get_view(tree)?;
-                let token = self.get_terminal_str(tree, view.backtick_str)?;
-                // Strip surrounding backticks: `content` -> content
-                let content = token
-                    .strip_prefix('`')
-                    .and_then(|s| s.strip_suffix('`'))
-                    .ok_or_else(|| DocumentConstructionError::InvalidBacktickStr {
-                        node_id: handle.node_id(),
-                    })?;
-                let object_key = ObjectKey::String(content.to_string());
-                (
-                    PathSegment::Value(object_key.clone()),
-                    Some((object_key, handle.node_id())),
+                    Some((object_key, string_handle.node_id())),
                 )
             }
             KeyBaseView::Integer(int_handle) => {
@@ -1041,36 +1210,6 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         Ok(())
     }
 
-    /// Handle BacktickStr when used as a Value (in InlineCode context).
-    /// When used in KeyBase context, it's handled directly in visit_key.
-    fn visit_backtick_str(
-        &mut self,
-        handle: BacktickStrHandle,
-        view: BacktickStrView,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        let token_str = self.get_terminal_str(tree, view.backtick_str)?;
-        // Strip surrounding backticks: `content` -> content
-        let content = token_str
-            .strip_prefix('`')
-            .and_then(|s| s.strip_suffix('`'))
-            .ok_or_else(|| DocumentConstructionError::InvalidBacktickStr {
-                node_id: handle.node_id(),
-            })?;
-        // BacktickStr without language prefix uses Language::Implicit
-        let text =
-            Text::with_syntax_hint(content.to_string(), Language::Implicit, SyntaxHint::Inline1);
-        let node_id = self.document.current_node_id();
-        self.document
-            .bind_primitive(PrimitiveValue::Text(text))
-            .map_err(|e| DocumentConstructionError::DocumentInsert {
-                error: e,
-                node_id: handle.node_id(),
-            })?;
-        self.record_value(node_id, handle.node_id());
-        Ok(())
-    }
-
     fn visit_inline_code_1(
         &mut self,
         handle: InlineCode1Handle,
@@ -1096,50 +1235,44 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         Ok(())
     }
 
-    fn visit_inline_code_2(
+    // === DelimCode1 handlers ===
+    fn visit_delim_code_1(
         &mut self,
-        handle: InlineCode2Handle,
-        view: InlineCode2View,
+        handle: DelimCode1Handle,
+        view: DelimCode1View,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Store the origin before visiting children
-        self.pending_code_origin = Some(CodeOrigin::InlineCode2(handle));
-        // Visit children (start, content, end)
-        self.visit_inline_code_2_super(handle, view, tree)?;
+        self.pending_code_origin = Some(CodeOrigin::DelimCode1(handle));
+        self.visit_delim_code_1_super(handle, view, tree)?;
         self.pending_code_origin = None;
         Ok(())
     }
 
-    fn visit_inline_code_start_2(
+    fn visit_delim_code_start_1(
         &mut self,
-        _handle: InlineCodeStart2Handle,
-        view: InlineCodeStart2View,
+        _handle: DelimCodeStart1Handle,
+        view: DelimCodeStart1View,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        let token_str = self.get_terminal_str(tree, view.inline_code_start_2)?;
-        let language = Self::parse_inline_code_start_2(token_str).map_err(|error| {
+        let token_str = self.get_terminal_str(tree, view.delim_code_start_1)?;
+        let language = Self::parse_delim_code_start_1(token_str).map_err(|error| {
             DocumentConstructionError::InvalidInlineCode {
-                node_id: view.inline_code_start_2.node_id(),
+                node_id: view.delim_code_start_1.node_id(),
                 error,
             }
         })?;
-        // Use pending origin if available
         self.code_start = if let Some(origin) = self.pending_code_origin {
-            Some(CodeStart::with_origin(
-                language,
-                SyntaxHint::Inline2,
-                origin,
-            ))
+            Some(CodeStart::with_origin(language, SyntaxHint::Delim1, origin))
         } else {
-            Some(CodeStart::new(language, SyntaxHint::Inline2))
+            Some(CodeStart::new(language, SyntaxHint::Delim1))
         };
         Ok(())
     }
 
-    fn visit_inline_code_end_2(
+    fn visit_delim_code_end_1(
         &mut self,
-        handle: InlineCodeEnd2Handle,
-        _view: InlineCodeEnd2View,
+        handle: DelimCodeEnd1Handle,
+        _view: DelimCodeEnd1View,
         tree: &F,
     ) -> Result<(), Self::Error> {
         if let Some(code_start) = self.code_start.take() {
@@ -1152,9 +1285,122 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     error: e,
                     node_id: handle.node_id(),
                 })?;
-            // Record origin if available
-            if let Some(CodeOrigin::InlineCode2(inline_handle)) = code_start.origin {
-                self.record_value(node_id, inline_handle.node_id());
+            if let Some(CodeOrigin::DelimCode1(delim_handle)) = code_start.origin {
+                self.record_value(node_id, delim_handle.node_id());
+            }
+        }
+        Ok(())
+    }
+
+    // === DelimCode2 handlers ===
+    fn visit_delim_code_2(
+        &mut self,
+        handle: DelimCode2Handle,
+        view: DelimCode2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.pending_code_origin = Some(CodeOrigin::DelimCode2(handle));
+        self.visit_delim_code_2_super(handle, view, tree)?;
+        self.pending_code_origin = None;
+        Ok(())
+    }
+
+    fn visit_delim_code_start_2(
+        &mut self,
+        _handle: DelimCodeStart2Handle,
+        view: DelimCodeStart2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.delim_code_start_2)?;
+        let language = Self::parse_delim_code_start_2(token_str).map_err(|error| {
+            DocumentConstructionError::InvalidInlineCode {
+                node_id: view.delim_code_start_2.node_id(),
+                error,
+            }
+        })?;
+        self.code_start = if let Some(origin) = self.pending_code_origin {
+            Some(CodeStart::with_origin(language, SyntaxHint::Delim2, origin))
+        } else {
+            Some(CodeStart::new(language, SyntaxHint::Delim2))
+        };
+        Ok(())
+    }
+
+    fn visit_delim_code_end_2(
+        &mut self,
+        handle: DelimCodeEnd2Handle,
+        _view: DelimCodeEnd2View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Some(code_start) = self.code_start.take() {
+            let content = code_start.terminals.into_string(self.input, tree)?;
+            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
+            let node_id = self.document.current_node_id();
+            self.document
+                .bind_primitive(PrimitiveValue::Text(text))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
+            if let Some(CodeOrigin::DelimCode2(delim_handle)) = code_start.origin {
+                self.record_value(node_id, delim_handle.node_id());
+            }
+        }
+        Ok(())
+    }
+
+    // === DelimCode3 handlers ===
+    fn visit_delim_code_3(
+        &mut self,
+        handle: DelimCode3Handle,
+        view: DelimCode3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.pending_code_origin = Some(CodeOrigin::DelimCode3(handle));
+        self.visit_delim_code_3_super(handle, view, tree)?;
+        self.pending_code_origin = None;
+        Ok(())
+    }
+
+    fn visit_delim_code_start_3(
+        &mut self,
+        _handle: DelimCodeStart3Handle,
+        view: DelimCodeStart3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let token_str = self.get_terminal_str(tree, view.delim_code_start_3)?;
+        let language = Self::parse_delim_code_start_3(token_str).map_err(|error| {
+            DocumentConstructionError::InvalidInlineCode {
+                node_id: view.delim_code_start_3.node_id(),
+                error,
+            }
+        })?;
+        self.code_start = if let Some(origin) = self.pending_code_origin {
+            Some(CodeStart::with_origin(language, SyntaxHint::Delim3, origin))
+        } else {
+            Some(CodeStart::new(language, SyntaxHint::Delim3))
+        };
+        Ok(())
+    }
+
+    fn visit_delim_code_end_3(
+        &mut self,
+        handle: DelimCodeEnd3Handle,
+        _view: DelimCodeEnd3View,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        if let Some(code_start) = self.code_start.take() {
+            let content = code_start.terminals.into_string(self.input, tree)?;
+            let text = Text::with_syntax_hint(content, code_start.language, code_start.syntax_hint);
+            let node_id = self.document.current_node_id();
+            self.document
+                .bind_primitive(PrimitiveValue::Text(text))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                })?;
+            if let Some(CodeOrigin::DelimCode3(delim_handle)) = code_start.origin {
+                self.record_value(node_id, delim_handle.node_id());
             }
         }
         Ok(())
@@ -1409,23 +1655,24 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: StringsView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        // Parse the first string
-        let first_str = self.parse_str_terminal(view.str, tree)?;
+        // Parse the first string (can be any of the 8 string types)
+        let (first_str, first_hint) = self.parse_string_with_hint(view.string, tree)?;
 
         // Check for continuations
-        let result = if let Some(list_view) = view.strings_list.get_view(tree)? {
+        let (result, syntax_hint) = if let Some(list_view) = view.strings_list.get_view(tree)? {
             // There are continuation strings - collect and join them
+            // Use first string's hint (can't represent mixed syntax in a single hint)
             let mut parts = vec![first_str];
             for item in list_view.get_all(tree)? {
-                let part = self.parse_str_terminal(item.str, tree)?;
+                let (part, _) = self.parse_string_with_hint(item.string, tree)?;
                 parts.push(part);
             }
-            parts.join("")
+            (parts.join(""), first_hint)
         } else {
-            first_str
+            (first_str, first_hint)
         };
 
-        let text = Text::plaintext(result);
+        let text = Text::with_syntax_hint(result, Language::Plaintext, syntax_hint);
         let node_id = self.document.current_node_id();
         self.document
             .bind_primitive(PrimitiveValue::Text(text))
@@ -1460,6 +1707,149 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         _tree: &F,
     ) -> Result<(), Self::Error> {
         Err(DocumentConstructionError::CstError(error))
+    }
+}
+
+/// Helper methods for parsing strings (outside of CstVisitor trait)
+impl<'a> CstInterpreter<'a> {
+    /// Parse a String (any of the 8 string types) and return the content with syntax hint
+    fn parse_string_with_hint<F: CstFacade>(
+        &self,
+        handle: StringHandle,
+        tree: &F,
+    ) -> Result<(String, SyntaxHint), DocumentConstructionError> {
+        match handle.get_view(tree)? {
+            StringView::Str(h) => self
+                .parse_str_terminal(h, tree)
+                .map(|s| (s, SyntaxHint::Str)),
+            StringView::Str1(h) => self.parse_str_1(h, tree).map(|s| (s, SyntaxHint::Str1)),
+            StringView::Str2(h) => self.parse_str_2(h, tree).map(|s| (s, SyntaxHint::Str2)),
+            StringView::Str3(h) => self.parse_str_3(h, tree).map(|s| (s, SyntaxHint::Str3)),
+            StringView::LitStr(h) => self.parse_lit_str(h, tree).map(|s| (s, SyntaxHint::LitStr)),
+            StringView::LitStr1(h) => self
+                .parse_lit_str_1(h, tree)
+                .map(|s| (s, SyntaxHint::LitStr1)),
+            StringView::LitStr2(h) => self
+                .parse_lit_str_2(h, tree)
+                .map(|s| (s, SyntaxHint::LitStr2)),
+            StringView::LitStr3(h) => self
+                .parse_lit_str_3(h, tree)
+                .map(|s| (s, SyntaxHint::LitStr3)),
+        }
+    }
+
+    /// Parse a String (any of the 8 string types) and return just the content
+    fn parse_string<F: CstFacade>(
+        &self,
+        handle: StringHandle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        self.parse_string_with_hint(handle, tree).map(|(s, _)| s)
+    }
+
+    /// Parse Str1 (<"...">) and return the content (with escape processing)
+    fn parse_str_1<F: CstFacade>(
+        &self,
+        handle: Str1Handle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        let view = handle.get_view(tree)?;
+        let terminals = TerminalTokens::from_str_1_list(&view.str_1_list, tree)?;
+        let raw = terminals.into_string(self.input, tree)?;
+        // Process escape sequences
+        Text::parse_quoted_string(&raw)
+            .map(|t| t.content)
+            .map_err(|error| DocumentConstructionError::InvalidStringKey {
+                node_id: handle.node_id(),
+                error,
+            })
+    }
+
+    /// Parse Str2 (<<"...">>) and return the content (with escape processing)
+    fn parse_str_2<F: CstFacade>(
+        &self,
+        handle: Str2Handle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        let view = handle.get_view(tree)?;
+        let terminals = TerminalTokens::from_str_2_list(&view.str_2_list, tree)?;
+        let raw = terminals.into_string(self.input, tree)?;
+        // Process escape sequences
+        Text::parse_quoted_string(&raw)
+            .map(|t| t.content)
+            .map_err(|error| DocumentConstructionError::InvalidStringKey {
+                node_id: handle.node_id(),
+                error,
+            })
+    }
+
+    /// Parse Str3 (<<<"...">>>) and return the content (with escape processing)
+    fn parse_str_3<F: CstFacade>(
+        &self,
+        handle: Str3Handle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        let view = handle.get_view(tree)?;
+        let terminals = TerminalTokens::from_str_3_list(&view.str_3_list, tree)?;
+        let raw = terminals.into_string(self.input, tree)?;
+        // Process escape sequences
+        Text::parse_quoted_string(&raw)
+            .map(|t| t.content)
+            .map_err(|error| DocumentConstructionError::InvalidStringKey {
+                node_id: handle.node_id(),
+                error,
+            })
+    }
+
+    /// Parse LitStr ('...') and return the content (literal, no escape processing)
+    fn parse_lit_str<F: CstFacade>(
+        &self,
+        handle: LitStrHandle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        let view = handle.get_view(tree)?;
+        let token = self.get_terminal_str(tree, view.lit_str)?;
+        // Strip surrounding single quotes: 'content' -> content
+        let content = token
+            .strip_prefix('\'')
+            .and_then(|s| s.strip_suffix('\''))
+            .ok_or_else(|| DocumentConstructionError::InvalidLiteralStr {
+                node_id: handle.node_id(),
+            })?;
+        Ok(content.to_string())
+    }
+
+    /// Parse LitStr1 (<'...'>) and return the content (literal, no escape processing)
+    fn parse_lit_str_1<F: CstFacade>(
+        &self,
+        handle: LitStr1Handle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        let view = handle.get_view(tree)?;
+        let terminals = TerminalTokens::from_lit_str_1_list(&view.lit_str_1_list, tree)?;
+        terminals.into_string(self.input, tree)
+    }
+
+    /// Parse LitStr2 (<<'...'>>) and return the content (literal, no escape processing)
+    fn parse_lit_str_2<F: CstFacade>(
+        &self,
+        handle: LitStr2Handle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        let view = handle.get_view(tree)?;
+        let terminals = TerminalTokens::from_lit_str_2_list(&view.lit_str_2_list, tree)?;
+        terminals.into_string(self.input, tree)
+    }
+
+    /// Parse LitStr3 (<<<'...'>>>) and return the content (literal, no escape processing)
+    fn parse_lit_str_3<F: CstFacade>(
+        &self,
+        handle: LitStr3Handle,
+        tree: &F,
+    ) -> Result<String, DocumentConstructionError> {
+        let view = handle.get_view(tree)?;
+        let terminals = TerminalTokens::from_lit_str_3_list(&view.lit_str_3_list, tree)?;
+        terminals.into_string(self.input, tree)
     }
 }
 
@@ -1546,39 +1936,77 @@ mod tests {
         }
     }
 
-    // Tests for parse_inline_code_start_2
-    mod parse_inline_code_start_2_tests {
+    // Tests for parse_delim_code_start_1
+    mod parse_delim_code_start_1_tests {
         use super::*;
 
         #[test]
         fn test_no_language() {
-            let result = CstInterpreter::parse_inline_code_start_2("``");
+            let result = CstInterpreter::parse_delim_code_start_1("<`");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Implicit);
         }
 
         #[test]
         fn test_with_language() {
-            let result = CstInterpreter::parse_inline_code_start_2("rust``");
+            let result = CstInterpreter::parse_delim_code_start_1("rust<`");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("rust".into()));
         }
 
         #[test]
         fn test_with_complex_language() {
-            let result = CstInterpreter::parse_inline_code_start_2("foo-bar_123``");
+            let result = CstInterpreter::parse_delim_code_start_1("foo-bar_123<`");
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), Language::Other("foo-bar_123".into()));
         }
 
         #[test]
-        fn test_no_backticks() {
-            let result = CstInterpreter::parse_inline_code_start_2("rust");
+        fn test_no_delim() {
+            let result = CstInterpreter::parse_delim_code_start_1("rust");
             assert!(result.is_err());
             assert!(matches!(
                 result.unwrap_err(),
-                InlineCodeError::InvalidInlineCodeStart2Pattern
+                InlineCodeError::InvalidDelimCodeStartPattern
             ));
+        }
+    }
+
+    // Tests for parse_delim_code_start_2
+    mod parse_delim_code_start_2_tests {
+        use super::*;
+
+        #[test]
+        fn test_no_language() {
+            let result = CstInterpreter::parse_delim_code_start_2("<<`");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Language::Implicit);
+        }
+
+        #[test]
+        fn test_with_language() {
+            let result = CstInterpreter::parse_delim_code_start_2("rust<<`");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Language::Other("rust".into()));
+        }
+    }
+
+    // Tests for parse_delim_code_start_3
+    mod parse_delim_code_start_3_tests {
+        use super::*;
+
+        #[test]
+        fn test_no_language() {
+            let result = CstInterpreter::parse_delim_code_start_3("<<<`");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Language::Implicit);
+        }
+
+        #[test]
+        fn test_with_language() {
+            let result = CstInterpreter::parse_delim_code_start_3("rust<<<`");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), Language::Other("rust".into()));
         }
     }
 

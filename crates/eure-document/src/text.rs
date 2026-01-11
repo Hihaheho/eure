@@ -115,14 +115,37 @@ impl Language {
 /// when the exact form doesn't matter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SyntaxHint {
-    /// String syntax: `"..."`
-    Quoted,
-    /// Generic inline code (serializer picks between Inline1/Inline2)
+    // === String syntax variants ===
+    /// Escaped string: `"..."`
+    Str,
+    /// Escaped string with level 1 delimiters: `<"...">`
+    Str1,
+    /// Escaped string with level 2 delimiters: `<<"...">>`
+    Str2,
+    /// Escaped string with level 3 delimiters: `<<<"...">>>`
+    Str3,
+    /// Literal string: `'...'`
+    LitStr,
+    /// Literal string with level 1 delimiters: `<'...'>`
+    LitStr1,
+    /// Literal string with level 2 delimiters: `<<'...'>>`
+    LitStr2,
+    /// Literal string with level 3 delimiters: `<<<'...'>>>`
+    LitStr3,
+
+    // === Inline code syntax variants ===
+    /// Generic inline code (serializer picks appropriate syntax)
     Inline,
     /// Single backtick inline: `` `...` ``
     Inline1,
-    /// Double backtick inline: ``` ``...`` ```
-    Inline2,
+    /// Single-delimited code: `<`...`>`
+    Delim1,
+    /// Double-delimited code: `<<`...`>>`
+    Delim2,
+    /// Triple-delimited code: `<<<`...`>>>`
+    Delim3,
+
+    // === Block code syntax variants ===
     /// Generic block code (serializer picks backtick count)
     Block,
     /// Triple backtick block: ```` ```...``` ````
@@ -136,16 +159,46 @@ pub enum SyntaxHint {
 }
 
 impl SyntaxHint {
-    /// Returns true if this is a quoted string syntax.
-    pub fn is_quoted(&self) -> bool {
-        matches!(self, SyntaxHint::Quoted)
+    /// Returns true if this is any string syntax (escaped or literal).
+    pub fn is_string(&self) -> bool {
+        matches!(
+            self,
+            SyntaxHint::Str
+                | SyntaxHint::Str1
+                | SyntaxHint::Str2
+                | SyntaxHint::Str3
+                | SyntaxHint::LitStr
+                | SyntaxHint::LitStr1
+                | SyntaxHint::LitStr2
+                | SyntaxHint::LitStr3
+        )
+    }
+
+    /// Returns true if this is an escaped string syntax (`"..."` variants).
+    pub fn is_escaped_string(&self) -> bool {
+        matches!(
+            self,
+            SyntaxHint::Str | SyntaxHint::Str1 | SyntaxHint::Str2 | SyntaxHint::Str3
+        )
+    }
+
+    /// Returns true if this is a literal string syntax (`'...'` variants).
+    pub fn is_literal_string(&self) -> bool {
+        matches!(
+            self,
+            SyntaxHint::LitStr | SyntaxHint::LitStr1 | SyntaxHint::LitStr2 | SyntaxHint::LitStr3
+        )
     }
 
     /// Returns true if this is any inline code syntax.
     pub fn is_inline(&self) -> bool {
         matches!(
             self,
-            SyntaxHint::Inline | SyntaxHint::Inline1 | SyntaxHint::Inline2
+            SyntaxHint::Inline
+                | SyntaxHint::Inline1
+                | SyntaxHint::Delim1
+                | SyntaxHint::Delim2
+                | SyntaxHint::Delim3
         )
     }
 
@@ -175,10 +228,16 @@ impl SyntaxHint {
 ///
 /// | Syntax | Language | SyntaxHint |
 /// |--------|----------|------------|
-/// | `"hello"` | `Plaintext` | `Quoted` |
+/// | `"hello"` | `Plaintext` | `Str` |
+/// | `'hello'` | `Plaintext` | `LitStr` |
+/// | `<"hello">` | `Plaintext` | `Str1` |
+/// | `<'hello'>` | `Plaintext` | `LitStr1` |
 /// | `` `hello` `` | `Implicit` | `Inline1` |
-/// | ``` ``hello`` ``` | `Implicit` | `Inline2` |
 /// | `` sql`SELECT` `` | `Other("sql")` | `Inline1` |
+/// | `<`hello`>` | `Implicit` | `Delim1` |
+/// | `sql<`SELECT`>` | `Other("sql")` | `Delim1` |
+/// | `<<`hello`>>` | `Implicit` | `Delim2` |
+/// | `<<<`hello`>>>` | `Implicit` | `Delim3` |
 /// | ```` ``` ```` (no lang) | `Implicit` | `Block3` |
 /// | ```` ```rust ```` | `Other("rust")` | `Block3` |
 ///
@@ -187,14 +246,22 @@ impl SyntaxHint {
 /// - `"..."` → `Plaintext` (explicit: "this is text, not code")
 /// - `` `...` `` without lang → `Implicit` (code, language inferred from schema)
 /// - `` lang`...` `` → `Other(lang)` (code with explicit language)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Text {
     /// The text content.
     pub content: String,
     /// The language tag for this text.
     pub language: Language,
     /// Hint for serialization about the original syntax.
+    /// Note: This is NOT included in equality comparison as it's formatting metadata.
     pub syntax_hint: Option<SyntaxHint>,
+}
+
+impl PartialEq for Text {
+    fn eq(&self, other: &Self) -> bool {
+        // syntax_hint is intentionally excluded - it's formatting metadata, not semantic content
+        self.content == other.content && self.language == other.language
+    }
 }
 
 impl Text {
@@ -231,7 +298,7 @@ impl Text {
         Self {
             content: content.into(),
             language: Language::Plaintext,
-            syntax_hint: Some(SyntaxHint::Quoted),
+            syntax_hint: Some(SyntaxHint::Str),
         }
     }
 
@@ -533,7 +600,7 @@ mod tests {
         let text = Text::plaintext("hello");
         assert_eq!(text.content, "hello");
         assert_eq!(text.language, Language::Plaintext);
-        assert_eq!(text.syntax_hint, Some(SyntaxHint::Quoted));
+        assert_eq!(text.syntax_hint, Some(SyntaxHint::Str));
     }
 
     #[test]
@@ -583,18 +650,50 @@ mod tests {
     }
 
     #[test]
-    fn test_syntax_hint_is_quoted() {
-        assert!(SyntaxHint::Quoted.is_quoted());
-        assert!(!SyntaxHint::Inline1.is_quoted());
-        assert!(!SyntaxHint::Block3.is_quoted());
+    fn test_syntax_hint_is_string() {
+        // Escaped strings
+        assert!(SyntaxHint::Str.is_string());
+        assert!(SyntaxHint::Str1.is_string());
+        assert!(SyntaxHint::Str2.is_string());
+        assert!(SyntaxHint::Str3.is_string());
+        // Literal strings
+        assert!(SyntaxHint::LitStr.is_string());
+        assert!(SyntaxHint::LitStr1.is_string());
+        assert!(SyntaxHint::LitStr2.is_string());
+        assert!(SyntaxHint::LitStr3.is_string());
+        // Non-strings
+        assert!(!SyntaxHint::Inline1.is_string());
+        assert!(!SyntaxHint::Block3.is_string());
+    }
+
+    #[test]
+    fn test_syntax_hint_is_escaped_string() {
+        assert!(SyntaxHint::Str.is_escaped_string());
+        assert!(SyntaxHint::Str1.is_escaped_string());
+        assert!(SyntaxHint::Str2.is_escaped_string());
+        assert!(SyntaxHint::Str3.is_escaped_string());
+        assert!(!SyntaxHint::LitStr.is_escaped_string());
+        assert!(!SyntaxHint::Inline1.is_escaped_string());
+    }
+
+    #[test]
+    fn test_syntax_hint_is_literal_string() {
+        assert!(SyntaxHint::LitStr.is_literal_string());
+        assert!(SyntaxHint::LitStr1.is_literal_string());
+        assert!(SyntaxHint::LitStr2.is_literal_string());
+        assert!(SyntaxHint::LitStr3.is_literal_string());
+        assert!(!SyntaxHint::Str.is_literal_string());
+        assert!(!SyntaxHint::Inline1.is_literal_string());
     }
 
     #[test]
     fn test_syntax_hint_is_inline() {
         assert!(SyntaxHint::Inline.is_inline());
         assert!(SyntaxHint::Inline1.is_inline());
-        assert!(SyntaxHint::Inline2.is_inline());
-        assert!(!SyntaxHint::Quoted.is_inline());
+        assert!(SyntaxHint::Delim1.is_inline());
+        assert!(SyntaxHint::Delim2.is_inline());
+        assert!(SyntaxHint::Delim3.is_inline());
+        assert!(!SyntaxHint::Str.is_inline());
         assert!(!SyntaxHint::Block3.is_inline());
     }
 
@@ -605,7 +704,7 @@ mod tests {
         assert!(SyntaxHint::Block4.is_block());
         assert!(SyntaxHint::Block5.is_block());
         assert!(SyntaxHint::Block6.is_block());
-        assert!(!SyntaxHint::Quoted.is_block());
+        assert!(!SyntaxHint::Str.is_block());
         assert!(!SyntaxHint::Inline1.is_block());
     }
 

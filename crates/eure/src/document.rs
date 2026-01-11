@@ -94,8 +94,8 @@ impl OriginMap {
 pub enum InlineCodeError {
     #[error("Does not match InlineCode1 pattern")]
     InvalidInlineCode1Pattern,
-    #[error("Does not match InlineCodeStart2 pattern")]
-    InvalidInlineCodeStart2Pattern,
+    #[error("Does not match DelimCodeStart pattern")]
+    InvalidDelimCodeStartPattern,
 }
 
 #[derive(Debug, Error, PartialEq, Eq, Clone)]
@@ -146,8 +146,8 @@ pub enum DocumentConstructionError {
     EndScope(#[from] ScopeError),
     #[error("Failed to parse tuple index: {value}")]
     InvalidTupleIndex { node_id: CstNodeId, value: String },
-    #[error("Invalid backtick string at node {node_id:?}")]
-    InvalidBacktickStr { node_id: CstNodeId },
+    #[error("Invalid literal string at node {node_id:?}")]
+    InvalidLiteralStr { node_id: CstNodeId },
 }
 
 impl DocumentConstructionError {

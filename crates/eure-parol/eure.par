@@ -5,22 +5,38 @@
 %block_comment '/*' '*/'
 
 %on TextStart %enter Text
-%on InlineCodeStart2 %enter InInlineCode2
 %on CodeBlockStart3 %enter InCodeBlock3
 %on CodeBlockStart4 %enter InCodeBlock4
 %on CodeBlockStart5 %enter InCodeBlock5
 %on CodeBlockStart6 %enter InCodeBlock6
+%on Str1Start %enter InStr1
+%on Str2Start %enter InStr2
+%on Str3Start %enter InStr3
+%on LitStr1Start %enter InLitStr1
+%on LitStr2Start %enter InLitStr2
+%on LitStr3Start %enter InLitStr3
+%on DelimCodeStart1 %enter InDelimCode1
+%on DelimCodeStart2 %enter InDelimCode2
+%on DelimCodeStart3 %enter InDelimCode3
 
 %scanner Text {
   %auto_newline_off
   %auto_ws_off
   %on Text %enter INITIAL
 }
-%scanner InInlineCode2 { %auto_newline_off %auto_ws_off %on InlineCodeEnd2 %enter INITIAL }
 %scanner InCodeBlock3 { %auto_newline_off %auto_ws_off %on CodeBlockEnd3 %enter INITIAL }
 %scanner InCodeBlock4 { %auto_newline_off %auto_ws_off %on CodeBlockEnd4 %enter INITIAL }
 %scanner InCodeBlock5 { %auto_newline_off %auto_ws_off %on CodeBlockEnd5 %enter INITIAL }
 %scanner InCodeBlock6 { %auto_newline_off %auto_ws_off %on CodeBlockEnd6 %enter INITIAL }
+%scanner InStr1 { %auto_newline_off %auto_ws_off %on Str1End %enter INITIAL }
+%scanner InStr2 { %auto_newline_off %auto_ws_off %on Str2End %enter INITIAL }
+%scanner InStr3 { %auto_newline_off %auto_ws_off %on Str3End %enter INITIAL }
+%scanner InLitStr1 { %auto_newline_off %auto_ws_off %on LitStr1End %enter INITIAL }
+%scanner InLitStr2 { %auto_newline_off %auto_ws_off %on LitStr2End %enter INITIAL }
+%scanner InLitStr3 { %auto_newline_off %auto_ws_off %on LitStr3End %enter INITIAL }
+%scanner InDelimCode1 { %auto_newline_off %auto_ws_off %on DelimCodeEnd1 %enter INITIAL }
+%scanner InDelimCode2 { %auto_newline_off %auto_ws_off %on DelimCodeEnd2 %enter INITIAL }
+%scanner InDelimCode3 { %auto_newline_off %auto_ws_off %on DelimCodeEnd3 %enter INITIAL }
 
 %%
 
@@ -37,7 +53,7 @@ Section: At Keys SectionBody ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: KeyIdent | ExtensionNameSpace | Str | BacktickStr | Integer | KeyTuple | TupleIndex ;
+  KeyBase: KeyIdent | ExtensionNameSpace | String | Integer | KeyTuple | TupleIndex ;
   TupleIndex: '#' Integer ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext KeyIdent ;
@@ -74,18 +90,46 @@ Value: Object | Array | Tuple | Number | Boolean | Null | Strings | Hole | CodeB
   Null: 'null' ;
   Hole: /![\p{XID_Start}_]?[\p{XID_Continue}-]*/ ;
 
-Strings: Str { Continue Str } ;
+// Unified String type for both keys and values
+// Includes escaped strings ("...") and literal strings ('...')
+// Both have delimited variants for content containing the quote character
+String: Str | Str1 | Str2 | Str3 | LitStr | LitStr1 | LitStr2 | LitStr3 ;
+
+// Strings with continuation support (can mix any string types)
+Strings: String { Continue String } ;
+
+// Escaped string: "..." with backslash escapes
 Str: /"([^"]|\\")*"/ ;
+
+// Literal string: '...' with no escape processing (single quote cannot appear inside)
+LitStr: /'[^']*'/ ;
 
 // No escape character in text
 Text: <Text>/[^\r\n]*/ ;
 
-InlineCode: BacktickStr | InlineCode2 | InlineCode1 ;
-// Backtick string without language prefix (used in keys and as inline code value)
-BacktickStr: /`[^`\r\n]*`/ ;
-// InlineCode1 REQUIRES language prefix (1+ chars before backtick)
-InlineCode1: /[a-zA-Z0-9-_]+`[^`\r\n]*`/ ;
-InlineCode2: InlineCodeStart2 { NoBacktickInline | Backtick1 } InlineCodeEnd2;
+// Inline code: delimited code or language-prefixed code (optional language)
+InlineCode: DelimCode | InlineCode1 ;
+// InlineCode1 with OPTIONAL language prefix (0+ chars before backtick)
+InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/ ;
+
+// Delimited escaped strings: <"...">, <<"...">>, <<<"...">>>
+// Order matters: longest first to match correctly
+Str1: Str1Start { NoQuote | Quote1 } Str1End ;
+Str2: Str2Start { NoQuote | Quote1 } Str2End ;
+Str3: Str3Start { NoQuote | Quote2 } Str3End ;
+
+// Delimited literal strings: <'...'>, <<'...'>>, <<<'...'>>>
+// Order matters: longest first to match correctly
+LitStr1: LitStr1Start { NoSQuote | SQuote1 } LitStr1End ;
+LitStr2: LitStr2Start { NoSQuote | SQuote1 } LitStr2End ;
+LitStr3: LitStr3Start { NoSQuote | SQuote2 } LitStr3End ;
+
+// Delimited code: <`...`>, <<`...`>>, <<<`...`>>> with optional language prefix
+// Order matters: longest first to match correctly
+DelimCode: DelimCode3 | DelimCode2 | DelimCode1 ;
+DelimCode1: DelimCodeStart1 { NoBacktick | BacktickDelim1 } DelimCodeEnd1 ;
+DelimCode2: DelimCodeStart2 { NoBacktick | BacktickDelim1 } DelimCodeEnd2 ;
+DelimCode3: DelimCodeStart3 { NoBacktick | Backtick2 } DelimCodeEnd3 ;
 
 CodeBlock: CodeBlock3 | CodeBlock4 | CodeBlock5 | CodeBlock6;
 CodeBlock3: CodeBlockStart3 { NoBacktick | Backtick2 } CodeBlockEnd3;
@@ -93,34 +137,72 @@ CodeBlock4: CodeBlockStart4 { NoBacktick | Backtick3 } CodeBlockEnd4;
 CodeBlock5: CodeBlockStart5 { NoBacktick | Backtick4 } CodeBlockEnd5;
 CodeBlock6: CodeBlockStart6 { NoBacktick | Backtick5 } CodeBlockEnd6;
 
-InlineCodeStart2: /[a-zA-Z0-9-_]*``/ ;
+// Start tokens for delimited escaped strings (order: longest first)
+Str3Start: '<<<"' ;
+Str2Start: '<<"' ;
+Str1Start: '<"' ;
+
+// Start tokens for delimited literal strings (order: longest first)
+LitStr3Start: "<<<'" ;
+LitStr2Start: "<<'" ;
+LitStr1Start: "<'" ;
+
+// Start tokens for delimited code with optional language prefix (order: longest first)
+DelimCodeStart3: /[a-zA-Z0-9-_]*<<<`/ ;
+DelimCodeStart2: /[a-zA-Z0-9-_]*<<`/ ;
+DelimCodeStart1: /[a-zA-Z0-9-_]*<`/ ;
+
 CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
 CodeBlockStart4: /`{4}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
 CodeBlockStart5: /`{5}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
 CodeBlockStart6: /`{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
 
-// Order matters here. Scanner should eagarly match the longest pattern.
+// Order matters here. Scanner should eagerly match the longest pattern.
 CodeBlockEnd3: <InCodeBlock3>/`{3}/;
-Backtick2: <InCodeBlock3>/`{1,2}/;
+// Backtick2 also used in InDelimCode3 for delimited code content
+Backtick2: <InCodeBlock3, InDelimCode3>/`{1,2}/;
 
-// Order matters here. Scanner should eagarly match the longest pattern.
+// Order matters here. Scanner should eagerly match the longest pattern.
 CodeBlockEnd4: <InCodeBlock4>/`{4}/;
 Backtick3: <InCodeBlock4>/`{1,3}/;
 
-// Order matters here. Scanner should eagarly match the longest pattern.
+// Order matters here. Scanner should eagerly match the longest pattern.
 CodeBlockEnd5: <InCodeBlock5>/`{5}/;
 Backtick4: <InCodeBlock5>/`{1,4}/;
 
-// Order matters here. Scanner should eagarly match the longest pattern.
+// Order matters here. Scanner should eagerly match the longest pattern.
 CodeBlockEnd6: <InCodeBlock6>/`{6}/;
 Backtick5: <InCodeBlock6>/`{1,5}/;
 
-// Order matters here. Scanner should eagarly match the longest pattern.
-InlineCodeEnd2: <InInlineCode2>'``';
-Backtick1: <InInlineCode2>'`';
+// NoBacktick shared across code blocks and delimited code
+NoBacktick: <InCodeBlock3, InCodeBlock4, InCodeBlock5, InCodeBlock6, InDelimCode1, InDelimCode2, InDelimCode3>/[^`]+/ ;
 
-NoBacktick: <InCodeBlock3, InCodeBlock4, InCodeBlock5, InCodeBlock6>/[^`]+/ ;
-NoBacktickInline: <InInlineCode2>/[^`\r\n]+/ ;
+// Delimited escaped string content (scanner-specific, order matters for eager matching)
+// End tokens must come before single quote tokens
+// Shared terminals across scanner modes where patterns are identical
+Str3End: <InStr3>'">>>' ;
+Str2End: <InStr2>'">>' ;
+Str1End: <InStr1>'">' ;
+Quote2: <InStr3>/"{1,2}/ ;
+Quote1: <InStr1, InStr2>'"' ;
+NoQuote: <InStr1, InStr2, InStr3>/[^"]+/ ;
+
+// Delimited literal string content (scanner-specific, order matters for eager matching)
+// End tokens must come before single quote tokens
+LitStr3End: <InLitStr3>"'>>>" ;
+LitStr2End: <InLitStr2>"'>>" ;
+LitStr1End: <InLitStr1>"'>" ;
+SQuote2: <InLitStr3>/'{1,2}/ ;
+SQuote1: <InLitStr1, InLitStr2>"'" ;
+NoSQuote: <InLitStr1, InLitStr2, InLitStr3>/[^']+/ ;
+
+// Delimited code content (scanner-specific, order matters for eager matching)
+// End tokens must come before single backtick tokens
+// Note: Backtick2 and NoBacktick are shared (defined above)
+DelimCodeEnd3: <InDelimCode3>'`>>>' ;
+DelimCodeEnd2: <InDelimCode2>'`>>' ;
+DelimCodeEnd1: <InDelimCode1>'`>' ;
+BacktickDelim1: <InDelimCode1, InDelimCode2>'`' ;
 
 GrammarNewline: <Text>/\r\n|\r|\n/ ;
 Ws: <Text>/[\s--\r\n]+/ ;

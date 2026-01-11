@@ -1,9 +1,9 @@
-// Test: Backtick string keys
-// Backtick-quoted strings can be used as keys, allowing special characters without escaping
+// Test: Literal string keys
+// Single-quoted strings can be used as keys, allowing special characters without escaping
 
-// Simple backtick key
+// Simple literal key
 input_eure = ```eure
-`#` = 1
+'#' = 1
 ```
 
 normalized = ```eure
@@ -12,10 +12,10 @@ normalized = ```eure
 
 output_json = json`{ "#": 1 }`
 
-// Backtick key with quotes inside
+// Literal key with quotes inside (using delimited literal string)
 @ cases.key-with-quotes
 input_eure = ```eure
-`What's "query?"` = "answer"
+<'What's "query?"'> = "answer"
 ```
 
 normalized = ```eure
@@ -24,10 +24,10 @@ normalized = ```eure
 
 output_json = json`{ "What's \"query?\"": "answer" }`
 
-// Multiple backtick keys in path
-@ cases.path-with-backtick-keys
+// Multiple literal keys in path
+@ cases.path-with-literal-keys
 input_eure = ```eure
-`#`.`Introduction` = 1
+'#'.'Introduction' = 1
 ```
 
 normalized = ```eure
@@ -36,10 +36,10 @@ normalized = ```eure
 
 output_json = json`{ "#": { "Introduction": 1 } }`
 
-// Backtick key in section
-@ cases.section-with-backtick-key
+// Literal key in section (using delimited literal string for single quote)
+@ cases.section-with-literal-key
 input_eure = ```eure
-@ `#`.`What's this?`
+@ '#'.<'What's this?'>
 value = 42
 ```
 
@@ -49,11 +49,11 @@ normalized = ```eure
 
 output_json = json`{ "#": { "What's this?": { "value": 42 } } }`
 
-// Nested sections with backtick keys
+// Nested sections with literal keys
 @ cases.nested-sections
 input_eure = ```eure
-@ `#` {
-  @ `##` {
+@ '#' {
+  @ '##' {
     content = "hello"
   }
 }
@@ -65,11 +65,11 @@ normalized = ```eure
 
 output_json = json`{ "#": { "##": { "content": "hello" } } }`
 
-// Mixed regular and backtick keys
+// Mixed regular and literal keys
 @ cases.mixed-keys
 input_eure = ```eure
 regular = 1
-`special key` = 2
+'special key' = 2
 "quoted" = 3
 ```
 
@@ -79,10 +79,10 @@ normalized = ```eure
 
 output_json = json`{ "regular": 1, "special key": 2, "quoted": 3 }`
 
-// Backtick key with spaces
+// Literal key with spaces
 @ cases.key-with-spaces
 input_eure = ```eure
-`key with spaces` = "value"
+'key with spaces' = "value"
 ```
 
 normalized = ```eure
@@ -91,10 +91,10 @@ normalized = ```eure
 
 output_json = json`{ "key with spaces": "value" }`
 
-// Empty backtick key
+// Empty literal key
 @ cases.empty-key
 input_eure = ```eure
-`` = "empty key"
+'' = "empty key"
 ```
 
 normalized = ```eure
