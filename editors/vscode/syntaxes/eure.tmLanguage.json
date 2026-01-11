@@ -44,7 +44,7 @@
         },
         {
           "comment": "Section with inline body: @key.path newline ...",
-          "begin": "(@)\\s*(?=[\\p{XID_Start}_$\"0-9(#])",
+          "begin": "(@)\\s*(?=[\\p{XID_Start}_$\"`0-9(#])",
           "end": "(?=@)|(?=\\z)",
           "beginCaptures": {
             "1": { "name": "punctuation.definition.section.eure" }
@@ -89,6 +89,11 @@
         {
           "comment": "String as section key",
           "match": "\"(?:[^\"]|\\\\\")*\"",
+          "name": "entity.name.section.eure"
+        },
+        {
+          "comment": "Backtick string as section key",
+          "match": "`[^`\\r\\n]*`",
           "name": "entity.name.section.eure"
         },
         {
@@ -170,7 +175,7 @@
         { "include": "#comments" },
         {
           "comment": "Binding with value: key = value",
-          "begin": "(?=[\\p{XID_Start}_$\"0-9(#])",
+          "begin": "(?=[\\p{XID_Start}_$\"`0-9(#])",
           "end": "(?<=\\})|(?<=[\\]\\)\"'`])|(?<=\\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=$|//|/\\*|@)",
           "patterns": [
             { "include": "#comments" },
@@ -178,7 +183,7 @@
             {
               "comment": "Value binding: = value",
               "begin": "(=)(?!>)",
-              "end": "(?<=\\})|(?<=[\\]\\)\"'`])|(?<=\\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=$|//|/\\*|@|[\\p{XID_Start}_$\"0-9(#](?=[^=]*=))",
+              "end": "(?<=\\})|(?<=[\\]\\)\"'`])|(?<=\\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=$|//|/\\*|@|[\\p{XID_Start}_$\"`0-9(#](?=[^=]*=))",
               "beginCaptures": {
                 "1": { "name": "keyword.operator.assignment.eure" }
               },
@@ -239,6 +244,11 @@
         {
           "comment": "String as binding key",
           "match": "\"(?:[^\"]|\\\\\")*\"(?=\\s*[.\\[=:{])",
+          "name": "variable.other.property.eure"
+        },
+        {
+          "comment": "Backtick string as binding key",
+          "match": "`[^`\\r\\n]*`(?=\\s*[.\\[=:{])",
           "name": "variable.other.property.eure"
         },
         {
@@ -344,7 +354,7 @@
       "patterns": [
         {
           "comment": "Map binding: keys => value",
-          "begin": "(?=[\\p{XID_Start}_$\"0-9(#])",
+          "begin": "(?=[\\p{XID_Start}_$\"`0-9(#])",
           "end": "(?<=\\})|(?<=[\\]\\)\"'`])|(?<=\\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=,|\\})",
           "patterns": [
             { "include": "#comments" },
