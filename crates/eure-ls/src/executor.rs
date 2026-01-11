@@ -188,18 +188,29 @@ impl QueryExecutor {
                                     last_revision: polled.revision,
                                 },
                             );
-                            let diagnostics = match polled.value {
-                                Ok(result) => (*result).clone(),
+                            match polled.value {
+                                Ok(result) => {
+                                    // Create notifications for each file
+                                    for (file, file_diagnostics) in result.iter() {
+                                        let file_uri = text_file_to_uri(file);
+                                        if let Some(notif) = make_diagnostics_notification(
+                                            &file_uri,
+                                            file_diagnostics.clone(),
+                                        ) {
+                                            notifications.push(notif);
+                                        }
+                                    }
+                                }
                                 Err(e) => {
                                     warn!("Diagnostics error for {}: {}", uri_str, e);
-                                    vec![]
+                                    // Send empty diagnostics for the original file
+                                    if let Some(notif) =
+                                        make_diagnostics_notification(&uri_str, vec![])
+                                    {
+                                        notifications.push(notif);
+                                    }
                                 }
                             };
-                            if let Some(notif) =
-                                make_diagnostics_notification(&uri_str, diagnostics)
-                            {
-                                notifications.push(notif);
-                            }
                         }
                     }
                     Err(QueryError::Suspend { .. }) => {
@@ -227,16 +238,12 @@ impl QueryExecutor {
         }
     }
 
-    /// Execute a diagnostics query and return the diagnostics if changed.
+    /// Execute a diagnostics query and return notifications for each file.
     ///
-    /// Returns `Some(diagnostics)` if the query completed and the result changed.
-    /// Returns `None` if suspended or if the result hasn't changed since last poll.
+    /// Returns notifications for all files that have diagnostics (including schema files).
+    /// Returns empty vec if suspended or if the result hasn't changed since last poll.
     /// When suspended, the query is tracked and retried when assets resolve.
-    pub fn get_diagnostics(
-        &mut self,
-        uri_str: String,
-        query: LspDiagnostics,
-    ) -> Option<Vec<Diagnostic>> {
+    pub fn get_diagnostics(&mut self, uri_str: String, query: LspDiagnostics) -> Vec<Notification> {
         match self.runtime.poll(query.clone()) {
             Ok(polled) => {
                 let last_revision = self
@@ -258,14 +265,26 @@ impl QueryExecutor {
 
                 if changed {
                     match polled.value {
-                        Ok(result) => Some((*result).clone()),
+                        Ok(result) => {
+                            // Create notifications for each file
+                            (*result)
+                                .iter()
+                                .filter_map(|(file, diagnostics)| {
+                                    let file_uri = text_file_to_uri(file);
+                                    make_diagnostics_notification(&file_uri, diagnostics.clone())
+                                })
+                                .collect()
+                        }
                         Err(e) => {
                             warn!("Diagnostics query error for {}: {}", uri_str, e);
-                            Some(vec![])
+                            // Return empty diagnostics for the original file
+                            make_diagnostics_notification(&uri_str, vec![])
+                                .into_iter()
+                                .collect()
                         }
                     }
                 } else {
-                    None
+                    vec![]
                 }
             }
             Err(QueryError::Suspend { .. }) => {
@@ -283,11 +302,11 @@ impl QueryExecutor {
                     },
                 );
                 self.dispatch_pending_assets();
-                None
+                vec![]
             }
             Err(e) => {
                 warn!("Diagnostics poll error for {}: {}", uri_str, e);
-                None
+                vec![]
             }
         }
     }
@@ -367,6 +386,11 @@ fn file_to_uri(command: &CommandQuery) -> String {
     let file = match command {
         CommandQuery::SemanticTokensFull(query) => &query.file,
     };
+    text_file_to_uri(file)
+}
+
+/// Convert a TextFile to a URI string.
+fn text_file_to_uri(file: &TextFile) -> String {
     match file {
         TextFile::Local(path) => format!("file://{}", path.display()),
         TextFile::Remote(url) => url.to_string(),

@@ -99,8 +99,7 @@ impl Scenario for DiagnosticsScenario {
         }
 
         // Verify span positions if specified (span string or start/end)
-        let editor_content = db.asset(self.editor)?.suspend()?;
-        verify_span_positions(&self.diagnostics, &actual, editor_content.get())?;
+        verify_span_positions(db, &self.diagnostics, &actual)?;
 
         Ok(())
     }
@@ -108,14 +107,18 @@ impl Scenario for DiagnosticsScenario {
 
 /// Verify that diagnostic spans match expected positions.
 /// Supports both span string (resolved to offsets) and explicit start/end.
+/// Uses the actual diagnostic's file to get the correct content for span lookup.
 fn verify_span_positions(
+    db: &impl Db,
     expected: &[DiagnosticItem],
     actual: &[DiagnosticMessage],
-    editor_content: &str,
 ) -> Result<(), ScenarioError> {
     for (i, (exp, act)) in expected.iter().zip(actual.iter()).enumerate() {
+        // Get the content of the file where the diagnostic is located
+        let file_content = db.asset(act.file.clone())?.suspend()?;
+
         // Resolve span positions (from span string or explicit start/end)
-        let resolved = resolve_span(exp, editor_content, i)?;
+        let resolved = resolve_span(exp, file_content.get(), i)?;
 
         // Check start position if specified
         if let Some(expected_start) = resolved.start {
@@ -149,7 +152,12 @@ fn verify_span_positions(
 fn format_expected_diagnostic(item: &DiagnosticItem) -> String {
     let severity = item.severity.as_deref().unwrap_or("error");
     let message = item.message.as_deref().unwrap_or("");
-    format!("[{}] {}", severity, message)
+    let source = item.source.as_deref().unwrap_or("");
+    if source.is_empty() {
+        format!("[{}] {}", severity, message)
+    } else {
+        format!("[{}] {} ({})", severity, message, source)
+    }
 }
 
 fn format_actual_diagnostic(diag: &DiagnosticMessage) -> String {
@@ -159,7 +167,8 @@ fn format_actual_diagnostic(diag: &DiagnosticMessage) -> String {
         DiagnosticSeverity::Info => "info",
         DiagnosticSeverity::Hint => "hint",
     };
-    format!("[{}] {}", severity, diag.message)
+    let source = diag.file.to_string();
+    format!("[{}] {} ({})", severity, diag.message, source)
 }
 
 #[cfg(test)]

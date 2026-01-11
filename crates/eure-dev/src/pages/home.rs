@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{
     Route,
     components::editor::{Editor, ErrorSpan},
@@ -5,10 +7,9 @@ use crate::{
 };
 use dioxus::prelude::*;
 use eure::query::{
-    GetSemanticTokens, ParseDocument, SemanticToken, TextFile, TextFileContent, ValidateDocument,
-    build_runtime,
+    DiagnosticMessage, GetDiagnostics, GetSemanticTokens, ParseDocument, SemanticToken, TextFile,
+    TextFileContent, Workspace, WorkspaceId, build_runtime,
 };
-use eure::report::{ErrorReports, format_error_report};
 use query_flow::{Db, DurabilityLevel, QueryError, QueryRuntime, query};
 
 /// Convert document to pretty-printed JSON.
@@ -22,67 +23,21 @@ fn document_to_json(db: &impl Db, file: TextFile) -> Result<String, QueryError> 
     Ok(json)
 }
 
-/// Aggregated errors from document and schema validation.
-#[derive(Clone, PartialEq, Default, Debug)]
-struct EditorAllErrors {
-    /// Errors from validating document against schema
-    doc_errors: ErrorReports,
-    /// Errors from validating schema against meta-schema
-    schema_errors: ErrorReports,
+/// Convert DiagnosticMessage to ErrorSpan for the editor UI.
+fn diagnostic_to_error_span(diag: &DiagnosticMessage) -> ErrorSpan {
+    ErrorSpan {
+        start: diag.start as u32,
+        end: diag.end as u32,
+        message: diag.message.clone(),
+    }
 }
 
-/// Get all errors using SSoT ValidateDocument query.
-///
-/// Validates:
-/// 1. Document against schema
-/// 2. Schema against meta-schema
-#[query]
-fn get_all_errors(
-    db: &impl Db,
-    doc_file: TextFile,
-    schema_file: TextFile,
-    meta_schema_file: TextFile,
-) -> Result<EditorAllErrors, QueryError> {
-    // Validate schema against meta-schema first
-    let schema_errors = db
-        .query(ValidateDocument::new(
-            schema_file.clone(),
-            Some(meta_schema_file),
-        ))?
-        .as_ref()
-        .clone();
-
-    // Only validate document if schema is valid
-    let doc_errors = if schema_errors.is_empty() {
-        db.query(ValidateDocument::new(
-            doc_file.clone(),
-            Some(schema_file.clone()),
-        ))?
-        .as_ref()
-        .clone()
-    } else {
-        ErrorReports::new()
-    };
-
-    Ok(EditorAllErrors {
-        doc_errors,
-        schema_errors,
-    })
-}
-
-/// Convert ErrorReports to ErrorSpan list for UI.
-fn error_reports_to_spans(db: &impl Db, reports: &ErrorReports) -> Vec<ErrorSpan> {
-    reports
+/// Filter diagnostics by file and convert to ErrorSpans.
+fn diagnostics_to_spans(diagnostics: &[DiagnosticMessage], target_file: &TextFile) -> Vec<ErrorSpan> {
+    diagnostics
         .iter()
-        .map(|report| {
-            let formatted = format_error_report(db, report, false)
-                .unwrap_or_else(|e| format!("Error formatting error report: {e}"));
-            ErrorSpan {
-                start: report.primary_origin.span.start,
-                end: report.primary_origin.span.end,
-                message: formatted,
-            }
-        })
+        .filter(|d| &d.file == target_file)
+        .map(diagnostic_to_error_span)
         .collect()
 }
 
@@ -228,25 +183,25 @@ impl EureExample {
 
     fn file_name(&self) -> &'static str {
         match self {
-            EureExample::Readme => "readme.eure",
-            EureExample::HelloWorld => "hello-world.eure",
-            EureExample::EureSchema => "eure-schema.schema.eure",
-            EureExample::Cargo => "cargo.eure",
-            EureExample::GitHubAction => "github-action.eure",
-            EureExample::GameScript => "game-script.eure",
-            EureExample::Minimal => "minimal.eure",
+            EureExample::Readme => "/readme.eure",
+            EureExample::HelloWorld => "/hello-world.eure",
+            EureExample::EureSchema => "/eure-schema.schema.eure",
+            EureExample::Cargo => "/cargo.eure",
+            EureExample::GitHubAction => "/github-action.eure",
+            EureExample::GameScript => "/game-script.eure",
+            EureExample::Minimal => "/minimal.eure",
         }
     }
 
     fn schema_file_name(&self) -> &'static str {
         match self {
-            EureExample::Readme => "readme.schema.eure",
-            EureExample::HelloWorld => "hello-world.schema.eure",
-            EureExample::EureSchema => "eure-schema.schema.eure",
-            EureExample::Cargo => "cargo.schema.eure",
-            EureExample::GitHubAction => "github-action.schema.eure",
-            EureExample::GameScript => "game-script.schema.eure",
-            EureExample::Minimal => "minimal.schema.eure",
+            EureExample::Readme => "/readme.schema.eure",
+            EureExample::HelloWorld => "/hello-world.schema.eure",
+            EureExample::EureSchema => "/eure-schema.schema.eure",
+            EureExample::Cargo => "/cargo.schema.eure",
+            EureExample::GitHubAction => "/github-action.schema.eure",
+            EureExample::GameScript => "/game-script.schema.eure",
+            EureExample::Minimal => "/minimal.schema.eure",
         }
     }
 
@@ -266,12 +221,43 @@ impl EureExample {
         }
         // Register meta-schema for schema validation
         runtime.resolve_asset(
-            TextFile::from_path("meta-schema.eure".into()),
+            TextFile::from_path("/meta-schema.eure".into()),
             TextFileContent(
                 include_str!("../../../../assets/schemas/eure-schema.schema.eure").to_string(),
             ),
             DurabilityLevel::Static,
         );
+
+        // Register workspace config for schema resolution
+        // Build config content that maps each example file to its schema
+        let config_content = Self::build_config_content();
+        runtime.resolve_asset(
+            TextFile::from_path("/eure.config.eure".into()),
+            TextFileContent(config_content),
+            DurabilityLevel::Static,
+        );
+        runtime.resolve_asset(
+            WorkspaceId("eure-dev".to_string()),
+            Workspace {
+                path: PathBuf::from("/"),
+                config_path: PathBuf::from("/eure.config.eure"),
+            },
+            DurabilityLevel::Static,
+        );
+    }
+
+    /// Build eure.config.eure content for all examples.
+    fn build_config_content() -> String {
+        let mut config = String::from("// Auto-generated config for eure-dev examples\n");
+        for example in EureExample::ALL {
+            config.push_str(&format!(
+                "\n@ targets.{}\nglobs[] = \"{}\"\nschema = \"{}\"\n",
+                example.value().replace('-', "_"),
+                example.file_name(),
+                example.schema_file_name()
+            ));
+        }
+        config
     }
 
     fn on_change_tab(&self, runtime: &QueryRuntime) {
@@ -329,29 +315,18 @@ fn run_queries(
         json_output.set(json.as_ref().clone());
     }
 
-    // Get all errors
-    let meta_file = TextFile::from_path("meta-schema.eure".into());
-    match runtime.query(GetAllErrors::new(
-        doc_file.clone(),
-        schema_file.clone(),
-        meta_file,
-    )) {
-        Ok(errors) => {
+    // Get diagnostics for the document (includes schema errors)
+    match runtime.query(GetDiagnostics::new(doc_file.clone())) {
+        Ok(diagnostics) => {
+            // Filter diagnostics by file for each editor
             all_errors.set(AllErrors {
-                doc_errors: error_reports_to_spans(runtime, &errors.doc_errors),
-                schema_errors: error_reports_to_spans(runtime, &errors.schema_errors),
+                doc_errors: diagnostics_to_spans(&diagnostics, doc_file),
+                schema_errors: diagnostics_to_spans(&diagnostics, schema_file),
             });
         }
         Err(e) => {
-            // Query failed unexpectedly - show the error
-            all_errors.set(AllErrors {
-                doc_errors: vec![ErrorSpan {
-                    start: 0,
-                    end: 1,
-                    message: e.to_string(),
-                }],
-                ..Default::default()
-            });
+            tracing::error!("Diagnostics query failed: {}", e);
+            all_errors.set(AllErrors::default());
         }
     }
 }

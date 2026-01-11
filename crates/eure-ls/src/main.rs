@@ -243,35 +243,25 @@ fn handle_notification(
     }
 }
 
-/// Publish diagnostics for a document.
+/// Publish diagnostics for a document (and any related files like schemas).
 fn publish_diagnostics(
     connection: &Connection,
     executor: &mut QueryExecutor,
     uri: &Uri,
-    source: &str,
+    _source: &str,
 ) {
     let uri_str = uri.as_str().to_string();
     let file = uri_to_text_file(uri);
-    let query = LspDiagnostics::new(file, source.to_string());
+    let query = LspDiagnostics::new(file);
 
-    // Execute the diagnostics query
-    let diagnostics = match executor.get_diagnostics(uri_str, query) {
-        Some(diags) => diags,
-        None => {
-            // Query is pending - diagnostics will be published when assets resolve
-            return;
+    // Execute the diagnostics query - returns notifications for all affected files
+    let notifications = executor.get_diagnostics(uri_str, query);
+
+    // Send all notifications (may include diagnostics for schema files, etc.)
+    for notification in notifications {
+        if let Err(e) = connection.sender.send(Message::Notification(notification)) {
+            error!("Failed to send diagnostics: {}", e);
         }
-    };
-
-    let params = PublishDiagnosticsParams {
-        uri: uri.clone(),
-        diagnostics,
-        version: None,
-    };
-
-    let notification = Notification::new(PublishDiagnostics::METHOD.to_string(), params);
-    if let Err(e) = connection.sender.send(Message::Notification(notification)) {
-        error!("Failed to send diagnostics: {}", e);
     }
 }
 

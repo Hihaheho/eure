@@ -4,7 +4,7 @@ use eure_parol::EureParseError;
 use query_flow::{Db, QueryError, query};
 
 use crate::query::parse::ParseCst;
-use crate::report::ErrorReport;
+use crate::report::{ErrorReport, ErrorReports};
 
 use super::assets::TextFile;
 use super::schema::{GetSchemaExtensionDiagnostics, ResolveSchema, ValidateAgainstSchema};
@@ -21,6 +21,8 @@ pub enum DiagnosticSeverity {
 /// A diagnostic message with source location.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiagnosticMessage {
+    /// The file this diagnostic belongs to.
+    pub file: TextFile,
     /// Start byte offset in the source.
     pub start: usize,
     /// End byte offset in the source.
@@ -45,7 +47,7 @@ pub fn get_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<DiagnosticMes
     // 1. Collect parse errors
     let parsed = db.query(ParseCst::new(file.clone()))?;
     if let Some(error) = &parsed.error {
-        diagnostics.extend(parse_error_to_diagnostics(error));
+        diagnostics.extend(parse_error_to_diagnostics(error, file.clone()));
     }
 
     // Schema-related diagnostics only run if parsing succeeded
@@ -54,13 +56,26 @@ pub fn get_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<DiagnosticMes
         let schema_ext_errors = db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
         diagnostics.extend(schema_ext_errors.iter().map(error_report_to_diagnostic));
 
-        // 3. Collect schema validation errors
+        // 3. Collect schema validation errors (including schema conversion errors)
         if let Some(schema_file) = db.query(ResolveSchema::new(file.clone()))?.as_ref() {
-            let reports = db.query(ValidateAgainstSchema::new(
+            match db.query(ValidateAgainstSchema::new(
                 file.clone(),
                 schema_file.clone(),
-            ))?;
-            diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
+            )) {
+                Ok(reports) => {
+                    diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
+                }
+                Err(QueryError::UserError(e)) => {
+                    // Schema conversion errors are returned as UserError containing ErrorReports
+                    if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+                        diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
+                    } else {
+                        // Re-propagate unknown user errors
+                        return Err(QueryError::UserError(e));
+                    }
+                }
+                Err(other) => return Err(other),
+            }
         }
     }
 
@@ -68,7 +83,7 @@ pub fn get_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<DiagnosticMes
 }
 
 /// Convert parse errors to diagnostic messages.
-fn parse_error_to_diagnostics(error: &EureParseError) -> Vec<DiagnosticMessage> {
+fn parse_error_to_diagnostics(error: &EureParseError, file: TextFile) -> Vec<DiagnosticMessage> {
     error
         .entries
         .iter()
@@ -82,6 +97,7 @@ fn parse_error_to_diagnostics(error: &EureParseError) -> Vec<DiagnosticMessage> 
                 .unwrap_or((0, 1));
 
             DiagnosticMessage {
+                file: file.clone(),
                 start,
                 end,
                 message: entry.message.clone(),
@@ -94,6 +110,7 @@ fn parse_error_to_diagnostics(error: &EureParseError) -> Vec<DiagnosticMessage> 
 /// Convert an error report to a diagnostic message.
 fn error_report_to_diagnostic(report: &ErrorReport) -> DiagnosticMessage {
     DiagnosticMessage {
+        file: report.primary_origin.file.clone(),
         start: report.primary_origin.span.start as usize,
         end: report.primary_origin.span.end as usize,
         message: report.title.to_string(),

@@ -15,5 +15,6 @@ name = 123
 // Type mismatch diagnostic should point to "123" (the value)
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = "Type mismatch: expected text, got integer at path name"
 span = "123"

@@ -17,5 +17,6 @@ value = "invalid type"
 // The span should not include the leading newline or spaces
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = "Type mismatch: expected integer, got text at path value"
 span = "\"invalid type\""

@@ -706,13 +706,23 @@ impl WasmCore {
                                     last_revision: polled.revision,
                                 },
                             );
-                            let diagnostics = match polled.value {
-                                Ok(result) => (*result).clone(),
-                                Err(_) => vec![],
+                            match polled.value {
+                                Ok(result) => {
+                                    // Send diagnostics for each file
+                                    for (file, file_diagnostics) in result.iter() {
+                                        let file_uri = text_file_to_uri(file);
+                                        if let Ok(uri) = file_uri.parse() {
+                                            self.send_diagnostics(&uri, file_diagnostics.clone());
+                                        }
+                                    }
+                                }
+                                Err(_) => {
+                                    // Error - send empty diagnostics for the original file
+                                    if let Ok(uri) = uri_str.parse() {
+                                        self.send_diagnostics(&uri, vec![]);
+                                    }
+                                }
                             };
-                            if let Ok(uri) = uri_str.parse() {
-                                self.send_diagnostics(&uri, diagnostics);
-                            }
                         }
                     }
                     Err(QueryError::Suspend { .. }) => {
@@ -726,11 +736,11 @@ impl WasmCore {
         }
     }
 
-    /// Publish diagnostics for a document.
-    fn publish_diagnostics(&mut self, uri: &Uri, source: &str) {
+    /// Publish diagnostics for a document (and related files like schemas).
+    fn publish_diagnostics(&mut self, uri: &Uri, _source: &str) {
         let uri_str = uri.as_str().to_string();
         let file = uri_to_text_file(uri);
-        let query = LspDiagnostics::new(file, source.to_string());
+        let query = LspDiagnostics::new(file);
 
         match self.runtime.poll(query.clone()) {
             Ok(polled) => {
@@ -751,11 +761,21 @@ impl WasmCore {
                 );
 
                 if changed {
-                    let diagnostics = match polled.value {
-                        Ok(result) => (*result).clone(),
-                        Err(_) => vec![],
+                    match polled.value {
+                        Ok(result) => {
+                            // Send diagnostics for each file
+                            for (diag_file, file_diagnostics) in result.iter() {
+                                let file_uri = text_file_to_uri(diag_file);
+                                if let Ok(parsed_uri) = file_uri.parse() {
+                                    self.send_diagnostics(&parsed_uri, file_diagnostics.clone());
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Error - send empty diagnostics for the original file
+                            self.send_diagnostics(uri, vec![]);
+                        }
                     };
-                    self.send_diagnostics(uri, diagnostics);
                 }
             }
             Err(QueryError::Suspend { .. }) => {

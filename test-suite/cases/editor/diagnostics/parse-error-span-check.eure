@@ -9,6 +9,7 @@ name = "unclosed string
 // "name = " is 7 bytes, so the quote starts at offset 7
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 start = 7
 end = 8
 message = ```
@@ -21,6 +22,7 @@ Current production is:
 
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = ```
 LA(1): string (Ident) at test.eure:2:10-2:16[4].
 at non-terminal "BindingRhs"
@@ -31,6 +33,7 @@ Current production is:
 
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = ```
 Syntax error: found $ (EndOfInput) at test.eure:0:0-0:0[6]
 Current scanner is INITIAL

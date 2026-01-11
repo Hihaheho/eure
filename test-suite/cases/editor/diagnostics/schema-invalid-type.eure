@@ -1,0 +1,30 @@
+// Test: Schema with invalid type name (typo)
+// When schema has an invalid type like `texte` (typo of `text`),
+// the error should be reported in the schema file, not the editor file
+
+schema = ```eure
+// Invalid type (typo of text)
+name = `texte`
+```
+
+editor = ```eure
+$schema = "schema.eure"
+name = "Alice"
+```
+
+// Expected schema conversion error (for schema_conversion_error scenario)
+schema_conversion_error = ```
+error: Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'texte'
+ --> schema.eure:2:8
+  |
+2 | name = `texte`
+  |        ^^^^^^^ Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'texte'
+```
+
+// Expected: Error should be reported at "texte" in the schema file
+// NOTE: This test is designed to verify the bug is fixed
+@ diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'texte'"
+span = "`texte`"

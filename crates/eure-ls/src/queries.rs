@@ -23,21 +23,40 @@ pub fn lsp_semantic_tokens(
     Ok(convert_tokens(&tokens, &source))
 }
 
-/// LSP-formatted diagnostics query.
+/// LSP-formatted diagnostics query, grouped by file.
 ///
 /// Wraps `GetDiagnostics` and converts to LSP `Diagnostic` format.
+/// Returns diagnostics grouped by file, so that each file can receive
+/// its own publishDiagnostics notification.
 #[query]
 pub fn lsp_diagnostics(
     db: &impl Db,
     file: TextFile,
-    source: String,
-) -> Result<Vec<Diagnostic>, QueryError> {
-    let diagnostics = db.query(GetDiagnostics::new(file.clone()))?;
-    let line_offsets = compute_line_offsets(&source);
-    Ok(diagnostics
-        .iter()
-        .map(|d| convert_diagnostic(d, &source, &line_offsets))
-        .collect())
+) -> Result<Vec<(TextFile, Vec<Diagnostic>)>, QueryError> {
+    let diagnostics = db.query(GetDiagnostics::new(file))?;
+
+    // Group diagnostics by file
+    let mut by_file: std::collections::HashMap<TextFile, Vec<DiagnosticMessage>> =
+        std::collections::HashMap::new();
+
+    for d in diagnostics.iter() {
+        by_file.entry(d.file.clone()).or_default().push(d.clone());
+    }
+
+    // Convert each group to LSP diagnostics using the correct source
+    let mut result = Vec::new();
+    for (diag_file, file_diagnostics) in by_file {
+        let source: std::sync::Arc<eure::query::TextFileContent> =
+            db.asset(diag_file.clone())?.suspend()?;
+        let line_offsets = compute_line_offsets(source.get());
+        let lsp_diagnostics: Vec<Diagnostic> = file_diagnostics
+            .iter()
+            .map(|d| convert_diagnostic(d, source.get(), &line_offsets))
+            .collect();
+        result.push((diag_file, lsp_diagnostics));
+    }
+
+    Ok(result)
 }
 
 /// Convert internal semantic tokens to LSP format.

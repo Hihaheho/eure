@@ -36,8 +36,18 @@ pub fn validate_document(
     schema_file: Option<TextFile>,
 ) -> Result<ErrorReports, QueryError> {
     if let Some(sf) = schema_file {
-        db.query(ValidateAgainstSchema::new(doc_file, sf))
-            .map(|reports| reports.as_ref().clone())
+        match db.query(ValidateAgainstSchema::new(doc_file, sf)) {
+            Ok(reports) => Ok(reports.as_ref().clone()),
+            Err(QueryError::UserError(e)) => {
+                // Schema conversion errors are returned as UserError containing ErrorReports
+                if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+                    Ok(reports.clone())
+                } else {
+                    Err(QueryError::UserError(e))
+                }
+            }
+            Err(other) => Err(other),
+        }
     } else if let Err(reports) = db
         .query(ParseDocument::new(doc_file.clone()))
         .downcast_err::<ErrorReports>()?

@@ -8,6 +8,7 @@ name = "unclosed string
 // Parse errors produce multiple diagnostics
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = ```
 LA(1): " (Error) at test.eure:1:8-1:9[2].
 at non-terminal "Value"
@@ -18,6 +19,7 @@ Current production is:
 
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = ```
 LA(1): string (Ident) at test.eure:2:10-2:16[4].
 at non-terminal "BindingRhs"
@@ -28,6 +30,7 @@ Current production is:
 
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = ```
 Syntax error: found $ (EndOfInput) at test.eure:0:0-0:0[6]
 Current scanner is INITIAL

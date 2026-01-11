@@ -17,5 +17,6 @@ $schema = "schema.eure"
 // The span should NOT include the preceding whitespace/newline
 @ diagnostics[]
 severity = "error"
+source = "editor.eure"
 message = "Type mismatch: expected integer, got text at path myfield"
 span = "\"string instead of integer\""

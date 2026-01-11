@@ -24,5 +24,6 @@ field3 = "value3"
 @ diagnostics[]
 severity = "error"
 message = "Type mismatch: expected text, got integer at path field2"
+source = "editor.eure"
 start = 51
 end = 54
