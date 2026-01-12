@@ -2,13 +2,13 @@
 //!
 //! Uses SSoT validation queries from eure crate.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
 use eure::query::{
     DecorStyle, DecorStyleKey, TextFile, TextFileContent, ValidateDocument, ValidateTargetResult,
-    ValidateTargets, ValidateTargetsResult, build_runtime, load_config,
+    ValidateTargets, ValidateTargetsResult, Workspace, WorkspaceId, build_runtime, load_config,
 };
 use eure::query_flow::DurabilityLevel;
 use eure::report::{ErrorReports, format_error_reports};
@@ -16,9 +16,7 @@ use eure_env::{CONFIG_FILENAME, EureConfig};
 use nu_ansi_term::Color;
 
 use crate::args::CacheArgs;
-use crate::util::{
-    display_path, handle_query_error, read_input, run_query_with_file_loading_cached,
-};
+use crate::util::{handle_query_error, read_input, run_query_with_file_loading_cached};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -179,6 +177,21 @@ fn run_file_mode(args: Args) {
         DurabilityLevel::Static,
     );
 
+    // Register workspace if Eure.eure exists
+    // This enables ResolveConfig to find workspace configuration for schema resolution
+    let current_dir = std::env::current_dir().expect("Failed to get current directory");
+    if let Some(config_path) = EureConfig::find_config_file(&current_dir) {
+        let workspace_path = config_path.parent().unwrap_or(&current_dir);
+        runtime.resolve_asset(
+            WorkspaceId(workspace_path.to_string_lossy().into_owned()),
+            Workspace {
+                path: workspace_path.to_path_buf(),
+                config_path: config_path.clone(),
+            },
+            DurabilityLevel::Static,
+        );
+    }
+
     // Read and register document content
     let doc_contents = match read_input(file_opt) {
         Ok(c) => c,
@@ -188,7 +201,19 @@ fn run_file_mode(args: Args) {
         }
     };
 
-    let doc_file = TextFile::from_path(display_path(file_opt).into());
+    // Convert file path to absolute for workspace resolution to work correctly
+    let doc_file_path = if let Some(f) = file_opt {
+        let path = Path::new(f);
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            current_dir.join(path)
+        }
+    } else {
+        // stdin - use a placeholder path
+        PathBuf::from("<stdin>")
+    };
+    let doc_file = TextFile::from_path(doc_file_path);
     runtime.resolve_asset(
         doc_file.clone(),
         TextFileContent(doc_contents),
