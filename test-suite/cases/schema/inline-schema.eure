@@ -1,0 +1,13 @@
+// $type = `any` should skip schema validation for that subtree
+
+input_eure = ```eure
+$type = `any`
+unknown = 1
+```
+
+schema = ```eure
+name = `text`
+age = `integer`
+```
+
+schema_errors = []

@@ -37,7 +37,7 @@ use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::parse::{DocumentParser, ParseContext};
 
-use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId};
+use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId, identifiers};
 
 use compound::{ArrayValidator, MapValidator, TupleValidator};
 use primitive::{
@@ -148,6 +148,11 @@ impl<'a, 'doc> DocumentParser<'doc> for SchemaValidator<'a, 'doc> {
 
     fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
         let node = parse_ctx.node();
+
+        if node.get_extension(&identifiers::TYPE).is_some() {
+            // Inline schema validation are performed on other path.
+            return Ok(());
+        }
 
         // Check for hole - holes match any schema
         if matches!(&node.content, NodeValue::Hole(_)) {
@@ -355,12 +360,11 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
     /// - $codegen-defaults: used for default codegen settings
     /// - $flatten: used for record field flattening
     fn is_builtin_extension(ident: &eure_document::identifier::Identifier) -> bool {
-        use crate::identifiers;
-
         // Core schema extensions
         ident == &identifiers::VARIANT
             || ident == &identifiers::SCHEMA
             || ident == &identifiers::EXT_TYPE
+            || ident == &identifiers::TYPE
             // Codegen extensions
             || ident.as_ref() == "codegen"
             || ident.as_ref() == "codegen-defaults"

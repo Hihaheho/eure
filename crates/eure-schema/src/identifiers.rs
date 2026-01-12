@@ -13,3 +13,4 @@ pub const TAG: Identifier = Identifier::new_unchecked("tag");
 pub const CONTENT: Identifier = Identifier::new_unchecked("content");
 pub const OPTIONAL: Identifier = Identifier::new_unchecked("optional");
 pub const EXT_TYPE: Identifier = Identifier::new_unchecked("ext-type");
+pub const TYPE: Identifier = Identifier::new_unchecked("type");
