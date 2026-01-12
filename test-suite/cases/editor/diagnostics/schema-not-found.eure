@@ -11,5 +11,5 @@ name = "test"
 @ diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Failed to load schema: Content not found: non-existing.eure"
+message = "Failed to load schema file: non-existing.eure"
 span = `"non-existing.eure"`

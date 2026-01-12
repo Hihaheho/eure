@@ -10,7 +10,7 @@ use eure::query::{Glob, TextFile};
 use query_flow::RevisionCounter;
 use serde_json::Value;
 
-use crate::queries::{LspDiagnostics, LspSemanticTokens};
+use crate::queries::{LspDiagnostics, LspFileDiagnostics, LspSemanticTokens};
 
 /// Platform-agnostic request ID.
 ///
@@ -144,10 +144,21 @@ pub struct PendingRequest {
     pub waiting_for: HashSet<TextFile>,
 }
 
-/// Subscription for diagnostics with revision tracking.
+/// Subscription for diagnostics with revision tracking (legacy per-URI).
 #[derive(Clone)]
 pub struct DiagnosticsSubscription {
     pub query: LspDiagnostics,
+    pub last_revision: RevisionCounter,
+}
+
+/// Per-file diagnostics subscription with revision tracking.
+///
+/// Used for the new per-file polling approach where each file
+/// has its own subscription and revision counter.
+#[derive(Clone)]
+pub struct FileDiagnosticsSubscription {
+    pub file: TextFile,
+    pub query: LspFileDiagnostics,
     pub last_revision: RevisionCounter,
 }
 

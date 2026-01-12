@@ -74,6 +74,11 @@ impl TextFile {
         }
     }
 
+    /// Check if this is a local file (not a remote URL).
+    pub fn is_local(&self) -> bool {
+        matches!(self, Self::Local(_))
+    }
+
     /// Check if the file path/URL ends with the given suffix.
     pub fn ends_with(&self, suffix: &str) -> bool {
         match self {
@@ -145,6 +150,17 @@ impl Glob {
 /// Result of glob pattern expansion.
 #[derive(Clone, PartialEq, Debug)]
 pub struct GlobResult(pub Vec<TextFile>);
+
+/// Asset key for open documents list.
+///
+/// Used by LSP to track currently open documents.
+/// Collection queries depend on this asset to invalidate when documents open/close.
+#[asset_key(asset = OpenDocumentsList)]
+pub struct OpenDocuments;
+
+/// List of currently open documents.
+#[derive(Clone, PartialEq, Debug)]
+pub struct OpenDocumentsList(pub Vec<TextFile>);
 
 #[cfg(test)]
 mod tests {

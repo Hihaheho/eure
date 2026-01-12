@@ -1,4 +1,4 @@
-use eure::query::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics, TextFile};
+use eure::query::{DiagnosticMessage, DiagnosticSeverity, GetAllDiagnostics, TextFile};
 use query_flow::Db;
 
 use crate::parser::DiagnosticItem;
@@ -71,7 +71,15 @@ pub struct DiagnosticsScenario {
 
 impl Scenario for DiagnosticsScenario {
     fn run(self, db: &impl Db) -> Result<(), ScenarioError> {
-        let actual = db.query(GetDiagnostics::new(self.editor.clone()))?;
+        // OpenDocuments asset is set up in Case::resolve_assets()
+        // Get all diagnostics for all targets (editor + schema files)
+        let all_diagnostics = db.query(GetAllDiagnostics::new())?;
+
+        // Flatten all diagnostics into a single list for comparison
+        let actual: Vec<DiagnosticMessage> = all_diagnostics
+            .iter()
+            .flat_map(|(_, diags)| diags.iter().cloned())
+            .collect();
 
         let expected_strs: Vec<String> = self
             .diagnostics

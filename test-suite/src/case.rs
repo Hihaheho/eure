@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use eure::query::error::EureQueryError;
-use eure::query::{TextFile, TextFileContent, UnionTagMode, build_runtime};
+use eure::query::{
+    OpenDocuments, OpenDocumentsList, TextFile, TextFileContent, UnionTagMode, Workspace,
+    WorkspaceId, build_runtime,
+};
 use eure_document::Text;
 use query_flow::{Db, DurabilityLevel, QueryRuntime};
 
@@ -113,6 +116,7 @@ const FORMATTED_INPUT_PATH: &str = "formatted_input.eure";
 const FORMATTED_NORMALIZED_PATH: &str = "formatted_normalized.eure";
 const OUTPUT_JSON_SCHEMA_PATH: &str = "output.json-schema.json";
 const EDITOR_PATH: &str = "editor.eure";
+const WORKSPACE_PATH: &str = "/test-workspace";
 const META_SCHEMA_PATH: &str = "$eure/meta-schema.eure";
 
 /// Bundled meta-schema content
@@ -211,6 +215,37 @@ impl Case {
         self.data.unimplemented.as_ref().and_then(|r| r.as_str())
     }
 
+    /// Check if implicit schema is used (editor + schema provided, but no $schema in editor)
+    fn uses_implicit_schema(&self) -> bool {
+        self.data.editor.is_some()
+            && self.data.schema.is_some()
+            && !self
+                .data
+                .editor
+                .as_ref()
+                .unwrap()
+                .as_str()
+                .contains("$schema")
+    }
+
+    /// Get the editor file path, considering implicit schema workspace setup
+    fn editor_file_path(&self) -> String {
+        if self.uses_implicit_schema() {
+            format!("{}/{}", WORKSPACE_PATH, EDITOR_PATH)
+        } else {
+            EDITOR_PATH.to_string()
+        }
+    }
+
+    /// Get the schema file path, considering implicit schema workspace setup
+    fn schema_file_path(&self) -> String {
+        if self.uses_implicit_schema() {
+            format!("{}/{}", WORKSPACE_PATH, SCHEMA_PATH)
+        } else {
+            SCHEMA_PATH.to_string()
+        }
+    }
+
     pub fn resolve_path(text: &Text, default_path: &str) -> TextFile {
         if text.language.is_other("path") {
             TextFile::from_path(PathBuf::from(text.as_str()))
@@ -255,9 +290,9 @@ impl Case {
             Self::resolve_asset(runtime, NORMALIZED_PATH, normalized)?;
         }
 
-        // schema → "schema.eure"
+        // schema → "schema.eure" or "/test-workspace/schema.eure" for implicit schema
         if let Some(schema) = &self.data.schema {
-            Self::resolve_asset(runtime, SCHEMA_PATH, schema)?;
+            Self::resolve_asset(runtime, &self.schema_file_path(), schema)?;
         }
 
         // input_toml → "input.toml"
@@ -290,9 +325,9 @@ impl Case {
             Self::resolve_asset(runtime, OUTPUT_JSON_SCHEMA_PATH, output_json_schema)?;
         }
 
-        // editor → "editor.eure"
+        // editor → "editor.eure" or "/test-workspace/editor.eure" for implicit schema
         if let Some(editor) = &self.data.editor {
-            Self::resolve_asset(runtime, EDITOR_PATH, editor)?;
+            Self::resolve_asset(runtime, &self.editor_file_path(), editor)?;
         }
 
         // meta-schema → "$eure/meta-schema.eure" (always available)
@@ -301,6 +336,50 @@ impl Case {
             TextFileContent(META_SCHEMA.to_string()),
             DurabilityLevel::Static,
         );
+
+        // OpenDocuments → list of open documents for diagnostics collection
+        // When editor is present, set it as the open document for CollectDiagnosticTargets
+        if let Some(editor) = &self.data.editor {
+            let editor_path = self.editor_file_path();
+            runtime.resolve_asset(
+                OpenDocuments,
+                OpenDocumentsList(vec![Self::resolve_path(editor, &editor_path)]),
+                DurabilityLevel::Volatile,
+            );
+
+            // Implicit schema via workspace config:
+            // When both editor and schema are provided, but editor doesn't have $schema,
+            // set up workspace config to associate editor with schema implicitly.
+            if self.uses_implicit_schema() {
+                let workspace_path = PathBuf::from(WORKSPACE_PATH);
+                let config_path = workspace_path.join("Eure.eure");
+
+                // Register workspace
+                runtime.resolve_asset(
+                    WorkspaceId("test".to_string()),
+                    Workspace {
+                        path: workspace_path.clone(),
+                        config_path: config_path.clone(),
+                    },
+                    DurabilityLevel::Static,
+                );
+
+                // Register workspace config that maps editor.eure to schema.eure
+                let config_content = format!(
+                    r#"targets.default {{
+    globs = ["{editor_path}"]
+    schema = "{schema_path}"
+}}"#,
+                    editor_path = self.editor_file_path(),
+                    schema_path = self.schema_file_path(),
+                );
+                runtime.resolve_asset(
+                    TextFile::from_path(config_path),
+                    TextFileContent(config_content),
+                    DurabilityLevel::Static,
+                );
+            }
+        }
 
         Ok(())
     }
@@ -410,7 +489,7 @@ impl Case {
         if let Some(schema) = &self.data.schema {
             scenarios.push(Scenario::SchemaConversionError(
                 SchemaConversionErrorScenario {
-                    schema: Self::resolve_path(schema, SCHEMA_PATH),
+                    schema: Self::resolve_path(schema, &self.schema_file_path()),
                     expected_error: self
                         .data
                         .schema_conversion_error
@@ -429,7 +508,7 @@ impl Case {
                 .map(|e| e.as_str().to_string())
                 .collect();
             scenarios.push(Scenario::MetaSchema(MetaSchemaScenario {
-                schema: Self::resolve_path(schema, SCHEMA_PATH),
+                schema: Self::resolve_path(schema, &self.schema_file_path()),
                 meta_schema: TextFile::from_path(PathBuf::from(META_SCHEMA_PATH)),
                 expected_errors,
             }));
@@ -508,9 +587,9 @@ impl Case {
                 .data
                 .schema
                 .as_ref()
-                .map(|s| Self::resolve_path(s, SCHEMA_PATH));
+                .map(|s| Self::resolve_path(s, &self.schema_file_path()));
             scenarios.push(Scenario::Diagnostics(DiagnosticsScenario {
-                editor: Self::resolve_path(editor, EDITOR_PATH),
+                editor: Self::resolve_path(editor, &self.editor_file_path()),
                 schema,
                 diagnostics: self.data.diagnostics.clone(),
             }));
@@ -518,7 +597,7 @@ impl Case {
             // Completions scenario - run when trigger is specified
             if self.data.trigger.is_some() {
                 scenarios.push(Scenario::Completions(CompletionsScenario {
-                    editor: Self::resolve_path(editor, EDITOR_PATH),
+                    editor: Self::resolve_path(editor, &self.editor_file_path()),
                     completions: self.data.completions.clone(),
                     trigger: self.data.trigger.clone(),
                 }));

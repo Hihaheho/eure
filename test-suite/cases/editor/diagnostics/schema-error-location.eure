@@ -1,0 +1,73 @@
+// Test: Schema conversion error warning location depends on how schema is discovered
+// When schema has an invalid type like `typo`, a warning should be emitted in the document:
+// - At $schema value span when explicitly specified
+// - At file start (0,1) when schema is implicit (from workspace config)
+
+@ cases.explicit-schema
+// When $schema is explicitly specified, warning should point to the $schema value
+schema = ```eure
+key = `typo`
+```
+
+// Expected schema conversion error (for schema_conversion_error scenario)
+schema_conversion_error = ```
+error: Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'typo'
+ --> schema.eure:1:7
+  |
+1 | key = `typo`
+  |       ^^^^^^ Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'typo'
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value = 123
+```
+
+// Warning in document file at the $schema value (editor.eure comes before schema.eure alphabetically)
+@ cases.explicit-schema.diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
+// Error in schema file at the typo location
+@ cases.explicit-schema.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'typo'"
+span = "`typo`"
+
+@ cases.implicit-schema
+// When schema is discovered implicitly (from workspace config),
+// warning should be at file start since there's no $schema reference
+schema = ```eure
+key = `typo`
+```
+
+// Expected schema conversion error (for schema_conversion_error scenario)
+schema_conversion_error = ```
+error: Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'typo'
+ --> /test-workspace/schema.eure:1:7
+  |
+1 | key = `typo`
+  |       ^^^^^^ Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'typo'
+```
+
+editor = ```eure
+value = 123
+```
+
+// Warning in document file at start (no $schema reference point)
+@ cases.implicit-schema.diagnostics[]
+severity = "warning"
+source = "/test-workspace/editor.eure"
+message = "Schema has errors, validation skipped"
+start = 0
+end = 1
+
+// Error in schema file at the typo location
+@ cases.implicit-schema.diagnostics[]
+severity = "error"
+source = "/test-workspace/schema.eure"
+message = "Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'typo'"
+span = "`typo`"

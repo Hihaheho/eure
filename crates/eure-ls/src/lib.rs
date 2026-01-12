@@ -20,19 +20,20 @@ pub use wasm::WasmCore;
 
 // Public exports for shared functionality
 pub use capabilities::server_capabilities;
-pub use queries::{LspDiagnostics, LspSemanticTokens};
+pub use queries::{LspDiagnostics, LspFileDiagnostics, LspSemanticTokens};
 pub use types::{CoreRequestId, Effect, LspError, LspOutput};
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use eure::query::{
-    Glob, GlobResult, TextFile, TextFileContent, Workspace, WorkspaceId, build_runtime,
+    CollectDiagnosticTargets, Glob, GlobResult, OpenDocuments, OpenDocumentsList, TextFile,
+    TextFileContent, Workspace, WorkspaceId, build_runtime,
 };
 use lsp_types::InitializeParams;
 use query_flow::{DurabilityLevel, QueryRuntime};
 
-use crate::types::{CommandQuery, CommandResult, DiagnosticsSubscription, PendingRequest};
+use crate::types::{CommandQuery, CommandResult, FileDiagnosticsSubscription, PendingRequest};
 use crate::uri_utils::uri_to_text_file;
 
 use lsp_types::{
@@ -113,8 +114,10 @@ pub struct LspCore {
     pending_assets: HashSet<TextFile>,
     /// Glob patterns that have been requested but not yet resolved.
     pending_globs: HashMap<String, Glob>,
-    /// Diagnostics subscriptions with revision tracking.
-    diagnostics_subscriptions: HashMap<String, DiagnosticsSubscription>,
+    /// Per-file diagnostics subscriptions with revision tracking.
+    diagnostics_subscriptions: HashMap<TextFile, FileDiagnosticsSubscription>,
+    /// URIs we've published diagnostics to (for stale clearing).
+    published_uris: HashSet<String>,
     /// Cached content of open documents (keyed by URI string).
     documents: HashMap<String, String>,
     /// Whether the server has been initialized.
@@ -132,6 +135,7 @@ impl LspCore {
             pending_assets: HashSet::new(),
             pending_globs: HashMap::new(),
             diagnostics_subscriptions: HashMap::new(),
+            published_uris: HashSet::new(),
             documents: HashMap::new(),
             initialized: false,
         }
@@ -166,6 +170,24 @@ impl LspCore {
 
     // === Document Management ===
 
+    /// Update the OpenDocuments asset with current open documents.
+    ///
+    /// This should be called whenever documents are opened or closed to ensure
+    /// collection queries (`CollectDiagnosticTargets`, `CollectSchemaFiles`) are invalidated.
+    fn update_open_documents(&mut self) {
+        let files: Vec<TextFile> = self
+            .documents
+            .keys()
+            .map(|uri| uri_to_text_file(uri))
+            .collect();
+
+        self.runtime.resolve_asset(
+            OpenDocuments,
+            OpenDocumentsList(files),
+            DurabilityLevel::Volatile,
+        );
+    }
+
     /// Open a document and cache its content.
     ///
     /// This should be called when a `textDocument/didOpen` notification is received.
@@ -177,6 +199,9 @@ impl LspCore {
         let file = uri_to_text_file(uri);
         self.runtime
             .resolve_asset(file, TextFileContent(content), DurabilityLevel::Volatile);
+
+        // Update open documents asset
+        self.update_open_documents();
     }
 
     /// Update a document's content.
@@ -194,12 +219,12 @@ impl LspCore {
         // Remove from document cache
         self.documents.remove(uri);
 
-        // Unsubscribe from diagnostics
-        self.diagnostics_subscriptions.remove(uri);
-
         // Invalidate in query runtime
         let file = uri_to_text_file(uri);
         self.runtime.invalidate_asset(&file);
+
+        // Update open documents asset - this triggers re-evaluation of diagnostic targets
+        self.update_open_documents();
     }
 
     /// Get the cached content of a document.
@@ -347,8 +372,8 @@ impl LspCore {
                     // Open document in core
                     self.open_document(uri.as_str(), content);
 
-                    // Publish diagnostics
-                    let (diag_outputs, diag_effects) = self.publish_diagnostics(uri.as_str());
+                    // Refresh diagnostics for all targets
+                    let (diag_outputs, diag_effects) = self.refresh_diagnostics();
                     outputs.extend(diag_outputs);
                     effects.extend(diag_effects);
                 }
@@ -363,8 +388,8 @@ impl LspCore {
                         // Change document in core
                         self.change_document(uri.as_str(), content);
 
-                        // Publish diagnostics
-                        let (diag_outputs, diag_effects) = self.publish_diagnostics(uri.as_str());
+                        // Refresh diagnostics for all targets
+                        let (diag_outputs, diag_effects) = self.refresh_diagnostics();
                         outputs.extend(diag_outputs);
                         effects.extend(diag_effects);
                     }
@@ -387,16 +412,10 @@ impl LspCore {
                             }
                         });
 
-                    // Clear diagnostics
-                    let clear_params = PublishDiagnosticsParams {
-                        uri: uri.clone(),
-                        diagnostics: vec![],
-                        version: None,
-                    };
-                    outputs.push(LspOutput::Notification {
-                        method: PublishDiagnostics::METHOD.to_string(),
-                        params: serde_json::to_value(clear_params).unwrap(),
-                    });
+                    // Refresh diagnostics - stale files will be cleared automatically
+                    let (diag_outputs, diag_effects) = self.refresh_diagnostics();
+                    outputs.extend(diag_outputs);
+                    effects.extend(diag_effects);
                 }
             }
             "$/cancelRequest" => {
@@ -416,56 +435,95 @@ impl LspCore {
         (outputs, effects)
     }
 
-    /// Publish diagnostics for a document.
+    /// Refresh diagnostics for all diagnostic targets.
     ///
-    /// Returns notifications for all affected files and any effects needed.
-    fn publish_diagnostics(&mut self, uri_str: &str) -> (Vec<LspOutput>, Vec<Effect>) {
+    /// Uses `CollectDiagnosticTargets` to discover all files needing diagnostics,
+    /// then polls `LspFileDiagnostics` for each file with per-file revision tracking.
+    ///
+    /// Returns notifications for all changed files and any effects needed.
+    fn refresh_diagnostics(&mut self) -> (Vec<LspOutput>, Vec<Effect>) {
         let mut outputs = Vec::new();
         let mut effects = Vec::new();
 
-        debug!("[LspCore] publish_diagnostics for {}", uri_str);
+        debug!("[LspCore] refresh_diagnostics");
 
-        let file = uri_to_text_file(uri_str);
-        let query = LspDiagnostics::new(file);
+        // 1. Collect all files to diagnose (includes open docs + schema files)
+        let all_files = match self.runtime.poll(CollectDiagnosticTargets::new()) {
+            Ok(polled) => match polled.value {
+                Ok(files) => files,
+                Err(e) => {
+                    error!("CollectDiagnosticTargets error: {}", e);
+                    return (outputs, effects);
+                }
+            },
+            Err(QueryError::Suspend { .. }) => {
+                debug!("[LspCore] CollectDiagnosticTargets suspended");
+                let (new_effects, _) = self.collect_pending_assets();
+                effects.extend(new_effects);
+                return (outputs, effects);
+            }
+            Err(e) => {
+                Self::handle_query_error("CollectDiagnosticTargets", e);
+                return (outputs, effects);
+            }
+        };
 
-        match self.runtime.poll(query.clone()) {
-            Ok(polled) => {
-                debug!("[LspCore] diagnostics poll succeeded");
-                let last_revision = self
-                    .diagnostics_subscriptions
-                    .get(uri_str)
-                    .map(|s| s.last_revision);
+        debug!("[LspCore] diagnostic targets: {} files", all_files.len());
 
-                let changed = last_revision.is_none() || last_revision != Some(polled.revision);
+        // 2. Poll LspFileDiagnostics for each file
+        let mut current_uris = HashSet::new();
+        for file in all_files.iter() {
+            let query = LspFileDiagnostics::new(file.clone());
 
-                // Update subscription
-                self.diagnostics_subscriptions.insert(
-                    uri_str.to_string(),
-                    DiagnosticsSubscription {
-                        query,
-                        last_revision: polled.revision,
-                    },
-                );
+            // Get or create subscription
+            let last_revision = self
+                .diagnostics_subscriptions
+                .get(file)
+                .map(|s| s.last_revision)
+                .unwrap_or_default();
 
-                if changed {
-                    match polled.value {
-                        Ok(result) => {
-                            debug!(
-                                "[LspCore] diagnostics result: {} files",
-                                result.iter().count()
-                            );
-                            // Send diagnostics for each file
-                            for (diag_file, file_diagnostics) in result.iter() {
+            match self.runtime.poll(query.clone()) {
+                Ok(polled) => {
+                    let uri = text_file_to_uri(file);
+                    current_uris.insert(uri.clone());
+
+                    // Only publish if revision changed
+                    if polled.revision != last_revision {
+                        // Update subscription
+                        self.diagnostics_subscriptions.insert(
+                            file.clone(),
+                            FileDiagnosticsSubscription {
+                                file: file.clone(),
+                                query,
+                                last_revision: polled.revision,
+                            },
+                        );
+
+                        match polled.value {
+                            Ok(diagnostics) => {
                                 debug!(
-                                    "[LspCore] sending {} diagnostics for {:?}",
-                                    file_diagnostics.len(),
-                                    diag_file
+                                    "[LspCore] sending {} diagnostics for {}",
+                                    diagnostics.len(),
+                                    uri
                                 );
-                                let file_uri = text_file_to_uri(diag_file);
-                                if let Ok(parsed_uri) = file_uri.parse::<lsp_types::Uri>() {
+                                if let Ok(parsed_uri) = uri.parse::<lsp_types::Uri>() {
                                     let params = PublishDiagnosticsParams {
                                         uri: parsed_uri,
-                                        diagnostics: file_diagnostics.clone(),
+                                        diagnostics: diagnostics.as_ref().clone(),
+                                        version: None,
+                                    };
+                                    outputs.push(LspOutput::Notification {
+                                        method: PublishDiagnostics::METHOD.to_string(),
+                                        params: serde_json::to_value(params).unwrap(),
+                                    });
+                                }
+                            }
+                            Err(e) => {
+                                error!("Diagnostics query error for {}: {}", uri, e);
+                                if let Ok(parsed_uri) = uri.parse::<lsp_types::Uri>() {
+                                    let params = PublishDiagnosticsParams {
+                                        uri: parsed_uri,
+                                        diagnostics: vec![],
                                         version: None,
                                     };
                                     outputs.push(LspOutput::Notification {
@@ -475,48 +533,53 @@ impl LspCore {
                                 }
                             }
                         }
-                        Err(e) => {
-                            // Query value error - log and send empty diagnostics
-                            error!("Diagnostics query error for {}: {}", uri_str, e);
-                            if let Ok(parsed_uri) = uri_str.parse::<lsp_types::Uri>() {
-                                let params = PublishDiagnosticsParams {
-                                    uri: parsed_uri,
-                                    diagnostics: vec![],
-                                    version: None,
-                                };
-                                outputs.push(LspOutput::Notification {
-                                    method: PublishDiagnostics::METHOD.to_string(),
-                                    params: serde_json::to_value(params).unwrap(),
-                                });
-                            }
-                        }
                     }
                 }
-            }
-            Err(QueryError::Suspend { .. }) => {
-                debug!("[LspCore] diagnostics suspended, waiting for assets");
-                // Store subscription for retry
-                let last_revision = self
-                    .diagnostics_subscriptions
-                    .get(uri_str)
-                    .map(|s| s.last_revision)
-                    .unwrap_or_default();
-                self.diagnostics_subscriptions.insert(
-                    uri_str.to_string(),
-                    DiagnosticsSubscription {
-                        query,
-                        last_revision,
-                    },
-                );
-                // Collect pending assets
-                let (new_effects, _) = self.collect_pending_assets();
-                debug!("[LspCore] collected {} pending effects", new_effects.len());
-                effects.extend(new_effects);
-            }
-            Err(e) => {
-                Self::handle_query_error(&format!("Diagnostics({})", uri_str), e);
+                Err(QueryError::Suspend { .. }) => {
+                    debug!("[LspCore] diagnostics for {:?} suspended", file);
+                    // Store subscription for retry
+                    self.diagnostics_subscriptions.insert(
+                        file.clone(),
+                        FileDiagnosticsSubscription {
+                            file: file.clone(),
+                            query,
+                            last_revision,
+                        },
+                    );
+                    let (new_effects, _) = self.collect_pending_assets();
+                    effects.extend(new_effects);
+                }
+                Err(e) => {
+                    Self::handle_query_error(&format!("LspFileDiagnostics({:?})", file), e);
+                }
             }
         }
+
+        // 3. Clear stale diagnostics for files no longer in target set
+        let stale: Vec<_> = self
+            .published_uris
+            .difference(&current_uris)
+            .cloned()
+            .collect();
+        for uri in stale {
+            debug!("[LspCore] clearing stale diagnostics for {}", uri);
+            if let Ok(parsed_uri) = uri.parse::<lsp_types::Uri>() {
+                let params = PublishDiagnosticsParams {
+                    uri: parsed_uri,
+                    diagnostics: vec![],
+                    version: None,
+                };
+                outputs.push(LspOutput::Notification {
+                    method: PublishDiagnostics::METHOD.to_string(),
+                    params: serde_json::to_value(params).unwrap(),
+                });
+            }
+        }
+        self.published_uris = current_uris;
+
+        // 4. Remove subscriptions for files no longer tracked
+        self.diagnostics_subscriptions
+            .retain(|f, _| all_files.contains(f));
 
         (outputs, effects)
     }
@@ -636,83 +699,10 @@ impl LspCore {
     }
 
     /// Check diagnostics subscriptions and send updates.
+    ///
+    /// This simply calls `refresh_diagnostics` to re-poll all targets.
     fn check_diagnostics_subscriptions(&mut self) -> (Vec<LspOutput>, Vec<Effect>) {
-        let mut outputs = Vec::new();
-        let mut effects = Vec::new();
-
-        let subscription_uris: Vec<String> =
-            self.diagnostics_subscriptions.keys().cloned().collect();
-
-        for uri_str in subscription_uris {
-            if let Some(sub) = self.diagnostics_subscriptions.get(&uri_str).cloned() {
-                match self.runtime.poll(sub.query.clone()) {
-                    Ok(polled) => {
-                        // Only send if revision changed
-                        if polled.revision != sub.last_revision {
-                            self.diagnostics_subscriptions.insert(
-                                uri_str.clone(),
-                                DiagnosticsSubscription {
-                                    query: sub.query,
-                                    last_revision: polled.revision,
-                                },
-                            );
-
-                            match polled.value {
-                                Ok(result) => {
-                                    // Send diagnostics for each file
-                                    for (diag_file, file_diagnostics) in result.iter() {
-                                        let file_uri = text_file_to_uri(diag_file);
-                                        if let Ok(parsed_uri) = file_uri.parse::<lsp_types::Uri>() {
-                                            let params = PublishDiagnosticsParams {
-                                                uri: parsed_uri,
-                                                diagnostics: file_diagnostics.clone(),
-                                                version: None,
-                                            };
-                                            outputs.push(LspOutput::Notification {
-                                                method: PublishDiagnostics::METHOD.to_string(),
-                                                params: serde_json::to_value(params).unwrap(),
-                                            });
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    // Query value error - log and send empty diagnostics
-                                    error!(
-                                        "Diagnostics subscription query error for {}: {}",
-                                        uri_str, e
-                                    );
-                                    if let Ok(parsed_uri) = uri_str.parse::<lsp_types::Uri>() {
-                                        let params = PublishDiagnosticsParams {
-                                            uri: parsed_uri,
-                                            diagnostics: vec![],
-                                            version: None,
-                                        };
-                                        outputs.push(LspOutput::Notification {
-                                            method: PublishDiagnostics::METHOD.to_string(),
-                                            params: serde_json::to_value(params).unwrap(),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(QueryError::Suspend { .. }) => {
-                        // Still waiting - collect more effects
-                        let (new_effects, _) = self.collect_pending_assets();
-                        effects.extend(new_effects);
-                    }
-                    Err(e) => {
-                        Self::handle_query_error(
-                            &format!("DiagnosticsSubscription({})", uri_str),
-                            e,
-                        );
-                        self.diagnostics_subscriptions.remove(&uri_str);
-                    }
-                }
-            }
-        }
-
-        (outputs, effects)
+        self.refresh_diagnostics()
     }
 
     // === Internal Helpers ===

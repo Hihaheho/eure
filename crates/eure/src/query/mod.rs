@@ -17,7 +17,10 @@ pub mod semantic_token;
 pub mod validation;
 
 pub use asset_locator::TextFileLocator;
-pub use assets::{Glob, GlobResult, TextFile, TextFileContent, Workspace, WorkspaceId};
+pub use assets::{
+    Glob, GlobResult, OpenDocuments, OpenDocumentsList, TextFile, TextFileContent, Workspace,
+    WorkspaceId,
+};
 
 use query_flow::{QueryRuntime, QueryRuntimeBuilder};
 
@@ -38,7 +41,11 @@ pub fn build_runtime() -> QueryRuntime {
     runtime
 }
 pub use config::{LoadConfigError, ParseConfig, ResolveConfig, ResolvedConfig, load_config};
-pub use diagnostics::{DiagnosticMessage, DiagnosticSeverity, GetDiagnostics};
+pub use diagnostics::{
+    CollectDiagnosticTargets, CollectSchemaFiles, DiagnosticMessage, DiagnosticSeverity,
+    GetAllDiagnostics, GetDiagnostics, GetFileDiagnostics, GetParseDiagnostics,
+    GetSchemaConversionDiagnostics, GetValidationDiagnostics,
+};
 #[cfg(feature = "http")]
 pub use http::fetch_url;
 #[cfg(feature = "native")]

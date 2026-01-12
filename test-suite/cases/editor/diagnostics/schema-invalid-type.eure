@@ -21,6 +21,13 @@ error: Parse error: parse error: invalid type reference: expected 'text', 'integ
   |        ^^^^^^^ Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'texte'
 ```
 
+// Warning in document file at the $schema value (validation skipped due to schema errors)
+@ diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
 // Expected: Error should be reported at "texte" in the schema file
 // NOTE: This test is designed to verify the bug is fixed
 @ diagnostics[]

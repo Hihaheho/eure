@@ -1,8 +1,8 @@
 //! LSP-specific queries that convert to LSP types.
 
 use eure::query::{
-    DiagnosticMessage, DiagnosticSeverity, GetDiagnostics, GetSemanticTokens, SemanticToken,
-    TextFile,
+    DiagnosticMessage, DiagnosticSeverity, GetDiagnostics, GetFileDiagnostics, GetSemanticTokens,
+    SemanticToken, TextFile,
 };
 use lsp_types::{
     Diagnostic, DiagnosticSeverity as LspSeverity, Position, Range,
@@ -59,6 +59,28 @@ pub fn lsp_diagnostics(
     }
 
     Ok(result)
+}
+
+/// LSP-formatted diagnostics for a single file.
+///
+/// Wraps `GetFileDiagnostics` and converts to LSP `Diagnostic` format.
+/// Returns diagnostics only for the specified file.
+#[query]
+pub fn lsp_file_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<Diagnostic>, QueryError> {
+    let diagnostics = db.query(GetFileDiagnostics::new(file.clone()))?;
+
+    // Get source for position conversion
+    let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(file.clone())?;
+    let line_offsets = compute_line_offsets(source.get());
+
+    // Convert to LSP diagnostics
+    let lsp_diagnostics: Vec<Diagnostic> = diagnostics
+        .iter()
+        .filter(|d| d.file == file) // Only include diagnostics for this file
+        .map(|d| convert_diagnostic(d, source.get(), &line_offsets))
+        .collect();
+
+    Ok(lsp_diagnostics)
 }
 
 /// Convert internal semantic tokens to LSP format.
