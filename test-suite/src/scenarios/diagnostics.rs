@@ -115,7 +115,7 @@ fn verify_span_positions(
 ) -> Result<(), ScenarioError> {
     for (i, (exp, act)) in expected.iter().zip(actual.iter()).enumerate() {
         // Get the content of the file where the diagnostic is located
-        let file_content = db.asset(act.file.clone())?.suspend()?;
+        let file_content = db.asset(act.file.clone())?;
 
         // Resolve span positions (from span string or explicit start/end)
         let resolved = resolve_span(exp, file_content.get(), i)?;

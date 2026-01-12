@@ -53,7 +53,7 @@ pub fn resolve_config(db: &impl Db, file: TextFile) -> Result<Option<ResolvedCon
     };
 
     for workspace_id in db.list_asset_keys::<WorkspaceId>() {
-        let workspace = db.asset(workspace_id)?.suspend()?;
+        let workspace = db.asset(workspace_id)?;
 
         if file_path.starts_with(&workspace.path) {
             let config_file = TextFile::from_path(workspace.config_path.clone());
@@ -75,7 +75,7 @@ pub fn workspace_config(
     db: &impl Db,
     workspace_id: WorkspaceId,
 ) -> Result<ResolvedConfig, QueryError> {
-    let workspace = db.asset(workspace_id)?.suspend()?;
+    let workspace = db.asset(workspace_id)?;
     let config_file = TextFile::from_path(workspace.config_path.clone());
     let config = db.query(ParseConfig::new(config_file))?;
     Ok(ResolvedConfig {

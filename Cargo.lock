@@ -3919,7 +3919,7 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.12.3"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26adee75cb1d14232aac27d2c9b0a4b7d5fd2b0233a2e062f14a32afc0c481da"
 dependencies = [

@@ -49,8 +49,7 @@ pub fn lsp_diagnostics(
     // Convert each group to LSP diagnostics using the correct source
     let mut result = Vec::new();
     for (diag_file, file_diagnostics) in by_file {
-        let source: std::sync::Arc<eure::query::TextFileContent> =
-            db.asset(diag_file.clone())?.suspend()?;
+        let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(diag_file.clone())?;
         let line_offsets = compute_line_offsets(source.get());
         let lsp_diagnostics: Vec<Diagnostic> = file_diagnostics
             .iter()

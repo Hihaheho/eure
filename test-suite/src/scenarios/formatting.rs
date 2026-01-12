@@ -12,17 +12,11 @@ pub struct FormattingScenario {
 impl Scenario for FormattingScenario {
     fn run(self, db: &impl Db) -> Result<(), ScenarioError> {
         // Get input source and CST
-        let input_source = {
-            let file = self.input.clone();
-            db.asset(file.clone())?.suspend()
-        }?;
+        let input_source = db.asset(self.input.clone())?;
         let input_cst = db.query(ParseCst::new(self.input.clone()))?;
 
         // Get expected source
-        let expected_source = {
-            let file = self.expected.clone();
-            db.asset(file.clone())?.suspend()
-        }?;
+        let expected_source = db.asset(self.expected.clone())?;
 
         // Format the input
         let config = FormatConfig::default();

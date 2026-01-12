@@ -114,7 +114,7 @@ pub fn validate_target(
         .iter()
         .map(|glob_pattern| {
             let glob_key = Glob::new(config_dir.clone(), glob_pattern.clone());
-            db.asset(glob_key)?.suspend()
+            db.asset(glob_key)
         })
         // Register all Glob as pending assets before suspending
         .collect::<Vec<_>>()

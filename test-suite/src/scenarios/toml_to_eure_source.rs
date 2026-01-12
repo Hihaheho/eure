@@ -14,10 +14,7 @@ impl Scenario for TomlToEureSourceScenario {
         let actual = db.query(TomlToEureSource::new(self.input_toml.clone()))?;
 
         // Read expected Eure source directly
-        let expected = {
-            let file = self.input_eure.clone();
-            db.asset(file.clone())?.suspend()
-        }?;
+        let expected = db.asset(self.input_eure.clone().clone())?;
 
         if *actual != expected.get() {
             return Err(ScenarioError::TomlToEureSourceMismatch {

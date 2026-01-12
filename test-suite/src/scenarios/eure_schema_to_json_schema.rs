@@ -17,10 +17,8 @@ impl Scenario for EureSchemaToJsonSchemaScenario {
             db.query(EureSchemaToJsonSchemaQuery::new(self.schema.clone()))?;
 
         // Read expected JSON schema
-        let expected_str = {
-            let file = self.output_json_schema.clone();
-            db.asset(file.clone())?.suspend()
-        }?;
+        let expected_str = db.asset(self.output_json_schema.clone())?;
+
         let expected: serde_json::Value =
             serde_json::from_str(expected_str.get()).map_err(|e| {
                 ScenarioError::JsonParseError {

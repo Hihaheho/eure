@@ -21,7 +21,7 @@ pub struct ParsedCst {
 }
 
 pub fn read_text_file(db: &impl Db, file: TextFile) -> Result<Arc<TextFileContent>, QueryError> {
-    db.asset(file.clone())?.suspend()
+    db.asset(file.clone())
 }
 
 /// Step 1: Parse text content to CST (tolerant).

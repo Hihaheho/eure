@@ -587,7 +587,7 @@ impl RenderContext {
 /// Returns `Ok(Some(info))` if file exists, `Ok(None)` if file not found,
 /// or propagates suspension error if content isn't loaded yet.
 fn get_file_content(db: &impl Db, file: &TextFile) -> Result<Option<FileInfo>, QueryError> {
-    let content: Arc<TextFileContent> = db.asset(file.clone())?.suspend()?;
+    let content: Arc<TextFileContent> = db.asset(file.clone())?;
     Ok(Some(FileInfo {
         path: file.to_string(),
         source: content.get().to_string(),

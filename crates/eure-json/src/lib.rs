@@ -34,7 +34,7 @@ pub fn json_to_eure(
     json_file: TextFile,
     config: Config,
 ) -> Result<EureDocument, QueryError> {
-    let content = db.asset(json_file.clone())?.suspend()?;
+    let content = db.asset(json_file.clone())?;
     let json: JsonValue = serde_json::from_str(content.get())?;
     Ok(value_to_document(&json, &config)?)
 }
