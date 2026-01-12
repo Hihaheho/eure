@@ -49,7 +49,9 @@ pub use reqwest;
 pub use schema::{
     DocumentToSchemaQuery, GetSchemaConversionErrorFormatted, GetSchemaExtension,
     GetSchemaExtensionDiagnostics, GetValidationErrorsFormatted,
-    GetValidationErrorsFormattedWithMode, ResolveSchema, UnionTagMode, ValidateAgainstSchema,
+    GetValidationErrorsFormattedExplicit, GetValidationErrorsFormattedExplicitWithMode,
+    GetValidationErrorsFormattedWithMode, ResolveSchema, UnionTagMode,
+    ValidateAgainstExplicitSchema, ValidateAgainstExplicitSchemaWithMode, ValidateAgainstSchema,
     ValidateAgainstSchemaWithMode, ValidatedSchema,
 };
 pub use semantic_token::{

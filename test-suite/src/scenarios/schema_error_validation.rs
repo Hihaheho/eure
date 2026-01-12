@@ -1,4 +1,4 @@
-use eure::query::{GetValidationErrorsFormattedWithMode, TextFile, UnionTagMode};
+use eure::query::{GetValidationErrorsFormattedExplicitWithMode, TextFile, UnionTagMode};
 use query_flow::Db;
 
 use crate::parser::InputUnionTagMode;
@@ -14,7 +14,7 @@ pub struct SchemaErrorValidationScenario {
 impl Scenario for SchemaErrorValidationScenario {
     fn run(self, db: &impl Db) -> Result<(), ScenarioError> {
         let mode: UnionTagMode = self.union_tag_mode.into();
-        let errors = db.query(GetValidationErrorsFormattedWithMode::new(
+        let errors = db.query(GetValidationErrorsFormattedExplicitWithMode::new(
             self.input.clone(),
             self.schema.clone(),
             mode,

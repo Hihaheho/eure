@@ -9,14 +9,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use eure_env::Target;
-use query_flow::{Db, QueryError, QueryResultExt, query};
+use query_flow::{Db, QueryError, query};
 use thisisplural::Plural;
 
 use crate::report::ErrorReports;
 
 use super::assets::{Glob, TextFile};
-use super::parse::ParseDocument;
-use super::schema::ValidateAgainstSchema;
+use super::schema::{ValidateAgainstExplicitSchema, ValidateAgainstSchema};
 
 // =============================================================================
 // Document Validation
@@ -24,9 +23,9 @@ use super::schema::ValidateAgainstSchema;
 
 /// Validate a document, optionally against a specific schema.
 ///
-/// If schema_file is Some, validates against that schema.
-/// If schema_file is None, tries to resolve schema via ResolveSchema.
-/// If no schema can be determined, returns SyntaxOnly (syntax check passed).
+/// If schema_file is Some, validates against that explicit schema.
+/// If schema_file is None, resolves schema internally via $schema extension,
+/// workspace config, or file name heuristics.
 ///
 /// This is the SSoT for document validation - used by CLI, web editor, and LSP.
 #[query]
@@ -36,7 +35,8 @@ pub fn validate_document(
     schema_file: Option<TextFile>,
 ) -> Result<ErrorReports, QueryError> {
     if let Some(sf) = schema_file {
-        match db.query(ValidateAgainstSchema::new(doc_file, sf)) {
+        // Explicit schema provided - use it directly
+        match db.query(ValidateAgainstExplicitSchema::new(doc_file, sf)) {
             Ok(reports) => Ok(reports.as_ref().clone()),
             Err(QueryError::UserError(e)) => {
                 // Schema conversion errors are returned as UserError containing ErrorReports
@@ -48,13 +48,20 @@ pub fn validate_document(
             }
             Err(other) => Err(other),
         }
-    } else if let Err(reports) = db
-        .query(ParseDocument::new(doc_file.clone()))
-        .downcast_err::<ErrorReports>()?
-    {
-        Ok(reports.get().clone())
     } else {
-        Ok(ErrorReports::new())
+        // No explicit schema - resolve internally and validate
+        match db.query(ValidateAgainstSchema::new(doc_file.clone())) {
+            Ok(reports) => Ok(reports.as_ref().clone()),
+            Err(QueryError::UserError(e)) => {
+                // Schema conversion errors are returned as UserError containing ErrorReports
+                if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+                    Ok(reports.clone())
+                } else {
+                    Err(QueryError::UserError(e))
+                }
+            }
+            Err(other) => Err(other),
+        }
     }
 }
 

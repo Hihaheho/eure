@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use eure::query::error::EureQueryError;
 use eure::query::{TextFile, TextFileContent, UnionTagMode, build_runtime};
 use eure_document::Text;
 use query_flow::{Db, DurabilityLevel, QueryRuntime};
@@ -539,9 +540,45 @@ impl Case {
             self.print_trace_header();
         }
 
+        // First pass: run scenarios and collect pending assets
         let scenarios = self.scenarios();
         if config.trace {
-            eprintln!("\n--- Running {} scenarios ---", scenarios.len());
+            eprintln!("\n--- Running {} scenarios (pass 1) ---", scenarios.len());
+        }
+
+        for scenario in scenarios {
+            if config.trace {
+                eprintln!("Running scenario: {}", scenario.name());
+            }
+            // Run scenario (ignore result, we'll re-run after resolving pending assets)
+            let _ = scenario.run(&runtime);
+        }
+
+        // Resolve any pending assets with ContentNotFound
+        // This handles cases like $schema pointing to non-existing files
+        let pending = runtime.pending_assets();
+        if !pending.is_empty() {
+            if config.trace {
+                eprintln!("\n--- Resolving {} pending assets ---", pending.len());
+            }
+            for pending_asset in pending {
+                if let Some(file) = pending_asset.key::<TextFile>() {
+                    if config.trace {
+                        eprintln!("Resolving missing file: {}", file);
+                    }
+                    runtime.resolve_asset_error::<TextFile>(
+                        file.clone(),
+                        EureQueryError::ContentNotFound(file.clone()),
+                        DurabilityLevel::Static,
+                    );
+                }
+            }
+        }
+
+        // Second pass: run scenarios with all assets resolved
+        let scenarios = self.scenarios();
+        if config.trace {
+            eprintln!("\n--- Running {} scenarios (pass 2) ---", scenarios.len());
         }
 
         let results = scenarios

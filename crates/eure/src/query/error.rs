@@ -3,7 +3,7 @@ use url::Url;
 
 use crate::query::TextFile;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum EureQueryError {
     #[error("File not found: {0}")]
     FileNotFound(TextFile),

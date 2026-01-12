@@ -7,7 +7,7 @@ use crate::query::parse::ParseCst;
 use crate::report::{ErrorReport, ErrorReports};
 
 use super::assets::TextFile;
-use super::schema::{GetSchemaExtensionDiagnostics, ResolveSchema, ValidateAgainstSchema};
+use super::schema::{GetSchemaExtensionDiagnostics, ValidateAgainstSchema};
 
 /// Severity level for diagnostics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,26 +56,22 @@ pub fn get_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<DiagnosticMes
         let schema_ext_errors = db.query(GetSchemaExtensionDiagnostics::new(file.clone()))?;
         diagnostics.extend(schema_ext_errors.iter().map(error_report_to_diagnostic));
 
-        // 3. Collect schema validation errors (including schema conversion errors)
-        if let Some(schema_file) = db.query(ResolveSchema::new(file.clone()))?.as_ref() {
-            match db.query(ValidateAgainstSchema::new(
-                file.clone(),
-                schema_file.clone(),
-            )) {
-                Ok(reports) => {
-                    diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
-                }
-                Err(QueryError::UserError(e)) => {
-                    // Schema conversion errors are returned as UserError containing ErrorReports
-                    if let Some(reports) = e.downcast_ref::<ErrorReports>() {
-                        diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
-                    } else {
-                        // Re-propagate unknown user errors
-                        return Err(QueryError::UserError(e));
-                    }
-                }
-                Err(other) => return Err(other),
+        // 3. Collect schema validation errors (including schema file not found and conversion errors)
+        // ValidateAgainstSchema resolves the schema internally and handles file not found with proper origin
+        match db.query(ValidateAgainstSchema::new(file.clone())) {
+            Ok(reports) => {
+                diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
             }
+            Err(QueryError::UserError(e)) => {
+                // Schema conversion errors are returned as UserError containing ErrorReports
+                if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+                    diagnostics.extend(reports.iter().map(error_report_to_diagnostic));
+                } else {
+                    // Re-propagate unknown user errors
+                    return Err(QueryError::UserError(e));
+                }
+            }
+            Err(other) => return Err(other),
         }
     }
 

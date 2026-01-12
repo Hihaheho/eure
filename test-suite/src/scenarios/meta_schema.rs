@@ -1,4 +1,4 @@
-use eure::query::{GetValidationErrorsFormatted, TextFile};
+use eure::query::{GetValidationErrorsFormattedExplicit, TextFile};
 use query_flow::Db;
 
 use crate::scenarios::{Scenario, ScenarioError, compare_error_lists};
@@ -11,7 +11,7 @@ pub struct MetaSchemaScenario {
 
 impl Scenario for MetaSchemaScenario {
     fn run(self, db: &impl Db) -> Result<(), ScenarioError> {
-        let errors = db.query(GetValidationErrorsFormatted::new(
+        let errors = db.query(GetValidationErrorsFormattedExplicit::new(
             self.schema.clone(),
             self.meta_schema.clone(),
         ))?;

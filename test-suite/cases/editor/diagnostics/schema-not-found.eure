@@ -1,0 +1,15 @@
+// Test: $schema pointing to non-existing file
+// When $schema references a file that doesn't exist,
+// the error should be reported at the $schema value
+
+editor = ```eure
+$schema = "non-existing.eure"
+name = "test"
+```
+
+// Expected: Error should be reported at the $schema value in the editor file
+@ diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Failed to load schema: Content not found: non-existing.eure"
+span = `"non-existing.eure"`

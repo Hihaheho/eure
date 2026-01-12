@@ -1,4 +1,4 @@
-use eure::query::{TextFile, UnionTagMode};
+use eure::query::{TextFile, UnionTagMode, ValidateAgainstExplicitSchemaWithMode};
 use query_flow::Db;
 
 use crate::parser::InputUnionTagMode;
@@ -12,10 +12,8 @@ pub struct SchemaValidationScenario {
 
 impl Scenario for SchemaValidationScenario {
     fn run(self, db: &impl Db) -> Result<(), ScenarioError> {
-        use eure::query::ValidateAgainstSchemaWithMode;
-
         let mode: UnionTagMode = self.union_tag_mode.into();
-        let validation = db.query(ValidateAgainstSchemaWithMode::new(
+        let validation = db.query(ValidateAgainstExplicitSchemaWithMode::new(
             self.input.clone(),
             self.schema.clone(),
             mode,
