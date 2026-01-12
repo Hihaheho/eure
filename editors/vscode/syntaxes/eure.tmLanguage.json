@@ -777,8 +777,15 @@
       "end": "```",
       "beginCaptures": { "1": { "name": "punctuation.definition.code.begin.eure" }, "2": { "name": "entity.name.function.eure" } },
       "endCaptures": { "0": { "name": "punctuation.definition.code.end.eure" } },
-      "contentName": "meta.embedded.block.markdown",
-      "patterns": [{ "include": "text.html.markdown" }]
+      "name": "markup.fenced_code.block.markdown.eure",
+      "patterns": [
+        {
+          "begin": "^",
+          "end": "(?=```)",
+          "contentName": "meta.embedded.block.markdown",
+          "patterns": [{ "include": "text.html.markdown" }]
+        }
+      ]
     },
     "code-block-3-shell": {
       "begin": "(```)(shell|bash|sh|zsh)\\s*$",
@@ -889,8 +896,15 @@
       "end": "````",
       "beginCaptures": { "1": { "name": "punctuation.definition.code.begin.eure" }, "2": { "name": "entity.name.function.eure" } },
       "endCaptures": { "0": { "name": "punctuation.definition.code.end.eure" } },
-      "contentName": "meta.embedded.block.markdown",
-      "patterns": [{ "include": "text.html.markdown" }]
+      "name": "markup.fenced_code.block.markdown.eure",
+      "patterns": [
+        {
+          "begin": "^",
+          "end": "(?=````)",
+          "contentName": "meta.embedded.block.markdown",
+          "patterns": [{ "include": "text.html.markdown" }]
+        }
+      ]
     },
     "code-block-4-shell": {
       "begin": "(````)(shell|bash|sh|zsh)\\s*$",
@@ -1001,8 +1015,15 @@
       "end": "`````",
       "beginCaptures": { "1": { "name": "punctuation.definition.code.begin.eure" }, "2": { "name": "entity.name.function.eure" } },
       "endCaptures": { "0": { "name": "punctuation.definition.code.end.eure" } },
-      "contentName": "meta.embedded.block.markdown",
-      "patterns": [{ "include": "text.html.markdown" }]
+      "name": "markup.fenced_code.block.markdown.eure",
+      "patterns": [
+        {
+          "begin": "^",
+          "end": "(?=`````)",
+          "contentName": "meta.embedded.block.markdown",
+          "patterns": [{ "include": "text.html.markdown" }]
+        }
+      ]
     },
     "code-block-5-shell": {
       "begin": "(`````)(shell|bash|sh|zsh)\\s*$",
@@ -1113,8 +1134,15 @@
       "end": "``````",
       "beginCaptures": { "1": { "name": "punctuation.definition.code.begin.eure" }, "2": { "name": "entity.name.function.eure" } },
       "endCaptures": { "0": { "name": "punctuation.definition.code.end.eure" } },
-      "contentName": "meta.embedded.block.markdown",
-      "patterns": [{ "include": "text.html.markdown" }]
+      "name": "markup.fenced_code.block.markdown.eure",
+      "patterns": [
+        {
+          "begin": "^",
+          "end": "(?=``````)",
+          "contentName": "meta.embedded.block.markdown",
+          "patterns": [{ "include": "text.html.markdown" }]
+        }
+      ]
     },
     "code-block-6-shell": {
       "begin": "(``````)(shell|bash|sh|zsh)\\s*$",

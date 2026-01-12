@@ -341,7 +341,7 @@ impl<'a> SemanticTokenVisitor<'a> {
             | TerminalKind::CodeBlockEnd5
             | TerminalKind::CodeBlockEnd6
             | TerminalKind::NoBacktick
-            | TerminalKind::BacktickDelim1
+            | TerminalKind::BacktickDelim
             | TerminalKind::Backtick2
             | TerminalKind::Backtick3
             | TerminalKind::Backtick4
@@ -352,15 +352,13 @@ impl<'a> SemanticTokenVisitor<'a> {
 
             // Delimited escaped string content and ends (Str1/2/3)
             TerminalKind::NoQuote
-            | TerminalKind::Quote1
-            | TerminalKind::Quote2
+            | TerminalKind::Quote
             | TerminalKind::Str1End
             | TerminalKind::Str2End
             | TerminalKind::Str3End
             // Delimited literal string content and ends (LitStr1/2/3)
             | TerminalKind::NoSQuote
-            | TerminalKind::SQuote1
-            | TerminalKind::SQuote2
+            | TerminalKind::SQuote
             | TerminalKind::LitStr1End
             | TerminalKind::LitStr2End
             | TerminalKind::LitStr3End => Some(SemanticTokenType::String),

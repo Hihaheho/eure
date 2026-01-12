@@ -83,9 +83,9 @@ impl TerminalTokens {
                         let view = h.get_view(tree)?;
                         tokens.push_terminal(view.no_quote.get_data(tree)?);
                     }
-                    Str1ListGroupView::Quote1(h) => {
+                    Str1ListGroupView::Quote(h) => {
                         let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.quote_1.get_data(tree)?);
+                        tokens.push_terminal(view.quote.get_data(tree)?);
                     }
                 }
             }
@@ -107,9 +107,9 @@ impl TerminalTokens {
                         let view = h.get_view(tree)?;
                         tokens.push_terminal(view.no_quote.get_data(tree)?);
                     }
-                    Str2ListGroupView::Quote1(h) => {
+                    Str2ListGroupView::Quote(h) => {
                         let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.quote_1.get_data(tree)?);
+                        tokens.push_terminal(view.quote.get_data(tree)?);
                     }
                 }
             }
@@ -131,9 +131,9 @@ impl TerminalTokens {
                         let view = h.get_view(tree)?;
                         tokens.push_terminal(view.no_quote.get_data(tree)?);
                     }
-                    Str3ListGroupView::Quote2(h) => {
+                    Str3ListGroupView::Quote(h) => {
                         let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.quote_2.get_data(tree)?);
+                        tokens.push_terminal(view.quote.get_data(tree)?);
                     }
                 }
             }
@@ -155,9 +155,9 @@ impl TerminalTokens {
                         let view = h.get_view(tree)?;
                         tokens.push_terminal(view.no_s_quote.get_data(tree)?);
                     }
-                    LitStr1ListGroupView::SQuote1(h) => {
+                    LitStr1ListGroupView::SQuote(h) => {
                         let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.s_quote_1.get_data(tree)?);
+                        tokens.push_terminal(view.s_quote.get_data(tree)?);
                     }
                 }
             }
@@ -179,9 +179,9 @@ impl TerminalTokens {
                         let view = h.get_view(tree)?;
                         tokens.push_terminal(view.no_s_quote.get_data(tree)?);
                     }
-                    LitStr2ListGroupView::SQuote1(h) => {
+                    LitStr2ListGroupView::SQuote(h) => {
                         let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.s_quote_1.get_data(tree)?);
+                        tokens.push_terminal(view.s_quote.get_data(tree)?);
                     }
                 }
             }
@@ -203,9 +203,9 @@ impl TerminalTokens {
                         let view = h.get_view(tree)?;
                         tokens.push_terminal(view.no_s_quote.get_data(tree)?);
                     }
-                    LitStr3ListGroupView::SQuote2(h) => {
+                    LitStr3ListGroupView::SQuote(h) => {
                         let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.s_quote_2.get_data(tree)?);
+                        tokens.push_terminal(view.s_quote.get_data(tree)?);
                     }
                 }
             }

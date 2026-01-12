@@ -444,13 +444,8 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'Quote2'
-    fn quote2(&mut self, _arg: &Quote2<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Quote1'
-    fn quote1(&mut self, _arg: &Quote1<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'Quote'
+    fn quote(&mut self, _arg: &Quote<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -474,13 +469,8 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'SQuote2'
-    fn s_quote2(&mut self, _arg: &SQuote2<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'SQuote1'
-    fn s_quote1(&mut self, _arg: &SQuote1<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'SQuote'
+    fn s_quote(&mut self, _arg: &SQuote<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -504,8 +494,8 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'BacktickDelim1'
-    fn backtick_delim1(&mut self, _arg: &BacktickDelim1<'t>) -> Result<()> {
+    /// Semantic action for non-terminal 'BacktickDelim'
+    fn backtick_delim(&mut self, _arg: &BacktickDelim<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -1397,17 +1387,17 @@ impl ToSpan for Str1ListGroupNoQuote<'_> {
 ///
 /// Type derived for production 131
 ///
-/// `Str1ListGroup: Quote1;`
+/// `Str1ListGroup: Quote;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct Str1ListGroupQuote1<'t> {
-    pub quote1: Quote1<'t>,
+pub struct Str1ListGroupQuote<'t> {
+    pub quote: Quote<'t>,
 }
 
-impl ToSpan for Str1ListGroupQuote1<'_> {
+impl ToSpan for Str1ListGroupQuote<'_> {
     fn span(&self) -> Span {
-        self.quote1.span()
+        self.quote.span()
     }
 }
 
@@ -1431,17 +1421,17 @@ impl ToSpan for Str2ListGroupNoQuote<'_> {
 ///
 /// Type derived for production 136
 ///
-/// `Str2ListGroup: Quote1;`
+/// `Str2ListGroup: Quote;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct Str2ListGroupQuote1<'t> {
-    pub quote1: Quote1<'t>,
+pub struct Str2ListGroupQuote<'t> {
+    pub quote: Quote<'t>,
 }
 
-impl ToSpan for Str2ListGroupQuote1<'_> {
+impl ToSpan for Str2ListGroupQuote<'_> {
     fn span(&self) -> Span {
-        self.quote1.span()
+        self.quote.span()
     }
 }
 
@@ -1465,17 +1455,17 @@ impl ToSpan for Str3ListGroupNoQuote<'_> {
 ///
 /// Type derived for production 141
 ///
-/// `Str3ListGroup: Quote2;`
+/// `Str3ListGroup: Quote;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct Str3ListGroupQuote2<'t> {
-    pub quote2: Quote2<'t>,
+pub struct Str3ListGroupQuote<'t> {
+    pub quote: Quote<'t>,
 }
 
-impl ToSpan for Str3ListGroupQuote2<'_> {
+impl ToSpan for Str3ListGroupQuote<'_> {
     fn span(&self) -> Span {
-        self.quote2.span()
+        self.quote.span()
     }
 }
 
@@ -1499,17 +1489,17 @@ impl ToSpan for LitStr1ListGroupNoSQuote<'_> {
 ///
 /// Type derived for production 146
 ///
-/// `LitStr1ListGroup: SQuote1;`
+/// `LitStr1ListGroup: SQuote;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct LitStr1ListGroupSQuote1<'t> {
-    pub s_quote1: SQuote1<'t>,
+pub struct LitStr1ListGroupSQuote<'t> {
+    pub s_quote: SQuote<'t>,
 }
 
-impl ToSpan for LitStr1ListGroupSQuote1<'_> {
+impl ToSpan for LitStr1ListGroupSQuote<'_> {
     fn span(&self) -> Span {
-        self.s_quote1.span()
+        self.s_quote.span()
     }
 }
 
@@ -1533,17 +1523,17 @@ impl ToSpan for LitStr2ListGroupNoSQuote<'_> {
 ///
 /// Type derived for production 151
 ///
-/// `LitStr2ListGroup: SQuote1;`
+/// `LitStr2ListGroup: SQuote;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct LitStr2ListGroupSQuote1<'t> {
-    pub s_quote1: SQuote1<'t>,
+pub struct LitStr2ListGroupSQuote<'t> {
+    pub s_quote: SQuote<'t>,
 }
 
-impl ToSpan for LitStr2ListGroupSQuote1<'_> {
+impl ToSpan for LitStr2ListGroupSQuote<'_> {
     fn span(&self) -> Span {
-        self.s_quote1.span()
+        self.s_quote.span()
     }
 }
 
@@ -1567,17 +1557,17 @@ impl ToSpan for LitStr3ListGroupNoSQuote<'_> {
 ///
 /// Type derived for production 156
 ///
-/// `LitStr3ListGroup: SQuote2;`
+/// `LitStr3ListGroup: SQuote;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct LitStr3ListGroupSQuote2<'t> {
-    pub s_quote2: SQuote2<'t>,
+pub struct LitStr3ListGroupSQuote<'t> {
+    pub s_quote: SQuote<'t>,
 }
 
-impl ToSpan for LitStr3ListGroupSQuote2<'_> {
+impl ToSpan for LitStr3ListGroupSQuote<'_> {
     fn span(&self) -> Span {
-        self.s_quote2.span()
+        self.s_quote.span()
     }
 }
 
@@ -1652,17 +1642,17 @@ impl ToSpan for DelimCode1ListGroupNoBacktick<'_> {
 ///
 /// Type derived for production 164
 ///
-/// `DelimCode1ListGroup: BacktickDelim1;`
+/// `DelimCode1ListGroup: BacktickDelim;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct DelimCode1ListGroupBacktickDelim1<'t> {
-    pub backtick_delim1: BacktickDelim1<'t>,
+pub struct DelimCode1ListGroupBacktickDelim<'t> {
+    pub backtick_delim: BacktickDelim<'t>,
 }
 
-impl ToSpan for DelimCode1ListGroupBacktickDelim1<'_> {
+impl ToSpan for DelimCode1ListGroupBacktickDelim<'_> {
     fn span(&self) -> Span {
-        self.backtick_delim1.span()
+        self.backtick_delim.span()
     }
 }
 
@@ -1686,17 +1676,17 @@ impl ToSpan for DelimCode2ListGroupNoBacktick<'_> {
 ///
 /// Type derived for production 169
 ///
-/// `DelimCode2ListGroup: BacktickDelim1;`
+/// `DelimCode2ListGroup: BacktickDelim;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct DelimCode2ListGroupBacktickDelim1<'t> {
-    pub backtick_delim1: BacktickDelim1<'t>,
+pub struct DelimCode2ListGroupBacktickDelim<'t> {
+    pub backtick_delim: BacktickDelim<'t>,
 }
 
-impl ToSpan for DelimCode2ListGroupBacktickDelim1<'_> {
+impl ToSpan for DelimCode2ListGroupBacktickDelim<'_> {
     fn span(&self) -> Span {
-        self.backtick_delim1.span()
+        self.backtick_delim.span()
     }
 }
 
@@ -1720,17 +1710,17 @@ impl ToSpan for DelimCode3ListGroupNoBacktick<'_> {
 ///
 /// Type derived for production 174
 ///
-/// `DelimCode3ListGroup: Backtick2;`
+/// `DelimCode3ListGroup: BacktickDelim;`
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct DelimCode3ListGroupBacktick2<'t> {
-    pub backtick2: Backtick2<'t>,
+pub struct DelimCode3ListGroupBacktickDelim<'t> {
+    pub backtick_delim: BacktickDelim<'t>,
 }
 
-impl ToSpan for DelimCode3ListGroupBacktick2<'_> {
+impl ToSpan for DelimCode3ListGroupBacktickDelim<'_> {
     fn span(&self) -> Span {
-        self.backtick2.span()
+        self.backtick_delim.span()
     }
 }
 
@@ -2193,17 +2183,17 @@ impl ToSpan for Backtick5<'_> {
 }
 
 ///
-/// Type derived for non-terminal BacktickDelim1
+/// Type derived for non-terminal BacktickDelim
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct BacktickDelim1<'t> {
-    pub backtick_delim1: Token<'t>, /* ` */
+pub struct BacktickDelim<'t> {
+    pub backtick_delim: Token<'t>, /* ` */
 }
 
-impl ToSpan for BacktickDelim1<'_> {
+impl ToSpan for BacktickDelim<'_> {
     fn span(&self) -> Span {
-        self.backtick_delim1.span()
+        self.backtick_delim.span()
     }
 }
 
@@ -2697,7 +2687,7 @@ impl ToSpan for Comma<'_> {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Continue<'t> {
-    pub r#continue: Token<'t>, /* \\ */
+    pub r#continue: Token<'t>, /* \ */
 }
 
 impl ToSpan for Continue<'_> {
@@ -2775,14 +2765,14 @@ impl ToSpan for DelimCode1List<'_> {
 #[derive(Debug, Clone)]
 pub enum DelimCode1ListGroup<'t> {
     NoBacktick(DelimCode1ListGroupNoBacktick<'t>),
-    BacktickDelim1(DelimCode1ListGroupBacktickDelim1<'t>),
+    BacktickDelim(DelimCode1ListGroupBacktickDelim<'t>),
 }
 
 impl ToSpan for DelimCode1ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             DelimCode1ListGroup::NoBacktick(v) => v.span(),
-            DelimCode1ListGroup::BacktickDelim1(v) => v.span(),
+            DelimCode1ListGroup::BacktickDelim(v) => v.span(),
         }
     }
 }
@@ -2835,14 +2825,14 @@ impl ToSpan for DelimCode2List<'_> {
 #[derive(Debug, Clone)]
 pub enum DelimCode2ListGroup<'t> {
     NoBacktick(DelimCode2ListGroupNoBacktick<'t>),
-    BacktickDelim1(DelimCode2ListGroupBacktickDelim1<'t>),
+    BacktickDelim(DelimCode2ListGroupBacktickDelim<'t>),
 }
 
 impl ToSpan for DelimCode2ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             DelimCode2ListGroup::NoBacktick(v) => v.span(),
-            DelimCode2ListGroup::BacktickDelim1(v) => v.span(),
+            DelimCode2ListGroup::BacktickDelim(v) => v.span(),
         }
     }
 }
@@ -2895,14 +2885,14 @@ impl ToSpan for DelimCode3List<'_> {
 #[derive(Debug, Clone)]
 pub enum DelimCode3ListGroup<'t> {
     NoBacktick(DelimCode3ListGroupNoBacktick<'t>),
-    Backtick2(DelimCode3ListGroupBacktick2<'t>),
+    BacktickDelim(DelimCode3ListGroupBacktickDelim<'t>),
 }
 
 impl ToSpan for DelimCode3ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             DelimCode3ListGroup::NoBacktick(v) => v.span(),
-            DelimCode3ListGroup::Backtick2(v) => v.span(),
+            DelimCode3ListGroup::BacktickDelim(v) => v.span(),
         }
     }
 }
@@ -3604,14 +3594,14 @@ impl ToSpan for LitStr1List<'_> {
 #[derive(Debug, Clone)]
 pub enum LitStr1ListGroup<'t> {
     NoSQuote(LitStr1ListGroupNoSQuote<'t>),
-    SQuote1(LitStr1ListGroupSQuote1<'t>),
+    SQuote(LitStr1ListGroupSQuote<'t>),
 }
 
 impl ToSpan for LitStr1ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             LitStr1ListGroup::NoSQuote(v) => v.span(),
-            LitStr1ListGroup::SQuote1(v) => v.span(),
+            LitStr1ListGroup::SQuote(v) => v.span(),
         }
     }
 }
@@ -3694,14 +3684,14 @@ impl ToSpan for LitStr2List<'_> {
 #[derive(Debug, Clone)]
 pub enum LitStr2ListGroup<'t> {
     NoSQuote(LitStr2ListGroupNoSQuote<'t>),
-    SQuote1(LitStr2ListGroupSQuote1<'t>),
+    SQuote(LitStr2ListGroupSQuote<'t>),
 }
 
 impl ToSpan for LitStr2ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             LitStr2ListGroup::NoSQuote(v) => v.span(),
-            LitStr2ListGroup::SQuote1(v) => v.span(),
+            LitStr2ListGroup::SQuote(v) => v.span(),
         }
     }
 }
@@ -3784,14 +3774,14 @@ impl ToSpan for LitStr3List<'_> {
 #[derive(Debug, Clone)]
 pub enum LitStr3ListGroup<'t> {
     NoSQuote(LitStr3ListGroupNoSQuote<'t>),
-    SQuote2(LitStr3ListGroupSQuote2<'t>),
+    SQuote(LitStr3ListGroupSQuote<'t>),
 }
 
 impl ToSpan for LitStr3ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             LitStr3ListGroup::NoSQuote(v) => v.span(),
-            LitStr3ListGroup::SQuote2(v) => v.span(),
+            LitStr3ListGroup::SQuote(v) => v.span(),
         }
     }
 }
@@ -4030,32 +4020,17 @@ impl ToSpan for ObjectOpt1<'_> {
 }
 
 ///
-/// Type derived for non-terminal Quote1
+/// Type derived for non-terminal Quote
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct Quote1<'t> {
-    pub quote1: Token<'t>, /* " */
+pub struct Quote<'t> {
+    pub quote: Token<'t>, /* " */
 }
 
-impl ToSpan for Quote1<'_> {
+impl ToSpan for Quote<'_> {
     fn span(&self) -> Span {
-        self.quote1.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Quote2
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Quote2<'t> {
-    pub quote2: Token<'t>, /* "{1,2} */
-}
-
-impl ToSpan for Quote2<'_> {
-    fn span(&self) -> Span {
-        self.quote2.span()
+        self.quote.span()
     }
 }
 
@@ -4075,32 +4050,17 @@ impl ToSpan for RParen<'_> {
 }
 
 ///
-/// Type derived for non-terminal SQuote1
+/// Type derived for non-terminal SQuote
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct SQuote1<'t> {
-    pub s_quote1: Token<'t>, /* ' */
+pub struct SQuote<'t> {
+    pub s_quote: Token<'t>, /* ' */
 }
 
-impl ToSpan for SQuote1<'_> {
+impl ToSpan for SQuote<'_> {
     fn span(&self) -> Span {
-        self.s_quote1.span()
-    }
-}
-
-///
-/// Type derived for non-terminal SQuote2
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct SQuote2<'t> {
-    pub s_quote2: Token<'t>, /* '{1,2} */
-}
-
-impl ToSpan for SQuote2<'_> {
-    fn span(&self) -> Span {
-        self.s_quote2.span()
+        self.s_quote.span()
     }
 }
 
@@ -4259,14 +4219,14 @@ impl ToSpan for Str1List<'_> {
 #[derive(Debug, Clone)]
 pub enum Str1ListGroup<'t> {
     NoQuote(Str1ListGroupNoQuote<'t>),
-    Quote1(Str1ListGroupQuote1<'t>),
+    Quote(Str1ListGroupQuote<'t>),
 }
 
 impl ToSpan for Str1ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             Str1ListGroup::NoQuote(v) => v.span(),
-            Str1ListGroup::Quote1(v) => v.span(),
+            Str1ListGroup::Quote(v) => v.span(),
         }
     }
 }
@@ -4343,14 +4303,14 @@ impl ToSpan for Str2List<'_> {
 #[derive(Debug, Clone)]
 pub enum Str2ListGroup<'t> {
     NoQuote(Str2ListGroupNoQuote<'t>),
-    Quote1(Str2ListGroupQuote1<'t>),
+    Quote(Str2ListGroupQuote<'t>),
 }
 
 impl ToSpan for Str2ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             Str2ListGroup::NoQuote(v) => v.span(),
-            Str2ListGroup::Quote1(v) => v.span(),
+            Str2ListGroup::Quote(v) => v.span(),
         }
     }
 }
@@ -4427,14 +4387,14 @@ impl ToSpan for Str3List<'_> {
 #[derive(Debug, Clone)]
 pub enum Str3ListGroup<'t> {
     NoQuote(Str3ListGroupNoQuote<'t>),
-    Quote2(Str3ListGroupQuote2<'t>),
+    Quote(Str3ListGroupQuote<'t>),
 }
 
 impl ToSpan for Str3ListGroup<'_> {
     fn span(&self) -> Span {
         match self {
             Str3ListGroup::NoQuote(v) => v.span(),
-            Str3ListGroup::Quote2(v) => v.span(),
+            Str3ListGroup::Quote(v) => v.span(),
         }
     }
 }
@@ -4837,7 +4797,7 @@ pub enum ASTType<'t> {
     Backtick3(Backtick3<'t>),
     Backtick4(Backtick4<'t>),
     Backtick5(Backtick5<'t>),
-    BacktickDelim1(BacktickDelim1<'t>),
+    BacktickDelim(BacktickDelim<'t>),
     Begin(Begin<'t>),
     Bind(Bind<'t>),
     Binding(Binding<'t>),
@@ -4941,11 +4901,9 @@ pub enum ASTType<'t> {
     ObjectOpt(Option<ObjectOpt<'t>>),
     ObjectOpt0(Option<ObjectOpt0<'t>>),
     ObjectOpt1(Option<ObjectOpt1<'t>>),
-    Quote1(Quote1<'t>),
-    Quote2(Quote2<'t>),
+    Quote(Quote<'t>),
     RParen(RParen<'t>),
-    SQuote1(SQuote1<'t>),
-    SQuote2(SQuote2<'t>),
+    SQuote(SQuote<'t>),
     Section(Section<'t>),
     SectionBinding(SectionBinding<'t>),
     SectionBody(SectionBody<'t>),
@@ -5005,7 +4963,7 @@ impl ToSpan for ASTType<'_> {
             ASTType::Backtick3(v) => v.span(),
             ASTType::Backtick4(v) => v.span(),
             ASTType::Backtick5(v) => v.span(),
-            ASTType::BacktickDelim1(v) => v.span(),
+            ASTType::BacktickDelim(v) => v.span(),
             ASTType::Begin(v) => v.span(),
             ASTType::Bind(v) => v.span(),
             ASTType::Binding(v) => v.span(),
@@ -5151,11 +5109,9 @@ impl ToSpan for ASTType<'_> {
             ASTType::ObjectOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::ObjectOpt0(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::ObjectOpt1(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
-            ASTType::Quote1(v) => v.span(),
-            ASTType::Quote2(v) => v.span(),
+            ASTType::Quote(v) => v.span(),
             ASTType::RParen(v) => v.span(),
-            ASTType::SQuote1(v) => v.span(),
-            ASTType::SQuote2(v) => v.span(),
+            ASTType::SQuote(v) => v.span(),
             ASTType::Section(v) => v.span(),
             ASTType::SectionBinding(v) => v.span(),
             ASTType::SectionBody(v) => v.span(),
@@ -7635,15 +7591,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 131:
     ///
-    /// `Str1ListGroup: Quote1;`
+    /// `Str1ListGroup: Quote;`
     ///
     #[parol_runtime::function_name::named]
-    fn str1_list_group_1(&mut self, _quote1: &ParseTreeType<'t>) -> Result<()> {
+    fn str1_list_group_1(&mut self, _quote: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let quote1 = pop_item!(self, quote1, Quote1, context);
-        let str1_list_group_1_built = Str1ListGroupQuote1 { quote1 };
-        let str1_list_group_1_built = Str1ListGroup::Quote1(str1_list_group_1_built);
+        let quote = pop_item!(self, quote, Quote, context);
+        let str1_list_group_1_built = Str1ListGroupQuote { quote };
+        let str1_list_group_1_built = Str1ListGroup::Quote(str1_list_group_1_built);
         self.push(ASTType::Str1ListGroup(str1_list_group_1_built), context);
         Ok(())
     }
@@ -7726,15 +7682,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 136:
     ///
-    /// `Str2ListGroup: Quote1;`
+    /// `Str2ListGroup: Quote;`
     ///
     #[parol_runtime::function_name::named]
-    fn str2_list_group_1(&mut self, _quote1: &ParseTreeType<'t>) -> Result<()> {
+    fn str2_list_group_1(&mut self, _quote: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let quote1 = pop_item!(self, quote1, Quote1, context);
-        let str2_list_group_1_built = Str2ListGroupQuote1 { quote1 };
-        let str2_list_group_1_built = Str2ListGroup::Quote1(str2_list_group_1_built);
+        let quote = pop_item!(self, quote, Quote, context);
+        let str2_list_group_1_built = Str2ListGroupQuote { quote };
+        let str2_list_group_1_built = Str2ListGroup::Quote(str2_list_group_1_built);
         self.push(ASTType::Str2ListGroup(str2_list_group_1_built), context);
         Ok(())
     }
@@ -7817,15 +7773,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 141:
     ///
-    /// `Str3ListGroup: Quote2;`
+    /// `Str3ListGroup: Quote;`
     ///
     #[parol_runtime::function_name::named]
-    fn str3_list_group_1(&mut self, _quote2: &ParseTreeType<'t>) -> Result<()> {
+    fn str3_list_group_1(&mut self, _quote: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let quote2 = pop_item!(self, quote2, Quote2, context);
-        let str3_list_group_1_built = Str3ListGroupQuote2 { quote2 };
-        let str3_list_group_1_built = Str3ListGroup::Quote2(str3_list_group_1_built);
+        let quote = pop_item!(self, quote, Quote, context);
+        let str3_list_group_1_built = Str3ListGroupQuote { quote };
+        let str3_list_group_1_built = Str3ListGroup::Quote(str3_list_group_1_built);
         self.push(ASTType::Str3ListGroup(str3_list_group_1_built), context);
         Ok(())
     }
@@ -7913,15 +7869,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 146:
     ///
-    /// `LitStr1ListGroup: SQuote1;`
+    /// `LitStr1ListGroup: SQuote;`
     ///
     #[parol_runtime::function_name::named]
-    fn lit_str1_list_group_1(&mut self, _s_quote1: &ParseTreeType<'t>) -> Result<()> {
+    fn lit_str1_list_group_1(&mut self, _s_quote: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let s_quote1 = pop_item!(self, s_quote1, SQuote1, context);
-        let lit_str1_list_group_1_built = LitStr1ListGroupSQuote1 { s_quote1 };
-        let lit_str1_list_group_1_built = LitStr1ListGroup::SQuote1(lit_str1_list_group_1_built);
+        let s_quote = pop_item!(self, s_quote, SQuote, context);
+        let lit_str1_list_group_1_built = LitStr1ListGroupSQuote { s_quote };
+        let lit_str1_list_group_1_built = LitStr1ListGroup::SQuote(lit_str1_list_group_1_built);
         self.push(
             ASTType::LitStr1ListGroup(lit_str1_list_group_1_built),
             context,
@@ -8012,15 +7968,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 151:
     ///
-    /// `LitStr2ListGroup: SQuote1;`
+    /// `LitStr2ListGroup: SQuote;`
     ///
     #[parol_runtime::function_name::named]
-    fn lit_str2_list_group_1(&mut self, _s_quote1: &ParseTreeType<'t>) -> Result<()> {
+    fn lit_str2_list_group_1(&mut self, _s_quote: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let s_quote1 = pop_item!(self, s_quote1, SQuote1, context);
-        let lit_str2_list_group_1_built = LitStr2ListGroupSQuote1 { s_quote1 };
-        let lit_str2_list_group_1_built = LitStr2ListGroup::SQuote1(lit_str2_list_group_1_built);
+        let s_quote = pop_item!(self, s_quote, SQuote, context);
+        let lit_str2_list_group_1_built = LitStr2ListGroupSQuote { s_quote };
+        let lit_str2_list_group_1_built = LitStr2ListGroup::SQuote(lit_str2_list_group_1_built);
         self.push(
             ASTType::LitStr2ListGroup(lit_str2_list_group_1_built),
             context,
@@ -8111,15 +8067,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 156:
     ///
-    /// `LitStr3ListGroup: SQuote2;`
+    /// `LitStr3ListGroup: SQuote;`
     ///
     #[parol_runtime::function_name::named]
-    fn lit_str3_list_group_1(&mut self, _s_quote2: &ParseTreeType<'t>) -> Result<()> {
+    fn lit_str3_list_group_1(&mut self, _s_quote: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let s_quote2 = pop_item!(self, s_quote2, SQuote2, context);
-        let lit_str3_list_group_1_built = LitStr3ListGroupSQuote2 { s_quote2 };
-        let lit_str3_list_group_1_built = LitStr3ListGroup::SQuote2(lit_str3_list_group_1_built);
+        let s_quote = pop_item!(self, s_quote, SQuote, context);
+        let lit_str3_list_group_1_built = LitStr3ListGroupSQuote { s_quote };
+        let lit_str3_list_group_1_built = LitStr3ListGroup::SQuote(lit_str3_list_group_1_built);
         self.push(
             ASTType::LitStr3ListGroup(lit_str3_list_group_1_built),
             context,
@@ -8264,16 +8220,16 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 164:
     ///
-    /// `DelimCode1ListGroup: BacktickDelim1;`
+    /// `DelimCode1ListGroup: BacktickDelim;`
     ///
     #[parol_runtime::function_name::named]
-    fn delim_code1_list_group_1(&mut self, _backtick_delim1: &ParseTreeType<'t>) -> Result<()> {
+    fn delim_code1_list_group_1(&mut self, _backtick_delim: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let backtick_delim1 = pop_item!(self, backtick_delim1, BacktickDelim1, context);
-        let delim_code1_list_group_1_built = DelimCode1ListGroupBacktickDelim1 { backtick_delim1 };
+        let backtick_delim = pop_item!(self, backtick_delim, BacktickDelim, context);
+        let delim_code1_list_group_1_built = DelimCode1ListGroupBacktickDelim { backtick_delim };
         let delim_code1_list_group_1_built =
-            DelimCode1ListGroup::BacktickDelim1(delim_code1_list_group_1_built);
+            DelimCode1ListGroup::BacktickDelim(delim_code1_list_group_1_built);
         self.push(
             ASTType::DelimCode1ListGroup(delim_code1_list_group_1_built),
             context,
@@ -8367,16 +8323,16 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 169:
     ///
-    /// `DelimCode2ListGroup: BacktickDelim1;`
+    /// `DelimCode2ListGroup: BacktickDelim;`
     ///
     #[parol_runtime::function_name::named]
-    fn delim_code2_list_group_1(&mut self, _backtick_delim1: &ParseTreeType<'t>) -> Result<()> {
+    fn delim_code2_list_group_1(&mut self, _backtick_delim: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let backtick_delim1 = pop_item!(self, backtick_delim1, BacktickDelim1, context);
-        let delim_code2_list_group_1_built = DelimCode2ListGroupBacktickDelim1 { backtick_delim1 };
+        let backtick_delim = pop_item!(self, backtick_delim, BacktickDelim, context);
+        let delim_code2_list_group_1_built = DelimCode2ListGroupBacktickDelim { backtick_delim };
         let delim_code2_list_group_1_built =
-            DelimCode2ListGroup::BacktickDelim1(delim_code2_list_group_1_built);
+            DelimCode2ListGroup::BacktickDelim(delim_code2_list_group_1_built);
         self.push(
             ASTType::DelimCode2ListGroup(delim_code2_list_group_1_built),
             context,
@@ -8470,16 +8426,16 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 174:
     ///
-    /// `DelimCode3ListGroup: Backtick2;`
+    /// `DelimCode3ListGroup: BacktickDelim;`
     ///
     #[parol_runtime::function_name::named]
-    fn delim_code3_list_group_1(&mut self, _backtick2: &ParseTreeType<'t>) -> Result<()> {
+    fn delim_code3_list_group_1(&mut self, _backtick_delim: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let backtick2 = pop_item!(self, backtick2, Backtick2, context);
-        let delim_code3_list_group_1_built = DelimCode3ListGroupBacktick2 { backtick2 };
+        let backtick_delim = pop_item!(self, backtick_delim, BacktickDelim, context);
+        let delim_code3_list_group_1_built = DelimCode3ListGroupBacktickDelim { backtick_delim };
         let delim_code3_list_group_1_built =
-            DelimCode3ListGroup::Backtick2(delim_code3_list_group_1_built);
+            DelimCode3ListGroup::BacktickDelim(delim_code3_list_group_1_built);
         self.push(
             ASTType::DelimCode3ListGroup(delim_code3_list_group_1_built),
             context,
@@ -9213,7 +9169,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 214:
     ///
-    /// `Backtick2: <InCodeBlock3, InDelimCode3>/`{1,2}/;`
+    /// `Backtick2: <InCodeBlock3>/`{1,2}/;`
     ///
     #[parol_runtime::function_name::named]
     fn backtick2(&mut self, backtick2: &ParseTreeType<'t>) -> Result<()> {
@@ -9389,37 +9345,21 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 225:
     ///
-    /// `Quote2: <InStr3>/"{1,2}/;`
+    /// `Quote: <InStr1, InStr2, InStr3>'"';`
     ///
     #[parol_runtime::function_name::named]
-    fn quote2(&mut self, quote2: &ParseTreeType<'t>) -> Result<()> {
+    fn quote(&mut self, quote: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let quote2 = quote2.token()?.clone();
-        let quote2_built = Quote2 { quote2 };
+        let quote = quote.token()?.clone();
+        let quote_built = Quote { quote };
         // Calling user action here
-        self.user_grammar.quote2(&quote2_built)?;
-        self.push(ASTType::Quote2(quote2_built), context);
+        self.user_grammar.quote(&quote_built)?;
+        self.push(ASTType::Quote(quote_built), context);
         Ok(())
     }
 
     /// Semantic action for production 226:
-    ///
-    /// `Quote1: <InStr1, InStr2>'"';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn quote1(&mut self, quote1: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let quote1 = quote1.token()?.clone();
-        let quote1_built = Quote1 { quote1 };
-        // Calling user action here
-        self.user_grammar.quote1(&quote1_built)?;
-        self.push(ASTType::Quote1(quote1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 227:
     ///
     /// `NoQuote: <InStr1, InStr2, InStr3>/[^"]+/;`
     ///
@@ -9435,7 +9375,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 228:
+    /// Semantic action for production 227:
     ///
     /// `LitStr3End: <InLitStr3>"'>>>";`
     ///
@@ -9451,7 +9391,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 229:
+    /// Semantic action for production 228:
     ///
     /// `LitStr2End: <InLitStr2>"'>>";`
     ///
@@ -9467,7 +9407,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 230:
+    /// Semantic action for production 229:
     ///
     /// `LitStr1End: <InLitStr1>"'>";`
     ///
@@ -9483,39 +9423,23 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
+    /// Semantic action for production 230:
+    ///
+    /// `SQuote: <InLitStr1, InLitStr2, InLitStr3>"'";`
+    ///
+    #[parol_runtime::function_name::named]
+    fn s_quote(&mut self, s_quote: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let s_quote = s_quote.token()?.clone();
+        let s_quote_built = SQuote { s_quote };
+        // Calling user action here
+        self.user_grammar.s_quote(&s_quote_built)?;
+        self.push(ASTType::SQuote(s_quote_built), context);
+        Ok(())
+    }
+
     /// Semantic action for production 231:
-    ///
-    /// `SQuote2: <InLitStr3>/'{1,2}/;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn s_quote2(&mut self, s_quote2: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let s_quote2 = s_quote2.token()?.clone();
-        let s_quote2_built = SQuote2 { s_quote2 };
-        // Calling user action here
-        self.user_grammar.s_quote2(&s_quote2_built)?;
-        self.push(ASTType::SQuote2(s_quote2_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 232:
-    ///
-    /// `SQuote1: <InLitStr1, InLitStr2>"'";`
-    ///
-    #[parol_runtime::function_name::named]
-    fn s_quote1(&mut self, s_quote1: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let s_quote1 = s_quote1.token()?.clone();
-        let s_quote1_built = SQuote1 { s_quote1 };
-        // Calling user action here
-        self.user_grammar.s_quote1(&s_quote1_built)?;
-        self.push(ASTType::SQuote1(s_quote1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 233:
     ///
     /// `NoSQuote: <InLitStr1, InLitStr2, InLitStr3>/[^']+/;`
     ///
@@ -9531,7 +9455,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 234:
+    /// Semantic action for production 232:
     ///
     /// `DelimCodeEnd3: <InDelimCode3>'`>>>';`
     ///
@@ -9547,7 +9471,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 235:
+    /// Semantic action for production 233:
     ///
     /// `DelimCodeEnd2: <InDelimCode2>'`>>';`
     ///
@@ -9563,7 +9487,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 236:
+    /// Semantic action for production 234:
     ///
     /// `DelimCodeEnd1: <InDelimCode1>'`>';`
     ///
@@ -9579,23 +9503,23 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 237:
+    /// Semantic action for production 235:
     ///
-    /// `BacktickDelim1: <InDelimCode1, InDelimCode2>'`';`
+    /// `BacktickDelim: <InDelimCode1, InDelimCode2, InDelimCode3>'`';`
     ///
     #[parol_runtime::function_name::named]
-    fn backtick_delim1(&mut self, backtick_delim1: &ParseTreeType<'t>) -> Result<()> {
+    fn backtick_delim(&mut self, backtick_delim: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let backtick_delim1 = backtick_delim1.token()?.clone();
-        let backtick_delim1_built = BacktickDelim1 { backtick_delim1 };
+        let backtick_delim = backtick_delim.token()?.clone();
+        let backtick_delim_built = BacktickDelim { backtick_delim };
         // Calling user action here
-        self.user_grammar.backtick_delim1(&backtick_delim1_built)?;
-        self.push(ASTType::BacktickDelim1(backtick_delim1_built), context);
+        self.user_grammar.backtick_delim(&backtick_delim_built)?;
+        self.push(ASTType::BacktickDelim(backtick_delim_built), context);
         Ok(())
     }
 
-    /// Semantic action for production 238:
+    /// Semantic action for production 236:
     ///
     /// `GrammarNewline: <Text>/\r\n|\r|\n/;`
     ///
@@ -9611,7 +9535,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 239:
+    /// Semantic action for production 237:
     ///
     /// `Ws: <Text>/[\s--\r\n]+/;`
     ///
@@ -9627,7 +9551,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 240:
+    /// Semantic action for production 238:
     ///
     /// `At: '@';`
     ///
@@ -9643,7 +9567,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 241:
+    /// Semantic action for production 239:
     ///
     /// `Ext: '$';`
     ///
@@ -9659,7 +9583,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 242:
+    /// Semantic action for production 240:
     ///
     /// `Dot: '.';`
     ///
@@ -9675,7 +9599,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 243:
+    /// Semantic action for production 241:
     ///
     /// `Begin: '{';`
     ///
@@ -9691,7 +9615,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 244:
+    /// Semantic action for production 242:
     ///
     /// `End: '}';`
     ///
@@ -9707,7 +9631,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 245:
+    /// Semantic action for production 243:
     ///
     /// `ArrayBegin: '[';`
     ///
@@ -9723,7 +9647,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 246:
+    /// Semantic action for production 244:
     ///
     /// `ArrayEnd: ']';`
     ///
@@ -9739,7 +9663,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 247:
+    /// Semantic action for production 245:
     ///
     /// `LParen: '(';`
     ///
@@ -9755,7 +9679,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 248:
+    /// Semantic action for production 246:
     ///
     /// `RParen: ')';`
     ///
@@ -9771,7 +9695,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 249:
+    /// Semantic action for production 247:
     ///
     /// `Bind: '=';`
     ///
@@ -9787,7 +9711,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 250:
+    /// Semantic action for production 248:
     ///
     /// `Comma: ',';`
     ///
@@ -9803,9 +9727,9 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 251:
+    /// Semantic action for production 249:
     ///
-    /// `Continue: '\\';`
+    /// `Continue: '\';`
     ///
     #[parol_runtime::function_name::named]
     fn r#continue(&mut self, r#continue: &ParseTreeType<'t>) -> Result<()> {
@@ -9819,7 +9743,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 252:
+    /// Semantic action for production 250:
     ///
     /// `TextStart: ":";`
     ///
@@ -9835,7 +9759,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 253:
+    /// Semantic action for production 251:
     ///
     /// `Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;`
     ///
@@ -10093,35 +10017,33 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             222 => self.str3_end(&children[0]),
             223 => self.str2_end(&children[0]),
             224 => self.str1_end(&children[0]),
-            225 => self.quote2(&children[0]),
-            226 => self.quote1(&children[0]),
-            227 => self.no_quote(&children[0]),
-            228 => self.lit_str3_end(&children[0]),
-            229 => self.lit_str2_end(&children[0]),
-            230 => self.lit_str1_end(&children[0]),
-            231 => self.s_quote2(&children[0]),
-            232 => self.s_quote1(&children[0]),
-            233 => self.no_s_quote(&children[0]),
-            234 => self.delim_code_end3(&children[0]),
-            235 => self.delim_code_end2(&children[0]),
-            236 => self.delim_code_end1(&children[0]),
-            237 => self.backtick_delim1(&children[0]),
-            238 => self.grammar_newline(&children[0]),
-            239 => self.ws(&children[0]),
-            240 => self.at(&children[0]),
-            241 => self.ext(&children[0]),
-            242 => self.dot(&children[0]),
-            243 => self.begin(&children[0]),
-            244 => self.end(&children[0]),
-            245 => self.array_begin(&children[0]),
-            246 => self.array_end(&children[0]),
-            247 => self.l_paren(&children[0]),
-            248 => self.r_paren(&children[0]),
-            249 => self.bind(&children[0]),
-            250 => self.comma(&children[0]),
-            251 => self.r#continue(&children[0]),
-            252 => self.text_start(&children[0]),
-            253 => self.ident(&children[0]),
+            225 => self.quote(&children[0]),
+            226 => self.no_quote(&children[0]),
+            227 => self.lit_str3_end(&children[0]),
+            228 => self.lit_str2_end(&children[0]),
+            229 => self.lit_str1_end(&children[0]),
+            230 => self.s_quote(&children[0]),
+            231 => self.no_s_quote(&children[0]),
+            232 => self.delim_code_end3(&children[0]),
+            233 => self.delim_code_end2(&children[0]),
+            234 => self.delim_code_end1(&children[0]),
+            235 => self.backtick_delim(&children[0]),
+            236 => self.grammar_newline(&children[0]),
+            237 => self.ws(&children[0]),
+            238 => self.at(&children[0]),
+            239 => self.ext(&children[0]),
+            240 => self.dot(&children[0]),
+            241 => self.begin(&children[0]),
+            242 => self.end(&children[0]),
+            243 => self.array_begin(&children[0]),
+            244 => self.array_end(&children[0]),
+            245 => self.l_paren(&children[0]),
+            246 => self.r_paren(&children[0]),
+            247 => self.bind(&children[0]),
+            248 => self.comma(&children[0]),
+            249 => self.r#continue(&children[0]),
+            250 => self.text_start(&children[0]),
+            251 => self.ident(&children[0]),
             _ => Err(ParserError::InternalError(format!(
                 "Unhandled production number: {prod_num}"
             ))

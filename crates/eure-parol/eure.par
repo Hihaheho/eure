@@ -113,23 +113,23 @@ InlineCode: DelimCode | InlineCode1 ;
 InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/ ;
 
 // Delimited escaped strings: <"...">, <<"...">>, <<<"...">>>
-// Order matters: longest first to match correctly
-Str1: Str1Start { NoQuote | Quote1 } Str1End ;
-Str2: Str2Start { NoQuote | Quote1 } Str2End ;
-Str3: Str3Start { NoQuote | Quote2 } Str3End ;
+// Quote must be single char - end delimiters are ">", ">>" or ">>>" after the quote
+Str1: Str1Start { NoQuote | Quote } Str1End ;
+Str2: Str2Start { NoQuote | Quote } Str2End ;
+Str3: Str3Start { NoQuote | Quote } Str3End ;
 
 // Delimited literal strings: <'...'>, <<'...'>>, <<<'...'>>>
-// Order matters: longest first to match correctly
-LitStr1: LitStr1Start { NoSQuote | SQuote1 } LitStr1End ;
-LitStr2: LitStr2Start { NoSQuote | SQuote1 } LitStr2End ;
-LitStr3: LitStr3Start { NoSQuote | SQuote2 } LitStr3End ;
+// SQuote must be single char - end delimiters are '>", '>>" or '>>>" after the quote
+LitStr1: LitStr1Start { NoSQuote | SQuote } LitStr1End ;
+LitStr2: LitStr2Start { NoSQuote | SQuote } LitStr2End ;
+LitStr3: LitStr3Start { NoSQuote | SQuote } LitStr3End ;
 
 // Delimited code: <`...`>, <<`...`>>, <<<`...`>>> with optional language prefix
-// Order matters: longest first to match correctly
+// BacktickDelim must be single char - end delimiters are `>", `>>" or `>>>" after the backtick
 DelimCode: DelimCode3 | DelimCode2 | DelimCode1 ;
-DelimCode1: DelimCodeStart1 { NoBacktick | BacktickDelim1 } DelimCodeEnd1 ;
-DelimCode2: DelimCodeStart2 { NoBacktick | BacktickDelim1 } DelimCodeEnd2 ;
-DelimCode3: DelimCodeStart3 { NoBacktick | Backtick2 } DelimCodeEnd3 ;
+DelimCode1: DelimCodeStart1 { NoBacktick | BacktickDelim } DelimCodeEnd1 ;
+DelimCode2: DelimCodeStart2 { NoBacktick | BacktickDelim } DelimCodeEnd2 ;
+DelimCode3: DelimCodeStart3 { NoBacktick | BacktickDelim } DelimCodeEnd3 ;
 
 CodeBlock: CodeBlock3 | CodeBlock4 | CodeBlock5 | CodeBlock6;
 CodeBlock3: CodeBlockStart3 { NoBacktick | Backtick2 } CodeBlockEnd3;
@@ -159,8 +159,7 @@ CodeBlockStart6: /`{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;
 
 // Order matters here. Scanner should eagerly match the longest pattern.
 CodeBlockEnd3: <InCodeBlock3>/`{3}/;
-// Backtick2 also used in InDelimCode3 for delimited code content
-Backtick2: <InCodeBlock3, InDelimCode3>/`{1,2}/;
+Backtick2: <InCodeBlock3>/`{1,2}/;
 
 // Order matters here. Scanner should eagerly match the longest pattern.
 CodeBlockEnd4: <InCodeBlock4>/`{4}/;
@@ -177,32 +176,25 @@ Backtick5: <InCodeBlock6>/`{1,5}/;
 // NoBacktick shared across code blocks and delimited code
 NoBacktick: <InCodeBlock3, InCodeBlock4, InCodeBlock5, InCodeBlock6, InDelimCode1, InDelimCode2, InDelimCode3>/[^`]+/ ;
 
-// Delimited escaped string content (scanner-specific, order matters for eager matching)
-// End tokens must come before single quote tokens
-// Shared terminals across scanner modes where patterns are identical
+// Delimited escaped string content (end tokens must come before quote token for eager matching)
 Str3End: <InStr3>'">>>' ;
 Str2End: <InStr2>'">>' ;
 Str1End: <InStr1>'">' ;
-Quote2: <InStr3>/"{1,2}/ ;
-Quote1: <InStr1, InStr2>'"' ;
+Quote: <InStr1, InStr2, InStr3>'"' ;
 NoQuote: <InStr1, InStr2, InStr3>/[^"]+/ ;
 
-// Delimited literal string content (scanner-specific, order matters for eager matching)
-// End tokens must come before single quote tokens
+// Delimited literal string content (end tokens must come before squote token for eager matching)
 LitStr3End: <InLitStr3>"'>>>" ;
 LitStr2End: <InLitStr2>"'>>" ;
 LitStr1End: <InLitStr1>"'>" ;
-SQuote2: <InLitStr3>/'{1,2}/ ;
-SQuote1: <InLitStr1, InLitStr2>"'" ;
+SQuote: <InLitStr1, InLitStr2, InLitStr3>"'" ;
 NoSQuote: <InLitStr1, InLitStr2, InLitStr3>/[^']+/ ;
 
-// Delimited code content (scanner-specific, order matters for eager matching)
-// End tokens must come before single backtick tokens
-// Note: Backtick2 and NoBacktick are shared (defined above)
+// Delimited code content (end tokens must come before backtick token for eager matching)
 DelimCodeEnd3: <InDelimCode3>'`>>>' ;
 DelimCodeEnd2: <InDelimCode2>'`>>' ;
 DelimCodeEnd1: <InDelimCode1>'`>' ;
-BacktickDelim1: <InDelimCode1, InDelimCode2>'`' ;
+BacktickDelim: <InDelimCode1, InDelimCode2, InDelimCode3>'`' ;
 
 GrammarNewline: <Text>/\r\n|\r|\n/ ;
 Ws: <Text>/[\s--\r\n]+/ ;
@@ -217,6 +209,6 @@ LParen: '(' ;
 RParen: ')' ;
 Bind: '=' ;
 Comma: ',' ;
-Continue: '\\' ;
+Continue: '\' ;
 TextStart: ":" ;
 Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/ ;

@@ -126,13 +126,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_backtick_5_super(handle, view, tree)
     }
-    fn visit_backtick_delim_1(
+    fn visit_backtick_delim(
         &mut self,
-        handle: BacktickDelim1Handle,
-        view: BacktickDelim1View,
+        handle: BacktickDelimHandle,
+        view: BacktickDelimView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_backtick_delim_1_super(handle, view, tree)
+        self.visit_backtick_delim_super(handle, view, tree)
     }
     fn visit_begin(
         &mut self,
@@ -933,21 +933,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_object_opt_1_super(handle, view, tree)
     }
-    fn visit_quote_1(
+    fn visit_quote(
         &mut self,
-        handle: Quote1Handle,
-        view: Quote1View,
+        handle: QuoteHandle,
+        view: QuoteView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_quote_1_super(handle, view, tree)
-    }
-    fn visit_quote_2(
-        &mut self,
-        handle: Quote2Handle,
-        view: Quote2View,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_quote_2_super(handle, view, tree)
+        self.visit_quote_super(handle, view, tree)
     }
     fn visit_r_paren(
         &mut self,
@@ -957,21 +949,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_r_paren_super(handle, view, tree)
     }
-    fn visit_s_quote_1(
+    fn visit_s_quote(
         &mut self,
-        handle: SQuote1Handle,
-        view: SQuote1View,
+        handle: SQuoteHandle,
+        view: SQuoteView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_s_quote_1_super(handle, view, tree)
-    }
-    fn visit_s_quote_2(
-        &mut self,
-        handle: SQuote2Handle,
-        view: SQuote2View,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_s_quote_2_super(handle, view, tree)
+        self.visit_s_quote_super(handle, view, tree)
     }
     fn visit_section(
         &mut self,
@@ -1635,21 +1619,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_str_1_end_terminal_super(terminal, data, tree)
     }
-    fn visit_quote_2_terminal(
+    fn visit_quote_terminal(
         &mut self,
-        terminal: Quote2,
+        terminal: Quote,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_quote_2_terminal_super(terminal, data, tree)
-    }
-    fn visit_quote_1_terminal(
-        &mut self,
-        terminal: Quote1,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_quote_1_terminal_super(terminal, data, tree)
+        self.visit_quote_terminal_super(terminal, data, tree)
     }
     fn visit_no_quote_terminal(
         &mut self,
@@ -1683,21 +1659,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_lit_str_1_end_terminal_super(terminal, data, tree)
     }
-    fn visit_s_quote_2_terminal(
+    fn visit_s_quote_terminal(
         &mut self,
-        terminal: SQuote2,
+        terminal: SQuote,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_s_quote_2_terminal_super(terminal, data, tree)
-    }
-    fn visit_s_quote_1_terminal(
-        &mut self,
-        terminal: SQuote1,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), Self::Error> {
-        self.visit_s_quote_1_terminal_super(terminal, data, tree)
+        self.visit_s_quote_terminal_super(terminal, data, tree)
     }
     fn visit_no_s_quote_terminal(
         &mut self,
@@ -1731,13 +1699,13 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     ) -> Result<(), Self::Error> {
         self.visit_delim_code_end_1_terminal_super(terminal, data, tree)
     }
-    fn visit_backtick_delim_1_terminal(
+    fn visit_backtick_delim_terminal(
         &mut self,
-        terminal: BacktickDelim1,
+        terminal: BacktickDelim,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        self.visit_backtick_delim_1_terminal_super(terminal, data, tree)
+        self.visit_backtick_delim_terminal_super(terminal, data, tree)
     }
     fn visit_grammar_newline_terminal(
         &mut self,
@@ -2032,15 +2000,15 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: Backtick5View,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_backtick_delim_1_handle(
+    fn visit_backtick_delim_handle(
         &mut self,
-        handle: BacktickDelim1Handle,
+        handle: BacktickDelimHandle,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_backtick_delim_1_super(
+    fn visit_backtick_delim_super(
         &mut self,
-        handle: BacktickDelim1Handle,
-        view: BacktickDelim1View,
+        handle: BacktickDelimHandle,
+        view: BacktickDelimView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_begin_handle(&mut self, handle: BeginHandle, tree: &F) -> Result<(), E>;
@@ -2874,18 +2842,11 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: CommaHandle,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_quote_1_handle(&mut self, handle: Quote1Handle, tree: &F) -> Result<(), E>;
-    fn visit_quote_1_super(
+    fn visit_quote_handle(&mut self, handle: QuoteHandle, tree: &F) -> Result<(), E>;
+    fn visit_quote_super(
         &mut self,
-        handle: Quote1Handle,
-        view: Quote1View,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_quote_2_handle(&mut self, handle: Quote2Handle, tree: &F) -> Result<(), E>;
-    fn visit_quote_2_super(
-        &mut self,
-        handle: Quote2Handle,
-        view: Quote2View,
+        handle: QuoteHandle,
+        view: QuoteView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_r_paren_handle(&mut self, handle: RParenHandle, tree: &F) -> Result<(), E>;
@@ -2895,18 +2856,11 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         view: RParenView,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_s_quote_1_handle(&mut self, handle: SQuote1Handle, tree: &F) -> Result<(), E>;
-    fn visit_s_quote_1_super(
+    fn visit_s_quote_handle(&mut self, handle: SQuoteHandle, tree: &F) -> Result<(), E>;
+    fn visit_s_quote_super(
         &mut self,
-        handle: SQuote1Handle,
-        view: SQuote1View,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_s_quote_2_handle(&mut self, handle: SQuote2Handle, tree: &F) -> Result<(), E>;
-    fn visit_s_quote_2_super(
-        &mut self,
-        handle: SQuote2Handle,
-        view: SQuote2View,
+        handle: SQuoteHandle,
+        view: SQuoteView,
         tree: &F,
     ) -> Result<(), E>;
     fn visit_section_handle(&mut self, handle: SectionHandle, tree: &F) -> Result<(), E>;
@@ -3463,15 +3417,9 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_quote_2_terminal_super(
+    fn visit_quote_terminal_super(
         &mut self,
-        terminal: Quote2,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_quote_1_terminal_super(
-        &mut self,
-        terminal: Quote1,
+        terminal: Quote,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -3499,15 +3447,9 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_s_quote_2_terminal_super(
+    fn visit_s_quote_terminal_super(
         &mut self,
-        terminal: SQuote2,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), E>;
-    fn visit_s_quote_1_terminal_super(
-        &mut self,
-        terminal: SQuote1,
+        terminal: SQuote,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -3535,9 +3477,9 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
-    fn visit_backtick_delim_1_terminal_super(
+    fn visit_backtick_delim_terminal_super(
         &mut self,
-        terminal: BacktickDelim1,
+        terminal: BacktickDelim,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), E>;
@@ -4292,9 +4234,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_backtick_delim_1_handle(
+    fn visit_backtick_delim_handle(
         &mut self,
-        handle: BacktickDelim1Handle,
+        handle: BacktickDelimHandle,
         tree: &F,
     ) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
@@ -4313,7 +4255,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let result = match handle
             .get_view_with_visit(
                 tree,
-                |view, visit: &mut Self| (visit.visit_backtick_delim_1(handle, view, tree), visit),
+                |view, visit: &mut Self| (visit.visit_backtick_delim(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -8570,7 +8512,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_quote_1_handle(&mut self, handle: Quote1Handle, tree: &F) -> Result<(), V::Error> {
+    fn visit_quote_handle(&mut self, handle: QuoteHandle, tree: &F) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
             Ok(nt_data) => nt_data,
             Err(error) => {
@@ -8587,43 +8529,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let result = match handle
             .get_view_with_visit(
                 tree,
-                |view, visit: &mut Self| (visit.visit_quote_1(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_quote_2_handle(&mut self, handle: Quote2Handle, tree: &F) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_quote_2(handle, view, tree), visit),
+                |view, visit: &mut Self| (visit.visit_quote(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -8678,7 +8584,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
-    fn visit_s_quote_1_handle(&mut self, handle: SQuote1Handle, tree: &F) -> Result<(), V::Error> {
+    fn visit_s_quote_handle(&mut self, handle: SQuoteHandle, tree: &F) -> Result<(), V::Error> {
         let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
             Ok(nt_data) => nt_data,
             Err(error) => {
@@ -8695,43 +8601,7 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let result = match handle
             .get_view_with_visit(
                 tree,
-                |view, visit: &mut Self| (visit.visit_s_quote_1(handle, view, tree), visit),
-                self,
-            )
-            .map_err(|e| e.extract_error())
-        {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(e),
-            Err(Ok(e)) => Err(e),
-            Err(Err(e)) => self.then_construct_error(
-                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
-                handle.node_id(),
-                NodeKind::NonTerminal(handle.kind()),
-                e,
-                tree,
-            ),
-        };
-        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
-        result
-    }
-    fn visit_s_quote_2_handle(&mut self, handle: SQuote2Handle, tree: &F) -> Result<(), V::Error> {
-        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
-            Ok(nt_data) => nt_data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    handle.node_id(),
-                    NodeKind::NonTerminal(handle.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
-        let result = match handle
-            .get_view_with_visit(
-                tree,
-                |view, visit: &mut Self| (visit.visit_s_quote_2(handle, view, tree), visit),
+                |view, visit: &mut Self| (visit.visit_s_quote(handle, view, tree), visit),
                 self,
             )
             .map_err(|e| e.extract_error())
@@ -10688,27 +10558,27 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_backtick_5_terminal(backtick_5, data, tree)?;
         Ok(())
     }
-    fn visit_backtick_delim_1_super(
+    fn visit_backtick_delim_super(
         &mut self,
-        handle: BacktickDelim1Handle,
-        view_param: BacktickDelim1View,
+        handle: BacktickDelimHandle,
+        view_param: BacktickDelimView,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let BacktickDelim1View { backtick_delim_1 } = view_param;
-        let data = match backtick_delim_1.get_data(tree) {
+        let BacktickDelimView { backtick_delim } = view_param;
+        let data = match backtick_delim.get_data(tree) {
             Ok(data) => data,
             Err(error) => {
                 return self.then_construct_error(
                     None,
-                    backtick_delim_1.0,
-                    NodeKind::Terminal(backtick_delim_1.kind()),
+                    backtick_delim.0,
+                    NodeKind::Terminal(backtick_delim.kind()),
                     error,
                     tree,
                 );
             }
         };
-        self.visit_backtick_delim_1_terminal(backtick_delim_1, data, tree)?;
+        self.visit_backtick_delim_terminal(backtick_delim, data, tree)?;
         Ok(())
     }
     fn visit_begin_super(
@@ -11318,8 +11188,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             DelimCode1ListGroupView::NoBacktick(item) => {
                 self.visit_no_backtick_handle(item, tree)?;
             }
-            DelimCode1ListGroupView::BacktickDelim1(item) => {
-                self.visit_backtick_delim_1_handle(item, tree)?;
+            DelimCode1ListGroupView::BacktickDelim(item) => {
+                self.visit_backtick_delim_handle(item, tree)?;
             }
         }
         Ok(())
@@ -11367,8 +11237,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             DelimCode2ListGroupView::NoBacktick(item) => {
                 self.visit_no_backtick_handle(item, tree)?;
             }
-            DelimCode2ListGroupView::BacktickDelim1(item) => {
-                self.visit_backtick_delim_1_handle(item, tree)?;
+            DelimCode2ListGroupView::BacktickDelim(item) => {
+                self.visit_backtick_delim_handle(item, tree)?;
             }
         }
         Ok(())
@@ -11416,8 +11286,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             DelimCode3ListGroupView::NoBacktick(item) => {
                 self.visit_no_backtick_handle(item, tree)?;
             }
-            DelimCode3ListGroupView::Backtick2(item) => {
-                self.visit_backtick_2_handle(item, tree)?;
+            DelimCode3ListGroupView::BacktickDelim(item) => {
+                self.visit_backtick_delim_handle(item, tree)?;
             }
         }
         Ok(())
@@ -12214,8 +12084,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             LitStr1ListGroupView::NoSQuote(item) => {
                 self.visit_no_s_quote_handle(item, tree)?;
             }
-            LitStr1ListGroupView::SQuote1(item) => {
-                self.visit_s_quote_1_handle(item, tree)?;
+            LitStr1ListGroupView::SQuote(item) => {
+                self.visit_s_quote_handle(item, tree)?;
             }
         }
         Ok(())
@@ -12309,8 +12179,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             LitStr2ListGroupView::NoSQuote(item) => {
                 self.visit_no_s_quote_handle(item, tree)?;
             }
-            LitStr2ListGroupView::SQuote1(item) => {
-                self.visit_s_quote_1_handle(item, tree)?;
+            LitStr2ListGroupView::SQuote(item) => {
+                self.visit_s_quote_handle(item, tree)?;
             }
         }
         Ok(())
@@ -12404,8 +12274,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             LitStr3ListGroupView::NoSQuote(item) => {
                 self.visit_no_s_quote_handle(item, tree)?;
             }
-            LitStr3ListGroupView::SQuote2(item) => {
-                self.visit_s_quote_2_handle(item, tree)?;
+            LitStr3ListGroupView::SQuote(item) => {
+                self.visit_s_quote_handle(item, tree)?;
             }
         }
         Ok(())
@@ -12669,50 +12539,27 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_comma_handle(view_param, tree)?;
         Ok(())
     }
-    fn visit_quote_1_super(
+    fn visit_quote_super(
         &mut self,
-        handle: Quote1Handle,
-        view_param: Quote1View,
+        handle: QuoteHandle,
+        view_param: QuoteView,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let Quote1View { quote_1 } = view_param;
-        let data = match quote_1.get_data(tree) {
+        let QuoteView { quote } = view_param;
+        let data = match quote.get_data(tree) {
             Ok(data) => data,
             Err(error) => {
                 return self.then_construct_error(
                     None,
-                    quote_1.0,
-                    NodeKind::Terminal(quote_1.kind()),
+                    quote.0,
+                    NodeKind::Terminal(quote.kind()),
                     error,
                     tree,
                 );
             }
         };
-        self.visit_quote_1_terminal(quote_1, data, tree)?;
-        Ok(())
-    }
-    fn visit_quote_2_super(
-        &mut self,
-        handle: Quote2Handle,
-        view_param: Quote2View,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let Quote2View { quote_2 } = view_param;
-        let data = match quote_2.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    quote_2.0,
-                    NodeKind::Terminal(quote_2.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_quote_2_terminal(quote_2, data, tree)?;
+        self.visit_quote_terminal(quote, data, tree)?;
         Ok(())
     }
     fn visit_r_paren_super(
@@ -12738,50 +12585,27 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_r_paren_terminal(r_paren, data, tree)?;
         Ok(())
     }
-    fn visit_s_quote_1_super(
+    fn visit_s_quote_super(
         &mut self,
-        handle: SQuote1Handle,
-        view_param: SQuote1View,
+        handle: SQuoteHandle,
+        view_param: SQuoteView,
         tree: &F,
     ) -> Result<(), V::Error> {
         let _handle = handle;
-        let SQuote1View { s_quote_1 } = view_param;
-        let data = match s_quote_1.get_data(tree) {
+        let SQuoteView { s_quote } = view_param;
+        let data = match s_quote.get_data(tree) {
             Ok(data) => data,
             Err(error) => {
                 return self.then_construct_error(
                     None,
-                    s_quote_1.0,
-                    NodeKind::Terminal(s_quote_1.kind()),
+                    s_quote.0,
+                    NodeKind::Terminal(s_quote.kind()),
                     error,
                     tree,
                 );
             }
         };
-        self.visit_s_quote_1_terminal(s_quote_1, data, tree)?;
-        Ok(())
-    }
-    fn visit_s_quote_2_super(
-        &mut self,
-        handle: SQuote2Handle,
-        view_param: SQuote2View,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        let _handle = handle;
-        let SQuote2View { s_quote_2 } = view_param;
-        let data = match s_quote_2.get_data(tree) {
-            Ok(data) => data,
-            Err(error) => {
-                return self.then_construct_error(
-                    None,
-                    s_quote_2.0,
-                    NodeKind::Terminal(s_quote_2.kind()),
-                    error,
-                    tree,
-                );
-            }
-        };
-        self.visit_s_quote_2_terminal(s_quote_2, data, tree)?;
+        self.visit_s_quote_terminal(s_quote, data, tree)?;
         Ok(())
     }
     fn visit_section_super(
@@ -12953,8 +12777,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             Str1ListGroupView::NoQuote(item) => {
                 self.visit_no_quote_handle(item, tree)?;
             }
-            Str1ListGroupView::Quote1(item) => {
-                self.visit_quote_1_handle(item, tree)?;
+            Str1ListGroupView::Quote(item) => {
+                self.visit_quote_handle(item, tree)?;
             }
         }
         Ok(())
@@ -13048,8 +12872,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             Str2ListGroupView::NoQuote(item) => {
                 self.visit_no_quote_handle(item, tree)?;
             }
-            Str2ListGroupView::Quote1(item) => {
-                self.visit_quote_1_handle(item, tree)?;
+            Str2ListGroupView::Quote(item) => {
+                self.visit_quote_handle(item, tree)?;
             }
         }
         Ok(())
@@ -13143,8 +12967,8 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             Str3ListGroupView::NoQuote(item) => {
                 self.visit_no_quote_handle(item, tree)?;
             }
-            Str3ListGroupView::Quote2(item) => {
-                self.visit_quote_2_handle(item, tree)?;
+            Str3ListGroupView::Quote(item) => {
+                self.visit_quote_handle(item, tree)?;
             }
         }
         Ok(())
@@ -13922,18 +13746,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_quote_2_terminal_super(
+    fn visit_quote_terminal_super(
         &mut self,
-        terminal: Quote2,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
-        Ok(())
-    }
-    fn visit_quote_1_terminal_super(
-        &mut self,
-        terminal: Quote1,
+        terminal: Quote,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -13976,18 +13791,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_s_quote_2_terminal_super(
+    fn visit_s_quote_terminal_super(
         &mut self,
-        terminal: SQuote2,
-        data: TerminalData,
-        tree: &F,
-    ) -> Result<(), V::Error> {
-        self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
-        Ok(())
-    }
-    fn visit_s_quote_1_terminal_super(
-        &mut self,
-        terminal: SQuote1,
+        terminal: SQuote,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -14030,9 +13836,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_terminal(terminal.0, terminal.kind(), data, tree)?;
         Ok(())
     }
-    fn visit_backtick_delim_1_terminal_super(
+    fn visit_backtick_delim_terminal_super(
         &mut self,
-        terminal: BacktickDelim1,
+        terminal: BacktickDelim,
         data: TerminalData,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -14294,9 +14100,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = Backtick5Handle(id);
                     self.visit_backtick_5_handle(handle, tree)?;
                 }
-                NonTerminalKind::BacktickDelim1 => {
-                    let handle = BacktickDelim1Handle(id);
-                    self.visit_backtick_delim_1_handle(handle, tree)?;
+                NonTerminalKind::BacktickDelim => {
+                    let handle = BacktickDelimHandle(id);
+                    self.visit_backtick_delim_handle(handle, tree)?;
                 }
                 NonTerminalKind::Begin => {
                     let handle = BeginHandle(id);
@@ -14710,25 +14516,17 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let handle = ObjectOpt1Handle(id);
                     self.visit_object_opt_1_handle(handle, tree)?;
                 }
-                NonTerminalKind::Quote1 => {
-                    let handle = Quote1Handle(id);
-                    self.visit_quote_1_handle(handle, tree)?;
-                }
-                NonTerminalKind::Quote2 => {
-                    let handle = Quote2Handle(id);
-                    self.visit_quote_2_handle(handle, tree)?;
+                NonTerminalKind::Quote => {
+                    let handle = QuoteHandle(id);
+                    self.visit_quote_handle(handle, tree)?;
                 }
                 NonTerminalKind::RParen => {
                     let handle = RParenHandle(id);
                     self.visit_r_paren_handle(handle, tree)?;
                 }
-                NonTerminalKind::SQuote1 => {
-                    let handle = SQuote1Handle(id);
-                    self.visit_s_quote_1_handle(handle, tree)?;
-                }
-                NonTerminalKind::SQuote2 => {
-                    let handle = SQuote2Handle(id);
-                    self.visit_s_quote_2_handle(handle, tree)?;
+                NonTerminalKind::SQuote => {
+                    let handle = SQuoteHandle(id);
+                    self.visit_s_quote_handle(handle, tree)?;
                 }
                 NonTerminalKind::Section => {
                     let handle = SectionHandle(id);
@@ -15068,13 +14866,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let terminal = Str1End(id);
                     self.visit_str_1_end_terminal(terminal, data, tree)?;
                 }
-                TerminalKind::Quote2 => {
-                    let terminal = Quote2(id);
-                    self.visit_quote_2_terminal(terminal, data, tree)?;
-                }
-                TerminalKind::Quote1 => {
-                    let terminal = Quote1(id);
-                    self.visit_quote_1_terminal(terminal, data, tree)?;
+                TerminalKind::Quote => {
+                    let terminal = Quote(id);
+                    self.visit_quote_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::NoQuote => {
                     let terminal = NoQuote(id);
@@ -15092,13 +14886,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let terminal = LitStr1End(id);
                     self.visit_lit_str_1_end_terminal(terminal, data, tree)?;
                 }
-                TerminalKind::SQuote2 => {
-                    let terminal = SQuote2(id);
-                    self.visit_s_quote_2_terminal(terminal, data, tree)?;
-                }
-                TerminalKind::SQuote1 => {
-                    let terminal = SQuote1(id);
-                    self.visit_s_quote_1_terminal(terminal, data, tree)?;
+                TerminalKind::SQuote => {
+                    let terminal = SQuote(id);
+                    self.visit_s_quote_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::NoSQuote => {
                     let terminal = NoSQuote(id);
@@ -15116,9 +14906,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                     let terminal = DelimCodeEnd1(id);
                     self.visit_delim_code_end_1_terminal(terminal, data, tree)?;
                 }
-                TerminalKind::BacktickDelim1 => {
-                    let terminal = BacktickDelim1(id);
-                    self.visit_backtick_delim_1_terminal(terminal, data, tree)?;
+                TerminalKind::BacktickDelim => {
+                    let terminal = BacktickDelim(id);
+                    self.visit_backtick_delim_terminal(terminal, data, tree)?;
                 }
                 TerminalKind::GrammarNewline => {
                     let terminal = GrammarNewline(id);

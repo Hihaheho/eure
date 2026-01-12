@@ -981,21 +981,9 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
-    fn visit_quote_1_terminal(
+    fn visit_quote_terminal(
         &mut self,
-        _terminal: Quote1,
-        data: TerminalData,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        let text = self.get_text(data);
-        self.emit_text(text);
-        self.mark_content(data);
-        Ok(())
-    }
-
-    fn visit_quote_2_terminal(
-        &mut self,
-        _terminal: Quote2,
+        _terminal: Quote,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
@@ -1103,21 +1091,9 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
-    fn visit_s_quote_1_terminal(
+    fn visit_s_quote_terminal(
         &mut self,
-        _terminal: SQuote1,
-        data: TerminalData,
-        _tree: &F,
-    ) -> Result<(), Self::Error> {
-        let text = self.get_text(data);
-        self.emit_text(text);
-        self.mark_content(data);
-        Ok(())
-    }
-
-    fn visit_s_quote_2_terminal(
-        &mut self,
-        _terminal: SQuote2,
+        _terminal: SQuote,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
@@ -1212,9 +1188,9 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
-    fn visit_backtick_delim_1_terminal(
+    fn visit_backtick_delim_terminal(
         &mut self,
-        _terminal: BacktickDelim1,
+        _terminal: BacktickDelim,
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {

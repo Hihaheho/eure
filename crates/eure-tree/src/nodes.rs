@@ -721,9 +721,9 @@ pub struct Backtick5View {
 }
 impl Backtick5View {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BacktickDelim1Handle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for BacktickDelim1Handle {
-    type View = BacktickDelim1View;
+pub struct BacktickDelimHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for BacktickDelimHandle {
+    type View = BacktickDelimView;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -734,13 +734,13 @@ impl NonTerminalHandle for BacktickDelim1Handle {
     ) -> Result<Self, CstConstructError<E>> {
         tree.collect_nodes(
             index,
-            [NodeKind::NonTerminal(NonTerminalKind::BacktickDelim1)],
+            [NodeKind::NonTerminal(NonTerminalKind::BacktickDelim)],
             |[index], visit| Ok((Self(index), visit)),
             visit_ignored,
         )
     }
     fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::BacktickDelim1
+        NonTerminalKind::BacktickDelim
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
@@ -750,11 +750,11 @@ impl NonTerminalHandle for BacktickDelim1Handle {
     ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [NodeKind::Terminal(TerminalKind::BacktickDelim1)],
-            |[backtick_delim_1], visit_ignored| {
+            [NodeKind::Terminal(TerminalKind::BacktickDelim)],
+            |[backtick_delim], visit_ignored| {
                 Ok(visit(
-                    BacktickDelim1View {
-                        backtick_delim_1: BacktickDelim1(backtick_delim_1),
+                    BacktickDelimView {
+                        backtick_delim: BacktickDelim(backtick_delim),
                     },
                     visit_ignored,
                 ))
@@ -764,10 +764,10 @@ impl NonTerminalHandle for BacktickDelim1Handle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BacktickDelim1View {
-    pub backtick_delim_1: BacktickDelim1,
+pub struct BacktickDelimView {
+    pub backtick_delim: BacktickDelim,
 }
-impl BacktickDelim1View {}
+impl BacktickDelimView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BeginHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for BeginHandle {
@@ -2628,8 +2628,8 @@ impl NonTerminalHandle for DelimCode1ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoBacktick) => {
                 DelimCode1ListGroupView::NoBacktick(NoBacktickHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::BacktickDelim1) => {
-                DelimCode1ListGroupView::BacktickDelim1(BacktickDelim1Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::BacktickDelim) => {
+                DelimCode1ListGroupView::BacktickDelim(BacktickDelimHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -2649,7 +2649,7 @@ impl NonTerminalHandle for DelimCode1ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DelimCode1ListGroupView {
     NoBacktick(NoBacktickHandle),
-    BacktickDelim1(BacktickDelim1Handle),
+    BacktickDelim(BacktickDelimHandle),
 }
 impl DelimCode1ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -2829,8 +2829,8 @@ impl NonTerminalHandle for DelimCode2ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoBacktick) => {
                 DelimCode2ListGroupView::NoBacktick(NoBacktickHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::BacktickDelim1) => {
-                DelimCode2ListGroupView::BacktickDelim1(BacktickDelim1Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::BacktickDelim) => {
+                DelimCode2ListGroupView::BacktickDelim(BacktickDelimHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -2850,7 +2850,7 @@ impl NonTerminalHandle for DelimCode2ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DelimCode2ListGroupView {
     NoBacktick(NoBacktickHandle),
-    BacktickDelim1(BacktickDelim1Handle),
+    BacktickDelim(BacktickDelimHandle),
 }
 impl DelimCode2ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -3030,8 +3030,8 @@ impl NonTerminalHandle for DelimCode3ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoBacktick) => {
                 DelimCode3ListGroupView::NoBacktick(NoBacktickHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Backtick2) => {
-                DelimCode3ListGroupView::Backtick2(Backtick2Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::BacktickDelim) => {
+                DelimCode3ListGroupView::BacktickDelim(BacktickDelimHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -3051,7 +3051,7 @@ impl NonTerminalHandle for DelimCode3ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DelimCode3ListGroupView {
     NoBacktick(NoBacktickHandle),
-    Backtick2(Backtick2Handle),
+    BacktickDelim(BacktickDelimHandle),
 }
 impl DelimCode3ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -5284,8 +5284,8 @@ impl NonTerminalHandle for LitStr1ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoSQuote) => {
                 LitStr1ListGroupView::NoSQuote(NoSQuoteHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::SQuote1) => {
-                LitStr1ListGroupView::SQuote1(SQuote1Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::SQuote) => {
+                LitStr1ListGroupView::SQuote(SQuoteHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -5305,7 +5305,7 @@ impl NonTerminalHandle for LitStr1ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LitStr1ListGroupView {
     NoSQuote(NoSQuoteHandle),
-    SQuote1(SQuote1Handle),
+    SQuote(SQuoteHandle),
 }
 impl LitStr1ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -5581,8 +5581,8 @@ impl NonTerminalHandle for LitStr2ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoSQuote) => {
                 LitStr2ListGroupView::NoSQuote(NoSQuoteHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::SQuote1) => {
-                LitStr2ListGroupView::SQuote1(SQuote1Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::SQuote) => {
+                LitStr2ListGroupView::SQuote(SQuoteHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -5602,7 +5602,7 @@ impl NonTerminalHandle for LitStr2ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LitStr2ListGroupView {
     NoSQuote(NoSQuoteHandle),
-    SQuote1(SQuote1Handle),
+    SQuote(SQuoteHandle),
 }
 impl LitStr2ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -5878,8 +5878,8 @@ impl NonTerminalHandle for LitStr3ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoSQuote) => {
                 LitStr3ListGroupView::NoSQuote(NoSQuoteHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::SQuote2) => {
-                LitStr3ListGroupView::SQuote2(SQuote2Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::SQuote) => {
+                LitStr3ListGroupView::SQuote(SQuoteHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -5899,7 +5899,7 @@ impl NonTerminalHandle for LitStr3ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LitStr3ListGroupView {
     NoSQuote(NoSQuoteHandle),
-    SQuote2(SQuote2Handle),
+    SQuote(SQuoteHandle),
 }
 impl LitStr3ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -6586,9 +6586,9 @@ impl NonTerminalHandle for ObjectOpt1Handle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Quote1Handle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for Quote1Handle {
-    type View = Quote1View;
+pub struct QuoteHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for QuoteHandle {
+    type View = QuoteView;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -6599,13 +6599,13 @@ impl NonTerminalHandle for Quote1Handle {
     ) -> Result<Self, CstConstructError<E>> {
         tree.collect_nodes(
             index,
-            [NodeKind::NonTerminal(NonTerminalKind::Quote1)],
+            [NodeKind::NonTerminal(NonTerminalKind::Quote)],
             |[index], visit| Ok((Self(index), visit)),
             visit_ignored,
         )
     }
     fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::Quote1
+        NonTerminalKind::Quote
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
@@ -6615,11 +6615,11 @@ impl NonTerminalHandle for Quote1Handle {
     ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [NodeKind::Terminal(TerminalKind::Quote1)],
-            |[quote_1], visit_ignored| {
+            [NodeKind::Terminal(TerminalKind::Quote)],
+            |[quote], visit_ignored| {
                 Ok(visit(
-                    Quote1View {
-                        quote_1: Quote1(quote_1),
+                    QuoteView {
+                        quote: Quote(quote),
                     },
                     visit_ignored,
                 ))
@@ -6629,58 +6629,10 @@ impl NonTerminalHandle for Quote1Handle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Quote1View {
-    pub quote_1: Quote1,
+pub struct QuoteView {
+    pub quote: Quote,
 }
-impl Quote1View {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Quote2Handle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for Quote2Handle {
-    type View = Quote2View;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::Quote2)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::Quote2
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::Quote2)],
-            |[quote_2], visit_ignored| {
-                Ok(visit(
-                    Quote2View {
-                        quote_2: Quote2(quote_2),
-                    },
-                    visit_ignored,
-                ))
-            },
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Quote2View {
-    pub quote_2: Quote2,
-}
-impl Quote2View {}
+impl QuoteView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RParenHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for RParenHandle {
@@ -6730,9 +6682,9 @@ pub struct RParenView {
 }
 impl RParenView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SQuote1Handle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for SQuote1Handle {
-    type View = SQuote1View;
+pub struct SQuoteHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for SQuoteHandle {
+    type View = SQuoteView;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -6743,13 +6695,13 @@ impl NonTerminalHandle for SQuote1Handle {
     ) -> Result<Self, CstConstructError<E>> {
         tree.collect_nodes(
             index,
-            [NodeKind::NonTerminal(NonTerminalKind::SQuote1)],
+            [NodeKind::NonTerminal(NonTerminalKind::SQuote)],
             |[index], visit| Ok((Self(index), visit)),
             visit_ignored,
         )
     }
     fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::SQuote1
+        NonTerminalKind::SQuote
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,
@@ -6759,11 +6711,11 @@ impl NonTerminalHandle for SQuote1Handle {
     ) -> Result<O, CstConstructError<E>> {
         tree.collect_nodes(
             self.0,
-            [NodeKind::Terminal(TerminalKind::SQuote1)],
-            |[s_quote_1], visit_ignored| {
+            [NodeKind::Terminal(TerminalKind::SQuote)],
+            |[s_quote], visit_ignored| {
                 Ok(visit(
-                    SQuote1View {
-                        s_quote_1: SQuote1(s_quote_1),
+                    SQuoteView {
+                        s_quote: SQuote(s_quote),
                     },
                     visit_ignored,
                 ))
@@ -6773,58 +6725,10 @@ impl NonTerminalHandle for SQuote1Handle {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SQuote1View {
-    pub s_quote_1: SQuote1,
+pub struct SQuoteView {
+    pub s_quote: SQuote,
 }
-impl SQuote1View {}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SQuote2Handle(pub(crate) super::tree::CstNodeId);
-impl NonTerminalHandle for SQuote2Handle {
-    type View = SQuote2View;
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn new_with_visit<F: CstFacade, E>(
-        index: CstNodeId,
-        tree: &F,
-        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
-    ) -> Result<Self, CstConstructError<E>> {
-        tree.collect_nodes(
-            index,
-            [NodeKind::NonTerminal(NonTerminalKind::SQuote2)],
-            |[index], visit| Ok((Self(index), visit)),
-            visit_ignored,
-        )
-    }
-    fn kind(&self) -> NonTerminalKind {
-        NonTerminalKind::SQuote2
-    }
-    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
-        &self,
-        tree: &F,
-        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
-        visit_ignored: &'v mut V,
-    ) -> Result<O, CstConstructError<E>> {
-        tree.collect_nodes(
-            self.0,
-            [NodeKind::Terminal(TerminalKind::SQuote2)],
-            |[s_quote_2], visit_ignored| {
-                Ok(visit(
-                    SQuote2View {
-                        s_quote_2: SQuote2(s_quote_2),
-                    },
-                    visit_ignored,
-                ))
-            },
-            visit_ignored,
-        )
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SQuote2View {
-    pub s_quote_2: SQuote2,
-}
-impl SQuote2View {}
+impl SQuoteView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SectionHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for SectionHandle {
@@ -7420,8 +7324,8 @@ impl NonTerminalHandle for Str1ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoQuote) => {
                 Str1ListGroupView::NoQuote(NoQuoteHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Quote1) => {
-                Str1ListGroupView::Quote1(Quote1Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::Quote) => {
+                Str1ListGroupView::Quote(QuoteHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -7441,7 +7345,7 @@ impl NonTerminalHandle for Str1ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Str1ListGroupView {
     NoQuote(NoQuoteHandle),
-    Quote1(Quote1Handle),
+    Quote(QuoteHandle),
 }
 impl Str1ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -7716,8 +7620,8 @@ impl NonTerminalHandle for Str2ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoQuote) => {
                 Str2ListGroupView::NoQuote(NoQuoteHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Quote1) => {
-                Str2ListGroupView::Quote1(Quote1Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::Quote) => {
+                Str2ListGroupView::Quote(QuoteHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -7737,7 +7641,7 @@ impl NonTerminalHandle for Str2ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Str2ListGroupView {
     NoQuote(NoQuoteHandle),
-    Quote1(Quote1Handle),
+    Quote(QuoteHandle),
 }
 impl Str2ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -8012,8 +7916,8 @@ impl NonTerminalHandle for Str3ListGroupHandle {
             NodeKind::NonTerminal(NonTerminalKind::NoQuote) => {
                 Str3ListGroupView::NoQuote(NoQuoteHandle(child))
             }
-            NodeKind::NonTerminal(NonTerminalKind::Quote2) => {
-                Str3ListGroupView::Quote2(Quote2Handle(child))
+            NodeKind::NonTerminal(NonTerminalKind::Quote) => {
+                Str3ListGroupView::Quote(QuoteHandle(child))
             }
             _ => {
                 return Err(ViewConstructionError::UnexpectedNode {
@@ -8033,7 +7937,7 @@ impl NonTerminalHandle for Str3ListGroupHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Str3ListGroupView {
     NoQuote(NoQuoteHandle),
-    Quote2(Quote2Handle),
+    Quote(QuoteHandle),
 }
 impl Str3ListGroupView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -9584,23 +9488,13 @@ impl TerminalHandle for Str1End {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Quote2(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for Quote2 {
+pub struct Quote(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for Quote {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::Quote2
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Quote1(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for Quote1 {
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn kind(&self) -> TerminalKind {
-        TerminalKind::Quote1
+        TerminalKind::Quote
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -9644,23 +9538,13 @@ impl TerminalHandle for LitStr1End {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SQuote2(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for SQuote2 {
+pub struct SQuote(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for SQuote {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::SQuote2
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SQuote1(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for SQuote1 {
-    fn node_id(&self) -> CstNodeId {
-        self.0
-    }
-    fn kind(&self) -> TerminalKind {
-        TerminalKind::SQuote1
+        TerminalKind::SQuote
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -9704,13 +9588,13 @@ impl TerminalHandle for DelimCodeEnd1 {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BacktickDelim1(pub(crate) super::tree::CstNodeId);
-impl TerminalHandle for BacktickDelim1 {
+pub struct BacktickDelim(pub(crate) super::tree::CstNodeId);
+impl TerminalHandle for BacktickDelim {
     fn node_id(&self) -> CstNodeId {
         self.0
     }
     fn kind(&self) -> TerminalKind {
-        TerminalKind::BacktickDelim1
+        TerminalKind::BacktickDelim
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

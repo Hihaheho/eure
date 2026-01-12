@@ -234,6 +234,26 @@ escaped = "line1\nline2"
 unicode = "Hello \u{4e16}\u{754c}"  // Hello 世界
 ```
 
+#### Delimited Quoted Strings
+
+When a string needs to contain the quote character itself, use delimited syntax with angle brackets:
+
+| Syntax | Description |
+|--------|-------------|
+| `<"...">` | Single-delimited (allows `"` inside) |
+| `<<"...">>`| Double-delimited (allows `">` inside) |
+| `<<<"...">>>` | Triple-delimited (allows `">>` inside) |
+
+Examples:
+
+```eure
+html = <"<div class="container">">
+json = <<"{"key": "value"}">>
+complex = <<<"She said "Hello!"">>>
+```
+
+The content inside delimited strings still supports escape sequences.
+
 #### String Continuation
 
 Long strings can be split across multiple lines using the backslash continuation:
@@ -243,9 +263,38 @@ long = "This is a very long string " \
   "that spans multiple lines"
 ```
 
-The strings are concatenated without any separator.
+The strings are concatenated without any separator. Different string types can be mixed in continuations.
 
-### 4.3 Text Bindings
+### 4.3 Literal Strings
+
+*Literal strings* are enclosed in single quotes and do **not** process escape sequences:
+
+```eure
+path = 'C:\Users\name\Documents'
+regex = '\d+\.\d+'
+```
+
+The content is taken exactly as written. The only character that cannot appear inside a literal string is the single quote itself.
+
+#### Delimited Literal Strings
+
+When a literal string needs to contain single quotes, use delimited syntax:
+
+| Syntax | Description |
+|--------|-------------|
+| `<'...'>` | Single-delimited (allows `'` inside) |
+| `<<'...'>>` | Double-delimited (allows `'>` inside) |
+| `<<<'...'>>>` | Triple-delimited (allows `'>>` inside) |
+
+Examples:
+
+```eure
+quoted = <'It's a nice day'>
+nested = <<'She said 'hello''>>
+complex = <<<'Triple 'quotes' work too'>>>
+```
+
+### 4.4 Text Bindings
 
 *Text bindings* provide unquoted single-line text using the colon syntax:
 
@@ -261,7 +310,7 @@ Text bindings:
 - Produce *plaintext* values
 - Support escape sequences
 
-### 4.4 Inline Code
+### 4.5 Inline Code
 
 Inline code is enclosed in backticks and produces *implicit* or *tagged* text:
 
@@ -270,14 +319,6 @@ Inline code is enclosed in backticks and produces *implicit* or *tagged* text:
 ```eure
 command = `ls -la`
 ```
-
-**Double backtick** (``` `` ```):
-
-```eure
-template = ``Hello, {{name}}!``
-```
-
-Double backticks allow single backticks within the content.
 
 **With language tag**:
 
@@ -288,7 +329,27 @@ regex = regex`\d{3}-\d{4}`
 
 The language tag must immediately precede the opening backtick(s) with no whitespace.
 
-### 4.5 Code Blocks
+#### Delimited Inline Code
+
+When inline code needs to contain backticks, use delimited syntax with angle brackets:
+
+| Syntax | Description |
+|--------|-------------|
+| `` <`...`> `` | Single-delimited (allows `` ` `` inside) |
+| `` <<`...`>> `` | Double-delimited (allows `` `> `` inside) |
+| `` <<<`...`>>> `` | Triple-delimited (allows `` `>> `` inside) |
+
+Examples:
+
+```eure
+shell = <`echo `date``>
+template = <<`Use `backticks` freely`>>
+nested = js<<<`const x = `template ${y}``>>>
+```
+
+Language tags can be used with delimited syntax by placing them before the opening angle bracket.
+
+### 4.6 Code Blocks
 
 Code blocks use 3 to 6 backticks and support multi-line content:
 
@@ -1071,12 +1132,35 @@ Strings = String { "\\" String } ;
 Identifier = /[\p{XID_Start}_][\p{XID_Continue}-]*/ ;
 Integer = /\d[\d_]*/ ;
 Float = /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
-String = /"([^"\\]|\\.)*"/ ;
 
-InlineCode = InlineCode1 | InlineCode2 ;
-InlineCode1 = /[a-zA-Z0-9_-]*`[^`\r\n]*`/ ;
-InlineCode2 = /[a-zA-Z0-9_-]*``/ { /[^`]+/ | /`/ } "``" ;
+(* String types: quoted (escaped) and literal (raw) *)
+String = QuotedStr | LiteralStr ;
 
+(* Quoted strings with escape sequence support *)
+QuotedStr = Str | Str1 | Str2 | Str3 ;
+Str = /"([^"\\]|\\.)*"/ ;                     (* Basic: "..." *)
+Str1 = "<\"" { /[^"]+/ | "\"" } "\">" ;       (* Delimited: <"..."> *)
+Str2 = "<<\"" { /[^"]+/ | "\"" } "\">>" ;     (* Delimited: <<"...">> *)
+Str3 = "<<<\"" { /[^"]+/ | "\"" } "\">>>" ;   (* Delimited: <<<"...">>> *)
+
+(* Literal strings without escape processing *)
+LiteralStr = LitStr | LitStr1 | LitStr2 | LitStr3 ;
+LitStr = /'[^']*'/ ;                          (* Basic: '...' *)
+LitStr1 = "<'" { /[^']+/ | "'" } "'>" ;       (* Delimited: <'...'> *)
+LitStr2 = "<<'" { /[^']+/ | "'" } "'>>" ;     (* Delimited: <<'...'>> *)
+LitStr3 = "<<<'" { /[^']+/ | "'" } "'>>>" ;   (* Delimited: <<<'...'>>> *)
+
+(* Inline code: backticks or delimited *)
+InlineCode = DelimCode | InlineCode1 ;
+InlineCode1 = /[a-zA-Z0-9_-]*`[^`\r\n]*`/ ;   (* lang`code` *)
+
+(* Delimited inline code *)
+DelimCode = DelimCode1 | DelimCode2 | DelimCode3 ;
+DelimCode1 = /[a-zA-Z0-9_-]*/ "<`" { /[^`]+/ | "`" } "`>" ;       (* lang<`...`> *)
+DelimCode2 = /[a-zA-Z0-9_-]*/ "<<`" { /[^`]+/ | "`" } "`>>" ;     (* lang<<`...`>> *)
+DelimCode3 = /[a-zA-Z0-9_-]*/ "<<<`" { /[^`]+/ | "`" } "`>>>" ;   (* lang<<<`...`>>> *)
+
+(* Multi-line code blocks *)
 CodeBlock = CodeBlock3 | CodeBlock4 | CodeBlock5 | CodeBlock6 ;
 CodeBlock3 = /```[a-zA-Z0-9_-]*\s*\n/ { /[^`]+/ | /`{1,2}/ } "```" ;
 CodeBlock4 = /````[a-zA-Z0-9_-]*\s*\n/ { /[^`]+/ | /`{1,3}/ } "````" ;
@@ -1097,13 +1181,19 @@ The lexer operates in different contexts where whitespace, newlines, and comment
 
 **Text binding context**: After `:` in a binding, the lexer captures all characters until the line terminator as raw text content. Whitespace and comments are NOT recognized in this context.
 
-**Inline code context**: Inside backtick-delimited inline code, only the content and closing delimiter are recognized. Whitespace and comments are part of the content.
+**Quoted string context**: Inside delimited quoted strings (`<"...">`, `<<"...">>`, `<<<"...">>>`), only the content and matching closing delimiter are recognized. Escape sequences are processed.
+
+**Literal string context**: Inside delimited literal strings (`<'...'>`, `<<'...'>>`, `<<<'...'>>>`), only the content and matching closing delimiter are recognized. No escape processing.
+
+**Inline code context**: Inside backtick-delimited inline code (`` `...` ``) or delimited inline code (`` <`...`> ``, `` <<`...`>> ``, `` <<<`...`>>> ``), only the content and closing delimiter are recognized. Whitespace and comments are part of the content.
 
 **Code block context**: Inside multi-line code blocks (3-6 backticks), only the content and the matching closing delimiter are recognized. All characters including newlines become part of the content.
 
 Context transitions:
 - `:` in binding position → text binding context (until line end)
-- Opening backticks → inline code or code block context
+- `<"`, `<<"`, `<<<\"` → quoted string context
+- `<'`, `<<'`, `<<<'` → literal string context
+- Opening backticks or `` <` ``, `` <<` ``, `` <<<` `` → inline code or code block context
 - Closing delimiters → return to default context
 
 ---

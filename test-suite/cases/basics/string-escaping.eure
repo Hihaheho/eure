@@ -65,6 +65,16 @@ normalized = ```eure
 = { escaped => "say \"hello\"", literal => "it's working" }
 ```
 
+@ cases.level1-consecutive-quotes
+input_eure = ```eure
+escaped = <"a""b">
+literal = <'a''b'>
+```
+
+normalized = ```eure
+= { escaped => "a\"\"b", literal => "a''b" }
+```
+
 // === Level 2: Str2 vs LitStr2 ===
 
 @ cases.level2-newline
@@ -97,6 +107,16 @@ normalized = ```eure
 = { escaped => "text with \"> inside", literal => "text with '> inside" }
 ```
 
+@ cases.level2-consecutive-quotes
+input_eure = ```eure
+escaped = <<"a""b">>
+literal = <<'a''b'>>
+```
+
+normalized = ```eure
+= { escaped => "a\"\"b", literal => "a''b" }
+```
+
 // === Level 3: Str3 vs LitStr3 ===
 
 @ cases.level3-newline
@@ -127,6 +147,58 @@ literal = <<<'text with ''>> inside'>>>
 
 normalized = ```eure
 = { escaped => "text with \">> inside", literal => "text with ''>> inside" }
+```
+
+@ cases.level3-consecutive-quotes
+input_eure = ```eure
+escaped = <<<"a""b">>>
+literal = <<<'a''b'>>>
+```
+
+normalized = ```eure
+= { escaped => "a\"\"b", literal => "a''b" }
+```
+
+// === Unicode and other escapes ===
+
+@ cases.unicode-escape
+input_eure = ```eure
+hello = "Hello \u{4e16}\u{754c}"
+```
+
+normalized = ```eure
+= { hello => "Hello 世界" }
+```
+
+@ cases.all-escapes
+input_eure = ```eure
+escaped = "tab:\there\nnull:\0end"
+```
+
+normalized = ```eure
+= { escaped => "tab:\there\nnull:\0end" }
+```
+
+// === String continuation ===
+
+@ cases.continuation-same-type
+input_eure = ```eure
+long = "hello " \
+  "world"
+```
+
+normalized = ```eure
+= { long => "hello world" }
+```
+
+@ cases.continuation-mixed-types
+input_eure = ```eure
+mixed = "escaped\n" \
+  'literal\n'
+```
+
+normalized = ```eure
+= { mixed => "escaped\nliteral\\n" }
 ```
 
 // === Keys: Escaped vs Literal ===

@@ -665,37 +665,20 @@ impl From<Str1EndToken> for BuilderNodeId {
         token.node_id
     }
 }
-///Branded type for Quote2 terminal
+///Branded type for Quote terminal
 #[derive(Debug, Clone)]
-pub struct Quote2Token {
+pub struct QuoteToken {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl Quote2Token {
+impl QuoteToken {
     /// Consume this token and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<Quote2Token> for BuilderNodeId {
-    fn from(token: Quote2Token) -> Self {
-        token.node_id
-    }
-}
-///Branded type for Quote1 terminal
-#[derive(Debug, Clone)]
-pub struct Quote1Token {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl Quote1Token {
-    /// Consume this token and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<Quote1Token> for BuilderNodeId {
-    fn from(token: Quote1Token) -> Self {
+impl From<QuoteToken> for BuilderNodeId {
+    fn from(token: QuoteToken) -> Self {
         token.node_id
     }
 }
@@ -767,37 +750,20 @@ impl From<LitStr1EndToken> for BuilderNodeId {
         token.node_id
     }
 }
-///Branded type for SQuote2 terminal
+///Branded type for SQuote terminal
 #[derive(Debug, Clone)]
-pub struct SQuote2Token {
+pub struct SQuoteToken {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl SQuote2Token {
+impl SQuoteToken {
     /// Consume this token and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<SQuote2Token> for BuilderNodeId {
-    fn from(token: SQuote2Token) -> Self {
-        token.node_id
-    }
-}
-///Branded type for SQuote1 terminal
-#[derive(Debug, Clone)]
-pub struct SQuote1Token {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl SQuote1Token {
-    /// Consume this token and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<SQuote1Token> for BuilderNodeId {
-    fn from(token: SQuote1Token) -> Self {
+impl From<SQuoteToken> for BuilderNodeId {
+    fn from(token: SQuoteToken) -> Self {
         token.node_id
     }
 }
@@ -869,20 +835,20 @@ impl From<DelimCodeEnd1Token> for BuilderNodeId {
         token.node_id
     }
 }
-///Branded type for BacktickDelim1 terminal
+///Branded type for BacktickDelim terminal
 #[derive(Debug, Clone)]
-pub struct BacktickDelim1Token {
+pub struct BacktickDelimToken {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl BacktickDelim1Token {
+impl BacktickDelimToken {
     /// Consume this token and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<BacktickDelim1Token> for BuilderNodeId {
-    fn from(token: BacktickDelim1Token) -> Self {
+impl From<BacktickDelimToken> for BuilderNodeId {
+    fn from(token: BacktickDelimToken) -> Self {
         token.node_id
     }
 }
@@ -1413,20 +1379,20 @@ impl From<Backtick5Node> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for BacktickDelim1 non-terminal
+///Branded type for BacktickDelim non-terminal
 #[derive(Debug, Clone)]
-pub struct BacktickDelim1Node {
+pub struct BacktickDelimNode {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl BacktickDelim1Node {
+impl BacktickDelimNode {
     /// Consume this node and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<BacktickDelim1Node> for BuilderNodeId {
-    fn from(node: BacktickDelim1Node) -> Self {
+impl From<BacktickDelimNode> for BuilderNodeId {
+    fn from(node: BacktickDelimNode) -> Self {
         node.node_id
     }
 }
@@ -3181,37 +3147,20 @@ impl From<ObjectOpt1Node> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for Quote1 non-terminal
+///Branded type for Quote non-terminal
 #[derive(Debug, Clone)]
-pub struct Quote1Node {
+pub struct QuoteNode {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl Quote1Node {
+impl QuoteNode {
     /// Consume this node and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<Quote1Node> for BuilderNodeId {
-    fn from(node: Quote1Node) -> Self {
-        node.node_id
-    }
-}
-///Branded type for Quote2 non-terminal
-#[derive(Debug, Clone)]
-pub struct Quote2Node {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl Quote2Node {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<Quote2Node> for BuilderNodeId {
-    fn from(node: Quote2Node) -> Self {
+impl From<QuoteNode> for BuilderNodeId {
+    fn from(node: QuoteNode) -> Self {
         node.node_id
     }
 }
@@ -3232,37 +3181,20 @@ impl From<RParenNode> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for SQuote1 non-terminal
+///Branded type for SQuote non-terminal
 #[derive(Debug, Clone)]
-pub struct SQuote1Node {
+pub struct SQuoteNode {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl SQuote1Node {
+impl SQuoteNode {
     /// Consume this node and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<SQuote1Node> for BuilderNodeId {
-    fn from(node: SQuote1Node) -> Self {
-        node.node_id
-    }
-}
-///Branded type for SQuote2 non-terminal
-#[derive(Debug, Clone)]
-pub struct SQuote2Node {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl SQuote2Node {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<SQuote2Node> for BuilderNodeId {
-    fn from(node: SQuote2Node) -> Self {
+impl From<SQuoteNode> for BuilderNodeId {
+    fn from(node: SQuoteNode) -> Self {
         node.node_id
     }
 }
@@ -4184,15 +4116,15 @@ impl Backtick5Constructor {
     }
 }
 #[derive(bon::Builder)]
-pub struct BacktickDelim1Constructor {
-    backtick_delim_1: BacktickDelim1Token,
+pub struct BacktickDelimConstructor {
+    backtick_delim: BacktickDelimToken,
 }
-impl BacktickDelim1Constructor {
-    pub fn build(self) -> BacktickDelim1Node {
+impl BacktickDelimConstructor {
+    pub fn build(self) -> BacktickDelimNode {
         let mut builder = CstBuilder::new();
-        let backtick_delim_1 = builder.embed(self.backtick_delim_1.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::BacktickDelim1, vec![backtick_delim_1]);
-        BacktickDelim1Node { node_id, builder }
+        let backtick_delim = builder.embed(self.backtick_delim.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::BacktickDelim, vec![backtick_delim]);
+        BacktickDelimNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4707,14 +4639,14 @@ impl DelimCode1ListConstructor {
 }
 pub enum DelimCode1ListGroupConstructor {
     NoBacktick(NoBacktickNode),
-    BacktickDelim1(BacktickDelim1Node),
+    BacktickDelim(BacktickDelimNode),
 }
 impl DelimCode1ListGroupConstructor {
     pub fn build(self) -> DelimCode1ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoBacktick(node) => builder.embed(node.builder),
-            Self::BacktickDelim1(node) => builder.embed(node.builder),
+            Self::BacktickDelim(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::DelimCode1ListGroup, vec![child_id]);
         DelimCode1ListGroupNode { node_id, builder }
@@ -4766,14 +4698,14 @@ impl DelimCode2ListConstructor {
 }
 pub enum DelimCode2ListGroupConstructor {
     NoBacktick(NoBacktickNode),
-    BacktickDelim1(BacktickDelim1Node),
+    BacktickDelim(BacktickDelimNode),
 }
 impl DelimCode2ListGroupConstructor {
     pub fn build(self) -> DelimCode2ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoBacktick(node) => builder.embed(node.builder),
-            Self::BacktickDelim1(node) => builder.embed(node.builder),
+            Self::BacktickDelim(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::DelimCode2ListGroup, vec![child_id]);
         DelimCode2ListGroupNode { node_id, builder }
@@ -4825,14 +4757,14 @@ impl DelimCode3ListConstructor {
 }
 pub enum DelimCode3ListGroupConstructor {
     NoBacktick(NoBacktickNode),
-    Backtick2(Backtick2Node),
+    BacktickDelim(BacktickDelimNode),
 }
 impl DelimCode3ListGroupConstructor {
     pub fn build(self) -> DelimCode3ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoBacktick(node) => builder.embed(node.builder),
-            Self::Backtick2(node) => builder.embed(node.builder),
+            Self::BacktickDelim(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::DelimCode3ListGroup, vec![child_id]);
         DelimCode3ListGroupNode { node_id, builder }
@@ -5464,14 +5396,14 @@ impl LitStr1ListConstructor {
 }
 pub enum LitStr1ListGroupConstructor {
     NoSQuote(NoSQuoteNode),
-    SQuote1(SQuote1Node),
+    SQuote(SQuoteNode),
 }
 impl LitStr1ListGroupConstructor {
     pub fn build(self) -> LitStr1ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoSQuote(node) => builder.embed(node.builder),
-            Self::SQuote1(node) => builder.embed(node.builder),
+            Self::SQuote(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::LitStr1ListGroup, vec![child_id]);
         LitStr1ListGroupNode { node_id, builder }
@@ -5547,14 +5479,14 @@ impl LitStr2ListConstructor {
 }
 pub enum LitStr2ListGroupConstructor {
     NoSQuote(NoSQuoteNode),
-    SQuote1(SQuote1Node),
+    SQuote(SQuoteNode),
 }
 impl LitStr2ListGroupConstructor {
     pub fn build(self) -> LitStr2ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoSQuote(node) => builder.embed(node.builder),
-            Self::SQuote1(node) => builder.embed(node.builder),
+            Self::SQuote(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::LitStr2ListGroup, vec![child_id]);
         LitStr2ListGroupNode { node_id, builder }
@@ -5630,14 +5562,14 @@ impl LitStr3ListConstructor {
 }
 pub enum LitStr3ListGroupConstructor {
     NoSQuote(NoSQuoteNode),
-    SQuote2(SQuote2Node),
+    SQuote(SQuoteNode),
 }
 impl LitStr3ListGroupConstructor {
     pub fn build(self) -> LitStr3ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoSQuote(node) => builder.embed(node.builder),
-            Self::SQuote2(node) => builder.embed(node.builder),
+            Self::SQuote(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::LitStr3ListGroup, vec![child_id]);
         LitStr3ListGroupNode { node_id, builder }
@@ -5848,27 +5780,15 @@ impl ObjectOpt1Constructor {
     }
 }
 #[derive(bon::Builder)]
-pub struct Quote1Constructor {
-    quote_1: Quote1Token,
+pub struct QuoteConstructor {
+    quote: QuoteToken,
 }
-impl Quote1Constructor {
-    pub fn build(self) -> Quote1Node {
+impl QuoteConstructor {
+    pub fn build(self) -> QuoteNode {
         let mut builder = CstBuilder::new();
-        let quote_1 = builder.embed(self.quote_1.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::Quote1, vec![quote_1]);
-        Quote1Node { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
-pub struct Quote2Constructor {
-    quote_2: Quote2Token,
-}
-impl Quote2Constructor {
-    pub fn build(self) -> Quote2Node {
-        let mut builder = CstBuilder::new();
-        let quote_2 = builder.embed(self.quote_2.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::Quote2, vec![quote_2]);
-        Quote2Node { node_id, builder }
+        let quote = builder.embed(self.quote.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::Quote, vec![quote]);
+        QuoteNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -5884,27 +5804,15 @@ impl RParenConstructor {
     }
 }
 #[derive(bon::Builder)]
-pub struct SQuote1Constructor {
-    s_quote_1: SQuote1Token,
+pub struct SQuoteConstructor {
+    s_quote: SQuoteToken,
 }
-impl SQuote1Constructor {
-    pub fn build(self) -> SQuote1Node {
+impl SQuoteConstructor {
+    pub fn build(self) -> SQuoteNode {
         let mut builder = CstBuilder::new();
-        let s_quote_1 = builder.embed(self.s_quote_1.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::SQuote1, vec![s_quote_1]);
-        SQuote1Node { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
-pub struct SQuote2Constructor {
-    s_quote_2: SQuote2Token,
-}
-impl SQuote2Constructor {
-    pub fn build(self) -> SQuote2Node {
-        let mut builder = CstBuilder::new();
-        let s_quote_2 = builder.embed(self.s_quote_2.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::SQuote2, vec![s_quote_2]);
-        SQuote2Node { node_id, builder }
+        let s_quote = builder.embed(self.s_quote.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::SQuote, vec![s_quote]);
+        SQuoteNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -6066,14 +5974,14 @@ impl Str1ListConstructor {
 }
 pub enum Str1ListGroupConstructor {
     NoQuote(NoQuoteNode),
-    Quote1(Quote1Node),
+    Quote(QuoteNode),
 }
 impl Str1ListGroupConstructor {
     pub fn build(self) -> Str1ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoQuote(node) => builder.embed(node.builder),
-            Self::Quote1(node) => builder.embed(node.builder),
+            Self::Quote(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::Str1ListGroup, vec![child_id]);
         Str1ListGroupNode { node_id, builder }
@@ -6148,14 +6056,14 @@ impl Str2ListConstructor {
 }
 pub enum Str2ListGroupConstructor {
     NoQuote(NoQuoteNode),
-    Quote1(Quote1Node),
+    Quote(QuoteNode),
 }
 impl Str2ListGroupConstructor {
     pub fn build(self) -> Str2ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoQuote(node) => builder.embed(node.builder),
-            Self::Quote1(node) => builder.embed(node.builder),
+            Self::Quote(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::Str2ListGroup, vec![child_id]);
         Str2ListGroupNode { node_id, builder }
@@ -6230,14 +6138,14 @@ impl Str3ListConstructor {
 }
 pub enum Str3ListGroupConstructor {
     NoQuote(NoQuoteNode),
-    Quote2(Quote2Node),
+    Quote(QuoteNode),
 }
 impl Str3ListGroupConstructor {
     pub fn build(self) -> Str3ListGroupNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::NoQuote(node) => builder.embed(node.builder),
-            Self::Quote2(node) => builder.embed(node.builder),
+            Self::Quote(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::Str3ListGroup, vec![child_id]);
         Str3ListGroupNode { node_id, builder }
@@ -6791,15 +6699,10 @@ pub mod terminals {
         let node_id = builder.terminal(TerminalKind::Str1End, "");
         Str1EndToken { node_id, builder }
     }
-    pub fn quote_2() -> Quote2Token {
+    pub fn quote() -> QuoteToken {
         let mut builder = CstBuilder::new();
-        let node_id = builder.terminal(TerminalKind::Quote2, "");
-        Quote2Token { node_id, builder }
-    }
-    pub fn quote_1() -> Quote1Token {
-        let mut builder = CstBuilder::new();
-        let node_id = builder.terminal(TerminalKind::Quote1, "");
-        Quote1Token { node_id, builder }
+        let node_id = builder.terminal(TerminalKind::Quote, "");
+        QuoteToken { node_id, builder }
     }
     pub fn no_quote() -> NoQuoteToken {
         let mut builder = CstBuilder::new();
@@ -6821,15 +6724,10 @@ pub mod terminals {
         let node_id = builder.terminal(TerminalKind::LitStr1End, "");
         LitStr1EndToken { node_id, builder }
     }
-    pub fn s_quote_2() -> SQuote2Token {
+    pub fn s_quote() -> SQuoteToken {
         let mut builder = CstBuilder::new();
-        let node_id = builder.terminal(TerminalKind::SQuote2, "");
-        SQuote2Token { node_id, builder }
-    }
-    pub fn s_quote_1() -> SQuote1Token {
-        let mut builder = CstBuilder::new();
-        let node_id = builder.terminal(TerminalKind::SQuote1, "");
-        SQuote1Token { node_id, builder }
+        let node_id = builder.terminal(TerminalKind::SQuote, "");
+        SQuoteToken { node_id, builder }
     }
     pub fn no_s_quote() -> NoSQuoteToken {
         let mut builder = CstBuilder::new();
@@ -6851,10 +6749,10 @@ pub mod terminals {
         let node_id = builder.terminal(TerminalKind::DelimCodeEnd1, "");
         DelimCodeEnd1Token { node_id, builder }
     }
-    pub fn backtick_delim_1() -> BacktickDelim1Token {
+    pub fn backtick_delim() -> BacktickDelimToken {
         let mut builder = CstBuilder::new();
-        let node_id = builder.terminal(TerminalKind::BacktickDelim1, "");
-        BacktickDelim1Token { node_id, builder }
+        let node_id = builder.terminal(TerminalKind::BacktickDelim, "");
+        BacktickDelimToken { node_id, builder }
     }
     pub fn grammar_newline() -> GrammarNewlineToken {
         let mut builder = CstBuilder::new();
