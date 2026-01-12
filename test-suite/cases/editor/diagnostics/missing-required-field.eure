@@ -1,0 +1,108 @@
+// Test: Missing required field diagnostics span validation
+// This test covers various scenarios where required fields are missing
+
+// ============================================================================
+// Case 1: Missing required field at root level with multiple fields present
+// ============================================================================
+@ cases.root-level-multi-field
+schema = ```eure
+name = `text`
+email = `text`
+age = `integer`
+age.$optional = true
+city = `text`
+city.$optional = true
+```
+
+editor = ```eure
+name = "Alice"
+age = 30
+city = "Tokyo"
+```
+
+// Error: Missing required field 'email' at root level
+// TODO: The span currently covers the entire document, which is too large
+// It should ideally point to the file start or first field, not span everything
+@ cases.root-level-multi-field.diagnostics[]
+severity = "error"
+source = "/test-workspace/editor.eure"
+message = "Missing required field 'email' at path (root)"
+span = 'name = "Alice"' \ "\n" \ 'age = 30' \ "\n" \ 'city = "Tokyo"'
+
+// ============================================================================
+// Case 2: Missing required field at root level with single field
+// ============================================================================
+@ cases.root-level-single-field
+schema = ```eure
+name = `text`
+email = `text`
+```
+
+editor = ```eure
+name = "Alice"
+```
+
+// Error: Missing required field 'email' at root level
+// The span covers just the single field present
+@ cases.root-level-single-field.diagnostics[]
+severity = "error"
+source = "/test-workspace/editor.eure"
+message = "Missing required field 'email' at path (root)"
+span = `name = "Alice"`
+
+// ============================================================================
+// Case 3: Field name typo in nested structure
+// ============================================================================
+@ cases.nested-field-typo
+schema = ```eure
+root.user.name = `text`
+```
+
+editor = ```eure
+@ root {
+  @ user
+  n = "Alice"
+}
+```
+
+// Error: Missing required field 'name' at nested path
+@ cases.nested-field-typo.diagnostics[]
+severity = "error"
+source = "/test-workspace/editor.eure"
+message = "Missing required field 'name' at path root.user"
+span = `user`
+
+// Error: Unknown field 'n' (the typo)
+@ cases.nested-field-typo.diagnostics[]
+severity = "error"
+source = "/test-workspace/editor.eure"
+message = "Unknown field 'n' at path root.user"
+span = `n`
+
+// ============================================================================
+// Case 4: Multiple missing required fields at root level
+// ============================================================================
+@ cases.multiple-missing
+schema = ```eure
+name = `text`
+email = `text`
+phone = `text`
+```
+
+editor = ```eure
+name = "Bob"
+```
+
+// Error: Missing required field 'email'
+@ cases.multiple-missing.diagnostics[]
+severity = "error"
+source = "/test-workspace/editor.eure"
+message = "Missing required field 'email' at path (root)"
+span = `name = "Bob"`
+
+// Error: Missing required field 'phone'
+@ cases.multiple-missing.diagnostics[]
+severity = "error"
+source = "/test-workspace/editor.eure"
+message = "Missing required field 'phone' at path (root)"
+span = `name = "Bob"`
