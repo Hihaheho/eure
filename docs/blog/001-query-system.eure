@@ -1,8 +1,10 @@
+@ $frontmatter
+2
 title: Query System Wins
 
-@ '# Introduction' {
-  @ <'## What's query system?'> {
-    body = ```markdown
+@ "# Introduction" {
+  @ "## What's query system?" {
+    = ```markdown
     In this article, "query system" is defined as follows.
     > A query system is a design pattern for building a language processing system that, instead of sequentially processing the input to output as traditional multi-stage pipeline, it allows you to compose the processing steps into queries that can fetch inputs and call other queries.
     The Rust compiler `rustc` and `rust-analyzer` are good examples of query systems.
@@ -13,16 +15,16 @@ title: Query System Wins
     ```
   }
 
-  @ <'## What are the benefits of query system?'> {
-    body = ```markdown
+  @ "## What are the benefits of query system?" {
+    = ```markdown
     The benefits of query systems vary depending on their implementation, but typically include:
     - **Modularity**: You can compose processing steps as queries that have a **single responsibility** by calling other queries.
     - **Consistency**: Within a query execution, all subqueries operate on the same consistent snapshot of input data.
     ```
   }
 
-  @ <'## What's Eure language'> {
-    body = ```markdown
+  @ "## What's Eure language?" {
+    = ```markdown
     Eure language is a minimalist, schema-friendly data format designed for representing rich data models in a human-readable and programmatically editable way.
 
     Since it's "data format" and not "programming language", it differs from normal programming language compilers but it shares the same or similar parts with them:
@@ -40,10 +42,13 @@ title: Query System Wins
   }
 }
 
-@ '# Why migrate to query system?' {}
-@ '# Designing `query-flow`' {
-  @ '## Why not salsa-rs?' {
-    body = ```markdown
+@ "# Why migrate to query system?" {
+  body = ```markdown
+  ```
+}
+@ "# Designing `query-flow`" {
+  @ "## Why not salsa-rs?" {
+    = ```markdown
     Salsa-rs is an incremental computation library for Rust that provides sophisticated caching and dependency tracking. It's battle-tested in large projects like rust-analyzer, where it efficiently handles complex scenarios.
 
     That said, for short: I'm not smart enough to leverage salsa's full potential.
@@ -59,8 +64,8 @@ title: Query System Wins
     - While salsa-rs excels at handling extreme performance scenarios like those in rust-analyzer, my use case involves more straightforward incremental computations where the full power of salsa-rs wasn't necessary.
     ```
   }
-  @ '## Design goals of `query-flow`?' {
-    body = ```markdown
+  @ "## Design goals of `query-flow`?" {
+    = ```markdown
     - **Intuitive**: Easy to understand and few concepts to learn.
     - **No magic**: Macro expansion is predictable and straightforward.
     - **Flexible**: User can use queries defined in other crates as building blocks.
@@ -69,7 +74,15 @@ title: Query System Wins
     ```
   }
 }
-@ '# How to migrate to query system?' {}
-@ '# One downside: AI does not familiar with query system' {
+@ "# How to migrate to query system?" {
+  = ```markdown
+  ```
 }
-@ <'# What's the next steps?'> {}
+@ "# One downside: Opus 4.5 seems not familiar with query system" {
+  = ```markdown
+  ```
+}
+@ "# What's the next steps?" {
+  = ```markdown
+  ```
+}
