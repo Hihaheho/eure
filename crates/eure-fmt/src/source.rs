@@ -288,11 +288,6 @@ impl<'a> SourceDocBuilder<'a> {
                 StringStyle::Literal => Doc::text("'")
                     .concat(Doc::text(s.clone()))
                     .concat(Doc::text("'")),
-                StringStyle::DelimitedStr(level) => {
-                    let delim_open: String = "<".repeat(*level as usize);
-                    let delim_close: String = ">".repeat(*level as usize);
-                    Doc::text(format!("{delim_open}\"{s}\"{delim_close}"))
-                }
                 StringStyle::DelimitedLitStr(level) => {
                     let delim_open: String = "<".repeat(*level as usize);
                     let delim_close: String = ">".repeat(*level as usize);

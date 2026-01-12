@@ -69,78 +69,6 @@ impl TerminalTokens {
         Ok(string)
     }
 
-    /// Collect terminal tokens from Str1 content list
-    pub fn from_str_1_list<F: CstFacade>(
-        list: &Str1ListHandle,
-        tree: &F,
-    ) -> Result<Self, DocumentConstructionError> {
-        let mut tokens = Self::new();
-        if let Some(view) = list.get_view(tree)? {
-            let groups = view.get_all(tree)?;
-            for group in groups {
-                match group.get_view(tree)? {
-                    Str1ListGroupView::NoQuote(h) => {
-                        let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.no_quote.get_data(tree)?);
-                    }
-                    Str1ListGroupView::Quote(h) => {
-                        let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.quote.get_data(tree)?);
-                    }
-                }
-            }
-        }
-        Ok(tokens)
-    }
-
-    /// Collect terminal tokens from Str2 content list
-    pub fn from_str_2_list<F: CstFacade>(
-        list: &Str2ListHandle,
-        tree: &F,
-    ) -> Result<Self, DocumentConstructionError> {
-        let mut tokens = Self::new();
-        if let Some(view) = list.get_view(tree)? {
-            let groups = view.get_all(tree)?;
-            for group in groups {
-                match group.get_view(tree)? {
-                    Str2ListGroupView::NoQuote(h) => {
-                        let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.no_quote.get_data(tree)?);
-                    }
-                    Str2ListGroupView::Quote(h) => {
-                        let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.quote.get_data(tree)?);
-                    }
-                }
-            }
-        }
-        Ok(tokens)
-    }
-
-    /// Collect terminal tokens from Str3 content list
-    pub fn from_str_3_list<F: CstFacade>(
-        list: &Str3ListHandle,
-        tree: &F,
-    ) -> Result<Self, DocumentConstructionError> {
-        let mut tokens = Self::new();
-        if let Some(view) = list.get_view(tree)? {
-            let groups = view.get_all(tree)?;
-            for group in groups {
-                match group.get_view(tree)? {
-                    Str3ListGroupView::NoQuote(h) => {
-                        let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.no_quote.get_data(tree)?);
-                    }
-                    Str3ListGroupView::Quote(h) => {
-                        let view = h.get_view(tree)?;
-                        tokens.push_terminal(view.quote.get_data(tree)?);
-                    }
-                }
-            }
-        }
-        Ok(tokens)
-    }
-
     /// Collect terminal tokens from LitStr1 content list
     pub fn from_lit_str_1_list<F: CstFacade>(
         list: &LitStr1ListHandle,
@@ -1712,7 +1640,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
 
 /// Helper methods for parsing strings (outside of CstVisitor trait)
 impl<'a> CstInterpreter<'a> {
-    /// Parse a String (any of the 8 string types) and return the content with syntax hint
+    /// Parse a String (any of the string types) and return the content with syntax hint
     fn parse_string_with_hint<F: CstFacade>(
         &self,
         handle: StringHandle,
@@ -1722,9 +1650,6 @@ impl<'a> CstInterpreter<'a> {
             StringView::Str(h) => self
                 .parse_str_terminal(h, tree)
                 .map(|s| (s, SyntaxHint::Str)),
-            StringView::Str1(h) => self.parse_str_1(h, tree).map(|s| (s, SyntaxHint::Str1)),
-            StringView::Str2(h) => self.parse_str_2(h, tree).map(|s| (s, SyntaxHint::Str2)),
-            StringView::Str3(h) => self.parse_str_3(h, tree).map(|s| (s, SyntaxHint::Str3)),
             StringView::LitStr(h) => self.parse_lit_str(h, tree).map(|s| (s, SyntaxHint::LitStr)),
             StringView::LitStr1(h) => self
                 .parse_lit_str_1(h, tree)
@@ -1738,67 +1663,13 @@ impl<'a> CstInterpreter<'a> {
         }
     }
 
-    /// Parse a String (any of the 8 string types) and return just the content
+    /// Parse a String (any of the string types) and return just the content
     fn parse_string<F: CstFacade>(
         &self,
         handle: StringHandle,
         tree: &F,
     ) -> Result<String, DocumentConstructionError> {
         self.parse_string_with_hint(handle, tree).map(|(s, _)| s)
-    }
-
-    /// Parse Str1 (<"...">) and return the content (with escape processing)
-    fn parse_str_1<F: CstFacade>(
-        &self,
-        handle: Str1Handle,
-        tree: &F,
-    ) -> Result<String, DocumentConstructionError> {
-        let view = handle.get_view(tree)?;
-        let terminals = TerminalTokens::from_str_1_list(&view.str_1_list, tree)?;
-        let raw = terminals.into_string(self.input, tree)?;
-        // Process escape sequences
-        Text::parse_quoted_string(&raw)
-            .map(|t| t.content)
-            .map_err(|error| DocumentConstructionError::InvalidStringKey {
-                node_id: handle.node_id(),
-                error,
-            })
-    }
-
-    /// Parse Str2 (<<"...">>) and return the content (with escape processing)
-    fn parse_str_2<F: CstFacade>(
-        &self,
-        handle: Str2Handle,
-        tree: &F,
-    ) -> Result<String, DocumentConstructionError> {
-        let view = handle.get_view(tree)?;
-        let terminals = TerminalTokens::from_str_2_list(&view.str_2_list, tree)?;
-        let raw = terminals.into_string(self.input, tree)?;
-        // Process escape sequences
-        Text::parse_quoted_string(&raw)
-            .map(|t| t.content)
-            .map_err(|error| DocumentConstructionError::InvalidStringKey {
-                node_id: handle.node_id(),
-                error,
-            })
-    }
-
-    /// Parse Str3 (<<<"...">>>) and return the content (with escape processing)
-    fn parse_str_3<F: CstFacade>(
-        &self,
-        handle: Str3Handle,
-        tree: &F,
-    ) -> Result<String, DocumentConstructionError> {
-        let view = handle.get_view(tree)?;
-        let terminals = TerminalTokens::from_str_3_list(&view.str_3_list, tree)?;
-        let raw = terminals.into_string(self.input, tree)?;
-        // Process escape sequences
-        Text::parse_quoted_string(&raw)
-            .map(|t| t.content)
-            .map_err(|error| DocumentConstructionError::InvalidStringKey {
-                node_id: handle.node_id(),
-                error,
-            })
     }
 
     /// Parse LitStr ('...') and return the content (literal, no escape processing)

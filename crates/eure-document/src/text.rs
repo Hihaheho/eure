@@ -118,12 +118,6 @@ pub enum SyntaxHint {
     // === String syntax variants ===
     /// Escaped string: `"..."`
     Str,
-    /// Escaped string with level 1 delimiters: `<"...">`
-    Str1,
-    /// Escaped string with level 2 delimiters: `<<"...">>`
-    Str2,
-    /// Escaped string with level 3 delimiters: `<<<"...">>>`
-    Str3,
     /// Literal string: `'...'`
     LitStr,
     /// Literal string with level 1 delimiters: `<'...'>`
@@ -164,9 +158,6 @@ impl SyntaxHint {
         matches!(
             self,
             SyntaxHint::Str
-                | SyntaxHint::Str1
-                | SyntaxHint::Str2
-                | SyntaxHint::Str3
                 | SyntaxHint::LitStr
                 | SyntaxHint::LitStr1
                 | SyntaxHint::LitStr2
@@ -174,12 +165,9 @@ impl SyntaxHint {
         )
     }
 
-    /// Returns true if this is an escaped string syntax (`"..."` variants).
+    /// Returns true if this is an escaped string syntax (`"..."`).
     pub fn is_escaped_string(&self) -> bool {
-        matches!(
-            self,
-            SyntaxHint::Str | SyntaxHint::Str1 | SyntaxHint::Str2 | SyntaxHint::Str3
-        )
+        matches!(self, SyntaxHint::Str)
     }
 
     /// Returns true if this is a literal string syntax (`'...'` variants).
@@ -230,7 +218,6 @@ impl SyntaxHint {
 /// |--------|----------|------------|
 /// | `"hello"` | `Plaintext` | `Str` |
 /// | `'hello'` | `Plaintext` | `LitStr` |
-/// | `<"hello">` | `Plaintext` | `Str1` |
 /// | `<'hello'>` | `Plaintext` | `LitStr1` |
 /// | `` `hello` `` | `Implicit` | `Inline1` |
 /// | `` sql`SELECT` `` | `Other("sql")` | `Inline1` |
@@ -653,9 +640,6 @@ mod tests {
     fn test_syntax_hint_is_string() {
         // Escaped strings
         assert!(SyntaxHint::Str.is_string());
-        assert!(SyntaxHint::Str1.is_string());
-        assert!(SyntaxHint::Str2.is_string());
-        assert!(SyntaxHint::Str3.is_string());
         // Literal strings
         assert!(SyntaxHint::LitStr.is_string());
         assert!(SyntaxHint::LitStr1.is_string());
@@ -669,9 +653,6 @@ mod tests {
     #[test]
     fn test_syntax_hint_is_escaped_string() {
         assert!(SyntaxHint::Str.is_escaped_string());
-        assert!(SyntaxHint::Str1.is_escaped_string());
-        assert!(SyntaxHint::Str2.is_escaped_string());
-        assert!(SyntaxHint::Str3.is_escaped_string());
         assert!(!SyntaxHint::LitStr.is_escaped_string());
         assert!(!SyntaxHint::Inline1.is_escaped_string());
     }

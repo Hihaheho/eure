@@ -234,26 +234,6 @@ escaped = "line1\nline2"
 unicode = "Hello \u{4e16}\u{754c}"  // Hello 世界
 ```
 
-#### Delimited Quoted Strings
-
-When a string needs to contain the quote character itself, use delimited syntax with angle brackets:
-
-| Syntax | Description |
-|--------|-------------|
-| `<"...">` | Single-delimited (allows `"` inside) |
-| `<<"...">>`| Double-delimited (allows `">` inside) |
-| `<<<"...">>>` | Triple-delimited (allows `">>` inside) |
-
-Examples:
-
-```eure
-html = <"<div class="container">">
-json = <<"{"key": "value"}">>
-complex = <<<"She said "Hello!"">>>
-```
-
-The content inside delimited strings still supports escape sequences.
-
 #### String Continuation
 
 Long strings can be split across multiple lines using the backslash continuation:
@@ -1134,14 +1114,10 @@ Integer = /\d[\d_]*/ ;
 Float = /[-+]?(\d+\.\d*|\d+\.\d+)([eE][-+]?\d+)?|[-+]?\d+[eE][-+]?\d+|[-+]?[Ii]nf|[Nn]a[Nn]/ ;
 
 (* String types: quoted (escaped) and literal (raw) *)
-String = QuotedStr | LiteralStr ;
+String = Str | LiteralStr ;
 
 (* Quoted strings with escape sequence support *)
-QuotedStr = Str | Str1 | Str2 | Str3 ;
 Str = /"([^"\\]|\\.)*"/ ;                     (* Basic: "..." *)
-Str1 = "<\"" { /[^"]+/ | "\"" } "\">" ;       (* Delimited: <"..."> *)
-Str2 = "<<\"" { /[^"]+/ | "\"" } "\">>" ;     (* Delimited: <<"...">> *)
-Str3 = "<<<\"" { /[^"]+/ | "\"" } "\">>>" ;   (* Delimited: <<<"...">>> *)
 
 (* Literal strings without escape processing *)
 LiteralStr = LitStr | LitStr1 | LitStr2 | LitStr3 ;
@@ -1181,8 +1157,6 @@ The lexer operates in different contexts where whitespace, newlines, and comment
 
 **Text binding context**: After `:` in a binding, the lexer captures all characters until the line terminator as raw text content. Whitespace and comments are NOT recognized in this context.
 
-**Quoted string context**: Inside delimited quoted strings (`<"...">`, `<<"...">>`, `<<<"...">>>`), only the content and matching closing delimiter are recognized. Escape sequences are processed.
-
 **Literal string context**: Inside delimited literal strings (`<'...'>`, `<<'...'>>`, `<<<'...'>>>`), only the content and matching closing delimiter are recognized. No escape processing.
 
 **Inline code context**: Inside backtick-delimited inline code (`` `...` ``) or delimited inline code (`` <`...`> ``, `` <<`...`>> ``, `` <<<`...`>>> ``), only the content and closing delimiter are recognized. Whitespace and comments are part of the content.
@@ -1191,7 +1165,6 @@ The lexer operates in different contexts where whitespace, newlines, and comment
 
 Context transitions:
 - `:` in binding position → text binding context (until line end)
-- `<"`, `<<"`, `<<<\"` → quoted string context
 - `<'`, `<<'`, `<<<'` → literal string context
 - Opening backticks or `` <` ``, `` <<` ``, `` <<<` `` → inline code or code block context
 - Closing delimiters → return to default context

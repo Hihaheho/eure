@@ -244,21 +244,6 @@ pub trait GrammarTrait<'t> {
         Ok(())
     }
 
-    /// Semantic action for non-terminal 'Str1'
-    fn str1(&mut self, _arg: &Str1<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str2'
-    fn str2(&mut self, _arg: &Str2<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str3'
-    fn str3(&mut self, _arg: &Str3<'t>) -> Result<()> {
-        Ok(())
-    }
-
     /// Semantic action for non-terminal 'LitStr1'
     fn lit_str1(&mut self, _arg: &LitStr1<'t>) -> Result<()> {
         Ok(())
@@ -316,21 +301,6 @@ pub trait GrammarTrait<'t> {
 
     /// Semantic action for non-terminal 'CodeBlock6'
     fn code_block6(&mut self, _arg: &CodeBlock6<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str3Start'
-    fn str3_start(&mut self, _arg: &Str3Start<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str2Start'
-    fn str2_start(&mut self, _arg: &Str2Start<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str1Start'
-    fn str1_start(&mut self, _arg: &Str1Start<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -426,31 +396,6 @@ pub trait GrammarTrait<'t> {
 
     /// Semantic action for non-terminal 'NoBacktick'
     fn no_backtick(&mut self, _arg: &NoBacktick<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str3End'
-    fn str3_end(&mut self, _arg: &Str3End<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str2End'
-    fn str2_end(&mut self, _arg: &Str2End<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Str1End'
-    fn str1_end(&mut self, _arg: &Str1End<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'Quote'
-    fn quote(&mut self, _arg: &Quote<'t>) -> Result<()> {
-        Ok(())
-    }
-
-    /// Semantic action for non-terminal 'NoQuote'
-    fn no_quote(&mut self, _arg: &NoQuote<'t>) -> Result<()> {
         Ok(())
     }
 
@@ -1217,57 +1162,6 @@ impl ToSpan for StringStr<'_> {
 ///
 /// Type derived for production 112
 ///
-/// `String: Str1;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct StringStr1<'t> {
-    pub str1: Str1<'t>,
-}
-
-impl ToSpan for StringStr1<'_> {
-    fn span(&self) -> Span {
-        self.str1.span()
-    }
-}
-
-///
-/// Type derived for production 113
-///
-/// `String: Str2;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct StringStr2<'t> {
-    pub str2: Str2<'t>,
-}
-
-impl ToSpan for StringStr2<'_> {
-    fn span(&self) -> Span {
-        self.str2.span()
-    }
-}
-
-///
-/// Type derived for production 114
-///
-/// `String: Str3;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct StringStr3<'t> {
-    pub str3: Str3<'t>,
-}
-
-impl ToSpan for StringStr3<'_> {
-    fn span(&self) -> Span {
-        self.str3.span()
-    }
-}
-
-///
-/// Type derived for production 115
-///
 /// `String: LitStr;`
 ///
 #[allow(dead_code)]
@@ -1283,7 +1177,7 @@ impl ToSpan for StringLitStr<'_> {
 }
 
 ///
-/// Type derived for production 116
+/// Type derived for production 113
 ///
 /// `String: LitStr1;`
 ///
@@ -1300,7 +1194,7 @@ impl ToSpan for StringLitStr1<'_> {
 }
 
 ///
-/// Type derived for production 117
+/// Type derived for production 114
 ///
 /// `String: LitStr2;`
 ///
@@ -1317,7 +1211,7 @@ impl ToSpan for StringLitStr2<'_> {
 }
 
 ///
-/// Type derived for production 118
+/// Type derived for production 115
 ///
 /// `String: LitStr3;`
 ///
@@ -1334,7 +1228,7 @@ impl ToSpan for StringLitStr3<'_> {
 }
 
 ///
-/// Type derived for production 125
+/// Type derived for production 122
 ///
 /// `InlineCode: DelimCode;`
 ///
@@ -1351,7 +1245,7 @@ impl ToSpan for InlineCodeDelimCode<'_> {
 }
 
 ///
-/// Type derived for production 126
+/// Type derived for production 123
 ///
 /// `InlineCode: InlineCode1;`
 ///
@@ -1368,109 +1262,7 @@ impl ToSpan for InlineCodeInlineCode1<'_> {
 }
 
 ///
-/// Type derived for production 130
-///
-/// `Str1ListGroup: NoQuote;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str1ListGroupNoQuote<'t> {
-    pub no_quote: NoQuote<'t>,
-}
-
-impl ToSpan for Str1ListGroupNoQuote<'_> {
-    fn span(&self) -> Span {
-        self.no_quote.span()
-    }
-}
-
-///
-/// Type derived for production 131
-///
-/// `Str1ListGroup: Quote;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str1ListGroupQuote<'t> {
-    pub quote: Quote<'t>,
-}
-
-impl ToSpan for Str1ListGroupQuote<'_> {
-    fn span(&self) -> Span {
-        self.quote.span()
-    }
-}
-
-///
-/// Type derived for production 135
-///
-/// `Str2ListGroup: NoQuote;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str2ListGroupNoQuote<'t> {
-    pub no_quote: NoQuote<'t>,
-}
-
-impl ToSpan for Str2ListGroupNoQuote<'_> {
-    fn span(&self) -> Span {
-        self.no_quote.span()
-    }
-}
-
-///
-/// Type derived for production 136
-///
-/// `Str2ListGroup: Quote;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str2ListGroupQuote<'t> {
-    pub quote: Quote<'t>,
-}
-
-impl ToSpan for Str2ListGroupQuote<'_> {
-    fn span(&self) -> Span {
-        self.quote.span()
-    }
-}
-
-///
-/// Type derived for production 140
-///
-/// `Str3ListGroup: NoQuote;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str3ListGroupNoQuote<'t> {
-    pub no_quote: NoQuote<'t>,
-}
-
-impl ToSpan for Str3ListGroupNoQuote<'_> {
-    fn span(&self) -> Span {
-        self.no_quote.span()
-    }
-}
-
-///
-/// Type derived for production 141
-///
-/// `Str3ListGroup: Quote;`
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str3ListGroupQuote<'t> {
-    pub quote: Quote<'t>,
-}
-
-impl ToSpan for Str3ListGroupQuote<'_> {
-    fn span(&self) -> Span {
-        self.quote.span()
-    }
-}
-
-///
-/// Type derived for production 145
+/// Type derived for production 127
 ///
 /// `LitStr1ListGroup: NoSQuote;`
 ///
@@ -1487,7 +1279,7 @@ impl ToSpan for LitStr1ListGroupNoSQuote<'_> {
 }
 
 ///
-/// Type derived for production 146
+/// Type derived for production 128
 ///
 /// `LitStr1ListGroup: SQuote;`
 ///
@@ -1504,7 +1296,7 @@ impl ToSpan for LitStr1ListGroupSQuote<'_> {
 }
 
 ///
-/// Type derived for production 150
+/// Type derived for production 132
 ///
 /// `LitStr2ListGroup: NoSQuote;`
 ///
@@ -1521,7 +1313,7 @@ impl ToSpan for LitStr2ListGroupNoSQuote<'_> {
 }
 
 ///
-/// Type derived for production 151
+/// Type derived for production 133
 ///
 /// `LitStr2ListGroup: SQuote;`
 ///
@@ -1538,7 +1330,7 @@ impl ToSpan for LitStr2ListGroupSQuote<'_> {
 }
 
 ///
-/// Type derived for production 155
+/// Type derived for production 137
 ///
 /// `LitStr3ListGroup: NoSQuote;`
 ///
@@ -1555,7 +1347,7 @@ impl ToSpan for LitStr3ListGroupNoSQuote<'_> {
 }
 
 ///
-/// Type derived for production 156
+/// Type derived for production 138
 ///
 /// `LitStr3ListGroup: SQuote;`
 ///
@@ -1572,7 +1364,7 @@ impl ToSpan for LitStr3ListGroupSQuote<'_> {
 }
 
 ///
-/// Type derived for production 158
+/// Type derived for production 140
 ///
 /// `DelimCode: DelimCode3;`
 ///
@@ -1589,7 +1381,7 @@ impl ToSpan for DelimCodeDelimCode3<'_> {
 }
 
 ///
-/// Type derived for production 159
+/// Type derived for production 141
 ///
 /// `DelimCode: DelimCode2;`
 ///
@@ -1606,7 +1398,7 @@ impl ToSpan for DelimCodeDelimCode2<'_> {
 }
 
 ///
-/// Type derived for production 160
+/// Type derived for production 142
 ///
 /// `DelimCode: DelimCode1;`
 ///
@@ -1623,7 +1415,7 @@ impl ToSpan for DelimCodeDelimCode1<'_> {
 }
 
 ///
-/// Type derived for production 163
+/// Type derived for production 145
 ///
 /// `DelimCode1ListGroup: NoBacktick;`
 ///
@@ -1640,7 +1432,7 @@ impl ToSpan for DelimCode1ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 164
+/// Type derived for production 146
 ///
 /// `DelimCode1ListGroup: BacktickDelim;`
 ///
@@ -1657,7 +1449,7 @@ impl ToSpan for DelimCode1ListGroupBacktickDelim<'_> {
 }
 
 ///
-/// Type derived for production 168
+/// Type derived for production 150
 ///
 /// `DelimCode2ListGroup: NoBacktick;`
 ///
@@ -1674,7 +1466,7 @@ impl ToSpan for DelimCode2ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 169
+/// Type derived for production 151
 ///
 /// `DelimCode2ListGroup: BacktickDelim;`
 ///
@@ -1691,7 +1483,7 @@ impl ToSpan for DelimCode2ListGroupBacktickDelim<'_> {
 }
 
 ///
-/// Type derived for production 173
+/// Type derived for production 155
 ///
 /// `DelimCode3ListGroup: NoBacktick;`
 ///
@@ -1708,7 +1500,7 @@ impl ToSpan for DelimCode3ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 174
+/// Type derived for production 156
 ///
 /// `DelimCode3ListGroup: BacktickDelim;`
 ///
@@ -1725,7 +1517,7 @@ impl ToSpan for DelimCode3ListGroupBacktickDelim<'_> {
 }
 
 ///
-/// Type derived for production 176
+/// Type derived for production 158
 ///
 /// `CodeBlock: CodeBlock3;`
 ///
@@ -1742,7 +1534,7 @@ impl ToSpan for CodeBlockCodeBlock3<'_> {
 }
 
 ///
-/// Type derived for production 177
+/// Type derived for production 159
 ///
 /// `CodeBlock: CodeBlock4;`
 ///
@@ -1759,7 +1551,7 @@ impl ToSpan for CodeBlockCodeBlock4<'_> {
 }
 
 ///
-/// Type derived for production 178
+/// Type derived for production 160
 ///
 /// `CodeBlock: CodeBlock5;`
 ///
@@ -1776,7 +1568,7 @@ impl ToSpan for CodeBlockCodeBlock5<'_> {
 }
 
 ///
-/// Type derived for production 179
+/// Type derived for production 161
 ///
 /// `CodeBlock: CodeBlock6;`
 ///
@@ -1793,7 +1585,7 @@ impl ToSpan for CodeBlockCodeBlock6<'_> {
 }
 
 ///
-/// Type derived for production 182
+/// Type derived for production 164
 ///
 /// `CodeBlock3ListGroup: NoBacktick;`
 ///
@@ -1810,7 +1602,7 @@ impl ToSpan for CodeBlock3ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 183
+/// Type derived for production 165
 ///
 /// `CodeBlock3ListGroup: Backtick2;`
 ///
@@ -1827,7 +1619,7 @@ impl ToSpan for CodeBlock3ListGroupBacktick2<'_> {
 }
 
 ///
-/// Type derived for production 187
+/// Type derived for production 169
 ///
 /// `CodeBlock4ListGroup: NoBacktick;`
 ///
@@ -1844,7 +1636,7 @@ impl ToSpan for CodeBlock4ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 188
+/// Type derived for production 170
 ///
 /// `CodeBlock4ListGroup: Backtick3;`
 ///
@@ -1861,7 +1653,7 @@ impl ToSpan for CodeBlock4ListGroupBacktick3<'_> {
 }
 
 ///
-/// Type derived for production 192
+/// Type derived for production 174
 ///
 /// `CodeBlock5ListGroup: NoBacktick;`
 ///
@@ -1878,7 +1670,7 @@ impl ToSpan for CodeBlock5ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 193
+/// Type derived for production 175
 ///
 /// `CodeBlock5ListGroup: Backtick4;`
 ///
@@ -1895,7 +1687,7 @@ impl ToSpan for CodeBlock5ListGroupBacktick4<'_> {
 }
 
 ///
-/// Type derived for production 197
+/// Type derived for production 179
 ///
 /// `CodeBlock6ListGroup: NoBacktick;`
 ///
@@ -1912,7 +1704,7 @@ impl ToSpan for CodeBlock6ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 198
+/// Type derived for production 180
 ///
 /// `CodeBlock6ListGroup: Backtick5;`
 ///
@@ -3847,21 +3639,6 @@ impl ToSpan for NoBacktick<'_> {
 }
 
 ///
-/// Type derived for non-terminal NoQuote
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct NoQuote<'t> {
-    pub no_quote: Token<'t>, /* [^"]+ */
-}
-
-impl ToSpan for NoQuote<'_> {
-    fn span(&self) -> Span {
-        self.no_quote.span()
-    }
-}
-
-///
 /// Type derived for non-terminal NoSQuote
 ///
 #[allow(dead_code)]
@@ -4020,21 +3797,6 @@ impl ToSpan for ObjectOpt1<'_> {
 }
 
 ///
-/// Type derived for non-terminal Quote
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Quote<'t> {
-    pub quote: Token<'t>, /* " */
-}
-
-impl ToSpan for Quote<'_> {
-    fn span(&self) -> Span {
-        self.quote.span()
-    }
-}
-
-///
 /// Type derived for non-terminal RParen
 ///
 #[allow(dead_code)]
@@ -4163,267 +3925,12 @@ impl ToSpan for Str<'_> {
 }
 
 ///
-/// Type derived for non-terminal Str1
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str1<'t> {
-    pub str1_start: Str1Start<'t>,
-    pub str1_list: Vec<Str1List<'t>>,
-    pub str1_end: Str1End<'t>,
-}
-
-impl ToSpan for Str1<'_> {
-    fn span(&self) -> Span {
-        self.str1_start.span()
-            + self.str1_list.first().map_or(Span::default(), |f| f.span())
-            + self.str1_list.last().map_or(Span::default(), |l| l.span())
-            + self.str1_end.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str1End
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str1End<'t> {
-    pub str1_end: Token<'t>, /* "> */
-}
-
-impl ToSpan for Str1End<'_> {
-    fn span(&self) -> Span {
-        self.str1_end.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str1List
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str1List<'t> {
-    pub str1_list_group: Str1ListGroup<'t>,
-}
-
-impl ToSpan for Str1List<'_> {
-    fn span(&self) -> Span {
-        self.str1_list_group.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str1ListGroup
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum Str1ListGroup<'t> {
-    NoQuote(Str1ListGroupNoQuote<'t>),
-    Quote(Str1ListGroupQuote<'t>),
-}
-
-impl ToSpan for Str1ListGroup<'_> {
-    fn span(&self) -> Span {
-        match self {
-            Str1ListGroup::NoQuote(v) => v.span(),
-            Str1ListGroup::Quote(v) => v.span(),
-        }
-    }
-}
-
-///
-/// Type derived for non-terminal Str1Start
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str1Start<'t> {
-    pub str1_start: Token<'t>, /* <" */
-}
-
-impl ToSpan for Str1Start<'_> {
-    fn span(&self) -> Span {
-        self.str1_start.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str2
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str2<'t> {
-    pub str2_start: Str2Start<'t>,
-    pub str2_list: Vec<Str2List<'t>>,
-    pub str2_end: Str2End<'t>,
-}
-
-impl ToSpan for Str2<'_> {
-    fn span(&self) -> Span {
-        self.str2_start.span()
-            + self.str2_list.first().map_or(Span::default(), |f| f.span())
-            + self.str2_list.last().map_or(Span::default(), |l| l.span())
-            + self.str2_end.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str2End
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str2End<'t> {
-    pub str2_end: Token<'t>, /* ">> */
-}
-
-impl ToSpan for Str2End<'_> {
-    fn span(&self) -> Span {
-        self.str2_end.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str2List
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str2List<'t> {
-    pub str2_list_group: Str2ListGroup<'t>,
-}
-
-impl ToSpan for Str2List<'_> {
-    fn span(&self) -> Span {
-        self.str2_list_group.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str2ListGroup
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum Str2ListGroup<'t> {
-    NoQuote(Str2ListGroupNoQuote<'t>),
-    Quote(Str2ListGroupQuote<'t>),
-}
-
-impl ToSpan for Str2ListGroup<'_> {
-    fn span(&self) -> Span {
-        match self {
-            Str2ListGroup::NoQuote(v) => v.span(),
-            Str2ListGroup::Quote(v) => v.span(),
-        }
-    }
-}
-
-///
-/// Type derived for non-terminal Str2Start
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str2Start<'t> {
-    pub str2_start: Token<'t>, /* <<" */
-}
-
-impl ToSpan for Str2Start<'_> {
-    fn span(&self) -> Span {
-        self.str2_start.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str3
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str3<'t> {
-    pub str3_start: Str3Start<'t>,
-    pub str3_list: Vec<Str3List<'t>>,
-    pub str3_end: Str3End<'t>,
-}
-
-impl ToSpan for Str3<'_> {
-    fn span(&self) -> Span {
-        self.str3_start.span()
-            + self.str3_list.first().map_or(Span::default(), |f| f.span())
-            + self.str3_list.last().map_or(Span::default(), |l| l.span())
-            + self.str3_end.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str3End
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str3End<'t> {
-    pub str3_end: Token<'t>, /* ">>> */
-}
-
-impl ToSpan for Str3End<'_> {
-    fn span(&self) -> Span {
-        self.str3_end.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str3List
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str3List<'t> {
-    pub str3_list_group: Str3ListGroup<'t>,
-}
-
-impl ToSpan for Str3List<'_> {
-    fn span(&self) -> Span {
-        self.str3_list_group.span()
-    }
-}
-
-///
-/// Type derived for non-terminal Str3ListGroup
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum Str3ListGroup<'t> {
-    NoQuote(Str3ListGroupNoQuote<'t>),
-    Quote(Str3ListGroupQuote<'t>),
-}
-
-impl ToSpan for Str3ListGroup<'_> {
-    fn span(&self) -> Span {
-        match self {
-            Str3ListGroup::NoQuote(v) => v.span(),
-            Str3ListGroup::Quote(v) => v.span(),
-        }
-    }
-}
-
-///
-/// Type derived for non-terminal Str3Start
-///
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Str3Start<'t> {
-    pub str3_start: Token<'t>, /* <<<" */
-}
-
-impl ToSpan for Str3Start<'_> {
-    fn span(&self) -> Span {
-        self.str3_start.span()
-    }
-}
-
-///
 /// Type derived for non-terminal String
 ///
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum String<'t> {
     Str(StringStr<'t>),
-    Str1(StringStr1<'t>),
-    Str2(StringStr2<'t>),
-    Str3(StringStr3<'t>),
     LitStr(StringLitStr<'t>),
     LitStr1(StringLitStr1<'t>),
     LitStr2(StringLitStr2<'t>),
@@ -4434,9 +3941,6 @@ impl ToSpan for String<'_> {
     fn span(&self) -> Span {
         match self {
             String::Str(v) => v.span(),
-            String::Str1(v) => v.span(),
-            String::Str2(v) => v.span(),
-            String::Str3(v) => v.span(),
             String::LitStr(v) => v.span(),
             String::LitStr1(v) => v.span(),
             String::LitStr2(v) => v.span(),
@@ -4892,7 +4396,6 @@ pub enum ASTType<'t> {
     MapBind(MapBind<'t>),
     NaN(NaN<'t>),
     NoBacktick(NoBacktick<'t>),
-    NoQuote(NoQuote<'t>),
     NoSQuote(NoSQuote<'t>),
     Null(Null<'t>),
     Number(Number<'t>),
@@ -4901,7 +4404,6 @@ pub enum ASTType<'t> {
     ObjectOpt(Option<ObjectOpt<'t>>),
     ObjectOpt0(Option<ObjectOpt0<'t>>),
     ObjectOpt1(Option<ObjectOpt1<'t>>),
-    Quote(Quote<'t>),
     RParen(RParen<'t>),
     SQuote(SQuote<'t>),
     Section(Section<'t>),
@@ -4910,21 +4412,6 @@ pub enum ASTType<'t> {
     SectionBodyList(Vec<SectionBodyList<'t>>),
     SectionBodyOpt(Option<SectionBodyOpt<'t>>),
     Str(Str<'t>),
-    Str1(Str1<'t>),
-    Str1End(Str1End<'t>),
-    Str1List(Vec<Str1List<'t>>),
-    Str1ListGroup(Str1ListGroup<'t>),
-    Str1Start(Str1Start<'t>),
-    Str2(Str2<'t>),
-    Str2End(Str2End<'t>),
-    Str2List(Vec<Str2List<'t>>),
-    Str2ListGroup(Str2ListGroup<'t>),
-    Str2Start(Str2Start<'t>),
-    Str3(Str3<'t>),
-    Str3End(Str3End<'t>),
-    Str3List(Vec<Str3List<'t>>),
-    Str3ListGroup(Str3ListGroup<'t>),
-    Str3Start(Str3Start<'t>),
     String(String<'t>),
     Strings(Strings<'t>),
     StringsList(Vec<StringsList<'t>>),
@@ -5097,7 +4584,6 @@ impl ToSpan for ASTType<'_> {
             ASTType::MapBind(v) => v.span(),
             ASTType::NaN(v) => v.span(),
             ASTType::NoBacktick(v) => v.span(),
-            ASTType::NoQuote(v) => v.span(),
             ASTType::NoSQuote(v) => v.span(),
             ASTType::Null(v) => v.span(),
             ASTType::Number(v) => v.span(),
@@ -5109,7 +4595,6 @@ impl ToSpan for ASTType<'_> {
             ASTType::ObjectOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::ObjectOpt0(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::ObjectOpt1(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
-            ASTType::Quote(v) => v.span(),
             ASTType::RParen(v) => v.span(),
             ASTType::SQuote(v) => v.span(),
             ASTType::Section(v) => v.span(),
@@ -5121,30 +4606,6 @@ impl ToSpan for ASTType<'_> {
             }
             ASTType::SectionBodyOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::Str(v) => v.span(),
-            ASTType::Str1(v) => v.span(),
-            ASTType::Str1End(v) => v.span(),
-            ASTType::Str1List(v) => {
-                v.first().map_or(Span::default(), |f| f.span())
-                    + v.last().map_or(Span::default(), |l| l.span())
-            }
-            ASTType::Str1ListGroup(v) => v.span(),
-            ASTType::Str1Start(v) => v.span(),
-            ASTType::Str2(v) => v.span(),
-            ASTType::Str2End(v) => v.span(),
-            ASTType::Str2List(v) => {
-                v.first().map_or(Span::default(), |f| f.span())
-                    + v.last().map_or(Span::default(), |l| l.span())
-            }
-            ASTType::Str2ListGroup(v) => v.span(),
-            ASTType::Str2Start(v) => v.span(),
-            ASTType::Str3(v) => v.span(),
-            ASTType::Str3End(v) => v.span(),
-            ASTType::Str3List(v) => {
-                v.first().map_or(Span::default(), |f| f.span())
-                    + v.last().map_or(Span::default(), |l| l.span())
-            }
-            ASTType::Str3ListGroup(v) => v.span(),
-            ASTType::Str3Start(v) => v.span(),
             ASTType::String(v) => v.span(),
             ASTType::Strings(v) => v.span(),
             ASTType::StringsList(v) => {
@@ -7251,15 +6712,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 112:
     ///
-    /// `String: Str1;`
+    /// `String: LitStr;`
     ///
     #[parol_runtime::function_name::named]
-    fn string_1(&mut self, _str1: &ParseTreeType<'t>) -> Result<()> {
+    fn string_1(&mut self, _lit_str: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let str1 = pop_item!(self, str1, Str1, context);
-        let string_1_built = StringStr1 { str1 };
-        let string_1_built = String::Str1(string_1_built);
+        let lit_str = pop_item!(self, lit_str, LitStr, context);
+        let string_1_built = StringLitStr { lit_str };
+        let string_1_built = String::LitStr(string_1_built);
         // Calling user action here
         self.user_grammar.string(&string_1_built)?;
         self.push(ASTType::String(string_1_built), context);
@@ -7268,15 +6729,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 113:
     ///
-    /// `String: Str2;`
+    /// `String: LitStr1;`
     ///
     #[parol_runtime::function_name::named]
-    fn string_2(&mut self, _str2: &ParseTreeType<'t>) -> Result<()> {
+    fn string_2(&mut self, _lit_str1: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let str2 = pop_item!(self, str2, Str2, context);
-        let string_2_built = StringStr2 { str2 };
-        let string_2_built = String::Str2(string_2_built);
+        let lit_str1 = pop_item!(self, lit_str1, LitStr1, context);
+        let string_2_built = StringLitStr1 { lit_str1 };
+        let string_2_built = String::LitStr1(string_2_built);
         // Calling user action here
         self.user_grammar.string(&string_2_built)?;
         self.push(ASTType::String(string_2_built), context);
@@ -7285,15 +6746,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 114:
     ///
-    /// `String: Str3;`
+    /// `String: LitStr2;`
     ///
     #[parol_runtime::function_name::named]
-    fn string_3(&mut self, _str3: &ParseTreeType<'t>) -> Result<()> {
+    fn string_3(&mut self, _lit_str2: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let str3 = pop_item!(self, str3, Str3, context);
-        let string_3_built = StringStr3 { str3 };
-        let string_3_built = String::Str3(string_3_built);
+        let lit_str2 = pop_item!(self, lit_str2, LitStr2, context);
+        let string_3_built = StringLitStr2 { lit_str2 };
+        let string_3_built = String::LitStr2(string_3_built);
         // Calling user action here
         self.user_grammar.string(&string_3_built)?;
         self.push(ASTType::String(string_3_built), context);
@@ -7302,15 +6763,15 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 115:
     ///
-    /// `String: LitStr;`
+    /// `String: LitStr3;`
     ///
     #[parol_runtime::function_name::named]
-    fn string_4(&mut self, _lit_str: &ParseTreeType<'t>) -> Result<()> {
+    fn string_4(&mut self, _lit_str3: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
-        let lit_str = pop_item!(self, lit_str, LitStr, context);
-        let string_4_built = StringLitStr { lit_str };
-        let string_4_built = String::LitStr(string_4_built);
+        let lit_str3 = pop_item!(self, lit_str3, LitStr3, context);
+        let string_4_built = StringLitStr3 { lit_str3 };
+        let string_4_built = String::LitStr3(string_4_built);
         // Calling user action here
         self.user_grammar.string(&string_4_built)?;
         self.push(ASTType::String(string_4_built), context);
@@ -7318,57 +6779,6 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
     }
 
     /// Semantic action for production 116:
-    ///
-    /// `String: LitStr1;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn string_5(&mut self, _lit_str1: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let lit_str1 = pop_item!(self, lit_str1, LitStr1, context);
-        let string_5_built = StringLitStr1 { lit_str1 };
-        let string_5_built = String::LitStr1(string_5_built);
-        // Calling user action here
-        self.user_grammar.string(&string_5_built)?;
-        self.push(ASTType::String(string_5_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 117:
-    ///
-    /// `String: LitStr2;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn string_6(&mut self, _lit_str2: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let lit_str2 = pop_item!(self, lit_str2, LitStr2, context);
-        let string_6_built = StringLitStr2 { lit_str2 };
-        let string_6_built = String::LitStr2(string_6_built);
-        // Calling user action here
-        self.user_grammar.string(&string_6_built)?;
-        self.push(ASTType::String(string_6_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 118:
-    ///
-    /// `String: LitStr3;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn string_7(&mut self, _lit_str3: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let lit_str3 = pop_item!(self, lit_str3, LitStr3, context);
-        let string_7_built = StringLitStr3 { lit_str3 };
-        let string_7_built = String::LitStr3(string_7_built);
-        // Calling user action here
-        self.user_grammar.string(&string_7_built)?;
-        self.push(ASTType::String(string_7_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 119:
     ///
     /// `Strings: String StringsList /* Vec */;`
     ///
@@ -7392,7 +6802,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 120:
+    /// Semantic action for production 117:
     ///
     /// `StringsList /* Vec<T>::Push */: Continue String StringsList;`
     ///
@@ -7415,7 +6825,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 121:
+    /// Semantic action for production 118:
     ///
     /// `StringsList /* Vec<T>::New */: ;`
     ///
@@ -7428,7 +6838,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 122:
+    /// Semantic action for production 119:
     ///
     /// `Str: /"([^"]|\\")*"/;`
     ///
@@ -7444,7 +6854,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 123:
+    /// Semantic action for production 120:
     ///
     /// `LitStr: /'[^']*'/;`
     ///
@@ -7460,7 +6870,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 124:
+    /// Semantic action for production 121:
     ///
     /// `Text: <Text>/[^\r\n]*/;`
     ///
@@ -7476,7 +6886,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 125:
+    /// Semantic action for production 122:
     ///
     /// `InlineCode: DelimCode;`
     ///
@@ -7493,7 +6903,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 126:
+    /// Semantic action for production 123:
     ///
     /// `InlineCode: InlineCode1;`
     ///
@@ -7510,7 +6920,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 127:
+    /// Semantic action for production 124:
     ///
     /// `InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/;`
     ///
@@ -7526,280 +6936,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 128:
-    ///
-    /// `Str1: Str1Start Str1List /* Vec */ Str1End;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str1(
-        &mut self,
-        _str1_start: &ParseTreeType<'t>,
-        _str1_list: &ParseTreeType<'t>,
-        _str1_end: &ParseTreeType<'t>,
-    ) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str1_end = pop_item!(self, str1_end, Str1End, context);
-        let str1_list = pop_and_reverse_item!(self, str1_list, Str1List, context);
-        let str1_start = pop_item!(self, str1_start, Str1Start, context);
-        let str1_built = Str1 {
-            str1_start,
-            str1_list,
-            str1_end,
-        };
-        // Calling user action here
-        self.user_grammar.str1(&str1_built)?;
-        self.push(ASTType::Str1(str1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 129:
-    ///
-    /// `Str1List /* Vec<T>::Push */: Str1ListGroup Str1List;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str1_list_0(
-        &mut self,
-        _str1_list_group: &ParseTreeType<'t>,
-        _str1_list: &ParseTreeType<'t>,
-    ) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let mut str1_list = pop_item!(self, str1_list, Str1List, context);
-        let str1_list_group = pop_item!(self, str1_list_group, Str1ListGroup, context);
-        let str1_list_0_built = Str1List { str1_list_group };
-        // Add an element to the vector
-        str1_list.push(str1_list_0_built);
-        self.push(ASTType::Str1List(str1_list), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 130:
-    ///
-    /// `Str1ListGroup: NoQuote;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str1_list_group_0(&mut self, _no_quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let no_quote = pop_item!(self, no_quote, NoQuote, context);
-        let str1_list_group_0_built = Str1ListGroupNoQuote { no_quote };
-        let str1_list_group_0_built = Str1ListGroup::NoQuote(str1_list_group_0_built);
-        self.push(ASTType::Str1ListGroup(str1_list_group_0_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 131:
-    ///
-    /// `Str1ListGroup: Quote;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str1_list_group_1(&mut self, _quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let quote = pop_item!(self, quote, Quote, context);
-        let str1_list_group_1_built = Str1ListGroupQuote { quote };
-        let str1_list_group_1_built = Str1ListGroup::Quote(str1_list_group_1_built);
-        self.push(ASTType::Str1ListGroup(str1_list_group_1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 132:
-    ///
-    /// `Str1List /* Vec<T>::New */: ;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str1_list_1(&mut self) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str1_list_1_built = Vec::new();
-        self.push(ASTType::Str1List(str1_list_1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 133:
-    ///
-    /// `Str2: Str2Start Str2List /* Vec */ Str2End;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str2(
-        &mut self,
-        _str2_start: &ParseTreeType<'t>,
-        _str2_list: &ParseTreeType<'t>,
-        _str2_end: &ParseTreeType<'t>,
-    ) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str2_end = pop_item!(self, str2_end, Str2End, context);
-        let str2_list = pop_and_reverse_item!(self, str2_list, Str2List, context);
-        let str2_start = pop_item!(self, str2_start, Str2Start, context);
-        let str2_built = Str2 {
-            str2_start,
-            str2_list,
-            str2_end,
-        };
-        // Calling user action here
-        self.user_grammar.str2(&str2_built)?;
-        self.push(ASTType::Str2(str2_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 134:
-    ///
-    /// `Str2List /* Vec<T>::Push */: Str2ListGroup Str2List;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str2_list_0(
-        &mut self,
-        _str2_list_group: &ParseTreeType<'t>,
-        _str2_list: &ParseTreeType<'t>,
-    ) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let mut str2_list = pop_item!(self, str2_list, Str2List, context);
-        let str2_list_group = pop_item!(self, str2_list_group, Str2ListGroup, context);
-        let str2_list_0_built = Str2List { str2_list_group };
-        // Add an element to the vector
-        str2_list.push(str2_list_0_built);
-        self.push(ASTType::Str2List(str2_list), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 135:
-    ///
-    /// `Str2ListGroup: NoQuote;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str2_list_group_0(&mut self, _no_quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let no_quote = pop_item!(self, no_quote, NoQuote, context);
-        let str2_list_group_0_built = Str2ListGroupNoQuote { no_quote };
-        let str2_list_group_0_built = Str2ListGroup::NoQuote(str2_list_group_0_built);
-        self.push(ASTType::Str2ListGroup(str2_list_group_0_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 136:
-    ///
-    /// `Str2ListGroup: Quote;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str2_list_group_1(&mut self, _quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let quote = pop_item!(self, quote, Quote, context);
-        let str2_list_group_1_built = Str2ListGroupQuote { quote };
-        let str2_list_group_1_built = Str2ListGroup::Quote(str2_list_group_1_built);
-        self.push(ASTType::Str2ListGroup(str2_list_group_1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 137:
-    ///
-    /// `Str2List /* Vec<T>::New */: ;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str2_list_1(&mut self) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str2_list_1_built = Vec::new();
-        self.push(ASTType::Str2List(str2_list_1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 138:
-    ///
-    /// `Str3: Str3Start Str3List /* Vec */ Str3End;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str3(
-        &mut self,
-        _str3_start: &ParseTreeType<'t>,
-        _str3_list: &ParseTreeType<'t>,
-        _str3_end: &ParseTreeType<'t>,
-    ) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str3_end = pop_item!(self, str3_end, Str3End, context);
-        let str3_list = pop_and_reverse_item!(self, str3_list, Str3List, context);
-        let str3_start = pop_item!(self, str3_start, Str3Start, context);
-        let str3_built = Str3 {
-            str3_start,
-            str3_list,
-            str3_end,
-        };
-        // Calling user action here
-        self.user_grammar.str3(&str3_built)?;
-        self.push(ASTType::Str3(str3_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 139:
-    ///
-    /// `Str3List /* Vec<T>::Push */: Str3ListGroup Str3List;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str3_list_0(
-        &mut self,
-        _str3_list_group: &ParseTreeType<'t>,
-        _str3_list: &ParseTreeType<'t>,
-    ) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let mut str3_list = pop_item!(self, str3_list, Str3List, context);
-        let str3_list_group = pop_item!(self, str3_list_group, Str3ListGroup, context);
-        let str3_list_0_built = Str3List { str3_list_group };
-        // Add an element to the vector
-        str3_list.push(str3_list_0_built);
-        self.push(ASTType::Str3List(str3_list), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 140:
-    ///
-    /// `Str3ListGroup: NoQuote;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str3_list_group_0(&mut self, _no_quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let no_quote = pop_item!(self, no_quote, NoQuote, context);
-        let str3_list_group_0_built = Str3ListGroupNoQuote { no_quote };
-        let str3_list_group_0_built = Str3ListGroup::NoQuote(str3_list_group_0_built);
-        self.push(ASTType::Str3ListGroup(str3_list_group_0_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 141:
-    ///
-    /// `Str3ListGroup: Quote;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str3_list_group_1(&mut self, _quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let quote = pop_item!(self, quote, Quote, context);
-        let str3_list_group_1_built = Str3ListGroupQuote { quote };
-        let str3_list_group_1_built = Str3ListGroup::Quote(str3_list_group_1_built);
-        self.push(ASTType::Str3ListGroup(str3_list_group_1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 142:
-    ///
-    /// `Str3List /* Vec<T>::New */: ;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str3_list_1(&mut self) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str3_list_1_built = Vec::new();
-        self.push(ASTType::Str3List(str3_list_1_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 143:
+    /// Semantic action for production 125:
     ///
     /// `LitStr1: LitStr1Start LitStr1List /* Vec */ LitStr1End;`
     ///
@@ -7826,7 +6963,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 144:
+    /// Semantic action for production 126:
     ///
     /// `LitStr1List /* Vec<T>::Push */: LitStr1ListGroup LitStr1List;`
     ///
@@ -7849,7 +6986,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 145:
+    /// Semantic action for production 127:
     ///
     /// `LitStr1ListGroup: NoSQuote;`
     ///
@@ -7867,7 +7004,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 146:
+    /// Semantic action for production 128:
     ///
     /// `LitStr1ListGroup: SQuote;`
     ///
@@ -7885,7 +7022,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 147:
+    /// Semantic action for production 129:
     ///
     /// `LitStr1List /* Vec<T>::New */: ;`
     ///
@@ -7898,7 +7035,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 148:
+    /// Semantic action for production 130:
     ///
     /// `LitStr2: LitStr2Start LitStr2List /* Vec */ LitStr2End;`
     ///
@@ -7925,7 +7062,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 149:
+    /// Semantic action for production 131:
     ///
     /// `LitStr2List /* Vec<T>::Push */: LitStr2ListGroup LitStr2List;`
     ///
@@ -7948,7 +7085,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 150:
+    /// Semantic action for production 132:
     ///
     /// `LitStr2ListGroup: NoSQuote;`
     ///
@@ -7966,7 +7103,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 151:
+    /// Semantic action for production 133:
     ///
     /// `LitStr2ListGroup: SQuote;`
     ///
@@ -7984,7 +7121,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 152:
+    /// Semantic action for production 134:
     ///
     /// `LitStr2List /* Vec<T>::New */: ;`
     ///
@@ -7997,7 +7134,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 153:
+    /// Semantic action for production 135:
     ///
     /// `LitStr3: LitStr3Start LitStr3List /* Vec */ LitStr3End;`
     ///
@@ -8024,7 +7161,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 154:
+    /// Semantic action for production 136:
     ///
     /// `LitStr3List /* Vec<T>::Push */: LitStr3ListGroup LitStr3List;`
     ///
@@ -8047,7 +7184,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 155:
+    /// Semantic action for production 137:
     ///
     /// `LitStr3ListGroup: NoSQuote;`
     ///
@@ -8065,7 +7202,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 156:
+    /// Semantic action for production 138:
     ///
     /// `LitStr3ListGroup: SQuote;`
     ///
@@ -8083,7 +7220,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 157:
+    /// Semantic action for production 139:
     ///
     /// `LitStr3List /* Vec<T>::New */: ;`
     ///
@@ -8096,7 +7233,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 158:
+    /// Semantic action for production 140:
     ///
     /// `DelimCode: DelimCode3;`
     ///
@@ -8113,7 +7250,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 159:
+    /// Semantic action for production 141:
     ///
     /// `DelimCode: DelimCode2;`
     ///
@@ -8130,7 +7267,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 160:
+    /// Semantic action for production 142:
     ///
     /// `DelimCode: DelimCode1;`
     ///
@@ -8147,7 +7284,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 161:
+    /// Semantic action for production 143:
     ///
     /// `DelimCode1: DelimCodeStart1 DelimCode1List /* Vec */ DelimCodeEnd1;`
     ///
@@ -8175,7 +7312,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 162:
+    /// Semantic action for production 144:
     ///
     /// `DelimCode1List /* Vec<T>::Push */: DelimCode1ListGroup DelimCode1List;`
     ///
@@ -8199,7 +7336,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 163:
+    /// Semantic action for production 145:
     ///
     /// `DelimCode1ListGroup: NoBacktick;`
     ///
@@ -8218,7 +7355,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 164:
+    /// Semantic action for production 146:
     ///
     /// `DelimCode1ListGroup: BacktickDelim;`
     ///
@@ -8237,7 +7374,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 165:
+    /// Semantic action for production 147:
     ///
     /// `DelimCode1List /* Vec<T>::New */: ;`
     ///
@@ -8250,7 +7387,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 166:
+    /// Semantic action for production 148:
     ///
     /// `DelimCode2: DelimCodeStart2 DelimCode2List /* Vec */ DelimCodeEnd2;`
     ///
@@ -8278,7 +7415,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 167:
+    /// Semantic action for production 149:
     ///
     /// `DelimCode2List /* Vec<T>::Push */: DelimCode2ListGroup DelimCode2List;`
     ///
@@ -8302,7 +7439,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 168:
+    /// Semantic action for production 150:
     ///
     /// `DelimCode2ListGroup: NoBacktick;`
     ///
@@ -8321,7 +7458,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 169:
+    /// Semantic action for production 151:
     ///
     /// `DelimCode2ListGroup: BacktickDelim;`
     ///
@@ -8340,7 +7477,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 170:
+    /// Semantic action for production 152:
     ///
     /// `DelimCode2List /* Vec<T>::New */: ;`
     ///
@@ -8353,7 +7490,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 171:
+    /// Semantic action for production 153:
     ///
     /// `DelimCode3: DelimCodeStart3 DelimCode3List /* Vec */ DelimCodeEnd3;`
     ///
@@ -8381,7 +7518,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 172:
+    /// Semantic action for production 154:
     ///
     /// `DelimCode3List /* Vec<T>::Push */: DelimCode3ListGroup DelimCode3List;`
     ///
@@ -8405,7 +7542,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 173:
+    /// Semantic action for production 155:
     ///
     /// `DelimCode3ListGroup: NoBacktick;`
     ///
@@ -8424,7 +7561,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 174:
+    /// Semantic action for production 156:
     ///
     /// `DelimCode3ListGroup: BacktickDelim;`
     ///
@@ -8443,7 +7580,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 175:
+    /// Semantic action for production 157:
     ///
     /// `DelimCode3List /* Vec<T>::New */: ;`
     ///
@@ -8456,7 +7593,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 176:
+    /// Semantic action for production 158:
     ///
     /// `CodeBlock: CodeBlock3;`
     ///
@@ -8473,7 +7610,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 177:
+    /// Semantic action for production 159:
     ///
     /// `CodeBlock: CodeBlock4;`
     ///
@@ -8490,7 +7627,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 178:
+    /// Semantic action for production 160:
     ///
     /// `CodeBlock: CodeBlock5;`
     ///
@@ -8507,7 +7644,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 179:
+    /// Semantic action for production 161:
     ///
     /// `CodeBlock: CodeBlock6;`
     ///
@@ -8524,7 +7661,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 180:
+    /// Semantic action for production 162:
     ///
     /// `CodeBlock3: CodeBlockStart3 CodeBlock3List /* Vec */ CodeBlockEnd3;`
     ///
@@ -8552,7 +7689,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 181:
+    /// Semantic action for production 163:
     ///
     /// `CodeBlock3List /* Vec<T>::Push */: CodeBlock3ListGroup CodeBlock3List;`
     ///
@@ -8576,7 +7713,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 182:
+    /// Semantic action for production 164:
     ///
     /// `CodeBlock3ListGroup: NoBacktick;`
     ///
@@ -8595,7 +7732,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 183:
+    /// Semantic action for production 165:
     ///
     /// `CodeBlock3ListGroup: Backtick2;`
     ///
@@ -8614,7 +7751,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 184:
+    /// Semantic action for production 166:
     ///
     /// `CodeBlock3List /* Vec<T>::New */: ;`
     ///
@@ -8627,7 +7764,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 185:
+    /// Semantic action for production 167:
     ///
     /// `CodeBlock4: CodeBlockStart4 CodeBlock4List /* Vec */ CodeBlockEnd4;`
     ///
@@ -8655,7 +7792,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 186:
+    /// Semantic action for production 168:
     ///
     /// `CodeBlock4List /* Vec<T>::Push */: CodeBlock4ListGroup CodeBlock4List;`
     ///
@@ -8679,7 +7816,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 187:
+    /// Semantic action for production 169:
     ///
     /// `CodeBlock4ListGroup: NoBacktick;`
     ///
@@ -8698,7 +7835,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 188:
+    /// Semantic action for production 170:
     ///
     /// `CodeBlock4ListGroup: Backtick3;`
     ///
@@ -8717,7 +7854,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 189:
+    /// Semantic action for production 171:
     ///
     /// `CodeBlock4List /* Vec<T>::New */: ;`
     ///
@@ -8730,7 +7867,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 190:
+    /// Semantic action for production 172:
     ///
     /// `CodeBlock5: CodeBlockStart5 CodeBlock5List /* Vec */ CodeBlockEnd5;`
     ///
@@ -8758,7 +7895,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 191:
+    /// Semantic action for production 173:
     ///
     /// `CodeBlock5List /* Vec<T>::Push */: CodeBlock5ListGroup CodeBlock5List;`
     ///
@@ -8782,7 +7919,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 192:
+    /// Semantic action for production 174:
     ///
     /// `CodeBlock5ListGroup: NoBacktick;`
     ///
@@ -8801,7 +7938,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 193:
+    /// Semantic action for production 175:
     ///
     /// `CodeBlock5ListGroup: Backtick4;`
     ///
@@ -8820,7 +7957,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 194:
+    /// Semantic action for production 176:
     ///
     /// `CodeBlock5List /* Vec<T>::New */: ;`
     ///
@@ -8833,7 +7970,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 195:
+    /// Semantic action for production 177:
     ///
     /// `CodeBlock6: CodeBlockStart6 CodeBlock6List /* Vec */ CodeBlockEnd6;`
     ///
@@ -8861,7 +7998,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 196:
+    /// Semantic action for production 178:
     ///
     /// `CodeBlock6List /* Vec<T>::Push */: CodeBlock6ListGroup CodeBlock6List;`
     ///
@@ -8885,7 +8022,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 197:
+    /// Semantic action for production 179:
     ///
     /// `CodeBlock6ListGroup: NoBacktick;`
     ///
@@ -8904,7 +8041,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 198:
+    /// Semantic action for production 180:
     ///
     /// `CodeBlock6ListGroup: Backtick5;`
     ///
@@ -8923,7 +8060,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 199:
+    /// Semantic action for production 181:
     ///
     /// `CodeBlock6List /* Vec<T>::New */: ;`
     ///
@@ -8936,55 +8073,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 200:
-    ///
-    /// `Str3Start: '<<<"';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str3_start(&mut self, str3_start: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str3_start = str3_start.token()?.clone();
-        let str3_start_built = Str3Start { str3_start };
-        // Calling user action here
-        self.user_grammar.str3_start(&str3_start_built)?;
-        self.push(ASTType::Str3Start(str3_start_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 201:
-    ///
-    /// `Str2Start: '<<"';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str2_start(&mut self, str2_start: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str2_start = str2_start.token()?.clone();
-        let str2_start_built = Str2Start { str2_start };
-        // Calling user action here
-        self.user_grammar.str2_start(&str2_start_built)?;
-        self.push(ASTType::Str2Start(str2_start_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 202:
-    ///
-    /// `Str1Start: '<"';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str1_start(&mut self, str1_start: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str1_start = str1_start.token()?.clone();
-        let str1_start_built = Str1Start { str1_start };
-        // Calling user action here
-        self.user_grammar.str1_start(&str1_start_built)?;
-        self.push(ASTType::Str1Start(str1_start_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 203:
+    /// Semantic action for production 182:
     ///
     /// `LitStr3Start: "<<<'";`
     ///
@@ -9000,7 +8089,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 204:
+    /// Semantic action for production 183:
     ///
     /// `LitStr2Start: "<<'";`
     ///
@@ -9016,7 +8105,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 205:
+    /// Semantic action for production 184:
     ///
     /// `LitStr1Start: "<'";`
     ///
@@ -9032,7 +8121,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 206:
+    /// Semantic action for production 185:
     ///
     /// `DelimCodeStart3: /[a-zA-Z0-9-_]*<<<`/;`
     ///
@@ -9049,7 +8138,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 207:
+    /// Semantic action for production 186:
     ///
     /// `DelimCodeStart2: /[a-zA-Z0-9-_]*<<`/;`
     ///
@@ -9066,7 +8155,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 208:
+    /// Semantic action for production 187:
     ///
     /// `DelimCodeStart1: /[a-zA-Z0-9-_]*<`/;`
     ///
@@ -9083,7 +8172,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 209:
+    /// Semantic action for production 188:
     ///
     /// `CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -9100,7 +8189,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 210:
+    /// Semantic action for production 189:
     ///
     /// `CodeBlockStart4: /`{4}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -9117,7 +8206,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 211:
+    /// Semantic action for production 190:
     ///
     /// `CodeBlockStart5: /`{5}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -9134,7 +8223,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 212:
+    /// Semantic action for production 191:
     ///
     /// `CodeBlockStart6: /`{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -9151,7 +8240,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 213:
+    /// Semantic action for production 192:
     ///
     /// `CodeBlockEnd3: <InCodeBlock3>/`{3}/;`
     ///
@@ -9167,7 +8256,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 214:
+    /// Semantic action for production 193:
     ///
     /// `Backtick2: <InCodeBlock3>/`{1,2}/;`
     ///
@@ -9183,7 +8272,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 215:
+    /// Semantic action for production 194:
     ///
     /// `CodeBlockEnd4: <InCodeBlock4>/`{4}/;`
     ///
@@ -9199,7 +8288,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 216:
+    /// Semantic action for production 195:
     ///
     /// `Backtick3: <InCodeBlock4>/`{1,3}/;`
     ///
@@ -9215,7 +8304,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 217:
+    /// Semantic action for production 196:
     ///
     /// `CodeBlockEnd5: <InCodeBlock5>/`{5}/;`
     ///
@@ -9231,7 +8320,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 218:
+    /// Semantic action for production 197:
     ///
     /// `Backtick4: <InCodeBlock5>/`{1,4}/;`
     ///
@@ -9247,7 +8336,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 219:
+    /// Semantic action for production 198:
     ///
     /// `CodeBlockEnd6: <InCodeBlock6>/`{6}/;`
     ///
@@ -9263,7 +8352,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 220:
+    /// Semantic action for production 199:
     ///
     /// `Backtick5: <InCodeBlock6>/`{1,5}/;`
     ///
@@ -9279,7 +8368,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 221:
+    /// Semantic action for production 200:
     ///
     /// `NoBacktick: <InCodeBlock3, InCodeBlock4, InCodeBlock5, InCodeBlock6, InDelimCode1, InDelimCode2, InDelimCode3>/[^`]+/;`
     ///
@@ -9295,87 +8384,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 222:
-    ///
-    /// `Str3End: <InStr3>'">>>';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str3_end(&mut self, str3_end: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str3_end = str3_end.token()?.clone();
-        let str3_end_built = Str3End { str3_end };
-        // Calling user action here
-        self.user_grammar.str3_end(&str3_end_built)?;
-        self.push(ASTType::Str3End(str3_end_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 223:
-    ///
-    /// `Str2End: <InStr2>'">>';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str2_end(&mut self, str2_end: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str2_end = str2_end.token()?.clone();
-        let str2_end_built = Str2End { str2_end };
-        // Calling user action here
-        self.user_grammar.str2_end(&str2_end_built)?;
-        self.push(ASTType::Str2End(str2_end_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 224:
-    ///
-    /// `Str1End: <InStr1>'">';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn str1_end(&mut self, str1_end: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let str1_end = str1_end.token()?.clone();
-        let str1_end_built = Str1End { str1_end };
-        // Calling user action here
-        self.user_grammar.str1_end(&str1_end_built)?;
-        self.push(ASTType::Str1End(str1_end_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 225:
-    ///
-    /// `Quote: <InStr1, InStr2, InStr3>'"';`
-    ///
-    #[parol_runtime::function_name::named]
-    fn quote(&mut self, quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let quote = quote.token()?.clone();
-        let quote_built = Quote { quote };
-        // Calling user action here
-        self.user_grammar.quote(&quote_built)?;
-        self.push(ASTType::Quote(quote_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 226:
-    ///
-    /// `NoQuote: <InStr1, InStr2, InStr3>/[^"]+/;`
-    ///
-    #[parol_runtime::function_name::named]
-    fn no_quote(&mut self, no_quote: &ParseTreeType<'t>) -> Result<()> {
-        let context = function_name!();
-        trace!("{}", self.trace_item_stack(context));
-        let no_quote = no_quote.token()?.clone();
-        let no_quote_built = NoQuote { no_quote };
-        // Calling user action here
-        self.user_grammar.no_quote(&no_quote_built)?;
-        self.push(ASTType::NoQuote(no_quote_built), context);
-        Ok(())
-    }
-
-    /// Semantic action for production 227:
+    /// Semantic action for production 201:
     ///
     /// `LitStr3End: <InLitStr3>"'>>>";`
     ///
@@ -9391,7 +8400,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 228:
+    /// Semantic action for production 202:
     ///
     /// `LitStr2End: <InLitStr2>"'>>";`
     ///
@@ -9407,7 +8416,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 229:
+    /// Semantic action for production 203:
     ///
     /// `LitStr1End: <InLitStr1>"'>";`
     ///
@@ -9423,7 +8432,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 230:
+    /// Semantic action for production 204:
     ///
     /// `SQuote: <InLitStr1, InLitStr2, InLitStr3>"'";`
     ///
@@ -9439,7 +8448,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 231:
+    /// Semantic action for production 205:
     ///
     /// `NoSQuote: <InLitStr1, InLitStr2, InLitStr3>/[^']+/;`
     ///
@@ -9455,7 +8464,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 232:
+    /// Semantic action for production 206:
     ///
     /// `DelimCodeEnd3: <InDelimCode3>'`>>>';`
     ///
@@ -9471,7 +8480,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 233:
+    /// Semantic action for production 207:
     ///
     /// `DelimCodeEnd2: <InDelimCode2>'`>>';`
     ///
@@ -9487,7 +8496,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 234:
+    /// Semantic action for production 208:
     ///
     /// `DelimCodeEnd1: <InDelimCode1>'`>';`
     ///
@@ -9503,7 +8512,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 235:
+    /// Semantic action for production 209:
     ///
     /// `BacktickDelim: <InDelimCode1, InDelimCode2, InDelimCode3>'`';`
     ///
@@ -9519,7 +8528,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 236:
+    /// Semantic action for production 210:
     ///
     /// `GrammarNewline: <Text>/\r\n|\r|\n/;`
     ///
@@ -9535,7 +8544,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 237:
+    /// Semantic action for production 211:
     ///
     /// `Ws: <Text>/[\s--\r\n]+/;`
     ///
@@ -9551,7 +8560,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 238:
+    /// Semantic action for production 212:
     ///
     /// `At: '@';`
     ///
@@ -9567,7 +8576,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 239:
+    /// Semantic action for production 213:
     ///
     /// `Ext: '$';`
     ///
@@ -9583,7 +8592,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 240:
+    /// Semantic action for production 214:
     ///
     /// `Dot: '.';`
     ///
@@ -9599,7 +8608,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 241:
+    /// Semantic action for production 215:
     ///
     /// `Begin: '{';`
     ///
@@ -9615,7 +8624,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 242:
+    /// Semantic action for production 216:
     ///
     /// `End: '}';`
     ///
@@ -9631,7 +8640,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 243:
+    /// Semantic action for production 217:
     ///
     /// `ArrayBegin: '[';`
     ///
@@ -9647,7 +8656,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 244:
+    /// Semantic action for production 218:
     ///
     /// `ArrayEnd: ']';`
     ///
@@ -9663,7 +8672,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 245:
+    /// Semantic action for production 219:
     ///
     /// `LParen: '(';`
     ///
@@ -9679,7 +8688,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 246:
+    /// Semantic action for production 220:
     ///
     /// `RParen: ')';`
     ///
@@ -9695,7 +8704,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 247:
+    /// Semantic action for production 221:
     ///
     /// `Bind: '=';`
     ///
@@ -9711,7 +8720,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 248:
+    /// Semantic action for production 222:
     ///
     /// `Comma: ',';`
     ///
@@ -9727,7 +8736,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 249:
+    /// Semantic action for production 223:
     ///
     /// `Continue: '\';`
     ///
@@ -9743,7 +8752,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 250:
+    /// Semantic action for production 224:
     ///
     /// `TextStart: ":";`
     ///
@@ -9759,7 +8768,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 251:
+    /// Semantic action for production 225:
     ///
     /// `Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;`
     ///
@@ -9908,142 +8917,116 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             113 => self.string_2(&children[0]),
             114 => self.string_3(&children[0]),
             115 => self.string_4(&children[0]),
-            116 => self.string_5(&children[0]),
-            117 => self.string_6(&children[0]),
-            118 => self.string_7(&children[0]),
-            119 => self.strings(&children[0], &children[1]),
-            120 => self.strings_list_0(&children[0], &children[1], &children[2]),
-            121 => self.strings_list_1(),
-            122 => self.str(&children[0]),
-            123 => self.lit_str(&children[0]),
-            124 => self.text(&children[0]),
-            125 => self.inline_code_0(&children[0]),
-            126 => self.inline_code_1(&children[0]),
-            127 => self.inline_code1(&children[0]),
-            128 => self.str1(&children[0], &children[1], &children[2]),
-            129 => self.str1_list_0(&children[0], &children[1]),
-            130 => self.str1_list_group_0(&children[0]),
-            131 => self.str1_list_group_1(&children[0]),
-            132 => self.str1_list_1(),
-            133 => self.str2(&children[0], &children[1], &children[2]),
-            134 => self.str2_list_0(&children[0], &children[1]),
-            135 => self.str2_list_group_0(&children[0]),
-            136 => self.str2_list_group_1(&children[0]),
-            137 => self.str2_list_1(),
-            138 => self.str3(&children[0], &children[1], &children[2]),
-            139 => self.str3_list_0(&children[0], &children[1]),
-            140 => self.str3_list_group_0(&children[0]),
-            141 => self.str3_list_group_1(&children[0]),
-            142 => self.str3_list_1(),
-            143 => self.lit_str1(&children[0], &children[1], &children[2]),
-            144 => self.lit_str1_list_0(&children[0], &children[1]),
-            145 => self.lit_str1_list_group_0(&children[0]),
-            146 => self.lit_str1_list_group_1(&children[0]),
-            147 => self.lit_str1_list_1(),
-            148 => self.lit_str2(&children[0], &children[1], &children[2]),
-            149 => self.lit_str2_list_0(&children[0], &children[1]),
-            150 => self.lit_str2_list_group_0(&children[0]),
-            151 => self.lit_str2_list_group_1(&children[0]),
-            152 => self.lit_str2_list_1(),
-            153 => self.lit_str3(&children[0], &children[1], &children[2]),
-            154 => self.lit_str3_list_0(&children[0], &children[1]),
-            155 => self.lit_str3_list_group_0(&children[0]),
-            156 => self.lit_str3_list_group_1(&children[0]),
-            157 => self.lit_str3_list_1(),
-            158 => self.delim_code_0(&children[0]),
-            159 => self.delim_code_1(&children[0]),
-            160 => self.delim_code_2(&children[0]),
-            161 => self.delim_code1(&children[0], &children[1], &children[2]),
-            162 => self.delim_code1_list_0(&children[0], &children[1]),
-            163 => self.delim_code1_list_group_0(&children[0]),
-            164 => self.delim_code1_list_group_1(&children[0]),
-            165 => self.delim_code1_list_1(),
-            166 => self.delim_code2(&children[0], &children[1], &children[2]),
-            167 => self.delim_code2_list_0(&children[0], &children[1]),
-            168 => self.delim_code2_list_group_0(&children[0]),
-            169 => self.delim_code2_list_group_1(&children[0]),
-            170 => self.delim_code2_list_1(),
-            171 => self.delim_code3(&children[0], &children[1], &children[2]),
-            172 => self.delim_code3_list_0(&children[0], &children[1]),
-            173 => self.delim_code3_list_group_0(&children[0]),
-            174 => self.delim_code3_list_group_1(&children[0]),
-            175 => self.delim_code3_list_1(),
-            176 => self.code_block_0(&children[0]),
-            177 => self.code_block_1(&children[0]),
-            178 => self.code_block_2(&children[0]),
-            179 => self.code_block_3(&children[0]),
-            180 => self.code_block3(&children[0], &children[1], &children[2]),
-            181 => self.code_block3_list_0(&children[0], &children[1]),
-            182 => self.code_block3_list_group_0(&children[0]),
-            183 => self.code_block3_list_group_1(&children[0]),
-            184 => self.code_block3_list_1(),
-            185 => self.code_block4(&children[0], &children[1], &children[2]),
-            186 => self.code_block4_list_0(&children[0], &children[1]),
-            187 => self.code_block4_list_group_0(&children[0]),
-            188 => self.code_block4_list_group_1(&children[0]),
-            189 => self.code_block4_list_1(),
-            190 => self.code_block5(&children[0], &children[1], &children[2]),
-            191 => self.code_block5_list_0(&children[0], &children[1]),
-            192 => self.code_block5_list_group_0(&children[0]),
-            193 => self.code_block5_list_group_1(&children[0]),
-            194 => self.code_block5_list_1(),
-            195 => self.code_block6(&children[0], &children[1], &children[2]),
-            196 => self.code_block6_list_0(&children[0], &children[1]),
-            197 => self.code_block6_list_group_0(&children[0]),
-            198 => self.code_block6_list_group_1(&children[0]),
-            199 => self.code_block6_list_1(),
-            200 => self.str3_start(&children[0]),
-            201 => self.str2_start(&children[0]),
-            202 => self.str1_start(&children[0]),
-            203 => self.lit_str3_start(&children[0]),
-            204 => self.lit_str2_start(&children[0]),
-            205 => self.lit_str1_start(&children[0]),
-            206 => self.delim_code_start3(&children[0]),
-            207 => self.delim_code_start2(&children[0]),
-            208 => self.delim_code_start1(&children[0]),
-            209 => self.code_block_start3(&children[0]),
-            210 => self.code_block_start4(&children[0]),
-            211 => self.code_block_start5(&children[0]),
-            212 => self.code_block_start6(&children[0]),
-            213 => self.code_block_end3(&children[0]),
-            214 => self.backtick2(&children[0]),
-            215 => self.code_block_end4(&children[0]),
-            216 => self.backtick3(&children[0]),
-            217 => self.code_block_end5(&children[0]),
-            218 => self.backtick4(&children[0]),
-            219 => self.code_block_end6(&children[0]),
-            220 => self.backtick5(&children[0]),
-            221 => self.no_backtick(&children[0]),
-            222 => self.str3_end(&children[0]),
-            223 => self.str2_end(&children[0]),
-            224 => self.str1_end(&children[0]),
-            225 => self.quote(&children[0]),
-            226 => self.no_quote(&children[0]),
-            227 => self.lit_str3_end(&children[0]),
-            228 => self.lit_str2_end(&children[0]),
-            229 => self.lit_str1_end(&children[0]),
-            230 => self.s_quote(&children[0]),
-            231 => self.no_s_quote(&children[0]),
-            232 => self.delim_code_end3(&children[0]),
-            233 => self.delim_code_end2(&children[0]),
-            234 => self.delim_code_end1(&children[0]),
-            235 => self.backtick_delim(&children[0]),
-            236 => self.grammar_newline(&children[0]),
-            237 => self.ws(&children[0]),
-            238 => self.at(&children[0]),
-            239 => self.ext(&children[0]),
-            240 => self.dot(&children[0]),
-            241 => self.begin(&children[0]),
-            242 => self.end(&children[0]),
-            243 => self.array_begin(&children[0]),
-            244 => self.array_end(&children[0]),
-            245 => self.l_paren(&children[0]),
-            246 => self.r_paren(&children[0]),
-            247 => self.bind(&children[0]),
-            248 => self.comma(&children[0]),
-            249 => self.r#continue(&children[0]),
-            250 => self.text_start(&children[0]),
-            251 => self.ident(&children[0]),
+            116 => self.strings(&children[0], &children[1]),
+            117 => self.strings_list_0(&children[0], &children[1], &children[2]),
+            118 => self.strings_list_1(),
+            119 => self.str(&children[0]),
+            120 => self.lit_str(&children[0]),
+            121 => self.text(&children[0]),
+            122 => self.inline_code_0(&children[0]),
+            123 => self.inline_code_1(&children[0]),
+            124 => self.inline_code1(&children[0]),
+            125 => self.lit_str1(&children[0], &children[1], &children[2]),
+            126 => self.lit_str1_list_0(&children[0], &children[1]),
+            127 => self.lit_str1_list_group_0(&children[0]),
+            128 => self.lit_str1_list_group_1(&children[0]),
+            129 => self.lit_str1_list_1(),
+            130 => self.lit_str2(&children[0], &children[1], &children[2]),
+            131 => self.lit_str2_list_0(&children[0], &children[1]),
+            132 => self.lit_str2_list_group_0(&children[0]),
+            133 => self.lit_str2_list_group_1(&children[0]),
+            134 => self.lit_str2_list_1(),
+            135 => self.lit_str3(&children[0], &children[1], &children[2]),
+            136 => self.lit_str3_list_0(&children[0], &children[1]),
+            137 => self.lit_str3_list_group_0(&children[0]),
+            138 => self.lit_str3_list_group_1(&children[0]),
+            139 => self.lit_str3_list_1(),
+            140 => self.delim_code_0(&children[0]),
+            141 => self.delim_code_1(&children[0]),
+            142 => self.delim_code_2(&children[0]),
+            143 => self.delim_code1(&children[0], &children[1], &children[2]),
+            144 => self.delim_code1_list_0(&children[0], &children[1]),
+            145 => self.delim_code1_list_group_0(&children[0]),
+            146 => self.delim_code1_list_group_1(&children[0]),
+            147 => self.delim_code1_list_1(),
+            148 => self.delim_code2(&children[0], &children[1], &children[2]),
+            149 => self.delim_code2_list_0(&children[0], &children[1]),
+            150 => self.delim_code2_list_group_0(&children[0]),
+            151 => self.delim_code2_list_group_1(&children[0]),
+            152 => self.delim_code2_list_1(),
+            153 => self.delim_code3(&children[0], &children[1], &children[2]),
+            154 => self.delim_code3_list_0(&children[0], &children[1]),
+            155 => self.delim_code3_list_group_0(&children[0]),
+            156 => self.delim_code3_list_group_1(&children[0]),
+            157 => self.delim_code3_list_1(),
+            158 => self.code_block_0(&children[0]),
+            159 => self.code_block_1(&children[0]),
+            160 => self.code_block_2(&children[0]),
+            161 => self.code_block_3(&children[0]),
+            162 => self.code_block3(&children[0], &children[1], &children[2]),
+            163 => self.code_block3_list_0(&children[0], &children[1]),
+            164 => self.code_block3_list_group_0(&children[0]),
+            165 => self.code_block3_list_group_1(&children[0]),
+            166 => self.code_block3_list_1(),
+            167 => self.code_block4(&children[0], &children[1], &children[2]),
+            168 => self.code_block4_list_0(&children[0], &children[1]),
+            169 => self.code_block4_list_group_0(&children[0]),
+            170 => self.code_block4_list_group_1(&children[0]),
+            171 => self.code_block4_list_1(),
+            172 => self.code_block5(&children[0], &children[1], &children[2]),
+            173 => self.code_block5_list_0(&children[0], &children[1]),
+            174 => self.code_block5_list_group_0(&children[0]),
+            175 => self.code_block5_list_group_1(&children[0]),
+            176 => self.code_block5_list_1(),
+            177 => self.code_block6(&children[0], &children[1], &children[2]),
+            178 => self.code_block6_list_0(&children[0], &children[1]),
+            179 => self.code_block6_list_group_0(&children[0]),
+            180 => self.code_block6_list_group_1(&children[0]),
+            181 => self.code_block6_list_1(),
+            182 => self.lit_str3_start(&children[0]),
+            183 => self.lit_str2_start(&children[0]),
+            184 => self.lit_str1_start(&children[0]),
+            185 => self.delim_code_start3(&children[0]),
+            186 => self.delim_code_start2(&children[0]),
+            187 => self.delim_code_start1(&children[0]),
+            188 => self.code_block_start3(&children[0]),
+            189 => self.code_block_start4(&children[0]),
+            190 => self.code_block_start5(&children[0]),
+            191 => self.code_block_start6(&children[0]),
+            192 => self.code_block_end3(&children[0]),
+            193 => self.backtick2(&children[0]),
+            194 => self.code_block_end4(&children[0]),
+            195 => self.backtick3(&children[0]),
+            196 => self.code_block_end5(&children[0]),
+            197 => self.backtick4(&children[0]),
+            198 => self.code_block_end6(&children[0]),
+            199 => self.backtick5(&children[0]),
+            200 => self.no_backtick(&children[0]),
+            201 => self.lit_str3_end(&children[0]),
+            202 => self.lit_str2_end(&children[0]),
+            203 => self.lit_str1_end(&children[0]),
+            204 => self.s_quote(&children[0]),
+            205 => self.no_s_quote(&children[0]),
+            206 => self.delim_code_end3(&children[0]),
+            207 => self.delim_code_end2(&children[0]),
+            208 => self.delim_code_end1(&children[0]),
+            209 => self.backtick_delim(&children[0]),
+            210 => self.grammar_newline(&children[0]),
+            211 => self.ws(&children[0]),
+            212 => self.at(&children[0]),
+            213 => self.ext(&children[0]),
+            214 => self.dot(&children[0]),
+            215 => self.begin(&children[0]),
+            216 => self.end(&children[0]),
+            217 => self.array_begin(&children[0]),
+            218 => self.array_end(&children[0]),
+            219 => self.l_paren(&children[0]),
+            220 => self.r_paren(&children[0]),
+            221 => self.bind(&children[0]),
+            222 => self.comma(&children[0]),
+            223 => self.r#continue(&children[0]),
+            224 => self.text_start(&children[0]),
+            225 => self.ident(&children[0]),
             _ => Err(ParserError::InternalError(format!(
                 "Unhandled production number: {prod_num}"
             ))

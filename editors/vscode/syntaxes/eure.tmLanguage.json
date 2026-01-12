@@ -447,47 +447,6 @@
     "strings": {
       "patterns": [
         {
-          "comment": "Triple-delimited string: <<<\"...\">>>",
-          "begin": "(<<<)(\")",
-          "end": "(\")(>>>)",
-          "beginCaptures": {
-            "1": { "name": "punctuation.definition.string.begin.eure" },
-            "2": { "name": "punctuation.definition.string.begin.eure" }
-          },
-          "endCaptures": {
-            "1": { "name": "punctuation.definition.string.end.eure" },
-            "2": { "name": "punctuation.definition.string.end.eure" }
-          },
-          "contentName": "string.quoted.double.eure"
-        },
-        {
-          "comment": "Double-delimited string: <<\"...\">>",
-          "begin": "(<<)(\")",
-          "end": "(\")(>>)",
-          "beginCaptures": {
-            "1": { "name": "punctuation.definition.string.begin.eure" },
-            "2": { "name": "punctuation.definition.string.begin.eure" }
-          },
-          "endCaptures": {
-            "1": { "name": "punctuation.definition.string.end.eure" },
-            "2": { "name": "punctuation.definition.string.end.eure" }
-          },
-          "contentName": "string.quoted.double.eure"
-        },
-        {
-          "comment": "Single-delimited string: <\"...\">",
-          "begin": "(<)(\")",
-          "end": "(\">)",
-          "beginCaptures": {
-            "1": { "name": "punctuation.definition.string.begin.eure" },
-            "2": { "name": "punctuation.definition.string.begin.eure" }
-          },
-          "endCaptures": {
-            "0": { "name": "punctuation.definition.string.end.eure" }
-          },
-          "contentName": "string.quoted.double.eure"
-        },
-        {
           "comment": "Triple-delimited literal string: <<<'...'>>>",
           "begin": "(<<<)(')",
           "end": "(')(>>>)",

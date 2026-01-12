@@ -350,14 +350,8 @@ impl<'a> SemanticTokenVisitor<'a> {
             | TerminalKind::DelimCodeEnd2
             | TerminalKind::DelimCodeEnd3 => Some(SemanticTokenType::Macro),
 
-            // Delimited escaped string content and ends (Str1/2/3)
-            TerminalKind::NoQuote
-            | TerminalKind::Quote
-            | TerminalKind::Str1End
-            | TerminalKind::Str2End
-            | TerminalKind::Str3End
             // Delimited literal string content and ends (LitStr1/2/3)
-            | TerminalKind::NoSQuote
+            TerminalKind::NoSQuote
             | TerminalKind::SQuote
             | TerminalKind::LitStr1End
             | TerminalKind::LitStr2End
@@ -375,9 +369,6 @@ impl<'a> SemanticTokenVisitor<'a> {
             | TerminalKind::CodeBlockStart4
             | TerminalKind::CodeBlockStart5
             | TerminalKind::CodeBlockStart6
-            | TerminalKind::Str1Start
-            | TerminalKind::Str2Start
-            | TerminalKind::Str3Start
             | TerminalKind::LitStr1Start
             | TerminalKind::LitStr2Start
             | TerminalKind::LitStr3Start

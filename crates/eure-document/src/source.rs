@@ -296,9 +296,6 @@ pub enum StringStyle {
     /// Literal string (single-quoted): `'...'`
     /// Content is taken literally, no escape processing
     Literal,
-    /// Delimited escaped string: `<"...">`, `<<"...">>`, `<<<"...">>>`
-    /// The u8 indicates the delimiter level (1, 2, or 3)
-    DelimitedStr(u8),
     /// Delimited literal string: `<'...'>`, `<<'...'>>`, `<<<'...'>>>`
     /// The u8 indicates the delimiter level (1, 2, or 3)
     /// Content is taken literally, no escape processing
@@ -362,11 +359,6 @@ impl SourceKey {
     /// Create a literal string key (single-quoted): `'...'`
     pub fn literal(s: impl Into<String>) -> Self {
         SourceKey::String(s.into(), StringStyle::Literal)
-    }
-
-    /// Create a delimited escaped string key: `<"...">`, `<<"...">>`, `<<<"...">>>`
-    pub fn delimited_str(s: impl Into<String>, level: u8) -> Self {
-        SourceKey::String(s.into(), StringStyle::DelimitedStr(level))
     }
 
     /// Create a delimited literal string key: `<'...'>`, `<<'...'>>`, `<<<'...'>>>`
