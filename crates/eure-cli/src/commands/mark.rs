@@ -1,7 +1,7 @@
 //! Eure Markdown commands
 
 use clap::{Parser, Subcommand};
-use eure::query::{TextFile, TextFileContent, build_runtime};
+use eure::query::{DecorStyle, DecorStyleKey, TextFile, TextFileContent, build_runtime};
 use eure::query_flow::DurabilityLevel;
 use eure::report::format_error_reports;
 use eure_mark::CheckEumdReferences;
@@ -43,6 +43,13 @@ fn run_check(args: CheckArgs) {
 
     // Create query runtime
     let runtime = build_runtime();
+
+    // Register DecorStyle preference
+    runtime.resolve_asset(
+        DecorStyleKey,
+        DecorStyle::Unicode, // CLI uses Unicode by default
+        DurabilityLevel::Static,
+    );
 
     let path = display_path(args.file.as_deref());
     let file: TextFile = TextFile::from_path(path.into());

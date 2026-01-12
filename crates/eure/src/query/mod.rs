@@ -18,8 +18,8 @@ pub mod validation;
 
 pub use asset_locator::TextFileLocator;
 pub use assets::{
-    Glob, GlobResult, OpenDocuments, OpenDocumentsList, TextFile, TextFileContent, Workspace,
-    WorkspaceId,
+    DecorStyle, DecorStyleKey, Glob, GlobResult, OpenDocuments, OpenDocumentsList, TextFile,
+    TextFileContent, Workspace, WorkspaceId,
 };
 
 use query_flow::{QueryRuntime, QueryRuntimeBuilder};

@@ -1,4 +1,4 @@
-use eure::query::{ParseCst, TextFile, TextFileContent, build_runtime};
+use eure::query::{DecorStyle, DecorStyleKey, ParseCst, TextFile, TextFileContent, build_runtime};
 use eure::query_flow::DurabilityLevel;
 use eure::report::{format_error_reports, report_parse_error};
 use eure::tree::inspect_cst;
@@ -22,6 +22,13 @@ pub fn run(args: Args) {
 
     // Create query runtime
     let runtime = build_runtime();
+
+    // Register DecorStyle preference
+    runtime.resolve_asset(
+        DecorStyleKey,
+        DecorStyle::Unicode, // CLI uses Unicode by default
+        DurabilityLevel::Static,
+    );
 
     let file = TextFile::from_path(display_path(args.file.as_deref()).into());
     runtime.resolve_asset(

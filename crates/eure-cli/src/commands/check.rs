@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use eure::query::{
-    TextFile, TextFileContent, ValidateDocument, ValidateTargetResult, ValidateTargets,
-    ValidateTargetsResult, build_runtime, load_config,
+    DecorStyle, DecorStyleKey, TextFile, TextFileContent, ValidateDocument, ValidateTargetResult,
+    ValidateTargets, ValidateTargetsResult, build_runtime, load_config,
 };
 use eure::query_flow::DurabilityLevel;
 use eure::report::{ErrorReports, format_error_reports};
@@ -132,6 +132,14 @@ fn run_project_mode(args: Args, config_path: &Path) {
 
     // Create runtime and run validation
     let runtime = build_runtime();
+
+    // Register DecorStyle preference
+    runtime.resolve_asset(
+        DecorStyleKey,
+        DecorStyle::Unicode, // CLI uses Unicode by default
+        DurabilityLevel::Static,
+    );
+
     let cache_opts = args.cache.to_cache_options();
 
     let result = match run_query_with_file_loading_cached(
@@ -163,6 +171,13 @@ fn run_file_mode(args: Args) {
 
     // Create runtime
     let runtime = build_runtime();
+
+    // Register DecorStyle preference
+    runtime.resolve_asset(
+        DecorStyleKey,
+        DecorStyle::Unicode, // CLI uses Unicode by default
+        DurabilityLevel::Static,
+    );
 
     // Read and register document content
     let doc_contents = match read_input(file_opt) {

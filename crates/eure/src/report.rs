@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 
+use annotate_snippets::renderer::DecorStyle as AnnotateDecorStyle;
 use eure_document::document::NodeId;
 use eure_document::path::EurePath;
 use eure_document::value::ObjectKey;
@@ -21,7 +22,8 @@ use thisisplural::Plural;
 
 use crate::document::OriginMap;
 use crate::query::{
-    DocumentToSchemaQuery, ParseCst, ParseDocument, TextFile, TextFileContent, ValidCst,
+    DecorStyle, DecorStyleKey, DocumentToSchemaQuery, ParseCst, ParseDocument, TextFile,
+    TextFileContent, ValidCst,
 };
 
 // ============================================================================
@@ -594,6 +596,14 @@ fn get_file_content(db: &impl Db, file: &TextFile) -> Result<Option<FileInfo>, Q
     }))
 }
 
+/// Get decor style from runtime asset, falling back to Unicode if not set.
+fn get_decor_style(db: &impl Db) -> DecorStyle {
+    db.asset(DecorStyleKey)
+        .ok()
+        .map(|arc| *arc)
+        .unwrap_or_default() // Default to Unicode
+}
+
 /// Render an ErrorReport to a string using annotate-snippets.
 ///
 /// Returns `Err` with suspension if file content isn't loaded yet.
@@ -618,7 +628,17 @@ pub fn format_error_report(
         Renderer::plain()
     };
 
-    Ok(renderer.render(&groups).to_string())
+    // Get decor style from asset
+    let decor_style = get_decor_style(db);
+    let annotate_decor_style = match decor_style {
+        DecorStyle::Unicode => AnnotateDecorStyle::Unicode,
+        DecorStyle::Ascii => AnnotateDecorStyle::Ascii,
+    };
+
+    Ok(renderer
+        .decor_style(annotate_decor_style)
+        .render(&groups)
+        .to_string())
 }
 
 /// Render multiple ErrorReports to a string.

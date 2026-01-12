@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use eure::query::error::EureQueryError;
 use eure::query::{
-    OpenDocuments, OpenDocumentsList, TextFile, TextFileContent, UnionTagMode, Workspace,
-    WorkspaceId, build_runtime,
+    DecorStyle, DecorStyleKey, OpenDocuments, OpenDocumentsList, TextFile, TextFileContent,
+    UnionTagMode, Workspace, WorkspaceId, build_runtime,
 };
 use eure_document::Text;
 use query_flow::{Db, DurabilityLevel, QueryRuntime};
@@ -612,6 +612,14 @@ impl Case {
     pub fn run_all(&self, config: &RunConfig) -> CaseResult {
         // Create a new QueryRuntime for this case
         let runtime = build_runtime();
+
+        // Register DecorStyle preference (Ascii to match existing snapshots)
+        runtime.resolve_asset(
+            DecorStyleKey,
+            DecorStyle::Ascii,
+            DurabilityLevel::Static,
+        );
+
         self.resolve_assets(&runtime)
             .expect("Failed to resolve assets");
 

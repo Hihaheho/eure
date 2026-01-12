@@ -162,6 +162,23 @@ pub struct OpenDocuments;
 #[derive(Clone, PartialEq, Debug)]
 pub struct OpenDocumentsList(pub Vec<TextFile>);
 
+/// Box-drawing style for error reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DecorStyle {
+    /// Unicode box-drawing characters (e.g., ╭, ╰, │, ━)
+    #[default]
+    Unicode,
+    /// ASCII characters (e.g., |, -, ^)
+    Ascii,
+}
+
+/// Asset key for decor style preference.
+///
+/// This is a user/environment preference, not a project configuration.
+/// Each runtime (CLI, test-suite, LSP) registers its own preference.
+#[asset_key(asset = DecorStyle)]
+pub struct DecorStyleKey;
+
 #[cfg(test)]
 mod tests {
     use super::*;
