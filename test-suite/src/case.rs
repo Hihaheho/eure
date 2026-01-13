@@ -614,11 +614,7 @@ impl Case {
         let runtime = build_runtime();
 
         // Register DecorStyle preference (Ascii to match existing snapshots)
-        runtime.resolve_asset(
-            DecorStyleKey,
-            DecorStyle::Ascii,
-            DurabilityLevel::Static,
-        );
+        runtime.resolve_asset(DecorStyleKey, DecorStyle::Ascii, DurabilityLevel::Static);
 
         self.resolve_assets(&runtime)
             .expect("Failed to resolve assets");

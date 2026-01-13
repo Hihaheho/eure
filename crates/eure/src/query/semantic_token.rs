@@ -335,12 +335,11 @@ impl<'a> SemanticTokenVisitor<'a> {
                 }
             }
 
-            // Code block content and ends
+            // Code block ends (not content - let TextMate handle embedded language highlighting)
             TerminalKind::CodeBlockEnd3
             | TerminalKind::CodeBlockEnd4
             | TerminalKind::CodeBlockEnd5
             | TerminalKind::CodeBlockEnd6
-            | TerminalKind::NoBacktick
             | TerminalKind::BacktickDelim
             | TerminalKind::Backtick2
             | TerminalKind::Backtick3
@@ -362,6 +361,9 @@ impl<'a> SemanticTokenVisitor<'a> {
             | TerminalKind::NewLine
             | TerminalKind::GrammarNewline
             | TerminalKind::Ws => None,
+
+            // Skip code block content - let TextMate grammar handle embedded language highlighting
+            TerminalKind::NoBacktick => None,
 
             // Skip code block/inline starts (handled specially via visit methods)
             TerminalKind::InlineCode1
