@@ -13,4 +13,4 @@ normalized = ```eure
 }
 ```
 
-output_json = json`{ "a": { "x": 1, "y": 2, "z": 3 } }`
+json = json`{ "a": { "x": 1, "y": 2, "z": 3 } }`

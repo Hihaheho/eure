@@ -16,6 +16,6 @@ normalized = ```eure
 }
 ```
 
-output_json = ```json
+json = ```json
 { "a": -1, "b": -42, "c": -1000, "d": [-1, -2, -3], "e": { "x": -5, "y": -10 } }
 ```

@@ -10,7 +10,7 @@ normalized = ```eure
 = { "#" => 1 }
 ```
 
-output_json = json`{ "#": 1 }`
+json = json`{ "#": 1 }`
 
 // Literal key with quotes inside (using delimited literal string)
 @ cases.key-with-quotes
@@ -34,7 +34,7 @@ normalized = ```eure
 = { "#" => { "Introduction" => 1 } }
 ```
 
-output_json = json`{ "#": { "Introduction": 1 } }`
+json = json`{ "#": { "Introduction": 1 } }`
 
 // Literal key in section (using delimited literal string for single quote)
 @ cases.section-with-literal-key
@@ -47,7 +47,7 @@ normalized = ```eure
 = { "#" => { "What's this?" => { value => 42 } } }
 ```
 
-output_json = json`{ "#": { "What's this?": { "value": 42 } } }`
+json = json`{ "#": { "What's this?": { "value": 42 } } }`
 
 // Nested sections with literal keys
 @ cases.nested-sections
@@ -63,7 +63,7 @@ normalized = ```eure
 = { "#" => { "##" => { content => "hello" } } }
 ```
 
-output_json = json`{ "#": { "##": { "content": "hello" } } }`
+json = json`{ "#": { "##": { "content": "hello" } } }`
 
 // Mixed regular and literal keys
 @ cases.mixed-keys
@@ -77,7 +77,7 @@ normalized = ```eure
 = { regular => 1, "special key" => 2, "quoted" => 3 }
 ```
 
-output_json = json`{ "regular": 1, "special key": 2, "quoted": 3 }`
+json = json`{ "regular": 1, "special key": 2, "quoted": 3 }`
 
 // Literal key with spaces
 @ cases.key-with-spaces
@@ -89,7 +89,7 @@ normalized = ```eure
 = { "key with spaces" => "value" }
 ```
 
-output_json = json`{ "key with spaces": "value" }`
+json = json`{ "key with spaces": "value" }`
 
 // Empty literal key
 @ cases.empty-key
@@ -101,4 +101,4 @@ normalized = ```eure
 = { "" => "empty key" }
 ```
 
-output_json = json`{ "": "empty key" }`
+json = json`{ "": "empty key" }`

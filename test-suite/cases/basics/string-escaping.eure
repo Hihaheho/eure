@@ -13,6 +13,8 @@ normalized = ```eure
 = { escaped => "line1\nline2", literal => "line1\\nline2" }
 ```
 
+json = json`{ "escaped": "line1\nline2", "literal": "line1\\nline2" }`
+
 @ cases.level0-backslash
 input_eure = ```eure
 escaped = "C:\\Users\\name"
@@ -23,6 +25,8 @@ normalized = ```eure
 = { escaped => "C:\\Users\\name", literal => "C:\\Users\\name" }
 ```
 
+json = json`{ "escaped": "C:\\Users\\name", "literal": "C:\\Users\\name" }`
+
 @ cases.level0-tab
 input_eure = ```eure
 escaped = "col1\tcol2"
@@ -32,6 +36,8 @@ literal = 'col1\tcol2'
 normalized = ```eure
 = { escaped => "col1\tcol2", literal => "col1\\tcol2" }
 ```
+
+json = json`{ "escaped": "col1\tcol2", "literal": "col1\\tcol2" }`
 
 // === Level 1: LitStr1 (delimited literal strings) ===
 
@@ -44,6 +50,8 @@ normalized = ```eure
 = { literal => "C:\\Users\\name" }
 ```
 
+json = json`{ "literal": "C:\\Users\\name" }`
+
 @ cases.level1-embedded-quotes
 input_eure = ```eure
 literal = <'it's working'>
@@ -53,6 +61,8 @@ normalized = ```eure
 = { literal => "it's working" }
 ```
 
+json = json`{ "literal": "it's working" }`
+
 @ cases.level1-consecutive-quotes
 input_eure = ```eure
 literal = <'a''b'>
@@ -61,6 +71,8 @@ literal = <'a''b'>
 normalized = ```eure
 = { literal => "a''b" }
 ```
+
+json = json`{ "literal": "a''b" }`
 
 // === Level 2: LitStr2 (double-delimited literal strings) ===
 
@@ -73,6 +85,8 @@ normalized = ```eure
 = { literal => "C:\\Users\\name" }
 ```
 
+json = json`{ "literal": "C:\\Users\\name" }`
+
 @ cases.level2-partial-close
 input_eure = ```eure
 literal = <<'text with '> inside'>>
@@ -82,6 +96,8 @@ normalized = ```eure
 = { literal => "text with '> inside" }
 ```
 
+json = json`{ "literal": "text with '> inside" }`
+
 @ cases.level2-consecutive-quotes
 input_eure = ```eure
 literal = <<'a''b'>>
@@ -90,6 +106,8 @@ literal = <<'a''b'>>
 normalized = ```eure
 = { literal => "a''b" }
 ```
+
+json = json`{ "literal": "a''b" }`
 
 // === Level 3: LitStr3 (triple-delimited literal strings) ===
 
@@ -102,6 +120,8 @@ normalized = ```eure
 = { literal => "C:\\Users\\name" }
 ```
 
+json = json`{ "literal": "C:\\Users\\name" }`
+
 @ cases.level3-complex-partial
 input_eure = ```eure
 literal = <<<'text with ''>> inside'>>>
@@ -111,6 +131,8 @@ normalized = ```eure
 = { literal => "text with ''>> inside" }
 ```
 
+json = json`{ "literal": "text with ''>> inside" }`
+
 @ cases.level3-consecutive-quotes
 input_eure = ```eure
 literal = <<<'a''b'>>>
@@ -119,6 +141,8 @@ literal = <<<'a''b'>>>
 normalized = ```eure
 = { literal => "a''b" }
 ```
+
+json = json`{ "literal": "a''b" }`
 
 // === Unicode and other escapes ===
 
@@ -130,6 +154,8 @@ hello = "Hello \u{4e16}\u{754c}"
 normalized = ```eure
 = { hello => "Hello 世界" }
 ```
+
+json = json`{ "hello": "Hello 世界" }`
 
 @ cases.all-escapes
 input_eure = ```eure
@@ -152,6 +178,8 @@ normalized = ```eure
 = { long => "hello world" }
 ```
 
+json = json`{ "long": "hello world" }`
+
 @ cases.continuation-mixed-types
 input_eure = ```eure
 mixed = "escaped\n" \
@@ -161,6 +189,8 @@ mixed = "escaped\n" \
 normalized = ```eure
 = { mixed => "escaped\nliteral\\n" }
 ```
+
+json = json`{ "mixed": "escaped\nliteral\\n" }`
 
 // === Keys: Escaped vs Literal ===
 
@@ -173,6 +203,8 @@ normalized = ```eure
 = { "C:\\path" => 1 }
 ```
 
+json = json`{ "C:\\path": 1 }`
+
 @ cases.keys-literal
 input_eure = ```eure
 'C:\path' = 1
@@ -181,3 +213,5 @@ input_eure = ```eure
 normalized = ```eure
 = { "C:\\path" => 1 }
 ```
+
+json = json`{ "C:\\path": 1 }`
