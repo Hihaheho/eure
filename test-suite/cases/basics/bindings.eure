@@ -25,3 +25,32 @@ normalized = ```eure
 ```
 
 output_json = json`{ "a": { "x": 1 }, "b": { "x": 2 }, "c": { "x": 3 }, "d": { "x": 4 }, "e": { "x": "6" }, "f": "hello", "g": {} }`
+
+@cases.integer-keys
+
+input_eure = ```eure
+a = { 1 => "one", 2 => "two" }
+```
+
+normalized = ```eure
+= {
+  a => { 1 => "one", 2 => "two" },
+}
+```
+
+output_json = json`{ "a": { "1": "one", "2": "two" } }`
+
+@cases.middle-integer-keys
+unimplemented = "integer keys have not been properly implemented in the grammar level"
+input_eure = ```eure
+a.1.x = "one"
+a.2.y = "two"
+```
+
+normalized = ```eure
+= {
+  a => { 1.x => "one", 2.y => "two" },
+}
+```
+
+output_json = json`{ "a": { "1": { "x": "one" }, "2": { "y": "two" } } }`
