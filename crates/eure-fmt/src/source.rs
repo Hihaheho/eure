@@ -12,6 +12,7 @@ use crate::printer::Printer;
 
 use eure_document::document::node::{NodeArray, NodeMap, NodeTuple, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
+use eure_document::identifier::Identifier;
 use eure_document::source::{
     ArrayElementSource, BindSource, BindingSource, Comment, EureSource, SectionBody, SectionSource,
     SourceDocument, SourceId, SourceKey, SourcePathSegment, StringStyle, Trivia,
@@ -548,7 +549,19 @@ impl<'a> SourceDocBuilder<'a> {
 
     fn build_object_key(&self, key: &ObjectKey) -> Doc {
         match key {
-            ObjectKey::String(s) => Doc::text(s.clone()),
+            ObjectKey::String(s) => {
+                // Check if the string is a valid identifier
+                // If not (e.g., starts with $, contains spaces, etc.), quote it
+                if s.parse::<Identifier>().is_ok() {
+                    // Valid identifier - output without quotes
+                    Doc::text(s.clone())
+                } else {
+                    // Not a valid identifier - must quote it
+                    Doc::text("\"")
+                        .concat(Doc::text(escape_string(s)))
+                        .concat(Doc::text("\""))
+                }
+            }
             ObjectKey::Number(n) => Doc::text(n.to_string()),
             ObjectKey::Tuple(keys) => {
                 let inner = Doc::join(

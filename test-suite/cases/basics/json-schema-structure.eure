@@ -1,0 +1,157 @@
+// Test: Real-world JSON Schema structure with multiple $-prefixed keywords
+// Demonstrates comprehensive JSON Schema conversion with proper handling of special keys
+
+// Complete JSON Schema example with all common $-prefixed keywords
+json = ```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/person.schema.json",
+  "title": "Person",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "age": { "type": "integer" }
+  },
+  "required": ["name"],
+  "$defs": {
+    "Address": {
+      "$id": "#address",
+      "type": "object"
+    }
+  }
+}
+```
+
+normalized = ```eure
+= {
+  "$defs" => {
+    "Address" => {
+      "$id" => "#address",
+      "type" => "object"
+    }
+  },
+  "$id" => "https://example.com/person.schema.json",
+  "$schema" => "https://json-schema.org/draft/2020-12/schema",
+  properties => {
+    age => { "type" => "integer" },
+    name => { "type" => "string" }
+  },
+  required => ["name"],
+  title => "Person",
+  "type" => "object"
+}
+```
+
+@ cases.nested-refs
+// Schema with nested $ref usage
+json = ```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "User": {
+      "type": "object",
+      "properties": {
+        "address": { "$ref": "#/$defs/Address" }
+      }
+    },
+    "Address": {
+      "type": "object",
+      "properties": {
+        "city": { "type": "string" }
+      }
+    }
+  },
+  "$ref": "#/$defs/User"
+}
+```
+
+normalized = ```eure
+= {
+  "$defs" => {
+    "Address" => {
+      properties => {
+        city => { "type" => "string" }
+      },
+      "type" => "object"
+    },
+    "User" => {
+      properties => {
+        address => { "$ref" => "#/$defs/Address" }
+      },
+      "type" => "object"
+    }
+  },
+  "$ref" => "#/$defs/User",
+  "$schema" => "https://json-schema.org/draft/2020-12/schema"
+}
+```
+
+@ cases.with-comments-and-anchors
+// Schema using $comment and $anchor
+json = ```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/product.schema.json",
+  "$comment": "Product schema for e-commerce",
+  "type": "object",
+  "properties": {
+    "productId": {
+      "$anchor": "productId",
+      "type": "string"
+    },
+    "price": {
+      "$comment": "Price in USD",
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}
+```
+
+normalized = ```eure
+= {
+  "$comment" => "Product schema for e-commerce",
+  "$id" => "https://example.com/product.schema.json",
+  "$schema" => "https://json-schema.org/draft/2020-12/schema",
+  properties => {
+    price => {
+      "$comment" => "Price in USD",
+      minimum => 0,
+      "type" => "number"
+    },
+    productId => {
+      "$anchor" => "productId",
+      "type" => "string"
+    }
+  },
+  "type" => "object"
+}
+```
+
+@ cases.openapi-style
+// OpenAPI-style schema with JSON-LD @context
+json = ```json
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "price": { "type": "number" }
+  }
+}
+```
+
+normalized = ```eure
+= {
+  "$schema" => "https://json-schema.org/draft/2020-12/schema",
+  "@context" => "https://schema.org",
+  "@type" => "Product",
+  properties => {
+    name => { "type" => "string" },
+    price => { "type" => "number" }
+  },
+  "type" => "object"
+}
+```

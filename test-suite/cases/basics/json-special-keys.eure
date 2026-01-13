@@ -1,0 +1,344 @@
+// Test: JSON keys with special characters and $ prefix
+// Verifies that special-character keys in JSON are correctly converted to quoted string keys in Eure
+// This is critical for JSON Schema structures which use $-prefixed keywords extensively
+
+// $ref - most common JSON Schema keyword
+input_eure = ```eure
+"$ref" = "#/definitions/User"
+```
+
+normalized = ```eure
+= { "$ref" => "#/definitions/User" }
+```
+
+json = ```json
+{ "$ref": "#/definitions/User" }
+```
+
+@ cases.dollar-schema
+// $schema keyword
+json = json`{ "$schema": "http://json-schema.org/draft-07/schema#" }`
+
+normalized = ```eure
+= { "$schema" => "http://json-schema.org/draft-07/schema#" }
+```
+
+@ cases.dollar-id
+// $id keyword
+json = json`{ "$id": "https://example.com/schema.json" }`
+
+normalized = ```eure
+= { "$id" => "https://example.com/schema.json" }
+```
+
+@ cases.dollar-defs
+// $defs with nested structure
+json = ```json
+{
+  "$defs": {
+    "User": {
+      "type": "object"
+    }
+  }
+}
+```
+
+normalized = ```eure
+= {
+  "$defs" => {
+    "User" => {
+      "type" => "object"
+    }
+  }
+}
+```
+
+@ cases.dollar-variant
+// $variant should be a regular key, not an extension
+// Extensions are stored in Node.extensions, not in the map content
+json = json`{ "$variant": "Success", "value": 42 }`
+
+normalized = ```eure
+= {
+  "$variant" => "Success",
+  value => 42
+}
+```
+
+@ cases.dollar-eure
+// $eure namespace-like keys
+json = json`{ "$eure.version": "1.0" }`
+
+normalized = ```eure
+= { "$eure.version" => "1.0" }
+```
+
+@ cases.at-sign
+// @ prefix (JSON-LD @context, @type, etc.)
+json = json`{ "@context": "https://schema.org", "@type": "Person" }`
+
+normalized = ```eure
+= {
+  "@context" => "https://schema.org",
+  "@type" => "Person"
+}
+```
+
+@ cases.equals-sign
+// = as a key
+json = json`{ "=": "root value", "other": 1 }`
+
+normalized = ```eure
+= {
+  "=" => "root value",
+  other => 1
+}
+```
+
+@ cases.hash-sign
+// # prefix
+json = json`{ "#ref": "local-reference" }`
+
+normalized = ```eure
+= { "#ref" => "local-reference" }
+```
+
+@ cases.mixed-keys
+// Mix of regular identifiers and special-char keys
+json = ```json
+{
+  "name": "John",
+  "$id": "user-123",
+  "@context": "schema.org",
+  "age": 30,
+  "=": "value"
+}
+```
+
+normalized = ```eure
+= {
+  "=" => "value",
+  "$id" => "user-123",
+  "@context" => "schema.org",
+  age => 30,
+  name => "John"
+}
+```
+
+@ cases.nested-special-keys
+// Special keys in nested objects and arrays
+json = ```json
+{
+  "data": {
+    "$ref": "#/definitions/Item"
+  },
+  "items": [
+    { "$id": "item-1" },
+    { "$id": "item-2" }
+  ]
+}
+```
+
+normalized = ```eure
+= {
+  data => {
+    "$ref" => "#/definitions/Item"
+  },
+  items => [
+    { "$id" => "item-1" },
+    { "$id" => "item-2" }
+  ]
+}
+```
+
+@ cases.only-dollar
+// Just a dollar sign
+json = json`{ "$": "dollar" }`
+
+normalized = ```eure
+= { "$" => "dollar" }
+```
+
+@ cases.multiple-dollars
+// Multiple dollar signs
+json = json`{ "$$ref": "double-dollar" }`
+
+normalized = ```eure
+= { "$$ref" => "double-dollar" }
+```
+
+@ cases.dollar-with-numbers
+// Dollar with numbers
+json = json`{ "$1": "first", "$2": "second" }`
+
+normalized = ```eure
+= {
+  "$1" => "first",
+  "$2" => "second"
+}
+```
+
+@ cases.empty-string-key
+// Empty string key (edge case)
+json = json`{ "": "empty-key", "normal": "value" }`
+
+normalized = ```eure
+= {
+  "" => "empty-key",
+  normal => "value"
+}
+```
+
+@ cases.dollar-anchor
+// $anchor keyword (JSON Schema 2019-09+)
+json = json`{ "$anchor": "myAnchor", "type": "string" }`
+
+normalized = ```eure
+= {
+  "$anchor" => "myAnchor",
+  "type" => "string"
+}
+```
+
+@ cases.dollar-comment
+// $comment keyword
+json = json`{ "$comment": "This is a comment", "value": 42 }`
+
+normalized = ```eure
+= {
+  "$comment" => "This is a comment",
+  value => 42
+}
+```
+
+@ cases.dollar-dynamicRef
+// $dynamicRef keyword (JSON Schema 2020-12+)
+json = json`{ "$dynamicRef": "#meta" }`
+
+normalized = ```eure
+= { "$dynamicRef" => "#meta" }
+```
+
+@ cases.dollar-dynamicAnchor
+// $dynamicAnchor keyword
+json = json`{ "$dynamicAnchor": "meta" }`
+
+normalized = ```eure
+= { "$dynamicAnchor" => "meta" }
+```
+
+@ cases.dollar-vocabulary
+// $vocabulary keyword
+json = json`{ "$vocabulary": { "https://json-schema.org/draft/2020-12/vocab/core": true } }`
+
+normalized = ```eure
+= {
+  "$vocabulary" => {
+    "https://json-schema.org/draft/2020-12/vocab/core" => true
+  }
+}
+```
+
+@ cases.multiple-special-prefixes
+// Multiple different special prefixes in one object
+json = ```json
+{
+  "$schema": "http://json-schema.org/schema#",
+  "@context": "https://schema.org",
+  "#id": "local-ref",
+  "=": "root",
+  "normal": "value"
+}
+```
+
+normalized = ```eure
+= {
+  "#id" => "local-ref",
+  "$schema" => "http://json-schema.org/schema#",
+  "=" => "root",
+  "@context" => "https://schema.org",
+  normal => "value"
+}
+```
+
+@ cases.deeply-nested-special-keys
+// Deep nesting with special keys at multiple levels
+json = ```json
+{
+  "$defs": {
+    "Level1": {
+      "$defs": {
+        "Level2": {
+          "$ref": "#/definitions/Base"
+        }
+      }
+    }
+  }
+}
+```
+
+normalized = ```eure
+= {
+  "$defs" => {
+    "Level1" => {
+      "$defs" => {
+        "Level2" => {
+          "$ref" => "#/definitions/Base"
+        }
+      }
+    }
+  }
+}
+```
+
+@ cases.special-keys-in-arrays
+// Special keys in array elements
+json = ```json
+{
+  "schemas": [
+    { "$id": "schema1", "$ref": "#/defs/A" },
+    { "$id": "schema2", "$ref": "#/defs/B" },
+    { "$id": "schema3", "$ref": "#/defs/C" }
+  ]
+}
+```
+
+normalized = ```eure
+= {
+  schemas => [
+    { "$id" => "schema1", "$ref" => "#/defs/A" },
+    { "$id" => "schema2", "$ref" => "#/defs/B" },
+    { "$id" => "schema3", "$ref" => "#/defs/C" }
+  ]
+}
+```
+
+@ cases.all-json-schema-dollar-keywords
+// All major JSON Schema $-prefixed keywords in one object
+json = ```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schema",
+  "$ref": "#/definitions/Thing",
+  "$defs": {},
+  "$comment": "A comprehensive test",
+  "$anchor": "root",
+  "$dynamicRef": "#meta",
+  "$dynamicAnchor": "dynamic",
+  "$vocabulary": {}
+}
+```
+
+normalized = ```eure
+= {
+  "$anchor" => "root",
+  "$comment" => "A comprehensive test",
+  "$defs" => {},
+  "$dynamicAnchor" => "dynamic",
+  "$dynamicRef" => "#meta",
+  "$id" => "https://example.com/schema",
+  "$ref" => "#/definitions/Thing",
+  "$schema" => "https://json-schema.org/draft/2020-12/schema",
+  "$vocabulary" => {}
+}
+```
