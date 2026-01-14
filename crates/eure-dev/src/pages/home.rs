@@ -7,8 +7,8 @@ use crate::{
 };
 use dioxus::prelude::*;
 use eure::query::{
-    DiagnosticMessage, GetDiagnostics, GetSemanticTokens, ParseDocument, SemanticToken, TextFile,
-    TextFileContent, Workspace, WorkspaceId, build_runtime,
+    DiagnosticMessage, GetFileDiagnostics, GetSemanticTokens, OpenDocuments, OpenDocumentsList,
+    ParseDocument, SemanticToken, TextFile, TextFileContent, Workspace, WorkspaceId, build_runtime,
 };
 use query_flow::{Db, DurabilityLevel, QueryError, QueryRuntime, query};
 
@@ -33,7 +33,10 @@ fn diagnostic_to_error_span(diag: &DiagnosticMessage) -> ErrorSpan {
 }
 
 /// Filter diagnostics by file and convert to ErrorSpans.
-fn diagnostics_to_spans(diagnostics: &[DiagnosticMessage], target_file: &TextFile) -> Vec<ErrorSpan> {
+fn diagnostics_to_spans(
+    diagnostics: &[DiagnosticMessage],
+    target_file: &TextFile,
+) -> Vec<ErrorSpan> {
     diagnostics
         .iter()
         .filter(|d| &d.file == target_file)
@@ -257,6 +260,17 @@ impl EureExample {
             },
             DurabilityLevel::Static,
         );
+
+        // Register initial open documents (default example)
+        let default_example = EureExample::default();
+        runtime.resolve_asset(
+            OpenDocuments,
+            OpenDocumentsList(vec![
+                TextFile::from_path(default_example.file_name().into()),
+                TextFile::from_path(default_example.schema_file_name().into()),
+            ]),
+            DurabilityLevel::Volatile,
+        );
     }
 
     /// Build eure.config.eure content for all examples.
@@ -274,14 +288,24 @@ impl EureExample {
     }
 
     fn on_change_tab(&self, runtime: &QueryRuntime) {
+        let doc_file = TextFile::from_path(self.file_name().into());
+        let schema_file = TextFile::from_path(self.schema_file_name().into());
+
         runtime.resolve_asset(
-            TextFile::from_path(self.file_name().into()),
+            doc_file.clone(),
             TextFileContent(self.content().to_string()),
             DurabilityLevel::Volatile,
         );
         runtime.resolve_asset(
-            TextFile::from_path(self.schema_file_name().into()),
+            schema_file.clone(),
             TextFileContent(self.schema().to_string()),
+            DurabilityLevel::Volatile,
+        );
+
+        // Register open documents for diagnostic collection
+        runtime.resolve_asset(
+            OpenDocuments,
+            OpenDocumentsList(vec![doc_file, schema_file]),
             DurabilityLevel::Volatile,
         );
     }
@@ -328,20 +352,27 @@ fn run_queries(
         json_output.set(json.as_ref().clone());
     }
 
-    // Get diagnostics for the document (includes schema errors)
-    match runtime.query(GetDiagnostics::new(doc_file.clone())) {
-        Ok(diagnostics) => {
-            // Filter diagnostics by file for each editor
-            all_errors.set(AllErrors {
-                doc_errors: diagnostics_to_spans(&diagnostics, doc_file),
-                schema_errors: diagnostics_to_spans(&diagnostics, schema_file),
-            });
-        }
-        Err(e) => {
+    // Get diagnostics for the document
+    let doc_errors = runtime
+        .query(GetFileDiagnostics::new(doc_file.clone()))
+        .map(|diagnostics| diagnostics_to_spans(&diagnostics, doc_file))
+        .unwrap_or_else(|e| {
             tracing::error!("Diagnostics query failed: {}", e);
-            all_errors.set(AllErrors::default());
-        }
-    }
+            vec![]
+        });
+
+    let schema_errors = runtime
+        .query(GetFileDiagnostics::new(schema_file.clone()))
+        .map(|diagnostics| diagnostics_to_spans(&diagnostics, schema_file))
+        .unwrap_or_else(|e| {
+            tracing::error!("Diagnostics query failed: {}", e);
+            vec![]
+        });
+
+    all_errors.set(AllErrors {
+        doc_errors,
+        schema_errors,
+    });
 }
 
 /// Home page with the Eure editor
