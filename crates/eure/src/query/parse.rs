@@ -74,20 +74,26 @@ pub fn parse_document(db: &impl Db, file: TextFile) -> Result<ParsedDocument, Qu
             origins: Arc::new(origins),
         }),
         Err(e) => Err(ErrorReports::from(vec![report_document_error(
-            &e, file, &cst,
+            &e.error,
+            file,
+            &cst,
+            &e.partial_origins,
         )]))?,
     }
 }
 
 /// Convert a document construction error to an ErrorReport.
+/// Uses OriginMap for precise key span resolution when available.
 fn report_document_error(
     error: &DocumentConstructionError,
     file: TextFile,
     cst: &Cst,
+    origins: &OriginMap,
 ) -> ErrorReport {
-    // FIXME: Fallback to EMPTY span when error.span() returns None.
-    // This silently reports errors at file start without is_fallback flag.
-    // Should set is_fallback flag on Origin when span is missing.
-    let span = error.span(cst).unwrap_or(InputSpan::EMPTY);
+    // Use span_with_origin_map for precise key spans, fallback to regular span
+    let span = error
+        .span_with_origin_map(cst, origins)
+        .or_else(|| error.span(cst))
+        .unwrap_or(InputSpan::EMPTY);
     ErrorReport::error(error.to_string(), Origin::new(file, span))
 }

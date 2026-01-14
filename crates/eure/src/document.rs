@@ -17,6 +17,7 @@ use eure_tree::tree::InputSpan;
 use std::collections::HashMap;
 use thiserror::Error;
 
+use eure_document::path::PathSegment;
 use eure_document::value::ObjectKey;
 
 /// Origin tracking for document nodes and map keys.
@@ -36,6 +37,12 @@ pub struct OriginMap {
     /// (MapNodeId, ObjectKey) -> key's CstNodeId.
     /// Used for precise error spans on map keys.
     pub key: HashMap<(NodeId, ObjectKey), CstNodeId>,
+    /// Direct span storage for special cases (e.g., split float keys).
+    /// Used when we need precise sub-spans that don't correspond to a single CST node.
+    pub key_span: HashMap<(NodeId, ObjectKey), InputSpan>,
+    /// CST-based key span storage: (CstNodeId, ObjectKey) -> InputSpan.
+    /// Used for error reporting when we only have the CST node ID, not the document NodeId.
+    pub key_span_by_cst: HashMap<(CstNodeId, ObjectKey), InputSpan>,
 }
 
 impl OriginMap {
@@ -61,6 +68,23 @@ impl OriginMap {
         self.key.insert((map_node_id, key), cst_node_id);
     }
 
+    /// Record a map key origin with direct InputSpan.
+    /// Used for special cases where the key span doesn't correspond to a CST node.
+    pub fn record_key_span(&mut self, map_node_id: NodeId, key: ObjectKey, span: InputSpan) {
+        self.key_span.insert((map_node_id, key), span);
+    }
+
+    /// Record a map key origin with direct InputSpan, indexed by CST node ID.
+    /// Used for error reporting when we only have the CST node ID.
+    pub fn record_key_span_by_cst(
+        &mut self,
+        cst_node_id: CstNodeId,
+        key: ObjectKey,
+        span: InputSpan,
+    ) {
+        self.key_span_by_cst.insert((cst_node_id, key), span);
+    }
+
     /// Get the value span for a node (the full value expression).
     /// Used for TypeMismatch and other value-related errors.
     pub fn get_value_span(&self, node_id: NodeId, cst: &Cst) -> Option<InputSpan> {
@@ -84,6 +108,11 @@ impl OriginMap {
         key: &ObjectKey,
         cst: &Cst,
     ) -> Option<InputSpan> {
+        // First check direct span storage
+        if let Some(&span) = self.key_span.get(&(map_node_id, key.clone())) {
+            return Some(span);
+        }
+        // Fall back to CST node lookup
         self.key
             .get(&(map_node_id, key.clone()))
             .and_then(|&cst_node_id| cst.span(cst_node_id))
@@ -120,6 +149,8 @@ pub enum DocumentConstructionError {
     DocumentInsert {
         error: InsertError,
         node_id: CstNodeId,
+        /// The document NodeId where the error occurred (parent node for key errors)
+        parent_node_id: Option<NodeId>,
     },
     #[error("Dynamic token not found: {0:?}")]
     DynamicTokenNotFound(DynamicTokenId),
@@ -148,6 +179,10 @@ pub enum DocumentConstructionError {
     InvalidTupleIndex { node_id: CstNodeId, value: String },
     #[error("Invalid literal string at node {node_id:?}")]
     InvalidLiteralStr { node_id: CstNodeId },
+    #[error(
+        "Float keys are not supported. Found '{value}'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+    )]
+    InvalidFloatKey { node_id: CstNodeId, value: String },
 }
 
 impl DocumentConstructionError {
@@ -170,6 +205,60 @@ impl DocumentConstructionError {
             DocumentConstructionError::InvalidCodeBlock { node_id, .. } => cst.span(*node_id),
             DocumentConstructionError::InvalidStringKey { node_id, .. } => cst.span(*node_id),
             DocumentConstructionError::InvalidKeyType { node_id } => cst.span(*node_id),
+            DocumentConstructionError::InvalidFloatKey { node_id, .. } => cst.span(*node_id),
+            _ => None,
+        }
+    }
+
+    /// Get the span associated with this error, using OriginMap for precise key spans.
+    /// This provides more accurate span information for key-related errors by consulting
+    /// the OriginMap which tracks individual key spans, especially for split float keys.
+    pub fn span_with_origin_map(&self, cst: &Cst, origins: &OriginMap) -> Option<InputSpan> {
+        match self {
+            DocumentConstructionError::DocumentInsert {
+                error,
+                node_id,
+                parent_node_id,
+            } => {
+                // Try to get precise key span from OriginMap
+                // First try: use parent_node_id if available
+                if let (Some(parent_id), Some(key)) = (parent_node_id, self.extract_key(error))
+                    && let Some(span) = origins.get_key_span(*parent_id, &key, cst)
+                {
+                    return Some(span);
+                }
+
+                // Second try: use CST node ID-based lookup
+                if let Some(key) = self.extract_key(error)
+                    && let Some(&span) = origins.key_span_by_cst.get(&(*node_id, key.clone()))
+                {
+                    return Some(span);
+                }
+
+                // Fallback to CST node span
+                cst.span(*node_id)
+            }
+            // For other errors, use existing logic
+            _ => self.span(cst),
+        }
+    }
+
+    /// Extract the problematic key from an InsertError, if applicable
+    fn extract_key(&self, error: &InsertError) -> Option<ObjectKey> {
+        match &error.kind {
+            InsertErrorKind::AlreadyAssigned { key } => Some(key.clone()),
+            InsertErrorKind::BindingTargetHasValue
+            | InsertErrorKind::ExpectedMap
+            | InsertErrorKind::ExpectedArray => {
+                // The last segment in the path is the problematic key
+                error.path.0.last().and_then(|segment| {
+                    if let PathSegment::Value(key) = segment {
+                        Some(key.clone())
+                    } else {
+                        None
+                    }
+                })
+            }
             _ => None,
         }
     }
@@ -189,17 +278,46 @@ pub fn cst_to_document(input: &str, cst: &Cst) -> Result<EureDocument, DocumentC
     Ok(visitor.into_document())
 }
 
+/// Error type that includes partial OriginMap for precise error reporting.
+#[derive(Debug, Clone)]
+pub struct DocumentConstructionErrorWithOriginMap {
+    pub error: DocumentConstructionError,
+    pub partial_origins: OriginMap,
+}
+
+impl std::fmt::Display for DocumentConstructionErrorWithOriginMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error)
+    }
+}
+
+impl std::error::Error for DocumentConstructionErrorWithOriginMap {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.error)
+    }
+}
+
 /// Parse CST to document and collect origin information for span resolution.
 ///
 /// Returns `OriginMap` which includes both node origins and map key origins
-/// for precise error reporting.
+/// for precise error reporting. On error, returns partial OriginMap collected
+/// up to the point of failure for accurate error span resolution.
 pub fn cst_to_document_and_origin_map(
     input: &str,
     cst: &Cst,
-) -> Result<(EureDocument, OriginMap), DocumentConstructionError> {
+) -> Result<(EureDocument, OriginMap), Box<DocumentConstructionErrorWithOriginMap>> {
     let mut visitor = CstInterpreter::new(input);
-    visitor.visit_root_handle(cst.root_handle(), cst)?;
-    Ok(visitor.into_document_and_origin_map())
+    match visitor.visit_root_handle(cst.root_handle(), cst) {
+        Ok(()) => Ok(visitor.into_document_and_origin_map()),
+        Err(error) => {
+            // Extract partial OriginMap even on error for precise error reporting
+            let (_, partial_origins) = visitor.into_document_and_origin_map();
+            Err(Box::new(DocumentConstructionErrorWithOriginMap {
+                error,
+                partial_origins,
+            }))
+        }
+    }
 }
 
 #[cfg(test)]

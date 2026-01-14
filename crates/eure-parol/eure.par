@@ -47,7 +47,7 @@ Section: At Keys SectionBody ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: KeyIdent | ExtensionNameSpace | String | Integer | KeyTuple | TupleIndex ;
+  KeyBase: KeyIdent | ExtensionNameSpace | String | Integer | Float | KeyTuple | TupleIndex ;
   TupleIndex: '#' Integer ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext KeyIdent ;
@@ -74,7 +74,8 @@ Value: Object | Array | Tuple | Number | Boolean | Null | Strings | Hole | CodeB
   // Integer: optional sign, digits with underscores
   Integer: /[-+]?\d[\d_]*/ ;
   // Float: requires decimal point or exponent, optional f32/f64 suffix
-  Float: /[-+]?\d[\d_]*\.\d*([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/ ;
+  // NOTE: Requires at least one digit after decimal to avoid conflicts with dot-separated integer keys (e.g., a.1.x)
+  Float: /[-+]?\d[\d_]*\.\d+([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/ ;
   // Infinity and NaN as separate tokens
   Inf: /[-+]?[Ii]nf/ ;
   NaN: /[Nn]a[Nn]/ ;

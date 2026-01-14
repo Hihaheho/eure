@@ -1,0 +1,184 @@
+// Error cases for integer keys with span verification
+// Tests that Float-to-integer-keys feature correctly reports errors
+// with precise span tracking for each integer component
+
+// Float with exponent - should be rejected
+@cases.float-with-exponent
+editor = ```eure
+a.3.1e5 = "invalid"
+```
+
+@ cases.float-with-exponent.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '3.1e5'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "3.1e5"
+
+// Float with suffix - should be rejected
+@cases.float-with-suffix
+editor = ```eure
+b.2.5f32 = "invalid"
+```
+
+@ cases.float-with-suffix.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '2.5f32'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "2.5f32"
+
+// Negative float - should be rejected
+@cases.negative-float
+editor = ```eure
+c.-3.1 = "invalid"
+```
+
+@ cases.negative-float.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '-3.1'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "-3.1"
+
+// Float with exponent notation (scientific) - should be rejected
+@cases.scientific-notation
+editor = ```eure
+d.1.5E10 = "invalid"
+```
+
+@ cases.scientific-notation.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '1.5E10'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "1.5E10"
+
+// Duplicate key - full path in error message
+@cases.duplicate-second-key
+editor = ```eure
+a.3.1 = "first"
+a.3.1 = "duplicate"
+```
+
+@ cases.duplicate-second-key.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Document insert error: Insert error: Binding target already has a value at a.3.1"
+span = "a.3.1"
+
+// Type mismatch - trying to navigate into scalar value
+@cases.type-mismatch-scalar
+editor = ```eure
+x.3 = "scalar"
+x.3.1 = "trying-to-nest"
+```
+
+@ cases.type-mismatch-scalar.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Document insert error: Insert error: Expected map at x.3"
+span = "x.3.1"
+
+// Array marker on scalar - trying to make scalar into array
+@cases.array-on-scalar
+editor = ```eure
+item.2.3 = "scalar"
+item.2.3[] = "array-item"
+```
+
+@ cases.array-on-scalar.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Document insert error: Insert error: Expected array at item.2.3"
+span = "item.2.3"
+
+// First error stops document construction
+@cases.first-error-stops
+editor = ```eure
+a.3.1e5 = "invalid-exponent"
+b.2.5 = "never-reached"
+```
+
+@ cases.first-error-stops.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '3.1e5'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "3.1e5"
+
+// Float in map key position
+@cases.float-in-map-key
+editor = ```eure
+data = {
+  3.1e2 => "invalid"
+}
+```
+
+@ cases.float-in-map-key.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '3.1e2'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "3.1e2"
+
+// Root-level float with exponent
+@cases.root-float-exponent
+editor = ```eure
+4.2e3 = "root-invalid"
+```
+
+@ cases.root-float-exponent.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '4.2e3'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "4.2e3"
+
+// Chained path with error in middle
+@cases.chained-with-error
+editor = ```eure
+path.1.2.3.5e2.6 = "error-in-middle"
+```
+
+@ cases.chained-with-error.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '3.5e2'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "3.5e2"
+
+// Valid integer keys followed by invalid float
+@cases.valid-then-invalid
+editor = ```eure
+a.1.2 = "valid"
+b.3.4f32 = "invalid"
+```
+
+@ cases.valid-then-invalid.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Float keys are not supported. Found '3.4f32'. Use integer keys like 'a.3.1' only when the pattern is <int>.<int>"
+span = "3.4f32"
+
+// Precise span test: duplicate on second integer of float pattern (3.1)
+// The error should point to just "1", not the entire "3.1" or binding
+@cases.precise-span-second-key
+editor = ```eure
+a.3.1 = "first"
+a.3.1 = "duplicate"
+```
+
+@ cases.precise-span-second-key.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Document insert error: Insert error: Binding target already has a value at a.3.1"
+// TODO: When OriginMap is available in error context, this should be just "1"
+span = "a.3.1"
+
+// Precise span test: trying to extend scalar at first key of float pattern
+// This demonstrates precise span tracking for split float keys
+@cases.precise-span-first-key
+editor = ```eure
+a.3 = "scalar"
+a.3.2 = "trying-to-extend"
+```
+
+@ cases.precise-span-first-key.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Document insert error: Insert error: Expected map at a.3"
+// Precise span: points to just "3" from the float "3.2"
+span = "3"

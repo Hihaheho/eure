@@ -4696,6 +4696,7 @@ pub enum KeyBaseConstructor {
     ExtensionNameSpace(ExtensionNameSpaceNode),
     String(StringNode),
     Integer(IntegerNode),
+    Float(FloatNode),
     KeyTuple(KeyTupleNode),
     TupleIndex(TupleIndexNode),
 }
@@ -4707,6 +4708,7 @@ impl KeyBaseConstructor {
             Self::ExtensionNameSpace(node) => builder.embed(node.builder),
             Self::String(node) => builder.embed(node.builder),
             Self::Integer(node) => builder.embed(node.builder),
+            Self::Float(node) => builder.embed(node.builder),
             Self::KeyTuple(node) => builder.embed(node.builder),
             Self::TupleIndex(node) => builder.embed(node.builder),
         };

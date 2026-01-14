@@ -163,6 +163,11 @@ static DELIM_CODE_START_3_REGEX: LazyLock<Regex> =
 static CODE_BLOCK_START_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^`+([a-zA-Z0-9_-]*)[ \t]*(?:\r\n|\r|\n)$").unwrap());
 
+// Pattern to validate <int>.<int> for Float keys
+// This matches integer.integer patterns without signs, exponents, or suffixes
+static INT_DOT_INT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(\d[\d_]*)\.(\d[\d_]*)$").unwrap());
+
 /// Stored origin for code blocks and delimited code
 #[derive(Debug, Clone, Copy)]
 enum CodeOrigin {
@@ -402,6 +407,134 @@ impl<'a> CstInterpreter<'a> {
         };
         Ok(ident_str)
     }
+
+    /// Handle Float token in key position by splitting <int>.<int> into two integer keys
+    fn handle_float_as_integer_keys<F: CstFacade>(
+        &mut self,
+        handle: KeyHandle,
+        view: KeyView,
+        float_handle: FloatHandle,
+        tree: &F,
+    ) -> Result<(), DocumentConstructionError> {
+        let float_view = float_handle.get_view(tree)?;
+        let str = self.get_terminal_str(tree, float_view.float)?;
+
+        // Get the Float token's InputSpan for calculating sub-spans
+        let float_span = tree.span(float_handle.node_id()).ok_or_else(|| {
+            DocumentConstructionError::InvalidFloatKey {
+                node_id: float_handle.node_id(),
+                value: str.to_string(),
+            }
+        })?;
+
+        // Validate <int>.<int> pattern (no exponent, no suffix, no sign)
+        let captures = INT_DOT_INT_PATTERN.captures(str).ok_or_else(|| {
+            DocumentConstructionError::InvalidFloatKey {
+                node_id: float_handle.node_id(),
+                value: str.to_string(),
+            }
+        })?;
+
+        // Parse first integer
+        let first_int_str = &captures[1];
+        let first_big_int: BigInt = first_int_str
+            .replace('_', "")
+            .parse()
+            .map_err(|_| DocumentConstructionError::InvalidBigInt(first_int_str.to_string()))?;
+        let first_key = ObjectKey::Number(first_big_int);
+
+        // Parse second integer
+        let second_int_str = &captures[2];
+        let second_big_int: BigInt = second_int_str
+            .replace('_', "")
+            .parse()
+            .map_err(|_| DocumentConstructionError::InvalidBigInt(second_int_str.to_string()))?;
+        let second_key = ObjectKey::Number(second_big_int);
+
+        // Calculate precise sub-spans
+        // For "3.1": float_span covers all 3 bytes
+        // First int "3": from start to start + len(first_int_str)
+        // Second int "1": from (start + len(first_int_str) + 1) to end (skip the dot)
+        let first_span = InputSpan::new(
+            float_span.start,
+            float_span.start + first_int_str.len() as u32,
+        );
+        let second_span = InputSpan::new(
+            float_span.start + first_int_str.len() as u32 + 1, // +1 for the dot
+            float_span.end,
+        );
+
+        // Record origin for FIRST key with precise span
+        let first_container_id = self.document.current_node_id();
+        self.origins
+            .record_key_span(first_container_id, first_key.clone(), first_span);
+        // Also record by CST node ID for error reporting
+        self.origins
+            .record_key_span_by_cst(float_handle.node_id(), first_key.clone(), first_span);
+
+        // Navigate to FIRST integer key
+        let float_node_id = float_handle.node_id(); // Capture before move
+        self.document
+            .navigate(PathSegment::Value(first_key))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: float_node_id, // Use Float token's CST node ID
+                parent_node_id: Some(first_container_id),
+            })?;
+
+        let first_child_id = self.document.current_node_id();
+        self.record_definition(first_child_id, float_handle.node_id());
+
+        // Record origin for SECOND key with precise span
+        let second_container_id = self.document.current_node_id();
+        self.origins
+            .record_key_span(second_container_id, second_key.clone(), second_span);
+        // Also record by CST node ID for error reporting
+        self.origins.record_key_span_by_cst(
+            float_handle.node_id(),
+            second_key.clone(),
+            second_span,
+        );
+
+        // Navigate to SECOND integer key
+        let float_node_id = float_handle.node_id(); // Capture before closure
+        self.document
+            .navigate(PathSegment::Value(second_key.clone()))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: float_node_id, // Use Float token's CST node ID
+                parent_node_id: Some(second_container_id),
+            })?;
+
+        let second_child_id = self.document.current_node_id();
+        self.record_definition(second_child_id, float_handle.node_id());
+
+        // Handle ArrayMarker if present (e.g., a.3.1[0])
+        let key_opt_view = view.key_opt.get_view(tree)?;
+        if let Some(array_marker_handle) = key_opt_view {
+            let array_marker_view = array_marker_handle.get_view(tree)?;
+            let index =
+                if let Some(int_handle) = array_marker_view.array_marker_opt.get_view(tree)? {
+                    let int_view = int_handle.get_view(tree)?;
+                    let str = self.get_terminal_str(tree, int_view.integer)?;
+                    let index: usize = str
+                        .parse()
+                        .map_err(|_| DocumentConstructionError::InvalidInteger(str.to_string()))?;
+                    Some(index)
+                } else {
+                    None
+                };
+            self.document
+                .navigate(PathSegment::ArrayIndex(index))
+                .map_err(|e| DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                    parent_node_id: None,
+                })?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
@@ -430,6 +563,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -471,6 +605,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
+                        parent_node_id: None,
                     }
                 })?;
 
@@ -491,6 +626,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -525,6 +661,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     .map_err(|e| DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
+                        parent_node_id: None,
                     })?;
 
                 // Record value span for this array element
@@ -551,6 +688,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -585,6 +723,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     .map_err(|e| DocumentConstructionError::DocumentInsert {
                         error: e,
                         node_id: handle.node_id(),
+                        parent_node_id: None,
                     })?;
 
                 // Record value span for this tuple element
@@ -611,6 +750,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -621,6 +761,11 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
     fn visit_key(&mut self, handle: KeyHandle, view: KeyView, tree: &F) -> Result<(), Self::Error> {
         // 1. KeyBase から PathSegment を構築
         let key_base_view = view.key_base.get_view(tree)?;
+
+        // Special handling for Float -> two integer keys
+        if let KeyBaseView::Float(float_handle) = key_base_view {
+            return self.handle_float_as_integer_keys(handle, view, float_handle, tree);
+        }
 
         // Capture container node ID before navigation (for key origin tracking)
         let container_id = self.document.current_node_id();
@@ -688,6 +833,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                         })?;
                 (PathSegment::TupleIndex(length), None)
             }
+            KeyBaseView::Float(_) => unreachable!("Float handled above"),
         };
 
         // Capture CST node ID before consuming key_origin_info
@@ -704,6 +850,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
 
         // Record definition span for the navigated node using the key's CST span
@@ -733,6 +880,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
         }
 
@@ -805,6 +953,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
 
         self.record_value(node_id, handle.node_id());
@@ -824,6 +973,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -835,6 +985,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         } else {
@@ -842,6 +993,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -873,6 +1025,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
 
         self.record_value(node_id, handle.node_id());
@@ -894,6 +1047,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -905,6 +1059,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         } else {
@@ -912,6 +1067,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 }
             })?;
         }
@@ -938,6 +1094,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                         DocumentConstructionError::DocumentInsert {
                             error: e,
                             node_id: handle.node_id(),
+                            parent_node_id: None,
                         }
                     })?;
                 } else {
@@ -966,6 +1123,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -983,6 +1141,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1000,6 +1159,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1026,6 +1186,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1046,6 +1207,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1063,6 +1225,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1105,6 +1268,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             }
         })?;
         self.record_value(node_id, handle.node_id());
@@ -1133,6 +1297,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1158,6 +1323,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1212,6 +1378,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
             if let Some(CodeOrigin::DelimCode1(delim_handle)) = code_start.origin {
                 self.record_value(node_id, delim_handle.node_id());
@@ -1269,6 +1436,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
             if let Some(CodeOrigin::DelimCode2(delim_handle)) = code_start.origin {
                 self.record_value(node_id, delim_handle.node_id());
@@ -1326,6 +1494,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
             if let Some(CodeOrigin::DelimCode3(delim_handle)) = code_start.origin {
                 self.record_value(node_id, delim_handle.node_id());
@@ -1390,6 +1559,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
@@ -1441,6 +1611,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
@@ -1492,6 +1663,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
@@ -1543,6 +1715,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                 .map_err(|e| DocumentConstructionError::DocumentInsert {
                     error: e,
                     node_id: handle.node_id(),
+                    parent_node_id: None,
                 })?;
             // Record origin if available
             if let Some(CodeOrigin::CodeBlock(block_handle)) = code_start.origin {
@@ -1577,6 +1750,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())
@@ -1612,6 +1786,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             .map_err(|e| DocumentConstructionError::DocumentInsert {
                 error: e,
                 node_id: handle.node_id(),
+                parent_node_id: None,
             })?;
         self.record_value(node_id, handle.node_id());
         Ok(())

@@ -1,0 +1,233 @@
+// Comprehensive test cases for integer keys in dot-separated paths
+// These test the Float-to-integer-keys feature where patterns like `3.1`
+// are tokenized as Float but interpreted as two sequential integer keys
+
+// Basic pattern: a.3.1
+@cases.basic
+input_eure = ```eure
+a.3.1 = "value"
+```
+
+normalized = ```eure
+= {
+  a => { 3 => { 1 => "value" } }
+}
+```
+
+output_json = json`{ "a": { "3": { "1": "value" } } }`
+
+// Chained integer keys: 1.2.3.4.5
+@cases.chained
+input_eure = ```eure
+path.1.2.3.4.5 = "deep"
+```
+
+normalized = ```eure
+= {
+  path => { 1 => { 2 => { 3 => { 4 => { 5 => "deep" } } } } }
+}
+```
+
+output_json = json`{ "path": { "1": { "2": { "3": { "4": { "5": "deep" } } } } } }`
+
+// Integer keys with underscores in separate integer tokens
+@cases.underscores
+input_eure = ```eure
+a.123_456 = "first"
+b.789_012.x = "second"
+```
+
+normalized = ```eure
+= {
+  a => { 123456 => "first" }
+  b => { 789012 => { x => "second" } }
+}
+```
+
+output_json = json`{ "a": { "123456": "first" }, "b": { "789012": { "x": "second" } } }`
+
+// Zero values
+@cases.zeros
+input_eure = ```eure
+a.0.1 = "zero-first"
+b.1.0 = "zero-second"
+c.0.0 = "both-zero"
+```
+
+normalized = ```eure
+= {
+  a => { 0 => { 1 => "zero-first" } }
+  b => { 1 => { 0 => "zero-second" } }
+  c => { 0 => { 0 => "both-zero" } }
+}
+```
+
+output_json = json`{ "a": { "0": { "1": "zero-first" } }, "b": { "1": { "0": "zero-second" } }, "c": { "0": { "0": "both-zero" } } }`
+
+// Large numbers
+@cases.large-numbers
+input_eure = ```eure
+a.999999.888888 = "large"
+```
+
+normalized = ```eure
+= {
+  a => { 999999 => { 888888 => "large" } }
+}
+```
+
+output_json = json`{ "a": { "999999": { "888888": "large" } } }`
+
+// Mixed with string keys
+@cases.mixed
+input_eure = ```eure
+a.1.x.2.y.3.1 = "mixed"
+```
+
+normalized = ```eure
+= {
+  a => { 1 => { x => { 2 => { y => { 3 => { 1 => "mixed" } } } } } }
+}
+```
+
+output_json = json`{ "a": { "1": { "x": { "2": { "y": { "3": { "1": "mixed" } } } } } } }`
+
+// With array markers
+@cases.array-markers
+input_eure = ```eure
+a.3.1[] = "item1"
+a.3.1[] = "item2"
+b.2.5[0] = "indexed"
+```
+
+normalized = ```eure
+= {
+  a => { 3 => { 1 => ["item1", "item2"] } }
+  b => { 2 => { 5 => ["indexed"] } }
+}
+```
+
+output_json = json`{ "a": { "3": { "1": ["item1", "item2"] } }, "b": { "2": { "5": ["indexed"] } } }`
+
+// Integer keys as object keys (in map bind syntax)
+@cases.as-map-keys
+input_eure = ```eure
+data = {
+  3.1 => "three-point-one"
+  5.2 => "five-point-two"
+}
+```
+
+normalized = ```eure
+= {
+  data => {
+    3 => { 1 => "three-point-one" }
+    5 => { 2 => "five-point-two" }
+  }
+}
+```
+
+output_json = json`{ "data": { "3": { "1": "three-point-one" }, "5": { "2": "five-point-two" } } }`
+
+// Root level integer keys
+@cases.root-level
+input_eure = ```eure
+3.1 = "root-level"
+```
+
+normalized = ```eure
+= {
+  3 => { 1 => "root-level" }
+}
+```
+
+output_json = json`{ "3": { "1": "root-level" } }`
+
+// Only integer keys in path
+@cases.only-integers
+input_eure = ```eure
+1.2 = "only-ints"
+```
+
+normalized = ```eure
+= {
+  1 => { 2 => "only-ints" }
+}
+```
+
+output_json = json`{ "1": { "2": "only-ints" } }`
+
+// Multiple independent paths with overlapping prefixes
+@cases.multiple-paths
+input_eure = ```eure
+a.1.2 = "path1"
+a.1.3 = "path2"
+a.2.1 = "path3"
+b.3.4.5 = "path4"
+```
+
+normalized = ```eure
+= {
+  a => {
+    1 => { 2 => "path1", 3 => "path2" }
+    2 => { 1 => "path3" }
+  }
+  b => { 3 => { 4 => { 5 => "path4" } } }
+}
+```
+
+output_json = json`{ "a": { "1": { "2": "path1", "3": "path2" }, "2": { "1": "path3" } }, "b": { "3": { "4": { "5": "path4" } } } }`
+
+// Nested objects with integer keys
+@cases.nested-objects
+input_eure = ```eure
+config.1.2 {
+  name = "nested"
+  value.3.4 = "deep-nested"
+}
+```
+
+normalized = ```eure
+= {
+  config => {
+    1 => {
+      2 => {
+        name => "nested"
+        value => { 3 => { 4 => "deep-nested" } }
+      }
+    }
+  }
+}
+```
+
+output_json = json`{ "config": { "1": { "2": { "name": "nested", "value": { "3": { "4": "deep-nested" } } } } } }`
+
+// Combining all features: sections, arrays, nested objects
+@cases.comprehensive
+input_eure = ```eure
+@ servers.1.2
+host = "localhost"
+port = 8080
+endpoints.3.1[] = "/api"
+endpoints.3.1[] = "/health"
+
+@ servers.1.3
+host = "remote"
+```
+
+normalized = ```eure
+= {
+  servers => {
+    1 => {
+      2 => {
+        host => "localhost"
+        port => 8080
+        endpoints => { 3 => { 1 => ["/api", "/health"] } }
+      }
+      3 => { host => "remote" }
+    }
+  }
+}
+```
+
+output_json = json`{ "servers": { "1": { "2": { "host": "localhost", "port": 8080, "endpoints": { "3": { "1": ["/api", "/health"] } } }, "3": { "host": "remote" } } } }`

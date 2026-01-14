@@ -10830,6 +10830,9 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
             KeyBaseView::Integer(item) => {
                 self.visit_integer_handle(item, tree)?;
             }
+            KeyBaseView::Float(item) => {
+                self.visit_float_handle(item, tree)?;
+            }
             KeyBaseView::KeyTuple(item) => {
                 self.visit_key_tuple_handle(item, tree)?;
             }

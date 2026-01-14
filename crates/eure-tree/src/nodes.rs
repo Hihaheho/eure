@@ -4322,6 +4322,7 @@ impl NonTerminalHandle for KeyBaseHandle {
             NodeKind::NonTerminal(NonTerminalKind::Integer) => {
                 KeyBaseView::Integer(IntegerHandle(child))
             }
+            NodeKind::NonTerminal(NonTerminalKind::Float) => KeyBaseView::Float(FloatHandle(child)),
             NodeKind::NonTerminal(NonTerminalKind::KeyTuple) => {
                 KeyBaseView::KeyTuple(KeyTupleHandle(child))
             }
@@ -4349,6 +4350,7 @@ pub enum KeyBaseView {
     ExtensionNameSpace(ExtensionNameSpaceHandle),
     String(StringHandle),
     Integer(IntegerHandle),
+    Float(FloatHandle),
     KeyTuple(KeyTupleHandle),
     TupleIndex(TupleIndexHandle),
 }

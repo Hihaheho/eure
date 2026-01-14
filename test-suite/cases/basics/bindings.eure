@@ -42,7 +42,7 @@ normalized = ```eure
 output_json = json`{ "a": { "1": "one", "2": "two" } }`
 
 @cases.middle-integer-keys
-unimplemented = "integer keys have not been properly implemented in the grammar level"
+
 input_eure = ```eure
 a.1.x = "one"
 a.2.y = "two"
