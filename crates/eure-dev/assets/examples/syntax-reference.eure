@@ -1,0 +1,359 @@
+// ============================================================================
+// Eure Syntax Reference
+// ============================================================================
+// Comprehensive demonstration of all syntax features from eure.par
+
+title = "Eure Syntax Reference"
+description: A complete reference for all Eure syntax features
+
+// ============================================================================
+// 1. BASIC BINDINGS
+// ============================================================================
+
+// Simple key-value binding
+simple_key = "simple value"
+
+// Keys with dots (multi-segment keys)
+multi.segment.key = "nested key path"
+
+// Section binding (value is an object)
+section_example {
+  nested_key = "value inside section"
+  another = 42
+}
+
+// Text binding (colon syntax, content continues to end of line)
+text_binding: This is a text binding that captures the rest of the line
+
+// Text binding with leading whitespace preserved
+indented_text:   This text has leading spaces preserved
+
+// Comments demonstration
+value_with_comments = /* inline comment */ 42 // trailing comment
+
+/* This is a block comment
+   that spans multiple lines */
+
+// ============================================================================
+// 2. PRIMITIVE VALUES
+// ============================================================================
+
+@ primitives {
+  // ---- Booleans ----
+  bool_true = true
+  bool_false = false
+
+  // ---- Null ----
+  null_value = null
+
+  // ---- Integers ----
+  positive_int = 42
+  negative_int = -123
+  integer_with_underscores = 1_000_000
+  zero = 0
+
+  // ---- Floats ----
+  basic_float = 3.14
+  negative_float = -2.718
+  float_with_exponent = 1.5e10
+  float_with_negative_exponent = 2.5e-3
+  float_with_underscores = 1_234.56789
+
+  // ---- Float suffixes ----
+  with_f32_suffix = 1.0f32
+  with_f64_suffix = 2.0f64
+  exp_with_suffix = 3.14e2f64
+
+  // ---- Special numbers ----
+  positive_infinity = Inf
+  negative_infinity = -Inf
+  not_a_number = NaN
+
+  // ---- Holes (placeholders) ----
+  hole_simple = !placeholder
+  hole_underscore = !_
+  hole_with_dash = !some-hole-name
+  hole_with_number = !hole123
+}
+
+// ============================================================================
+// 3. STRINGS
+// ============================================================================
+
+@ strings {
+  // ---- Escaped strings (double quotes with backslash escapes) ----
+  escaped_basic = "hello world"
+  escaped_newline = "line1\nline2"
+  escaped_tab = "col1\tcol2"
+  escaped_quote = "She said \"hello\""
+  escaped_backslash = "path\\to\\file"
+
+  // ---- Literal strings (single quotes, no escape processing) ----
+  literal_basic = 'hello world'
+  literal_with_backslash = 'C:\Users\Name'
+  literal_cannot_contain_quote = 'text without single quotes'
+
+  // ---- Delimited literal strings (can contain single quotes) ----
+  delimited_1 = <'Can contain single quote: ' inside'>
+  delimited_2 = <<'Can contain 'single quotes' and <'delimiters'> inside'>>
+  delimited_3 = <<<'Maximum nesting with ''multiple'' '''quotes''' allowed'>>>
+
+  // ---- String continuation (backslash joins strings) ----
+  continued_string = "This is a long string " \
+                     "that continues on the next line " \
+                     "and becomes one string"
+
+  continued_mixed = "escaped string" \
+                    'literal string' \
+                    <'delimited string'>
+
+  // ---- Empty strings ----
+  empty_escaped = ""
+  empty_literal = ''
+  empty_delimited = <''>
+}
+
+// ============================================================================
+// 4. COLLECTIONS
+// ============================================================================
+
+@ collections {
+  // ---- Arrays ----
+  simple_array = [1, 2, 3, 4, 5]
+  mixed_array = [1, "two", true, null, 3.14]
+  nested_array = [[1, 2], [3, 4], [5, 6]]
+  empty_array = []
+  trailing_comma = [1, 2, 3,]
+
+  // ---- Tuples ----
+  simple_tuple = (1, 2, 3)
+  mixed_tuple = (42, "answer", true, null)
+  nested_tuple = ((1, 2), (3, 4))
+  empty_tuple = ()
+  single_element = (1,)
+
+  // ---- Objects ----
+  simple_object = { a => 1, b => 2, c => 3 }
+  empty_object = {}
+  nested_object = {
+    outer => {
+      inner => {
+        deep => "nested"
+      }
+    }
+  }
+
+  // ---- Map bind (explicit key => value syntax) ----
+  explicit_map = {
+    "string-key" => "value1",
+    123 => "number key",
+    true => "boolean key",
+  }
+
+  // ---- Keys can be various types ----
+  varied_keys = {
+    ident_key => "identifier",
+    "string key" => "string",
+    42 => "number",
+    true => "boolean",
+    false => "another boolean",
+    null => "null key"
+  }
+}
+
+// ============================================================================
+// 5. CODE
+// ============================================================================
+
+@ code_examples {
+  // ---- Inline code (single backtick, language prefix optional) ----
+  inline_plain = `let x = 42;`
+  inline_rust = rust`println!("Hello")`
+  inline_javascript = js`console.log("test")`
+  inline_python = python`print("hello")`
+  inline_no_lang = `code without language`
+
+  // ---- Code blocks (3 to 6 backticks) ----
+
+  // 3 backticks
+  code_block_3 = ```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+  // 4 backticks (can contain 3 backticks inside)
+  code_block_4 = ````markdown
+# Markdown with code
+
+```rust
+fn example() {}
+```
+````
+
+  // 5 backticks (can contain 4 backticks inside)
+  code_block_5 = `````text
+Nested example with ````
+four backticks inside
+````
+`````
+
+  // 6 backticks (can contain 5 backticks inside)
+  code_block_6 = ``````text
+Maximum nesting level with `````
+five backticks inside
+`````
+``````
+
+  // ---- Delimited code (angle bracket delimiters) ----
+
+  // Single delimiter
+  delimited_code_1 = <`console.log('code')`>
+
+  // Double delimiter (can contain single backtick and delimiter)
+  delimited_code_2 = rust<<`
+let code = "inner";
+println!("{}", code);
+`>>
+
+  // Triple delimiter (can contain double delimiter)
+  delimited_code_3 = <<<`
+Maximum nesting with code
+and delimiters
+`>>>
+}
+
+// ============================================================================
+// 6. ADVANCED FEATURES
+// ============================================================================
+
+// ---- Sections (@ prefix creates namespaced bindings) ----
+
+@ section.basic {
+  key = "value in section"
+}
+
+@ section.nested.deep {
+  deeply_nested = true
+}
+
+// ---- Array indexing ([] creates array elements) ----
+
+@ items[]
+name: item1
+value = 100
+
+@ items[]
+name: item2
+value = 200
+
+@ items[2]
+name: item3 at explicit index
+value = 300
+
+// ---- Extensions ($ prefix for special handling) ----
+// Extensions are used within sections, often for variant types
+
+@ union_example[]
+$variant: option-a
+field_a = "value for option A"
+
+@ union_example[]
+$variant: option-b
+field_b = 123
+
+// Extension namespace example
+@ meta
+$eure.version = "1.0"
+
+// ---- Map bind with various key types ----
+
+@ map_examples
+simple_map = {
+  "key1" => "value1",
+  "key2" => "value2"
+}
+
+// ---- Complex nested example ----
+
+@ complex_example {
+
+  data = [
+    {
+      id => 1,
+      name => "First",
+      config => {
+        enabled => true,
+        value => 100,
+        code => rust`fn test() { println!("embedded"); }`
+      }
+    },
+    {
+      id => 2,
+      name => "Second",
+      config => {
+        enabled => false,
+        value => 200,
+        description => "Multi-line text binding not supported in object literals"
+      }
+    }
+  ]
+
+  matrix = [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+  ]
+
+  @ metadata {
+    title = "Complex Structure"
+    version = "1.0.0"
+    tags = ["example", "comprehensive", "nested"]
+  }
+}
+
+// ---- Edge cases ----
+
+@ edge_cases {
+  // Empty values
+  empty_string = ""
+  empty_array = []
+  empty_object = {}
+  empty_tuple = ()
+
+  // Deep nesting
+  deep = {
+    level1 => {
+      level2 => {
+        level3 => {
+          level4 => {
+            level5 => "deeply nested value"
+          }
+        }
+      }
+    }
+  }
+
+  // Mixed collection nesting
+  mixed = [
+    { a => [1, 2, 3] },
+    { b => (true, false) },
+    { c => { d => { e => "nested" } } }
+  ]
+
+  // Multiple dots in key path
+  @ a.b.c.d.e
+  f = "long key path"
+}
+
+// ---- Keywords as keys (true, false, null are valid identifiers in key position) ----
+
+@ keywords_as_keys {
+  true = "boolean keyword as key"
+  false = "another boolean keyword"
+  null = "null keyword as key"
+}
+
+// ============================================================================
+// END OF SYNTAX REFERENCE
+// ============================================================================

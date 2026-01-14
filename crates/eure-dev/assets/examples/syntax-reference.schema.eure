@@ -1,0 +1,186 @@
+/// Schema for the Eure Syntax Reference
+/// This schema validates the comprehensive syntax demonstration file
+
+title = `text`
+description = `text`
+
+// Basic bindings
+simple_key = `text`
+text_binding = `text`
+indented_text = `text`
+value_with_comments = `integer`
+
+@ multi.segment
+key = `text`
+
+@ section_example
+nested_key = `text`
+another = `integer`
+
+// Primitives section
+@ primitives {
+  bool_true = `boolean`
+  bool_false = `boolean`
+  null_value = `null`
+
+  positive_int = `integer`
+  negative_int = `integer`
+  integer_with_underscores = `integer`
+  zero = `integer`
+
+  basic_float = `float`
+  negative_float = `float`
+  float_with_exponent = `float`
+  float_with_negative_exponent = `float`
+  float_with_underscores = `float`
+
+  with_f32_suffix = `float`
+  with_f64_suffix = `float`
+  exp_with_suffix = `float`
+
+  positive_infinity = `float`
+  negative_infinity = `float`
+  not_a_number = `float`
+
+  hole_simple = `any`
+  hole_underscore = `any`
+  hole_with_dash = `any`
+  hole_with_number = `any`
+}
+
+// Strings section
+@ strings {
+  escaped_basic = `text`
+  escaped_newline = `text`
+  escaped_tab = `text`
+  escaped_quote = `text`
+  escaped_backslash = `text`
+
+  literal_basic = `text`
+  literal_with_backslash = `text`
+  literal_cannot_contain_quote = `text`
+
+  delimited_1 = `text`
+  delimited_2 = `text`
+  delimited_3 = `text`
+
+  continued_string = `text`
+  continued_mixed = `text`
+
+  empty_escaped = `text`
+  empty_literal = `text`
+  empty_delimited = `text`
+}
+
+// Collections section
+@ collections {
+  simple_array = [`integer`]
+  mixed_array = [`any`]
+  nested_array = [[`integer`]]
+  empty_array = [`any`]
+  trailing_comma = [`integer`]
+
+  simple_tuple = (`integer`, `integer`, `integer`)
+  mixed_tuple = (`integer`, `text`, `boolean`, `null`)
+  nested_tuple = ((`integer`, `integer`), (`integer`, `integer`))
+  empty_tuple = `any`
+  single_element = (`integer`,)
+
+  simple_object = { a => `integer`, b => `integer`, c => `integer` }
+  empty_object = `any`
+  nested_object = `any`
+
+  explicit_map = `any`
+  varied_keys = `any`
+}
+
+// Code section
+@ code_examples {
+  inline_plain = `text`
+  inline_rust = `text.rust`
+  inline_javascript = `text.js`
+  inline_python = `text.python`
+  inline_no_lang = `text`
+
+  code_block_3 = `text.rust`
+  code_block_4 = `text.markdown`
+  code_block_5 = `text`
+  code_block_6 = `text`
+
+  delimited_code_1 = `text`
+  delimited_code_2 = `text.rust`
+  delimited_code_3 = `text`
+}
+
+// Sections with array indexing
+@ section.basic
+key = `text`
+
+@ section.nested.deep
+deeply_nested = `boolean`
+
+@ items
+$variant: array
+item {
+  name = `text`
+  value = `integer`
+}
+
+// Extensions - union_example
+@ union_example {
+  $variant: array
+  $optional = true
+  item = `any`
+}
+
+// Extensions - meta
+@ meta {
+  $optional = true
+  $eure.version = `text`
+}
+
+// Map examples
+@ map_examples {
+  $optional = true
+  simple_map = `any`
+}
+
+// Key tuples
+@ key_tuples {
+  $optional = true
+  $variant: map
+  key = `any`
+  value = `text`
+}
+
+// Complex example
+@ complex_example {
+  data = [`any`]
+  matrix = [[`integer`]]
+  metadata {
+    title = `text`
+    version = `text`
+    tags = [`text`]
+  }
+}
+
+// Edge cases
+@ edge_cases {
+  empty_string = `text`
+  empty_array = [`any`]
+  empty_object = `any`
+  empty_tuple = `any`
+
+  deep = `any`
+  mixed = [`any`]
+
+  @ a.b.c.d.e
+  f = `text`
+}
+
+// Keywords as keys
+@ keywords_as_keys {
+  true = `text`
+  false = `text`
+  null = `text`
+}

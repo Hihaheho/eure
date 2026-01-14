@@ -93,6 +93,7 @@ enum EureExample {
     #[default]
     Readme,
     HelloWorld,
+    SyntaxReference,
     EureSchema,
     Cargo,
     GitHubAction,
@@ -105,6 +106,7 @@ impl EureExample {
     const ALL: &'static [EureExample] = &[
         EureExample::Readme,
         EureExample::HelloWorld,
+        EureExample::SyntaxReference,
         EureExample::EureSchema,
         EureExample::Cargo,
         EureExample::GitHubAction,
@@ -117,6 +119,7 @@ impl EureExample {
         match self {
             EureExample::Readme => "Readme",
             EureExample::HelloWorld => "Hello World",
+            EureExample::SyntaxReference => "Syntax Reference",
             EureExample::EureSchema => "Eure Schema",
             EureExample::Cargo => "Cargo",
             EureExample::GitHubAction => "GitHub Action",
@@ -130,6 +133,7 @@ impl EureExample {
         match self {
             EureExample::Readme => "readme",
             EureExample::HelloWorld => "hello-world",
+            EureExample::SyntaxReference => "syntax-reference",
             EureExample::EureSchema => "eure-schema",
             EureExample::Cargo => "cargo",
             EureExample::GitHubAction => "github-action",
@@ -143,6 +147,7 @@ impl EureExample {
         match value {
             "readme" => Some(EureExample::Readme),
             "hello-world" => Some(EureExample::HelloWorld),
+            "syntax-reference" => Some(EureExample::SyntaxReference),
             "eure-schema" => Some(EureExample::EureSchema),
             "cargo" => Some(EureExample::Cargo),
             "github-action" => Some(EureExample::GitHubAction),
@@ -157,6 +162,9 @@ impl EureExample {
         match self {
             EureExample::Readme => include_str!("../../assets/readme.eure"),
             EureExample::HelloWorld => include_str!("../../assets/examples/hello-world.eure"),
+            EureExample::SyntaxReference => {
+                include_str!("../../assets/examples/syntax-reference.eure")
+            }
             EureExample::EureSchema => {
                 include_str!("../../../../assets/schemas/eure-schema.schema.eure")
             }
@@ -177,6 +185,9 @@ impl EureExample {
             EureExample::Readme => include_str!("../../assets/readme.schema.eure"),
             EureExample::HelloWorld => {
                 include_str!("../../assets/examples/hello-world.schema.eure")
+            }
+            EureExample::SyntaxReference => {
+                include_str!("../../assets/examples/syntax-reference.schema.eure")
             }
             EureExample::EureSchema => {
                 include_str!("../../../../assets/schemas/eure-schema.schema.eure")
@@ -199,6 +210,7 @@ impl EureExample {
         match self {
             EureExample::Readme => "/readme.eure",
             EureExample::HelloWorld => "/hello-world.eure",
+            EureExample::SyntaxReference => "/syntax-reference.eure",
             EureExample::EureSchema => "/eure-schema.schema.eure",
             EureExample::Cargo => "/cargo.eure",
             EureExample::GitHubAction => "/github-action.eure",
@@ -212,6 +224,7 @@ impl EureExample {
         match self {
             EureExample::Readme => "/readme.schema.eure",
             EureExample::HelloWorld => "/hello-world.schema.eure",
+            EureExample::SyntaxReference => "/syntax-reference.schema.eure",
             EureExample::EureSchema => "/eure-schema.schema.eure",
             EureExample::Cargo => "/cargo.schema.eure",
             EureExample::GitHubAction => "/github-action.schema.eure",
@@ -348,8 +361,9 @@ fn run_queries(
     }
 
     // Get JSON output
-    if let Ok(json) = runtime.query(DocumentToJson::new(doc_file.clone())) {
-        json_output.set(json.as_ref().clone());
+    match runtime.query(DocumentToJson::new(doc_file.clone())) {
+        Ok(json) => json_output.set(json.as_ref().clone()),
+        Err(_) => json_output.set(String::new()),
     }
 
     // Get diagnostics for the document
