@@ -2,6 +2,7 @@
 //!
 //! This module provides focused diagnostic queries following SRP:
 //! - `get_parse_diagnostics`: Parse errors for a file
+//! - `get_document_construction_diagnostics`: Document construction errors for a file
 //! - `get_schema_conversion_diagnostics`: Schema conversion errors for a file
 //! - `get_validation_diagnostics`: Validation errors for a file
 //! - `get_file_diagnostics`: Composition of all diagnostics for a file
@@ -16,7 +17,7 @@ use eure_parol::EureParseError;
 use query_flow::{Db, QueryError, QueryResultExt, query};
 
 use crate::query::error::EureQueryError;
-use crate::query::parse::ParseCst;
+use crate::query::parse::{ParseCst, ParseDocument};
 use crate::report::{ErrorReport, ErrorReports};
 
 use super::assets::{OpenDocuments, OpenDocumentsList, TextFile};
@@ -95,11 +96,51 @@ pub fn get_schema_conversion_diagnostics(
     }
 }
 
+/// Document construction errors. File-scoped.
+///
+/// Returns document construction errors (like duplicate keys, invalid binding targets).
+/// Returns empty if parsing failed (parse errors reported separately).
+#[query]
+pub fn get_document_construction_diagnostics(
+    db: &impl Db,
+    file: TextFile,
+) -> Result<Vec<DiagnosticMessage>, QueryError> {
+    // Check parse errors first - skip if CST is invalid
+    let parsed = db.query(ParseCst::new(file.clone()))?;
+    if parsed.error.is_some() {
+        return Ok(vec![]); // Parse errors reported separately
+    }
+
+    // Try to construct document from valid CST
+    match db
+        .query(ParseDocument::new(file.clone()))
+        .downcast_err::<ErrorReports>()?
+    {
+        Err(e) => {
+            // Document construction errors - convert to diagnostics
+            let file_reports: Vec<_> = e
+                .get()
+                .iter()
+                .filter(|r| r.primary_origin.file == file)
+                .collect();
+            Ok(file_reports
+                .iter()
+                .map(|r| error_report_to_diagnostic(r))
+                .collect())
+        }
+        Ok(_) => {
+            // Document construction succeeded
+            Ok(vec![])
+        }
+    }
+}
+
 /// Validation errors. File-scoped to document.
 ///
 /// Returns validation errors when checking document against its schema.
 /// Returns empty if:
 /// - Parse errors exist (reported separately via `get_parse_diagnostics`)
+/// - Document construction errors exist (reported separately via `get_document_construction_diagnostics`)
 /// - No schema is configured
 ///
 /// When schema has conversion errors:
@@ -114,6 +155,13 @@ pub fn get_validation_diagnostics(
     let parsed = db.query(ParseCst::new(doc_file.clone()))?;
     if parsed.error.is_some() {
         return Ok(vec![]); // Parse errors reported separately
+    }
+
+    // Check document construction errors - skip validation if doc can't be constructed
+    let doc_construction_diags =
+        db.query(GetDocumentConstructionDiagnostics::new(doc_file.clone()))?;
+    if !doc_construction_diags.is_empty() {
+        return Ok(vec![]); // Document construction errors reported separately
     }
 
     let mut diagnostics = Vec::new();
@@ -208,6 +256,7 @@ pub fn get_validation_diagnostics(
 ///
 /// Includes:
 /// - Parse diagnostics
+/// - Document construction diagnostics
 /// - Validation diagnostics
 /// - Schema conversion diagnostics (if this file is referenced as a schema)
 #[query]
@@ -217,10 +266,15 @@ pub fn get_file_diagnostics(
 ) -> Result<Vec<DiagnosticMessage>, QueryError> {
     let mut diagnostics = Vec::new();
 
-    // Parse + validation
+    // Parse diagnostics
     let parse_diags = db.query(GetParseDiagnostics::new(file.clone()))?;
     diagnostics.extend(parse_diags.iter().cloned());
 
+    // Document construction diagnostics
+    let doc_construction_diags = db.query(GetDocumentConstructionDiagnostics::new(file.clone()))?;
+    diagnostics.extend(doc_construction_diags.iter().cloned());
+
+    // Validation diagnostics
     let validation_diags = db.query(GetValidationDiagnostics::new(file.clone()))?;
     diagnostics.extend(validation_diags.iter().cloned());
 
@@ -263,7 +317,7 @@ pub fn collect_diagnostic_targets(db: &impl Db) -> Result<IndexSet<TextFile>, Qu
 ///
 /// Discovers schemas from $schema extensions in documents.
 /// Only includes local files (not remote URLs) that exist - remote schemas are not diagnosed.
-/// Tolerates parse errors in documents - files with parse errors are skipped.
+/// Tolerates parse/construction errors in documents - files with errors are skipped.
 /// Non-existent schema files are not included (errors are reported at $schema location instead).
 #[query]
 pub fn collect_schema_files(db: &impl Db) -> Result<IndexSet<TextFile>, QueryError> {
@@ -274,13 +328,11 @@ pub fn collect_schema_files(db: &impl Db) -> Result<IndexSet<TextFile>, QueryErr
     let mut schemas = IndexSet::new();
 
     for file in open_docs.0.iter() {
-        // ResolveSchema may fail for files with parse errors - that's ok, skip them
-        let resolved = match db
-            .query(ResolveSchema::new(file.clone()))
-            .downcast_err::<EureQueryError>()?
-        {
+        // ResolveSchema may fail for files with parse/construction errors - that's ok, skip them
+        let resolved = match db.query(ResolveSchema::new(file.clone())) {
             Ok(r) => r,
-            Err(_) => continue, // Parse errors etc - skip this file
+            Err(QueryError::UserError(_)) => continue, // Parse/construction errors - skip this file
+            Err(e) => return Err(e),                   // System errors - propagate
         };
 
         let Some(resolved) = resolved.as_ref().as_ref() else {
@@ -399,10 +451,62 @@ fn error_report_to_diagnostic(report: &ErrorReport) -> DiagnosticMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::{TextFile, TextFileContent, build_runtime};
+    use query_flow::DurabilityLevel;
+    use std::path::PathBuf;
 
     #[test]
     fn test_diagnostic_severity_eq() {
         assert_eq!(DiagnosticSeverity::Error, DiagnosticSeverity::Error);
         assert_ne!(DiagnosticSeverity::Error, DiagnosticSeverity::Warning);
+    }
+
+    #[test]
+    fn test_document_construction_diagnostics_duplicate_key() {
+        let runtime = build_runtime();
+        let file = TextFile::from_path(PathBuf::from("test.eure"));
+
+        // Set up file with duplicate keys
+        runtime.resolve_asset(
+            file.clone(),
+            TextFileContent("name = \"Alice\"\nname = \"Bob\"".to_string()),
+            DurabilityLevel::Volatile,
+        );
+
+        // Get document construction diagnostics
+        let diags = runtime
+            .query(GetDocumentConstructionDiagnostics::new(file.clone()))
+            .unwrap();
+
+        // Should have exactly one diagnostic for the duplicate key
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].file, file);
+        assert!(
+            diags[0]
+                .message
+                .contains("Binding target already has a value")
+        );
+        assert_eq!(diags[0].severity, DiagnosticSeverity::Error);
+    }
+
+    #[test]
+    fn test_document_construction_diagnostics_valid_document() {
+        let runtime = build_runtime();
+        let file = TextFile::from_path(PathBuf::from("test.eure"));
+
+        // Set up valid file
+        runtime.resolve_asset(
+            file.clone(),
+            TextFileContent("name = \"Alice\"".to_string()),
+            DurabilityLevel::Volatile,
+        );
+
+        // Get document construction diagnostics
+        let diags = runtime
+            .query(GetDocumentConstructionDiagnostics::new(file.clone()))
+            .unwrap();
+
+        // Should have no diagnostics
+        assert_eq!(diags.len(), 0);
     }
 }

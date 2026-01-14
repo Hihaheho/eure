@@ -2,6 +2,7 @@
 // From: crates/eure-editor-support/src/schema_validation.rs:test_validation_error_to_diagnostic
 // Tests converting ValidationError to LSP Diagnostic
 
+@ cases.validation_error
 schema = ```eure
 // Schema expects all fields to be text
 field1 = `text`
@@ -18,12 +19,24 @@ field3 = "value3"
 
 // Type mismatch diagnostic for field2 (number instead of text)
 // Span should point to "123" value
-// Line 1: "$schema = \"schema.eure\"\n" = 24 bytes
-// Line 2: "field1 = \"value1\"\n" = 18 bytes
-// Line 3: "field2 = " = 9 bytes, "123" starts at 24 + 18 + 9 = 51, ends at 51 + 3 = 54
-@ diagnostics[]
+@ cases.validation_error.diagnostics[]
 severity = "error"
 message = "Type mismatch: expected text, got integer at path field2"
 source = "editor.eure"
-start = 51
-end = 54
+span = "123"
+
+// Test: document construction error to diagnostic
+// Tests that duplicate key errors (BindingTargetHasValue) are converted to diagnostics
+@ cases.duplicate_key_error
+editor = ```eure
+name = "Alice"
+name = "Bob"
+```
+
+// Duplicate key diagnostic - second assignment should be reported
+// The span should point to the second "name" binding
+@ cases.duplicate_key_error.diagnostics[]
+severity = "error"
+message = "Document insert error: Insert error: Binding target already has a value at name"
+source = "editor.eure"
+span = "name"
