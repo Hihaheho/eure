@@ -56,3 +56,21 @@ normalized = ```eure
 ```
 
 output_json = json`{ "a": { "1": { "x": "one" }, "2": { "y": "two" }, "3": { "1": "three" } } }`
+
+@cases.text-binding-backslashes
+
+input_eure = ```eure
+regex: \b\w+\b
+win_path: C:\Users\name
+literal: \\
+```
+
+normalized = ```eure
+= {
+  regex => "\\b\\w+\\b"
+  win_path => "C:\\Users\\name"
+  literal => "\\\\"
+}
+```
+
+output_json = json`{ "regex": "\\b\\w+\\b", "win_path": "C:\\Users\\name", "literal": "\\\\" }`

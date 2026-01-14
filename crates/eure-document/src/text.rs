@@ -395,7 +395,7 @@ impl Text {
         if stripped.contains(['\r', '\n']) {
             return Err(TextParseError::NewlineInTextBinding);
         }
-        let content = parse_escape_sequences(stripped.trim())?;
+        let content = String::from(stripped.trim());
         Ok(Text::plaintext(content))
     }
 
@@ -634,6 +634,36 @@ mod tests {
         let text = Text::parse_text_binding("  hello world  \n").unwrap();
         assert_eq!(text.content, "hello world");
         assert_eq!(text.language, Language::Plaintext);
+    }
+
+    #[test]
+    fn test_parse_text_binding_raw_backslashes() {
+        // Text bindings should NOT process escape sequences
+        let text = Text::parse_text_binding("  \\b\\w+\\b  \n").unwrap();
+        assert_eq!(text.content, "\\b\\w+\\b");
+        assert_eq!(text.language, Language::Plaintext);
+    }
+
+    #[test]
+    fn test_parse_text_binding_literal_backslash_n() {
+        // Literal \n should stay as two characters, not converted to newline
+        let text = Text::parse_text_binding("  line1\\nline2  \n").unwrap();
+        assert_eq!(text.content, "line1\\nline2");
+        assert_eq!(text.language, Language::Plaintext);
+    }
+
+    #[test]
+    fn test_parse_text_binding_windows_path() {
+        // Windows paths should work without escaping
+        let text = Text::parse_text_binding("  C:\\Users\\name\\file.txt  \n").unwrap();
+        assert_eq!(text.content, "C:\\Users\\name\\file.txt");
+    }
+
+    #[test]
+    fn test_parse_text_binding_double_backslash() {
+        // Double backslashes stay as-is (two characters each = 4 total)
+        let text = Text::parse_text_binding("  \\\\  \n").unwrap();
+        assert_eq!(text.content, "\\\\");
     }
 
     #[test]
