@@ -45,12 +45,13 @@ unimplemented = "integer keys have not been properly implemented in the grammar 
 input_eure = ```eure
 a.1.x = "one"
 a.2.y = "two"
+a.3.1 = "three"
 ```
 
 normalized = ```eure
 = {
-  a => { 1.x => "one", 2.y => "two" },
+  a => { 1 => { x => "one" }, 2 => { y => "two" }, 3 => { 1 => "three" } },
 }
 ```
 
-output_json = json`{ "a": { "1": { "x": "one" }, "2": { "y": "two" } } }`
+output_json = json`{ "a": { "1": { "x": "one" }, "2": { "y": "two" }, "3": { "1": "three" } } }`
