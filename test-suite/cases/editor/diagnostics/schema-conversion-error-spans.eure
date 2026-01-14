@@ -1,0 +1,222 @@
+// Test: Schema conversion error diagnostic spans
+//
+// This test verifies that schema conversion errors report diagnostics at the correct
+// source locations, not at file start (0,0).
+//
+// BUG: Currently most ConversionError variants report EMPTY spans (0,0) instead of
+// pointing to the actual error location. This is due to the implementation in
+// crates/eure/src/query/schema.rs:547-567 where only ParseError captures NodeId.
+//
+// Expected behavior:
+// - Each error should point to the specific problematic construct in the schema
+// - Error spans should help users quickly locate and fix schema issues
+//
+// Current behavior (BUG):
+// - Most conversion errors point to file start (0,0)
+// - Only ParseError variant has proper span information
+//
+// These tests document the EXPECTED correct behavior. They will fail initially
+// (demonstrating the bug) and should pass once the span reporting is fixed.
+
+// Case 1: Undefined type reference
+// When referencing a type that doesn't exist in $types, the error should point
+// to the type reference expression (inline code with $types.name).
+@ cases.undefined-type
+unimplemented = "ConversionError::UndefinedTypeReference doesn't capture NodeId, reports EMPTY span (crates/eure/src/query/schema.rs:562)"
+schema = ```eure
+// Reference to type that doesn't exist
+name = `$types.nonexistent`
+```
+editor = ```eure
+$schema = "schema.eure"
+name = "Alice"
+```
+
+// Warning in editor: validation skipped due to schema error
+@ cases.undefined-type.diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
+// Error in schema: should point to the undefined type reference
+// BUG: Currently points to (0,0) instead of the type reference
+@ cases.undefined-type.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Undefined type reference: nonexistent"
+span = "`$types.nonexistent`"
+
+// Case 2: Invalid range string
+// When range field has an invalid format, the error should point to the range value.
+// Note: range is a regular field in integer schema, not an extension field.
+@ cases.invalid-range
+unimplemented = "ConversionError::InvalidRangeString doesn't capture NodeId, reports EMPTY span (crates/eure/src/query/schema.rs:562)"
+schema = ```eure
+// Invalid range format (should be "[min, max]")
+@ age {
+  $variant = "integer"
+  range = "not a range"
+}
+```
+editor = ```eure
+$schema = "schema.eure"
+age = 25
+```
+
+@ cases.invalid-range.diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
+// BUG: Currently points to (0,0) instead of the range string
+@ cases.invalid-range.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Invalid range string: not a range"
+span = `"not a range"`
+
+// Case 3: Invalid precision value
+// When precision field has an invalid value, the error should point to that value.
+// Note: precision is a regular field in float schema, not an extension field.
+@ cases.invalid-precision
+unimplemented = "ConversionError::InvalidPrecision doesn't capture NodeId, reports EMPTY span (crates/eure/src/query/schema.rs:562)"
+schema = ```eure
+// Invalid precision (only "f32" and "f64" are supported)
+@ price {
+  $variant = "float"
+  precision = "f128"
+}
+```
+editor = ```eure
+$schema = "schema.eure"
+price = 19.99
+```
+
+@ cases.invalid-precision.diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
+// BUG: Currently points to (0,0) instead of the precision value
+@ cases.invalid-precision.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = `Invalid precision: f128 (expected "f32" or "f64")`
+span = `"f128"`
+
+// Case 4: Invalid type name (number as key in root level $types extension)
+// When a $types extension contains a type definition with a number key,
+// the error should point to the invalid key.
+@ cases.invalid-type-name
+unimplemented = "ConversionError::InvalidTypeName doesn't capture NodeId, reports EMPTY span (crates/eure/src/query/schema.rs:562)"
+schema = ```eure
+// At root level, $types extension with numeric key
+$types = {
+  123 = `text`
+}
+```
+editor = ```eure
+$schema = "schema.eure"
+```
+
+@ cases.invalid-type-name.diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
+// BUG: Currently points to (0,0) instead of the invalid key
+@ cases.invalid-type-name.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Invalid type name: 123"
+span = "123"
+
+// Case 5: Invalid extension value structure
+// When $types is not a map, the error should point to the incorrect value.
+// Note: $types is an extension field, so it uses $ prefix unlike range/precision.
+@ cases.invalid-extension
+unimplemented = "ConversionError::InvalidExtensionValue doesn't capture NodeId, reports EMPTY span (crates/eure/src/query/schema.rs:562)"
+schema = ```eure
+// $types must be a map, not an array
+@ name {
+  $types = [1, 2, 3]
+  $variant = "text"
+}
+```
+editor = ```eure
+$schema = "schema.eure"
+name = "Alice"
+```
+
+@ cases.invalid-extension.diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
+// BUG: Currently points to (0,0) instead of the array value
+@ cases.invalid-extension.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Invalid extension value: types at path $types must be a map"
+span = "[1, 2, 3]"
+
+// Case 6: Multiple invalid range strings with different formats
+// Testing various invalid range formats to ensure comprehensive coverage.
+@ cases.invalid-range-formats
+unimplemented = "ConversionError::InvalidRangeString doesn't capture NodeId, reports EMPTY span (crates/eure/src/query/schema.rs:562)"
+schema = ```eure
+// Multiple fields with different invalid range formats
+@ int1 {
+  $variant = "integer"
+  range = "invalid"
+}
+@ int2 {
+  $variant = "integer"
+  range = "[1, 2, 3]"
+}
+@ float1 {
+  $variant = "float"
+  range = "(not a range)"
+}
+```
+editor = ```eure
+$schema = "schema.eure"
+int1 = 5
+int2 = 10
+float1 = 3.14
+```
+
+@ cases.invalid-range-formats.diagnostics[]
+severity = "warning"
+source = "editor.eure"
+message = "Schema has errors, validation skipped"
+span = `"schema.eure"`
+
+// First invalid range
+// BUG: Currently points to (0,0)
+@ cases.invalid-range-formats.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Invalid range string: invalid"
+span = `"invalid"`
+
+// Second invalid range (too many elements)
+// BUG: Currently points to (0,0)
+@ cases.invalid-range-formats.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Invalid range string: [1, 2, 3]"
+span = `"[1, 2, 3]"`
+
+// Third invalid range
+// BUG: Currently points to (0,0)
+@ cases.invalid-range-formats.diagnostics[]
+severity = "error"
+source = "schema.eure"
+message = "Invalid range string: (not a range)"
+span = `"(not a range)"`
