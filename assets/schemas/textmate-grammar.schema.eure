@@ -1,0 +1,72 @@
+$schema = "eure-schema.schema.eure"
+
+/// TextMate Language Grammar Schema
+$variant: record
+
+/// Grammar display name
+name = `text`
+
+/// Unique scope name (e.g., "source.eure")
+scopeName = `text`
+
+/// Schema URL reference
+"$schema" = `text`
+"$schema".$optional = true
+
+/// Root patterns array
+patterns = [`$types.pattern`]
+patterns.$optional = true
+
+/// Named pattern repository
+repository = `any`
+repository.$optional = true
+
+/// Custom types for pattern definitions
+$types {
+  @ pattern
+  $variant: record
+
+  /// Pattern comment/description
+  comment = `text`
+  comment.$optional = true
+
+  /// Begin regex for begin-end patterns
+  begin = `text`
+  begin.$optional = true
+
+  /// End regex for begin-end patterns
+  end = `text`
+  end.$optional = true
+
+  /// Match regex for simple patterns
+  match = `text`
+  match.$optional = true
+
+  /// Scope name for this pattern
+  name = `text`
+  name.$optional = true
+
+  /// Content scope name
+  contentName = `text`
+  contentName.$optional = true
+
+  /// Include reference to repository items
+  include = `text`
+  include.$optional = true
+
+  /// Nested patterns
+  patterns = [`$types.pattern`]
+  patterns.$optional = true
+
+  /// Begin captures (numbered groups)
+  beginCaptures = `any`
+  beginCaptures.$optional = true
+
+  /// End captures (numbered groups)
+  endCaptures = `any`
+  endCaptures.$optional = true
+
+  /// Match captures (numbered groups)
+  captures = `any`
+  captures.$optional = true
+}

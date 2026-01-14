@@ -94,6 +94,7 @@ enum EureExample {
     Cargo,
     GitHubAction,
     GameScript,
+    TextMateGrammar,
     Minimal,
 }
 
@@ -105,6 +106,7 @@ impl EureExample {
         EureExample::Cargo,
         EureExample::GitHubAction,
         EureExample::GameScript,
+        EureExample::TextMateGrammar,
         EureExample::Minimal,
     ];
 
@@ -116,6 +118,7 @@ impl EureExample {
             EureExample::Cargo => "Cargo",
             EureExample::GitHubAction => "GitHub Action",
             EureExample::GameScript => "Game Script",
+            EureExample::TextMateGrammar => "TextMate Grammar",
             EureExample::Minimal => "Minimal",
         }
     }
@@ -128,6 +131,7 @@ impl EureExample {
             EureExample::Cargo => "cargo",
             EureExample::GitHubAction => "github-action",
             EureExample::GameScript => "game-script",
+            EureExample::TextMateGrammar => "textmate-grammar",
             EureExample::Minimal => "minimal",
         }
     }
@@ -140,6 +144,7 @@ impl EureExample {
             "cargo" => Some(EureExample::Cargo),
             "github-action" => Some(EureExample::GitHubAction),
             "game-script" => Some(EureExample::GameScript),
+            "textmate-grammar" => Some(EureExample::TextMateGrammar),
             "minimal" => Some(EureExample::Minimal),
             _ => None,
         }
@@ -156,6 +161,9 @@ impl EureExample {
             EureExample::GitHubAction => include_str!("../../assets/examples/github-action.eure"),
             EureExample::GameScript => {
                 include_str!("../../../../assets/examples/game-script.eure")
+            }
+            EureExample::TextMateGrammar => {
+                include_str!("../../../../editors/vscode/syntaxes/eure.tmLanguage.eure")
             }
             EureExample::Minimal => "= 1\n",
         }
@@ -177,6 +185,9 @@ impl EureExample {
             EureExample::GameScript => {
                 include_str!("../../../../assets/examples/game-script.schema.eure")
             }
+            EureExample::TextMateGrammar => {
+                include_str!("../../../../assets/schemas/textmate-grammar.schema.eure")
+            }
             EureExample::Minimal => "= `any`\n",
         }
     }
@@ -189,6 +200,7 @@ impl EureExample {
             EureExample::Cargo => "/cargo.eure",
             EureExample::GitHubAction => "/github-action.eure",
             EureExample::GameScript => "/game-script.eure",
+            EureExample::TextMateGrammar => "/textmate-grammar.eure",
             EureExample::Minimal => "/minimal.eure",
         }
     }
@@ -201,6 +213,7 @@ impl EureExample {
             EureExample::Cargo => "/cargo.schema.eure",
             EureExample::GitHubAction => "/github-action.schema.eure",
             EureExample::GameScript => "/game-script.schema.eure",
+            EureExample::TextMateGrammar => "/textmate-grammar.schema.eure",
             EureExample::Minimal => "/minimal.schema.eure",
         }
     }
