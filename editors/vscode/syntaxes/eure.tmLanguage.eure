@@ -1,0 +1,644 @@
+"$schema": https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json
+name: Eure
+scopeName: source.eure
+
+// Root patterns
+@patterns[] { include = "#comments" }
+
+// Code blocks with specific languages
+@patterns[] {
+  comment: Code block: rust
+  begin: (\x60\x60\x60)\s*(?i:(rust))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.rust
+  patterns[] { include = "source.rust" }
+}
+
+@patterns[] {
+  comment: Code block: json
+  begin: (\x60\x60\x60)\s*(?i:(json))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.json
+  patterns[] { include = "source.json" }
+}
+
+@patterns[] {
+  comment: Code block: yaml
+  begin: (\x60\x60\x60)\s*(?i:(ya?ml))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.yaml
+  patterns[] { include = "source.yaml" }
+}
+
+@patterns[] {
+  comment: Code block: toml
+  begin: (\x60\x60\x60)\s*(?i:(toml))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.toml
+  patterns[] { include = "source.toml" }
+}
+
+@patterns[] {
+  comment: Code block: javascript
+  begin: (\x60\x60\x60)\s*(?i:(javascript|js))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.javascript
+  patterns[] { include = "source.js" }
+}
+
+@patterns[] {
+  comment: Code block: typescript
+  begin: (\x60\x60\x60)\s*(?i:(typescript|ts))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.typescript
+  patterns[] { include = "source.ts" }
+}
+
+@patterns[] {
+  comment: Code block: python
+  begin: (\x60\x60\x60)\s*(?i:(python|py))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.python
+  patterns[] { include = "source.python" }
+}
+
+@patterns[] {
+  comment: Code block: html
+  begin: (\x60\x60\x60)\s*(?i:(html))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.html
+  patterns[] { include = "text.html.basic" }
+}
+
+@patterns[] {
+  comment: Code block: css
+  begin: (\x60\x60\x60)\s*(?i:(css))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.css
+  patterns[] { include = "source.css" }
+}
+
+@patterns[] {
+  comment: Code block: sql
+  begin: (\x60\x60\x60)\s*(?i:(sql))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.sql
+  patterns[] { include = "source.sql" }
+}
+
+@patterns[] {
+  comment: Code block: markdown
+  begin: (\x60\x60\x60)\s*(?i:(markdown|md))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.markdown
+  patterns[] { include = "text.html.markdown" }
+}
+
+@patterns[] {
+  comment: Code block: shell
+  begin: (\x60\x60\x60)\s*(?i:(shell|bash|sh|zsh))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.shellscript
+  patterns[] { include = "source.shell" }
+}
+
+@patterns[] {
+  comment: Code block: eure
+  begin: (\x60\x60\x60)\s*(?i:(eure))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.eure
+  patterns[] { include = "source.eure" }
+}
+
+@patterns[] {
+  comment: Code block: generic with language
+  begin: (\x60\x60\x60)\s*((?!(?i:rust|json|ya?ml|toml|javascript|js|typescript|ts|python|py|html|css|sql|markdown|md|shell|bash|sh|zsh|eure)\b)[\w-]+)\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: markup.raw.block.eure
+}
+
+@patterns[] {
+  comment: Code block: no language (must have lookahead to not match when language follows)
+  begin: (\x60\x60\x60)(?![a-zA-Z0-9_-])[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures.1.name: punctuation.definition.code.begin.eure
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: markup.raw.block.eure
+}
+
+@patterns[] { include = "#section" }
+@patterns[] { include = "#binding" }
+@patterns[] { include = "#value" }
+
+// Repository definitions
+@repository.noop {
+  match: (?!.)
+}
+
+@repository.comments.patterns[] {
+  name: comment.line.double-slash.eure
+  begin: //
+  end: $
+}
+
+@repository.comments.patterns[] {
+  name: comment.block.eure
+  begin: /\*
+  end: \*/
+}
+
+@repository.section {
+  comment: Section definition
+  begin: (@)
+  end: (?<=\})|$|(?=//|/\*|@)
+  beginCaptures.1.name: punctuation.definition.section.eure
+  patterns[] { include = "#comments" }
+  patterns[] { include = "#section-name" }
+  patterns[] { include = "#section-body" }
+}
+
+@repository.section-name {
+  patterns[] {
+    comment: Extension as section name
+    match: (\$)([\p{XID_Start}_][\p{XID_Continue}]*)
+    captures {
+      1.name: punctuation.definition.extension.eure
+      2.name: entity.name.tag.eure
+    }
+  }
+  patterns[] {
+    comment: Identifier as section name
+    match: [\p{XID_Start}_][\p{XID_Continue}]*
+    name: entity.name.section.eure
+  }
+  patterns[] {
+    comment: Array index
+    match: \[\]
+    name: punctuation.definition.array.eure
+  }
+  patterns[] {
+    comment: Dot separator
+    match: \.
+    name: punctuation.separator.eure
+  }
+  patterns[] { include = "#strings" }
+}
+
+@repository.section-body {
+  begin: \{
+  end: \}
+  beginCaptures.0.name: punctuation.section.block.begin.eure
+  endCaptures.0.name: punctuation.section.block.end.eure
+  patterns[] { include = "$self" }
+}
+
+@repository.binding {
+  comment: Binding with value: key = value
+  begin: (?=[\p{XID_Start}_$"0-9(#])
+  end: (?<=\})|(?<=[\]\)"'])|(?<=\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=//|/\*|@)
+  patterns[] { include = "#comments" }
+  patterns[] { include = "#binding-keys" }
+  patterns[] { include = "#value-binding" }
+  patterns[] { include = "#text-binding" }
+}
+
+@repository.binding-keys {
+  patterns[] {
+    comment: Extension key
+    match: (\$)([\p{XID_Start}_][\p{XID_Continue}]*)
+    captures {
+      1.name: punctuation.definition.extension.eure
+      2.name: entity.name.tag.eure
+    }
+  }
+  patterns[] {
+    comment: Identifier key
+    match: [\p{XID_Start}_][\p{XID_Continue}]*
+    name: variable.other.property.eure
+  }
+  patterns[] {
+    comment: Array index
+    match: \[\]
+    name: punctuation.definition.array.eure
+  }
+  patterns[] {
+    comment: Dot separator
+    match: \.
+    name: punctuation.separator.eure
+  }
+  patterns[] { include = "#strings" }
+}
+
+@repository.value-binding {
+  comment: Value binding: = value
+  begin: (=)(?!>)
+  end: (?<=\})|(?<=[\]\)"'])|(?<=\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=//|/\*|@)
+  beginCaptures.1.name: keyword.operator.assignment.eure
+  patterns[] { include = "#value" }
+}
+
+@repository.text-binding {
+  comment: Text binding: key: text
+  begin: (:)
+  end: $
+  beginCaptures.1.name: punctuation.definition.text.eure
+  patterns[] {
+    name: string.unquoted.text.eure
+    match: .*$
+  }
+}
+
+@repository.value {
+  patterns[] { include = "#comments" }
+  patterns[] { include = "#code-block" }
+  patterns[] { include = "#inline-code" }
+  patterns[] { include = "#object" }
+  patterns[] { include = "#array" }
+  patterns[] { include = "#tuple" }
+  patterns[] { include = "#strings" }
+  patterns[] { include = "#numbers" }
+  patterns[] { include = "#constants" }
+  patterns[] { include = "#hole" }
+}
+
+@repository.code-block {
+  patterns[] { include = "#code-block-3-rust" }
+  patterns[] { include = "#code-block-3-json" }
+  patterns[] { include = "#code-block-3-yaml" }
+  patterns[] { include = "#code-block-3-toml" }
+  patterns[] { include = "#code-block-3-javascript" }
+  patterns[] { include = "#code-block-3-typescript" }
+  patterns[] { include = "#code-block-3-python" }
+  patterns[] { include = "#code-block-3-html" }
+  patterns[] { include = "#code-block-3-css" }
+  patterns[] { include = "#code-block-3-sql" }
+  patterns[] { include = "#code-block-3-markdown" }
+  patterns[] { include = "#code-block-3-shell" }
+  patterns[] { include = "#code-block-3-eure" }
+  patterns[] { include = "#code-block-3-generic" }
+  patterns[] { include = "#code-block-3-no-lang" }
+}
+
+@repository.code-block-3-rust {
+  begin: (\x60\x60\x60)\s*(?i:(rust))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.rust
+}
+
+@repository.code-block-3-json {
+  begin: (\x60\x60\x60)\s*(?i:(json))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.json
+  patterns[] { include = "source.json" }
+}
+
+@repository.code-block-3-yaml {
+  begin: (\x60\x60\x60)\s*(?i:(ya?ml))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.yaml
+  patterns[] { include = "source.yaml" }
+}
+
+@repository.code-block-3-toml {
+  begin: (\x60\x60\x60)\s*(?i:(toml))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.toml
+  patterns[] { include = "source.toml" }
+}
+
+@repository.code-block-3-javascript {
+  begin: (\x60\x60\x60)\s*(?i:(javascript|js))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.javascript
+  patterns[] { include = "source.js" }
+}
+
+@repository.code-block-3-typescript {
+  begin: (\x60\x60\x60)\s*(?i:(typescript|ts))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.typescript
+  patterns[] { include = "source.ts" }
+}
+
+@repository.code-block-3-python {
+  begin: (\x60\x60\x60)\s*(?i:(python|py))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.python
+  patterns[] { include = "source.python" }
+}
+
+@repository.code-block-3-html {
+  begin: (\x60\x60\x60)\s*(?i:(html))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.html
+  patterns[] { include = "text.html.basic" }
+}
+
+@repository.code-block-3-css {
+  begin: (\x60\x60\x60)\s*(?i:(css))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.css
+  patterns[] { include = "source.css" }
+}
+
+@repository.code-block-3-sql {
+  begin: (\x60\x60\x60)\s*(?i:(sql))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.sql
+  patterns[] { include = "source.sql" }
+}
+
+@repository.code-block-3-markdown {
+  begin: (\x60\x60\x60)\s*(?i:(markdown|md))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.markdown
+  patterns[] { include = "text.html.markdown" }
+}
+
+@repository.code-block-3-shell {
+  begin: (\x60\x60\x60)\s*(?i:(shell|bash|sh|zsh))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.shellscript
+  patterns[] { include = "source.shell" }
+}
+
+@repository.code-block-3-eure {
+  begin: (\x60\x60\x60)\s*(?i:(eure))\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: meta.embedded.block.eure
+  patterns[] { include = "source.eure" }
+}
+
+@repository.code-block-3-generic {
+  begin: (\x60\x60\x60)\s*((?!(?i:rust|json|ya?ml|toml|javascript|js|typescript|ts|python|py|html|css|sql|markdown|md|shell|bash|sh|zsh|eure)\b)[\w-]+)\b[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures {
+    1.name: punctuation.definition.code.begin.eure
+    2.name: entity.name.function.eure
+  }
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: markup.raw.block.eure
+}
+
+@repository.code-block-3-no-lang {
+  comment: Code block with no language tag - uses lookahead to ensure no language follows
+  begin: (\x60\x60\x60)(?![a-zA-Z0-9_-])[^\n\r]*$
+  end: ^\s*(\x60\x60\x60)\s*$
+  beginCaptures.1.name: punctuation.definition.code.begin.eure
+  endCaptures.1.name: punctuation.definition.code.end.eure
+  contentName: markup.raw.block.eure
+}
+
+@repository.inline-code {
+  name: markup.inline.raw.eure
+  match: ([a-zA-Z0-9-_]*)`([^`\r\n]+)`
+  captures {
+    1.name: entity.name.function.eure
+    2.name: string.other.inline-code.eure
+  }
+}
+
+@repository.object {
+  begin: \{
+  end: \}
+  beginCaptures.0.name: punctuation.definition.object.begin.eure
+  endCaptures.0.name: punctuation.definition.object.end.eure
+  patterns[] { include = "$self" }
+}
+
+@repository.array {
+  begin: \[
+  end: \]
+  beginCaptures.0.name: punctuation.definition.array.begin.eure
+  endCaptures.0.name: punctuation.definition.array.end.eure
+  patterns[] { include = "#comments" }
+  patterns[] { include = "#value" }
+}
+
+@repository.tuple {
+  begin: \(
+  end: \)
+  beginCaptures.0.name: punctuation.definition.tuple.begin.eure
+  endCaptures.0.name: punctuation.definition.tuple.end.eure
+  patterns[] { include = "#comments" }
+  patterns[] { include = "#value" }
+}
+
+@repository.strings {
+  patterns[] {
+    name: string.quoted.double.eure
+    begin: "
+    end: "
+    beginCaptures.0.name: punctuation.definition.string.begin.eure
+    endCaptures.0.name: punctuation.definition.string.end.eure
+    patterns[] {
+      name: constant.character.escape.eure
+      match: \\.
+    }
+  }
+  patterns[] {
+    comment: Triple-delimited literal string
+    name: string.quoted.single.eure
+    begin: <<<'
+    end: '>>>
+    beginCaptures.0.name: punctuation.definition.string.begin.eure
+    endCaptures.0.name: punctuation.definition.string.end.eure
+  }
+  patterns[] {
+    comment: Double-delimited literal string
+    name: string.quoted.single.eure
+    begin: <<'
+    end: '>>
+    beginCaptures.0.name: punctuation.definition.string.begin.eure
+    endCaptures.0.name: punctuation.definition.string.end.eure
+  }
+  patterns[] {
+    comment: Single-delimited literal string
+    name: string.quoted.single.eure
+    begin: <'
+    end: '>
+    beginCaptures.0.name: punctuation.definition.string.begin.eure
+    endCaptures.0.name: punctuation.definition.string.end.eure
+  }
+  patterns[] {
+    name: string.quoted.single.eure
+    begin: '
+    end: '
+    beginCaptures.0.name: punctuation.definition.string.begin.eure
+    endCaptures.0.name: punctuation.definition.string.end.eure
+    patterns[] {
+      name: constant.character.escape.eure
+      match: \\.
+    }
+  }
+}
+
+@repository.numbers {
+  patterns[] {
+    name: constant.numeric.float.eure
+    match: -?[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?
+  }
+  patterns[] {
+    name: constant.numeric.integer.eure
+    match: -?[0-9]+
+  }
+}
+
+@repository.constants {
+  patterns[] {
+    name: constant.language.boolean.eure
+    match: \b(true|false)\b
+  }
+  patterns[] {
+    name: constant.language.null.eure
+    match: \bnull\b
+  }
+  patterns[] {
+    name: constant.numeric.inf.eure
+    match: \b[Ii]nf\b
+  }
+  patterns[] {
+    name: constant.numeric.nan.eure
+    match: \b[Nn]a[Nn]\b
+  }
+}
+
+@repository.hole {
+  name: constant.language.hole.eure
+  match: #
+}

@@ -1,0 +1,55 @@
+{
+  "scopeName": "source.python",
+  "patterns": [
+    {
+      "name": "keyword.control.python",
+      "match": "\\b(if|elif|else|for|while|break|continue|return|yield|pass|raise|try|except|finally|with|as|def|class|lambda|import|from|global|nonlocal|assert|del|in|is|not|and|or)\\b"
+    },
+    {
+      "name": "storage.type.function.python",
+      "match": "\\bdef\\b"
+    },
+    {
+      "name": "storage.type.class.python",
+      "match": "\\bclass\\b"
+    },
+    {
+      "name": "support.function.builtin.python",
+      "match": "\\b(print|len|range|str|int|float|bool|list|dict|set|tuple|type|isinstance|hasattr|getattr|setattr|open|input|abs|min|max|sum|all|any)\\b"
+    },
+    {
+      "name": "string.quoted.double.python",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.python",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.quoted.single.python",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.python",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "comment.line.number-sign.python",
+      "match": "#.*$"
+    },
+    {
+      "name": "constant.numeric.python",
+      "match": "\\b[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?\\b"
+    },
+    {
+      "name": "constant.language.python",
+      "match": "\\b(True|False|None|self|cls)\\b"
+    }
+  ]
+}

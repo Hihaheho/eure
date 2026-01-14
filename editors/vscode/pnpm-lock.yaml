@@ -33,6 +33,12 @@ importers:
       typescript:
         specifier: ^5.9
         version: 5.9.3
+      vscode-oniguruma:
+        specifier: ^1.7.0
+        version: 1.7.0
+      vscode-textmate:
+        specifier: ^9.0.0
+        version: 9.3.1
 
 packages:
 
@@ -1331,6 +1337,12 @@ packages:
 
   vscode-languageserver-types@3.17.6-next.5:
     resolution: {integrity: sha512-QFmf3Yl1tCgUQfA77N9Me/LXldJXkIVypQbty2rJ1DNHQkC+iwvm4Z2tXg9czSwlhvv0pD4pbF5mT7WhAglolw==}
+
+  vscode-oniguruma@1.7.0:
+    resolution: {integrity: sha512-L9WMGRfrjOhgHSdOYgCt/yRMsXzLDJSL7BPrOZt73gU0iWO4mpqzqQzOz5srxqTvMBaR0XZTSrVWo4j55Rc6cA==}
+
+  vscode-textmate@9.3.1:
+    resolution: {integrity: sha512-U19nFkCraZF9/bkQKQYsb9mRqM9NwpToQQFl40nGiioZTH9gRtdtCHwp48cubayVfreX3ivnoxgxQgNwrTVmQg==}
 
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
@@ -2782,6 +2794,10 @@ snapshots:
       vscode-languageserver-types: 3.17.6-next.5
 
   vscode-languageserver-types@3.17.6-next.5: {}
+
+  vscode-oniguruma@1.7.0: {}
+
+  vscode-textmate@9.3.1: {}
 
   whatwg-encoding@3.1.1:
     dependencies:

@@ -1,0 +1,57 @@
+{
+  "scopeName": "source.js",
+  "patterns": [
+    {
+      "name": "keyword.control.js",
+      "match": "\\b(if|else|switch|case|default|break|continue|return|throw|try|catch|finally|for|while|do|function|class|extends|new|this|super|import|export|from|as|const|let|var|async|await|yield|in|of|typeof|instanceof|delete|void)\\b"
+    },
+    {
+      "name": "storage.type.js",
+      "match": "\\b(const|let|var|function|class)\\b"
+    },
+    {
+      "name": "string.quoted.double.js",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.js",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.quoted.single.js",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.js",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.template.js",
+      "begin": "`",
+      "end": "`"
+    },
+    {
+      "name": "comment.line.double-slash.js",
+      "match": "//.*$"
+    },
+    {
+      "name": "comment.block.js",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    {
+      "name": "constant.numeric.js",
+      "match": "\\b[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?\\b"
+    },
+    {
+      "name": "constant.language.js",
+      "match": "\\b(true|false|null|undefined|NaN|Infinity)\\b"
+    }
+  ]
+}

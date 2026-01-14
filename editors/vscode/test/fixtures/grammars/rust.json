@@ -1,0 +1,41 @@
+{
+  "scopeName": "source.rust",
+  "patterns": [
+    {
+      "name": "keyword.control.rust",
+      "match": "\\b(fn|let|mut|pub|struct|enum|impl|trait|if|else|match|loop|while|for|return|break|continue|const|static|use|mod|crate|super|self|as|where|unsafe|async|await|move|type|ref)\\b"
+    },
+    {
+      "name": "storage.type.rust",
+      "match": "\\b(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|str|String|Vec|Option|Result)\\b"
+    },
+    {
+      "name": "string.quoted.double.rust",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.rust",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "comment.line.double-slash.rust",
+      "match": "//.*$"
+    },
+    {
+      "name": "comment.block.rust",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    {
+      "name": "constant.numeric.rust",
+      "match": "\\b[0-9][0-9_]*(\\.([0-9][0-9_]*)?)?\\b"
+    },
+    {
+      "name": "constant.language.rust",
+      "match": "\\b(true|false|None|Some|Ok|Err)\\b"
+    }
+  ]
+}

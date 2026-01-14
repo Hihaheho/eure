@@ -1,0 +1,50 @@
+{
+  "scopeName": "text.html.basic",
+  "patterns": [
+    {
+      "name": "meta.tag.html",
+      "begin": "<([a-zA-Z][a-zA-Z0-9]*)",
+      "end": ">",
+      "beginCaptures": {
+        "1": {
+          "name": "entity.name.tag.html"
+        }
+      },
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.html",
+          "match": "\\b[a-zA-Z-]+"
+        },
+        {
+          "name": "string.quoted.double.html",
+          "begin": "\"",
+          "end": "\""
+        },
+        {
+          "name": "string.quoted.single.html",
+          "begin": "'",
+          "end": "'"
+        }
+      ]
+    },
+    {
+      "name": "meta.tag.html",
+      "begin": "</([a-zA-Z][a-zA-Z0-9]*)",
+      "end": ">",
+      "beginCaptures": {
+        "1": {
+          "name": "entity.name.tag.html"
+        }
+      }
+    },
+    {
+      "name": "comment.block.html",
+      "begin": "<!--",
+      "end": "-->"
+    },
+    {
+      "name": "entity.name.tag.doctype.html",
+      "match": "<!DOCTYPE\\s+[^>]*>"
+    }
+  ]
+}

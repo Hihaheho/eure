@@ -1,0 +1,48 @@
+{
+  "scopeName": "source.json",
+  "patterns": [
+    {
+      "name": "constant.language.json",
+      "match": "\\b(true|false|null)\\b"
+    },
+    {
+      "name": "constant.numeric.json",
+      "match": "-?\\b[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?\\b"
+    },
+    {
+      "name": "string.quoted.double.json",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.json",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "punctuation.separator.dictionary.key-value.json",
+      "match": ":"
+    },
+    {
+      "name": "punctuation.separator.array.json",
+      "match": ","
+    },
+    {
+      "name": "punctuation.definition.dictionary.begin.json",
+      "match": "\\{"
+    },
+    {
+      "name": "punctuation.definition.dictionary.end.json",
+      "match": "\\}"
+    },
+    {
+      "name": "punctuation.definition.array.begin.json",
+      "match": "\\["
+    },
+    {
+      "name": "punctuation.definition.array.end.json",
+      "match": "\\]"
+    }
+  ]
+}

@@ -6,10 +6,13 @@ out
 !package.json
 !tsconfig.json
 !src/**/*.ts
+!test/**/*.ts
 !LICENSE
 
 !language-configuration.json
 !syntaxes/eure.tmLanguage.json
+!syntaxes/eure.tmLanguage.eure
+!test/fixtures/grammars/*.json
 
 *.vsix
 *.wasm

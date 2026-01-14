@@ -14,13 +14,16 @@
   "browser": "out/browser/main.js",
   "publisher": "hihaheho",
   "scripts": {
-    "package": "pnpm run build-wasm && pnpm run build && vsce package --no-dependencies -o eurels.vsix",
+    "package": "pnpm run build-wasm && pnpm run build && pnpm run build:grammar && vsce package --no-dependencies -o eurels.vsix",
     "build-wasm": "cd ../../crates/eure-ls && CARGO_INCREMENTAL=0 wasm-pack build --target web --out-dir ../../editors/vscode/pkg --release",
     "build-node": "esbuild ./src/node/main.ts --bundle --outfile=out/node/main.js --external:vscode --format=cjs --platform=node --target=node18",
     "build-browser": "esbuild ./src/browser/main.ts --bundle --outfile=out/browser/main.js --external:vscode --format=cjs --platform=browser",
     "build-ts": "cp -r ../../assets/icons assets/ && pnpm run build-node && pnpm run build-browser",
     "build": "pnpm run build-ts --sourcemap",
-    "watch": "pnpm run build-node --sourcemap --watch"
+    "watch": "pnpm run build-node --sourcemap --watch",
+    "build:grammar": "eure to-json syntaxes/eure.tmLanguage.eure | jq . > syntaxes/eure.tmLanguage.json",
+    "test:grammar": "pnpm run build:grammar && node --experimental-strip-types --test 'test/grammar/**/*.test.ts'",
+    "test:grammar:types": "cd test && tsc --noEmit"
   },
   "files": [
     "out/**/*",
@@ -58,7 +61,9 @@
     "@types/vscode": "^1.92.0",
     "@vscode/vsce": "^3.7",
     "esbuild": "^0.27",
-    "typescript": "^5.9"
+    "typescript": "^5.9",
+    "vscode-oniguruma": "^1.7.0",
+    "vscode-textmate": "^9.0.0"
   },
   "contributes": {
     "configuration": {

@@ -1,0 +1,31 @@
+{
+  "scopeName": "source.sql",
+  "patterns": [
+    {
+      "name": "keyword.other.sql",
+      "match": "(?i)\\b(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|DATABASE|INDEX|DROP|ALTER|ADD|COLUMN|PRIMARY|KEY|FOREIGN|REFERENCES|UNIQUE|DEFAULT|CHECK|AS|DISTINCT|UNION|ALL|EXISTS|CASE|WHEN|THEN|ELSE|END|COUNT|SUM|AVG|MIN|MAX)\\b"
+    },
+    {
+      "name": "storage.type.sql",
+      "match": "(?i)\\b(INT|INTEGER|VARCHAR|CHAR|TEXT|BOOLEAN|DATE|DATETIME|TIMESTAMP|FLOAT|DOUBLE|DECIMAL|NUMERIC|BIGINT|SMALLINT|TINYINT|BLOB|JSON)\\b"
+    },
+    {
+      "name": "string.quoted.single.sql",
+      "begin": "'",
+      "end": "'"
+    },
+    {
+      "name": "constant.numeric.sql",
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+    },
+    {
+      "name": "comment.line.double-dash.sql",
+      "match": "--.*$"
+    },
+    {
+      "name": "comment.block.sql",
+      "begin": "/\\*",
+      "end": "\\*/"
+    }
+  ]
+}

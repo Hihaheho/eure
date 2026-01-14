@@ -1,0 +1,48 @@
+{
+  "scopeName": "source.css",
+  "patterns": [
+    {
+      "name": "entity.name.tag.css",
+      "match": "\\b(div|span|p|a|h1|h2|h3|h4|h5|h6|ul|ol|li|body|html|head|meta|link|script|style|table|tr|td|th|form|input|button|select|option|textarea)\\b"
+    },
+    {
+      "name": "entity.other.attribute-name.class.css",
+      "match": "\\.[a-zA-Z_-][a-zA-Z0-9_-]*"
+    },
+    {
+      "name": "entity.other.attribute-name.id.css",
+      "match": "#[a-zA-Z_-][a-zA-Z0-9_-]*"
+    },
+    {
+      "name": "support.type.property-name.css",
+      "match": "\\b(color|background|border|margin|padding|width|height|display|position|top|left|right|bottom|font|font-size|font-family|font-weight|text-align|flex|grid|opacity|z-index|overflow|cursor)\\b"
+    },
+    {
+      "name": "constant.numeric.css",
+      "match": "\\b[0-9]+(\\.[0-9]+)?(px|em|rem|%|vh|vw|pt|cm|mm|in)?\\b"
+    },
+    {
+      "name": "constant.other.color.rgb-value.css",
+      "match": "#[0-9a-fA-F]{3,6}\\b"
+    },
+    {
+      "name": "string.quoted.double.css",
+      "begin": "\"",
+      "end": "\""
+    },
+    {
+      "name": "string.quoted.single.css",
+      "begin": "'",
+      "end": "'"
+    },
+    {
+      "name": "comment.block.css",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    {
+      "name": "punctuation.definition.entity.css",
+      "match": "[{}:;,]"
+    }
+  ]
+}

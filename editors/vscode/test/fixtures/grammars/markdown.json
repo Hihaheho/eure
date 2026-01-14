@@ -1,0 +1,46 @@
+{
+  "scopeName": "text.html.markdown",
+  "patterns": [
+    {
+      "name": "markup.heading.markdown",
+      "match": "^#{1,6}\\s+.*$"
+    },
+    {
+      "name": "markup.bold.markdown",
+      "match": "\\*\\*[^*]+\\*\\*|__[^_]+__"
+    },
+    {
+      "name": "markup.italic.markdown",
+      "match": "\\*[^*]+\\*|_[^_]+_"
+    },
+    {
+      "name": "markup.inline.raw.markdown",
+      "match": "`[^`]+`"
+    },
+    {
+      "name": "markup.raw.block.markdown",
+      "begin": "```",
+      "end": "```"
+    },
+    {
+      "name": "markup.list.unnumbered.markdown",
+      "match": "^\\s*[-*+]\\s+"
+    },
+    {
+      "name": "markup.list.numbered.markdown",
+      "match": "^\\s*[0-9]+\\.\\s+"
+    },
+    {
+      "name": "markup.underline.link.markdown",
+      "match": "\\[([^\\]]+)\\]\\([^)]+\\)"
+    },
+    {
+      "name": "markup.quote.markdown",
+      "match": "^>.*$"
+    },
+    {
+      "name": "meta.separator.markdown",
+      "match": "^(---|___|\n***|\\n   )\\s*$"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "scopeName": "source.shell",
+  "patterns": [
+    {
+      "name": "keyword.control.shell",
+      "match": "\\b(if|then|else|elif|fi|case|esac|for|select|while|until|do|done|in|function|time)\\b"
+    },
+    {
+      "name": "support.function.builtin.shell",
+      "match": "\\b(echo|printf|read|cd|pwd|ls|mkdir|rm|cp|mv|cat|grep|sed|awk|find|chmod|chown|ps|kill|export|source|alias|unset|exit|return|break|continue)\\b"
+    },
+    {
+      "name": "variable.other.shell",
+      "match": "\\$\\{?[a-zA-Z_][a-zA-Z0-9_]*\\}?"
+    },
+    {
+      "name": "string.quoted.double.shell",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "variable.other.shell",
+          "match": "\\$\\{?[a-zA-Z_][a-zA-Z0-9_]*\\}?"
+        },
+        {
+          "name": "constant.character.escape.shell",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.quoted.single.shell",
+      "begin": "'",
+      "end": "'"
+    },
+    {
+      "name": "comment.line.number-sign.shell",
+      "match": "#.*$"
+    },
+    {
+      "name": "constant.numeric.shell",
+      "match": "\\b[0-9]+\\b"
+    },
+    {
+      "name": "keyword.operator.shell",
+      "match": "[|&;<>()\\[\\]{}!]|\\|\\||&&|>>|<<|>|<|="
+    }
+  ]
+}

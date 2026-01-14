@@ -1,0 +1,61 @@
+{
+  "scopeName": "source.ts",
+  "patterns": [
+    {
+      "name": "keyword.control.ts",
+      "match": "\\b(if|else|switch|case|default|break|continue|return|throw|try|catch|finally|for|while|do|function|class|extends|new|this|super|import|export|from|as|const|let|var|async|await|yield|in|of|typeof|instanceof|delete|void|interface|type|enum|namespace|declare|public|private|protected|readonly|abstract|static)\\b"
+    },
+    {
+      "name": "storage.type.ts",
+      "match": "\\b(const|let|var|function|class|interface|type|enum|namespace)\\b"
+    },
+    {
+      "name": "support.type.ts",
+      "match": "\\b(string|number|boolean|void|any|never|unknown|object|symbol|bigint)\\b"
+    },
+    {
+      "name": "string.quoted.double.ts",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.ts",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.quoted.single.ts",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.ts",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "string.template.ts",
+      "begin": "`",
+      "end": "`"
+    },
+    {
+      "name": "comment.line.double-slash.ts",
+      "match": "//.*$"
+    },
+    {
+      "name": "comment.block.ts",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    {
+      "name": "constant.numeric.ts",
+      "match": "\\b[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?\\b"
+    },
+    {
+      "name": "constant.language.ts",
+      "match": "\\b(true|false|null|undefined|NaN|Infinity)\\b"
+    }
+  ]
+}
