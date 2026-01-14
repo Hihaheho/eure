@@ -146,6 +146,7 @@ scanner! {
             token r"[\s--\r\n]+" => 48; // "Ws"
             token r"." => 63; // "Error"
             on 17 enter INITIAL;
+            on 47 enter INITIAL;
         }
         mode InCodeBlock3 {
             token r"`{3}" => 29; // "CodeBlockEnd3"
