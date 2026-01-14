@@ -3249,6 +3249,23 @@ impl From<TextBindingOpt0Node> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for TextBindingOpt1 non-terminal
+#[derive(Debug, Clone)]
+pub struct TextBindingOpt1Node {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TextBindingOpt1Node {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TextBindingOpt1Node> for BuilderNodeId {
+    fn from(node: TextBindingOpt1Node) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for TextStart non-terminal
 #[derive(Debug, Clone)]
 pub struct TextStartNode {
@@ -5546,19 +5563,24 @@ impl TextConstructor {
 pub struct TextBindingConstructor {
     text_start: TextStartNode,
     text_binding_opt: TextBindingOptNode,
-    text: TextNode,
     text_binding_opt_0: TextBindingOpt0Node,
+    text_binding_opt_1: TextBindingOpt1Node,
 }
 impl TextBindingConstructor {
     pub fn build(self) -> TextBindingNode {
         let mut builder = CstBuilder::new();
         let text_start = builder.embed(self.text_start.builder);
         let text_binding_opt = builder.embed(self.text_binding_opt.builder);
-        let text = builder.embed(self.text.builder);
         let text_binding_opt_0 = builder.embed(self.text_binding_opt_0.builder);
+        let text_binding_opt_1 = builder.embed(self.text_binding_opt_1.builder);
         let node_id = builder.non_terminal(
             NonTerminalKind::TextBinding,
-            vec![text_start, text_binding_opt, text, text_binding_opt_0],
+            vec![
+                text_start,
+                text_binding_opt,
+                text_binding_opt_0,
+                text_binding_opt_1,
+            ],
         );
         TextBindingNode { node_id, builder }
     }
@@ -5581,18 +5603,34 @@ impl TextBindingOptConstructor {
 }
 #[derive(bon::Builder)]
 pub struct TextBindingOpt0Constructor {
-    grammar_newline: Option<GrammarNewlineNode>,
+    text: Option<TextNode>,
 }
 impl TextBindingOpt0Constructor {
     pub fn build(self) -> TextBindingOpt0Node {
         let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.grammar_newline {
+        let children = if let Some(child) = self.text {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()
         };
         let node_id = builder.non_terminal(NonTerminalKind::TextBindingOpt0, children);
         TextBindingOpt0Node { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct TextBindingOpt1Constructor {
+    grammar_newline: Option<GrammarNewlineNode>,
+}
+impl TextBindingOpt1Constructor {
+    pub fn build(self) -> TextBindingOpt1Node {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.grammar_newline {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::TextBindingOpt1, children);
+        TextBindingOpt1Node { node_id, builder }
     }
 }
 #[derive(bon::Builder)]

@@ -1558,14 +1558,19 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         view: TextBindingView,
         tree: &F,
     ) -> Result<(), Self::Error> {
-        let text_view = view.text.get_view(tree)?;
-        let text_str = self.get_terminal_str(tree, text_view.text)?;
-        let text = Text::parse_text_binding(text_str).map_err(|error| {
-            DocumentConstructionError::InvalidStringKey {
-                node_id: handle.node_id(),
-                error,
-            }
-        })?;
+        let text_view = view.text_binding_opt_0.get_view(tree)?;
+        let text = if let Some(text_handle) = text_view {
+            let text_view = text_handle.get_view(tree)?;
+            let text_str = self.get_terminal_str(tree, text_view.text)?;
+            Text::parse_text_binding(text_str).map_err(|error| {
+                DocumentConstructionError::InvalidStringKey {
+                    node_id: text_handle.node_id(),
+                    error,
+                }
+            })?
+        } else {
+            Text::new(String::new(), Language::Plaintext)
+        };
         let node_id = self.document.current_node_id();
         self.document
             .bind_primitive(PrimitiveValue::Text(text))

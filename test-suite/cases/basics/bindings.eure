@@ -9,22 +9,23 @@ g = {}
 }
 @ e
 x: 6
+empty:
 ```
 
 normalized = ```eure
 = {
-  a => { x => 1 },
-  b => { x => 2 },
-  c => { x => 3 },
-  d => { x => 4 },
-  e => { x => "6" },
-  f => "hello",
-  f.$ext => "ext",
-  g => {},
+  a => { x => 1 }
+  b => { x => 2 }
+  c => { x => 3 }
+  d => { x => 4 }
+  e => { x => "6", empty => "" }
+  f => "hello"
+  f.$ext => "ext"
+  g => {}
 }
 ```
 
-output_json = json`{ "a": { "x": 1 }, "b": { "x": 2 }, "c": { "x": 3 }, "d": { "x": 4 }, "e": { "x": "6" }, "f": "hello", "g": {} }`
+output_json = json`{ "a": { "x": 1 }, "b": { "x": 2 }, "c": { "x": 3 }, "d": { "x": 4 }, "e": { "x": "6", "empty": "" }, "f": "hello", "g": {} }`
 
 @cases.integer-keys
 

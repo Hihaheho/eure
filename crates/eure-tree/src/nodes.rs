@@ -7293,16 +7293,22 @@ impl NonTerminalHandle for TextBindingHandle {
             [
                 NodeKind::NonTerminal(NonTerminalKind::TextStart),
                 NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt),
-                NodeKind::NonTerminal(NonTerminalKind::Text),
                 NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt0),
+                NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt1),
             ],
-            |[text_start, text_binding_opt, text, text_binding_opt_0], visit_ignored| {
+            |[
+                text_start,
+                text_binding_opt,
+                text_binding_opt_0,
+                text_binding_opt_1,
+            ],
+             visit_ignored| {
                 Ok(visit(
                     TextBindingView {
                         text_start: TextStartHandle(text_start),
                         text_binding_opt: TextBindingOptHandle(text_binding_opt),
-                        text: TextHandle(text),
                         text_binding_opt_0: TextBindingOpt0Handle(text_binding_opt_0),
+                        text_binding_opt_1: TextBindingOpt1Handle(text_binding_opt_1),
                     },
                     visit_ignored,
                 ))
@@ -7315,8 +7321,8 @@ impl NonTerminalHandle for TextBindingHandle {
 pub struct TextBindingView {
     pub text_start: TextStartHandle,
     pub text_binding_opt: TextBindingOptHandle,
-    pub text: TextHandle,
     pub text_binding_opt_0: TextBindingOpt0Handle,
+    pub text_binding_opt_1: TextBindingOpt1Handle,
 }
 impl TextBindingView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -7360,7 +7366,7 @@ impl NonTerminalHandle for TextBindingOptHandle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextBindingOpt0Handle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for TextBindingOpt0Handle {
-    type View = Option<GrammarNewlineHandle>;
+    type View = Option<TextHandle>;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -7378,6 +7384,44 @@ impl NonTerminalHandle for TextBindingOpt0Handle {
     }
     fn kind(&self) -> NonTerminalKind {
         NonTerminalKind::TextBindingOpt0
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        if tree.has_no_children(self.0) {
+            return Ok(visit(None, visit_ignored).0);
+        }
+        Ok(visit(
+            Some(TextHandle::new_with_visit(self.0, tree, visit_ignored)?),
+            visit_ignored,
+        )
+        .0)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TextBindingOpt1Handle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for TextBindingOpt1Handle {
+    type View = Option<GrammarNewlineHandle>;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::TextBindingOpt1)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::TextBindingOpt1
     }
     fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
         &self,

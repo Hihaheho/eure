@@ -40,7 +40,7 @@ Binding: Keys BindingRhs ;
   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
   ValueBinding: Bind Value ;
   SectionBinding: Begin Eure End ;
-  TextBinding: TextStart [Ws^] Text [GrammarNewline] ;
+  TextBinding: TextStart [Ws^] [Text] [GrammarNewline] ;
 
 Section: At Keys SectionBody ;
   SectionBody: [ ValueBinding ] { Binding } | Begin Eure End ;

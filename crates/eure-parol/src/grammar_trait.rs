@@ -586,7 +586,7 @@ impl ToSpan for BindingRhsTextBinding<'_> {
 }
 
 ///
-/// Type derived for production 19
+/// Type derived for production 21
 ///
 /// `SectionBody: SectionBodyOpt /* Option */ SectionBodyList /* Vec */;`
 ///
@@ -614,7 +614,7 @@ impl ToSpan for SectionBodySectionBodyOptSectionBodyList<'_> {
 }
 
 ///
-/// Type derived for production 22
+/// Type derived for production 24
 ///
 /// `SectionBody: Begin Eure End;`
 ///
@@ -633,7 +633,7 @@ impl ToSpan for SectionBodyBeginEureEnd<'_> {
 }
 
 ///
-/// Type derived for production 34
+/// Type derived for production 36
 ///
 /// `KeyBase: KeyIdent;`
 ///
@@ -650,7 +650,7 @@ impl ToSpan for KeyBaseKeyIdent<'_> {
 }
 
 ///
-/// Type derived for production 35
+/// Type derived for production 37
 ///
 /// `KeyBase: ExtensionNameSpace;`
 ///
@@ -667,7 +667,7 @@ impl ToSpan for KeyBaseExtensionNameSpace<'_> {
 }
 
 ///
-/// Type derived for production 36
+/// Type derived for production 38
 ///
 /// `KeyBase: String;`
 ///
@@ -684,7 +684,7 @@ impl ToSpan for KeyBaseString<'_> {
 }
 
 ///
-/// Type derived for production 37
+/// Type derived for production 39
 ///
 /// `KeyBase: Integer;`
 ///
@@ -701,7 +701,7 @@ impl ToSpan for KeyBaseInteger<'_> {
 }
 
 ///
-/// Type derived for production 38
+/// Type derived for production 40
 ///
 /// `KeyBase: KeyTuple;`
 ///
@@ -718,7 +718,7 @@ impl ToSpan for KeyBaseKeyTuple<'_> {
 }
 
 ///
-/// Type derived for production 39
+/// Type derived for production 41
 ///
 /// `KeyBase: TupleIndex;`
 ///
@@ -735,7 +735,7 @@ impl ToSpan for KeyBaseTupleIndex<'_> {
 }
 
 ///
-/// Type derived for production 51
+/// Type derived for production 53
 ///
 /// `KeyValue: Integer;`
 ///
@@ -752,7 +752,7 @@ impl ToSpan for KeyValueInteger<'_> {
 }
 
 ///
-/// Type derived for production 52
+/// Type derived for production 54
 ///
 /// `KeyValue: Boolean;`
 ///
@@ -769,7 +769,7 @@ impl ToSpan for KeyValueBoolean<'_> {
 }
 
 ///
-/// Type derived for production 53
+/// Type derived for production 55
 ///
 /// `KeyValue: Str;`
 ///
@@ -786,7 +786,7 @@ impl ToSpan for KeyValueStr<'_> {
 }
 
 ///
-/// Type derived for production 54
+/// Type derived for production 56
 ///
 /// `KeyValue: KeyTuple;`
 ///
@@ -803,7 +803,7 @@ impl ToSpan for KeyValueKeyTuple<'_> {
 }
 
 ///
-/// Type derived for production 55
+/// Type derived for production 57
 ///
 /// `KeyIdent: Ident;`
 ///
@@ -820,7 +820,7 @@ impl ToSpan for KeyIdentIdent<'_> {
 }
 
 ///
-/// Type derived for production 56
+/// Type derived for production 58
 ///
 /// `KeyIdent: True;`
 ///
@@ -837,7 +837,7 @@ impl ToSpan for KeyIdentTrue<'_> {
 }
 
 ///
-/// Type derived for production 57
+/// Type derived for production 59
 ///
 /// `KeyIdent: False;`
 ///
@@ -854,7 +854,7 @@ impl ToSpan for KeyIdentFalse<'_> {
 }
 
 ///
-/// Type derived for production 58
+/// Type derived for production 60
 ///
 /// `KeyIdent: Null;`
 ///
@@ -871,7 +871,7 @@ impl ToSpan for KeyIdentNull<'_> {
 }
 
 ///
-/// Type derived for production 59
+/// Type derived for production 61
 ///
 /// `Value: Object;`
 ///
@@ -888,7 +888,7 @@ impl ToSpan for ValueObject<'_> {
 }
 
 ///
-/// Type derived for production 60
+/// Type derived for production 62
 ///
 /// `Value: Array;`
 ///
@@ -905,7 +905,7 @@ impl ToSpan for ValueArray<'_> {
 }
 
 ///
-/// Type derived for production 61
+/// Type derived for production 63
 ///
 /// `Value: Tuple;`
 ///
@@ -922,7 +922,7 @@ impl ToSpan for ValueTuple<'_> {
 }
 
 ///
-/// Type derived for production 62
+/// Type derived for production 64
 ///
 /// `Value: Number;`
 ///
@@ -939,7 +939,7 @@ impl ToSpan for ValueNumber<'_> {
 }
 
 ///
-/// Type derived for production 63
+/// Type derived for production 65
 ///
 /// `Value: Boolean;`
 ///
@@ -956,7 +956,7 @@ impl ToSpan for ValueBoolean<'_> {
 }
 
 ///
-/// Type derived for production 64
+/// Type derived for production 66
 ///
 /// `Value: Null;`
 ///
@@ -973,7 +973,7 @@ impl ToSpan for ValueNull<'_> {
 }
 
 ///
-/// Type derived for production 65
+/// Type derived for production 67
 ///
 /// `Value: Strings;`
 ///
@@ -990,7 +990,7 @@ impl ToSpan for ValueStrings<'_> {
 }
 
 ///
-/// Type derived for production 66
+/// Type derived for production 68
 ///
 /// `Value: Hole;`
 ///
@@ -1007,7 +1007,7 @@ impl ToSpan for ValueHole<'_> {
 }
 
 ///
-/// Type derived for production 67
+/// Type derived for production 69
 ///
 /// `Value: CodeBlock;`
 ///
@@ -1024,7 +1024,7 @@ impl ToSpan for ValueCodeBlock<'_> {
 }
 
 ///
-/// Type derived for production 68
+/// Type derived for production 70
 ///
 /// `Value: InlineCode;`
 ///
@@ -1041,7 +1041,7 @@ impl ToSpan for ValueInlineCode<'_> {
 }
 
 ///
-/// Type derived for production 97
+/// Type derived for production 99
 ///
 /// `Number: Float;`
 ///
@@ -1058,7 +1058,7 @@ impl ToSpan for NumberFloat<'_> {
 }
 
 ///
-/// Type derived for production 98
+/// Type derived for production 100
 ///
 /// `Number: Integer;`
 ///
@@ -1075,7 +1075,7 @@ impl ToSpan for NumberInteger<'_> {
 }
 
 ///
-/// Type derived for production 99
+/// Type derived for production 101
 ///
 /// `Number: Inf;`
 ///
@@ -1092,7 +1092,7 @@ impl ToSpan for NumberInf<'_> {
 }
 
 ///
-/// Type derived for production 100
+/// Type derived for production 102
 ///
 /// `Number: NaN;`
 ///
@@ -1109,7 +1109,7 @@ impl ToSpan for NumberNaN<'_> {
 }
 
 ///
-/// Type derived for production 105
+/// Type derived for production 107
 ///
 /// `Boolean: True;`
 ///
@@ -1126,7 +1126,7 @@ impl ToSpan for BooleanTrue<'_> {
 }
 
 ///
-/// Type derived for production 106
+/// Type derived for production 108
 ///
 /// `Boolean: False;`
 ///
@@ -1143,7 +1143,7 @@ impl ToSpan for BooleanFalse<'_> {
 }
 
 ///
-/// Type derived for production 111
+/// Type derived for production 113
 ///
 /// `String: Str;`
 ///
@@ -1160,7 +1160,7 @@ impl ToSpan for StringStr<'_> {
 }
 
 ///
-/// Type derived for production 112
+/// Type derived for production 114
 ///
 /// `String: LitStr;`
 ///
@@ -1177,7 +1177,7 @@ impl ToSpan for StringLitStr<'_> {
 }
 
 ///
-/// Type derived for production 113
+/// Type derived for production 115
 ///
 /// `String: LitStr1;`
 ///
@@ -1194,7 +1194,7 @@ impl ToSpan for StringLitStr1<'_> {
 }
 
 ///
-/// Type derived for production 114
+/// Type derived for production 116
 ///
 /// `String: LitStr2;`
 ///
@@ -1211,7 +1211,7 @@ impl ToSpan for StringLitStr2<'_> {
 }
 
 ///
-/// Type derived for production 115
+/// Type derived for production 117
 ///
 /// `String: LitStr3;`
 ///
@@ -1228,7 +1228,7 @@ impl ToSpan for StringLitStr3<'_> {
 }
 
 ///
-/// Type derived for production 122
+/// Type derived for production 124
 ///
 /// `InlineCode: DelimCode;`
 ///
@@ -1245,7 +1245,7 @@ impl ToSpan for InlineCodeDelimCode<'_> {
 }
 
 ///
-/// Type derived for production 123
+/// Type derived for production 125
 ///
 /// `InlineCode: InlineCode1;`
 ///
@@ -1262,7 +1262,7 @@ impl ToSpan for InlineCodeInlineCode1<'_> {
 }
 
 ///
-/// Type derived for production 127
+/// Type derived for production 129
 ///
 /// `LitStr1ListGroup: NoSQuote;`
 ///
@@ -1279,7 +1279,7 @@ impl ToSpan for LitStr1ListGroupNoSQuote<'_> {
 }
 
 ///
-/// Type derived for production 128
+/// Type derived for production 130
 ///
 /// `LitStr1ListGroup: SQuote;`
 ///
@@ -1296,7 +1296,7 @@ impl ToSpan for LitStr1ListGroupSQuote<'_> {
 }
 
 ///
-/// Type derived for production 132
+/// Type derived for production 134
 ///
 /// `LitStr2ListGroup: NoSQuote;`
 ///
@@ -1313,7 +1313,7 @@ impl ToSpan for LitStr2ListGroupNoSQuote<'_> {
 }
 
 ///
-/// Type derived for production 133
+/// Type derived for production 135
 ///
 /// `LitStr2ListGroup: SQuote;`
 ///
@@ -1330,7 +1330,7 @@ impl ToSpan for LitStr2ListGroupSQuote<'_> {
 }
 
 ///
-/// Type derived for production 137
+/// Type derived for production 139
 ///
 /// `LitStr3ListGroup: NoSQuote;`
 ///
@@ -1347,7 +1347,7 @@ impl ToSpan for LitStr3ListGroupNoSQuote<'_> {
 }
 
 ///
-/// Type derived for production 138
+/// Type derived for production 140
 ///
 /// `LitStr3ListGroup: SQuote;`
 ///
@@ -1364,7 +1364,7 @@ impl ToSpan for LitStr3ListGroupSQuote<'_> {
 }
 
 ///
-/// Type derived for production 140
+/// Type derived for production 142
 ///
 /// `DelimCode: DelimCode3;`
 ///
@@ -1381,7 +1381,7 @@ impl ToSpan for DelimCodeDelimCode3<'_> {
 }
 
 ///
-/// Type derived for production 141
+/// Type derived for production 143
 ///
 /// `DelimCode: DelimCode2;`
 ///
@@ -1398,7 +1398,7 @@ impl ToSpan for DelimCodeDelimCode2<'_> {
 }
 
 ///
-/// Type derived for production 142
+/// Type derived for production 144
 ///
 /// `DelimCode: DelimCode1;`
 ///
@@ -1415,7 +1415,7 @@ impl ToSpan for DelimCodeDelimCode1<'_> {
 }
 
 ///
-/// Type derived for production 145
+/// Type derived for production 147
 ///
 /// `DelimCode1ListGroup: NoBacktick;`
 ///
@@ -1432,7 +1432,7 @@ impl ToSpan for DelimCode1ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 146
+/// Type derived for production 148
 ///
 /// `DelimCode1ListGroup: BacktickDelim;`
 ///
@@ -1449,7 +1449,7 @@ impl ToSpan for DelimCode1ListGroupBacktickDelim<'_> {
 }
 
 ///
-/// Type derived for production 150
+/// Type derived for production 152
 ///
 /// `DelimCode2ListGroup: NoBacktick;`
 ///
@@ -1466,7 +1466,7 @@ impl ToSpan for DelimCode2ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 151
+/// Type derived for production 153
 ///
 /// `DelimCode2ListGroup: BacktickDelim;`
 ///
@@ -1483,7 +1483,7 @@ impl ToSpan for DelimCode2ListGroupBacktickDelim<'_> {
 }
 
 ///
-/// Type derived for production 155
+/// Type derived for production 157
 ///
 /// `DelimCode3ListGroup: NoBacktick;`
 ///
@@ -1500,7 +1500,7 @@ impl ToSpan for DelimCode3ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 156
+/// Type derived for production 158
 ///
 /// `DelimCode3ListGroup: BacktickDelim;`
 ///
@@ -1517,7 +1517,7 @@ impl ToSpan for DelimCode3ListGroupBacktickDelim<'_> {
 }
 
 ///
-/// Type derived for production 158
+/// Type derived for production 160
 ///
 /// `CodeBlock: CodeBlock3;`
 ///
@@ -1534,7 +1534,7 @@ impl ToSpan for CodeBlockCodeBlock3<'_> {
 }
 
 ///
-/// Type derived for production 159
+/// Type derived for production 161
 ///
 /// `CodeBlock: CodeBlock4;`
 ///
@@ -1551,7 +1551,7 @@ impl ToSpan for CodeBlockCodeBlock4<'_> {
 }
 
 ///
-/// Type derived for production 160
+/// Type derived for production 162
 ///
 /// `CodeBlock: CodeBlock5;`
 ///
@@ -1568,7 +1568,7 @@ impl ToSpan for CodeBlockCodeBlock5<'_> {
 }
 
 ///
-/// Type derived for production 161
+/// Type derived for production 163
 ///
 /// `CodeBlock: CodeBlock6;`
 ///
@@ -1585,7 +1585,7 @@ impl ToSpan for CodeBlockCodeBlock6<'_> {
 }
 
 ///
-/// Type derived for production 164
+/// Type derived for production 166
 ///
 /// `CodeBlock3ListGroup: NoBacktick;`
 ///
@@ -1602,7 +1602,7 @@ impl ToSpan for CodeBlock3ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 165
+/// Type derived for production 167
 ///
 /// `CodeBlock3ListGroup: Backtick2;`
 ///
@@ -1619,7 +1619,7 @@ impl ToSpan for CodeBlock3ListGroupBacktick2<'_> {
 }
 
 ///
-/// Type derived for production 169
+/// Type derived for production 171
 ///
 /// `CodeBlock4ListGroup: NoBacktick;`
 ///
@@ -1636,7 +1636,7 @@ impl ToSpan for CodeBlock4ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 170
+/// Type derived for production 172
 ///
 /// `CodeBlock4ListGroup: Backtick3;`
 ///
@@ -1653,7 +1653,7 @@ impl ToSpan for CodeBlock4ListGroupBacktick3<'_> {
 }
 
 ///
-/// Type derived for production 174
+/// Type derived for production 176
 ///
 /// `CodeBlock5ListGroup: NoBacktick;`
 ///
@@ -1670,7 +1670,7 @@ impl ToSpan for CodeBlock5ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 175
+/// Type derived for production 177
 ///
 /// `CodeBlock5ListGroup: Backtick4;`
 ///
@@ -1687,7 +1687,7 @@ impl ToSpan for CodeBlock5ListGroupBacktick4<'_> {
 }
 
 ///
-/// Type derived for production 179
+/// Type derived for production 181
 ///
 /// `CodeBlock6ListGroup: NoBacktick;`
 ///
@@ -1704,7 +1704,7 @@ impl ToSpan for CodeBlock6ListGroupNoBacktick<'_> {
 }
 
 ///
-/// Type derived for production 180
+/// Type derived for production 182
 ///
 /// `CodeBlock6ListGroup: Backtick5;`
 ///
@@ -4012,8 +4012,8 @@ impl ToSpan for Text<'_> {
 pub struct TextBinding<'t> {
     pub text_start: TextStart<'t>,
     pub text_binding_opt: Option<TextBindingOpt>,
-    pub text: Text<'t>,
     pub text_binding_opt0: Option<TextBindingOpt0<'t>>,
+    pub text_binding_opt1: Option<TextBindingOpt1<'t>>,
 }
 
 impl ToSpan for TextBinding<'_> {
@@ -4023,9 +4023,12 @@ impl ToSpan for TextBinding<'_> {
                 .text_binding_opt
                 .as_ref()
                 .map_or(Span::default(), |o| o.span())
-            + self.text.span()
             + self
                 .text_binding_opt0
+                .as_ref()
+                .map_or(Span::default(), |o| o.span())
+            + self
+                .text_binding_opt1
                 .as_ref()
                 .map_or(Span::default(), |o| o.span())
     }
@@ -4050,10 +4053,25 @@ impl ToSpan for TextBindingOpt {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TextBindingOpt0<'t> {
-    pub grammar_newline: GrammarNewline<'t>,
+    pub text: Text<'t>,
 }
 
 impl ToSpan for TextBindingOpt0<'_> {
+    fn span(&self) -> Span {
+        self.text.span()
+    }
+}
+
+///
+/// Type derived for non-terminal TextBindingOpt1
+///
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct TextBindingOpt1<'t> {
+    pub grammar_newline: GrammarNewline<'t>,
+}
+
+impl ToSpan for TextBindingOpt1<'_> {
     fn span(&self) -> Span {
         self.grammar_newline.span()
     }
@@ -4419,6 +4437,7 @@ pub enum ASTType<'t> {
     TextBinding(TextBinding<'t>),
     TextBindingOpt(Option<TextBindingOpt>),
     TextBindingOpt0(Option<TextBindingOpt0<'t>>),
+    TextBindingOpt1(Option<TextBindingOpt1<'t>>),
     TextStart(TextStart<'t>),
     True(True<'t>),
     Tuple(Tuple<'t>),
@@ -4616,6 +4635,7 @@ impl ToSpan for ASTType<'_> {
             ASTType::TextBinding(v) => v.span(),
             ASTType::TextBindingOpt(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::TextBindingOpt0(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
+            ASTType::TextBindingOpt1(o) => o.as_ref().map_or(Span::default(), |o| o.span()),
             ASTType::TextStart(v) => v.span(),
             ASTType::True(v) => v.span(),
             ASTType::Tuple(v) => v.span(),
@@ -4932,27 +4952,27 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 13:
     ///
-    /// `TextBinding: TextStart TextBindingOpt /* Option */ Text TextBindingOpt0 /* Option */;`
+    /// `TextBinding: TextStart TextBindingOpt /* Option */ TextBindingOpt0 /* Option */ TextBindingOpt1 /* Option */;`
     ///
     #[parol_runtime::function_name::named]
     fn text_binding(
         &mut self,
         _text_start: &ParseTreeType<'t>,
         _text_binding_opt: &ParseTreeType<'t>,
-        _text: &ParseTreeType<'t>,
         _text_binding_opt0: &ParseTreeType<'t>,
+        _text_binding_opt1: &ParseTreeType<'t>,
     ) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
+        let text_binding_opt1 = pop_item!(self, text_binding_opt1, TextBindingOpt1, context);
         let text_binding_opt0 = pop_item!(self, text_binding_opt0, TextBindingOpt0, context);
-        let text = pop_item!(self, text, Text, context);
         let text_binding_opt = pop_item!(self, text_binding_opt, TextBindingOpt, context);
         let text_start = pop_item!(self, text_start, TextStart, context);
         let text_binding_built = TextBinding {
             text_start,
             text_binding_opt,
-            text,
             text_binding_opt0,
+            text_binding_opt1,
         };
         // Calling user action here
         self.user_grammar.text_binding(&text_binding_built)?;
@@ -4962,14 +4982,43 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
 
     /// Semantic action for production 14:
     ///
-    /// `TextBindingOpt0 /* Option<T>::Some */: GrammarNewline;`
+    /// `TextBindingOpt1 /* Option<T>::Some */: GrammarNewline;`
     ///
     #[parol_runtime::function_name::named]
-    fn text_binding_opt0_0(&mut self, _grammar_newline: &ParseTreeType<'t>) -> Result<()> {
+    fn text_binding_opt1_0(&mut self, _grammar_newline: &ParseTreeType<'t>) -> Result<()> {
         let context = function_name!();
         trace!("{}", self.trace_item_stack(context));
         let grammar_newline = pop_item!(self, grammar_newline, GrammarNewline, context);
-        let text_binding_opt0_0_built = TextBindingOpt0 { grammar_newline };
+        let text_binding_opt1_0_built = TextBindingOpt1 { grammar_newline };
+        self.push(
+            ASTType::TextBindingOpt1(Some(text_binding_opt1_0_built)),
+            context,
+        );
+        Ok(())
+    }
+
+    /// Semantic action for production 15:
+    ///
+    /// `TextBindingOpt1 /* Option<T>::None */: ;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn text_binding_opt1_1(&mut self) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        self.push(ASTType::TextBindingOpt1(None), context);
+        Ok(())
+    }
+
+    /// Semantic action for production 16:
+    ///
+    /// `TextBindingOpt0 /* Option<T>::Some */: Text;`
+    ///
+    #[parol_runtime::function_name::named]
+    fn text_binding_opt0_0(&mut self, _text: &ParseTreeType<'t>) -> Result<()> {
+        let context = function_name!();
+        trace!("{}", self.trace_item_stack(context));
+        let text = pop_item!(self, text, Text, context);
+        let text_binding_opt0_0_built = TextBindingOpt0 { text };
         self.push(
             ASTType::TextBindingOpt0(Some(text_binding_opt0_0_built)),
             context,
@@ -4977,7 +5026,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 15:
+    /// Semantic action for production 17:
     ///
     /// `TextBindingOpt0 /* Option<T>::None */: ;`
     ///
@@ -4989,7 +5038,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 16:
+    /// Semantic action for production 18:
     ///
     /// `TextBindingOpt /* Option<T>::Some */: Ws^ /* Clipped */;`
     ///
@@ -5006,7 +5055,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 17:
+    /// Semantic action for production 19:
     ///
     /// `TextBindingOpt /* Option<T>::None */: ;`
     ///
@@ -5018,7 +5067,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 18:
+    /// Semantic action for production 20:
     ///
     /// `Section: At Keys SectionBody;`
     ///
@@ -5045,7 +5094,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 19:
+    /// Semantic action for production 21:
     ///
     /// `SectionBody: SectionBodyOpt /* Option */ SectionBodyList /* Vec */;`
     ///
@@ -5071,7 +5120,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 20:
+    /// Semantic action for production 22:
     ///
     /// `SectionBodyList /* Vec<T>::Push */: Binding SectionBodyList;`
     ///
@@ -5092,7 +5141,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 21:
+    /// Semantic action for production 23:
     ///
     /// `SectionBodyList /* Vec<T>::New */: ;`
     ///
@@ -5105,7 +5154,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 22:
+    /// Semantic action for production 24:
     ///
     /// `SectionBody: Begin Eure End;`
     ///
@@ -5129,7 +5178,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 23:
+    /// Semantic action for production 25:
     ///
     /// `SectionBodyOpt /* Option<T>::Some */: ValueBinding;`
     ///
@@ -5146,7 +5195,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 24:
+    /// Semantic action for production 26:
     ///
     /// `SectionBodyOpt /* Option<T>::None */: ;`
     ///
@@ -5158,7 +5207,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 25:
+    /// Semantic action for production 27:
     ///
     /// `Keys: Key KeysList /* Vec */;`
     ///
@@ -5175,7 +5224,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 26:
+    /// Semantic action for production 28:
     ///
     /// `KeysList /* Vec<T>::Push */: Dot Key KeysList;`
     ///
@@ -5198,7 +5247,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 27:
+    /// Semantic action for production 29:
     ///
     /// `KeysList /* Vec<T>::New */: ;`
     ///
@@ -5211,7 +5260,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 28:
+    /// Semantic action for production 30:
     ///
     /// `Key: KeyBase KeyOpt /* Option */;`
     ///
@@ -5228,7 +5277,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 29:
+    /// Semantic action for production 31:
     ///
     /// `KeyOpt /* Option<T>::Some */: ArrayMarker;`
     ///
@@ -5242,7 +5291,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 30:
+    /// Semantic action for production 32:
     ///
     /// `KeyOpt /* Option<T>::None */: ;`
     ///
@@ -5254,7 +5303,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 31:
+    /// Semantic action for production 33:
     ///
     /// `ArrayMarker: ArrayBegin ArrayMarkerOpt /* Option */ ArrayEnd;`
     ///
@@ -5281,7 +5330,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 32:
+    /// Semantic action for production 34:
     ///
     /// `ArrayMarkerOpt /* Option<T>::Some */: Integer;`
     ///
@@ -5298,7 +5347,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 33:
+    /// Semantic action for production 35:
     ///
     /// `ArrayMarkerOpt /* Option<T>::None */: ;`
     ///
@@ -5310,7 +5359,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 34:
+    /// Semantic action for production 36:
     ///
     /// `KeyBase: KeyIdent;`
     ///
@@ -5327,7 +5376,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 35:
+    /// Semantic action for production 37:
     ///
     /// `KeyBase: ExtensionNameSpace;`
     ///
@@ -5347,7 +5396,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 36:
+    /// Semantic action for production 38:
     ///
     /// `KeyBase: String;`
     ///
@@ -5364,7 +5413,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 37:
+    /// Semantic action for production 39:
     ///
     /// `KeyBase: Integer;`
     ///
@@ -5381,7 +5430,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 38:
+    /// Semantic action for production 40:
     ///
     /// `KeyBase: KeyTuple;`
     ///
@@ -5398,7 +5447,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 39:
+    /// Semantic action for production 41:
     ///
     /// `KeyBase: TupleIndex;`
     ///
@@ -5415,7 +5464,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 40:
+    /// Semantic action for production 42:
     ///
     /// `TupleIndex: '#' Integer;`
     ///
@@ -5436,7 +5485,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 41:
+    /// Semantic action for production 43:
     ///
     /// `ExtensionNameSpace: Ext KeyIdent;`
     ///
@@ -5461,7 +5510,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 42:
+    /// Semantic action for production 44:
     ///
     /// `KeyTuple: LParen KeyTupleOpt /* Option */ RParen;`
     ///
@@ -5488,7 +5537,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 43:
+    /// Semantic action for production 45:
     ///
     /// `KeyTupleOpt /* Option<T>::Some */: KeyTupleElements;`
     ///
@@ -5502,7 +5551,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 44:
+    /// Semantic action for production 46:
     ///
     /// `KeyTupleOpt /* Option<T>::None */: ;`
     ///
@@ -5514,7 +5563,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 45:
+    /// Semantic action for production 47:
     ///
     /// `KeyTupleElements: KeyValue KeyTupleElementsOpt /* Option */;`
     ///
@@ -5540,7 +5589,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 46:
+    /// Semantic action for production 48:
     ///
     /// `KeyTupleElementsOpt /* Option<T>::Some */: KeyTupleElementsTail;`
     ///
@@ -5563,7 +5612,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 47:
+    /// Semantic action for production 49:
     ///
     /// `KeyTupleElementsOpt /* Option<T>::None */: ;`
     ///
@@ -5575,7 +5624,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 48:
+    /// Semantic action for production 50:
     ///
     /// `KeyTupleElementsTail: Comma KeyTupleElementsTailOpt /* Option */;`
     ///
@@ -5608,7 +5657,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 49:
+    /// Semantic action for production 51:
     ///
     /// `KeyTupleElementsTailOpt /* Option<T>::Some */: KeyTupleElements;`
     ///
@@ -5628,7 +5677,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 50:
+    /// Semantic action for production 52:
     ///
     /// `KeyTupleElementsTailOpt /* Option<T>::None */: ;`
     ///
@@ -5640,7 +5689,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 51:
+    /// Semantic action for production 53:
     ///
     /// `KeyValue: Integer;`
     ///
@@ -5657,7 +5706,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 52:
+    /// Semantic action for production 54:
     ///
     /// `KeyValue: Boolean;`
     ///
@@ -5674,7 +5723,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 53:
+    /// Semantic action for production 55:
     ///
     /// `KeyValue: Str;`
     ///
@@ -5691,7 +5740,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 54:
+    /// Semantic action for production 56:
     ///
     /// `KeyValue: KeyTuple;`
     ///
@@ -5710,7 +5759,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 55:
+    /// Semantic action for production 57:
     ///
     /// `KeyIdent: Ident;`
     ///
@@ -5727,7 +5776,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 56:
+    /// Semantic action for production 58:
     ///
     /// `KeyIdent: True;`
     ///
@@ -5744,7 +5793,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 57:
+    /// Semantic action for production 59:
     ///
     /// `KeyIdent: False;`
     ///
@@ -5761,7 +5810,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 58:
+    /// Semantic action for production 60:
     ///
     /// `KeyIdent: Null;`
     ///
@@ -5778,7 +5827,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 59:
+    /// Semantic action for production 61:
     ///
     /// `Value: Object;`
     ///
@@ -5797,7 +5846,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 60:
+    /// Semantic action for production 62:
     ///
     /// `Value: Array;`
     ///
@@ -5816,7 +5865,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 61:
+    /// Semantic action for production 63:
     ///
     /// `Value: Tuple;`
     ///
@@ -5835,7 +5884,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 62:
+    /// Semantic action for production 64:
     ///
     /// `Value: Number;`
     ///
@@ -5852,7 +5901,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 63:
+    /// Semantic action for production 65:
     ///
     /// `Value: Boolean;`
     ///
@@ -5869,7 +5918,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 64:
+    /// Semantic action for production 66:
     ///
     /// `Value: Null;`
     ///
@@ -5886,7 +5935,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 65:
+    /// Semantic action for production 67:
     ///
     /// `Value: Strings;`
     ///
@@ -5903,7 +5952,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 66:
+    /// Semantic action for production 68:
     ///
     /// `Value: Hole;`
     ///
@@ -5920,7 +5969,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 67:
+    /// Semantic action for production 69:
     ///
     /// `Value: CodeBlock;`
     ///
@@ -5937,7 +5986,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 68:
+    /// Semantic action for production 70:
     ///
     /// `Value: InlineCode;`
     ///
@@ -5954,7 +6003,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 69:
+    /// Semantic action for production 71:
     ///
     /// `Object: Begin ObjectOpt /* Option */ ObjectList /* Vec */ End;`
     ///
@@ -5984,7 +6033,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 70:
+    /// Semantic action for production 72:
     ///
     /// `ObjectList /* Vec<T>::Push */: Keys MapBind Value ObjectOpt0 /* Option */ ObjectList;`
     ///
@@ -6016,7 +6065,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 71:
+    /// Semantic action for production 73:
     ///
     /// `ObjectList /* Vec<T>::New */: ;`
     ///
@@ -6029,7 +6078,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 72:
+    /// Semantic action for production 74:
     ///
     /// `ObjectOpt0 /* Option<T>::Some */: Comma;`
     ///
@@ -6043,7 +6092,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 73:
+    /// Semantic action for production 75:
     ///
     /// `ObjectOpt0 /* Option<T>::None */: ;`
     ///
@@ -6055,7 +6104,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 74:
+    /// Semantic action for production 76:
     ///
     /// `ObjectOpt /* Option<T>::Some */: ValueBinding ObjectOpt1 /* Option */;`
     ///
@@ -6077,7 +6126,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 75:
+    /// Semantic action for production 77:
     ///
     /// `ObjectOpt1 /* Option<T>::Some */: Comma;`
     ///
@@ -6091,7 +6140,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 76:
+    /// Semantic action for production 78:
     ///
     /// `ObjectOpt1 /* Option<T>::None */: ;`
     ///
@@ -6103,7 +6152,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 77:
+    /// Semantic action for production 79:
     ///
     /// `ObjectOpt /* Option<T>::None */: ;`
     ///
@@ -6115,7 +6164,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 78:
+    /// Semantic action for production 80:
     ///
     /// `MapBind: '=>';`
     ///
@@ -6131,7 +6180,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 79:
+    /// Semantic action for production 81:
     ///
     /// `Array: ArrayBegin ArrayOpt /* Option */ ArrayEnd;`
     ///
@@ -6158,7 +6207,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 80:
+    /// Semantic action for production 82:
     ///
     /// `ArrayOpt /* Option<T>::Some */: ArrayElements;`
     ///
@@ -6172,7 +6221,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 81:
+    /// Semantic action for production 83:
     ///
     /// `ArrayOpt /* Option<T>::None */: ;`
     ///
@@ -6184,7 +6233,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 82:
+    /// Semantic action for production 84:
     ///
     /// `ArrayElements: Value ArrayElementsOpt /* Option */;`
     ///
@@ -6208,7 +6257,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 83:
+    /// Semantic action for production 85:
     ///
     /// `ArrayElementsOpt /* Option<T>::Some */: ArrayElementsTail;`
     ///
@@ -6227,7 +6276,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 84:
+    /// Semantic action for production 86:
     ///
     /// `ArrayElementsOpt /* Option<T>::None */: ;`
     ///
@@ -6239,7 +6288,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 85:
+    /// Semantic action for production 87:
     ///
     /// `ArrayElementsTail: Comma ArrayElementsTailOpt /* Option */;`
     ///
@@ -6268,7 +6317,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 86:
+    /// Semantic action for production 88:
     ///
     /// `ArrayElementsTailOpt /* Option<T>::Some */: ArrayElements;`
     ///
@@ -6285,7 +6334,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 87:
+    /// Semantic action for production 89:
     ///
     /// `ArrayElementsTailOpt /* Option<T>::None */: ;`
     ///
@@ -6297,7 +6346,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 88:
+    /// Semantic action for production 90:
     ///
     /// `Tuple: LParen TupleOpt /* Option */ RParen;`
     ///
@@ -6324,7 +6373,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 89:
+    /// Semantic action for production 91:
     ///
     /// `TupleOpt /* Option<T>::Some */: TupleElements;`
     ///
@@ -6338,7 +6387,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 90:
+    /// Semantic action for production 92:
     ///
     /// `TupleOpt /* Option<T>::None */: ;`
     ///
@@ -6350,7 +6399,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 91:
+    /// Semantic action for production 93:
     ///
     /// `TupleElements: Value TupleElementsOpt /* Option */;`
     ///
@@ -6374,7 +6423,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 92:
+    /// Semantic action for production 94:
     ///
     /// `TupleElementsOpt /* Option<T>::Some */: TupleElementsTail;`
     ///
@@ -6393,7 +6442,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 93:
+    /// Semantic action for production 95:
     ///
     /// `TupleElementsOpt /* Option<T>::None */: ;`
     ///
@@ -6405,7 +6454,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 94:
+    /// Semantic action for production 96:
     ///
     /// `TupleElementsTail: Comma TupleElementsTailOpt /* Option */;`
     ///
@@ -6434,7 +6483,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 95:
+    /// Semantic action for production 97:
     ///
     /// `TupleElementsTailOpt /* Option<T>::Some */: TupleElements;`
     ///
@@ -6451,7 +6500,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 96:
+    /// Semantic action for production 98:
     ///
     /// `TupleElementsTailOpt /* Option<T>::None */: ;`
     ///
@@ -6463,7 +6512,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 97:
+    /// Semantic action for production 99:
     ///
     /// `Number: Float;`
     ///
@@ -6480,7 +6529,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 98:
+    /// Semantic action for production 100:
     ///
     /// `Number: Integer;`
     ///
@@ -6497,7 +6546,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 99:
+    /// Semantic action for production 101:
     ///
     /// `Number: Inf;`
     ///
@@ -6514,7 +6563,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 100:
+    /// Semantic action for production 102:
     ///
     /// `Number: NaN;`
     ///
@@ -6531,7 +6580,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 101:
+    /// Semantic action for production 103:
     ///
     /// `Integer: /[-+]?\d[\d_]*/;`
     ///
@@ -6547,7 +6596,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 102:
+    /// Semantic action for production 104:
     ///
     /// `Float: /[-+]?\d[\d_]*\.\d*([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/;`
     ///
@@ -6563,7 +6612,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 103:
+    /// Semantic action for production 105:
     ///
     /// `Inf: /[-+]?[Ii]nf/;`
     ///
@@ -6579,7 +6628,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 104:
+    /// Semantic action for production 106:
     ///
     /// `NaN: /[Nn]a[Nn]/;`
     ///
@@ -6595,7 +6644,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 105:
+    /// Semantic action for production 107:
     ///
     /// `Boolean: True;`
     ///
@@ -6612,7 +6661,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 106:
+    /// Semantic action for production 108:
     ///
     /// `Boolean: False;`
     ///
@@ -6629,7 +6678,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 107:
+    /// Semantic action for production 109:
     ///
     /// `True: 'true';`
     ///
@@ -6645,7 +6694,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 108:
+    /// Semantic action for production 110:
     ///
     /// `False: 'false';`
     ///
@@ -6661,7 +6710,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 109:
+    /// Semantic action for production 111:
     ///
     /// `Null: 'null';`
     ///
@@ -6677,7 +6726,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 110:
+    /// Semantic action for production 112:
     ///
     /// `Hole: /![\p{XID_Start}_]?[\p{XID_Continue}-]*/;`
     ///
@@ -6693,7 +6742,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 111:
+    /// Semantic action for production 113:
     ///
     /// `String: Str;`
     ///
@@ -6710,7 +6759,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 112:
+    /// Semantic action for production 114:
     ///
     /// `String: LitStr;`
     ///
@@ -6727,7 +6776,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 113:
+    /// Semantic action for production 115:
     ///
     /// `String: LitStr1;`
     ///
@@ -6744,7 +6793,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 114:
+    /// Semantic action for production 116:
     ///
     /// `String: LitStr2;`
     ///
@@ -6761,7 +6810,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 115:
+    /// Semantic action for production 117:
     ///
     /// `String: LitStr3;`
     ///
@@ -6778,7 +6827,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 116:
+    /// Semantic action for production 118:
     ///
     /// `Strings: String StringsList /* Vec */;`
     ///
@@ -6802,7 +6851,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 117:
+    /// Semantic action for production 119:
     ///
     /// `StringsList /* Vec<T>::Push */: Continue String StringsList;`
     ///
@@ -6825,7 +6874,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 118:
+    /// Semantic action for production 120:
     ///
     /// `StringsList /* Vec<T>::New */: ;`
     ///
@@ -6838,7 +6887,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 119:
+    /// Semantic action for production 121:
     ///
     /// `Str: /"([^"]|\\")*"/;`
     ///
@@ -6854,7 +6903,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 120:
+    /// Semantic action for production 122:
     ///
     /// `LitStr: /'[^']*'/;`
     ///
@@ -6870,7 +6919,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 121:
+    /// Semantic action for production 123:
     ///
     /// `Text: <Text>/[^\r\n]*/;`
     ///
@@ -6886,7 +6935,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 122:
+    /// Semantic action for production 124:
     ///
     /// `InlineCode: DelimCode;`
     ///
@@ -6903,7 +6952,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 123:
+    /// Semantic action for production 125:
     ///
     /// `InlineCode: InlineCode1;`
     ///
@@ -6920,7 +6969,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 124:
+    /// Semantic action for production 126:
     ///
     /// `InlineCode1: /[a-zA-Z0-9-_]*`[^`\r\n]*`/;`
     ///
@@ -6936,7 +6985,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 125:
+    /// Semantic action for production 127:
     ///
     /// `LitStr1: LitStr1Start LitStr1List /* Vec */ LitStr1End;`
     ///
@@ -6963,7 +7012,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 126:
+    /// Semantic action for production 128:
     ///
     /// `LitStr1List /* Vec<T>::Push */: LitStr1ListGroup LitStr1List;`
     ///
@@ -6986,7 +7035,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 127:
+    /// Semantic action for production 129:
     ///
     /// `LitStr1ListGroup: NoSQuote;`
     ///
@@ -7004,7 +7053,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 128:
+    /// Semantic action for production 130:
     ///
     /// `LitStr1ListGroup: SQuote;`
     ///
@@ -7022,7 +7071,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 129:
+    /// Semantic action for production 131:
     ///
     /// `LitStr1List /* Vec<T>::New */: ;`
     ///
@@ -7035,7 +7084,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 130:
+    /// Semantic action for production 132:
     ///
     /// `LitStr2: LitStr2Start LitStr2List /* Vec */ LitStr2End;`
     ///
@@ -7062,7 +7111,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 131:
+    /// Semantic action for production 133:
     ///
     /// `LitStr2List /* Vec<T>::Push */: LitStr2ListGroup LitStr2List;`
     ///
@@ -7085,7 +7134,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 132:
+    /// Semantic action for production 134:
     ///
     /// `LitStr2ListGroup: NoSQuote;`
     ///
@@ -7103,7 +7152,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 133:
+    /// Semantic action for production 135:
     ///
     /// `LitStr2ListGroup: SQuote;`
     ///
@@ -7121,7 +7170,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 134:
+    /// Semantic action for production 136:
     ///
     /// `LitStr2List /* Vec<T>::New */: ;`
     ///
@@ -7134,7 +7183,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 135:
+    /// Semantic action for production 137:
     ///
     /// `LitStr3: LitStr3Start LitStr3List /* Vec */ LitStr3End;`
     ///
@@ -7161,7 +7210,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 136:
+    /// Semantic action for production 138:
     ///
     /// `LitStr3List /* Vec<T>::Push */: LitStr3ListGroup LitStr3List;`
     ///
@@ -7184,7 +7233,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 137:
+    /// Semantic action for production 139:
     ///
     /// `LitStr3ListGroup: NoSQuote;`
     ///
@@ -7202,7 +7251,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 138:
+    /// Semantic action for production 140:
     ///
     /// `LitStr3ListGroup: SQuote;`
     ///
@@ -7220,7 +7269,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 139:
+    /// Semantic action for production 141:
     ///
     /// `LitStr3List /* Vec<T>::New */: ;`
     ///
@@ -7233,7 +7282,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 140:
+    /// Semantic action for production 142:
     ///
     /// `DelimCode: DelimCode3;`
     ///
@@ -7250,7 +7299,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 141:
+    /// Semantic action for production 143:
     ///
     /// `DelimCode: DelimCode2;`
     ///
@@ -7267,7 +7316,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 142:
+    /// Semantic action for production 144:
     ///
     /// `DelimCode: DelimCode1;`
     ///
@@ -7284,7 +7333,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 143:
+    /// Semantic action for production 145:
     ///
     /// `DelimCode1: DelimCodeStart1 DelimCode1List /* Vec */ DelimCodeEnd1;`
     ///
@@ -7312,7 +7361,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 144:
+    /// Semantic action for production 146:
     ///
     /// `DelimCode1List /* Vec<T>::Push */: DelimCode1ListGroup DelimCode1List;`
     ///
@@ -7336,7 +7385,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 145:
+    /// Semantic action for production 147:
     ///
     /// `DelimCode1ListGroup: NoBacktick;`
     ///
@@ -7355,7 +7404,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 146:
+    /// Semantic action for production 148:
     ///
     /// `DelimCode1ListGroup: BacktickDelim;`
     ///
@@ -7374,7 +7423,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 147:
+    /// Semantic action for production 149:
     ///
     /// `DelimCode1List /* Vec<T>::New */: ;`
     ///
@@ -7387,7 +7436,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 148:
+    /// Semantic action for production 150:
     ///
     /// `DelimCode2: DelimCodeStart2 DelimCode2List /* Vec */ DelimCodeEnd2;`
     ///
@@ -7415,7 +7464,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 149:
+    /// Semantic action for production 151:
     ///
     /// `DelimCode2List /* Vec<T>::Push */: DelimCode2ListGroup DelimCode2List;`
     ///
@@ -7439,7 +7488,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 150:
+    /// Semantic action for production 152:
     ///
     /// `DelimCode2ListGroup: NoBacktick;`
     ///
@@ -7458,7 +7507,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 151:
+    /// Semantic action for production 153:
     ///
     /// `DelimCode2ListGroup: BacktickDelim;`
     ///
@@ -7477,7 +7526,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 152:
+    /// Semantic action for production 154:
     ///
     /// `DelimCode2List /* Vec<T>::New */: ;`
     ///
@@ -7490,7 +7539,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 153:
+    /// Semantic action for production 155:
     ///
     /// `DelimCode3: DelimCodeStart3 DelimCode3List /* Vec */ DelimCodeEnd3;`
     ///
@@ -7518,7 +7567,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 154:
+    /// Semantic action for production 156:
     ///
     /// `DelimCode3List /* Vec<T>::Push */: DelimCode3ListGroup DelimCode3List;`
     ///
@@ -7542,7 +7591,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 155:
+    /// Semantic action for production 157:
     ///
     /// `DelimCode3ListGroup: NoBacktick;`
     ///
@@ -7561,7 +7610,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 156:
+    /// Semantic action for production 158:
     ///
     /// `DelimCode3ListGroup: BacktickDelim;`
     ///
@@ -7580,7 +7629,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 157:
+    /// Semantic action for production 159:
     ///
     /// `DelimCode3List /* Vec<T>::New */: ;`
     ///
@@ -7593,7 +7642,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 158:
+    /// Semantic action for production 160:
     ///
     /// `CodeBlock: CodeBlock3;`
     ///
@@ -7610,7 +7659,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 159:
+    /// Semantic action for production 161:
     ///
     /// `CodeBlock: CodeBlock4;`
     ///
@@ -7627,7 +7676,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 160:
+    /// Semantic action for production 162:
     ///
     /// `CodeBlock: CodeBlock5;`
     ///
@@ -7644,7 +7693,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 161:
+    /// Semantic action for production 163:
     ///
     /// `CodeBlock: CodeBlock6;`
     ///
@@ -7661,7 +7710,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 162:
+    /// Semantic action for production 164:
     ///
     /// `CodeBlock3: CodeBlockStart3 CodeBlock3List /* Vec */ CodeBlockEnd3;`
     ///
@@ -7689,7 +7738,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 163:
+    /// Semantic action for production 165:
     ///
     /// `CodeBlock3List /* Vec<T>::Push */: CodeBlock3ListGroup CodeBlock3List;`
     ///
@@ -7713,7 +7762,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 164:
+    /// Semantic action for production 166:
     ///
     /// `CodeBlock3ListGroup: NoBacktick;`
     ///
@@ -7732,7 +7781,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 165:
+    /// Semantic action for production 167:
     ///
     /// `CodeBlock3ListGroup: Backtick2;`
     ///
@@ -7751,7 +7800,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 166:
+    /// Semantic action for production 168:
     ///
     /// `CodeBlock3List /* Vec<T>::New */: ;`
     ///
@@ -7764,7 +7813,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 167:
+    /// Semantic action for production 169:
     ///
     /// `CodeBlock4: CodeBlockStart4 CodeBlock4List /* Vec */ CodeBlockEnd4;`
     ///
@@ -7792,7 +7841,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 168:
+    /// Semantic action for production 170:
     ///
     /// `CodeBlock4List /* Vec<T>::Push */: CodeBlock4ListGroup CodeBlock4List;`
     ///
@@ -7816,7 +7865,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 169:
+    /// Semantic action for production 171:
     ///
     /// `CodeBlock4ListGroup: NoBacktick;`
     ///
@@ -7835,7 +7884,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 170:
+    /// Semantic action for production 172:
     ///
     /// `CodeBlock4ListGroup: Backtick3;`
     ///
@@ -7854,7 +7903,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 171:
+    /// Semantic action for production 173:
     ///
     /// `CodeBlock4List /* Vec<T>::New */: ;`
     ///
@@ -7867,7 +7916,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 172:
+    /// Semantic action for production 174:
     ///
     /// `CodeBlock5: CodeBlockStart5 CodeBlock5List /* Vec */ CodeBlockEnd5;`
     ///
@@ -7895,7 +7944,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 173:
+    /// Semantic action for production 175:
     ///
     /// `CodeBlock5List /* Vec<T>::Push */: CodeBlock5ListGroup CodeBlock5List;`
     ///
@@ -7919,7 +7968,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 174:
+    /// Semantic action for production 176:
     ///
     /// `CodeBlock5ListGroup: NoBacktick;`
     ///
@@ -7938,7 +7987,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 175:
+    /// Semantic action for production 177:
     ///
     /// `CodeBlock5ListGroup: Backtick4;`
     ///
@@ -7957,7 +8006,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 176:
+    /// Semantic action for production 178:
     ///
     /// `CodeBlock5List /* Vec<T>::New */: ;`
     ///
@@ -7970,7 +8019,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 177:
+    /// Semantic action for production 179:
     ///
     /// `CodeBlock6: CodeBlockStart6 CodeBlock6List /* Vec */ CodeBlockEnd6;`
     ///
@@ -7998,7 +8047,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 178:
+    /// Semantic action for production 180:
     ///
     /// `CodeBlock6List /* Vec<T>::Push */: CodeBlock6ListGroup CodeBlock6List;`
     ///
@@ -8022,7 +8071,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 179:
+    /// Semantic action for production 181:
     ///
     /// `CodeBlock6ListGroup: NoBacktick;`
     ///
@@ -8041,7 +8090,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 180:
+    /// Semantic action for production 182:
     ///
     /// `CodeBlock6ListGroup: Backtick5;`
     ///
@@ -8060,7 +8109,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 181:
+    /// Semantic action for production 183:
     ///
     /// `CodeBlock6List /* Vec<T>::New */: ;`
     ///
@@ -8073,7 +8122,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 182:
+    /// Semantic action for production 184:
     ///
     /// `LitStr3Start: "<<<'";`
     ///
@@ -8089,7 +8138,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 183:
+    /// Semantic action for production 185:
     ///
     /// `LitStr2Start: "<<'";`
     ///
@@ -8105,7 +8154,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 184:
+    /// Semantic action for production 186:
     ///
     /// `LitStr1Start: "<'";`
     ///
@@ -8121,7 +8170,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 185:
+    /// Semantic action for production 187:
     ///
     /// `DelimCodeStart3: /[a-zA-Z0-9-_]*<<<`/;`
     ///
@@ -8138,7 +8187,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 186:
+    /// Semantic action for production 188:
     ///
     /// `DelimCodeStart2: /[a-zA-Z0-9-_]*<<`/;`
     ///
@@ -8155,7 +8204,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 187:
+    /// Semantic action for production 189:
     ///
     /// `DelimCodeStart1: /[a-zA-Z0-9-_]*<`/;`
     ///
@@ -8172,7 +8221,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 188:
+    /// Semantic action for production 190:
     ///
     /// `CodeBlockStart3: /`{3}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -8189,7 +8238,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 189:
+    /// Semantic action for production 191:
     ///
     /// `CodeBlockStart4: /`{4}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -8206,7 +8255,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 190:
+    /// Semantic action for production 192:
     ///
     /// `CodeBlockStart5: /`{5}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -8223,7 +8272,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 191:
+    /// Semantic action for production 193:
     ///
     /// `CodeBlockStart6: /`{6}[a-zA-Z0-9-_]*[\s--\r\n]*(\r\n|\r|\n)/;`
     ///
@@ -8240,7 +8289,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 192:
+    /// Semantic action for production 194:
     ///
     /// `CodeBlockEnd3: <InCodeBlock3>/`{3}/;`
     ///
@@ -8256,7 +8305,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 193:
+    /// Semantic action for production 195:
     ///
     /// `Backtick2: <InCodeBlock3>/`{1,2}/;`
     ///
@@ -8272,7 +8321,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 194:
+    /// Semantic action for production 196:
     ///
     /// `CodeBlockEnd4: <InCodeBlock4>/`{4}/;`
     ///
@@ -8288,7 +8337,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 195:
+    /// Semantic action for production 197:
     ///
     /// `Backtick3: <InCodeBlock4>/`{1,3}/;`
     ///
@@ -8304,7 +8353,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 196:
+    /// Semantic action for production 198:
     ///
     /// `CodeBlockEnd5: <InCodeBlock5>/`{5}/;`
     ///
@@ -8320,7 +8369,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 197:
+    /// Semantic action for production 199:
     ///
     /// `Backtick4: <InCodeBlock5>/`{1,4}/;`
     ///
@@ -8336,7 +8385,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 198:
+    /// Semantic action for production 200:
     ///
     /// `CodeBlockEnd6: <InCodeBlock6>/`{6}/;`
     ///
@@ -8352,7 +8401,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 199:
+    /// Semantic action for production 201:
     ///
     /// `Backtick5: <InCodeBlock6>/`{1,5}/;`
     ///
@@ -8368,7 +8417,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 200:
+    /// Semantic action for production 202:
     ///
     /// `NoBacktick: <InCodeBlock3, InCodeBlock4, InCodeBlock5, InCodeBlock6, InDelimCode1, InDelimCode2, InDelimCode3>/[^`]+/;`
     ///
@@ -8384,7 +8433,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 201:
+    /// Semantic action for production 203:
     ///
     /// `LitStr3End: <InLitStr3>"'>>>";`
     ///
@@ -8400,7 +8449,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 202:
+    /// Semantic action for production 204:
     ///
     /// `LitStr2End: <InLitStr2>"'>>";`
     ///
@@ -8416,7 +8465,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 203:
+    /// Semantic action for production 205:
     ///
     /// `LitStr1End: <InLitStr1>"'>";`
     ///
@@ -8432,7 +8481,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 204:
+    /// Semantic action for production 206:
     ///
     /// `SQuote: <InLitStr1, InLitStr2, InLitStr3>"'";`
     ///
@@ -8448,7 +8497,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 205:
+    /// Semantic action for production 207:
     ///
     /// `NoSQuote: <InLitStr1, InLitStr2, InLitStr3>/[^']+/;`
     ///
@@ -8464,7 +8513,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 206:
+    /// Semantic action for production 208:
     ///
     /// `DelimCodeEnd3: <InDelimCode3>'`>>>';`
     ///
@@ -8480,7 +8529,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 207:
+    /// Semantic action for production 209:
     ///
     /// `DelimCodeEnd2: <InDelimCode2>'`>>';`
     ///
@@ -8496,7 +8545,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 208:
+    /// Semantic action for production 210:
     ///
     /// `DelimCodeEnd1: <InDelimCode1>'`>';`
     ///
@@ -8512,7 +8561,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 209:
+    /// Semantic action for production 211:
     ///
     /// `BacktickDelim: <InDelimCode1, InDelimCode2, InDelimCode3>'`';`
     ///
@@ -8528,7 +8577,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 210:
+    /// Semantic action for production 212:
     ///
     /// `GrammarNewline: <Text>/\r\n|\r|\n/;`
     ///
@@ -8544,7 +8593,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 211:
+    /// Semantic action for production 213:
     ///
     /// `Ws: <Text>/[\s--\r\n]+/;`
     ///
@@ -8560,7 +8609,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 212:
+    /// Semantic action for production 214:
     ///
     /// `At: '@';`
     ///
@@ -8576,7 +8625,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 213:
+    /// Semantic action for production 215:
     ///
     /// `Ext: '$';`
     ///
@@ -8592,7 +8641,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 214:
+    /// Semantic action for production 216:
     ///
     /// `Dot: '.';`
     ///
@@ -8608,7 +8657,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 215:
+    /// Semantic action for production 217:
     ///
     /// `Begin: '{';`
     ///
@@ -8624,7 +8673,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 216:
+    /// Semantic action for production 218:
     ///
     /// `End: '}';`
     ///
@@ -8640,7 +8689,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 217:
+    /// Semantic action for production 219:
     ///
     /// `ArrayBegin: '[';`
     ///
@@ -8656,7 +8705,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 218:
+    /// Semantic action for production 220:
     ///
     /// `ArrayEnd: ']';`
     ///
@@ -8672,7 +8721,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 219:
+    /// Semantic action for production 221:
     ///
     /// `LParen: '(';`
     ///
@@ -8688,7 +8737,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 220:
+    /// Semantic action for production 222:
     ///
     /// `RParen: ')';`
     ///
@@ -8704,7 +8753,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 221:
+    /// Semantic action for production 223:
     ///
     /// `Bind: '=';`
     ///
@@ -8720,7 +8769,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 222:
+    /// Semantic action for production 224:
     ///
     /// `Comma: ',';`
     ///
@@ -8736,7 +8785,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 223:
+    /// Semantic action for production 225:
     ///
     /// `Continue: '\';`
     ///
@@ -8752,7 +8801,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 224:
+    /// Semantic action for production 226:
     ///
     /// `TextStart: ":";`
     ///
@@ -8768,7 +8817,7 @@ impl<'t, 'u> GrammarAuto<'t, 'u> {
         Ok(())
     }
 
-    /// Semantic action for production 225:
+    /// Semantic action for production 227:
     ///
     /// `Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/;`
     ///
@@ -8809,224 +8858,226 @@ impl<'t> UserActionsTrait<'t> for GrammarAuto<'t, '_> {
             11 => self.value_binding(&children[0], &children[1]),
             12 => self.section_binding(&children[0], &children[1], &children[2]),
             13 => self.text_binding(&children[0], &children[1], &children[2], &children[3]),
-            14 => self.text_binding_opt0_0(&children[0]),
-            15 => self.text_binding_opt0_1(),
-            16 => self.text_binding_opt_0(&children[0]),
-            17 => self.text_binding_opt_1(),
-            18 => self.section(&children[0], &children[1], &children[2]),
-            19 => self.section_body_0(&children[0], &children[1]),
-            20 => self.section_body_list_0(&children[0], &children[1]),
-            21 => self.section_body_list_1(),
-            22 => self.section_body_1(&children[0], &children[1], &children[2]),
-            23 => self.section_body_opt_0(&children[0]),
-            24 => self.section_body_opt_1(),
-            25 => self.keys(&children[0], &children[1]),
-            26 => self.keys_list_0(&children[0], &children[1], &children[2]),
-            27 => self.keys_list_1(),
-            28 => self.key(&children[0], &children[1]),
-            29 => self.key_opt_0(&children[0]),
-            30 => self.key_opt_1(),
-            31 => self.array_marker(&children[0], &children[1], &children[2]),
-            32 => self.array_marker_opt_0(&children[0]),
-            33 => self.array_marker_opt_1(),
-            34 => self.key_base_0(&children[0]),
-            35 => self.key_base_1(&children[0]),
-            36 => self.key_base_2(&children[0]),
-            37 => self.key_base_3(&children[0]),
-            38 => self.key_base_4(&children[0]),
-            39 => self.key_base_5(&children[0]),
-            40 => self.tuple_index(&children[0], &children[1]),
-            41 => self.extension_name_space(&children[0], &children[1]),
-            42 => self.key_tuple(&children[0], &children[1], &children[2]),
-            43 => self.key_tuple_opt_0(&children[0]),
-            44 => self.key_tuple_opt_1(),
-            45 => self.key_tuple_elements(&children[0], &children[1]),
-            46 => self.key_tuple_elements_opt_0(&children[0]),
-            47 => self.key_tuple_elements_opt_1(),
-            48 => self.key_tuple_elements_tail(&children[0], &children[1]),
-            49 => self.key_tuple_elements_tail_opt_0(&children[0]),
-            50 => self.key_tuple_elements_tail_opt_1(),
-            51 => self.key_value_0(&children[0]),
-            52 => self.key_value_1(&children[0]),
-            53 => self.key_value_2(&children[0]),
-            54 => self.key_value_3(&children[0]),
-            55 => self.key_ident_0(&children[0]),
-            56 => self.key_ident_1(&children[0]),
-            57 => self.key_ident_2(&children[0]),
-            58 => self.key_ident_3(&children[0]),
-            59 => self.value_0(&children[0]),
-            60 => self.value_1(&children[0]),
-            61 => self.value_2(&children[0]),
-            62 => self.value_3(&children[0]),
-            63 => self.value_4(&children[0]),
-            64 => self.value_5(&children[0]),
-            65 => self.value_6(&children[0]),
-            66 => self.value_7(&children[0]),
-            67 => self.value_8(&children[0]),
-            68 => self.value_9(&children[0]),
-            69 => self.object(&children[0], &children[1], &children[2], &children[3]),
-            70 => self.object_list_0(
+            14 => self.text_binding_opt1_0(&children[0]),
+            15 => self.text_binding_opt1_1(),
+            16 => self.text_binding_opt0_0(&children[0]),
+            17 => self.text_binding_opt0_1(),
+            18 => self.text_binding_opt_0(&children[0]),
+            19 => self.text_binding_opt_1(),
+            20 => self.section(&children[0], &children[1], &children[2]),
+            21 => self.section_body_0(&children[0], &children[1]),
+            22 => self.section_body_list_0(&children[0], &children[1]),
+            23 => self.section_body_list_1(),
+            24 => self.section_body_1(&children[0], &children[1], &children[2]),
+            25 => self.section_body_opt_0(&children[0]),
+            26 => self.section_body_opt_1(),
+            27 => self.keys(&children[0], &children[1]),
+            28 => self.keys_list_0(&children[0], &children[1], &children[2]),
+            29 => self.keys_list_1(),
+            30 => self.key(&children[0], &children[1]),
+            31 => self.key_opt_0(&children[0]),
+            32 => self.key_opt_1(),
+            33 => self.array_marker(&children[0], &children[1], &children[2]),
+            34 => self.array_marker_opt_0(&children[0]),
+            35 => self.array_marker_opt_1(),
+            36 => self.key_base_0(&children[0]),
+            37 => self.key_base_1(&children[0]),
+            38 => self.key_base_2(&children[0]),
+            39 => self.key_base_3(&children[0]),
+            40 => self.key_base_4(&children[0]),
+            41 => self.key_base_5(&children[0]),
+            42 => self.tuple_index(&children[0], &children[1]),
+            43 => self.extension_name_space(&children[0], &children[1]),
+            44 => self.key_tuple(&children[0], &children[1], &children[2]),
+            45 => self.key_tuple_opt_0(&children[0]),
+            46 => self.key_tuple_opt_1(),
+            47 => self.key_tuple_elements(&children[0], &children[1]),
+            48 => self.key_tuple_elements_opt_0(&children[0]),
+            49 => self.key_tuple_elements_opt_1(),
+            50 => self.key_tuple_elements_tail(&children[0], &children[1]),
+            51 => self.key_tuple_elements_tail_opt_0(&children[0]),
+            52 => self.key_tuple_elements_tail_opt_1(),
+            53 => self.key_value_0(&children[0]),
+            54 => self.key_value_1(&children[0]),
+            55 => self.key_value_2(&children[0]),
+            56 => self.key_value_3(&children[0]),
+            57 => self.key_ident_0(&children[0]),
+            58 => self.key_ident_1(&children[0]),
+            59 => self.key_ident_2(&children[0]),
+            60 => self.key_ident_3(&children[0]),
+            61 => self.value_0(&children[0]),
+            62 => self.value_1(&children[0]),
+            63 => self.value_2(&children[0]),
+            64 => self.value_3(&children[0]),
+            65 => self.value_4(&children[0]),
+            66 => self.value_5(&children[0]),
+            67 => self.value_6(&children[0]),
+            68 => self.value_7(&children[0]),
+            69 => self.value_8(&children[0]),
+            70 => self.value_9(&children[0]),
+            71 => self.object(&children[0], &children[1], &children[2], &children[3]),
+            72 => self.object_list_0(
                 &children[0],
                 &children[1],
                 &children[2],
                 &children[3],
                 &children[4],
             ),
-            71 => self.object_list_1(),
-            72 => self.object_opt0_0(&children[0]),
-            73 => self.object_opt0_1(),
-            74 => self.object_opt_0(&children[0], &children[1]),
-            75 => self.object_opt1_0(&children[0]),
-            76 => self.object_opt1_1(),
-            77 => self.object_opt_1(),
-            78 => self.map_bind(&children[0]),
-            79 => self.array(&children[0], &children[1], &children[2]),
-            80 => self.array_opt_0(&children[0]),
-            81 => self.array_opt_1(),
-            82 => self.array_elements(&children[0], &children[1]),
-            83 => self.array_elements_opt_0(&children[0]),
-            84 => self.array_elements_opt_1(),
-            85 => self.array_elements_tail(&children[0], &children[1]),
-            86 => self.array_elements_tail_opt_0(&children[0]),
-            87 => self.array_elements_tail_opt_1(),
-            88 => self.tuple(&children[0], &children[1], &children[2]),
-            89 => self.tuple_opt_0(&children[0]),
-            90 => self.tuple_opt_1(),
-            91 => self.tuple_elements(&children[0], &children[1]),
-            92 => self.tuple_elements_opt_0(&children[0]),
-            93 => self.tuple_elements_opt_1(),
-            94 => self.tuple_elements_tail(&children[0], &children[1]),
-            95 => self.tuple_elements_tail_opt_0(&children[0]),
-            96 => self.tuple_elements_tail_opt_1(),
-            97 => self.number_0(&children[0]),
-            98 => self.number_1(&children[0]),
-            99 => self.number_2(&children[0]),
-            100 => self.number_3(&children[0]),
-            101 => self.integer(&children[0]),
-            102 => self.float(&children[0]),
-            103 => self.inf(&children[0]),
-            104 => self.na_n(&children[0]),
-            105 => self.boolean_0(&children[0]),
-            106 => self.boolean_1(&children[0]),
-            107 => self.r#true(&children[0]),
-            108 => self.r#false(&children[0]),
-            109 => self.null(&children[0]),
-            110 => self.hole(&children[0]),
-            111 => self.string_0(&children[0]),
-            112 => self.string_1(&children[0]),
-            113 => self.string_2(&children[0]),
-            114 => self.string_3(&children[0]),
-            115 => self.string_4(&children[0]),
-            116 => self.strings(&children[0], &children[1]),
-            117 => self.strings_list_0(&children[0], &children[1], &children[2]),
-            118 => self.strings_list_1(),
-            119 => self.str(&children[0]),
-            120 => self.lit_str(&children[0]),
-            121 => self.text(&children[0]),
-            122 => self.inline_code_0(&children[0]),
-            123 => self.inline_code_1(&children[0]),
-            124 => self.inline_code1(&children[0]),
-            125 => self.lit_str1(&children[0], &children[1], &children[2]),
-            126 => self.lit_str1_list_0(&children[0], &children[1]),
-            127 => self.lit_str1_list_group_0(&children[0]),
-            128 => self.lit_str1_list_group_1(&children[0]),
-            129 => self.lit_str1_list_1(),
-            130 => self.lit_str2(&children[0], &children[1], &children[2]),
-            131 => self.lit_str2_list_0(&children[0], &children[1]),
-            132 => self.lit_str2_list_group_0(&children[0]),
-            133 => self.lit_str2_list_group_1(&children[0]),
-            134 => self.lit_str2_list_1(),
-            135 => self.lit_str3(&children[0], &children[1], &children[2]),
-            136 => self.lit_str3_list_0(&children[0], &children[1]),
-            137 => self.lit_str3_list_group_0(&children[0]),
-            138 => self.lit_str3_list_group_1(&children[0]),
-            139 => self.lit_str3_list_1(),
-            140 => self.delim_code_0(&children[0]),
-            141 => self.delim_code_1(&children[0]),
-            142 => self.delim_code_2(&children[0]),
-            143 => self.delim_code1(&children[0], &children[1], &children[2]),
-            144 => self.delim_code1_list_0(&children[0], &children[1]),
-            145 => self.delim_code1_list_group_0(&children[0]),
-            146 => self.delim_code1_list_group_1(&children[0]),
-            147 => self.delim_code1_list_1(),
-            148 => self.delim_code2(&children[0], &children[1], &children[2]),
-            149 => self.delim_code2_list_0(&children[0], &children[1]),
-            150 => self.delim_code2_list_group_0(&children[0]),
-            151 => self.delim_code2_list_group_1(&children[0]),
-            152 => self.delim_code2_list_1(),
-            153 => self.delim_code3(&children[0], &children[1], &children[2]),
-            154 => self.delim_code3_list_0(&children[0], &children[1]),
-            155 => self.delim_code3_list_group_0(&children[0]),
-            156 => self.delim_code3_list_group_1(&children[0]),
-            157 => self.delim_code3_list_1(),
-            158 => self.code_block_0(&children[0]),
-            159 => self.code_block_1(&children[0]),
-            160 => self.code_block_2(&children[0]),
-            161 => self.code_block_3(&children[0]),
-            162 => self.code_block3(&children[0], &children[1], &children[2]),
-            163 => self.code_block3_list_0(&children[0], &children[1]),
-            164 => self.code_block3_list_group_0(&children[0]),
-            165 => self.code_block3_list_group_1(&children[0]),
-            166 => self.code_block3_list_1(),
-            167 => self.code_block4(&children[0], &children[1], &children[2]),
-            168 => self.code_block4_list_0(&children[0], &children[1]),
-            169 => self.code_block4_list_group_0(&children[0]),
-            170 => self.code_block4_list_group_1(&children[0]),
-            171 => self.code_block4_list_1(),
-            172 => self.code_block5(&children[0], &children[1], &children[2]),
-            173 => self.code_block5_list_0(&children[0], &children[1]),
-            174 => self.code_block5_list_group_0(&children[0]),
-            175 => self.code_block5_list_group_1(&children[0]),
-            176 => self.code_block5_list_1(),
-            177 => self.code_block6(&children[0], &children[1], &children[2]),
-            178 => self.code_block6_list_0(&children[0], &children[1]),
-            179 => self.code_block6_list_group_0(&children[0]),
-            180 => self.code_block6_list_group_1(&children[0]),
-            181 => self.code_block6_list_1(),
-            182 => self.lit_str3_start(&children[0]),
-            183 => self.lit_str2_start(&children[0]),
-            184 => self.lit_str1_start(&children[0]),
-            185 => self.delim_code_start3(&children[0]),
-            186 => self.delim_code_start2(&children[0]),
-            187 => self.delim_code_start1(&children[0]),
-            188 => self.code_block_start3(&children[0]),
-            189 => self.code_block_start4(&children[0]),
-            190 => self.code_block_start5(&children[0]),
-            191 => self.code_block_start6(&children[0]),
-            192 => self.code_block_end3(&children[0]),
-            193 => self.backtick2(&children[0]),
-            194 => self.code_block_end4(&children[0]),
-            195 => self.backtick3(&children[0]),
-            196 => self.code_block_end5(&children[0]),
-            197 => self.backtick4(&children[0]),
-            198 => self.code_block_end6(&children[0]),
-            199 => self.backtick5(&children[0]),
-            200 => self.no_backtick(&children[0]),
-            201 => self.lit_str3_end(&children[0]),
-            202 => self.lit_str2_end(&children[0]),
-            203 => self.lit_str1_end(&children[0]),
-            204 => self.s_quote(&children[0]),
-            205 => self.no_s_quote(&children[0]),
-            206 => self.delim_code_end3(&children[0]),
-            207 => self.delim_code_end2(&children[0]),
-            208 => self.delim_code_end1(&children[0]),
-            209 => self.backtick_delim(&children[0]),
-            210 => self.grammar_newline(&children[0]),
-            211 => self.ws(&children[0]),
-            212 => self.at(&children[0]),
-            213 => self.ext(&children[0]),
-            214 => self.dot(&children[0]),
-            215 => self.begin(&children[0]),
-            216 => self.end(&children[0]),
-            217 => self.array_begin(&children[0]),
-            218 => self.array_end(&children[0]),
-            219 => self.l_paren(&children[0]),
-            220 => self.r_paren(&children[0]),
-            221 => self.bind(&children[0]),
-            222 => self.comma(&children[0]),
-            223 => self.r#continue(&children[0]),
-            224 => self.text_start(&children[0]),
-            225 => self.ident(&children[0]),
+            73 => self.object_list_1(),
+            74 => self.object_opt0_0(&children[0]),
+            75 => self.object_opt0_1(),
+            76 => self.object_opt_0(&children[0], &children[1]),
+            77 => self.object_opt1_0(&children[0]),
+            78 => self.object_opt1_1(),
+            79 => self.object_opt_1(),
+            80 => self.map_bind(&children[0]),
+            81 => self.array(&children[0], &children[1], &children[2]),
+            82 => self.array_opt_0(&children[0]),
+            83 => self.array_opt_1(),
+            84 => self.array_elements(&children[0], &children[1]),
+            85 => self.array_elements_opt_0(&children[0]),
+            86 => self.array_elements_opt_1(),
+            87 => self.array_elements_tail(&children[0], &children[1]),
+            88 => self.array_elements_tail_opt_0(&children[0]),
+            89 => self.array_elements_tail_opt_1(),
+            90 => self.tuple(&children[0], &children[1], &children[2]),
+            91 => self.tuple_opt_0(&children[0]),
+            92 => self.tuple_opt_1(),
+            93 => self.tuple_elements(&children[0], &children[1]),
+            94 => self.tuple_elements_opt_0(&children[0]),
+            95 => self.tuple_elements_opt_1(),
+            96 => self.tuple_elements_tail(&children[0], &children[1]),
+            97 => self.tuple_elements_tail_opt_0(&children[0]),
+            98 => self.tuple_elements_tail_opt_1(),
+            99 => self.number_0(&children[0]),
+            100 => self.number_1(&children[0]),
+            101 => self.number_2(&children[0]),
+            102 => self.number_3(&children[0]),
+            103 => self.integer(&children[0]),
+            104 => self.float(&children[0]),
+            105 => self.inf(&children[0]),
+            106 => self.na_n(&children[0]),
+            107 => self.boolean_0(&children[0]),
+            108 => self.boolean_1(&children[0]),
+            109 => self.r#true(&children[0]),
+            110 => self.r#false(&children[0]),
+            111 => self.null(&children[0]),
+            112 => self.hole(&children[0]),
+            113 => self.string_0(&children[0]),
+            114 => self.string_1(&children[0]),
+            115 => self.string_2(&children[0]),
+            116 => self.string_3(&children[0]),
+            117 => self.string_4(&children[0]),
+            118 => self.strings(&children[0], &children[1]),
+            119 => self.strings_list_0(&children[0], &children[1], &children[2]),
+            120 => self.strings_list_1(),
+            121 => self.str(&children[0]),
+            122 => self.lit_str(&children[0]),
+            123 => self.text(&children[0]),
+            124 => self.inline_code_0(&children[0]),
+            125 => self.inline_code_1(&children[0]),
+            126 => self.inline_code1(&children[0]),
+            127 => self.lit_str1(&children[0], &children[1], &children[2]),
+            128 => self.lit_str1_list_0(&children[0], &children[1]),
+            129 => self.lit_str1_list_group_0(&children[0]),
+            130 => self.lit_str1_list_group_1(&children[0]),
+            131 => self.lit_str1_list_1(),
+            132 => self.lit_str2(&children[0], &children[1], &children[2]),
+            133 => self.lit_str2_list_0(&children[0], &children[1]),
+            134 => self.lit_str2_list_group_0(&children[0]),
+            135 => self.lit_str2_list_group_1(&children[0]),
+            136 => self.lit_str2_list_1(),
+            137 => self.lit_str3(&children[0], &children[1], &children[2]),
+            138 => self.lit_str3_list_0(&children[0], &children[1]),
+            139 => self.lit_str3_list_group_0(&children[0]),
+            140 => self.lit_str3_list_group_1(&children[0]),
+            141 => self.lit_str3_list_1(),
+            142 => self.delim_code_0(&children[0]),
+            143 => self.delim_code_1(&children[0]),
+            144 => self.delim_code_2(&children[0]),
+            145 => self.delim_code1(&children[0], &children[1], &children[2]),
+            146 => self.delim_code1_list_0(&children[0], &children[1]),
+            147 => self.delim_code1_list_group_0(&children[0]),
+            148 => self.delim_code1_list_group_1(&children[0]),
+            149 => self.delim_code1_list_1(),
+            150 => self.delim_code2(&children[0], &children[1], &children[2]),
+            151 => self.delim_code2_list_0(&children[0], &children[1]),
+            152 => self.delim_code2_list_group_0(&children[0]),
+            153 => self.delim_code2_list_group_1(&children[0]),
+            154 => self.delim_code2_list_1(),
+            155 => self.delim_code3(&children[0], &children[1], &children[2]),
+            156 => self.delim_code3_list_0(&children[0], &children[1]),
+            157 => self.delim_code3_list_group_0(&children[0]),
+            158 => self.delim_code3_list_group_1(&children[0]),
+            159 => self.delim_code3_list_1(),
+            160 => self.code_block_0(&children[0]),
+            161 => self.code_block_1(&children[0]),
+            162 => self.code_block_2(&children[0]),
+            163 => self.code_block_3(&children[0]),
+            164 => self.code_block3(&children[0], &children[1], &children[2]),
+            165 => self.code_block3_list_0(&children[0], &children[1]),
+            166 => self.code_block3_list_group_0(&children[0]),
+            167 => self.code_block3_list_group_1(&children[0]),
+            168 => self.code_block3_list_1(),
+            169 => self.code_block4(&children[0], &children[1], &children[2]),
+            170 => self.code_block4_list_0(&children[0], &children[1]),
+            171 => self.code_block4_list_group_0(&children[0]),
+            172 => self.code_block4_list_group_1(&children[0]),
+            173 => self.code_block4_list_1(),
+            174 => self.code_block5(&children[0], &children[1], &children[2]),
+            175 => self.code_block5_list_0(&children[0], &children[1]),
+            176 => self.code_block5_list_group_0(&children[0]),
+            177 => self.code_block5_list_group_1(&children[0]),
+            178 => self.code_block5_list_1(),
+            179 => self.code_block6(&children[0], &children[1], &children[2]),
+            180 => self.code_block6_list_0(&children[0], &children[1]),
+            181 => self.code_block6_list_group_0(&children[0]),
+            182 => self.code_block6_list_group_1(&children[0]),
+            183 => self.code_block6_list_1(),
+            184 => self.lit_str3_start(&children[0]),
+            185 => self.lit_str2_start(&children[0]),
+            186 => self.lit_str1_start(&children[0]),
+            187 => self.delim_code_start3(&children[0]),
+            188 => self.delim_code_start2(&children[0]),
+            189 => self.delim_code_start1(&children[0]),
+            190 => self.code_block_start3(&children[0]),
+            191 => self.code_block_start4(&children[0]),
+            192 => self.code_block_start5(&children[0]),
+            193 => self.code_block_start6(&children[0]),
+            194 => self.code_block_end3(&children[0]),
+            195 => self.backtick2(&children[0]),
+            196 => self.code_block_end4(&children[0]),
+            197 => self.backtick3(&children[0]),
+            198 => self.code_block_end5(&children[0]),
+            199 => self.backtick4(&children[0]),
+            200 => self.code_block_end6(&children[0]),
+            201 => self.backtick5(&children[0]),
+            202 => self.no_backtick(&children[0]),
+            203 => self.lit_str3_end(&children[0]),
+            204 => self.lit_str2_end(&children[0]),
+            205 => self.lit_str1_end(&children[0]),
+            206 => self.s_quote(&children[0]),
+            207 => self.no_s_quote(&children[0]),
+            208 => self.delim_code_end3(&children[0]),
+            209 => self.delim_code_end2(&children[0]),
+            210 => self.delim_code_end1(&children[0]),
+            211 => self.backtick_delim(&children[0]),
+            212 => self.grammar_newline(&children[0]),
+            213 => self.ws(&children[0]),
+            214 => self.at(&children[0]),
+            215 => self.ext(&children[0]),
+            216 => self.dot(&children[0]),
+            217 => self.begin(&children[0]),
+            218 => self.end(&children[0]),
+            219 => self.array_begin(&children[0]),
+            220 => self.array_end(&children[0]),
+            221 => self.l_paren(&children[0]),
+            222 => self.r_paren(&children[0]),
+            223 => self.bind(&children[0]),
+            224 => self.comma(&children[0]),
+            225 => self.r#continue(&children[0]),
+            226 => self.text_start(&children[0]),
+            227 => self.ident(&children[0]),
             _ => Err(ParserError::InternalError(format!(
                 "Unhandled production number: {prod_num}"
             ))

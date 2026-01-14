@@ -1035,10 +1035,18 @@ pub trait CstVisitor<F: CstFacade>: CstVisitorSuper<F, Self::Error> {
     fn visit_text_binding_opt_0(
         &mut self,
         handle: TextBindingOpt0Handle,
-        view: GrammarNewlineHandle,
+        view: TextHandle,
         tree: &F,
     ) -> Result<(), Self::Error> {
         self.visit_text_binding_opt_0_super(handle, view, tree)
+    }
+    fn visit_text_binding_opt_1(
+        &mut self,
+        handle: TextBindingOpt1Handle,
+        view: GrammarNewlineHandle,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        self.visit_text_binding_opt_1_super(handle, view, tree)
     }
     fn visit_text_start(
         &mut self,
@@ -2747,6 +2755,17 @@ pub trait CstVisitorSuper<F: CstFacade, E>: private::Sealed<F> {
     fn visit_text_binding_opt_0_super(
         &mut self,
         handle: TextBindingOpt0Handle,
+        view: TextHandle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_text_binding_opt_1_handle(
+        &mut self,
+        handle: TextBindingOpt1Handle,
+        tree: &F,
+    ) -> Result<(), E>;
+    fn visit_text_binding_opt_1_super(
+        &mut self,
+        handle: TextBindingOpt1Handle,
         view: GrammarNewlineHandle,
         tree: &F,
     ) -> Result<(), E>;
@@ -8729,6 +8748,55 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
         result
     }
+    fn visit_text_binding_opt_1_handle(
+        &mut self,
+        handle: TextBindingOpt1Handle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let nt_data = match tree.get_non_terminal(handle.node_id(), handle.kind()) {
+            Ok(nt_data) => nt_data,
+            Err(error) => {
+                return self.then_construct_error(
+                    None,
+                    handle.node_id(),
+                    NodeKind::NonTerminal(handle.kind()),
+                    error,
+                    tree,
+                );
+            }
+        };
+        self.visit_non_terminal(handle.node_id(), handle.kind(), nt_data, tree)?;
+        let result = match handle
+            .get_view_with_visit(
+                tree,
+                |view, visit: &mut Self| {
+                    (
+                        if let Some(view) = view {
+                            visit.visit_text_binding_opt_1(handle, view, tree)
+                        } else {
+                            Ok(())
+                        },
+                        visit,
+                    )
+                },
+                self,
+            )
+            .map_err(|e| e.extract_error())
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            Err(Ok(e)) => Err(e),
+            Err(Err(e)) => self.then_construct_error(
+                Some(CstNode::new_non_terminal(handle.kind(), nt_data)),
+                handle.node_id(),
+                NodeKind::NonTerminal(handle.kind()),
+                e,
+                tree,
+            ),
+        };
+        self.visit_non_terminal_close(handle.node_id(), handle.kind(), nt_data, tree)?;
+        result
+    }
     fn visit_text_start_handle(
         &mut self,
         handle: TextStartHandle,
@@ -11717,13 +11785,13 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
         let TextBindingView {
             text_start,
             text_binding_opt,
-            text,
             text_binding_opt_0,
+            text_binding_opt_1,
         } = view_param;
         self.visit_text_start_handle(text_start, tree)?;
         self.visit_text_binding_opt_handle(text_binding_opt, tree)?;
-        self.visit_text_handle(text, tree)?;
         self.visit_text_binding_opt_0_handle(text_binding_opt_0, tree)?;
+        self.visit_text_binding_opt_1_handle(text_binding_opt_1, tree)?;
         Ok(())
     }
     fn visit_text_binding_opt_super(
@@ -11739,6 +11807,16 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
     fn visit_text_binding_opt_0_super(
         &mut self,
         handle: TextBindingOpt0Handle,
+        view_param: TextHandle,
+        tree: &F,
+    ) -> Result<(), V::Error> {
+        let _handle = handle;
+        self.visit_text_handle(view_param, tree)?;
+        Ok(())
+    }
+    fn visit_text_binding_opt_1_super(
+        &mut self,
+        handle: TextBindingOpt1Handle,
         view_param: GrammarNewlineHandle,
         tree: &F,
     ) -> Result<(), V::Error> {
@@ -13120,6 +13198,10 @@ impl<V: CstVisitor<F>, F: CstFacade> CstVisitorSuper<F, V::Error> for V {
                 NonTerminalKind::TextBindingOpt0 => {
                     let handle = TextBindingOpt0Handle(id);
                     self.visit_text_binding_opt_0_handle(handle, tree)?;
+                }
+                NonTerminalKind::TextBindingOpt1 => {
+                    let handle = TextBindingOpt1Handle(id);
+                    self.visit_text_binding_opt_1_handle(handle, tree)?;
                 }
                 NonTerminalKind::TextStart => {
                     let handle = TextStartHandle(id);
