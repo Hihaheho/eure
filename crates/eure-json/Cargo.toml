@@ -20,3 +20,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 query-flow = { workspace = true }
+eure-parol = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+eure-tree = { workspace = true }
+
+[[bench]]
+name = "conversion"
+harness = false
