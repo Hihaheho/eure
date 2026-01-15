@@ -46,6 +46,7 @@ query-flow = "0.13"
 glob = "0.3"
 url = "2"
 reqwest = { version = "0.13", features = ["blocking"] }
+criterion = "0.5"
 
 # For faster parser generation
 [profile.dev.package.parol]
