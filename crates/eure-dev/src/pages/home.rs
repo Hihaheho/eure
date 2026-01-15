@@ -11,6 +11,7 @@ use eure::query::{
     ParseDocument, SemanticToken, TextFile, TextFileContent, Workspace, WorkspaceId, build_runtime,
 };
 use query_flow::{Db, DurabilityLevel, QueryError, QueryRuntime, query};
+use url::Url;
 
 /// Convert document to pretty-printed JSON.
 #[query]
@@ -340,7 +341,52 @@ impl EureExample {
     }
 }
 
+/// Fetch a remote URL using browser fetch API
+async fn fetch_remote_url(url: &str) -> Result<String, String> {
+    use gloo_net::http::Request;
+
+    Request::get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch {}: {}", url, e))?
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))
+}
+
+/// Fetch pending remote assets and resolve them in the runtime
+async fn fetch_and_resolve_assets(runtime: QueryRuntime, pending_urls: Vec<Url>) {
+    for url in pending_urls {
+        let url_str = url.to_string();
+        tracing::info!("Fetching remote schema: {}", url_str);
+
+        match fetch_remote_url(&url_str).await {
+            Ok(content) => {
+                tracing::info!("Successfully fetched {}", url_str);
+                runtime.resolve_asset(
+                    TextFile::Remote(url.clone()),
+                    TextFileContent(content),
+                    DurabilityLevel::Static,
+                );
+            }
+            Err(e) => {
+                tracing::error!("Failed to fetch {}: {}", url_str, e);
+                // Resolve with error comment so queries can complete
+                // This allows diagnostics to show a fetch error instead of staying suspended
+                let error_content =
+                    format!("// Failed to fetch schema: {}\n// URL: {}", e, url_str);
+                runtime.resolve_asset(
+                    TextFile::Remote(url.clone()),
+                    TextFileContent(error_content),
+                    DurabilityLevel::Volatile, // Volatile so retry is possible
+                );
+            }
+        }
+    }
+}
+
 /// Run all queries and update signals
+/// Returns Vec of pending remote URLs that need to be fetched
 fn run_queries(
     runtime: &QueryRuntime,
     doc_file: &TextFile,
@@ -349,44 +395,72 @@ fn run_queries(
     mut schema_tokens: Signal<Vec<SemanticToken>>,
     mut json_output: Signal<String>,
     mut all_errors: Signal<AllErrors>,
-) {
+) -> Vec<Url> {
+    let mut pending_urls = Vec::new();
+
+    // Helper to collect pending remote URLs from suspended queries
+    let mut collect_pending_urls = || {
+        for asset in runtime.pending_assets() {
+            if let Some(TextFile::Remote(url)) = asset.key::<TextFile>()
+                && !pending_urls.contains(url)
+            {
+                pending_urls.push(url.clone());
+            }
+        }
+    };
+
     // Get semantic tokens for document
-    if let Ok(result) = runtime.query(GetSemanticTokens::new(doc_file.clone())) {
-        doc_tokens.set((*result).clone());
+    match runtime.query(GetSemanticTokens::new(doc_file.clone())) {
+        Ok(result) => doc_tokens.set((*result).clone()),
+        Err(QueryError::Suspend { .. }) => collect_pending_urls(),
+        Err(e) => tracing::error!("Semantic tokens query failed: {}", e),
     }
 
     // Get semantic tokens for schema
-    if let Ok(result) = runtime.query(GetSemanticTokens::new(schema_file.clone())) {
-        schema_tokens.set((*result).clone());
+    match runtime.query(GetSemanticTokens::new(schema_file.clone())) {
+        Ok(result) => schema_tokens.set((*result).clone()),
+        Err(QueryError::Suspend { .. }) => collect_pending_urls(),
+        Err(e) => tracing::error!("Semantic tokens query failed: {}", e),
     }
 
     // Get JSON output
     match runtime.query(DocumentToJson::new(doc_file.clone())) {
         Ok(json) => json_output.set(json.as_ref().clone()),
+        Err(QueryError::Suspend { .. }) => collect_pending_urls(),
         Err(_) => json_output.set(String::new()),
     }
 
     // Get diagnostics for the document
-    let doc_errors = runtime
-        .query(GetFileDiagnostics::new(doc_file.clone()))
-        .map(|diagnostics| diagnostics_to_spans(&diagnostics, doc_file))
-        .unwrap_or_else(|e| {
+    let doc_errors = match runtime.query(GetFileDiagnostics::new(doc_file.clone())) {
+        Ok(diagnostics) => diagnostics_to_spans(&diagnostics, doc_file),
+        Err(QueryError::Suspend { .. }) => {
+            collect_pending_urls();
+            vec![]
+        }
+        Err(e) => {
             tracing::error!("Diagnostics query failed: {}", e);
             vec![]
-        });
+        }
+    };
 
-    let schema_errors = runtime
-        .query(GetFileDiagnostics::new(schema_file.clone()))
-        .map(|diagnostics| diagnostics_to_spans(&diagnostics, schema_file))
-        .unwrap_or_else(|e| {
+    let schema_errors = match runtime.query(GetFileDiagnostics::new(schema_file.clone())) {
+        Ok(diagnostics) => diagnostics_to_spans(&diagnostics, schema_file),
+        Err(QueryError::Suspend { .. }) => {
+            collect_pending_urls();
+            vec![]
+        }
+        Err(e) => {
             tracing::error!("Diagnostics query failed: {}", e);
             vec![]
-        });
+        }
+    };
 
     all_errors.set(AllErrors {
         doc_errors,
         schema_errors,
     });
+
+    pending_urls
 }
 
 /// Home page with the Eure editor
@@ -426,6 +500,49 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
     let json_output: Signal<String> = use_signal(String::new);
     let all_errors: Signal<AllErrors> = use_signal(AllErrors::default);
 
+    // Loading state signal for remote schema fetching
+    let mut pending_remote_urls = use_signal(Vec::<Url>::new);
+
+    // Helper to run queries and fetch pending remote assets
+    let mut run_queries_with_fetch = move |doc_file: TextFile, schema_file: TextFile| {
+        let pending_urls = run_queries(
+            &runtime(),
+            &doc_file,
+            &schema_file,
+            doc_tokens,
+            schema_tokens,
+            json_output,
+            all_errors,
+        );
+
+        // Update pending URLs state (used for loading indicator)
+        pending_remote_urls.set(pending_urls.clone());
+
+        if !pending_urls.is_empty() {
+            // Spawn async task to fetch remote assets
+            let runtime_clone = runtime();
+            let doc_file_clone = doc_file.clone();
+            let schema_file_clone = schema_file.clone();
+            spawn(async move {
+                fetch_and_resolve_assets(runtime_clone.clone(), pending_urls).await;
+
+                // Re-run queries now that assets are resolved
+                let new_pending_urls = run_queries(
+                    &runtime_clone,
+                    &doc_file_clone,
+                    &schema_file_clone,
+                    doc_tokens,
+                    schema_tokens,
+                    json_output,
+                    all_errors,
+                );
+
+                // Update pending URLs (should be empty now)
+                pending_remote_urls.set(new_pending_urls);
+            });
+        }
+    };
+
     // Update content and run queries when example changes
     use_effect(move || {
         let ex = current_example();
@@ -435,15 +552,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
         let doc_file = TextFile::from_path(ex.file_name().into());
         let schema_file = TextFile::from_path(ex.schema_file_name().into());
-        run_queries(
-            &runtime(),
-            &doc_file,
-            &schema_file,
-            doc_tokens,
-            schema_tokens,
-            json_output,
-            all_errors,
-        );
+        run_queries_with_fetch(doc_file, schema_file);
     });
 
     // Handler for document content changes
@@ -454,15 +563,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
         let doc_file = TextFile::from_path(ex.file_name().into());
         let schema_file = TextFile::from_path(ex.schema_file_name().into());
-        run_queries(
-            &runtime(),
-            &doc_file,
-            &schema_file,
-            doc_tokens,
-            schema_tokens,
-            json_output,
-            all_errors,
-        );
+        run_queries_with_fetch(doc_file, schema_file);
     };
 
     // Handler for schema content changes
@@ -473,15 +574,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
         let doc_file = TextFile::from_path(ex.file_name().into());
         let schema_file = TextFile::from_path(ex.schema_file_name().into());
-        run_queries(
-            &runtime(),
-            &doc_file,
-            &schema_file,
-            doc_tokens,
-            schema_tokens,
-            json_output,
-            all_errors,
-        );
+        run_queries_with_fetch(doc_file, schema_file);
     };
 
     // Schema errors for the schema editor
@@ -637,6 +730,15 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                         },
                         RightTab::Errors => rsx! {
                             div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                                // Show loading indicator when fetching remote schemas
+                                if !pending_remote_urls().is_empty() {
+                                    div {
+                                        class: "mb-3 p-2 rounded",
+                                        style: "background: rgba(100, 150, 255, 0.1); border-left: 3px solid #6495ED;",
+                                        "📡 リモートスキーマを取得中..."
+                                    }
+                                }
+
                                 if all_errors().is_empty() {
                                     span { class: "opacity-50", "No errors" }
                                 } else {

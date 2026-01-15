@@ -1946,12 +1946,14 @@ dependencies = [
  "eure-parol",
  "eure-schema",
  "getrandom 0.3.4",
+ "gloo-net",
  "image",
  "query-flow",
  "resvg",
  "serde",
  "serde_json",
  "tracing",
+ "url",
 ]
 
 [[package]]
