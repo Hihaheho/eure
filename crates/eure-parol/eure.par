@@ -35,7 +35,8 @@
 
 %%
 
-Eure: [ ValueBinding ] { Binding } { Section } ;
+Eure: [ RootBinding ] { Binding } { Section } ;
+RootBinding: ValueBinding | TextBinding ;
 
 Binding: Keys BindingRhs ;
   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
@@ -44,7 +45,7 @@ Binding: Keys BindingRhs ;
   TextBinding: TextStart [Ws^] [Text] [GrammarNewline] ;
 
 Section: At Keys SectionBody ;
-  SectionBody: [ ValueBinding ] { Binding } | Begin Eure End ;
+  SectionBody: [ RootBinding ] { Binding } | Begin Eure End ;
   Keys: Key { Dot Key } ;
   Key: KeyBase [ ArrayMarker ] ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;

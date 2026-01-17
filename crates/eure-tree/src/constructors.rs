@@ -3011,6 +3011,23 @@ impl From<RParenNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for RootBinding non-terminal
+#[derive(Debug, Clone)]
+pub struct RootBindingNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RootBindingNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RootBindingNode> for BuilderNodeId {
+    fn from(node: RootBindingNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for SQuote non-terminal
 #[derive(Debug, Clone)]
 pub struct SQuoteNode {
@@ -4525,12 +4542,12 @@ impl EureSectionsConstructor {
 }
 #[derive(bon::Builder)]
 pub struct EureOptConstructor {
-    value_binding: Option<ValueBindingNode>,
+    root_binding: Option<RootBindingNode>,
 }
 impl EureOptConstructor {
     pub fn build(self) -> EureOptNode {
         let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.value_binding {
+        let children = if let Some(child) = self.root_binding {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()
@@ -5373,6 +5390,21 @@ impl RParenConstructor {
         RParenNode { node_id, builder }
     }
 }
+pub enum RootBindingConstructor {
+    ValueBinding(ValueBindingNode),
+    TextBinding(TextBindingNode),
+}
+impl RootBindingConstructor {
+    pub fn build(self) -> RootBindingNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::ValueBinding(node) => builder.embed(node.builder),
+            Self::TextBinding(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::RootBinding, vec![child_id]);
+        RootBindingNode { node_id, builder }
+    }
+}
 #[derive(bon::Builder)]
 pub struct SQuoteConstructor {
     s_quote: SQuoteToken,
@@ -5461,12 +5493,12 @@ impl SectionBodyListConstructor {
 }
 #[derive(bon::Builder)]
 pub struct SectionBodyOptConstructor {
-    value_binding: Option<ValueBindingNode>,
+    root_binding: Option<RootBindingNode>,
 }
 impl SectionBodyOptConstructor {
     pub fn build(self) -> SectionBodyOptNode {
         let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.value_binding {
+        let children = if let Some(child) = self.root_binding {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()

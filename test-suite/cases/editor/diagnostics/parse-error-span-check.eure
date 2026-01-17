@@ -17,7 +17,7 @@ LA(1): " (Error) at test.eure:1:8-1:9[2].
 at non-terminal "Value"
 Current scanner is INITIAL
 Current production is:
-/* 11 */ ValueBinding: Bind Value;
+/* 13 */ ValueBinding: Bind Value;
 ```
 
 @ diagnostics[]
@@ -28,7 +28,7 @@ LA(1): string (Ident) at test.eure:2:10-2:16[4].
 at non-terminal "BindingRhs"
 Current scanner is INITIAL
 Current production is:
-/* 7 */ Binding: Keys BindingRhs;
+/* 9 */ Binding: Keys BindingRhs;
 ```
 
 @ diagnostics[]
@@ -38,5 +38,5 @@ message = ```
 Syntax error: found $ (EndOfInput) at test.eure:0:0-0:0[6]
 Current scanner is INITIAL
 Current production is:
-/* 219 */ End: "End";
+/* 221 */ End: "End";
 ```

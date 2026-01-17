@@ -3648,7 +3648,7 @@ impl<F: CstFacade> RecursiveView<F> for EureSectionsView {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EureOptHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for EureOptHandle {
-    type View = Option<ValueBindingHandle>;
+    type View = Option<RootBindingHandle>;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -3677,7 +3677,7 @@ impl NonTerminalHandle for EureOptHandle {
             return Ok(visit(None, visit_ignored).0);
         }
         Ok(visit(
-            Some(ValueBindingHandle::new_with_visit(
+            Some(RootBindingHandle::new_with_visit(
                 self.0,
                 tree,
                 visit_ignored,
@@ -6588,6 +6588,69 @@ pub struct RParenView {
 }
 impl RParenView {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RootBindingHandle(pub(crate) super::tree::CstNodeId);
+impl NonTerminalHandle for RootBindingHandle {
+    type View = RootBindingView;
+    fn node_id(&self) -> CstNodeId {
+        self.0
+    }
+    fn new_with_visit<F: CstFacade, E>(
+        index: CstNodeId,
+        tree: &F,
+        visit_ignored: &mut impl BuiltinTerminalVisitor<E, F>,
+    ) -> Result<Self, CstConstructError<E>> {
+        tree.collect_nodes(
+            index,
+            [NodeKind::NonTerminal(NonTerminalKind::RootBinding)],
+            |[index], visit| Ok((Self(index), visit)),
+            visit_ignored,
+        )
+    }
+    fn kind(&self) -> NonTerminalKind {
+        NonTerminalKind::RootBinding
+    }
+    fn get_view_with_visit<'v, F: CstFacade, V: BuiltinTerminalVisitor<E, F>, O, E>(
+        &self,
+        tree: &F,
+        mut visit: impl FnMut(Self::View, &'v mut V) -> (O, &'v mut V),
+        visit_ignored: &'v mut V,
+    ) -> Result<O, CstConstructError<E>> {
+        let mut children = tree.children(self.0);
+        let Some(child) = children.next() else {
+            return Err(ViewConstructionError::UnexpectedEndOfChildren { parent: self.0 });
+        };
+        let Some(child_data) = tree.node_data(child) else {
+            return Err(ViewConstructionError::NodeIdNotFound { node: child });
+        };
+        let variant = match child_data.node_kind() {
+            NodeKind::NonTerminal(NonTerminalKind::ValueBinding) => {
+                RootBindingView::ValueBinding(ValueBindingHandle(child))
+            }
+            NodeKind::NonTerminal(NonTerminalKind::TextBinding) => {
+                RootBindingView::TextBinding(TextBindingHandle(child))
+            }
+            _ => {
+                return Err(ViewConstructionError::UnexpectedNode {
+                    node: child,
+                    data: child_data,
+                    expected_kind: child_data.node_kind(),
+                });
+            }
+        };
+        let (result, _visit) = visit(variant, visit_ignored);
+        if let Some(extra_child) = children.next() {
+            return Err(ViewConstructionError::UnexpectedExtraNode { node: extra_child });
+        }
+        Ok(result)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootBindingView {
+    ValueBinding(ValueBindingHandle),
+    TextBinding(TextBindingHandle),
+}
+impl RootBindingView {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SQuoteHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for SQuoteHandle {
     type View = SQuoteView;
@@ -6926,7 +6989,7 @@ impl<F: CstFacade> RecursiveView<F> for SectionBodyListView {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SectionBodyOptHandle(pub(crate) super::tree::CstNodeId);
 impl NonTerminalHandle for SectionBodyOptHandle {
-    type View = Option<ValueBindingHandle>;
+    type View = Option<RootBindingHandle>;
     fn node_id(&self) -> CstNodeId {
         self.0
     }
@@ -6955,7 +7018,7 @@ impl NonTerminalHandle for SectionBodyOptHandle {
             return Ok(visit(None, visit_ignored).0);
         }
         Ok(visit(
-            Some(ValueBindingHandle::new_with_visit(
+            Some(RootBindingHandle::new_with_visit(
                 self.0,
                 tree,
                 visit_ignored,

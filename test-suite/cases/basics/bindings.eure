@@ -74,3 +74,79 @@ normalized = ```eure
 ```
 
 output_json = json`{ "regex": "\\b\\w+\\b", "win_path": "C:\\Users\\name", "literal": "\\\\" }`
+
+@cases.root-text-binding
+
+input_eure = ```eure
+: Hello world
+```
+
+normalized = ```eure
+= "Hello world"
+```
+
+output_json = json`"Hello world"`
+
+@cases.root-text-binding-empty
+
+input_eure = ```eure
+:
+```
+
+normalized = ```eure
+= ""
+```
+
+output_json = json`""`
+
+@cases.root-text-binding-backslashes
+
+input_eure = ```eure
+: C:\Users\name
+```
+
+normalized = ```eure
+= "C:\\Users\\name"
+```
+
+output_json = json`"C:\\Users\\name"`
+
+@cases.root-text-binding-whitespace
+
+input_eure = ```eure
+:   trimmed
+```
+
+normalized = ```eure
+= "trimmed"
+```
+
+output_json = json`"trimmed"`
+
+@cases.section-text-binding
+
+input_eure = ```eure
+@ section: Section text
+```
+
+normalized = ```eure
+= {
+  section => "Section text"
+}
+```
+
+output_json = json`{ "section": "Section text" }`
+
+@cases.section-text-binding-empty
+
+input_eure = ```eure
+@ section:
+```
+
+normalized = ```eure
+= {
+  section => ""
+}
+```
+
+output_json = json`{ "section": "" }`
