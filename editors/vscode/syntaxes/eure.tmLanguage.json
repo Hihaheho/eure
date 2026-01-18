@@ -386,9 +386,9 @@
       ]
     },
     "binding": {
-      "begin": "(?=[\\p{XID_Start}_$\"0-9(#])",
+      "begin": "(?=[\\p{XID_Start}_$\"'<0-9(#])",
       "comment": "Binding with value: key = value",
-      "end": "(?<=\\})|(?<=[\\]\\)\"'])|(?<=\\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=//|/\\*|@)",
+      "end": "(?<=\\})|(?<=[\\]\\)\"])|(?<=\\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=//|/\\*|@)|(?<=`)",
       "patterns": [
         {
           "include": "#comments"

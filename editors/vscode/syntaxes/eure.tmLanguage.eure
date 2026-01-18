@@ -264,8 +264,8 @@ scopeName: source.eure
 
 @repository.binding {
   comment: Binding with value: key = value
-  begin: (?=[\p{XID_Start}_$"0-9(#])
-  end: (?<=\})|(?<=[\]\)"'])|(?<=\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=//|/\*|@)
+  begin: (?=[\p{XID_Start}_$"'<0-9(#])
+  end: (?<=\})|(?<=[\]\)"])|(?<=\d)|(?<=true|false|null|[Ii]nf|[Nn]a[Nn])|(?=//|/\*|@)|(?<=`)
   patterns[] { include = "#comments" }
   patterns[] { include = "#binding-keys" }
   patterns[] { include = "#value-binding" }
