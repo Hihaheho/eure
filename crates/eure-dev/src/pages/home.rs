@@ -38,17 +38,16 @@ fn diagnostics_to_spans(
         .collect()
 }
 
-/// All errors organized for display (simplified)
+/// All errors organized for display (doc/schema diagnostics only)
 #[derive(Debug, Clone, Default, PartialEq)]
 struct AllErrors {
     doc_errors: Vec<ErrorSpan>,
     schema_errors: Vec<ErrorSpan>,
-    json_errors: Vec<String>,
 }
 
 impl AllErrors {
     fn total_count(&self) -> usize {
-        self.doc_errors.len() + self.schema_errors.len() + self.json_errors.len()
+        self.doc_errors.len() + self.schema_errors.len()
     }
 
     fn is_empty(&self) -> bool {
@@ -396,9 +395,11 @@ fn run_queries<T: query_flow::tracer::Tracer>(
     runtime: &QueryRuntime<T>,
     doc_file: &TextFile,
     schema_file: &TextFile,
+    active_tab: RightTab,
     mut doc_tokens: Signal<Vec<SemanticToken>>,
     mut schema_tokens: Signal<Vec<SemanticToken>>,
     mut json_output: Signal<String>,
+    mut json_errors: Signal<Vec<String>>,
     mut all_errors: Signal<AllErrors>,
 ) -> Vec<Url> {
     let mut pending_urls = Vec::new();
@@ -421,40 +422,44 @@ fn run_queries<T: query_flow::tracer::Tracer>(
         Err(e) => tracing::error!("Semantic tokens query failed: {}", e),
     }
 
-    // Get semantic tokens for schema
-    match runtime.query(GetSemanticTokens::new(schema_file.clone())) {
-        Ok(result) => schema_tokens.set((*result).clone()),
-        Err(QueryError::Suspend { .. }) => collect_pending_urls(),
-        Err(e) => tracing::error!("Semantic tokens query failed: {}", e),
+    // Get semantic tokens for schema (only when Schema tab is active)
+    if active_tab == RightTab::Schema {
+        match runtime.query(GetSemanticTokens::new(schema_file.clone())) {
+            Ok(result) => schema_tokens.set((*result).clone()),
+            Err(QueryError::Suspend { .. }) => collect_pending_urls(),
+            Err(e) => tracing::error!("Semantic tokens query failed: {}", e),
+        }
     }
 
-    // Get JSON output with formatted errors
-    let json_errors = match runtime.query(EureToJsonFormatted::new(
-        doc_file.clone(),
-        eure_json::Config::default(),
-    )) {
-        Ok(json) => {
-            let pretty = serde_json::to_string_pretty(&*json).unwrap_or_default();
-            json_output.set(pretty);
-            vec![]
-        }
-        Err(QueryError::Suspend { .. }) => {
-            collect_pending_urls();
-            vec![]
-        }
-        Err(e) => {
-            json_output.set(String::new());
-            // Extract formatted error reports if available
-            if let Some(reports) = e.downcast_ref::<ErrorReports>() {
-                reports
-                    .iter()
-                    .filter_map(|r| format_error_report(runtime, r, false).ok())
-                    .collect()
-            } else {
-                vec![e.to_string()]
+    // Get JSON output with formatted errors (only when JsonOutput tab is active)
+    if active_tab == RightTab::JsonOutput {
+        match runtime.query(EureToJsonFormatted::new(
+            doc_file.clone(),
+            eure_json::Config::default(),
+        )) {
+            Ok(json) => {
+                let pretty = serde_json::to_string_pretty(&*json).unwrap_or_default();
+                json_output.set(pretty);
+                json_errors.set(vec![]);
+            }
+            Err(QueryError::Suspend { .. }) => {
+                collect_pending_urls();
+            }
+            Err(e) => {
+                json_output.set(String::new());
+                // Extract formatted error reports if available
+                let errors = if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+                    reports
+                        .iter()
+                        .filter_map(|r| format_error_report(runtime, r, false).ok())
+                        .collect()
+                } else {
+                    vec![e.to_string()]
+                };
+                json_errors.set(errors);
             }
         }
-    };
+    }
 
     // Get diagnostics for the document
     let doc_errors = match runtime.query(GetFileDiagnostics::new(doc_file.clone())) {
@@ -484,7 +489,6 @@ fn run_queries<T: query_flow::tracer::Tracer>(
     all_errors.set(AllErrors {
         doc_errors,
         schema_errors,
-        json_errors,
     });
 
     pending_urls
@@ -535,6 +539,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
     let doc_tokens: Signal<Vec<SemanticToken>> = use_signal(Vec::new);
     let schema_tokens: Signal<Vec<SemanticToken>> = use_signal(Vec::new);
     let json_output: Signal<String> = use_signal(String::new);
+    let json_errors: Signal<Vec<String>> = use_signal(Vec::new);
     let all_errors: Signal<AllErrors> = use_signal(AllErrors::default);
 
     // Trace signals
@@ -548,13 +553,16 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
     // Helper to run queries and fetch pending remote assets
     let mut run_queries_with_fetch = move |doc_file: TextFile, schema_file: TextFile| {
+        let current_tab = active_tab();
         let mut pending_urls = run_queries(
             &runtime(),
             &doc_file,
             &schema_file,
+            current_tab,
             doc_tokens,
             schema_tokens,
             json_output,
+            json_errors,
             all_errors,
         );
 
@@ -579,9 +587,11 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                 &runtime(),
                 &doc_file,
                 &schema_file,
+                current_tab,
                 doc_tokens,
                 schema_tokens,
                 json_output,
+                json_errors,
                 all_errors,
             );
         }
@@ -604,9 +614,11 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                     &runtime_clone,
                     &doc_file,
                     &schema_file,
+                    current_tab,
                     doc_tokens,
                     schema_tokens,
                     json_output,
+                    json_errors,
                     all_errors,
                 );
 
@@ -619,12 +631,21 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
         }
     };
 
-    // Update content and run queries when example changes
+    // Track the previous example to detect changes (None = first render)
+    let mut prev_example: Signal<Option<EureExample>> = use_signal(|| None);
+
+    // Update content when example changes, re-run queries when example or tab changes
     use_effect(move || {
         let ex = current_example();
-        content.set(ex.content().to_string());
-        schema_content.set(ex.schema().to_string());
-        ex.on_change_tab(&runtime());
+        let _tab = active_tab(); // Subscribe to tab changes
+
+        // Reset content when the example changes (or on first render)
+        if prev_example() != Some(ex) {
+            prev_example.set(Some(ex));
+            content.set(ex.content().to_string());
+            schema_content.set(ex.schema().to_string());
+            ex.on_change_tab(&runtime());
+        }
 
         let doc_file = TextFile::from_path(ex.file_name().into());
         let schema_file = TextFile::from_path(ex.schema_file_name().into());
@@ -684,7 +705,6 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                     select {
                         class: "px-4 py-2 rounded-lg border-2 text-base font-semibold cursor-pointer shadow-sm",
                         style: "border-color: {accent_color}; background-color: {bg_color}; color: {accent_color}",
-                        value: "{current_example().value()}",
                         onchange: move |evt| {
                             let value = evt.value();
                             navigator
@@ -694,7 +714,11 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                 });
                         },
                         for ex in EureExample::ALL {
-                            option { value: "{ex.value()}", "{ex.name()}" }
+                            option {
+                                value: "{ex.value()}",
+                                selected: *ex == current_example(),
+                                "{ex.name()}"
+                            }
                         }
                     }
                 }
@@ -792,11 +816,19 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
 
                             div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                                // Show JSON conversion errors inline
+                                if !json_errors().is_empty() {
+                                    div {
+                                        class: "mb-3 p-2 rounded",
+                                        style: "background: rgba(255, 100, 100, 0.1); border-left: 3px solid {error_color}",
+                                        for error in json_errors().iter() {
+                                            pre { class: "whitespace-pre-wrap", style: "color: {error_color}", "{error}" }
+                                        }
+                                    }
+                                }
+                                // JSON output
                                 pre {
-
-
-
-                                    if json_output().is_empty() {
+                                    if json_output().is_empty() && json_errors().is_empty() {
                                         span { class: "opacity-50", "// Parse the Eure document to see JSON output" }
                                     } else {
                                         "{json_output()}"
@@ -853,20 +885,6 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                                     class: "mb-2 p-2 rounded border",
                                                     style: "border-color: {border_color}",
                                                     pre { class: "whitespace-pre-wrap", "{error.message}" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if !all_errors().json_errors.is_empty() {
-                                        div { class: "mb-4",
-                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "JSON Conversion Errors ({all_errors().json_errors.len()})"
-                                            }
-                                            for error in all_errors().json_errors.iter() {
-                                                div {
-                                                    class: "mb-2 p-2 rounded border",
-                                                    style: "border-color: {border_color}",
-                                                    pre { class: "whitespace-pre-wrap", "{error}" }
                                                 }
                                             }
                                         }
@@ -1234,7 +1252,11 @@ fn TraceTreeNodeView(
 
 /// Component to render the trace tree view
 #[component]
-fn TraceTreeView(entries: Vec<TraceEntry>, theme: ReadSignal<Theme>, collapse_all_gen: u64) -> Element {
+fn TraceTreeView(
+    entries: Vec<TraceEntry>,
+    theme: ReadSignal<Theme>,
+    collapse_all_gen: u64,
+) -> Element {
     let forest = build_trace_forest(&entries);
 
     if forest.is_empty() {
