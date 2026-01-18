@@ -8,9 +8,9 @@ use crate::{
 };
 use dioxus::prelude::*;
 use eure::query::{
-    DiagnosticMessage, GetFileDiagnostics, GetSemanticTokens, OpenDocuments, OpenDocumentsList,
-    ParseDocument, SemanticToken, TextFile, TextFileContent, TextFileLocator, Workspace,
-    WorkspaceId,
+    DiagnosticMessage, EureQueryError, GetFileDiagnostics, GetSemanticTokens, OpenDocuments,
+    OpenDocumentsList, ParseDocument, SemanticToken, TextFile, TextFileContent, TextFileLocator,
+    Workspace, WorkspaceId,
 };
 use eure::report::error_reports_comparator;
 use query_flow::{
@@ -537,7 +537,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
     // Helper to run queries and fetch pending remote assets
     let mut run_queries_with_fetch = move |doc_file: TextFile, schema_file: TextFile| {
-        let pending_urls = run_queries(
+        let mut pending_urls = run_queries(
             &runtime(),
             &doc_file,
             &schema_file,
@@ -546,6 +546,34 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
             json_output,
             all_errors,
         );
+
+        // Resolve any pending local files as ContentNotFound
+        // This handles cases like $schema pointing to non-existing files
+        let pending_assets = runtime().pending_assets();
+        let mut resolved_local_files = false;
+        for pending_asset in pending_assets {
+            if let Some(file @ TextFile::Local(_)) = pending_asset.key::<TextFile>() {
+                runtime().resolve_asset_error::<TextFile>(
+                    file.clone(),
+                    EureQueryError::ContentNotFound(file.clone()),
+                    DurabilityLevel::Static,
+                );
+                resolved_local_files = true;
+            }
+        }
+
+        // If we resolved local files, re-run queries to pick up the errors
+        if resolved_local_files {
+            pending_urls = run_queries(
+                &runtime(),
+                &doc_file,
+                &schema_file,
+                doc_tokens,
+                schema_tokens,
+                json_output,
+                all_errors,
+            );
+        }
 
         // Update trace entries after queries run
         trace_entries.set(trace_buffer().get_all());
