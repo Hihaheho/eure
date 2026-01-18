@@ -32,6 +32,7 @@ fn ident(s: &str) -> Identifier {
 }
 
 // Helper to convert document to schema
+#[track_caller]
 fn convert(doc: &EureDocument) -> SchemaDocument {
     let (schema, _source_map) = document_to_schema(doc).expect("Failed to convert to schema");
     schema
@@ -42,6 +43,7 @@ fn convert(doc: &EureDocument) -> SchemaDocument {
 // ============================================================================
 
 /// Helper function to assert a node is a Record with 1 field
+#[track_caller]
 fn assert_record1<F1>(schema: &SchemaDocument, node_id: SchemaNodeId, field1: (&str, F1))
 where
     F1: Fn(&SchemaDocument, SchemaNodeId),
@@ -60,6 +62,7 @@ where
 }
 
 /// Helper function to assert a node is a Record with 2 fields
+#[track_caller]
 fn assert_record2<F1, F2>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -90,6 +93,7 @@ fn assert_record2<F1, F2>(
 }
 
 /// Helper function to assert a node is a Record with 3 fields
+#[track_caller]
 fn assert_record3<F1, F2, F3>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -128,6 +132,7 @@ fn assert_record3<F1, F2, F3>(
 }
 
 /// Helper function to assert a node is a Record with 5 fields
+#[track_caller]
 fn assert_record5<F1, F2, F3, F4, F5>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -182,6 +187,7 @@ fn assert_record5<F1, F2, F3, F4, F5>(
 }
 
 /// Assert that a record field is optional
+#[track_caller]
 fn assert_field_optional(schema: &SchemaDocument, node_id: SchemaNodeId, field_name: &str) {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Record(record) = &node.content {
@@ -200,6 +206,7 @@ fn assert_field_optional(schema: &SchemaDocument, node_id: SchemaNodeId, field_n
 }
 
 /// Assert node is Text with no language constraint (accepts any language)
+#[track_caller]
 fn assert_text(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Text(text_schema) = &node.content {
@@ -214,6 +221,7 @@ fn assert_text(schema: &SchemaDocument, node_id: SchemaNodeId) {
 }
 
 /// Assert node is Text with specific language constraint
+#[track_caller]
 fn assert_text_language(schema: &SchemaDocument, node_id: SchemaNodeId, expected: &str) {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Text(text_schema) = &node.content {
@@ -230,6 +238,7 @@ fn assert_text_language(schema: &SchemaDocument, node_id: SchemaNodeId, expected
 }
 
 /// Assert node is Text with full constraint check
+#[track_caller]
 fn assert_text_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
 where
     F: Fn(&TextSchema),
@@ -243,6 +252,7 @@ where
 }
 
 /// Assert that a node is an Integer type
+#[track_caller]
 fn assert_integer(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
     assert!(
@@ -253,6 +263,7 @@ fn assert_integer(schema: &SchemaDocument, node_id: SchemaNodeId) {
 }
 
 /// Assert that a node is an Integer type with specific constraints
+#[track_caller]
 fn assert_integer_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
 where
     F: Fn(&IntegerSchema),
@@ -266,6 +277,7 @@ where
 }
 
 /// Assert that a node is a Float type
+#[track_caller]
 fn assert_float(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
     assert!(
@@ -276,6 +288,7 @@ fn assert_float(schema: &SchemaDocument, node_id: SchemaNodeId) {
 }
 
 /// Assert that a node is a Float type with specific constraints
+#[track_caller]
 fn assert_float_with<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
 where
     F: Fn(&FloatSchema),
@@ -289,6 +302,7 @@ where
 }
 
 /// Assert that a node is a Boolean type (unit variant, no constraints)
+#[track_caller]
 fn assert_boolean(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
     assert!(
@@ -299,6 +313,7 @@ fn assert_boolean(schema: &SchemaDocument, node_id: SchemaNodeId) {
 }
 
 /// Assert that a node is a Null type
+#[track_caller]
 fn assert_null(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
     assert!(
@@ -309,6 +324,7 @@ fn assert_null(schema: &SchemaDocument, node_id: SchemaNodeId) {
 }
 
 /// Assert that a node is an Any type
+#[track_caller]
 fn assert_any(schema: &SchemaDocument, node_id: SchemaNodeId) {
     let node = schema.node(node_id);
     assert!(
@@ -319,6 +335,7 @@ fn assert_any(schema: &SchemaDocument, node_id: SchemaNodeId) {
 }
 
 /// Assert that a node is an Array type
+#[track_caller]
 fn assert_array<F>(schema: &SchemaDocument, node_id: SchemaNodeId, item_check: F)
 where
     F: Fn(&SchemaDocument, SchemaNodeId),
@@ -332,6 +349,7 @@ where
 }
 
 /// Assert that a node is an Array type with specific constraints
+#[track_caller]
 fn assert_array_with<F, G>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -351,6 +369,7 @@ fn assert_array_with<F, G>(
 }
 
 /// Assert that a node is a Map type with specific key and value checks
+#[track_caller]
 fn assert_map<K, V>(schema: &SchemaDocument, node_id: SchemaNodeId, key_check: K, value_check: V)
 where
     K: Fn(&SchemaDocument, SchemaNodeId),
@@ -366,6 +385,7 @@ where
 }
 
 /// Assert that a node is a Map type with specific constraints
+#[track_caller]
 fn assert_map_with<K, V, C>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -388,6 +408,7 @@ fn assert_map_with<K, V, C>(
 }
 
 /// Assert that a node is a Tuple with 2 elements and check each
+#[track_caller]
 fn assert_tuple2<F1, F2>(schema: &SchemaDocument, node_id: SchemaNodeId, check1: F1, check2: F2)
 where
     F1: Fn(&SchemaDocument, SchemaNodeId),
@@ -404,6 +425,7 @@ where
 }
 
 /// Assert that a node is a Tuple with 3 elements and check each
+#[track_caller]
 fn assert_tuple3<F1, F2, F3>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -427,6 +449,7 @@ fn assert_tuple3<F1, F2, F3>(
 }
 
 /// Assert that a node is a Union type with 2 named variants
+#[track_caller]
 fn assert_union2<F1, F2>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -457,6 +480,7 @@ fn assert_union2<F1, F2>(
 }
 
 /// Assert that a node is a Union type with 3 named variants
+#[track_caller]
 fn assert_union3<F1, F2, F3>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
@@ -495,6 +519,7 @@ fn assert_union3<F1, F2, F3>(
 }
 
 /// Assert that a node is a Union type with 4 named variants
+#[track_caller]
 fn assert_union4<F1, F2, F3, F4>(
     schema: &SchemaDocument,
     node_id: SchemaNodeId,
