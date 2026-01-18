@@ -455,14 +455,14 @@ pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<ResolvedSch
         if let Some(base_path) = file.as_local_path() {
             let base_dir = base_path.parent().unwrap_or(Path::new("."));
             return Ok(Some(ResolvedSchema {
-                file: TextFile::resolve(&ext.path, base_dir),
+                file: TextFile::resolve(&ext.path, base_dir)?,
                 origin: Some(ext.origin.clone()),
             }));
         }
         // For remote files, only absolute URLs are supported
         if ext.path.starts_with("https://") {
             return Ok(Some(ResolvedSchema {
-                file: TextFile::parse(&ext.path),
+                file: TextFile::parse(&ext.path)?,
                 origin: Some(ext.origin.clone()),
             }));
         }
@@ -476,7 +476,7 @@ pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<ResolvedSch
             .schema_for_path(file_path, &resolved.config_dir)
     {
         return Ok(Some(ResolvedSchema {
-            file: TextFile::resolve(&schema_path, &resolved.config_dir),
+            file: TextFile::resolve(&schema_path, &resolved.config_dir)?,
             origin: None, // Config-based resolution has no specific origin
         }));
     }
@@ -501,6 +501,7 @@ fn meta_schema_file() -> TextFile {
         env!("CARGO_PKG_VERSION"),
         "/schemas/eure-schema.schema.eure"
     ))
+    .expect("hardcoded meta-schema URL is valid")
 }
 
 // =============================================================================

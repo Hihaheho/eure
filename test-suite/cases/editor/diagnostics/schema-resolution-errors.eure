@@ -1,0 +1,56 @@
+// Test: $schema resolution errors
+// Tests various error conditions when resolving the $schema extension value.
+// All errors should be reported at the $schema value span.
+
+// Case 1: Non-existing local file
+@ cases.local-file-not-found
+editor = ```eure
+$schema = "non-existing.eure"
+name = "test"
+```
+
+@ cases.local-file-not-found.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Failed to load schema file: non-existing.eure"
+span = `"non-existing.eure"`
+
+// Case 2: Local path that doesn't exist (not a URL)
+@ cases.local-path-not-found
+editor = ```eure
+$schema = "htt"
+name = "test"
+```
+
+@ cases.local-path-not-found.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Failed to load schema file: htt"
+span = `"htt"`
+
+// Case 3: Invalid URL (malformed https://)
+@ cases.invalid-url
+editor = ```eure
+$schema = "https://"
+name = "test"
+```
+
+@ cases.invalid-url.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Invalid URL 'https://': empty host"
+span = `"https://"`
+
+// Case 4: Host not in allowlist
+// By default, only eure.dev is allowed
+@ cases.host-not-allowed
+editor = ```eure
+$schema = "https://invalid.example.com/schema.eure"
+name = "test"
+```
+
+@ cases.host-not-allowed.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "Remote host not allowed: invalid.example.com (URL: https://invalid.example.com/schema.eure). If you trust this host, add it to security.allowed-hosts in Eure.eure"
+span = `"https://invalid.example.com/schema.eure"`

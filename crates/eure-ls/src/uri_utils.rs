@@ -8,19 +8,19 @@
 
 use std::path::PathBuf;
 
-use eure::query::TextFile;
+use eure::query::{EureQueryError, TextFile};
 
 /// Convert a URI string to a TextFile.
 ///
 /// Handles both file:// URIs and https:// URLs.
-pub fn uri_to_text_file(uri: &str) -> TextFile {
+pub fn uri_to_text_file(uri: &str) -> Result<TextFile, EureQueryError> {
     if uri.starts_with("https://") {
         // Remote URL
         TextFile::parse(uri)
     } else {
         // Local file
         let path = uri_to_path(uri);
-        TextFile::from_path(PathBuf::from(path))
+        Ok(TextFile::from_path(PathBuf::from(path)))
     }
 }
 
@@ -127,7 +127,7 @@ mod tests {
 
         #[test]
         fn file_uri_returns_local() {
-            let file = uri_to_text_file("file:///home/user/file.eure");
+            let file = uri_to_text_file("file:///home/user/file.eure").unwrap();
             assert!(file.as_local_path().is_some());
             assert_eq!(
                 file.as_local_path().unwrap(),
@@ -137,7 +137,7 @@ mod tests {
 
         #[test]
         fn https_url_returns_remote() {
-            let file = uri_to_text_file("https://example.com/schema.eure");
+            let file = uri_to_text_file("https://example.com/schema.eure").unwrap();
             assert!(file.as_url().is_some());
             assert_eq!(
                 file.as_url().unwrap().as_str(),
@@ -147,12 +147,18 @@ mod tests {
 
         #[test]
         fn windows_file_uri() {
-            let file = uri_to_text_file("file:///C:/Users/test.eure");
+            let file = uri_to_text_file("file:///C:/Users/test.eure").unwrap();
             assert!(file.as_local_path().is_some());
             assert_eq!(
                 file.as_local_path().unwrap(),
                 Path::new("C:/Users/test.eure")
             );
+        }
+
+        #[test]
+        fn invalid_url_returns_error() {
+            let result = uri_to_text_file("https://");
+            assert!(result.is_err());
         }
     }
 
@@ -173,7 +179,7 @@ mod tests {
 
         #[test]
         fn remote_url() {
-            let file = TextFile::parse("https://example.com/schema.eure");
+            let file = TextFile::parse("https://example.com/schema.eure").unwrap();
             assert_eq!(text_file_to_uri(&file), "https://example.com/schema.eure");
         }
     }

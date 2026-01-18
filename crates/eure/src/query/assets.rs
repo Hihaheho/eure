@@ -12,6 +12,8 @@ use std::sync::Arc;
 use query_flow::asset_key;
 use url::Url;
 
+use super::error::EureQueryError;
+
 /// Asset key for text file content.
 #[asset_key(asset = TextFileContent)]
 pub enum TextFile {
@@ -33,11 +35,16 @@ impl TextFile {
     }
 
     /// Parse a string as either a URL (if starts with https://) or a local path.
-    pub fn parse(s: &str) -> Self {
+    pub fn parse(s: &str) -> Result<Self, EureQueryError> {
         if s.starts_with("https://") {
-            Self::from_url(Url::parse(s).expect("valid URL"))
+            Url::parse(s)
+                .map(Self::from_url)
+                .map_err(|e| EureQueryError::InvalidUrl {
+                    url: s.to_string(),
+                    reason: e.to_string(),
+                })
         } else {
-            Self::from_path(PathBuf::from(s))
+            Ok(Self::from_path(PathBuf::from(s)))
         }
     }
 
@@ -45,11 +52,11 @@ impl TextFile {
     ///
     /// - If `target` starts with "https://", returns a `TextFile::Remote`
     /// - Otherwise, joins `target` with `base_dir` and returns a `TextFile::Local`
-    pub fn resolve(target: &str, base_dir: &Path) -> Self {
+    pub fn resolve(target: &str, base_dir: &Path) -> Result<Self, EureQueryError> {
         if target.starts_with("https://") {
             Self::parse(target)
         } else {
-            Self::from_path(base_dir.join(target))
+            Ok(Self::from_path(base_dir.join(target)))
         }
     }
 
@@ -188,7 +195,7 @@ mod tests {
 
         #[test]
         fn parses_https_url() {
-            let file = TextFile::parse("https://example.com/schema.eure");
+            let file = TextFile::parse("https://example.com/schema.eure").unwrap();
             assert!(file.as_url().is_some());
             assert!(file.as_local_path().is_none());
             assert_eq!(
@@ -199,7 +206,7 @@ mod tests {
 
         #[test]
         fn parses_local_path() {
-            let file = TextFile::parse("/path/to/file.eure");
+            let file = TextFile::parse("/path/to/file.eure").unwrap();
             assert!(file.as_local_path().is_some());
             assert!(file.as_url().is_none());
             assert_eq!(
@@ -210,7 +217,7 @@ mod tests {
 
         #[test]
         fn parses_relative_path() {
-            let file = TextFile::parse("relative/path.eure");
+            let file = TextFile::parse("relative/path.eure").unwrap();
             assert!(file.as_local_path().is_some());
             assert_eq!(
                 file.as_local_path().unwrap(),
@@ -221,8 +228,19 @@ mod tests {
         #[test]
         fn http_without_s_is_local_path() {
             // http:// (without s) is treated as a local path, not a URL
-            let file = TextFile::parse("http://example.com");
+            let file = TextFile::parse("http://example.com").unwrap();
             assert!(file.as_local_path().is_some());
+        }
+
+        #[test]
+        fn invalid_url_returns_error() {
+            // Empty host
+            let result = TextFile::parse("https://");
+            assert!(result.is_err());
+
+            // Invalid characters in host
+            let result = TextFile::parse("https://[invalid");
+            assert!(result.is_err());
         }
     }
 
@@ -246,7 +264,7 @@ mod tests {
 
         #[test]
         fn remote_url_ends_with_extension() {
-            let file = TextFile::parse("https://example.com/schemas/user.schema.eure");
+            let file = TextFile::parse("https://example.com/schemas/user.schema.eure").unwrap();
             assert!(file.ends_with(".schema.eure"));
             assert!(file.ends_with(".eure"));
             assert!(!file.ends_with(".json"));
@@ -256,14 +274,14 @@ mod tests {
         fn remote_url_ignores_query_params() {
             // For Remote URLs, ends_with uses url.path() which excludes query params.
             // So "https://example.com/file.eure?version=1" has path "/file.eure"
-            let file = TextFile::parse("https://example.com/file.eure?version=1");
+            let file = TextFile::parse("https://example.com/file.eure?version=1").unwrap();
             assert!(file.ends_with(".eure"));
             assert!(!file.ends_with("?version=1"));
         }
 
         #[test]
         fn remote_url_ignores_fragment() {
-            let file = TextFile::parse("https://example.com/file.eure#section");
+            let file = TextFile::parse("https://example.com/file.eure#section").unwrap();
             assert!(file.ends_with(".eure"));
             assert!(!file.ends_with("#section"));
         }

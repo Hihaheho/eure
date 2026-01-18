@@ -21,6 +21,7 @@ pub use assets::{
     DecorStyle, DecorStyleKey, Glob, GlobResult, OpenDocuments, OpenDocumentsList, TextFile,
     TextFileContent, Workspace, WorkspaceId,
 };
+pub use error::EureQueryError;
 
 use query_flow::{QueryRuntime, QueryRuntimeBuilder};
 

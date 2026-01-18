@@ -217,7 +217,7 @@ impl WasmCore {
         let text_files: Vec<TextFile> = files
             .iter()
             .filter_map(|v| v.as_string())
-            .map(|uri| uri_to_text_file(&uri))
+            .filter_map(|uri| uri_to_text_file(&uri).ok())
             .collect();
 
         let (outputs, _effects) = self.core.resolve_glob(id, text_files);
@@ -227,7 +227,10 @@ impl WasmCore {
     /// Resolve a text file content.
     #[wasm_bindgen]
     pub fn resolve_text_file(&mut self, uri: &str, content: Option<String>, error: Option<String>) {
-        let file = uri_to_text_file(uri);
+        let Ok(file) = uri_to_text_file(uri) else {
+            // Invalid URI - nothing to resolve
+            return;
+        };
 
         let result = match (content, error) {
             (Some(c), _) => Ok(c),

@@ -17,4 +17,6 @@ pub enum EureQueryError {
         "Remote host not allowed: {host} (URL: {url}). Add the host to security.allowed-hosts in Eure.eure"
     )]
     HostNotAllowed { url: Url, host: String },
+    #[error("Invalid URL '{url}': {reason}")]
+    InvalidUrl { url: String, reason: String },
 }

@@ -22,7 +22,8 @@ use crate::report::{ErrorReport, ErrorReports};
 
 use super::assets::{OpenDocuments, OpenDocumentsList, TextFile};
 use super::schema::{
-    DocumentToSchemaQuery, GetSchemaExtensionDiagnostics, ResolveSchema, ValidateAgainstSchema,
+    DocumentToSchemaQuery, GetSchemaExtension, GetSchemaExtensionDiagnostics, ResolveSchema,
+    ValidateAgainstSchema,
 };
 
 /// Severity level for diagnostics.
@@ -171,12 +172,35 @@ pub fn get_validation_diagnostics(
     diagnostics.extend(schema_ext_errors.iter().map(error_report_to_diagnostic));
 
     // Resolve schema to check if it exists and has errors
-    let Some(resolved_schema) = db
-        .query(ResolveSchema::new(doc_file.clone()))?
-        .as_ref()
-        .clone()
-    else {
-        return Ok(diagnostics); // No schema, no validation
+    let resolved_schema = match db
+        .query(ResolveSchema::new(doc_file.clone()))
+        .downcast_err::<EureQueryError>()?
+    {
+        Ok(arc) => match arc.as_ref() {
+            Some(schema) => schema.clone(),
+            None => return Ok(diagnostics), // No schema, no validation
+        },
+        Err(e) => {
+            // Error resolving schema - report at $schema span if available
+            if let Some(ext) = db
+                .query(GetSchemaExtension::new(doc_file.clone()))?
+                .as_ref()
+                && let EureQueryError::InvalidUrl { url, reason } = e.get()
+            {
+                let start = ext.origin.span.start as usize;
+                let end = ext.origin.span.end as usize;
+
+                diagnostics.push(DiagnosticMessage {
+                    file: doc_file.clone(),
+                    start,
+                    end,
+                    message: format!("Invalid URL '{}': {}", url, reason),
+                    severity: DiagnosticSeverity::Error,
+                });
+                return Ok(diagnostics);
+            }
+            return Err(e.into());
+        }
     };
 
     // Check if schema can be converted (detect schema errors)
@@ -220,17 +244,50 @@ pub fn get_validation_diagnostics(
                 (0, 1)
             };
 
-            // Check if schema file not found
-            if let Some(EureQueryError::ContentNotFound(text_file)) =
-                e.downcast_ref::<EureQueryError>()
-            {
-                diagnostics.push(DiagnosticMessage {
-                    file: doc_file.clone(),
-                    start,
-                    end,
-                    message: format!("Failed to load schema file: {}", text_file),
-                    severity: DiagnosticSeverity::Error,
-                });
+            // Check for specific error types
+            if let Some(query_err) = e.downcast_ref::<EureQueryError>() {
+                match query_err {
+                    EureQueryError::ContentNotFound(text_file) => {
+                        diagnostics.push(DiagnosticMessage {
+                            file: doc_file.clone(),
+                            start,
+                            end,
+                            message: format!("Failed to load schema file: {}", text_file),
+                            severity: DiagnosticSeverity::Error,
+                        });
+                    }
+                    EureQueryError::HostNotAllowed { url, host } => {
+                        diagnostics.push(DiagnosticMessage {
+                            file: doc_file.clone(),
+                            start,
+                            end,
+                            message: format!(
+                                "Remote host not allowed: {} (URL: {}). If you trust this host, add it to security.allowed-hosts in Eure.eure",
+                                host, url
+                            ),
+                            severity: DiagnosticSeverity::Error,
+                        });
+                    }
+                    EureQueryError::InvalidUrl { url, reason } => {
+                        diagnostics.push(DiagnosticMessage {
+                            file: doc_file.clone(),
+                            start,
+                            end,
+                            message: format!("Invalid URL '{}': {}", url, reason),
+                            severity: DiagnosticSeverity::Error,
+                        });
+                    }
+                    _ => {
+                        // Other EureQueryError variants
+                        diagnostics.push(DiagnosticMessage {
+                            file: doc_file.clone(),
+                            start,
+                            end,
+                            message: format!("Schema error: {}", query_err),
+                            severity: DiagnosticSeverity::Error,
+                        });
+                    }
+                }
             } else {
                 // Schema has conversion errors (ErrorReports or other)
                 diagnostics.push(DiagnosticMessage {

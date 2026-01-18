@@ -178,7 +178,7 @@ impl LspCore {
         let files: Vec<TextFile> = self
             .documents
             .keys()
-            .map(|uri| uri_to_text_file(uri))
+            .filter_map(|uri| uri_to_text_file(uri).ok())
             .collect();
 
         self.runtime.resolve_asset(
@@ -196,7 +196,9 @@ impl LspCore {
         self.documents.insert(uri.to_string(), content.clone());
 
         // Resolve in query runtime
-        let file = uri_to_text_file(uri);
+        let Ok(file) = uri_to_text_file(uri) else {
+            return; // Invalid URI - skip
+        };
         self.runtime
             .resolve_asset(file, TextFileContent(content), DurabilityLevel::Volatile);
 
@@ -220,8 +222,9 @@ impl LspCore {
         self.documents.remove(uri);
 
         // Invalidate in query runtime
-        let file = uri_to_text_file(uri);
-        self.runtime.invalidate_asset(&file);
+        if let Ok(file) = uri_to_text_file(uri) {
+            self.runtime.invalidate_asset(&file);
+        }
 
         // Update open documents asset - this triggers re-evaluation of diagnostic targets
         self.update_open_documents();
@@ -296,7 +299,16 @@ impl LspCore {
 
                 let uri = params.text_document.uri;
                 let uri_str = uri.as_str();
-                let file = uri_to_text_file(uri_str);
+                let file = match uri_to_text_file(uri_str) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        outputs.push(LspOutput::Response {
+                            id,
+                            result: Err(LspError::invalid_params(format!("Invalid URI: {}", e))),
+                        });
+                        return (outputs, effects);
+                    }
+                };
                 let source = self.documents.get(uri_str).cloned().unwrap_or_default();
 
                 let query = LspSemanticTokens::new(file, source.clone());

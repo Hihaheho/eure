@@ -106,7 +106,8 @@ pub fn validate_target(
     let schema_file = target
         .schema
         .as_ref()
-        .map(|schema_path| TextFile::resolve(schema_path, &config_dir));
+        .map(|schema_path| TextFile::resolve(schema_path, &config_dir))
+        .transpose()?;
 
     // Expand glob patterns via asset (platform-specific implementation)
     let files: Vec<TextFile> = target
