@@ -11,23 +11,23 @@ variants.user.email = `text`
 
 output_json_schema = ```json
 {
-    "oneOf": [
-        {
-            "type": "object",
-            "properties": {
-                "user": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "email": {"type": "string"}
-                    },
-                    "required": ["name"],
-                    "additionalProperties": false
-                }
-            },
-            "required": ["user"],
-            "additionalProperties": false
-        }
-    ]
+  "oneOf": [
+    {
+    "type": "object",
+    "properties": {
+      "user": {
+        "type": "object",
+        "properties": {
+        "name": {"type": "string"},
+        "email": {"type": "string"}
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
+    },
+    "required": ["user"],
+    "additionalProperties": false
+    }
+  ]
 }
 ```
