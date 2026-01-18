@@ -486,6 +486,41 @@ impl ValidationError {
         }
     }
 
+    /// Find the deepest value-focused error in a chain of NoVariantMatched errors.
+    ///
+    /// For nested unions, this walks the best_match chain to find the actual error
+    /// location, but only for "value-focused" errors (TypeMismatch, LiteralMismatch, etc.)
+    /// where the deeper span is more useful. For structural errors (MissingRequiredField,
+    /// UnknownField), we stop at the current level since pointing to the outer block
+    /// is more helpful.
+    pub fn deepest_error(&self) -> &ValidationError {
+        match self {
+            Self::NoVariantMatched {
+                best_match: Some(best),
+                ..
+            } => {
+                // Check if the nested error is worth descending into
+                match best.error.as_ref() {
+                    // Continue descending for nested unions
+                    Self::NoVariantMatched { .. } => best.error.deepest_error(),
+                    // Continue for value-focused errors where deeper span is useful
+                    Self::TypeMismatch { .. }
+                    | Self::LiteralMismatch { .. }
+                    | Self::LanguageMismatch { .. }
+                    | Self::OutOfRange { .. }
+                    | Self::NotMultipleOf { .. }
+                    | Self::PatternMismatch { .. }
+                    | Self::StringLengthOutOfBounds { .. }
+                    | Self::InvalidKeyType { .. }
+                    | Self::UnknownField { .. } => best.error.deepest_error(),
+                    // For structural errors, keep the outer union span
+                    _ => self,
+                }
+            }
+            _ => self,
+        }
+    }
+
     /// Calculate the depth of this error (path length).
     ///
     /// Deeper errors indicate that validation got further into the structure

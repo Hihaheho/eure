@@ -1,0 +1,566 @@
+// Test: nested union error span points to deepest error location
+// When a document has a nested union type and there's a mistake in a deeply nested value,
+// the diagnostic should point to the actual error location, not the outer union value
+
+schema = ```eure
+result {
+  $variant: union
+  variants.ok {
+    $variant: union
+    variants.some.value = `text`
+    variants.none = "none"
+  }
+  variants.err.message = `text`
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+result {
+  $variant: ok.some
+  value = 123
+}
+```
+
+// Diagnostic should point to "123", not the entire "result { ... }" block
+// The message is the outer NoVariantMatched error, but the SPAN should be at "123"
+@ diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path result, most close variant is 'ok': No variant matched for union at path result, most close variant is 'some': Type mismatch: expected text, got integer at path result.value"
+span = "123"
+
+@ cases.unknown-field
+
+// Schema: nested union where the best match is a record with one field
+// Document has the correct field plus an extra unknown field
+schema = ```eure
+value {
+  $variant: union
+  variants.simple.name = `text`
+  variants.detailed {
+    name = `text`
+    age = `integer`
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  name = "Alice"
+  unknown = "extra"
+}
+```
+
+// Best match is 'simple' (expects only name), failing with UnknownField for 'unknown'
+// Span should point to "unknown" key, not the entire block
+@ cases.unknown-field.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'simple': Unknown field 'unknown' at path value"
+span = "unknown"
+
+@ cases.literal-mismatch
+
+// Schema: union with literal string variants
+schema = ```eure
+value {
+  $variant: union
+  variants.on = "on"
+  variants.off = "off"
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value = "invalid"
+```
+
+// Span should point to "invalid"
+@ cases.literal-mismatch.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'off': Literal value mismatch at path value"
+span = "\"invalid\""
+
+@ cases.language-mismatch
+
+// Schema: union with code blocks expecting specific languages
+schema = ```eure
+value {
+  $variant: union
+  variants.json {
+    code {
+      $variant: text
+      language = "json"
+    }
+  }
+  variants.yaml {
+    code {
+      $variant: text
+      language = "yaml"
+    }
+  }
+}
+```
+
+editor = ````eure
+$schema = "schema.eure"
+value {
+  code = ```python
+print("hello")
+```
+}
+````
+
+// Span should point to the code block
+@ cases.language-mismatch.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'yaml': Language mismatch: expected yaml, got Other(\"python\") at path value.code"
+span = "```python"
+
+@ cases.out-of-range
+
+// Schema: union with integer ranges that don't overlap
+schema = ```eure
+value {
+  $variant: union
+  variants.small {
+    n {
+      $variant: integer
+      range = "[0, 10]"
+    }
+  }
+  variants.large {
+    n {
+      $variant: integer
+      range = "[100, )"
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  n = 50
+}
+```
+
+// Span should point to "50"
+@ cases.out-of-range.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'large': Value 50 is out of range at path value.n"
+span = "50"
+
+@ cases.not-multiple-of
+
+// Schema: union with multipleOf constraints
+schema = ```eure
+value {
+  $variant: union
+  variants.even {
+    n {
+      $variant: integer
+      multiple-of = 2
+    }
+  }
+  variants.by-five {
+    n {
+      $variant: integer
+      multiple-of = 5
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  n = 7
+}
+```
+
+// Span should point to "7"
+@ cases.not-multiple-of.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'by-five': Integer not a multiple of 5 at path value.n"
+span = "7"
+
+@ cases.pattern-mismatch
+
+// Schema: union with pattern constraints
+schema = ```eure
+value {
+  $variant: union
+  variants.email {
+    addr {
+      $variant: text
+      pattern = "^[^@]+@[^@]+$"
+    }
+  }
+  variants.phone {
+    num {
+      $variant: text
+      pattern = "^\\d{3}-\\d{4}$"
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  addr = "not-an-email"
+}
+```
+
+// Span should point to "not-an-email"
+@ cases.pattern-mismatch.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'email': String does not match pattern '^[^@]+@[^@]+$' at path value.addr"
+span = "\"not-an-email\""
+
+@ cases.string-length
+
+// Schema: union with string length constraints
+schema = ```eure
+value {
+  $variant: union
+  variants.short {
+    s {
+      $variant: text
+      min-length = 1
+      max-length = 3
+    }
+  }
+  variants.long {
+    s {
+      $variant: text
+      min-length = 10
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  s = "hello"
+}
+```
+
+// Span should point to "hello"
+@ cases.string-length.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'long': String length 5 is out of bounds at path value.s"
+span = "\"hello\""
+
+@ cases.invalid-key-type
+
+// Schema: union with map types expecting different key types
+// Both variants expect integer keys, but document has a text key
+schema = ```eure
+value {
+  $variant: union
+  variants.int-keys {
+    $variant: map
+    key = `integer`
+    value = `text`
+  }
+  variants.other-int-keys {
+    $variant: map
+    key = `integer`
+    value = `text`
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  "not-int" = "val"
+}
+```
+
+// Span should point to "not-int" key
+@ cases.invalid-key-type.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'other-int-keys': Invalid key type at path value"
+span = "\"not-int\""
+
+// ============================================================================
+// Structural errors - these should NOT descend, keeping the outer union span
+// ============================================================================
+
+@ cases.missing-required-field
+
+// Schema: union where best match is missing a required field
+// MissingRequiredField is a structural error - span should stay at outer block
+schema = ```eure
+value {
+  $variant: union
+  variants.full {
+    name = `text`
+    age = `integer`
+  }
+  variants.minimal {
+    name = `text`
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  age = 30
+}
+```
+
+// Span should point to the entire "value { ... }" block, not to "age"
+// because MissingRequiredField is a structural error
+@ cases.missing-required-field.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'full': Missing required field 'name' at path value"
+span = "value {"
+
+@ cases.tuple-length-mismatch
+
+// Schema: union with tuple types of different lengths
+// TupleLengthMismatch is a structural error - span should stay at outer block
+schema = ```eure
+value {
+  $variant: union
+  variants.pair = (`integer`, `integer`)
+  variants.triple = (`integer`, `integer`, `integer`)
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value = (1)
+```
+
+// Span should point to the entire tuple, not to individual elements
+@ cases.tuple-length-mismatch.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'triple': Tuple length mismatch: expected 3, got 1 at path value"
+span = "(1)"
+
+@ cases.array-length-out-of-bounds
+
+// Schema: union with array length constraints
+// ArrayLengthOutOfBounds is a structural error - span should stay at outer block
+schema = ```eure
+value {
+  $variant: union
+  variants.short {
+    items {
+      $variant: array
+      item = `integer`
+      min-length = 1
+      max-length = 2
+    }
+  }
+  variants.long {
+    items {
+      $variant: array
+      item = `integer`
+      min-length = 5
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  items = [1, 2, 3]
+}
+```
+
+// Span should point to the array, not individual elements
+@ cases.array-length-out-of-bounds.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'long': Array length 3 is out of bounds at path value.items"
+span = "[1, 2, 3]"
+
+@ cases.map-size-out-of-bounds
+
+// Schema: union with map size constraints
+// MapSizeOutOfBounds is a structural error - span should stay at outer block
+schema = ```eure
+value {
+  $variant: union
+  variants.small {
+    data {
+      $variant: map
+      key = `text`
+      value = `integer`
+      min-size = 1
+      max-size = 2
+    }
+  }
+  variants.large {
+    data {
+      $variant: map
+      key = `text`
+      value = `integer`
+      min-size = 5
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  data = { "a" => 1, "b" => 2, "c" => 3 }
+}
+```
+
+// Span should point to the map, not individual entries
+@ cases.map-size-out-of-bounds.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'large': Map size 3 is out of bounds at path value.data"
+span = "{ \"a\" => 1, \"b\" => 2, \"c\" => 3 }"
+
+@ cases.array-not-unique
+
+// Schema: union with unique array constraint
+// ArrayNotUnique is a structural error - span should stay at outer block
+// Both variants expect the same type to ensure uniqueness check is the failing point
+schema = ```eure
+value {
+  $variant: union
+  variants.unique-a {
+    items {
+      $variant: array
+      item = `integer`
+      unique = true
+    }
+  }
+  variants.unique-b {
+    items {
+      $variant: array
+      item = `integer`
+      unique = true
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  items = [1, 2, 1]
+}
+```
+
+// Span should point to the array
+@ cases.array-not-unique.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'unique-b': Array elements must be unique at path value.items"
+span = "[1, 2, 1]"
+
+@ cases.array-missing-contains
+
+// Schema: union with contains constraint
+// ArrayMissingContains is a structural error - span should stay at outer block
+schema = ```eure
+value {
+  $variant: union
+  variants.has-42 {
+    items {
+      $variant: array
+      item = `integer`
+      contains = 42
+    }
+  }
+  variants.has-99 {
+    items {
+      $variant: array
+      item = `integer`
+      contains = 99
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  items = [1, 2, 3]
+}
+```
+
+// Span should point to the array
+@ cases.array-missing-contains.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'has-99': Array must contain required element at path value.items"
+span = "[1, 2, 3]"
+
+@ cases.invalid-variant-tag
+
+// Schema: union with nested tagged union where tag is invalid
+// InvalidVariantTag is a structural error - span should stay at outer block
+schema = ```eure
+value {
+  $variant: union
+  variants.option-a {
+    inner {
+      $variant: union
+      variants.x.data = `integer`
+      variants.y.data = `text`
+    }
+  }
+  variants.option-b {
+    inner {
+      $variant: union
+      variants.x.data = `integer`
+      variants.y.data = `text`
+    }
+  }
+}
+```
+
+editor = ```eure
+$schema = "schema.eure"
+value {
+  inner {
+    $variant: invalid-tag
+    data = 123
+  }
+}
+```
+
+// Span should point to the inner block, not descend further
+@ cases.invalid-variant-tag.diagnostics[]
+severity = "error"
+source = "editor.eure"
+message = "No variant matched for union at path value, most close variant is 'option-b': Invalid variant tag 'invalid-tag' at path value.inner"
+span = "inner {"
+
+// ============================================================================
+// Errors NOT applicable to nested union span descent:
+// ============================================================================
+// - AmbiguousUnion: Happens when multiple variants MATCH (opposite of NoVariantMatched)
+// - ConflictingVariantTags: Requires conflicting $variant + repr, rare in nested context
+// - RequiresExplicitVariant: Per-variant $deny-untagged, doesn't propagate as best_match
+// - UndefinedTypeReference: Schema conversion error, not validation error
+// - InvalidFlattenTarget: Schema construction error
+// - MissingRequiredExtension: Extension validation, schema-level
+// - ParseError: Document parse errors, handled separately

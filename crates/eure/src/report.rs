@@ -388,7 +388,10 @@ fn report_validation_error(
     file: TextFile,
     schema_file: TextFile,
 ) -> Result<ErrorReport, QueryError> {
-    let (doc_node_id, schema_node_id) = error.node_ids();
+    // For NoVariantMatched, use the deepest error for span resolution
+    // to point to the actual error location instead of the outer union value
+    let span_error = error.deepest_error();
+    let (doc_node_id, schema_node_id) = span_error.node_ids();
 
     // Query parsed document
     let doc = db.query(ParseDocument::new(file.clone()))?;
@@ -399,8 +402,8 @@ fn report_validation_error(
     // Query schema
     let schema = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
 
-    // Resolve span based on error type
-    let resolved_span = match error {
+    // Resolve span based on error type (using span_error for deepest error location)
+    let resolved_span = match span_error {
         ValidationError::InvalidKeyType { key, node_id, .. } => {
             // Try to get precise key span first
             doc.origins
