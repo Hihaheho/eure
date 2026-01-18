@@ -9,25 +9,13 @@ use crate::{
 use dioxus::prelude::*;
 use eure::query::{
     DiagnosticMessage, EureQueryError, GetFileDiagnostics, GetSemanticTokens, OpenDocuments,
-    OpenDocumentsList, ParseDocument, SemanticToken, TextFile, TextFileContent, TextFileLocator,
-    Workspace, WorkspaceId,
+    OpenDocumentsList, SemanticToken, TextFile, TextFileContent, TextFileLocator, Workspace,
+    WorkspaceId,
 };
-use eure::report::error_reports_comparator;
-use query_flow::{
-    Db, DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, Tracer, query,
-};
+use eure::report::{ErrorReports, error_reports_comparator, format_error_report};
+use eure_json::EureToJsonFormatted;
+use query_flow::{DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, Tracer};
 use url::Url;
-
-/// Convert document to pretty-printed JSON.
-#[query]
-fn document_to_json(db: &impl Db, file: TextFile) -> Result<String, QueryError> {
-    let parsed = db.query(ParseDocument::new(file))?;
-
-    let value = eure_json::document_to_value(&parsed.doc, &eure_json::Config::default())
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-    let json = serde_json::to_string_pretty(&value).map_err(|e| anyhow::anyhow!("{}", e))?;
-    Ok(json)
-}
 
 /// Convert DiagnosticMessage to ErrorSpan for the editor UI.
 fn diagnostic_to_error_span(diag: &DiagnosticMessage) -> ErrorSpan {
@@ -55,11 +43,12 @@ fn diagnostics_to_spans(
 struct AllErrors {
     doc_errors: Vec<ErrorSpan>,
     schema_errors: Vec<ErrorSpan>,
+    json_errors: Vec<String>,
 }
 
 impl AllErrors {
     fn total_count(&self) -> usize {
-        self.doc_errors.len() + self.schema_errors.len()
+        self.doc_errors.len() + self.schema_errors.len() + self.json_errors.len()
     }
 
     fn is_empty(&self) -> bool {
@@ -439,12 +428,33 @@ fn run_queries<T: query_flow::tracer::Tracer>(
         Err(e) => tracing::error!("Semantic tokens query failed: {}", e),
     }
 
-    // Get JSON output
-    match runtime.query(DocumentToJson::new(doc_file.clone())) {
-        Ok(json) => json_output.set(json.as_ref().clone()),
-        Err(QueryError::Suspend { .. }) => collect_pending_urls(),
-        Err(_) => json_output.set(String::new()),
-    }
+    // Get JSON output with formatted errors
+    let json_errors = match runtime.query(EureToJsonFormatted::new(
+        doc_file.clone(),
+        eure_json::Config::default(),
+    )) {
+        Ok(json) => {
+            let pretty = serde_json::to_string_pretty(&*json).unwrap_or_default();
+            json_output.set(pretty);
+            vec![]
+        }
+        Err(QueryError::Suspend { .. }) => {
+            collect_pending_urls();
+            vec![]
+        }
+        Err(e) => {
+            json_output.set(String::new());
+            // Extract formatted error reports if available
+            if let Some(reports) = e.downcast_ref::<ErrorReports>() {
+                reports
+                    .iter()
+                    .filter_map(|r| format_error_report(runtime, r, false).ok())
+                    .collect()
+            } else {
+                vec![e.to_string()]
+            }
+        }
+    };
 
     // Get diagnostics for the document
     let doc_errors = match runtime.query(GetFileDiagnostics::new(doc_file.clone())) {
@@ -474,6 +484,7 @@ fn run_queries<T: query_flow::tracer::Tracer>(
     all_errors.set(AllErrors {
         doc_errors,
         schema_errors,
+        json_errors,
     });
 
     pending_urls
@@ -842,6 +853,20 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                                     class: "mb-2 p-2 rounded border",
                                                     style: "border-color: {border_color}",
                                                     pre { class: "whitespace-pre-wrap", "{error.message}" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if !all_errors().json_errors.is_empty() {
+                                        div { class: "mb-4",
+                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
+                                                "JSON Conversion Errors ({all_errors().json_errors.len()})"
+                                            }
+                                            for error in all_errors().json_errors.iter() {
+                                                div {
+                                                    class: "mb-2 p-2 rounded border",
+                                                    style: "border-color: {border_color}",
+                                                    pre { class: "whitespace-pre-wrap", "{error}" }
                                                 }
                                             }
                                         }
