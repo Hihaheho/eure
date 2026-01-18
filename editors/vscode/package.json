@@ -66,6 +66,13 @@
     "vscode-textmate": "^9.0.0"
   },
   "contributes": {
+    "configurationDefaults": {
+      "[eure]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.detectIndentation": false
+      }
+    },
     "configuration": {
       "title": "EureLS",
       "properties": {
