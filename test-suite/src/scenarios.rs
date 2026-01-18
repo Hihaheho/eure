@@ -9,6 +9,7 @@ pub mod eumd_error_validation;
 pub mod eure_schema_to_json_schema;
 pub mod eure_schema_to_json_schema_error;
 pub mod eure_to_json;
+pub mod eure_to_json_error;
 pub mod formatting;
 pub mod json_to_eure;
 pub mod meta_schema;

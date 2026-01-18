@@ -1,7 +1,7 @@
 use eure::data_model::VariantRepr;
 use eure::query::{TextFile, TextFileContent, build_runtime};
 use eure::query_flow::DurabilityLevel;
-use eure_json::{Config as JsonConfig, EureToJson};
+use eure_json::{Config as JsonConfig, EureToJsonFormatted};
 
 use crate::util::{VariantFormat, display_path, handle_query_error, read_input};
 
@@ -62,7 +62,7 @@ pub fn run(args: Args) {
     let config = JsonConfig { variant_repr };
 
     // Convert document to JSON
-    let json_value = match runtime.query(EureToJson::new(file.clone(), config)) {
+    let json_value = match runtime.query(EureToJsonFormatted::new(file.clone(), config)) {
         Ok(json) => json,
         Err(e) => handle_query_error(&runtime, e),
     };

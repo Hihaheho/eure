@@ -1,0 +1,11 @@
+input_eure = ```eure
+value = Inf
+```
+
+json_errors[] = ```text
+error: Non-finite floating point value (NaN or Infinity) is not supported in JSON
+ --> input.eure:1:9
+  |
+1 | value = Inf
+  |         ^^^ Non-finite floating point value (NaN or Infinity) is not supported in JSON
+```

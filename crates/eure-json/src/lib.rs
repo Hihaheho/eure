@@ -6,9 +6,12 @@ mod error;
 pub use config::Config;
 pub use error::{EureToJsonError, JsonToEureError};
 use eure::data_model::VariantRepr;
+use eure::document::OriginMap;
 use eure::document::node::NodeValue;
 use eure::document::{EureDocument, NodeId};
-use eure::query::{ParseDocument, TextFile};
+use eure::query::{ParseDocument, TextFile, ValidCst};
+use eure::report::{ErrorReport, ErrorReports, Origin, OriginHints};
+use eure::tree::{Cst, InputSpan};
 use eure::value::{ObjectKey, PrimitiveValue};
 use eure_document::text::Text;
 use num_bigint::BigInt;
@@ -23,6 +26,57 @@ pub fn eure_to_json(
 ) -> Result<JsonValue, QueryError> {
     let parsed = db.query(ParseDocument::new(text_file.clone()))?;
     Ok(document_to_value(&parsed.doc, &config)?)
+}
+
+/// Convert a Eure file to JSON with formatted error reporting.
+///
+/// This query returns the JSON value on success, or returns an `ErrorReports`
+/// wrapped in `QueryError::UserError` with span information on failure.
+#[query]
+pub fn eure_to_json_formatted(
+    db: &impl Db,
+    text_file: TextFile,
+    config: Config,
+) -> Result<JsonValue, QueryError> {
+    let parsed = db.query(ParseDocument::new(text_file.clone()))?;
+
+    match document_to_value(&parsed.doc, &config) {
+        Ok(json) => Ok(json),
+        Err(e) => {
+            // Get CST for span resolution
+            let cst = db.query(ValidCst::new(text_file.clone()))?;
+
+            // Create error report with span information
+            let report = create_json_error_report(&e, text_file, &parsed.origins, &cst);
+            Err(ErrorReports::from(vec![report]))?
+        }
+    }
+}
+
+/// Create an ErrorReport for JSON conversion errors with span information.
+fn create_json_error_report(
+    error: &EureToJsonError,
+    file: TextFile,
+    origins: &OriginMap,
+    cst: &Cst,
+) -> ErrorReport {
+    let node_id = error.node_id();
+
+    // Resolve span from OriginMap
+    let (span, is_fallback) = match origins.get_value_span(node_id, cst) {
+        Some(span) => (span, false),
+        None => (InputSpan::EMPTY, true),
+    };
+
+    let mut origin = Origin::with_hints(file, span, OriginHints::default().with_doc(node_id));
+    if is_fallback {
+        origin = origin.as_fallback();
+    }
+
+    // Note: We don't add a separate annotation because the primary origin already
+    // has the span information. The format_error_report function will use the
+    // primary_origin to display the error location.
+    ErrorReport::error(error.to_string(), origin)
 }
 
 /// Convert a JSON file to an Eure document.
@@ -73,8 +127,8 @@ fn convert_node(
     }
 
     match &node.content {
-        NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported),
-        NodeValue::Primitive(prim) => convert_primitive(prim),
+        NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported { node_id }),
+        NodeValue::Primitive(prim) => convert_primitive(prim, node_id),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
             for &child_id in arr.iter() {
@@ -101,7 +155,7 @@ fn convert_node(
     }
 }
 
-fn convert_primitive(prim: &PrimitiveValue) -> Result<JsonValue, EureToJsonError> {
+fn convert_primitive(prim: &PrimitiveValue, node_id: NodeId) -> Result<JsonValue, EureToJsonError> {
     match prim {
         PrimitiveValue::Null => Ok(JsonValue::Null),
         PrimitiveValue::Bool(b) => Ok(JsonValue::Bool(*b)),
@@ -118,14 +172,14 @@ fn convert_primitive(prim: &PrimitiveValue) -> Result<JsonValue, EureToJsonError
                 return Ok(JsonValue::Number(u.into()));
             }
 
-            Err(EureToJsonError::BigIntOutOfRange)
+            Err(EureToJsonError::BigIntOutOfRange { node_id })
         }
         PrimitiveValue::F32(f) => {
             if let Some(num) = serde_json::Number::from_f64(*f as f64) {
                 Ok(JsonValue::Number(num))
             } else {
                 // NaN or infinity - not supported in JSON
-                Err(EureToJsonError::NonFiniteFloat)
+                Err(EureToJsonError::NonFiniteFloat { node_id })
             }
         }
         PrimitiveValue::F64(f) => {
@@ -133,7 +187,7 @@ fn convert_primitive(prim: &PrimitiveValue) -> Result<JsonValue, EureToJsonError
                 Ok(JsonValue::Number(num))
             } else {
                 // NaN or infinity - not supported in JSON
-                Err(EureToJsonError::NonFiniteFloat)
+                Err(EureToJsonError::NonFiniteFloat { node_id })
             }
         }
         PrimitiveValue::Text(text) => Ok(JsonValue::String(text.content.clone())),
@@ -165,6 +219,7 @@ fn convert_variant_node(
                 if content_map.contains_key(tag_field) {
                     return Err(EureToJsonError::VariantTagConflict {
                         tag: tag_field.clone(),
+                        node_id,
                     });
                 }
                 content_map.insert(tag_field.clone(), JsonValue::String(tag.to_string()));
@@ -185,6 +240,7 @@ fn convert_variant_node(
             if tag_field == content_key {
                 return Err(EureToJsonError::VariantAdjacentConflict {
                     field: tag_field.clone(),
+                    node_id,
                 });
             }
             let mut map = serde_json::Map::new();
@@ -208,8 +264,8 @@ fn convert_node_content_only(
     let node = doc.node(node_id);
 
     match &node.content {
-        NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported),
-        NodeValue::Primitive(prim) => convert_primitive(prim),
+        NodeValue::Hole(_) => Err(EureToJsonError::HoleNotSupported { node_id }),
+        NodeValue::Primitive(prim) => convert_primitive(prim, node_id),
         NodeValue::Array(arr) => {
             let mut result = Vec::new();
             for &child_id in arr.iter() {
@@ -507,7 +563,10 @@ mod tests {
     fn test_hole_error() {
         let eure = eure!({ placeholder = ! });
         let result = document_to_value(&eure, &Config::default());
-        assert_eq!(result, Err(EureToJsonError::HoleNotSupported));
+        assert!(matches!(
+            result,
+            Err(EureToJsonError::HoleNotSupported { .. })
+        ));
     }
 
     #[test]
@@ -515,7 +574,10 @@ mod tests {
         let nan_value = f64::NAN;
         let eure = eure!({ = nan_value });
         let result = document_to_value(&eure, &Config::default());
-        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+        assert!(matches!(
+            result,
+            Err(EureToJsonError::NonFiniteFloat { .. })
+        ));
     }
 
     #[test]
@@ -523,7 +585,10 @@ mod tests {
         let inf_value = f64::INFINITY;
         let eure = eure!({ = inf_value });
         let result = document_to_value(&eure, &Config::default());
-        assert_eq!(result, Err(EureToJsonError::NonFiniteFloat));
+        assert!(matches!(
+            result,
+            Err(EureToJsonError::NonFiniteFloat { .. })
+        ));
     }
 
     // ========================================================================

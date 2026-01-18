@@ -25,6 +25,7 @@ use crate::scenarios::eumd_error_validation::EumdErrorValidationScenario;
 use crate::scenarios::eure_schema_to_json_schema::EureSchemaToJsonSchemaScenario;
 use crate::scenarios::eure_schema_to_json_schema_error::EureSchemaToJsonSchemaErrorScenario;
 use crate::scenarios::eure_to_json::EureToJsonScenario;
+use crate::scenarios::eure_to_json_error::EureToJsonErrorScenario;
 use crate::scenarios::formatting::FormattingScenario;
 use crate::scenarios::json_to_eure::JsonToEureScenario;
 use crate::scenarios::meta_schema::MetaSchemaScenario;
@@ -134,6 +135,7 @@ pub enum Scenario {
     Normalization(NormalizationScenario),
     Formatting(FormattingScenario),
     EureToJson(EureToJsonScenario),
+    EureToJsonError(EureToJsonErrorScenario),
     JsonToEure(JsonToEureScenario),
     TomlToEureDocument(TomlToEureDocumentScenario),
     TomlToJson(TomlToJsonScenario),
@@ -155,6 +157,7 @@ impl Scenario {
             Scenario::Normalization(_) => "normalization".to_string(),
             Scenario::Formatting(_) => "formatting".to_string(),
             Scenario::EureToJson(s) => format!("eure_to_json({})", s.source_name),
+            Scenario::EureToJsonError(_) => "eure_to_json_error".to_string(),
             Scenario::JsonToEure(s) => format!("json_to_eure({})", s.source_name),
             Scenario::TomlToEureDocument(_) => "toml_to_eure_document".to_string(),
             Scenario::TomlToJson(_) => "toml_to_json".to_string(),
@@ -178,6 +181,7 @@ impl Scenario {
             Scenario::Normalization(s) => s.run(db),
             Scenario::Formatting(s) => s.run(db),
             Scenario::EureToJson(s) => s.run(db),
+            Scenario::EureToJsonError(s) => s.run(db),
             Scenario::JsonToEure(s) => s.run(db),
             Scenario::TomlToEureDocument(s) => s.run(db),
             Scenario::TomlToJson(s) => s.run(db),
@@ -415,6 +419,22 @@ impl Case {
                 input: Self::resolve_path(normalized, NORMALIZED_PATH),
                 output_json: Self::resolve_path(output_json, OUTPUT_JSON_PATH),
                 source_name: "normalized",
+            }));
+        }
+
+        // Eure-to-JSON error scenarios
+        if let Some(input_eure) = &self.data.input_eure
+            && !self.data.json_errors.is_empty()
+        {
+            let expected_errors: Vec<String> = self
+                .data
+                .json_errors
+                .iter()
+                .map(|e| e.as_str().to_string())
+                .collect();
+            scenarios.push(Scenario::EureToJsonError(EureToJsonErrorScenario {
+                input: Self::resolve_path(input_eure, INPUT_EURE_PATH),
+                expected_errors,
             }));
         }
 

@@ -218,6 +218,9 @@ pub struct CaseData {
     pub trigger: Option<String>,
     #[eure(default)]
     pub diagnostics: Vec<DiagnosticItem>,
+    // JSON conversion errors (for testing eure-to-json error messages with spans)
+    #[eure(default)]
+    pub json_errors: Vec<Text>,
 }
 
 impl CaseData {
@@ -237,6 +240,7 @@ impl CaseData {
             && self.formatted_normalized.is_none()
             && self.euremark_errors.is_empty()
             && self.editor.is_none()
+            && self.json_errors.is_empty()
     }
 }
 
