@@ -52,7 +52,7 @@ pub struct ResolvedSchema {
 ///
 /// Returns `None` if parsing failed.
 /// Returns `UserError` if schema conversion fails.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn document_to_schema_query(
     db: &impl Db,
     file: TextFile,
@@ -76,7 +76,7 @@ pub fn document_to_schema_query(
 ///
 /// Returns `Some(formatted_error)` if conversion fails.
 /// Returns `None` if parsing failed or conversion succeeds.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_schema_conversion_error_formatted(
     db: &impl Db,
     file: TextFile,
@@ -103,7 +103,7 @@ pub fn get_schema_conversion_error_formatted(
 ///
 /// Returns empty reports if no schema is found or parsing failed.
 /// Returns error report with proper origin if schema file is not found.
-#[query]
+#[query(debug = "{Self}({doc_file})")]
 pub fn validate_against_schema(
     db: &impl Db,
     doc_file: TextFile,
@@ -153,7 +153,7 @@ pub fn validate_against_schema(
 /// use `validate_against_schema` instead.
 ///
 /// Returns empty reports if either document or schema parsing failed.
-#[query]
+#[query(debug = "{Self}({doc_file}, {schema_file})")]
 pub fn validate_against_explicit_schema(
     db: &impl Db,
     doc_file: TextFile,
@@ -174,7 +174,7 @@ pub fn validate_against_explicit_schema(
 /// Use this when you have a specific schema file and need to control union tag handling.
 ///
 /// Returns empty reports if either document or schema parsing failed.
-#[query]
+#[query(debug = "{Self}({doc_file}, {schema_file}, {mode:?})")]
 pub fn validate_against_explicit_schema_with_mode(
     db: &impl Db,
     doc_file: TextFile,
@@ -197,7 +197,7 @@ pub fn validate_against_explicit_schema_with_mode(
 ///
 /// Returns empty vec if either document or schema parsing failed.
 /// Returns formatted error messages suitable for display.
-#[query]
+#[query(debug = "{Self}({doc_file}, {schema_file})")]
 pub fn get_validation_errors_formatted_explicit(
     db: &impl Db,
     doc_file: TextFile,
@@ -222,7 +222,7 @@ pub fn get_validation_errors_formatted_explicit(
 ///
 /// Returns empty vec if either document or schema parsing failed.
 /// Returns formatted error messages suitable for display.
-#[query]
+#[query(debug = "{Self}({doc_file}, {schema_file}, {mode:?})")]
 pub fn get_validation_errors_formatted_explicit_with_mode(
     db: &impl Db,
     doc_file: TextFile,
@@ -252,7 +252,7 @@ pub fn get_validation_errors_formatted_explicit_with_mode(
 ///
 /// Returns empty vec if no schema is found or parsing failed.
 /// Returns formatted error messages suitable for display.
-#[query]
+#[query(debug = "{Self}({doc_file})")]
 pub fn get_validation_errors_formatted(
     db: &impl Db,
     doc_file: TextFile,
@@ -276,7 +276,7 @@ pub fn get_validation_errors_formatted(
 ///
 /// Returns empty reports if no schema is found or parsing failed.
 /// Returns error report with proper origin if schema file is not found.
-#[query]
+#[query(debug = "{Self}({doc_file}, {mode:?})")]
 pub fn validate_against_schema_with_mode(
     db: &impl Db,
     doc_file: TextFile,
@@ -327,7 +327,7 @@ pub fn validate_against_schema_with_mode(
 ///
 /// Returns empty vec if no schema is found or parsing failed.
 /// Returns formatted error messages suitable for display.
-#[query]
+#[query(debug = "{Self}({doc_file}, {mode:?})")]
 pub fn get_validation_errors_formatted_with_mode(
     db: &impl Db,
     doc_file: TextFile,
@@ -357,7 +357,7 @@ pub fn get_validation_errors_formatted_with_mode(
 /// - The `$schema` value is not a valid string
 ///
 /// Returns `ResolvedSchemaExtension` with the path and origin for error reporting.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_schema_extension(
     db: &impl Db,
     file: TextFile,
@@ -396,7 +396,7 @@ pub fn get_schema_extension(
 /// Check for schema extension errors (e.g., wrong type).
 ///
 /// Returns diagnostics if `$schema` exists but is not a valid string.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_schema_extension_diagnostics(
     db: &impl Db,
     file: TextFile,
@@ -447,7 +447,7 @@ pub fn get_schema_extension_diagnostics(
 ///
 /// Returns `None` if no schema can be determined.
 /// Returns `ResolvedSchema` with the file and origin for error reporting.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn resolve_schema(db: &impl Db, file: TextFile) -> Result<Option<ResolvedSchema>, QueryError> {
     // 1. Check $schema extension in the document
     if let Some(ext) = db.query(GetSchemaExtension::new(file.clone()))?.as_ref() {

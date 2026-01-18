@@ -54,7 +54,7 @@ fn validate_url_host(db: &impl Db, url: &Url) -> Result<(), QueryError> {
     let host = url.host_str().unwrap_or("");
 
     // eure.dev is always allowed (including subdomains)
-    if host == DEFAULT_ALLOWED_HOST || host.ends_with(".eure.dev") {
+    if host == DEFAULT_ALLOWED_HOST {
         return Ok(());
     }
 

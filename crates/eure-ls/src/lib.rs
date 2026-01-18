@@ -716,13 +716,6 @@ impl LspCore {
                 error!("{}: query unexpectedly cancelled", context);
                 Some(LspError::internal_error("Query cancelled"))
             }
-            QueryError::MissingDependency { description } => {
-                error!("{}: missing dependency: {}", context, description);
-                Some(LspError::internal_error(format!(
-                    "Missing dependency: {}",
-                    description
-                )))
-            }
             QueryError::DependenciesRemoved { missing_keys } => {
                 error!("{}: dependencies removed: {:?}", context, missing_keys);
                 Some(LspError::internal_error("Dependencies removed"))

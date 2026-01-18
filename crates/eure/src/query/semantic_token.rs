@@ -146,7 +146,7 @@ pub fn semantic_tokens(input: &str, cst: &Cst) -> Vec<SemanticToken> {
 ///
 /// Uses tolerant parsing to always produce tokens even with syntax errors.
 /// Depends on `ParseCst` query.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_semantic_tokens(db: &impl Db, file: TextFile) -> Result<Vec<SemanticToken>, QueryError> {
     let parsed_cst = db.query(ParseCst::new(file.clone()))?;
     let source = super::parse::read_text_file(db, file)?;

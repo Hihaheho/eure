@@ -1760,6 +1760,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
+name = "dyn-hash"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15401da73a9ed8c80e3b2d4dc05fe10e7b72d7243b9f614e516a44fa99986e88"
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1948,12 +1954,14 @@ dependencies = [
  "getrandom 0.3.4",
  "gloo-net",
  "image",
+ "js-sys",
  "query-flow",
  "resvg",
  "serde",
  "serde_json",
  "tracing",
  "url",
+ "web-time",
 ]
 
 [[package]]
@@ -4013,12 +4021,13 @@ dependencies = [
 
 [[package]]
 name = "query-flow"
-version = "0.13.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7468808b9f9edf1fd35f5fa3bb1947efae54c933be8f4147b0294174e8e3e70a"
+checksum = "f74e5c51ed49b03edbff2b61a7b236bf1b624bbe95ed7ab090962c2aa01f02bc"
 dependencies = [
  "ahash",
  "anyhow",
+ "dyn-hash",
  "papaya",
  "query-flow-macros",
  "serde",
@@ -4027,9 +4036,9 @@ dependencies = [
 
 [[package]]
 name = "query-flow-macros"
-version = "0.13.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81053353c076aa802c58c891cb6d11bf77a3e65efa3d3a4de269bc335b17ac68"
+checksum = "492062bc1b517c202593499d23cbad6cefed533a87657505f4cb30df42eeb9c9"
 dependencies = [
  "darling 0.23.0",
  "heck",

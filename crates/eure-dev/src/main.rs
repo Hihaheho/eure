@@ -5,6 +5,7 @@ mod pages {
     automod::dir!(pub "src/pages");
 }
 mod theme;
+mod tracer;
 
 use dioxus::prelude::*;
 use pages::home::Home;

@@ -4,13 +4,18 @@ use crate::{
     Route,
     components::editor::{Editor, ErrorSpan},
     theme::Theme,
+    tracer::{EureDevTracer, TraceBuffer, TraceEntry, TraceEvent},
 };
 use dioxus::prelude::*;
 use eure::query::{
     DiagnosticMessage, GetFileDiagnostics, GetSemanticTokens, OpenDocuments, OpenDocumentsList,
-    ParseDocument, SemanticToken, TextFile, TextFileContent, Workspace, WorkspaceId, build_runtime,
+    ParseDocument, SemanticToken, TextFile, TextFileContent, TextFileLocator, Workspace,
+    WorkspaceId,
 };
-use query_flow::{Db, DurabilityLevel, QueryError, QueryRuntime, query};
+use eure::report::error_reports_comparator;
+use query_flow::{
+    Db, DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, Tracer, query,
+};
 use url::Url;
 
 /// Convert document to pretty-printed JSON.
@@ -68,6 +73,7 @@ enum RightTab {
     JsonOutput,
     Schema,
     Errors,
+    Trace,
 }
 
 impl RightTab {
@@ -76,6 +82,7 @@ impl RightTab {
             RightTab::JsonOutput => "json",
             RightTab::Schema => "schema",
             RightTab::Errors => "errors",
+            RightTab::Trace => "trace",
         }
     }
 
@@ -84,6 +91,7 @@ impl RightTab {
             "json" => Some(RightTab::JsonOutput),
             "schema" => Some(RightTab::Schema),
             "errors" => Some(RightTab::Errors),
+            "trace" => Some(RightTab::Trace),
             _ => None,
         }
     }
@@ -235,7 +243,7 @@ impl EureExample {
         }
     }
 
-    fn register_all(runtime: &QueryRuntime) {
+    fn register_all<T: Tracer>(runtime: &QueryRuntime<T>) {
         // Register all example files
         for example in EureExample::ALL {
             runtime.resolve_asset(
@@ -301,7 +309,7 @@ impl EureExample {
         config
     }
 
-    fn on_change_tab(&self, runtime: &QueryRuntime) {
+    fn on_change_tab<T: query_flow::tracer::Tracer>(&self, runtime: &QueryRuntime<T>) {
         let doc_file = TextFile::from_path(self.file_name().into());
         let schema_file = TextFile::from_path(self.schema_file_name().into());
 
@@ -324,7 +332,7 @@ impl EureExample {
         );
     }
 
-    fn on_input(&self, runtime: &QueryRuntime, value: String) {
+    fn on_input<T: query_flow::tracer::Tracer>(&self, runtime: &QueryRuntime<T>, value: String) {
         runtime.resolve_asset(
             TextFile::from_path(self.file_name().into()),
             TextFileContent(value),
@@ -332,7 +340,11 @@ impl EureExample {
         );
     }
 
-    fn on_schema_input(&self, runtime: &QueryRuntime, value: String) {
+    fn on_schema_input<T: query_flow::tracer::Tracer>(
+        &self,
+        runtime: &QueryRuntime<T>,
+        value: String,
+    ) {
         runtime.resolve_asset(
             TextFile::from_path(self.schema_file_name().into()),
             TextFileContent(value),
@@ -355,7 +367,10 @@ async fn fetch_remote_url(url: &str) -> Result<String, String> {
 }
 
 /// Fetch pending remote assets and resolve them in the runtime
-async fn fetch_and_resolve_assets(runtime: QueryRuntime, pending_urls: Vec<Url>) {
+async fn fetch_and_resolve_assets<T: query_flow::tracer::Tracer>(
+    runtime: QueryRuntime<T>,
+    pending_urls: Vec<Url>,
+) {
     for url in pending_urls {
         let url_str = url.to_string();
         tracing::info!("Fetching remote schema: {}", url_str);
@@ -387,8 +402,9 @@ async fn fetch_and_resolve_assets(runtime: QueryRuntime, pending_urls: Vec<Url>)
 
 /// Run all queries and update signals
 /// Returns Vec of pending remote URLs that need to be fetched
-fn run_queries(
-    runtime: &QueryRuntime,
+#[allow(clippy::too_many_arguments)]
+fn run_queries<T: query_flow::tracer::Tracer>(
+    runtime: &QueryRuntime<T>,
     doc_file: &TextFile,
     schema_file: &TextFile,
     mut doc_tokens: Signal<Vec<SemanticToken>>,
@@ -468,8 +484,18 @@ fn run_queries(
 pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>) -> Element {
     let theme: Signal<Theme> = use_context();
     let navigator = use_navigator();
-    let runtime = use_signal(|| {
-        let runtime = build_runtime();
+
+    // Shared trace buffer state
+    let trace_buffer = use_signal(|| TraceBuffer::new(30));
+
+    // Runtime with custom tracer
+    let runtime = use_signal(move || {
+        let tracer = EureDevTracer::new(trace_buffer());
+        let runtime = QueryRuntimeBuilder::new()
+            .tracer(tracer)
+            .error_comparator(error_reports_comparator)
+            .build();
+        runtime.register_asset_locator(TextFileLocator);
         EureExample::register_all(&runtime);
         runtime
     });
@@ -500,6 +526,12 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
     let json_output: Signal<String> = use_signal(String::new);
     let all_errors: Signal<AllErrors> = use_signal(AllErrors::default);
 
+    // Trace signals
+    let mut trace_entries: Signal<Vec<TraceEntry>> = use_signal(Vec::new);
+    let mut trace_tree_count: Signal<usize> = use_signal(|| 0);
+    // Collapse all generation counter - when incremented, all nodes collapse
+    let mut collapse_all_gen: Signal<u64> = use_signal(|| 0);
+
     // Loading state signal for remote schema fetching
     let mut pending_remote_urls = use_signal(Vec::<Url>::new);
 
@@ -515,27 +547,32 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
             all_errors,
         );
 
+        // Update trace entries after queries run
+        trace_entries.set(trace_buffer().get_all());
+        trace_tree_count.set(trace_buffer().tree_count());
+
         // Update pending URLs state (used for loading indicator)
         pending_remote_urls.set(pending_urls.clone());
 
         if !pending_urls.is_empty() {
             // Spawn async task to fetch remote assets
             let runtime_clone = runtime();
-            let doc_file_clone = doc_file.clone();
-            let schema_file_clone = schema_file.clone();
             spawn(async move {
                 fetch_and_resolve_assets(runtime_clone.clone(), pending_urls).await;
 
                 // Re-run queries now that assets are resolved
                 let new_pending_urls = run_queries(
                     &runtime_clone,
-                    &doc_file_clone,
-                    &schema_file_clone,
+                    &doc_file,
+                    &schema_file,
                     doc_tokens,
                     schema_tokens,
                     json_output,
                     all_errors,
                 );
+
+                // Update trace entries after async queries
+                trace_entries.set(trace_buffer().get_all());
 
                 // Update pending URLs (should be empty now)
                 pending_remote_urls.set(new_pending_urls);
@@ -685,6 +722,17 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                             }
                         }
                     }
+                    button {
+                        class: "px-4 py-2 text-base font-semibold border-b-2 transition-colors",
+                        style: if active_tab() == RightTab::Trace { "border-color: currentColor" } else { "border-color: transparent" },
+                        onclick: move |_| {
+                            navigator.push(Route::Home {
+                                example: example(),
+                                tab: Some(RightTab::Trace.value().to_string()),
+                            });
+                        },
+                        "Trace"
+                    }
                 }
 
                 // Tab content
@@ -773,8 +821,384 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                 }
                             }
                         },
+                        RightTab::Trace => rsx! {
+                            div { class: "h-full flex flex-col",
+                                // Header with info and buttons
+                                div {
+                                    class: "p-2 border-b flex justify-between items-center shrink-0",
+                                    style: "border-color: {border_color}",
+                                    span { class: "text-xs font-bold opacity-60",
+                                        "Latest {trace_tree_count()} / 30 trees"
+                                    }
+                                    div { class: "flex items-center gap-2",
+                                        // Collapse all button
+                                        button {
+                                            class: "px-2 py-1 text-xs rounded border cursor-pointer",
+                                            style: "border-color: {border_color}; opacity: 0.6",
+                                            title: "Collapse all",
+                                            onclick: move |_| {
+                                                *collapse_all_gen.write() += 1;
+                                            },
+                                            "▼"
+                                        }
+                                        button {
+                                            class: "px-3 py-1 text-xs rounded border",
+                                            style: "border-color: {accent_color}; color: {accent_color}",
+                                            onclick: move |_| {
+                                                trace_buffer().clear();
+                                                trace_entries.set(Vec::new());
+                                                trace_tree_count.set(0);
+                                            },
+                                            "Clear"
+                                        }
+                                    }
+                                }
+
+                                // Trace tree view
+                                div { class: "flex-1 overflow-auto font-mono text-xs",
+                                    TraceTreeView { entries: trace_entries(), theme, collapse_all_gen: collapse_all_gen() }
+                                }
+                            }
+                        },
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Statistics for a trace tree node (counts of execution results in subtree)
+#[derive(Debug, Clone, Default, PartialEq)]
+struct TraceStats {
+    /// Fresh computations (Changed or Unchanged)
+    fresh: usize,
+    /// Cache hits
+    cached: usize,
+    /// Errors
+    errors: usize,
+}
+
+impl TraceStats {
+    fn from_result(result: &query_flow::tracer::ExecutionResult) -> Self {
+        use query_flow::tracer::ExecutionResult;
+        match result {
+            ExecutionResult::Changed | ExecutionResult::Unchanged => Self {
+                fresh: 1,
+                ..Default::default()
+            },
+            ExecutionResult::CacheHit => Self {
+                cached: 1,
+                ..Default::default()
+            },
+            ExecutionResult::Error { .. } | ExecutionResult::CycleDetected => Self {
+                errors: 1,
+                ..Default::default()
+            },
+            ExecutionResult::Suspended => Self::default(),
+        }
+    }
+
+    fn add(&mut self, other: &TraceStats) {
+        self.fresh += other.fresh;
+        self.cached += other.cached;
+        self.errors += other.errors;
+    }
+}
+
+/// A node in the trace tree
+#[derive(Debug, Clone, PartialEq)]
+struct TraceTreeNode {
+    /// The trace entry for this node
+    entry: TraceEntry,
+    /// Child nodes
+    children: Vec<TraceTreeNode>,
+    /// Aggregated stats for this node and all descendants
+    stats: TraceStats,
+}
+
+impl TraceTreeNode {
+    fn new(entry: TraceEntry) -> Self {
+        let stats = match &entry.event {
+            TraceEvent::QueryEnd { result, .. } => TraceStats::from_result(result),
+            TraceEvent::AssetRequested { .. } => TraceStats::default(),
+        };
+        Self {
+            stats,
+            entry,
+            children: Vec::new(),
+        }
+    }
+
+    /// Recursively compute stats for this node and all descendants
+    fn compute_stats(&mut self) {
+        for child in &mut self.children {
+            child.compute_stats();
+            self.stats.add(&child.stats);
+        }
+    }
+}
+
+/// Build a forest of trace trees from trace entries
+/// Returns root nodes (entries with no parent or whose parent is not in the list)
+fn build_trace_forest(entries: &[TraceEntry]) -> Vec<TraceTreeNode> {
+    use query_flow::tracer::SpanId;
+    use std::collections::HashMap;
+
+    if entries.is_empty() {
+        return Vec::new();
+    }
+
+    // Build a map of span_id -> entry index
+    let mut span_to_idx: HashMap<SpanId, usize> = HashMap::new();
+    for (idx, entry) in entries.iter().enumerate() {
+        let span_id = match &entry.event {
+            TraceEvent::QueryEnd { span_id, .. } => *span_id,
+            TraceEvent::AssetRequested { span_id, .. } => *span_id,
+        };
+        span_to_idx.insert(span_id, idx);
+    }
+
+    // Build nodes and identify parent relationships
+    let mut nodes: Vec<Option<TraceTreeNode>> = entries
+        .iter()
+        .map(|e| Some(TraceTreeNode::new(e.clone())))
+        .collect();
+
+    // Collect children indices for each node
+    let mut children_map: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut root_indices: Vec<usize> = Vec::new();
+
+    for (idx, entry) in entries.iter().enumerate() {
+        let parent_span_id = match &entry.event {
+            TraceEvent::QueryEnd { parent_span_id, .. } => *parent_span_id,
+            TraceEvent::AssetRequested { parent_span_id, .. } => *parent_span_id,
+        };
+        if let Some(parent_span) = parent_span_id {
+            if let Some(&parent_idx) = span_to_idx.get(&parent_span) {
+                children_map.entry(parent_idx).or_default().push(idx);
+            } else {
+                // Parent not in this batch, treat as root
+                root_indices.push(idx);
+            }
+        } else {
+            // No parent, this is a root
+            root_indices.push(idx);
+        }
+    }
+
+    // Build tree bottom-up: attach children to parents
+    // Process in ascending seq order (children complete before parents, so have lower seq)
+    let mut indices_by_depth: Vec<usize> = (0..entries.len()).collect();
+    // Sort by sequence number ascending (earlier entries first = children before parents)
+    indices_by_depth.sort_by_key(|&idx| entries[idx].seq);
+
+    for idx in indices_by_depth {
+        // Skip if this node was already taken as a child of another node
+        if nodes[idx].is_none() {
+            continue;
+        }
+        if let Some(child_indices) = children_map.get(&idx) {
+            let mut node = nodes[idx].take().unwrap();
+            for &child_idx in child_indices {
+                if let Some(child_node) = nodes[child_idx].take() {
+                    node.children.push(child_node);
+                }
+            }
+            // Sort children by sequence number (oldest first for natural reading order)
+            node.children.sort_by_key(|c| c.entry.seq);
+            nodes[idx] = Some(node);
+        }
+    }
+
+    // Collect root nodes and compute stats
+    let mut roots: Vec<TraceTreeNode> = root_indices
+        .into_iter()
+        .filter_map(|idx| nodes[idx].take())
+        .collect();
+
+    // Compute stats for each tree
+    for root in &mut roots {
+        root.compute_stats();
+    }
+
+    // Sort roots by sequence number descending (newest first)
+    roots.sort_by(|a, b| b.entry.seq.cmp(&a.entry.seq));
+
+    roots
+}
+
+/// Component to render a trace tree node with its children
+#[component]
+fn TraceTreeNodeView(
+    node: TraceTreeNode,
+    theme: ReadSignal<Theme>,
+    depth: usize,
+    collapse_all_gen: u64,
+) -> Element {
+    use crate::tracer::AssetState;
+    use query_flow::tracer::ExecutionResult;
+
+    let theme_val = theme();
+    let border_color = theme_val.border_color();
+
+    // Track collapsed state locally, reset when collapse_all_gen changes
+    let mut collapsed = use_signal(|| false);
+    let mut last_collapse_gen = use_signal(|| collapse_all_gen);
+
+    // When collapse_all_gen changes, collapse this node
+    if collapse_all_gen != last_collapse_gen() {
+        collapsed.set(true);
+        last_collapse_gen.set(collapse_all_gen);
+    }
+
+    let has_children = !node.children.is_empty();
+
+    // Extract display info based on event type
+    let (icon, color, summary) = match &node.entry.event {
+        TraceEvent::QueryEnd {
+            cache_key,
+            result,
+            duration_ms,
+            ..
+        } => {
+            let (icon, color, result_str) = match result {
+                ExecutionResult::Changed => ("⚡", "#FFD700", "Changed"),
+                ExecutionResult::Unchanged => ("=", "#50C878", "Unchanged"),
+                ExecutionResult::CacheHit => ("✓", "#50C878", "CacheHit"),
+                ExecutionResult::Error { .. } => ("✗", "#FF6B6B", "Error"),
+                ExecutionResult::Suspended => ("⏸", "#FFB347", "Suspended"),
+                ExecutionResult::CycleDetected => ("↻", "#FF6B6B", "Cycle"),
+            };
+
+            // Build stats display for nodes with children
+            let stats_display = if has_children {
+                let stats = &node.stats;
+                let mut desc_stats = stats.clone();
+                let self_stats = TraceStats::from_result(result);
+                desc_stats.fresh = desc_stats.fresh.saturating_sub(self_stats.fresh);
+                desc_stats.cached = desc_stats.cached.saturating_sub(self_stats.cached);
+                desc_stats.errors = desc_stats.errors.saturating_sub(self_stats.errors);
+
+                if desc_stats.fresh > 0 || desc_stats.cached > 0 || desc_stats.errors > 0 {
+                    let mut parts = Vec::new();
+                    if desc_stats.fresh > 0 {
+                        parts.push(format!("{}⚡", desc_stats.fresh));
+                    }
+                    if desc_stats.cached > 0 {
+                        parts.push(format!("{}✓", desc_stats.cached));
+                    }
+                    if desc_stats.errors > 0 {
+                        parts.push(format!("{}✗", desc_stats.errors));
+                    }
+                    format!(" [{}]", parts.join(" "))
+                } else {
+                    String::new()
+                }
+            } else {
+                String::new()
+            };
+
+            let summary = format!(
+                "{} ({:.2}ms) - {}{}",
+                cache_key, duration_ms, result_str, stats_display
+            );
+            (icon, color, summary)
+        }
+        TraceEvent::AssetRequested {
+            asset_key,
+            state,
+            duration_ms,
+            ..
+        } => {
+            let (icon, color, state_str) = match state {
+                AssetState::Loading => ("⏳", "#FFB347", "Loading"),
+                AssetState::Ready => ("✓", "#50C878", "Ready"),
+                AssetState::NotFound => ("✗", "#FF6B6B", "NotFound"),
+            };
+            let summary = format!("Asset {} ({:.2}ms) - {}", asset_key, duration_ms, state_str);
+            (icon, color, summary)
+        }
+    };
+
+    // Tree prefix characters
+    let indent_px = depth * 20;
+
+    // Show datetime for root nodes
+    let datetime_display = if depth == 0 {
+        node.entry.datetime.clone()
+    } else {
+        String::new()
+    };
+
+    // Toggle icon for collapsible nodes
+    let toggle_icon = if has_children {
+        if collapsed() { "▶" } else { "▼" }
+    } else {
+        "  "
+    };
+
+    let children = node.children.clone();
+
+    rsx! {
+        div {
+            class: "hover:bg-opacity-5",
+            // Main node content
+            div {
+                class: "px-3 py-1 border-b flex items-start gap-1",
+                style: "border-color: {border_color}; padding-left: {indent_px + 4}px",
+                // Toggle button
+                if has_children {
+                    span {
+                        class: "shrink-0 cursor-pointer opacity-50 hover:opacity-100 w-4 text-center",
+                        onclick: move |_| collapsed.set(!collapsed()),
+                        "{toggle_icon}"
+                    }
+                } else {
+                    span { class: "shrink-0 w-4" }
+                }
+                span { class: "shrink-0", style: "color: {color}", "{icon}" }
+                div { class: "flex-1 min-w-0 break-words",
+                    "{summary}"
+                }
+                if depth == 0 {
+                    span { class: "opacity-50 text-[10px] shrink-0", "{datetime_display}" }
+                }
+            }
+            // Render children if not collapsed
+            if !collapsed() {
+                for child in children.iter() {
+                    TraceTreeNodeView {
+                        node: child.clone(),
+                        theme,
+                        depth: depth + 1,
+                        collapse_all_gen
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Component to render the trace tree view
+#[component]
+fn TraceTreeView(entries: Vec<TraceEntry>, theme: ReadSignal<Theme>, collapse_all_gen: u64) -> Element {
+    let forest = build_trace_forest(&entries);
+
+    if forest.is_empty() {
+        return rsx! {
+            div { class: "p-3 opacity-50",
+                "No trace events. Edit document or schema to trigger queries."
+            }
+        };
+    }
+
+    rsx! {
+        for node in forest.iter() {
+            TraceTreeNodeView {
+                node: node.clone(),
+                theme,
+                depth: 0,
+                collapse_all_gen
             }
         }
     }

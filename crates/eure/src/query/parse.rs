@@ -28,7 +28,7 @@ pub fn read_text_file(db: &impl Db, file: TextFile) -> Result<Arc<TextFileConten
 ///
 /// Always succeeds and returns a (possibly partial) CST.
 /// Parse errors are included in the result for downstream processing.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> {
     let text = read_text_file(db, file.clone())?;
     let parsed = match parse_tolerant(text.get()) {
@@ -41,7 +41,7 @@ pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> 
     Ok(parsed)
 }
 
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn valid_cst(db: &impl Db, file: TextFile) -> Result<Cst, QueryError> {
     let parsed = db.query(ParseCst::new(file.clone()))?;
     if let Some(error) = &parsed.error {
@@ -61,7 +61,7 @@ pub struct ParsedDocument {
 ///
 /// Returns `None` if file not found or if there was a parse error.
 /// Returns `UserError` if document construction fails on a valid CST.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn parse_document(db: &impl Db, file: TextFile) -> Result<ParsedDocument, QueryError> {
     // Get CST from previous step
     let cst = db.query(ValidCst::new(file.clone()))?;

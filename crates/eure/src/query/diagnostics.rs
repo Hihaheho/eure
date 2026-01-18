@@ -56,7 +56,7 @@ pub struct DiagnosticMessage {
 /// Parse errors only. File-scoped.
 ///
 /// Returns parse errors for the given file.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_parse_diagnostics(
     db: &impl Db,
     file: TextFile,
@@ -73,7 +73,7 @@ pub fn get_parse_diagnostics(
 ///
 /// Tries to convert file as a schema. Returns conversion errors if any.
 /// Returns empty if parsing failed (parse errors reported separately).
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_schema_conversion_diagnostics(
     db: &impl Db,
     file: TextFile,
@@ -100,7 +100,7 @@ pub fn get_schema_conversion_diagnostics(
 ///
 /// Returns document construction errors (like duplicate keys, invalid binding targets).
 /// Returns empty if parsing failed (parse errors reported separately).
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_document_construction_diagnostics(
     db: &impl Db,
     file: TextFile,
@@ -146,7 +146,7 @@ pub fn get_document_construction_diagnostics(
 /// When schema has conversion errors:
 /// - Emits a warning in the document at the $schema value span (if explicit)
 /// - Or at span (0, 1) if schema is discovered implicitly (workspace config)
-#[query]
+#[query(debug = "{Self}({doc_file})")]
 pub fn get_validation_diagnostics(
     db: &impl Db,
     doc_file: TextFile,
@@ -259,7 +259,7 @@ pub fn get_validation_diagnostics(
 /// - Document construction diagnostics
 /// - Validation diagnostics
 /// - Schema conversion diagnostics (if this file is referenced as a schema)
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_file_diagnostics(
     db: &impl Db,
     file: TextFile,
@@ -395,7 +395,7 @@ pub fn get_all_diagnostics(
 /// - Schema validation errors (if a schema is resolved)
 ///
 /// Returns an empty vec if the file cannot be parsed.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn get_diagnostics(db: &impl Db, file: TextFile) -> Result<Vec<DiagnosticMessage>, QueryError> {
     let mut diagnostics = Vec::new();
 

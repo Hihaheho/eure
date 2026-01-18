@@ -25,6 +25,8 @@ serde = { workspace = true, features = ["derive"] }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
 gloo-net = "0.6"
 url = { workspace = true }
+web-time = "1.1"
+js-sys = "0.3"
 
 [features]
 default = []

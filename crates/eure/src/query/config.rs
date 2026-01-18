@@ -21,7 +21,7 @@ pub struct ResolvedConfig {
 }
 
 /// Parse EureConfig from a config file.
-#[query]
+#[query(debug = "{Self}({config_file})")]
 pub fn parse_config(db: &impl Db, config_file: TextFile) -> Result<EureConfig, QueryError> {
     let parsed = db.query(ParseDocument::new(config_file.clone()))?;
     let root_id = parsed.doc.get_root_id();
@@ -46,7 +46,7 @@ pub fn parse_config(db: &impl Db, config_file: TextFile) -> Result<EureConfig, Q
 /// for the workspace that contains the file.
 ///
 /// Returns `None` if the file is not in any workspace.
-#[query]
+#[query(debug = "{Self}({file})")]
 pub fn resolve_config(db: &impl Db, file: TextFile) -> Result<Option<ResolvedConfig>, QueryError> {
     let Some(file_path) = file.as_local_path() else {
         return Ok(None);
@@ -70,7 +70,7 @@ pub fn resolve_config(db: &impl Db, file: TextFile) -> Result<Option<ResolvedCon
     Ok(None)
 }
 
-#[query]
+#[query(debug = "{Self}({workspace_id:?})")]
 pub fn workspace_config(
     db: &impl Db,
     workspace_id: WorkspaceId,
