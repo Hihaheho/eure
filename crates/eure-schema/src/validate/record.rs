@@ -52,6 +52,9 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
         };
 
         // Validate each field in schema using field_optional() and parse_with()
+        // Collect missing required fields to report in a single error
+        let mut missing_required_fields: Vec<String> = Vec::new();
+
         for (field_name, field_schema) in &self.schema.properties {
             if let Some(field_ctx) = rec.field_optional(field_name) {
                 // Check deprecated
@@ -81,14 +84,19 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
 
                 self.ctx.pop_path();
             } else if !field_schema.optional {
-                self.ctx
-                    .record_error(ValidationError::MissingRequiredField {
-                        field: field_name.to_string(),
-                        path: self.ctx.path(),
-                        node_id,
-                        schema_node_id: self.schema_node_id,
-                    });
+                missing_required_fields.push(field_name.to_string());
             }
+        }
+
+        // Report all missing required fields in a single error
+        if !missing_required_fields.is_empty() {
+            self.ctx
+                .record_error(ValidationError::MissingRequiredField {
+                    fields: missing_required_fields,
+                    path: self.ctx.path(),
+                    node_id,
+                    schema_node_id: self.schema_node_id,
+                });
         }
 
         // Process flatten targets

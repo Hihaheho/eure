@@ -221,27 +221,12 @@ note: constraint defined here
 ```
 
 schema_errors[] = ```
-error: Missing required field 'x' at path (root) (based on nearest variant 'record-many' for union at path (root))
+error: Missing required fields 'x', 'y' at path (root) (based on nearest variant 'record-many' for union at path (root))
  --> input.eure:1:1
   |
 1 | / a = 1
 2 | | b = 2
-  | |_____^ Missing required field 'x' at path (root) (based on nearest variant 'record-many' for union at path (root))
-  |
-note: constraint defined here
- --> schema.eure:3:24
-  |
-3 | variants.record-many = { x => `text`, y => `text` }
-  |                        ---------------------------- constraint defined here
-```
-
-schema_errors[] = ```
-error: Missing required field 'y' at path (root) (based on nearest variant 'record-many' for union at path (root))
- --> input.eure:1:1
-  |
-1 | / a = 1
-2 | | b = 2
-  | |_____^ Missing required field 'y' at path (root) (based on nearest variant 'record-many' for union at path (root))
+  | |_____^ Missing required fields 'x', 'y' at path (root) (based on nearest variant 'record-many' for union at path (root))
   |
 note: constraint defined here
  --> schema.eure:3:24

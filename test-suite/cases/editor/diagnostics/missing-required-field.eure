@@ -93,16 +93,9 @@ editor = ```eure
 name = "Bob"
 ```
 
-// Error: Missing required field 'email'
+// Error: Missing required fields 'email' and 'phone' (consolidated into single error)
 @ cases.multiple-missing.diagnostics[]
 severity = "error"
 source = "/test-workspace/editor.eure"
-message = "Missing required field 'email' at path (root)"
-span = `name = "Bob"`
-
-// Error: Missing required field 'phone'
-@ cases.multiple-missing.diagnostics[]
-severity = "error"
-source = "/test-workspace/editor.eure"
-message = "Missing required field 'phone' at path (root)"
+message = "Missing required fields 'email', 'phone' at path (root)"
 span = `name = "Bob"`

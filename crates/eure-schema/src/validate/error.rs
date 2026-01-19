@@ -114,9 +114,9 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
-    #[error("Missing required field '{field}' at path {path}")]
+    #[error("{}", format_missing_required_fields(fields, path))]
     MissingRequiredField {
-        field: String,
+        fields: Vec<String>,
         path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
@@ -331,6 +331,21 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
         error: eure_document::parse::ParseError,
     },
+}
+
+/// Format missing required fields message with proper singular/plural handling.
+fn format_missing_required_fields(fields: &[String], path: &EurePath) -> String {
+    match fields.len() {
+        1 => format!("Missing required field '{}' at path {}", fields[0], path),
+        _ => {
+            let field_list = fields
+                .iter()
+                .map(|f| format!("'{}'", f))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("Missing required fields {} at path {}", field_list, path)
+        }
+    }
 }
 
 /// Format a ParseError into a user-friendly validation error message.
