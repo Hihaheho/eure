@@ -53,8 +53,8 @@ pub struct ValidationState {
     /// Accumulated warnings
     pub warnings: Vec<ValidationWarning>,
     /// Temporary storage for variant errors during union validation.
-    /// Each entry is (variant_name, errors_from_that_variant).
-    pub(crate) variant_errors: Vec<(String, Vec<ValidationError>)>,
+    /// Each entry is (variant_name, variant_schema_id, errors_from_that_variant).
+    pub(crate) variant_errors: Vec<(String, SchemaNodeId, Vec<ValidationError>)>,
 }
 
 impl Default for ValidationState {
@@ -166,12 +166,17 @@ impl ValidationState {
     // -------------------------------------------------------------------------
 
     /// Record variant attempt errors (for union validation).
-    pub fn record_variant_errors(&mut self, variant_name: String, errors: Vec<ValidationError>) {
-        self.variant_errors.push((variant_name, errors));
+    pub fn record_variant_errors(
+        &mut self,
+        variant_name: String,
+        schema_id: SchemaNodeId,
+        errors: Vec<ValidationError>,
+    ) {
+        self.variant_errors.push((variant_name, schema_id, errors));
     }
 
     /// Take collected variant errors (for union error construction).
-    pub fn take_variant_errors(&mut self) -> Vec<(String, Vec<ValidationError>)> {
+    pub fn take_variant_errors(&mut self) -> Vec<(String, SchemaNodeId, Vec<ValidationError>)> {
         std::mem::take(&mut self.variant_errors)
     }
 
@@ -354,14 +359,19 @@ impl<'a> ValidationContext<'a> {
     // -------------------------------------------------------------------------
 
     /// Record variant attempt errors during union validation.
-    pub fn record_variant_errors(&self, variant_name: String, errors: Vec<ValidationError>) {
+    pub fn record_variant_errors(
+        &self,
+        variant_name: String,
+        schema_id: SchemaNodeId,
+        errors: Vec<ValidationError>,
+    ) {
         self.state
             .borrow_mut()
-            .record_variant_errors(variant_name, errors);
+            .record_variant_errors(variant_name, schema_id, errors);
     }
 
     /// Take collected variant errors.
-    pub fn take_variant_errors(&self) -> Vec<(String, Vec<ValidationError>)> {
+    pub fn take_variant_errors(&self) -> Vec<(String, SchemaNodeId, Vec<ValidationError>)> {
         self.state.borrow_mut().take_variant_errors()
     }
 

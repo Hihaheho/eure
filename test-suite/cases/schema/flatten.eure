@@ -147,53 +147,63 @@ name = `text`
 $flatten = [`$types.contact-method`]
 ```
 
-schema_errors = [
-  ```
-  error: Missing required field 'phone' at path (root) (and 1 more errors) (based on nearest variant 'phone-contact' for union at path (root))
-   --> input.eure:1:1
-    |
-  1 | / name = "Alice"
-  2 | | fax = "123-456-7890"
-    | |____________________^ Missing required field 'phone' at path (root) (and 1 more errors) (based on nearest variant 'phone-contact' for union at path (root))
-    |
-  note: constraint defined here
-   --> schema.eure:1:1
-    |
-  1 | / $types.contact-method {
-  2 | |   $variant: union
-  3 | |   variants.email-contact {
-  4 | |     email = `text`
-  ... |
-  9 | | }
-    | |_- constraint defined here
-  note: this error is based on the nearest matching variant 'phone-contact' for union at path (root). It may not be what you intended.
-   --> schema.eure:6:3
-    |
-  6 | /   variants.phone-contact {
-  7 | |     phone = `text`
-  8 | |   }
-    | |___- this error is based on the nearest matching variant 'phone-contact' for union at path (root). It may not be what you intended.
-  ```,
-  ```
-  error: Unknown field 'fax' at path (root)
-    --> input.eure:2:1
-     |
-   2 | fax = "123-456-7890"
-     | ^^^ Unknown field 'fax' at path (root)
-     |
-  note: constraint defined here
-    --> schema.eure:1:1
-     |
-   1 | / $types.contact-method {
-   2 | |   $variant: union
-   3 | |   variants.email-contact {
-   4 | |     email = `text`
-  ...  |
-  11 | | name = `text`
-  12 | | $flatten = [`$types.contact-method`]
-     | |____________________________________- constraint defined here
-  ```
-]
+schema_errors[] = ```
+error: Unknown field 'fax' at path (root) (based on nearest variant 'phone-contact' for union at path (root))
+ --> input.eure:2:1
+  |
+2 | fax = "123-456-7890"
+  | ^^^ Unknown field 'fax' at path (root) (based on nearest variant 'phone-contact' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:6:3
+  |
+6 | /   variants.phone-contact {
+7 | |     phone = `text`
+8 | |   }
+  | |___- constraint defined here
+note: based on nearest variant 'phone-contact' for union at path (root)
+ --> schema.eure:6:12
+  |
+6 |   variants.phone-contact {
+  |            ------------- based on nearest variant 'phone-contact' for union at path (root)
+```
+
+schema_errors[] = ```
+error: Missing required field 'phone' at path (root) (based on nearest variant 'phone-contact' for union at path (root))
+ --> input.eure:1:1
+  |
+1 | / name = "Alice"
+2 | | fax = "123-456-7890"
+  | |____________________^ Missing required field 'phone' at path (root) (based on nearest variant 'phone-contact' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:6:3
+  |
+6 | /   variants.phone-contact {
+7 | |     phone = `text`
+8 | |   }
+  | |___- constraint defined here
+```
+
+schema_errors[] = ```
+error: Unknown field 'fax' at path (root)
+  --> input.eure:2:1
+   |
+ 2 | fax = "123-456-7890"
+   | ^^^ Unknown field 'fax' at path (root)
+   |
+note: constraint defined here
+  --> schema.eure:1:1
+   |
+ 1 | / $types.contact-method {
+ 2 | |   $variant: union
+ 3 | |   variants.email-contact {
+ 4 | |     email = `text`
+...  |
+11 | | name = `text`
+12 | | $flatten = [`$types.contact-method`]
+   | |____________________________________- constraint defined here
+```
 
 // ============================================================================
 // Test Case 6: Ambiguous union - multiple variants match

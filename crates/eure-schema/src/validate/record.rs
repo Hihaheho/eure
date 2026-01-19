@@ -215,13 +215,13 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
         let (matched, errors): (Vec<_>, Vec<_>) = union_schema
             .variants
             .iter()
-            .map(|(name, &id)| (name.clone(), self.try_variant(flatten_ctx, id)))
-            .partition(|(_, result)| result.is_ok());
+            .map(|(name, &id)| (name.clone(), id, self.try_variant(flatten_ctx, id)))
+            .partition(|(_, _, result)| result.is_ok());
 
-        let matched: Vec<_> = matched.into_iter().map(|(name, _)| name).collect();
+        let matched: Vec<_> = matched.into_iter().map(|(name, _, _)| name).collect();
         let errors: Vec<_> = errors
             .into_iter()
-            .filter_map(|(name, r)| r.err().map(|e| (name, e)))
+            .filter_map(|(name, id, r)| r.err().map(|e| (name, id, e)))
             .collect();
 
         match matched.len() {

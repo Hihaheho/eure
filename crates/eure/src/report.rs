@@ -254,6 +254,28 @@ impl ErrorReport {
 pub struct ErrorReports(Vec<ErrorReport>);
 
 impl ErrorReports {
+    /// Add a new error report to the collection.
+    pub fn push(&mut self, report: ErrorReport) {
+        self.0.push(report);
+    }
+
+    /// Remove and return the last error report.
+    pub fn pop(&mut self) -> Option<ErrorReport> {
+        self.0.pop()
+    }
+
+    /// Get a mutable reference to a report at a specific index.
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut ErrorReport> {
+        self.0.get_mut(index)
+    }
+
+    /// Replace a report at a specific index.
+    pub fn replace(&mut self, index: usize, report: ErrorReport) {
+        if index < self.0.len() {
+            self.0[index] = report;
+        }
+    }
+
     /// Sort reports by their primary origin span start position.
     pub fn sort_by_span(&mut self) {
         self.0.sort_by(|a, b| {
@@ -370,16 +392,207 @@ fn report_parse_entry(entry: &ParseErrorEntry, file: TextFile) -> ErrorReport {
 }
 
 /// Convert schema validation errors to ErrorReports.
+///
+/// For `NoVariantMatched` errors, this expands all errors from the best matching
+/// variant into separate reports, giving users complete visibility into what went wrong.
 pub fn report_schema_validation_errors(
     db: &impl Db,
     file: TextFile,
     schema_file: TextFile,
     errors: &[ValidationError],
 ) -> Result<ErrorReports, QueryError> {
-    errors
+    let mut reports = ErrorReports::default();
+    for error in errors {
+        expand_validation_error(db, error, file.clone(), schema_file.clone(), &mut reports)?;
+    }
+    Ok(reports)
+}
+
+/// Expand a validation error into reports, recursively handling NoVariantMatched.
+fn expand_validation_error(
+    db: &impl Db,
+    error: &ValidationError,
+    file: TextFile,
+    schema_file: TextFile,
+    reports: &mut ErrorReports,
+) -> Result<(), QueryError> {
+    expand_validation_error_inner(db, error, file, schema_file, reports, None)?;
+    Ok(())
+}
+
+/// Inner recursive function that tracks variant context for nested unions.
+/// Returns the final accumulated variant path for use in context notes.
+fn expand_validation_error_inner(
+    db: &impl Db,
+    error: &ValidationError,
+    file: TextFile,
+    schema_file: TextFile,
+    reports: &mut ErrorReports,
+    variant_context: Option<(String, &eure_document::path::EurePath)>,
+) -> Result<Option<String>, QueryError> {
+    // For NoVariantMatched with a best match, expand all errors from that variant
+    if let ValidationError::NoVariantMatched {
+        path,
+        best_match: Some(best),
+        ..
+    } = error
+    {
+        // Build accumulated variant path: for nested unions, append variant names with '.'
+        let variant_path = match &variant_context {
+            Some((existing_path, _)) => format!("{}.{}", existing_path, best.variant_name),
+            None => best.variant_name.clone(),
+        };
+        // Use outermost path for context
+        let outer_path = match &variant_context {
+            Some((_, outer_path)) => *outer_path,
+            None => path,
+        };
+
+        let mut final_variant_path = None;
+        for (i, inner_error) in best.all_errors.iter().enumerate() {
+            // Recursively expand inner errors (handles nested NoVariantMatched)
+            let start_len = reports.len();
+            let inner_path = expand_validation_error_inner(
+                db,
+                inner_error,
+                file.clone(),
+                schema_file.clone(),
+                reports,
+                Some((variant_path.clone(), outer_path)),
+            )?;
+
+            // Track the final accumulated variant path from the first error
+            if i == 0 {
+                final_variant_path = inner_path;
+            }
+
+            // Add variant context note to the first report from this expansion
+            // We modify the report at start_len (the first one added), not the last
+            if reports.len() > start_len && i == 0 && variant_context.is_none() {
+                // Only add full note to first error of outermost union
+                // Use the final accumulated variant path from recursive calls
+                let note_variant_path = final_variant_path.as_deref().unwrap_or(&variant_path);
+                if let Some(first_report) = reports.get_mut(start_len).map(|r| r.clone()) {
+                    let updated_report = add_variant_context_note(
+                        db,
+                        first_report,
+                        note_variant_path,
+                        outer_path,
+                        schema_file.clone(),
+                        error, // Pass the original error to traverse the variant chain
+                    )?;
+                    reports.replace(start_len, updated_report);
+                }
+            }
+        }
+        return Ok(final_variant_path.or(Some(variant_path)));
+    }
+
+    // For other errors, create a single report with variant context in message
+    let final_path = variant_context.as_ref().map(|(name, _)| name.clone());
+    let context_for_message = variant_context
+        .as_ref()
+        .map(|(name, path)| (name.as_str(), *path));
+    reports.push(report_validation_error(
+        db,
+        error,
+        file,
+        schema_file,
+        context_for_message,
+    )?);
+    Ok(final_path)
+}
+
+/// Collect variant schema IDs by traversing the BestVariantMatch chain.
+/// Each nested NoVariantMatched error contains the variant_schema_id for that level.
+fn collect_variant_schema_ids(error: &ValidationError) -> Vec<SchemaNodeId> {
+    let mut ids = Vec::new();
+    let mut current = error;
+    while let ValidationError::NoVariantMatched {
+        best_match: Some(best),
+        ..
+    } = current
+    {
+        ids.push(best.variant_schema_id);
+        current = &best.error;
+    }
+    ids
+}
+
+/// Add a note about which variant was selected for union error context.
+fn add_variant_context_note(
+    db: &impl Db,
+    report: ErrorReport,
+    variant_name: &str,
+    path: &eure_document::path::EurePath,
+    schema_file: TextFile,
+    error: &ValidationError,
+) -> Result<ErrorReport, QueryError> {
+    let schema = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
+
+    // Collect all existing schema spans from the report to avoid duplicates
+    let existing_spans: Vec<InputSpan> = report
+        .elements
         .iter()
-        .map(|error| report_validation_error(db, error, file.clone(), schema_file.clone()))
-        .collect::<Result<ErrorReports, QueryError>>()
+        .filter_map(|e| {
+            if let Element::Annotation { origin, .. } = e {
+                Some(origin.span)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut report = report;
+
+    // Get variant schema IDs from the error chain (much simpler than walking schema hierarchy)
+    let variant_schema_ids = collect_variant_schema_ids(error);
+
+    // Collect spans for each variant, filtering duplicates
+    let variant_spans: Vec<(InputSpan, SchemaNodeId)> = variant_schema_ids
+        .iter()
+        .filter_map(|&schema_id| {
+            resolve_schema_definition_span(db, schema_id, schema_file.clone(), &schema)
+                .filter(|span| !existing_spans.contains(span))
+                .map(|span| (span, schema_id))
+        })
+        .collect();
+
+    // Only add note and annotations if we have variant spans to show
+    if !variant_spans.is_empty() {
+        // Add concise note with first variant's span
+        let note_message = format!(
+            "based on nearest variant '{}' for union at path {}",
+            variant_name, path
+        );
+        let (first_span, first_schema_id) = variant_spans[0];
+        let origin = Origin::with_hints(
+            schema_file.clone(),
+            first_span,
+            OriginHints::default().with_schema(first_schema_id),
+        );
+        report = report.with_element(Element::Annotation {
+            origin,
+            kind: AnnotationKind::Secondary,
+            label: note_message.into(),
+        });
+
+        // Add "selected variant" annotations for remaining levels
+        for (span, schema_id) in variant_spans.into_iter().skip(1) {
+            let origin = Origin::with_hints(
+                schema_file.clone(),
+                span,
+                OriginHints::default().with_schema(schema_id),
+            );
+            report = report.with_element(Element::Annotation {
+                origin,
+                kind: AnnotationKind::Secondary,
+                label: "selected variant".into(),
+            });
+        }
+    }
+
+    Ok(report)
 }
 
 fn report_validation_error(
@@ -387,6 +600,7 @@ fn report_validation_error(
     error: &ValidationError,
     file: TextFile,
     schema_file: TextFile,
+    variant_context: Option<(&str, &eure_document::path::EurePath)>,
 ) -> Result<ErrorReport, QueryError> {
     // For NoVariantMatched, use the deepest error for span resolution
     // to point to the actual error location instead of the outer union value
@@ -448,7 +662,15 @@ fn report_validation_error(
         doc_origin
     };
 
-    let mut report = ErrorReport::error(error.to_string(), doc_origin);
+    // Build error message, optionally with variant context suffix
+    let message = match variant_context {
+        Some((variant_name, path)) => format!(
+            "{} (based on nearest variant '{}' for union at path {})",
+            error, variant_name, path
+        ),
+        None => error.to_string(),
+    };
+    let mut report = ErrorReport::error(message, doc_origin);
 
     // Add schema location as secondary annotation
     if let Some(schema_span) = resolve_schema_span(db, schema_node_id, schema_file.clone(), &schema)
@@ -466,41 +688,8 @@ fn report_validation_error(
         });
     }
 
-    // Handle nested errors (e.g., NoVariantMatched with best match info)
-    // Add a note explaining this is based on the nearest matching variant
-    if let ValidationError::NoVariantMatched {
-        path,
-        best_match: Some(best),
-        ..
-    } = error
-    {
-        // Get the schema location for the variant definition
-        let (_, variant_schema_node_id) = best.error.node_ids();
-        let note_message = format!(
-            "this error is based on the nearest matching variant '{}' for union at path {}. It may not be what you intended.",
-            best.variant_name, path
-        );
-
-        if let Some(variant_schema_span) =
-            resolve_schema_span(db, variant_schema_node_id, schema_file.clone(), &schema)
-        {
-            // Add annotation with schema location
-            let variant_origin = Origin::with_hints(
-                schema_file.clone(),
-                variant_schema_span,
-                OriginHints::default().with_schema(variant_schema_node_id),
-            );
-
-            report = report.with_element(Element::Annotation {
-                origin: variant_origin,
-                kind: AnnotationKind::Help,
-                label: note_message.into(),
-            });
-        } else {
-            // Add plain note without location
-            report = report.with_note(note_message);
-        }
-    }
+    // Note: Variant context notes for NoVariantMatched are added by
+    // expand_validation_error/add_variant_context_note, not here.
 
     Ok(report)
 }
@@ -517,6 +706,25 @@ fn resolve_schema_span(
     let cst = db.query(ParseCst::new(schema_file)).ok()?;
     // Use OriginMap for span resolution
     schema.parsed.origins.get_value_span(*doc_node_id, &cst.cst)
+}
+
+/// Resolve schema definition span (where the key is, not the value).
+/// Used for variant context notes to point to the variant NAME rather than value.
+fn resolve_schema_definition_span(
+    db: &impl Db,
+    schema_id: SchemaNodeId,
+    schema_file: TextFile,
+    schema: &crate::query::ValidatedSchema,
+) -> Option<InputSpan> {
+    // SchemaNodeId -> NodeId (from schema source map)
+    let doc_node_id = schema.source_map.get(&schema_id)?;
+    // Query CST for span resolution
+    let cst = db.query(ParseCst::new(schema_file)).ok()?;
+    // Use definition span (key location) instead of value span
+    schema
+        .parsed
+        .origins
+        .get_definition_span(*doc_node_id, &cst.cst)
 }
 
 /// Convert a schema conversion error to an ErrorReport.

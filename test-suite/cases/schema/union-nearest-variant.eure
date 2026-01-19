@@ -11,24 +11,36 @@ variants.record = { text => `text` }
 ```
 
 schema_errors[] = ```
-error: Missing required field 'text' at path (root) (and 1 more errors) (based on nearest variant 'record' for union at path (root))
+error: Unknown field 'unknown-fields' at path (root) (based on nearest variant 'record' for union at path (root))
  --> input.eure:1:1
   |
 1 | unknown-fields = "hello"
-  | ^^^^^^^^^^^^^^^^^^^^^^^^ Missing required field 'text' at path (root) (and 1 more errors) (based on nearest variant 'record' for union at path (root))
+  | ^^^^^^^^^^^^^^ Unknown field 'unknown-fields' at path (root) (based on nearest variant 'record' for union at path (root))
   |
 note: constraint defined here
- --> schema.eure:1:1
-  |
-1 | / $variant: union
-2 | | variants.array = [`text`]
-3 | | variants.record = { text => `text` }
-  | |____________________________________- constraint defined here
-note: this error is based on the nearest matching variant 'record' for union at path (root). It may not be what you intended.
  --> schema.eure:3:19
   |
 3 | variants.record = { text => `text` }
-  |                   ------------------ this error is based on the nearest matching variant 'record' for union at path (root). It may not be what you intended.
+  |                   ------------------ constraint defined here
+note: based on nearest variant 'record' for union at path (root)
+ --> schema.eure:3:10
+  |
+3 | variants.record = { text => `text` }
+  |          ------ based on nearest variant 'record' for union at path (root)
+```
+
+schema_errors[] = ```
+error: Missing required field 'text' at path (root) (based on nearest variant 'record' for union at path (root))
+ --> input.eure:1:1
+  |
+1 | unknown-fields = "hello"
+  | ^^^^^^^^^^^^^^^^^^^^^^^^ Missing required field 'text' at path (root) (based on nearest variant 'record' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:3:19
+  |
+3 | variants.record = { text => `text` }
+  |                   ------------------ constraint defined here
 ```
 
 @ cases.primitive-vs-record
@@ -71,11 +83,11 @@ note: constraint defined here
   |
 3 | variants.deep = { outer => { inner => `text` } }
   |                                       ------ constraint defined here
-note: this error is based on the nearest matching variant 'deep' for union at path (root). It may not be what you intended.
- --> schema.eure:3:39
+note: based on nearest variant 'deep' for union at path (root)
+ --> schema.eure:3:10
   |
 3 | variants.deep = { outer => { inner => `text` } }
-  |                                       ------ this error is based on the nearest matching variant 'deep' for union at path (root). It may not be what you intended.
+  |          ---- based on nearest variant 'deep' for union at path (root)
 ```
 
 @ cases.error-count-comparison
@@ -106,11 +118,11 @@ note: constraint defined here
   |
 2 | variants.one-error = { a => `text`, b => `integer`, c => `integer` }
   |                             ------ constraint defined here
-note: this error is based on the nearest matching variant 'one-error' for union at path (root). It may not be what you intended.
- --> schema.eure:2:29
+note: based on nearest variant 'one-error' for union at path (root)
+ --> schema.eure:2:10
   |
 2 | variants.one-error = { a => `text`, b => `integer`, c => `integer` }
-  |                             ------ this error is based on the nearest matching variant 'one-error' for union at path (root). It may not be what you intended.
+  |          --------- based on nearest variant 'one-error' for union at path (root)
 ```
 
 @ cases.structural-beats-depth
@@ -128,24 +140,36 @@ variants.record-shallow = { wrong => `text` }
 ```
 
 schema_errors[] = ```
-error: Missing required field 'wrong' at path (root) (and 1 more errors) (based on nearest variant 'record-shallow' for union at path (root))
+error: Unknown field 'field' at path (root) (based on nearest variant 'record-shallow' for union at path (root))
  --> input.eure:1:1
   |
 1 | field = "hello"
-  | ^^^^^^^^^^^^^^^ Missing required field 'wrong' at path (root) (and 1 more errors) (based on nearest variant 'record-shallow' for union at path (root))
+  | ^^^^^ Unknown field 'field' at path (root) (based on nearest variant 'record-shallow' for union at path (root))
   |
 note: constraint defined here
- --> schema.eure:1:1
-  |
-1 | / $variant: union
-2 | | variants.array-nested = [{ inner => `text` }]
-3 | | variants.record-shallow = { wrong => `text` }
-  | |_____________________________________________- constraint defined here
-note: this error is based on the nearest matching variant 'record-shallow' for union at path (root). It may not be what you intended.
  --> schema.eure:3:27
   |
 3 | variants.record-shallow = { wrong => `text` }
-  |                           ------------------- this error is based on the nearest matching variant 'record-shallow' for union at path (root). It may not be what you intended.
+  |                           ------------------- constraint defined here
+note: based on nearest variant 'record-shallow' for union at path (root)
+ --> schema.eure:3:10
+  |
+3 | variants.record-shallow = { wrong => `text` }
+  |          -------------- based on nearest variant 'record-shallow' for union at path (root)
+```
+
+schema_errors[] = ```
+error: Missing required field 'wrong' at path (root) (based on nearest variant 'record-shallow' for union at path (root))
+ --> input.eure:1:1
+  |
+1 | field = "hello"
+  | ^^^^^^^^^^^^^^^ Missing required field 'wrong' at path (root) (based on nearest variant 'record-shallow' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:3:27
+  |
+3 | variants.record-shallow = { wrong => `text` }
+  |                           ------------------- constraint defined here
 ```
 
 @ cases.structural-beats-count
@@ -164,25 +188,66 @@ variants.record-many = { x => `text`, y => `text` }
 ```
 
 schema_errors[] = ```
-error: Missing required field 'x' at path (root) (and 3 more errors) (based on nearest variant 'record-many' for union at path (root))
+error: Unknown field 'a' at path (root) (based on nearest variant 'record-many' for union at path (root))
+ --> input.eure:1:1
+  |
+1 | a = 1
+  | ^ Unknown field 'a' at path (root) (based on nearest variant 'record-many' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:3:24
+  |
+3 | variants.record-many = { x => `text`, y => `text` }
+  |                        ---------------------------- constraint defined here
+note: based on nearest variant 'record-many' for union at path (root)
+ --> schema.eure:3:10
+  |
+3 | variants.record-many = { x => `text`, y => `text` }
+  |          ----------- based on nearest variant 'record-many' for union at path (root)
+```
+
+schema_errors[] = ```
+error: Unknown field 'b' at path (root) (based on nearest variant 'record-many' for union at path (root))
+ --> input.eure:2:1
+  |
+2 | b = 2
+  | ^ Unknown field 'b' at path (root) (based on nearest variant 'record-many' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:3:24
+  |
+3 | variants.record-many = { x => `text`, y => `text` }
+  |                        ---------------------------- constraint defined here
+```
+
+schema_errors[] = ```
+error: Missing required field 'x' at path (root) (based on nearest variant 'record-many' for union at path (root))
  --> input.eure:1:1
   |
 1 | / a = 1
 2 | | b = 2
-  | |_____^ Missing required field 'x' at path (root) (and 3 more errors) (based on nearest variant 'record-many' for union at path (root))
+  | |_____^ Missing required field 'x' at path (root) (based on nearest variant 'record-many' for union at path (root))
   |
 note: constraint defined here
- --> schema.eure:1:1
-  |
-1 | / $variant: union
-2 | | variants.array-single = [`integer`]
-3 | | variants.record-many = { x => `text`, y => `text` }
-  | |___________________________________________________- constraint defined here
-note: this error is based on the nearest matching variant 'record-many' for union at path (root). It may not be what you intended.
  --> schema.eure:3:24
   |
 3 | variants.record-many = { x => `text`, y => `text` }
-  |                        ---------------------------- this error is based on the nearest matching variant 'record-many' for union at path (root). It may not be what you intended.
+  |                        ---------------------------- constraint defined here
+```
+
+schema_errors[] = ```
+error: Missing required field 'y' at path (root) (based on nearest variant 'record-many' for union at path (root))
+ --> input.eure:1:1
+  |
+1 | / a = 1
+2 | | b = 2
+  | |_____^ Missing required field 'y' at path (root) (based on nearest variant 'record-many' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:3:24
+  |
+3 | variants.record-many = { x => `text`, y => `text` }
+  |                        ---------------------------- constraint defined here
 ```
 
 @ cases.tuple-vs-array
@@ -207,15 +272,250 @@ error: Tuple length mismatch: expected 2, got 3 at path (root) (based on nearest
   |   ^^^^^^^^^ Tuple length mismatch: expected 2, got 3 at path (root) (based on nearest variant 'tuple' for union at path (root))
   |
 note: constraint defined here
- --> schema.eure:1:1
-  |
-1 | / $variant: union
-2 | | variants.tuple = (`integer`, `integer`)
-3 | | variants.array = [`text`]
-  | |_________________________- constraint defined here
-note: this error is based on the nearest matching variant 'tuple' for union at path (root). It may not be what you intended.
  --> schema.eure:2:18
   |
 2 | variants.tuple = (`integer`, `integer`)
-  |                  ---------------------- this error is based on the nearest matching variant 'tuple' for union at path (root). It may not be what you intended.
+  |                  ---------------------- constraint defined here
+note: based on nearest variant 'tuple' for union at path (root)
+ --> schema.eure:2:10
+  |
+2 | variants.tuple = (`integer`, `integer`)
+  |          ----- based on nearest variant 'tuple' for union at path (root)
+```
+
+@ cases.nested-union-depth-1
+// Nesting level 1: union -> union -> record
+// Tests that variant selection looks through 1 level of nested unions.
+
+input_eure = ```eure
+section {
+  wrong-header = "title"
+}
+```
+
+schema = ```eure
+$unknown-fields {
+  $variant: union
+  variants.normal = `$types.content`
+  variants.list = [`$types.content`]
+}
+
+$types.content {
+  $variant: union
+  variants.text = `text`
+  variants.nested {
+    header = `text`
+  }
+}
+```
+
+schema_errors[] = ```
+error: Unknown field 'wrong-header' at path section (based on nearest variant 'normal.nested' for union at path section)
+  --> input.eure:2:3
+   |
+ 2 |   wrong-header = "title"
+   |   ^^^^^^^^^^^^ Unknown field 'wrong-header' at path section (based on nearest variant 'normal.nested' for union at path section)
+   |
+note: constraint defined here
+  --> schema.eure:10:3
+   |
+10 | /   variants.nested {
+11 | |     header = `text`
+12 | |   }
+   | |___- constraint defined here
+note: based on nearest variant 'normal.nested' for union at path section
+  --> schema.eure:3:12
+   |
+ 3 |   variants.normal = `$types.content`
+   |            ------ based on nearest variant 'normal.nested' for union at path section
+note: selected variant
+  --> schema.eure:10:12
+   |
+10 |   variants.nested {
+   |            ------ selected variant
+```
+
+schema_errors[] = ```
+error: Missing required field 'header' at path section (based on nearest variant 'normal.nested' for union at path section)
+  --> input.eure:1:1
+   |
+ 1 | section {
+   | ^^^^^^^ Missing required field 'header' at path section (based on nearest variant 'normal.nested' for union at path section)
+   |
+note: constraint defined here
+  --> schema.eure:10:3
+   |
+10 | /   variants.nested {
+11 | |     header = `text`
+12 | |   }
+   | |___- constraint defined here
+```
+
+@ cases.nested-union-depth-2
+// Nesting level 2: union -> union -> union -> record
+// Tests that variant selection looks through 2 levels of nested unions.
+
+input_eure = ```eure
+section {
+  wrong-header = "title"
+}
+```
+
+schema = ```eure
+$unknown-fields {
+  $variant: union
+  variants.normal = `$types.level1`
+  variants.list = [`$types.level1`]
+}
+
+$types.level1 {
+  $variant: union
+  variants.text = `text`
+  variants.nested = `$types.level2`
+}
+
+$types.level2 {
+  $variant: union
+  variants.text = `text`
+  variants.nested {
+    header = `text`
+  }
+}
+```
+
+schema_errors[] = ```
+error: Unknown field 'wrong-header' at path section (based on nearest variant 'normal.nested.nested' for union at path section)
+  --> input.eure:2:3
+   |
+ 2 |   wrong-header = "title"
+   |   ^^^^^^^^^^^^ Unknown field 'wrong-header' at path section (based on nearest variant 'normal.nested.nested' for union at path section)
+   |
+note: constraint defined here
+  --> schema.eure:16:3
+   |
+16 | /   variants.nested {
+17 | |     header = `text`
+18 | |   }
+   | |___- constraint defined here
+note: based on nearest variant 'normal.nested.nested' for union at path section
+  --> schema.eure:3:12
+   |
+ 3 |   variants.normal = `$types.level1`
+   |            ------ based on nearest variant 'normal.nested.nested' for union at path section
+note: selected variant
+  --> schema.eure:10:12
+   |
+10 |   variants.nested = `$types.level2`
+   |            ------ selected variant
+note: selected variant
+  --> schema.eure:16:12
+   |
+16 |   variants.nested {
+   |            ------ selected variant
+```
+
+schema_errors[] = ```
+error: Missing required field 'header' at path section (based on nearest variant 'normal.nested.nested' for union at path section)
+  --> input.eure:1:1
+   |
+ 1 | section {
+   | ^^^^^^^ Missing required field 'header' at path section (based on nearest variant 'normal.nested.nested' for union at path section)
+   |
+note: constraint defined here
+  --> schema.eure:16:3
+   |
+16 | /   variants.nested {
+17 | |     header = `text`
+18 | |   }
+   | |___- constraint defined here
+```
+
+@ cases.nested-union-depth-3
+// Nesting level 3: union -> union -> union -> union -> record
+// Tests that variant selection looks through 3 levels of nested unions.
+
+input_eure = ```eure
+section {
+  wrong-header = "title"
+}
+```
+
+schema = ```eure
+$unknown-fields {
+  $variant: union
+  variants.normal = `$types.level1`
+  variants.list = [`$types.level1`]
+}
+
+$types.level1 {
+  $variant: union
+  variants.text = `text`
+  variants.nested = `$types.level2`
+}
+
+$types.level2 {
+  $variant: union
+  variants.text = `text`
+  variants.nested = `$types.level3`
+}
+
+$types.level3 {
+  $variant: union
+  variants.text = `text`
+  variants.nested {
+    header = `text`
+  }
+}
+```
+
+schema_errors[] = ```
+error: Unknown field 'wrong-header' at path section (based on nearest variant 'normal.nested.nested.nested' for union at path section)
+  --> input.eure:2:3
+   |
+ 2 |   wrong-header = "title"
+   |   ^^^^^^^^^^^^ Unknown field 'wrong-header' at path section (based on nearest variant 'normal.nested.nested.nested' for union at path section)
+   |
+note: constraint defined here
+  --> schema.eure:22:3
+   |
+22 | /   variants.nested {
+23 | |     header = `text`
+24 | |   }
+   | |___- constraint defined here
+note: based on nearest variant 'normal.nested.nested.nested' for union at path section
+  --> schema.eure:3:12
+   |
+ 3 |   variants.normal = `$types.level1`
+   |            ------ based on nearest variant 'normal.nested.nested.nested' for union at path section
+note: selected variant
+  --> schema.eure:10:12
+   |
+10 |   variants.nested = `$types.level2`
+   |            ------ selected variant
+note: selected variant
+  --> schema.eure:16:12
+   |
+16 |   variants.nested = `$types.level3`
+   |            ------ selected variant
+note: selected variant
+  --> schema.eure:22:12
+   |
+22 |   variants.nested {
+   |            ------ selected variant
+```
+
+schema_errors[] = ```
+error: Missing required field 'header' at path section (based on nearest variant 'normal.nested.nested.nested' for union at path section)
+  --> input.eure:1:1
+   |
+ 1 | section {
+   | ^^^^^^^ Missing required field 'header' at path section (based on nearest variant 'normal.nested.nested.nested' for union at path section)
+   |
+note: constraint defined here
+  --> schema.eure:22:3
+   |
+22 | /   variants.nested {
+23 | |     header = `text`
+24 | |   }
+   | |___- constraint defined here
 ```

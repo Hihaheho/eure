@@ -27,7 +27,7 @@ result {
 @ diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Type mismatch: expected text, got integer at path result.value (based on nearest variant 'some' for union at path result)"
+message = "Type mismatch: expected text, got integer at path result.value (based on nearest variant 'ok.some' for union at path result)"
 span = "123"
 
 @ cases.unknown-field

@@ -83,6 +83,8 @@ impl ValidatorError {
 pub struct BestVariantMatch {
     /// Name of the variant that matched best
     pub variant_name: String,
+    /// Schema node ID of the variant (for span resolution)
+    pub variant_schema_id: SchemaNodeId,
     /// Primary error from this variant (may be nested NoVariantMatched)
     pub error: Box<ValidationError>,
     /// All errors collected from this variant attempt
@@ -581,13 +583,16 @@ impl ValidationError {
     /// with similar depth and error counts.
     pub fn priority_score(&self) -> u8 {
         match self {
+            // UnknownField is highest priority because it tells the user exactly
+            // what they did wrong (e.g., used 'foo' instead of 'bar'). This is
+            // more actionable than MissingRequiredField which only says what's missing.
+            Self::UnknownField { .. } => 95,
             Self::MissingRequiredField { .. } => 90,
             Self::TypeMismatch { .. } => 80,
             Self::TupleLengthMismatch { .. } => 70,
             Self::LiteralMismatch { .. } => 70,
             Self::InvalidVariantTag { .. } => 65,
             Self::NoVariantMatched { .. } => 60, // Nested union mismatch
-            Self::UnknownField { .. } => 50,
             Self::MissingRequiredExtension { .. } => 50,
             Self::ParseError { .. } => 40, // Medium priority
             Self::OutOfRange { .. } => 30,
@@ -626,6 +631,57 @@ pub enum ValidationWarning {
 // Best Variant Selection
 // =============================================================================
 
+/// Compute the effective depth and structural match status for a list of errors.
+///
+/// This function looks through `NoVariantMatched` errors to find the actual
+/// depth and structural match status from nested unions. This ensures that
+/// a variant containing a union (which has a structurally-matching sub-variant)
+/// is preferred over a variant with a direct structural mismatch.
+///
+/// A "structural mismatch" occurs when TypeMismatch happens at the union's level
+/// (e.g., expected array but got map). We detect this by checking if TypeMismatch
+/// is at the minimum depth among all errors - if so, it failed at the union level.
+///
+/// Returns (max_depth, structural_match) where:
+/// - max_depth: The deepest error path length, looking through nested unions
+/// - structural_match: true if no TypeMismatch at the union level (considering nested unions)
+fn compute_depth_and_structural_match(errors: &[ValidationError]) -> (usize, bool) {
+    // First pass: find the minimum depth (the union's level)
+    let min_depth = errors.iter().map(|e| e.depth()).min().unwrap_or(0);
+
+    let mut max_depth = 0;
+    let mut structural_match = true;
+
+    for error in errors {
+        match error {
+            // For NoVariantMatched, look inside to get the nested metrics
+            ValidationError::NoVariantMatched { best_match, .. } => {
+                if let Some(best) = best_match {
+                    // Recursively compute metrics from the nested union's best match
+                    let (nested_depth, nested_structural) =
+                        compute_depth_and_structural_match(&best.all_errors);
+                    max_depth = max_depth.max(nested_depth);
+                    // If nested union has structural mismatch, propagate it
+                    if !nested_structural {
+                        structural_match = false;
+                    }
+                }
+            }
+            // TypeMismatch at the union's level (min_depth) indicates structural mismatch
+            ValidationError::TypeMismatch { .. } if error.depth() == min_depth => {
+                max_depth = max_depth.max(error.depth());
+                structural_match = false;
+            }
+            // Other errors: just track depth
+            _ => {
+                max_depth = max_depth.max(error.depth());
+            }
+        }
+    }
+
+    (max_depth, structural_match)
+}
+
 /// Select the best matching variant from collected errors.
 ///
 /// Used by both regular union validation and flattened union validation
@@ -638,7 +694,7 @@ pub enum ValidationWarning {
 ///
 /// Returns None if no variants were tried or all had empty errors.
 pub fn select_best_variant_match(
-    variant_errors: Vec<(String, Vec<ValidationError>)>,
+    variant_errors: Vec<(String, SchemaNodeId, Vec<ValidationError>)>,
 ) -> Option<BestVariantMatch> {
     if variant_errors.is_empty() {
         return None;
@@ -647,19 +703,12 @@ pub fn select_best_variant_match(
     // Find the best match based on metrics
     let best = variant_errors
         .into_iter()
-        .filter(|(_, errors)| !errors.is_empty())
-        .max_by_key(|(_, errors)| {
-            // Calculate metrics
-            let max_depth = errors.iter().map(|e| e.depth()).max().unwrap_or(0);
+        .filter(|(_, _, errors)| !errors.is_empty())
+        .max_by_key(|(_, _, errors)| {
+            // Calculate metrics, looking through nested unions
+            let (max_depth, structural_match) = compute_depth_and_structural_match(errors);
             let error_count = errors.len();
             let max_priority = errors.iter().map(|e| e.priority_score()).max().unwrap_or(0);
-
-            // TypeMismatch at depth 0 indicates structural type mismatch
-            // (e.g., expected array but got map), which should be penalized
-            // because variants with matching structural type are closer matches.
-            let structural_match = !errors
-                .iter()
-                .any(|e| matches!(e, ValidationError::TypeMismatch { .. }) && e.depth() == 0);
 
             // Return tuple for comparison:
             // 1. structural_match: true > false (structural match is better)
@@ -674,7 +723,7 @@ pub fn select_best_variant_match(
             )
         });
 
-    best.map(|(variant_name, mut errors)| {
+    best.map(|(variant_name, variant_schema_id, mut errors)| {
         let depth = errors.iter().map(|e| e.depth()).max().unwrap_or(0);
         let error_count = errors.len();
 
@@ -689,6 +738,7 @@ pub fn select_best_variant_match(
 
         BestVariantMatch {
             variant_name,
+            variant_schema_id,
             error: Box::new(primary_error),
             all_errors: errors,
             depth,

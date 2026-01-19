@@ -337,28 +337,25 @@ value {
 ```
 
 schema_errors[] = ```text
-error: Missing required field 'code' at path value (and 1 more errors) (based on nearest variant 'b' for union at path value)
- --> input.eure:1:1
+error: Unknown field 'unknown_field' at path value (based on nearest variant 'b' for union at path value)
+ --> input.eure:2:3
   |
-1 | / value {
-2 | |   unknown_field = "test"
-3 | | }
-  | |_^ Missing required field 'code' at path value (and 1 more errors) (based on nearest variant 'b' for union at path value)
+2 |   unknown_field = "test"
+  |   ^^^^^^^^^^^^^ Unknown field 'unknown_field' at path value (based on nearest variant 'b' for union at path value)
   |
-note: constraint defined here
- --> schema.eure:1:1
+note: based on nearest variant 'b' for union at path value
+ --> schema.eure:4:12
   |
-1 | / value {
-2 | |   $variant = "union"
-3 | |   variants.a.message = `text`
-4 | |   variants.b.code = `integer`
-5 | | }
-  | |_- constraint defined here
-note: this error is based on the nearest matching variant 'b' for union at path value. It may not be what you intended.
+4 |   variants.b.code = `integer`
+  |            - based on nearest variant 'b' for union at path value
+```
+
+schema_errors[] = ```text
+error: Missing required field 'code' at path value (based on nearest variant 'b' for union at path value)
  --> input.eure:1:1
   |
 1 | value {
-  | -
+  | ^^^^^ Missing required field 'code' at path value (based on nearest variant 'b' for union at path value)
 ```
 
 // ============================================================================

@@ -218,7 +218,11 @@ fn validate_variant<'doc>(
         } else {
             // Untagged mode: store errors for later analysis
             if !trial_state.errors.is_empty() {
-                ctx.record_variant_errors(variant_name.to_string(), trial_state.errors);
+                ctx.record_variant_errors(
+                    variant_name.to_string(),
+                    schema_node_id,
+                    trial_state.errors,
+                );
             }
             Err(ValidatorError::InvalidVariantTag {
                 tag: variant_name.to_string(),
