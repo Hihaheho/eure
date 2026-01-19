@@ -373,7 +373,7 @@ macro_rules! eure {
     // Root binding: hole (!) - explicit unbound placeholder
     // Note: This must come before general `= $v:tt` to match `!` specifically
     (@stmt $c:ident; = ! $($rest:tt)*) => {{
-        // Hole is the default state, so we don't need to bind anything
+        $c.bind_hole(None).unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
@@ -610,6 +610,7 @@ macro_rules! eure {
 
     // Section terminal: hole
     (@section_terminal $c:ident $section_scope:ident $scope:ident; = ! $($rest:tt)*) => {{
+        $c.bind_hole(None).unwrap();
         $c.end_scope($scope).unwrap();
         $c.end_binding_value().unwrap();
         $crate::eure!(@section_bindings $c $section_scope; $($rest)*);
@@ -815,7 +816,7 @@ macro_rules! eure {
 
     // Terminal: hole (!) - explicit unbound placeholder
     (@terminal $c:ident $scope:ident; = ! $($rest:tt)*) => {{
-        // Hole is the default state, so we just close the scope
+        $c.bind_hole(None).unwrap();
         $c.end_scope($scope).unwrap();
         $c.end_binding_value().unwrap();
         $crate::eure!(@stmt $c; $($rest)*);
@@ -1546,16 +1547,14 @@ mod tests {
     fn test_eure_hole_root() {
         use crate::document::node::NodeValue;
 
-        // Test hole at root level - root should remain unbound (Hole), but
-        // finish() converts unbound root to empty map
+        // Test hole at root level - explicit `= !` should preserve the Hole
         let doc = eure!({
             = !
         });
 
         let root_id = doc.get_root_id();
         let root = doc.node(root_id);
-        // finish() converts Hole root to Map
-        assert!(matches!(root.content, NodeValue::Map(_)));
+        assert_eq!(root.content, NodeValue::Hole(None));
     }
 
     #[test]

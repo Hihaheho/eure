@@ -24,3 +24,15 @@ output_json = ```json
 	"empty-values": { "map": {}, "array": [], "tuple": [] }
 }
 ```
+
+@ cases.section-with-hole
+input_eure = ```eure
+@ section
+= !
+```
+
+normalized = ```eure
+= {
+	section => !
+}
+```

@@ -651,27 +651,61 @@ This section defines the operational semantics of Eure documents using abstract 
 
 Document interpretation maintains:
 
-1. **Document tree**: A tree of nodes, each either unbound (a *hole*) or bound to a value
-2. **Cursor**: The current position within the tree, starting at the root
-3. **Scope stack**: A stack of saved cursor positions
+1. **Document tree**: A tree of nodes (content only, no interpretation state)
+2. **Node stack**: A stack of node-ids representing the current navigation path. The last element is the current position.
+3. **Scope stack**: A stack of saved node stack depths
+4. **Unbound set**: A set of node-ids that have never been explicitly bound
 
 ### 8.2 Interpretation Actions
+
+#### 8.2.1 Actions
 
 The following primitive actions define document interpretation:
 
 | Action | Description |
 |--------|-------------|
-| `begin_scope()` | Save the current cursor position onto the scope stack |
-| `end_scope()` | Restore the cursor to the most recently saved position (pop from stack) |
-| `navigate(segment)` | Move cursor to a child node identified by segment; create the node if absent |
-| `assert_unbound()` | Verify the current position is a hole; error if already bound |
-| `bind(value)` | Assign a value to the current position |
+| `navigate(segment)` | Push a node onto the node stack identified by segment; create the node if absent; add node-id to the unbound set |
+| `bind(value)` | Assign value to the current position; remove current node-id from the unbound set |
+| `assert_unbound()` | Verify the current position is in the unbound set; error if already bound |
+| `begin_scope()` | Push current node stack depth onto the scope stack |
+| `end_scope()` | Pop scope stack and restore node stack to the saved depth |
+| `finish()` | For each node in the unbound set: if content is a hole, convert to empty map |
 
-**Constraints:**
+#### 8.2.2 Action Constraints
 
-- `bind(value)` MUST only succeed when the current position is unbound
+- `bind(value)` MUST only succeed when the current position is in the unbound set
+- `bind(value)` MUST fail the whole document construction if the current position is not in the unbound set
 - `end_scope()` MUST be called in LIFO order (most recent scope first)
-- `navigate(segment)` implicitly creates intermediate nodes as needed
+- `navigate(segment)` implicitly creates intermediate nodes as needed (with hole content)
+- `finish()` MUST be called once after all document construction is complete
+
+#### 8.2.3 Unbound Set Semantics
+
+The unbound set tracks nodes that have never been explicitly bound. This determines the final content of navigated-but-not-bound nodes:
+
+- **Node in unbound set**: Never explicitly bound. At `finish()`, if content is still a hole → converted to empty map.
+- **Node not in unbound set**: Explicitly bound via `bind(value)`. Content is preserved as-is, including explicit holes.
+
+The key insight: both `bind(!)` (explicit hole) and `bind(42)` (non-hole value) remove the node from the unbound set. This means:
+- Implicit holes (created by `navigate()`, never bound) → become empty maps
+- Explicit holes (created by `bind(!)`) → preserved as holes
+
+#### 8.2.4 Optimization: Lazy Unbound Tracking
+
+The semantics above add every navigated node to the unbound set. Implementations may optimize to avoid tracking every node by using a stack of (node-id, hole-bound) pairs instead:
+
+1. On `navigate()`: push (node-id, hole-bound=false) onto the node stack
+2. On `bind(hole)`: set hole-bound=true for the current stack entry
+3. On `bind(non-hole)`: no change to hole-bound (node content is no longer a hole)
+4. On `end_scope()`: for each popped entry where hole-bound=false AND content is still a hole, add node-id to the unbound set
+5. On `finish()`: same as pure semantics
+
+This works because:
+- Nodes bound to non-hole values don't need tracking (their content is not a hole, so the `finish()` check will skip them anyway)
+- Nodes explicitly bound to holes have hole-bound=true (won't be added to unbound set when popped)
+- Only implicitly created holes (navigated but never bound) get added to the unbound set
+
+This optimization reduces memory usage by deferring unbound set population until scope exit, rather than adding every navigated node immediately.
 
 ### 8.3 Navigate Segments
 

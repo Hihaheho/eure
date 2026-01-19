@@ -2216,10 +2216,12 @@ fn test_error_unknown_variant_type() {
     });
     let result = document_to_schema(&doc);
 
+    let err = result.unwrap_err();
+    eprintln!("Actual error: {:?}", err);
     assert!(matches!(
-        result.unwrap_err(),
+        err,
         ConversionError::ParseError(ParseError {
-            kind: ParseErrorKind::UnexpectedHole,
+            kind: ParseErrorKind::UnknownVariant(_),
             ..
         })
     ));

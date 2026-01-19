@@ -1,3 +1,5 @@
+use indexmap::IndexSet;
+
 use crate::document::interpreter_sink::InterpreterSink;
 use crate::prelude_internal::*;
 
@@ -29,6 +31,10 @@ pub struct DocumentConstructor {
     scope_counter: usize,
     /// Stack of outstanding scope IDs for LIFO enforcement.
     outstanding_scopes: Vec<usize>,
+    /// Whether hole has been bound to the node
+    hole_bound: Vec<bool>,
+    /// IDs of nodes that are unbound.
+    unbound_nodes: IndexSet<NodeId>,
 }
 
 impl Default for DocumentConstructor {
@@ -39,8 +45,10 @@ impl Default for DocumentConstructor {
             document,
             path: vec![],
             stack: vec![root],
+            hole_bound: vec![false],
             scope_counter: 0,
             outstanding_scopes: vec![],
+            unbound_nodes: IndexSet::new(),
         }
     }
 }
@@ -75,10 +83,16 @@ impl DocumentConstructor {
     }
 
     pub fn finish(mut self) -> EureDocument {
+        for node_id in self.unbound_nodes {
+            let node = self.document.node_mut(node_id);
+            if node.content.is_hole() {
+                node.content = NodeValue::Map(Default::default());
+            }
+        }
         // If the root node is Hole, empty map
         let root_id = self.document.get_root_id();
         let root_node = self.document.node_mut(root_id);
-        if root_node.content.is_hole() {
+        if root_node.content.is_hole() && !self.hole_bound[0] {
             root_node.content = NodeValue::Map(Default::default());
         }
         self.document
@@ -110,7 +124,14 @@ impl DocumentConstructor {
             return Err(ScopeError::CannotEndAtRoot);
         }
         self.outstanding_scopes.pop();
+        for i in scope.stack_depth..self.stack.len() {
+            let hole_bound = self.hole_bound[i];
+            if !hole_bound && self.document.node(self.stack[i]).content.is_hole() {
+                self.unbound_nodes.insert(self.stack[i]);
+            }
+        }
         self.stack.truncate(scope.stack_depth);
+        self.hole_bound.truncate(scope.stack_depth);
         self.path.truncate(scope.path_depth);
         Ok(())
     }
@@ -128,6 +149,7 @@ impl DocumentConstructor {
             })?;
         let node_id = node_mut.node_id;
         self.stack.push(node_id);
+        self.hole_bound.push(false);
         self.path.push(segment);
         Ok(node_id)
     }
@@ -147,14 +169,15 @@ impl DocumentConstructor {
 
     /// Bind a hole (optionally labeled) to the current node.
     pub fn bind_hole(&mut self, label: Option<Identifier>) -> Result<(), InsertError> {
-        let node = self.current_node_mut();
-        if !node.content.is_hole() {
+        if !self.current_node().content.is_hole() {
             return Err(InsertError {
                 kind: InsertErrorKind::BindingTargetHasValue,
                 path: EurePath::from_iter(self.current_path().iter().cloned()),
             });
         }
-        node.content = NodeValue::Hole(label);
+        self.hole_bound[self.stack.len() - 1] = true;
+        self.unbound_nodes.swap_remove(&self.current_node_id());
+        self.current_node_mut().content = NodeValue::Hole(label);
         Ok(())
     }
 
