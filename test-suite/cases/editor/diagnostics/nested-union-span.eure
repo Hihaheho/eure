@@ -23,11 +23,11 @@ result {
 ```
 
 // Diagnostic should point to "123", not the entire "result { ... }" block
-// The message is the outer NoVariantMatched error, but the SPAN should be at "123"
+// The message shows the underlying error with the nearest variant info
 @ diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path result, most close variant is 'ok': No variant matched for union at path result, most close variant is 'some': Type mismatch: expected text, got integer at path result.value"
+message = "Type mismatch: expected text, got integer at path result.value (based on nearest variant 'some' for union at path result)"
 span = "123"
 
 @ cases.unknown-field
@@ -58,7 +58,7 @@ value {
 @ cases.unknown-field.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'simple': Unknown field 'unknown' at path value"
+message = "Unknown field 'unknown' at path value (based on nearest variant 'simple' for union at path value)"
 span = "unknown"
 
 @ cases.literal-mismatch
@@ -81,7 +81,7 @@ value = "invalid"
 @ cases.literal-mismatch.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'off': Literal value mismatch at path value"
+message = "Literal value mismatch at path value (based on nearest variant 'off' for union at path value)"
 span = "\"invalid\""
 
 @ cases.language-mismatch
@@ -118,7 +118,7 @@ print("hello")
 @ cases.language-mismatch.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'yaml': Language mismatch: expected yaml, got Other(\"python\") at path value.code"
+message = "Language mismatch: expected yaml, got Other(\"python\") at path value.code (based on nearest variant 'yaml' for union at path value)"
 span = "```python"
 
 @ cases.out-of-range
@@ -153,7 +153,7 @@ value {
 @ cases.out-of-range.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'large': Value 50 is out of range at path value.n"
+message = "Value 50 is out of range at path value.n (based on nearest variant 'large' for union at path value)"
 span = "50"
 
 @ cases.not-multiple-of
@@ -188,7 +188,7 @@ value {
 @ cases.not-multiple-of.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'by-five': Integer not a multiple of 5 at path value.n"
+message = "Integer not a multiple of 5 at path value.n (based on nearest variant 'by-five' for union at path value)"
 span = "7"
 
 @ cases.pattern-mismatch
@@ -223,7 +223,7 @@ value {
 @ cases.pattern-mismatch.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'email': String does not match pattern '^[^@]+@[^@]+$' at path value.addr"
+message = "String does not match pattern '^[^@]+@[^@]+$' at path value.addr (based on nearest variant 'email' for union at path value)"
 span = "\"not-an-email\""
 
 @ cases.string-length
@@ -259,7 +259,7 @@ value {
 @ cases.string-length.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'long': String length 5 is out of bounds at path value.s"
+message = "String length 5 is out of bounds at path value.s (based on nearest variant 'long' for union at path value)"
 span = "\"hello\""
 
 @ cases.invalid-key-type
@@ -293,7 +293,7 @@ value {
 @ cases.invalid-key-type.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'other-int-keys': Invalid key type at path value"
+message = "Invalid key type at path value (based on nearest variant 'other-int-keys' for union at path value)"
 span = "\"not-int\""
 
 // ============================================================================
@@ -329,7 +329,7 @@ value {
 @ cases.missing-required-field.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'full': Missing required field 'name' at path value"
+message = "Missing required field 'name' at path value (based on nearest variant 'full' for union at path value)"
 span = "value {"
 
 @ cases.tuple-length-mismatch
@@ -353,7 +353,7 @@ value = (1)
 @ cases.tuple-length-mismatch.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'triple': Tuple length mismatch: expected 3, got 1 at path value"
+message = "Tuple length mismatch: expected 3, got 1 at path value (based on nearest variant 'triple' for union at path value)"
 span = "(1)"
 
 @ cases.array-length-out-of-bounds
@@ -392,7 +392,7 @@ value {
 @ cases.array-length-out-of-bounds.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'long': Array length 3 is out of bounds at path value.items"
+message = "Array length 3 is out of bounds at path value.items (based on nearest variant 'long' for union at path value)"
 span = "[1, 2, 3]"
 
 @ cases.map-size-out-of-bounds
@@ -433,7 +433,7 @@ value {
 @ cases.map-size-out-of-bounds.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'large': Map size 3 is out of bounds at path value.data"
+message = "Map size 3 is out of bounds at path value.data (based on nearest variant 'large' for union at path value)"
 span = "{ \"a\" => 1, \"b\" => 2, \"c\" => 3 }"
 
 @ cases.array-not-unique
@@ -472,7 +472,7 @@ value {
 @ cases.array-not-unique.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'unique-b': Array elements must be unique at path value.items"
+message = "Array elements must be unique at path value.items (based on nearest variant 'unique-b' for union at path value)"
 span = "[1, 2, 1]"
 
 @ cases.array-missing-contains
@@ -510,7 +510,7 @@ value {
 @ cases.array-missing-contains.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'has-99': Array must contain required element at path value.items"
+message = "Array must contain required element at path value.items (based on nearest variant 'has-99' for union at path value)"
 span = "[1, 2, 3]"
 
 @ cases.invalid-variant-tag
@@ -551,7 +551,7 @@ value {
 @ cases.invalid-variant-tag.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "No variant matched for union at path value, most close variant is 'option-b': Invalid variant tag 'invalid-tag' at path value.inner"
+message = "Invalid variant tag 'invalid-tag' at path value.inner (based on nearest variant 'option-b' for union at path value)"
 span = "inner {"
 
 // ============================================================================

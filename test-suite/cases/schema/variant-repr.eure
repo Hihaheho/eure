@@ -337,13 +337,13 @@ value {
 ```
 
 schema_errors[] = ```text
-error: No variant matched for union at path value, most close variant is 'b': Missing required field 'code' at path value (and 1 more errors)
+error: Missing required field 'code' at path value (and 1 more errors) (based on nearest variant 'b' for union at path value)
  --> input.eure:1:1
   |
 1 | / value {
 2 | |   unknown_field = "test"
 3 | | }
-  | |_^ No variant matched for union at path value, most close variant is 'b': Missing required field 'code' at path value (and 1 more errors)
+  | |_^ Missing required field 'code' at path value (and 1 more errors) (based on nearest variant 'b' for union at path value)
   |
 note: constraint defined here
  --> schema.eure:1:1
@@ -354,7 +354,7 @@ note: constraint defined here
 4 | |   variants.b.code = `integer`
 5 | | }
   | |_- constraint defined here
-note: most close variant 'b' failed with
+note: this error is based on the nearest matching variant 'b' for union at path value. It may not be what you intended.
  --> input.eure:1:1
   |
 1 | value {

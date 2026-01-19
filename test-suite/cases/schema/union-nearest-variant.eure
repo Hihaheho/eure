@@ -11,11 +11,11 @@ variants.record = { text => `text` }
 ```
 
 schema_errors[] = ```
-error: No variant matched for union at path (root), most close variant is 'record': Missing required field 'text' at path (root) (and 1 more errors)
+error: Missing required field 'text' at path (root) (and 1 more errors) (based on nearest variant 'record' for union at path (root))
  --> input.eure:1:1
   |
 1 | unknown-fields = "hello"
-  | ^^^^^^^^^^^^^^^^^^^^^^^^ No variant matched for union at path (root), most close variant is 'record': Missing required field 'text' at path (root) (and 1 more errors)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^ Missing required field 'text' at path (root) (and 1 more errors) (based on nearest variant 'record' for union at path (root))
   |
 note: constraint defined here
  --> schema.eure:1:1
@@ -24,14 +24,9 @@ note: constraint defined here
 2 | | variants.array = [`text`]
 3 | | variants.record = { text => `text` }
   | |____________________________________- constraint defined here
-note: most close variant 'record' failed with
- --> input.eure:1:1
-  |
-1 | unknown-fields = "hello"
-  | -
-note: constraint defined here
+note: this error is based on the nearest matching variant 'record' for union at path (root). It may not be what you intended.
  --> schema.eure:3:19
   |
 3 | variants.record = { text => `text` }
-  |                   ------------------ constraint defined here
+  |                   ------------------ this error is based on the nearest matching variant 'record' for union at path (root). It may not be what you intended.
 ```

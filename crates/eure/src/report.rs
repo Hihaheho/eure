@@ -467,16 +467,39 @@ fn report_validation_error(
     }
 
     // Handle nested errors (e.g., NoVariantMatched with best match info)
+    // Add a note explaining this is based on the nearest matching variant
     if let ValidationError::NoVariantMatched {
+        path,
         best_match: Some(best),
         ..
     } = error
     {
-        let nested = report_validation_error(db, &best.error, file, schema_file)?;
-        report = report.with_element(Element::Nested {
-            title: format!("most close variant '{}' failed with", best.variant_name).into(),
-            children: nested.elements,
-        });
+        // Get the schema location for the variant definition
+        let (_, variant_schema_node_id) = best.error.node_ids();
+        let note_message = format!(
+            "this error is based on the nearest matching variant '{}' for union at path {}. It may not be what you intended.",
+            best.variant_name, path
+        );
+
+        if let Some(variant_schema_span) =
+            resolve_schema_span(db, variant_schema_node_id, schema_file.clone(), &schema)
+        {
+            // Add annotation with schema location
+            let variant_origin = Origin::with_hints(
+                schema_file.clone(),
+                variant_schema_span,
+                OriginHints::default().with_schema(variant_schema_node_id),
+            );
+
+            report = report.with_element(Element::Annotation {
+                origin: variant_origin,
+                kind: AnnotationKind::Help,
+                label: note_message.into(),
+            });
+        } else {
+            // Add plain note without location
+            report = report.with_note(note_message);
+        }
     }
 
     Ok(report)

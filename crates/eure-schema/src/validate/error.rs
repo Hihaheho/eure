@@ -340,20 +340,41 @@ fn format_parse_error(path: &EurePath, error: &eure_document::parse::ParseError)
 }
 
 /// Format NoVariantMatched error with best match information.
+///
+/// When a best match is available, shows the actual underlying error first,
+/// followed by a parenthetical note about which variant was selected.
+/// For nested unions, only shows the innermost variant to avoid redundancy.
 fn format_no_variant_matched(
     path: &EurePath,
     best_match: &Option<Box<BestVariantMatch>>,
 ) -> String {
     match best_match {
         Some(best) => {
-            let mut msg = format!(
-                "No variant matched for union at path {path}, most close variant is '{}': {}",
-                best.variant_name, best.error
+            // For nested unions, the inner error already has the variant info
+            let is_nested_union = matches!(
+                best.error.as_ref(),
+                ValidationError::NoVariantMatched { .. }
             );
-            if best.all_errors.len() > 1 {
-                msg.push_str(&format!(" (and {} more errors)", best.all_errors.len() - 1));
+
+            if is_nested_union {
+                // Just use the inner error's message which already has the variant info
+                let mut msg = best.error.to_string();
+                if best.all_errors.len() > 1 {
+                    msg.push_str(&format!(" (and {} more errors)", best.all_errors.len() - 1));
+                }
+                msg
+            } else {
+                // Add the variant info for this level
+                let mut msg = best.error.to_string();
+                if best.all_errors.len() > 1 {
+                    msg.push_str(&format!(" (and {} more errors)", best.all_errors.len() - 1));
+                }
+                msg.push_str(&format!(
+                    " (based on nearest variant '{}' for union at path {})",
+                    best.variant_name, path
+                ));
+                msg
             }
-            msg
         }
         None => format!("No variant matched for union at path {path}"),
     }
