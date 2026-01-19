@@ -30,3 +30,192 @@ note: this error is based on the nearest matching variant 'record' for union at 
 3 | variants.record = { text => `text` }
   |                   ------------------ this error is based on the nearest matching variant 'record' for union at path (root). It may not be what you intended.
 ```
+
+@ cases.primitive-vs-record
+// Tests structural match: primitive text should win over record when input is primitive
+// Expected: text variant wins (no errors) because input is primitive text
+
+input_eure = ```eure
+= "hello"
+```
+
+schema = ```eure
+$variant: union
+variants.text = `text`
+variants.record = { field => `text` }
+```
+
+@ cases.depth-comparison
+// Tests depth comparison: variant that fails at greater depth wins
+// Expected: deep variant wins (higher max_depth)
+
+input_eure = ```eure
+outer { inner = 123 }
+```
+
+schema = ```eure
+$variant: union
+variants.shallow = { outer => `text` }
+variants.deep = { outer => { inner => `text` } }
+```
+
+schema_errors[] = ```
+error: Type mismatch: expected text, got integer at path outer.inner (based on nearest variant 'deep' for union at path (root))
+ --> input.eure:1:17
+  |
+1 | outer { inner = 123 }
+  |                 ^^^ Type mismatch: expected text, got integer at path outer.inner (based on nearest variant 'deep' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:3:39
+  |
+3 | variants.deep = { outer => { inner => `text` } }
+  |                                       ------ constraint defined here
+note: this error is based on the nearest matching variant 'deep' for union at path (root). It may not be what you intended.
+ --> schema.eure:3:39
+  |
+3 | variants.deep = { outer => { inner => `text` } }
+  |                                       ------ this error is based on the nearest matching variant 'deep' for union at path (root). It may not be what you intended.
+```
+
+@ cases.error-count-comparison
+// Tests error count: variant with fewer errors wins
+// Expected: one-error variant wins (fewer errors)
+
+input_eure = ```eure
+a = 1
+b = 2
+c = 3
+```
+
+schema = ```eure
+$variant: union
+variants.one-error = { a => `text`, b => `integer`, c => `integer` }
+variants.two-errors = { a => `integer`, b => `text`, c => `text` }
+```
+
+schema_errors[] = ```
+error: Type mismatch: expected text, got integer at path a (based on nearest variant 'one-error' for union at path (root))
+ --> input.eure:1:5
+  |
+1 | a = 1
+  |     ^ Type mismatch: expected text, got integer at path a (based on nearest variant 'one-error' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:2:29
+  |
+2 | variants.one-error = { a => `text`, b => `integer`, c => `integer` }
+  |                             ------ constraint defined here
+note: this error is based on the nearest matching variant 'one-error' for union at path (root). It may not be what you intended.
+ --> schema.eure:2:29
+  |
+2 | variants.one-error = { a => `text`, b => `integer`, c => `integer` }
+  |                             ------ this error is based on the nearest matching variant 'one-error' for union at path (root). It may not be what you intended.
+```
+
+@ cases.structural-beats-depth
+// Tests that structural match beats depth: record with shallow failure wins over array with any depth
+// Expected: record-shallow wins (structural match beats depth)
+
+input_eure = ```eure
+field = "hello"
+```
+
+schema = ```eure
+$variant: union
+variants.array-nested = [{ inner => `text` }]
+variants.record-shallow = { wrong => `text` }
+```
+
+schema_errors[] = ```
+error: Missing required field 'wrong' at path (root) (and 1 more errors) (based on nearest variant 'record-shallow' for union at path (root))
+ --> input.eure:1:1
+  |
+1 | field = "hello"
+  | ^^^^^^^^^^^^^^^ Missing required field 'wrong' at path (root) (and 1 more errors) (based on nearest variant 'record-shallow' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $variant: union
+2 | | variants.array-nested = [{ inner => `text` }]
+3 | | variants.record-shallow = { wrong => `text` }
+  | |_____________________________________________- constraint defined here
+note: this error is based on the nearest matching variant 'record-shallow' for union at path (root). It may not be what you intended.
+ --> schema.eure:3:27
+  |
+3 | variants.record-shallow = { wrong => `text` }
+  |                           ------------------- this error is based on the nearest matching variant 'record-shallow' for union at path (root). It may not be what you intended.
+```
+
+@ cases.structural-beats-count
+// Tests that structural match beats error count: record with many errors wins over array with few
+// Expected: record-many wins (structural match beats error count)
+
+input_eure = ```eure
+a = 1
+b = 2
+```
+
+schema = ```eure
+$variant: union
+variants.array-single = [`integer`]
+variants.record-many = { x => `text`, y => `text` }
+```
+
+schema_errors[] = ```
+error: Missing required field 'x' at path (root) (and 3 more errors) (based on nearest variant 'record-many' for union at path (root))
+ --> input.eure:1:1
+  |
+1 | / a = 1
+2 | | b = 2
+  | |_____^ Missing required field 'x' at path (root) (and 3 more errors) (based on nearest variant 'record-many' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $variant: union
+2 | | variants.array-single = [`integer`]
+3 | | variants.record-many = { x => `text`, y => `text` }
+  | |___________________________________________________- constraint defined here
+note: this error is based on the nearest matching variant 'record-many' for union at path (root). It may not be what you intended.
+ --> schema.eure:3:24
+  |
+3 | variants.record-many = { x => `text`, y => `text` }
+  |                        ---------------------------- this error is based on the nearest matching variant 'record-many' for union at path (root). It may not be what you intended.
+```
+
+@ cases.tuple-vs-array
+// Tests tuple vs array: both are array-like, tuple should win due to more specific structure
+// Expected: tuple wins (same structural type, but tuple has specific length constraint)
+
+input_eure = ```eure
+= (1, 2, 3)
+```
+
+schema = ```eure
+$variant: union
+variants.tuple = (`integer`, `integer`)
+variants.array = [`text`]
+```
+
+schema_errors[] = ```
+error: Tuple length mismatch: expected 2, got 3 at path (root) (based on nearest variant 'tuple' for union at path (root))
+ --> input.eure:1:3
+  |
+1 | = (1, 2, 3)
+  |   ^^^^^^^^^ Tuple length mismatch: expected 2, got 3 at path (root) (based on nearest variant 'tuple' for union at path (root))
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $variant: union
+2 | | variants.tuple = (`integer`, `integer`)
+3 | | variants.array = [`text`]
+  | |_________________________- constraint defined here
+note: this error is based on the nearest matching variant 'tuple' for union at path (root). It may not be what you intended.
+ --> schema.eure:2:18
+  |
+2 | variants.tuple = (`integer`, `integer`)
+  |                  ---------------------- this error is based on the nearest matching variant 'tuple' for union at path (root). It may not be what you intended.
+```
