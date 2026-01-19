@@ -633,11 +633,24 @@ pub fn select_best_variant_match(
             let error_count = errors.len();
             let max_priority = errors.iter().map(|e| e.priority_score()).max().unwrap_or(0);
 
-            // Return tuple for comparison: (depth, -count, priority)
-            // Higher depth = better (got further)
-            // Lower count = better (fewer issues), so we use MAX - count
-            // Higher priority = better (more significant mismatch)
-            (max_depth, usize::MAX - error_count, max_priority)
+            // TypeMismatch at depth 0 indicates structural type mismatch
+            // (e.g., expected array but got map), which should be penalized
+            // because variants with matching structural type are closer matches.
+            let structural_match = !errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::TypeMismatch { .. }) && e.depth() == 0);
+
+            // Return tuple for comparison:
+            // 1. structural_match: true > false (structural match is better)
+            // 2. depth: higher = better (got further into validation)
+            // 3. -count: fewer errors = better, so we use MAX - count
+            // 4. priority: higher = better (more significant mismatch to show)
+            (
+                structural_match,
+                max_depth,
+                usize::MAX - error_count,
+                max_priority,
+            )
         });
 
     best.map(|(variant_name, mut errors)| {

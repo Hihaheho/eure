@@ -1,0 +1,37 @@
+@ cases.array-vs-record
+
+input_eure = ```eure
+unknown-fields = "hello"
+```
+
+schema = ```eure
+$variant: union
+variants.array = [`text`]
+variants.record = { text => `text` }
+```
+
+schema_errors[] = ```
+error: No variant matched for union at path (root), most close variant is 'record': Missing required field 'text' at path (root) (and 1 more errors)
+ --> input.eure:1:1
+  |
+1 | unknown-fields = "hello"
+  | ^^^^^^^^^^^^^^^^^^^^^^^^ No variant matched for union at path (root), most close variant is 'record': Missing required field 'text' at path (root) (and 1 more errors)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $variant: union
+2 | | variants.array = [`text`]
+3 | | variants.record = { text => `text` }
+  | |____________________________________- constraint defined here
+note: most close variant 'record' failed with
+ --> input.eure:1:1
+  |
+1 | unknown-fields = "hello"
+  | -
+note: constraint defined here
+ --> schema.eure:3:19
+  |
+3 | variants.record = { text => `text` }
+  |                   ------------------ constraint defined here
+```
