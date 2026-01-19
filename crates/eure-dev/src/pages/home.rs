@@ -694,7 +694,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
             // Left column: Eure Editor
             div {
-                class: "w-1/2 flex flex-col rounded border min-h-0",
+                class: "w-1/2 flex flex-col rounded border min-h-0 overflow-hidden",
                 style: "border-color: {border_color}; background-color: {bg_color}",
 
                 // Section header
@@ -724,7 +724,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                 }
 
                 // Editor
-                div { class: "flex-1 text-xl overflow-hidden min-h-0",
+                div { class: "flex-1 min-h-0 overflow-auto scrollbar-stable text-xl",
                     Editor {
                         content,
                         tokens: doc_tokens,
@@ -737,7 +737,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
             // Right column: Tabbed view
             div {
-                class: "w-1/2 flex flex-col rounded border min-h-0",
+                class: "w-1/2 flex flex-col rounded border min-h-0 overflow-hidden",
                 style: "border-color: {border_color}; background-color: {bg_color}",
 
                 // Tab header
@@ -799,7 +799,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                 }
 
                 // Tab content
-                div { class: "flex-1 overflow-hidden min-h-0",
+                div { class: "flex-1 min-h-0 overflow-auto scrollbar-stable",
                     match active_tab() {
                         RightTab::JsonOutput => rsx! {
                             // Document Parser Errors
@@ -815,7 +815,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
 
 
 
-                            div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                            div { class: "p-3 font-mono text-sm",
                                 // Show JSON conversion errors inline
                                 if !json_errors().is_empty() {
                                     div {
@@ -837,7 +837,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                             }
                         },
                         RightTab::Schema => rsx! {
-                            div { class: "h-full text-xl overflow-hidden",
+                            div { class: "h-full text-xl",
                                 Editor {
                                     content: schema_content,
                                     tokens: schema_tokens,
@@ -848,7 +848,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                             }
                         },
                         RightTab::Errors => rsx! {
-                            div { class: "h-full overflow-auto p-3 font-mono text-sm",
+                            div { class: "p-3 font-mono text-sm",
                                 // Show loading indicator when fetching remote schemas
                                 if !pending_remote_urls().is_empty() {
                                     div {
@@ -893,10 +893,10 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                             }
                         },
                         RightTab::Trace => rsx! {
-                            div { class: "h-full flex flex-col",
+                            div {
                                 // Header with info and buttons
                                 div {
-                                    class: "p-2 border-b flex justify-between items-center shrink-0",
+                                    class: "p-2 border-b flex justify-between items-center",
                                     style: "border-color: {border_color}",
                                     span { class: "text-xs font-bold opacity-60",
                                         "Latest {trace_tree_count()} / 30 trees"
@@ -926,7 +926,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                 }
 
                                 // Trace tree view
-                                div { class: "flex-1 overflow-auto font-mono text-xs",
+                                div { class: "font-mono text-xs",
                                     TraceTreeView { entries: trace_entries(), theme, collapse_all_gen: collapse_all_gen() }
                                 }
                             }

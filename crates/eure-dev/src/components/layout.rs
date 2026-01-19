@@ -14,7 +14,7 @@ pub fn Layout() -> Element {
 
     rsx! {
 		div {
-			class: "min-h-screen flex flex-col",
+			class: "h-screen flex flex-col overflow-hidden",
 			style: "background-color: {page_bg_color}; color: {text_color}",
 
 			// Header

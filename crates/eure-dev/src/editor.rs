@@ -41,7 +41,7 @@ pub fn Editor(
 
     rsx! {
         div {
-            class: "w-full h-full overflow-y-scroll font-mono text-sm",
+            class: "w-full h-full font-mono text-sm",
             style: "{bg_style}",
             onmousemove: move |e: Event<MouseData>| {
                 let coords = e.client_coordinates();
