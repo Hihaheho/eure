@@ -251,3 +251,464 @@ schema_errors = [
     | |_- constraint defined here
   ```
 ]
+
+// ============================================================================
+// Map Flatten Test Cases
+// ============================================================================
+
+// ============================================================================
+// Test Case 7: Flatten a map - basic case
+// ============================================================================
+
+@ cases.flatten-map
+input_eure = ```eure
+name = "config"
+foo = "value1"
+bar = "value2"
+```
+
+schema = ```eure
+$types.string-map {
+  $variant: map
+  key = `text`
+  value = `text`
+}
+
+name = `text`
+$flatten = [`$types.string-map`]
+```
+
+// ============================================================================
+// Test Case 8: Flatten a map with pattern constraint on key
+// ============================================================================
+
+@ cases.flatten-map-pattern
+input_eure = ```eure
+name = "config"
+opt-debug = true
+opt-verbose = true
+```
+
+schema = ```eure
+$types.options-map {
+  $variant: map
+  key {
+    $variant: text
+    pattern = `opt-.*`
+  }
+  value = `boolean`
+}
+
+name = `text`
+$flatten = [`$types.options-map`]
+```
+
+// ============================================================================
+// Test Case 9: Flatten a map with value validation
+// ============================================================================
+
+@ cases.flatten-map-value-validation
+input_eure = ```eure
+id = 1
+count-a = 10
+count-b = 20
+```
+
+schema = ```eure
+$types.int-map {
+  $variant: map
+  key = `text`
+  value {
+    $variant: integer
+    range = `0..=100`
+  }
+}
+
+id = `integer`
+$flatten = [`$types.int-map`]
+```
+
+// ============================================================================
+// Test Case 10: Flatten a map with size constraints (valid)
+// ============================================================================
+
+@ cases.flatten-map-size-constraints
+input_eure = ```eure
+name = "config"
+key1 = "value1"
+key2 = "value2"
+```
+
+schema = ```eure
+$types.sized-map {
+  $variant: map
+  key = `text`
+  value = `text`
+  min-size = 1
+  max-size = 5
+}
+
+name = `text`
+$flatten = [`$types.sized-map`]
+```
+
+// ============================================================================
+// Test Case 11: Flatten a map inside a union variant
+// ============================================================================
+
+@ cases.flatten-map-nested
+input_eure = ```eure
+$variant: with-extras
+name = "Alice"
+extra-a = "foo"
+extra-b = "bar"
+```
+
+schema = ```eure
+$types.extras-map {
+  $variant: map
+  key {
+    $variant: text
+    pattern = `extra-.*`
+  }
+  value = `text`
+}
+
+$variant: union
+variants.simple {
+  name = `text`
+}
+variants.with-extras {
+  name = `text`
+  $flatten = [`$types.extras-map`]
+}
+```
+
+// ============================================================================
+// Error Cases for Map Flatten
+// ============================================================================
+
+// ============================================================================
+// Test Case 12: Flatten map key pattern mismatch
+// ============================================================================
+
+@ cases.flatten-map-key-pattern-mismatch
+input_eure = ```eure
+name = "config"
+opt-debug = true
+invalid-key = false
+```
+
+schema = ```eure
+$types.options-map {
+  $variant: map
+  key {
+    $variant: text
+    pattern = `opt-.*`
+  }
+  value = `boolean`
+}
+
+name = `text`
+$flatten = [`$types.options-map`]
+```
+
+schema_errors[] = ```
+error: Flatten map key 'invalid-key' does not match pattern at path (root)
+ --> input.eure:3:1
+  |
+3 | invalid-key = false
+  | ^^^^^^^^^^^ Flatten map key 'invalid-key' does not match pattern at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $types.options-map {
+2 | |   $variant: map
+3 | |   key {
+4 | |     $variant: text
+... |
+7 | |   value = `boolean`
+8 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 13: Flatten map value type error
+// ============================================================================
+
+@ cases.flatten-map-value-type-error
+input_eure = ```eure
+name = "config"
+count-a = 10
+count-b = "not-a-number"
+```
+
+schema = ```eure
+$types.int-map {
+  $variant: map
+  key = `text`
+  value = `integer`
+}
+
+name = `text`
+$flatten = [`$types.int-map`]
+```
+
+schema_errors[] = ```
+error: Type mismatch: expected integer, got text at path "count-b"
+ --> input.eure:3:11
+  |
+3 | count-b = "not-a-number"
+  |           ^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path "count-b"
+  |
+note: constraint defined here
+ --> schema.eure:4:11
+  |
+4 |   value = `integer`
+  |           --------- constraint defined here
+```
+
+// ============================================================================
+// Test Case 14: Flatten map size too small
+// ============================================================================
+
+@ cases.flatten-map-size-too-small
+input_eure = ```eure
+name = "config"
+```
+
+schema = ```eure
+$types.sized-map {
+  $variant: map
+  key = `text`
+  value = `text`
+  min-size = 2
+}
+
+name = `text`
+$flatten = [`$types.sized-map`]
+```
+
+schema_errors[] = ```
+error: Map size 0 is out of bounds at path (root)
+ --> input.eure:1:1
+  |
+1 | name = "config"
+  | ^^^^^^^^^^^^^^^ Map size 0 is out of bounds at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $types.sized-map {
+2 | |   $variant: map
+3 | |   key = `text`
+4 | |   value = `text`
+5 | |   min-size = 2
+6 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 15: Flatten map size too large
+// ============================================================================
+
+@ cases.flatten-map-size-too-large
+input_eure = ```eure
+name = "config"
+key1 = "value1"
+key2 = "value2"
+key3 = "value3"
+```
+
+schema = ```eure
+$types.sized-map {
+  $variant: map
+  key = `text`
+  value = `text`
+  max-size = 2
+}
+
+name = `text`
+$flatten = [`$types.sized-map`]
+```
+
+schema_errors[] = ```
+error: Map size 3 is out of bounds at path (root)
+ --> input.eure:1:1
+  |
+1 | / name = "config"
+2 | | key1 = "value1"
+3 | | key2 = "value2"
+4 | | key3 = "value3"
+  | |_______________^ Map size 3 is out of bounds at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $types.sized-map {
+2 | |   $variant: map
+3 | |   key = `text`
+4 | |   value = `text`
+5 | |   max-size = 2
+6 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 16: Flatten map with integer key schema (invalid - record keys are strings)
+// ============================================================================
+
+@ cases.flatten-map-integer-key-schema
+input_eure = ```eure
+name = "config"
+foo = 1
+bar = 2
+```
+
+schema = ```eure
+$types.int-key-map {
+  $variant: map
+  key = `integer`
+  value = `integer`
+}
+
+name = `text`
+$flatten = [`$types.int-key-map`]
+```
+
+schema_errors[] = ```
+error: Invalid key type at path (root)
+ --> input.eure:2:1
+  |
+2 | foo = 1
+  | ^^^ Invalid key type at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $types.int-key-map {
+2 | |   $variant: map
+3 | |   key = `integer`
+4 | |   value = `integer`
+5 | | }
+  | |_- constraint defined here
+```
+
+schema_errors[] = ```
+error: Invalid key type at path (root)
+ --> input.eure:3:1
+  |
+3 | bar = 2
+  | ^^^ Invalid key type at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $types.int-key-map {
+2 | |   $variant: map
+3 | |   key = `integer`
+4 | |   value = `integer`
+5 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 17: Flatten map with text key schema but integer key in data
+// ============================================================================
+
+@ cases.flatten-map-text-key-with-integer
+input_eure = ```eure
+name = "config"
+123 = "value1"
+456 = "value2"
+```
+
+schema = ```eure
+$types.text-key-map {
+  $variant: map
+  key = `text`
+  value = `text`
+}
+
+name = `text`
+$flatten = [`$types.text-key-map`]
+```
+
+schema_errors[] = ```
+error: Invalid key type at path (root)
+ --> input.eure:2:1
+  |
+2 | 123 = "value1"
+  | ^^^ Invalid key type at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $types.text-key-map {
+2 | |   $variant: map
+3 | |   key = `text`
+4 | |   value = `text`
+5 | | }
+  | |_- constraint defined here
+```
+
+schema_errors[] = ```
+error: Invalid key type at path (root)
+ --> input.eure:3:1
+  |
+3 | 456 = "value2"
+  | ^^^ Invalid key type at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / $types.text-key-map {
+2 | |   $variant: map
+3 | |   key = `text`
+4 | |   value = `text`
+5 | | }
+  | |_- constraint defined here
+```
+
+// ============================================================================
+// Test Case 18: Flatten map value out of range
+// ============================================================================
+
+@ cases.flatten-map-value-out-of-range
+input_eure = ```eure
+id = 1
+count-a = 50
+count-b = 150
+```
+
+schema = ```eure
+$types.int-map {
+  $variant: map
+  key = `text`
+  value {
+    $variant: integer
+    range = `0..=100`
+  }
+}
+
+id = `integer`
+$flatten = [`$types.int-map`]
+```
+
+schema_errors[] = ```
+error: Value 150 is out of range at path "count-b"
+ --> input.eure:3:11
+  |
+3 | count-b = 150
+  |           ^^^ Value 150 is out of range at path "count-b"
+  |
+note: constraint defined here
+ --> schema.eure:4:3
+  |
+4 | /   value {
+5 | |     $variant: integer
+6 | |     range = `0..=100`
+7 | |   }
+  | |___- constraint defined here
+```

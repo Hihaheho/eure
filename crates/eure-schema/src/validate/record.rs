@@ -6,7 +6,9 @@ use eure_document::identifier::Identifier;
 use eure_document::parse::{DocumentParser, ParseContext};
 use eure_document::value::ObjectKey;
 
-use crate::{RecordSchema, SchemaNodeContent, SchemaNodeId, UnionSchema, UnknownFieldsPolicy};
+use crate::{
+    MapSchema, RecordSchema, SchemaNodeContent, SchemaNodeId, UnionSchema, UnknownFieldsPolicy,
+};
 
 use super::SchemaValidator;
 use super::context::ValidationContext;
@@ -172,8 +174,16 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
                         });
                 }
             }
+            SchemaNodeContent::Map(map_schema) => {
+                self.validate_flattened_map(
+                    flatten_ctx,
+                    map_schema,
+                    flatten_schema_id,
+                    parent_node_id,
+                )?;
+            }
             _ => {
-                // Only Record, Union, and Reference can be flattened
+                // Only Record, Union, Map, and Reference can be flattened
                 self.ctx
                     .record_error(ValidationError::InvalidFlattenTarget {
                         actual_kind: flatten_node.content.kind(),
@@ -264,6 +274,171 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
         } else {
             self.ctx.merge_state(trial.state.into_inner());
             Ok(())
+        }
+    }
+
+    /// Validate a flattened map - unknown entries are validated against the map schema.
+    ///
+    /// When a map is flattened into a record:
+    /// 1. Explicit record properties are matched first (handled before flatten processing)
+    /// 2. The flattened map consumes ALL remaining unknown entries (both string and non-string keys)
+    /// 3. Each key is validated against the map's key schema
+    /// 4. Each value is validated against the map's value schema
+    /// 5. Map size constraints (min-size/max-size) apply to the count of consumed entries
+    fn validate_flattened_map(
+        &self,
+        flatten_ctx: &ParseContext<'doc>,
+        map_schema: &MapSchema,
+        schema_node_id: SchemaNodeId,
+        parent_node_id: eure_document::document::NodeId,
+    ) -> Result<(), ValidatorError> {
+        // Parse as a record to get access to unknown_entries()
+        let rec = match flatten_ctx.parse_record() {
+            Ok(r) => r,
+            Err(_) => {
+                // Not a record - this shouldn't happen in flatten context
+                return Ok(());
+            }
+        };
+
+        // First, collect all unknown entries (both string and non-string keys)
+        let unknown_entries: Vec<(ObjectKey, eure_document::document::NodeId)> = rec
+            .unknown_entries()
+            .map(|(key, ctx)| (key.clone(), ctx.node_id()))
+            .collect();
+
+        // Now consume each entry and validate
+        let mut field_count = 0usize;
+        for (key, value_node_id) in &unknown_entries {
+            field_count += 1;
+
+            // For string keys, mark as consumed via field_optional
+            if let ObjectKey::String(name) = key {
+                let _ = rec.field_optional(name);
+            }
+
+            // Validate key against map's key schema
+            self.validate_flattened_map_key(key, map_schema, schema_node_id, parent_node_id);
+
+            // Validate value against map's value schema
+            self.ctx.push_path_key(key.clone());
+
+            let value_ctx = ParseContext::new(self.ctx.document, *value_node_id);
+            let child_validator = SchemaValidator {
+                ctx: self.ctx,
+                schema_node_id: map_schema.value,
+            };
+            let _ = value_ctx.parse_with(child_validator);
+
+            self.ctx.pop_path();
+        }
+
+        // Validate size constraints
+        if let Some(min) = map_schema.min_size
+            && field_count < min as usize
+        {
+            self.ctx.record_error(ValidationError::MapSizeOutOfBounds {
+                size: field_count,
+                min: Some(min),
+                max: map_schema.max_size,
+                path: self.ctx.path(),
+                node_id: parent_node_id,
+                schema_node_id,
+            });
+        }
+        if let Some(max) = map_schema.max_size
+            && field_count > max as usize
+        {
+            self.ctx.record_error(ValidationError::MapSizeOutOfBounds {
+                size: field_count,
+                min: map_schema.min_size,
+                max: Some(max),
+                path: self.ctx.path(),
+                node_id: parent_node_id,
+                schema_node_id,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Validate a key against the map's key schema.
+    ///
+    /// Handles both string and integer keys, validating them against the expected
+    /// key schema type. For text schemas, also validates pattern and length constraints.
+    fn validate_flattened_map_key(
+        &self,
+        key: &ObjectKey,
+        map_schema: &MapSchema,
+        schema_node_id: SchemaNodeId,
+        record_node_id: eure_document::document::NodeId,
+    ) {
+        let key_content = self.ctx.resolve_schema_content(map_schema.key);
+
+        match (key, key_content) {
+            // String key with text schema - validate pattern and length constraints
+            (ObjectKey::String(field_name), SchemaNodeContent::Text(text_schema)) => {
+                // Validate pattern constraint
+                if let Some(regex) = &text_schema.pattern
+                    && !regex.is_match(field_name)
+                {
+                    self.ctx
+                        .record_error(ValidationError::FlattenMapKeyMismatch {
+                            key: field_name.to_string(),
+                            pattern: Some(regex.as_str().to_string()),
+                            path: self.ctx.path(),
+                            node_id: record_node_id,
+                            schema_node_id,
+                        });
+                }
+
+                // Validate length constraints
+                let len = field_name.chars().count();
+                if let Some(min) = text_schema.min_length
+                    && len < min as usize
+                {
+                    self.ctx
+                        .record_error(ValidationError::StringLengthOutOfBounds {
+                            length: len,
+                            min: Some(min),
+                            max: text_schema.max_length,
+                            path: self.ctx.path(),
+                            node_id: record_node_id,
+                            schema_node_id,
+                        });
+                }
+                if let Some(max) = text_schema.max_length
+                    && len > max as usize
+                {
+                    self.ctx
+                        .record_error(ValidationError::StringLengthOutOfBounds {
+                            length: len,
+                            min: text_schema.min_length,
+                            max: Some(max),
+                            path: self.ctx.path(),
+                            node_id: record_node_id,
+                            schema_node_id,
+                        });
+                }
+            }
+            // Number key with integer schema - valid (could add range validation if needed)
+            (ObjectKey::Number(_), SchemaNodeContent::Integer(_)) => {
+                // Number key matches integer schema - valid
+                // TODO: Could add range validation here if needed
+            }
+            // Any schema accepts any key type
+            (_, SchemaNodeContent::Any) => {
+                // Any accepts any key
+            }
+            // Type mismatch - record an error
+            (_, _) => {
+                self.ctx.record_error(ValidationError::InvalidKeyType {
+                    key: key.clone(),
+                    path: self.ctx.path(),
+                    node_id: record_node_id,
+                    schema_node_id,
+                });
+            }
         }
     }
 }

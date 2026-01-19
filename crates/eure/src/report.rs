@@ -631,6 +631,13 @@ fn report_validation_error(
                 .get_key_span(*node_id, &object_key, &cst)
                 .or_else(|| doc.origins.get_value_span(doc_node_id, &cst))
         }
+        ValidationError::FlattenMapKeyMismatch { key, node_id, .. } => {
+            // Try to get precise key span for the mismatched key
+            let object_key = ObjectKey::String(key.clone());
+            doc.origins
+                .get_key_span(*node_id, &object_key, &cst)
+                .or_else(|| doc.origins.get_value_span(doc_node_id, &cst))
+        }
         ValidationError::MissingRequiredField { .. } => {
             // Use definition span (the key) to show where the record is defined
             doc.origins

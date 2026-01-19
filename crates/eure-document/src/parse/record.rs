@@ -311,6 +311,37 @@ impl<'doc> RecordParser<'doc> {
         })
     }
 
+    /// Get an iterator over all unknown entries including non-string keys.
+    ///
+    /// Returns (ObjectKey, context) pairs for:
+    /// - String keys that haven't been accessed
+    /// - All non-string keys (e.g., integer keys)
+    ///
+    /// This is useful for flatten map validation where both string and integer
+    /// keys need to be validated against the map's key schema.
+    pub fn unknown_entries(
+        &self,
+    ) -> impl Iterator<Item = (&'doc ObjectKey, ParseContext<'doc>)> + '_ {
+        let doc = self.ctx.doc();
+        let mode = self.union_tag_mode;
+        // Clone the accessed set for filtering - we need the current state
+        let accessed = self.ctx.accessed().clone();
+        self.map.iter().filter_map(move |(key, &node_id)| {
+            match key {
+                ObjectKey::String(name) => {
+                    // For string keys, only return if not accessed
+                    if !accessed.has_field(name.as_str()) {
+                        Some((key, ParseContext::with_union_tag_mode(doc, node_id, mode)))
+                    } else {
+                        None
+                    }
+                }
+                // Non-string keys are always returned (they can't be "accessed" via field methods)
+                _ => Some((key, ParseContext::with_union_tag_mode(doc, node_id, mode))),
+            }
+        })
+    }
+
     /// Create a flatten context for child parsers in Record scope.
     ///
     /// This creates a FlattenContext initialized with the current accessed fields,

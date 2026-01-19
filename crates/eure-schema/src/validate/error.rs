@@ -292,10 +292,23 @@ pub enum ValidationError {
         schema_node_id: SchemaNodeId,
     },
 
-    #[error("Invalid flatten target: expected Record or Union, got {actual_kind} at path {path}")]
+    #[error(
+        "Invalid flatten target: expected Record, Union, or Map, got {actual_kind} at path {path}"
+    )]
     InvalidFlattenTarget {
         /// The actual schema kind that was found
         actual_kind: crate::SchemaKind,
+        path: EurePath,
+        node_id: NodeId,
+        schema_node_id: SchemaNodeId,
+    },
+
+    #[error("Flatten map key '{key}' does not match pattern at path {path}")]
+    FlattenMapKeyMismatch {
+        /// The key that doesn't match the pattern
+        key: String,
+        /// The pattern that was expected (if any)
+        pattern: Option<String>,
         path: EurePath,
         node_id: NodeId,
         schema_node_id: SchemaNodeId,
@@ -496,6 +509,11 @@ impl ValidationError {
                 schema_node_id,
                 ..
             }
+            | Self::FlattenMapKeyMismatch {
+                node_id,
+                schema_node_id,
+                ..
+            }
             | Self::MissingRequiredExtension {
                 node_id,
                 schema_node_id,
@@ -572,6 +590,7 @@ impl ValidationError {
             | Self::NotMultipleOf { path, .. }
             | Self::UndefinedTypeReference { path, .. }
             | Self::InvalidFlattenTarget { path, .. }
+            | Self::FlattenMapKeyMismatch { path, .. }
             | Self::MissingRequiredExtension { path, .. }
             | Self::ParseError { path, .. } => path.0.len(),
         }
@@ -598,6 +617,7 @@ impl ValidationError {
             Self::OutOfRange { .. } => 30,
             Self::StringLengthOutOfBounds { .. } => 30,
             Self::PatternMismatch { .. } => 30,
+            Self::FlattenMapKeyMismatch { .. } => 30, // Similar to PatternMismatch
             Self::ArrayLengthOutOfBounds { .. } => 30,
             Self::MapSizeOutOfBounds { .. } => 30,
             Self::NotMultipleOf { .. } => 30,
