@@ -1,12 +1,12 @@
 [package]
 name = "eure-lint"
-version = "0.1.4"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 description = "Linter for Eure files"
 readme = "README.md"
-homepage = "https://eure.dev"
-repository = "https://github.com/Hihaheho/eure"
-license = "MIT OR Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 keywords = ["eure", "lint", "linter", "static-analysis"]
 
 [dependencies]

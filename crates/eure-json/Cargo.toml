@@ -1,12 +1,12 @@
 [package]
 name = "eure-json"
-version = "0.1.4"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 description = "JSON conversion support for Eure format"
 readme = "README.md"
-homepage = "https://eure.dev"
-repository = "https://github.com/Hihaheho/eure"
-license = "MIT OR Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 keywords = ["conversion", "eure", "json", "serialization"]
 
 [dependencies]

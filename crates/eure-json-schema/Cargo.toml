@@ -1,12 +1,12 @@
 [package]
 name = "eure-json-schema"
-version = "0.1.4"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 description = "JSON Schema compatibility for Eure format"
 readme = "README.md"
-homepage = "https://eure.dev"
-repository = "https://github.com/Hihaheho/eure"
-license = "MIT OR Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 keywords = ["eure", "json-schema", "schema", "validation"]
 
 [dependencies]

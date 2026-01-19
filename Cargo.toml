@@ -2,6 +2,13 @@
 resolver = "2"
 members = ["crates/*", "test-suite"]
 
+[workspace.package]
+version = "0.1.4"
+license = "MIT OR Apache-2.0"
+edition = "2024"
+repository = "https://github.com/Hihaheho/eure"
+homepage = "https://eure.dev"
+
 [workspace.dependencies]
 ahash = { version = "0.8.11", default-features = false }
 annotate-snippets = "0.12"
