@@ -248,7 +248,11 @@ impl ParseDocument<'_> for ParsedRecordSchema {
         let rec = ctx.parse_record()?;
         let mut properties = IndexMap::new();
 
-        for (field_name, field_ctx) in rec.unknown_fields() {
+        for result in rec.unknown_fields() {
+            let (field_name, field_ctx) = result.map_err(|(key, ctx)| ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::InvalidKeyType(key.clone()),
+            })?;
             let field_schema = ParsedRecordFieldSchema::parse(&field_ctx)?;
             properties.insert(field_name.to_string(), field_schema);
         }
@@ -297,7 +301,11 @@ impl ParseDocument<'_> for ParsedUnionSchema {
         // Check for variants = { ... } field
         if let Some(variants_ctx) = rec.field_optional("variants") {
             let variants_rec = variants_ctx.parse_record()?;
-            for (name, var_ctx) in variants_rec.unknown_fields() {
+            for result in variants_rec.unknown_fields() {
+                let (name, var_ctx) = result.map_err(|(key, ctx)| ParseError {
+                    node_id: ctx.node_id(),
+                    kind: ParseErrorKind::InvalidKeyType(key.clone()),
+                })?;
                 variants.insert(name.to_string(), var_ctx.node_id());
 
                 // Parse extensions on the variant value
@@ -671,7 +679,15 @@ fn parse_ext_types(
     if let Some(ext_type_ctx) = ext_type_ctx {
         let rec = ext_type_ctx.parse_record()?;
         // Collect all extension names first to avoid borrowing issues
-        let ext_fields: Vec<_> = rec.unknown_fields().collect();
+        let ext_fields: Vec<_> = rec
+            .unknown_fields()
+            .map(|r| {
+                r.map_err(|(key, ctx)| ParseError {
+                    node_id: ctx.node_id(),
+                    kind: ParseErrorKind::InvalidKeyType(key.clone()),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         for (name, type_ctx) in ext_fields {
             let ident: Identifier = name.parse().map_err(|e| ParseError {

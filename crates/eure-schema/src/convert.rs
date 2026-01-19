@@ -787,7 +787,7 @@ mod tests {
     #[test]
     fn extract_ext_types_invalid_key() {
         // name.$ext-type = { 0 => `text` } should error, not silently ignore
-        // The new parser catches this during parse_ext_types() -> deny_unknown_fields()
+        // The parser catches this during parse_ext_types() -> unknown_fields()
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
 
@@ -797,6 +797,7 @@ mod tests {
         )));
 
         // Create $ext-type as map with integer key
+        // The value's node_id is returned in the error since that's the entry with invalid key
         let ext_type_value_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
             Text::inline_implicit("text"),
         )));
@@ -818,7 +819,8 @@ mod tests {
         assert_eq!(
             err,
             ConversionError::ParseError(ParseError {
-                node_id: NodeId(3),
+                // The error points to the value's node_id (the entry with invalid key)
+                node_id: ext_type_value_id,
                 kind: ParseErrorKind::InvalidKeyType(ObjectKey::Number(0.into()))
             })
         );

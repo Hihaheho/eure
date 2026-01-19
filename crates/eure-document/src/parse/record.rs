@@ -290,25 +290,39 @@ impl<'doc> RecordParser<'doc> {
 
     /// Get an iterator over unknown fields (for Schema policy or custom handling).
     ///
-    /// Returns (field_name, context) pairs for fields that haven't been accessed.
+    /// Returns `Result` items:
+    /// - `Ok((field_name, context))` for unaccessed string-keyed fields
+    /// - `Err((invalid_key, context))` for non-string keys, allowing caller to handle directly
+    ///
     /// Note: In flattened contexts, this still returns fields - use `deny_unknown_fields()`
     /// if you want the automatic no-op behavior for child parsers.
-    pub fn unknown_fields(&self) -> impl Iterator<Item = (&'doc str, ParseContext<'doc>)> + '_ {
+    pub fn unknown_fields(
+        &self,
+    ) -> impl Iterator<
+        Item = Result<(&'doc str, ParseContext<'doc>), (&'doc ObjectKey, ParseContext<'doc>)>,
+    > + '_ {
         let doc = self.ctx.doc();
         let mode = self.union_tag_mode;
         // Clone the accessed set for filtering - we need the current state
         let accessed = self.ctx.accessed().clone();
-        self.map.iter().filter_map(move |(key, &node_id)| {
-            if let ObjectKey::String(name) = key
-                && !accessed.has_field(name.as_str())
-            {
-                return Some((
-                    name.as_str(),
+        self.map
+            .iter()
+            .filter_map(move |(key, &node_id)| match key {
+                ObjectKey::String(name) => {
+                    if !accessed.has_field(name.as_str()) {
+                        Some(Ok((
+                            name.as_str(),
+                            ParseContext::with_union_tag_mode(doc, node_id, mode),
+                        )))
+                    } else {
+                        None // Accessed, skip
+                    }
+                }
+                other => Some(Err((
+                    other,
                     ParseContext::with_union_tag_mode(doc, node_id, mode),
-                ));
-            }
-            None
-        })
+                ))),
+            })
     }
 
     /// Get an iterator over all unknown entries including non-string keys.
@@ -458,67 +472,139 @@ mod tests {
 
         let _name: String = rec.parse_field("name").unwrap();
         // "age" should be in unknown fields
-        let unknown: Vec<_> = rec.unknown_fields().collect();
+        let unknown: Vec<_> = rec.unknown_fields().collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(unknown.len(), 1);
         assert_eq!(unknown[0].0, "age");
     }
 
     #[test]
     fn test_record_with_non_string_keys_deny_should_error() {
-        // BUG: deny_unknown_fields() silently skips non-string keys
-        // Expected: Should error when a map has numeric keys
-        // Actual: Silently ignores them
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
+        // deny_unknown_fields() errors on non-string keys
+        use crate::eure;
 
-        // Add a field with numeric key: { 0 => "value" }
-        use num_bigint::BigInt;
-        let value_id = doc
-            .add_map_child(ObjectKey::Number(BigInt::from(0)), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(value_id).content = NodeValue::Primitive(PrimitiveValue::Text(
-            crate::text::Text::plaintext("value".to_string()),
-        ));
-
+        let doc = eure!({ 0 = "value" });
         let rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        // BUG: This should error because there's an unaccessed non-string key
-        // but currently it succeeds
         let result = rec.deny_unknown_fields();
         assert!(
-            result.is_err(),
-            "BUG: deny_unknown_fields() should error on non-string keys, but it succeeds"
+            matches!(result.unwrap_err().kind, ParseErrorKind::InvalidKeyType(_)),
+            "deny_unknown_fields() should error on non-string keys"
         );
     }
 
     #[test]
     fn test_record_with_non_string_keys_unknown_fields_iterator() {
-        // unknown_fields() intentionally only returns string keys (signature: (&str, NodeId))
-        // Non-string keys are caught by deny_unknown_fields() instead
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
+        // unknown_fields() returns Err for non-string keys
+        use crate::eure;
 
-        // Add a field with numeric key: { 0 => "value" }
-        use num_bigint::BigInt;
-        let value_id = doc
-            .add_map_child(ObjectKey::Number(BigInt::from(0)), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(value_id).content = NodeValue::Primitive(PrimitiveValue::Text(
-            crate::text::Text::plaintext("value".to_string()),
-        ));
-
+        let doc = eure!({ 0 = "value" });
         let rec = doc.parse_record(doc.get_root_id()).unwrap();
 
-        // unknown_fields() returns empty because it only returns string keys
-        // (the numeric key is not included in the iterator by design)
-        let unknown: Vec<_> = rec.unknown_fields().collect();
-        assert_eq!(
-            unknown.len(),
-            0,
-            "unknown_fields() should only return string keys, numeric keys are excluded"
+        // unknown_fields() should return an error for the non-string key
+        let result: Result<Vec<_>, _> = rec.unknown_fields().collect();
+        let (invalid_key, _ctx) = result.unwrap_err();
+        assert!(
+            matches!(invalid_key, ObjectKey::Number(_)),
+            "unknown_fields() should return the invalid key directly"
         );
+    }
+
+    #[test]
+    fn test_unknown_fields_err_contains_correct_context() {
+        // Verify that the Err case contains a context pointing to the value node
+        use crate::eure;
+
+        let doc = eure!({ 42 = "test" });
+        let rec = doc.parse_record(doc.get_root_id()).unwrap();
+
+        let result: Result<Vec<_>, _> = rec.unknown_fields().collect();
+        let (key, ctx) = result.unwrap_err();
+
+        // Verify the key is the numeric key
+        assert_eq!(key, &ObjectKey::Number(42.into()));
+        // Verify the context can be used to parse the value
+        let value: String = ctx.parse().unwrap();
+        assert_eq!(value, "test");
+    }
+
+    #[test]
+    fn test_unknown_fields_mixed_string_and_non_string_keys() {
+        // Test that string keys return Ok, non-string keys return Err
+        use crate::eure;
+
+        let doc = eure!({
+            name = "Alice"
+            123 = "numeric"
+        });
+        let rec = doc.parse_record(doc.get_root_id()).unwrap();
+
+        // Collect results to inspect both Ok and Err
+        let mut ok_fields = Vec::new();
+        let mut err_keys = Vec::new();
+        for result in rec.unknown_fields() {
+            match result {
+                Ok((name, _ctx)) => ok_fields.push(name.to_string()),
+                Err((key, _ctx)) => err_keys.push(key.clone()),
+            }
+        }
+
+        // Should have one Ok (string key) and one Err (numeric key)
+        assert_eq!(ok_fields, vec!["name"]);
+        assert_eq!(err_keys, vec![ObjectKey::Number(123.into())]);
+    }
+
+    #[test]
+    fn test_unknown_fields_accessed_fields_filtered_non_string_always_returned() {
+        // Accessed string keys are filtered out, but non-string keys always return Err
+        use crate::eure;
+
+        let doc = eure!({
+            name = "Alice"
+            age = 30
+            999 = "numeric"
+        });
+        let rec = doc.parse_record(doc.get_root_id()).unwrap();
+
+        // Access the "name" field
+        let _name: String = rec.parse_field("name").unwrap();
+
+        // Check unknown_fields - "name" filtered, "age" is Ok, numeric is Err
+        let mut ok_fields = Vec::new();
+        let mut err_keys = Vec::new();
+        for result in rec.unknown_fields() {
+            match result {
+                Ok((name, _ctx)) => ok_fields.push(name.to_string()),
+                Err((key, _ctx)) => err_keys.push(key.clone()),
+            }
+        }
+
+        assert_eq!(ok_fields, vec!["age"]);
+        assert_eq!(err_keys, vec![ObjectKey::Number(999.into())]);
+    }
+
+    #[test]
+    fn test_unknown_fields_multiple_non_string_keys() {
+        // Test handling of multiple non-string keys
+        use crate::eure;
+
+        let doc = eure!({
+            1 = "one"
+            2 = "two"
+        });
+        let rec = doc.parse_record(doc.get_root_id()).unwrap();
+
+        // Collect all errors
+        let mut err_keys: Vec<ObjectKey> = Vec::new();
+        for result in rec.unknown_fields() {
+            if let Err((key, _ctx)) = result {
+                err_keys.push(key.clone());
+            }
+        }
+
+        // Should have both numeric keys as errors
+        assert_eq!(err_keys.len(), 2);
+        assert!(err_keys.contains(&ObjectKey::Number(1.into())));
+        assert!(err_keys.contains(&ObjectKey::Number(2.into())));
     }
 
     #[test]

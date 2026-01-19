@@ -16,7 +16,7 @@ pub mod cache;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use eure_document::parse::{ParseContext, ParseDocument, ParseError};
+use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
 use eure_macros::ParseDocument;
 use eure_parol::EureParseError;
 
@@ -126,7 +126,11 @@ impl ParseDocument<'_> for EureConfig {
         let targets = if let Some(targets_ctx) = rec.field_optional("targets") {
             let targets_rec = targets_ctx.parse_record()?;
             let mut targets = HashMap::new();
-            for (name, target_ctx) in targets_rec.unknown_fields() {
+            for result in targets_rec.unknown_fields() {
+                let (name, target_ctx) = result.map_err(|(key, ctx)| ParseError {
+                    node_id: ctx.node_id(),
+                    kind: ParseErrorKind::InvalidKeyType(key.clone()),
+                })?;
                 let target = target_ctx.parse::<Target>()?;
                 targets.insert(name.to_string(), target);
             }

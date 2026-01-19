@@ -80,3 +80,91 @@ schema_errors = [
     |   ^ Unknown field 'n' at path root.user
   ```
 ]
+
+@ cases.numeric-key-in-record
+input_eure = ```eure
+name = "Alice"
+123 = "invalid"
+```
+
+schema = ```eure
+name = `text`
+```
+
+schema_errors = [
+  ```
+  error: Invalid key type at path (root)
+   --> input.eure:2:7
+    |
+  2 | 123 = "invalid"
+    |       ^^^^^^^^^ Invalid key type at path (root)
+    |
+  note: constraint defined here
+   --> schema.eure:1:1
+    |
+  1 | name = `text`
+    | ------------- constraint defined here
+  ```
+]
+
+@ cases.multiple-numeric-keys-in-record
+input_eure = ```eure
+1 = "one"
+2 = "two"
+```
+
+schema = ```eure
+name.$optional = true
+name = `text`
+```
+
+schema_errors[] = ```
+error: Invalid key type at path (root)
+ --> input.eure:1:5
+  |
+1 | 1 = "one"
+  |     ^^^^^ Invalid key type at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / name.$optional = true
+2 | | name = `text`
+  | |_____________- constraint defined here
+```
+
+schema_errors[] = ```
+error: Invalid key type at path (root)
+ --> input.eure:2:5
+  |
+2 | 2 = "two"
+  |     ^^^^^ Invalid key type at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:1:1
+  |
+1 | / name.$optional = true
+2 | | name = `text`
+  | |_____________- constraint defined here
+```
+
+// Test that map flatten handles numeric keys (not double-reported by record)
+@ cases.numeric-key-with-map-flatten
+input_eure = ```eure
+name = "test"
+123 = "value"
+```
+
+schema = ```eure
+$types.int-map {
+  $variant = "map"
+  key = `integer`
+  value = `text`
+}
+
+name = `text`
+$flatten = [`$types.int-map`]
+```
+
+// No errors - numeric key is valid for the flattened int-map
+schema_errors = []

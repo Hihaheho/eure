@@ -101,6 +101,13 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
 
         // Process flatten targets
         // Each flatten target shares the field access tracking via rec.flatten()
+        // Track if any flatten target resolves to a Map (those handle non-string keys)
+        let has_map_flatten = self
+            .schema
+            .flatten
+            .iter()
+            .any(|&id| self.flatten_target_is_map(id));
+
         for &flatten_schema_id in &self.schema.flatten {
             let flatten_ctx = rec.flatten();
             self.validate_flatten_target(&flatten_ctx, flatten_schema_id, node_id)?;
@@ -108,7 +115,23 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
 
         // Handle unknown fields using unknown_fields() iterator
         // This happens after all flatten targets have been processed
-        for (field_name, field_ctx) in rec.unknown_fields() {
+        for result in rec.unknown_fields() {
+            let (field_name, field_ctx) = match result {
+                Ok(field) => field,
+                Err((key, ctx)) => {
+                    // Non-string key in record
+                    // Only report if there are no Map flatten targets (which handle non-string keys)
+                    if !has_map_flatten {
+                        self.ctx.record_error(ValidationError::InvalidKeyType {
+                            key: key.clone(),
+                            path: self.ctx.path(),
+                            node_id: ctx.node_id(),
+                            schema_node_id: self.schema_node_id,
+                        });
+                    }
+                    continue;
+                }
+            };
             match &self.schema.unknown_fields {
                 UnknownFieldsPolicy::Deny => {
                     self.ctx.record_error(ValidationError::UnknownField {
@@ -143,6 +166,25 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for RecordValidator<'a, 'doc, 's> {
 }
 
 impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
+    /// Check if a flatten target resolves to a Map schema.
+    ///
+    /// Follows references to determine the underlying schema type.
+    fn flatten_target_is_map(&self, schema_id: SchemaNodeId) -> bool {
+        let node = self.ctx.schema.node(schema_id);
+        match &node.content {
+            SchemaNodeContent::Map(_) => true,
+            SchemaNodeContent::Reference(type_ref) => {
+                // Resolve the reference and recurse
+                if let Some(resolved_id) = self.ctx.schema.get_type(&type_ref.name) {
+                    self.flatten_target_is_map(resolved_id)
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
     /// Validate a flatten target schema against the current record.
     ///
     /// The flatten_ctx shares field access tracking with the parent record,
