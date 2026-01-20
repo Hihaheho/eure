@@ -132,20 +132,147 @@ impl MacroContext {
 
     pub fn impl_parse_document(&self, parse_body: TokenStream) -> TokenStream {
         let ident = self.ident();
-        let impl_generics = self.impl_generics();
         let for_generics = self.for_generics();
         let parse_document = self.ParseDocument();
-        let parse_error = self.ParseError();
         let parse_context = self.ParseContext();
-        quote! {
-            impl<'doc, #(#impl_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*> {
-                type Error = #parse_error;
+        let parse_error = self.ParseError();
 
-                fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
-                    #parse_body
+        let type_params: Vec<_> = self.generics().type_params().collect();
+        let has_custom_error = self.config.parse_error.is_some();
+
+        // Build impl generics based on the number of type parameters and error configuration
+        if type_params.is_empty() {
+            // No type parameters: use default or custom error
+            let impl_generics = self.impl_generics();
+            quote! {
+                impl<'doc, #(#impl_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*> {
+                    type Error = #parse_error;
+
+                    fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
+                        #parse_body
+                    }
+                }
+            }
+        } else if has_custom_error {
+            // Custom error specified: add ParseDocument bounds and CustomErr: From<T::Error> bounds
+            let base_generics = self.impl_generics_with_parse_document_bounds();
+            let from_bounds: Vec<_> = type_params
+                .iter()
+                .map(|tp| {
+                    let ident = &tp.ident;
+                    quote! { #parse_error: From<<#ident as #parse_document<'doc>>::Error> }
+                })
+                .collect();
+            quote! {
+                impl<'doc, #(#base_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*>
+                where
+                    #(#from_bounds),*
+                {
+                    type Error = #parse_error;
+
+                    fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
+                        #parse_body
+                    }
+                }
+            }
+        } else {
+            // Generic type parameters: require all to have Error = ParseError
+            // This ensures compatibility with the existing eure-document API constraints
+            let base_generics = self.impl_generics_with_unified_error_bounds(parse_error.clone());
+            quote! {
+                impl<'doc, #(#base_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*> {
+                    type Error = #parse_error;
+
+                    fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
+                        #parse_body
+                    }
                 }
             }
         }
+    }
+
+    /// Returns impl generics with ParseDocument<'doc> bounds added to type parameters.
+    fn impl_generics_with_parse_document_bounds(&self) -> Vec<TokenStream> {
+        let parse_document = self.ParseDocument();
+        self.generics()
+            .lifetimes()
+            .map(
+                |LifetimeParam {
+                     lifetime,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    quote! { #lifetime #colon_token #bounds }
+                },
+            )
+            .chain(self.generics().const_params().map(
+                |ConstParam {
+                     const_token,
+                     colon_token,
+                     ty,
+                     ..
+                 }| {
+                    quote! { #const_token #colon_token #ty }
+                },
+            ))
+            .chain(self.generics().type_params().map(
+                |TypeParam {
+                     ident,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    if bounds.is_empty() {
+                        quote! { #ident: #parse_document<'doc> }
+                    } else {
+                        quote! { #ident #colon_token #bounds + #parse_document<'doc> }
+                    }
+                },
+            ))
+            .collect()
+    }
+
+    /// Returns impl generics with unified error type bounds for multiple type parameters.
+    fn impl_generics_with_unified_error_bounds(&self, error_type: TokenStream) -> Vec<TokenStream> {
+        let parse_document = self.ParseDocument();
+        self.generics()
+            .lifetimes()
+            .map(
+                |LifetimeParam {
+                     lifetime,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    quote! { #lifetime #colon_token #bounds }
+                },
+            )
+            .chain(self.generics().const_params().map(
+                |ConstParam {
+                     const_token,
+                     colon_token,
+                     ty,
+                     ..
+                 }| {
+                    quote! { #const_token #colon_token #ty }
+                },
+            ))
+            .chain(self.generics().type_params().map(
+                |TypeParam {
+                     ident,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    if bounds.is_empty() {
+                        quote! { #ident: #parse_document<'doc, Error = #error_type> }
+                    } else {
+                        quote! { #ident #colon_token #bounds + #parse_document<'doc, Error = #error_type> }
+                    }
+                },
+            ))
+            .collect()
     }
 
     // ========================================================================

@@ -470,3 +470,177 @@ fn test_custom_parse_error_with_custom_crate() {
         .to_string()
     );
 }
+
+#[test]
+fn test_single_type_param() {
+    let input = generate(parse_quote! {
+        struct Wrapper<T> {
+            inner: T,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Wrapper<T> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Wrapper {
+                        inner: rec.parse_field("inner")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_multiple_type_params() {
+    let input = generate(parse_quote! {
+        struct Pair<A, B> {
+            first: A,
+            second: B,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, A: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError>, B: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Pair<A, B> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Pair {
+                        first: rec.parse_field("first")?,
+                        second: rec.parse_field("second")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_type_param_with_existing_bounds() {
+    let input = generate(parse_quote! {
+        struct Wrapper<T: Clone> {
+            inner: T,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, T: Clone + ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Wrapper<T> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Wrapper {
+                        inner: rec.parse_field("inner")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_type_param_with_custom_error() {
+    let input = generate(parse_quote! {
+        #[eure(parse_error = MyError)]
+        struct Wrapper<T> {
+            inner: T,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Wrapper<T>
+            where
+                MyError: From<<T as ::eure::document::parse::ParseDocument<'doc>>::Error>
+            {
+                type Error = MyError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Wrapper {
+                        inner: rec.parse_field("inner")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_multiple_type_params_with_custom_error() {
+    let input = generate(parse_quote! {
+        #[eure(parse_error = MyError)]
+        struct Pair<A, B> {
+            first: A,
+            second: B,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, A: ::eure::document::parse::ParseDocument<'doc>, B: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Pair<A, B>
+            where
+                MyError: From<<A as ::eure::document::parse::ParseDocument<'doc>>::Error>,
+                MyError: From<<B as ::eure::document::parse::ParseDocument<'doc>>::Error>
+            {
+                type Error = MyError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Pair {
+                        first: rec.parse_field("first")?,
+                        second: rec.parse_field("second")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_newtype_struct_with_type_param() {
+    let input = generate(parse_quote! {
+        struct Wrapped<T>(T);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Wrapped<T> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let field_0 = ctx.parse::<T>()?;
+                    Ok(Wrapped(field_0))
+                }
+            }
+        }
+        .to_string()
+    );
+}

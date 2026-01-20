@@ -379,3 +379,138 @@ fn test_enum_custom_parse_error() {
         .to_string()
     );
 }
+
+#[test]
+fn test_enum_single_type_param() {
+    let input = generate(parse_quote! {
+        enum Item<T> {
+            Normal(T),
+            List(Vec<T>),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Item<T> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<T>("Normal", |field_0| Ok(Item::Normal(field_0)))
+                        .parse_variant::<Vec<T> >("List", |field_0| Ok(Item::List(field_0)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_enum_multiple_type_params() {
+    let input = generate(parse_quote! {
+        enum Either<L, R> {
+            Left(L),
+            Right(R),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, L: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError>, R: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Either<L, R> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<L>("Left", |field_0| Ok(Either::Left(field_0)))
+                        .parse_variant::<R>("Right", |field_0| Ok(Either::Right(field_0)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_enum_type_param_with_existing_bounds() {
+    let input = generate(parse_quote! {
+        enum Item<T: Clone> {
+            Normal(T),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, T: Clone + ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Item<T> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<T>("Normal", |field_0| Ok(Item::Normal(field_0)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_enum_type_param_with_custom_error() {
+    let input = generate(parse_quote! {
+        #[eure(parse_error = MyError)]
+        enum Item<T> {
+            Normal(T),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Item<T>
+            where
+                MyError: From<<T as ::eure::document::parse::ParseDocument<'doc>>::Error>
+            {
+                type Error = MyError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<T>("Normal", |field_0| Ok(Item::Normal(field_0)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_enum_multiple_type_params_with_custom_error() {
+    let input = generate(parse_quote! {
+        #[eure(parse_error = MyError)]
+        enum Either<L, R> {
+            Left(L),
+            Right(R),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc, L: ::eure::document::parse::ParseDocument<'doc>, R: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Either<L, R>
+            where
+                MyError: From<<L as ::eure::document::parse::ParseDocument<'doc>>::Error>,
+                MyError: From<<R as ::eure::document::parse::ParseDocument<'doc>>::Error>
+            {
+                type Error = MyError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<L>("Left", |field_0| Ok(Either::Left(field_0)))
+                        .parse_variant::<R>("Right", |field_0| Ok(Either::Right(field_0)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
