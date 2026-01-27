@@ -2097,6 +2097,7 @@ dependencies = [
  "eure",
  "eure-document",
  "eure-schema",
+ "indexmap",
  "proc-macro2",
  "quote",
  "syn",

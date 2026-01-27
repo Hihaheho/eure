@@ -24,4 +24,5 @@ automod = { workspace = true }
 eure = { workspace = true }
 eure-document = { workspace = true }
 eure-schema = { workspace = true }
+indexmap = { workspace = true }
 thiserror = { workspace = true }
