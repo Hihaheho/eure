@@ -1286,7 +1286,8 @@ macro_rules! parse_map {
         if $ctx.parser_scope() == Some(ParserScope::Extension) {
             // Extension scope: iterate UNACCESSED extensions only
             let node = $ctx.node();
-            let accessed = $ctx.flatten_ctx().map(|fc| fc.accessed_set());
+            let flatten_ctx = $ctx.flatten_ctx();
+            let accessed = flatten_ctx.map(|fc| fc.accessed_set());
             node.extensions
                 .iter()
                 .filter(|(ident, _)| {
@@ -1294,6 +1295,10 @@ macro_rules! parse_map {
                     accessed.map_or(true, |a| !a.has_ext(ident))
                 })
                 .map(|(ident, &node_id)| {
+                    // Mark extension as accessed so deny_unknown_extensions won't complain
+                    if let Some(fc) = &flatten_ctx {
+                        fc.add_ext((*ident).clone());
+                    }
                     Ok((
                         K::from_extension_ident(ident).map_err(|kind| ParseError {
                             node_id: $ctx.node_id(),
@@ -1316,10 +1321,10 @@ macro_rules! parse_map {
                 }
             };
             // If in flatten context with Record scope, only iterate UNACCESSED fields
-            let accessed = $ctx
+            let flatten_ctx = $ctx
                 .flatten_ctx()
-                .filter(|fc| fc.scope() == ParserScope::Record)
-                .map(|fc| fc.accessed_set().clone());
+                .filter(|fc| fc.scope() == ParserScope::Record);
+            let accessed = flatten_ctx.map(|fc| fc.accessed_set().clone());
             map.iter()
                 .filter(|(key, _)| {
                     match &accessed {
@@ -1331,6 +1336,12 @@ macro_rules! parse_map {
                     }
                 })
                 .map(|(key, value)| {
+                    // Mark field as accessed so deny_unknown_fields won't complain
+                    if let Some(fc) = &flatten_ctx {
+                        if let ObjectKey::String(s) = key {
+                            fc.add_field(s);
+                        }
+                    }
                     Ok((
                         K::from_object_key(key).map_err(|kind| ParseError {
                             node_id: $ctx.node_id(),
@@ -1852,5 +1863,39 @@ mod tests {
         let rec = doc.parse_record(root_id).unwrap();
         let value: Option<Option<i32>> = rec.parse_field("value").unwrap();
         assert_eq!(value, None);
+    }
+
+    // =========================================================================
+    // BUG: parse_map! doesn't mark fields as accessed
+    // =========================================================================
+
+    /// BUG: When parsing IndexMap via flatten, fields are not marked as accessed.
+    /// This causes deny_unknown_fields() to report them as unknown.
+    #[test]
+    fn test_flatten_indexmap_marks_fields_as_accessed() {
+        use indexmap::IndexMap;
+
+        let doc = eure!({
+            name = "test"
+            foo = "bar"
+            baz = "qux"
+        });
+
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+
+        // Parse "name" as a regular field
+        let _name: String = rec.parse_field("name").unwrap();
+
+        // Parse remaining fields via flatten into IndexMap
+        let extra: IndexMap<String, String> = rec.flatten().parse().unwrap();
+
+        // Verify IndexMap captured the extra fields
+        assert_eq!(extra.get("foo"), Some(&"bar".to_string()));
+        assert_eq!(extra.get("baz"), Some(&"qux".to_string()));
+
+        // BUG: This fails with UnknownField("foo") because parse_map! doesn't
+        // mark "foo" and "baz" as accessed when parsing into IndexMap
+        rec.deny_unknown_fields().unwrap();
     }
 }

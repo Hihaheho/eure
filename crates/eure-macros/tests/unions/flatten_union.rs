@@ -1,76 +1,101 @@
 //! Tests for flatten with nested unions.
 //!
-//! These tests cover scenarios where #[eure(flatten)] is used with map values
-//! that are nested union types. This pattern is common in blog.eure.dev's
-//! article structure where sections have flattened maps of union-typed content.
+//! BUG: parse_map! doesn't mark fields as accessed, causing deny_unknown_fields to fail.
 
 use eure::ParseDocument;
-use eure::document::parse::ParseErrorKind;
+use indexmap::IndexMap;
 
-/// When union variant A tries some fields, fails, then variant B succeeds,
-/// the accessed field tracking may include A's fields even though A failed.
-/// This can cause `deny_unknown_fields()` to incorrectly pass or fail.
-#[derive(Debug, PartialEq, ParseDocument)]
-#[eure(crate = ::eure::document)]
-enum TestOption {
-    /// Tries fields: a, c, e (will fail if e is missing)
-    VariantA { a: i32, c: i32, e: i32 },
-    /// Tries fields: a, b
-    VariantB { a: i32, b: i32 },
-}
+// =============================================================================
+// Minimal reproduction: flatten with IndexMap
+// =============================================================================
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, ParseDocument)]
 #[eure(crate = ::eure::document)]
-struct FlattenUnionContainer {
+pub struct Container {
+    pub name: String,
     #[eure(flatten)]
-    inner: TestOption,
+    pub extra: IndexMap<String, String>,
 }
 
-/// This test verifies the behavior of accessed field rollback in flatten + union.
-///
-/// With input { a = 1, b = 2, c = 3, d = 4 }:
-/// 1. VariantA tries 'a', 'c', then fails on 'e' (doesn't exist)
-/// 2. VariantB tries 'a', 'b' and succeeds
-/// 3. Field 'c' was accessed by VariantA but VariantA failed
-/// 4. Field 'd' was never accessed by any variant
-///
-/// The UnionParser has snapshot/rollback logic that SHOULD revert VariantA's
-/// accesses when it fails. If working correctly, 'c' should NOT be in the
-/// accessed set after VariantB succeeds.
+/// BUG: Flatten with IndexMap doesn't mark fields as accessed.
 #[test]
-fn test_flatten_union_accessed_field_rollback() {
+fn test_flatten_indexmap_simple() {
     use eure::eure;
 
     let doc = eure!({
-        a = 1
-        b = 2
-        c = 3
-        d = 4
+        name = "test"
+        foo = "bar"
     });
 
-    let result = doc.parse::<FlattenUnionContainer>(doc.get_root_id());
+    let result: Container = doc.parse(doc.get_root_id()).unwrap();
 
-    // The parsing succeeds with VariantB, but deny_unknown_fields complains
-    // about fields not accessed by the successful variant.
-    //
-    // With proper rollback: 'c' is NOT in accessed set, so it's reported as unknown
-    // (This is the CORRECT behavior - 'c' wasn't accessed by VariantB)
-    let err = result.unwrap_err();
-    assert_eq!(err.kind, ParseErrorKind::UnknownField("c".to_string()));
+    let mut expected_extra = IndexMap::new();
+    expected_extra.insert("foo".to_string(), "bar".to_string());
+
+    assert_eq!(
+        result,
+        Container {
+            name: "test".to_string(),
+            extra: expected_extra,
+        }
+    );
 }
 
-/// Test that demonstrates correct behavior when all accessed fields
-/// belong to the successful variant.
+// =============================================================================
+// Flatten with nested union (blog.eure.dev pattern)
+// =============================================================================
+
+#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+pub enum Item<T> {
+    Normal(T),
+    List(Vec<T>),
+}
+
+#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+pub enum TextOrNested<T> {
+    Text(String),
+    Nested(T),
+}
+
+#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+pub struct Level3 {
+    pub title: String,
+}
+
+#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+pub struct Level2 {
+    pub header: String,
+    #[eure(flatten)]
+    pub sections: IndexMap<String, Item<TextOrNested<Level3>>>,
+}
+
+/// BUG: Flatten with nested union IndexMap values.
 #[test]
-fn test_flatten_union_no_extra_fields() {
+fn test_flatten_indexmap_with_nested_union() {
     use eure::eure;
 
-    // Only fields needed by VariantB
     let doc = eure!({
-        a = 1
-        b = 2
+        header = "Header"
+        intro = "Introduction text"
     });
 
-    let result: FlattenUnionContainer = doc.parse(doc.get_root_id()).unwrap();
-    assert_eq!(result.inner, TestOption::VariantB { a: 1, b: 2 });
+    let result: Level2 = doc.parse(doc.get_root_id()).unwrap();
+
+    let mut expected_sections = IndexMap::new();
+    expected_sections.insert(
+        "intro".to_string(),
+        Item::Normal(TextOrNested::Text("Introduction text".to_string())),
+    );
+
+    assert_eq!(
+        result,
+        Level2 {
+            header: "Header".to_string(),
+            sections: expected_sections,
+        }
+    );
 }
