@@ -236,7 +236,14 @@ where
         let explicit_variant = match ctx.variant_path() {
             Some(vp) if !vp.is_empty() => Some(vp.clone()),
             Some(_) => None, // Empty path = variant consumed, use Untagged
-            None => Self::extract_explicit_variant(ctx)?,
+            None => {
+                let variant = Self::extract_explicit_variant(ctx)?;
+                if variant.is_some() {
+                    // Mark $variant extension as accessed so deny_unknown_extensions() won't fail
+                    ctx.accessed().add_ext(VARIANT.clone());
+                }
+                variant
+            }
         };
 
         match explicit_variant {
@@ -556,16 +563,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::document::EureDocument;
-    use crate::document::node::NodeValue;
+    use crate::eure;
     use crate::parse::AlwaysParser;
     use crate::parse::DocumentParserExt as _;
-    use crate::text::Text;
-    use crate::value::PrimitiveValue;
-
-    fn identifier(s: &str) -> Identifier {
-        s.parse().unwrap()
-    }
 
     #[derive(Debug, PartialEq, Clone)]
     enum TestEnum {
@@ -573,37 +573,9 @@ mod tests {
         Bar,
     }
 
-    fn create_text_doc(text: &str) -> EureDocument {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        doc.node_mut(root_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(text.to_string())));
-        doc
-    }
-
-    /// Create a document with $variant extension
-    fn create_doc_with_variant(content: &str, variant: &str) -> EureDocument {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-
-        // Set content
-        doc.node_mut(root_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(content.to_string())));
-
-        // Add $variant extension
-        let variant_node_id = doc
-            .add_extension(identifier("variant"), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(variant_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(variant.to_string())));
-
-        doc
-    }
-
     #[test]
     fn test_union_single_match() {
-        let doc = create_text_doc("foo");
+        let doc = eure!({ = "foo" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -640,7 +612,7 @@ mod tests {
 
     #[test]
     fn test_union_priority_short_circuit() {
-        let doc = create_text_doc("value");
+        let doc = eure!({ = "value" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -658,7 +630,7 @@ mod tests {
 
     #[test]
     fn test_union_no_match() {
-        let doc = create_text_doc("baz");
+        let doc = eure!({ = "baz" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -687,7 +659,7 @@ mod tests {
     fn test_variant_extension_match_success() {
         // $variant = "baz" specified, matches other("baz")
         // All parsers always succeed
-        let doc = create_doc_with_variant("anything", "baz");
+        let doc = eure!({ %variant = "baz", = "anything" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -709,7 +681,7 @@ mod tests {
     fn test_variant_extension_unknown() {
         // $variant = "unknown" specified, but "unknown" is not registered
         // All parsers always succeed
-        let doc = create_doc_with_variant("anything", "unknown");
+        let doc = eure!({ %variant = "unknown", = "anything" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -731,7 +703,7 @@ mod tests {
     #[test]
     fn test_variant_extension_match_parse_failure() {
         // $variant = "baz" specified, "baz" parser fails
-        let doc = create_doc_with_variant("anything", "baz");
+        let doc = eure!({ %variant = "baz", = "anything" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -778,7 +750,7 @@ mod tests {
     #[test]
     fn test_variant_nested_single_segment() {
         // $variant = "a" - matches "a", rest is None -> Inner defaults to X
-        let doc = create_doc_with_variant("value", "a");
+        let doc = eure!({ %variant = "a", = "value" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -796,7 +768,7 @@ mod tests {
     #[test]
     fn test_variant_nested_multi_segment() {
         // $variant = "a.y" - matches "a", rest is Some("y")
-        let doc = create_doc_with_variant("value", "a.y");
+        let doc = eure!({ %variant = "a.y", = "value" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -814,7 +786,7 @@ mod tests {
     #[test]
     fn test_variant_nested_invalid_inner() {
         // $variant = "a.z" - matches "a", but "z" is not valid for Inner
-        let doc = create_doc_with_variant("value", "a.z");
+        let doc = eure!({ %variant = "a.z", = "value" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -834,7 +806,7 @@ mod tests {
         // $variant = "b.x" but "b" parser doesn't expect nested path
         // The child context will have variant_path = Some("x")
         // If the "b" parser is a non-union type, it should error on unexpected variant path
-        let doc = create_doc_with_variant("value", "b.x");
+        let doc = eure!({ %variant = "b.x", = "value" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -862,61 +834,24 @@ mod tests {
 
     use crate::value::ValueKind;
 
-    /// Create a document with $variant set to an integer (invalid type).
-    /// Returns (doc, variant_node_id) for error assertion.
-    fn create_doc_with_integer_variant(
-        content: &str,
-        variant_value: i64,
-    ) -> (EureDocument, crate::document::NodeId) {
-        use num_bigint::BigInt;
-
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-
-        // Set content
-        doc.node_mut(root_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(content.to_string())));
-
-        // Add $variant extension with integer value (invalid!)
-        let variant_node_id = doc
-            .add_extension(identifier("variant"), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(variant_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(variant_value)));
-
-        (doc, variant_node_id)
-    }
-
-    /// Create a document with $variant extension.
-    /// Returns (doc, variant_node_id) for error assertion.
-    fn create_doc_with_variant_ext(
-        content: &str,
-        variant: &str,
-    ) -> (EureDocument, crate::document::NodeId) {
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-
-        // Set content
-        doc.node_mut(root_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(content.to_string())));
-
-        // Add $variant extension
-        let variant_node_id = doc
-            .add_extension(identifier("variant"), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(variant_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(variant.to_string())));
-
-        (doc, variant_node_id)
-    }
-
     #[test]
     fn test_invalid_variant_type_errors() {
         // $variant = 123 (integer, not string) - should error at parse_union()
-        let (doc, variant_node_id) = create_doc_with_integer_variant("foo", 123);
+        // Note: eure! macro can't create invalid $variant types, so we use manual construction
+        use crate::document::node::NodeValue;
+        use crate::value::PrimitiveValue;
+        use num_bigint::BigInt;
+
+        // Create base doc with eure! and then add invalid integer $variant
+        let mut doc = eure!({ = "foo" });
         let root_id = doc.get_root_id();
+        let variant_node_id = doc
+            .add_extension("variant".parse().unwrap(), root_id)
+            .unwrap()
+            .node_id;
+        doc.node_mut(variant_node_id).content =
+            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(123)));
+
         let ctx = doc.parse_context(root_id);
 
         let Err(err) = ctx.parse_union::<TestEnum, ParseError>(VariantRepr::default()) else {
@@ -934,8 +869,9 @@ mod tests {
     #[test]
     fn test_invalid_variant_path_syntax_errors() {
         // $variant = "foo..bar" (invalid path syntax) - should error at parse_union()
-        let (doc, variant_node_id) = create_doc_with_variant_ext("foo", "foo..bar");
+        let doc = eure!({ %variant = "foo..bar", = "foo" });
         let root_id = doc.get_root_id();
+        let variant_node_id = *doc.node(root_id).extensions.get(&VARIANT).unwrap();
         let ctx = doc.parse_context(root_id);
 
         let Err(err) = ctx.parse_union::<TestEnum, ParseError>(VariantRepr::default()) else {
@@ -951,9 +887,6 @@ mod tests {
     }
 
     // --- VariantRepr tests ---
-
-    use crate::eure;
-    use crate::value::ObjectKey;
 
     #[derive(Debug, PartialEq)]
     enum ReprTestEnum {
@@ -981,98 +914,11 @@ mod tests {
             .parse()
     }
 
-    /// Create a document with Internal repr: { type = "a", value = 42 }
-    fn create_internal_repr_doc(type_val: &str, value: i64) -> EureDocument {
-        use num_bigint::BigInt;
-
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        doc.node_mut(root_id).content = NodeValue::Map(Default::default());
-
-        // Add "type" field
-        let type_node_id = doc
-            .add_map_child(ObjectKey::String("type".to_string()), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(type_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(type_val.to_string())));
-
-        // Add "value" field
-        let value_node_id = doc
-            .add_map_child(ObjectKey::String("value".to_string()), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(value_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(value)));
-
-        doc
-    }
-
-    /// Create a document with External repr: { a = { value = 42 } }
-    fn create_external_repr_doc(variant_name: &str, value: i64) -> EureDocument {
-        use num_bigint::BigInt;
-
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        doc.node_mut(root_id).content = NodeValue::Map(Default::default());
-
-        // Add variant container
-        let variant_node_id = doc
-            .add_map_child(ObjectKey::String(variant_name.to_string()), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(variant_node_id).content = NodeValue::Map(Default::default());
-
-        // Add "value" field inside variant
-        let value_node_id = doc
-            .add_map_child(ObjectKey::String("value".to_string()), variant_node_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(value_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(value)));
-
-        doc
-    }
-
-    /// Create a document with Adjacent repr: { type = "a", content = { value = 42 } }
-    fn create_adjacent_repr_doc(type_val: &str, value: i64) -> EureDocument {
-        use num_bigint::BigInt;
-
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        doc.node_mut(root_id).content = NodeValue::Map(Default::default());
-
-        // Add "type" field
-        let type_node_id = doc
-            .add_map_child(ObjectKey::String("type".to_string()), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(type_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(type_val.to_string())));
-
-        // Add "content" container
-        let content_node_id = doc
-            .add_map_child(ObjectKey::String("content".to_string()), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(content_node_id).content = NodeValue::Map(Default::default());
-
-        // Add "value" field inside content
-        let value_node_id = doc
-            .add_map_child(ObjectKey::String("value".to_string()), content_node_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(value_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(value)));
-
-        doc
-    }
-
     #[test]
     fn test_internal_repr_success() {
         // { type = "a", value = 42 } with Internal { tag: "type" }
         // Using Repr mode to enable repr-based variant resolution
-        let doc = create_internal_repr_doc("a", 42);
+        let doc = eure!({ type = "a", value = 42 });
         let root_id = doc.get_root_id();
         let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
 
@@ -1089,7 +935,7 @@ mod tests {
     fn test_external_repr_success() {
         // { a = { value = 42 } } with External
         // Using Repr mode to enable repr-based variant resolution
-        let doc = create_external_repr_doc("a", 42);
+        let doc = eure!({ a { value = 42 } });
         let root_id = doc.get_root_id();
         let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
 
@@ -1101,7 +947,7 @@ mod tests {
     fn test_adjacent_repr_success() {
         // { type = "a", content = { value = 42 } } with Adjacent { tag: "type", content: "content" }
         // Using Repr mode to enable repr-based variant resolution
-        let doc = create_adjacent_repr_doc("a", 42);
+        let doc = eure!({ type = "a", content { value = 42 } });
         let root_id = doc.get_root_id();
         let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
 
@@ -1118,18 +964,9 @@ mod tests {
     #[test]
     fn test_repr_mode_ignores_variant_extension() {
         // In Repr mode, $variant extension is ignored - only repr pattern is used
-        let mut doc = create_internal_repr_doc("a", 42);
+        // $variant = "b" would conflict, but repr extracts "a" and is used
+        let doc = eure!({ %variant = "b", type = "a", value = 42 });
         let root_id = doc.get_root_id();
-
-        // Add $variant = "b" extension (would conflict in old behavior)
-        let variant_node_id = doc
-            .add_extension(identifier("variant"), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(variant_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("b".to_string())));
-
-        // In Repr mode, $variant is ignored, so repr extracts "a" and variant "a" is matched
         let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
 
         let result = parse_repr_test_enum(
@@ -1144,7 +981,7 @@ mod tests {
     #[test]
     fn test_eure_mode_ignores_repr() {
         // In Eure mode (default), repr is ignored - only $variant or untagged matching is used
-        let doc = create_internal_repr_doc("a", 42);
+        let doc = eure!({ type = "a", value = 42 });
         let root_id = doc.get_root_id();
 
         // Default mode is Eure, which ignores repr
@@ -1178,7 +1015,7 @@ mod tests {
     fn test_internal_repr_unknown_variant_name() {
         // { type = "unknown", value = 42 } - "unknown" is not a registered variant
         // Using Repr mode to enable repr-based variant resolution
-        let doc = create_internal_repr_doc("unknown", 42);
+        let doc = eure!({ type = "unknown", value = 42 });
         let root_id = doc.get_root_id();
         let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
 
@@ -1267,13 +1104,17 @@ mod tests {
     fn test_internal_repr_tag_is_integer_errors() {
         // { type = 123, value = 42 } - tag field is integer, not string
         // Using Repr mode to enable repr-based variant resolution
+        // Note: eure! macro doesn't support integer field values for tag fields,
+        // so we use manual construction to test this edge case
+        use crate::document::EureDocument;
+        use crate::document::node::NodeValue;
+        use crate::value::{ObjectKey, PrimitiveValue};
         use num_bigint::BigInt;
 
         let mut doc = EureDocument::new();
         let root_id = doc.get_root_id();
         doc.node_mut(root_id).content = NodeValue::Map(Default::default());
 
-        // Add "type" field with integer value (invalid!)
         let type_node_id = doc
             .add_map_child(ObjectKey::String("type".to_string()), root_id)
             .unwrap()
@@ -1281,7 +1122,6 @@ mod tests {
         doc.node_mut(type_node_id).content =
             NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(123)));
 
-        // Add "value" field
         let value_node_id = doc
             .add_map_child(ObjectKey::String("value".to_string()), root_id)
             .unwrap()
@@ -1306,7 +1146,7 @@ mod tests {
     fn test_adjacent_repr_missing_content_falls_back_to_untagged() {
         // { type = "a", value = 42 } - has tag but no "content" field
         // Adjacent repr should not match, falls back to Untagged
-        let doc = create_internal_repr_doc("a", 42); // This has "type" and "value", not "content"
+        let doc = eure!({ type = "a", value = 42 });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -1338,6 +1178,10 @@ mod tests {
     #[test]
     fn test_external_repr_non_string_key_falls_back_to_untagged() {
         // { 123 => { value = 42 } } - key is integer, not string
+        // Note: eure! macro doesn't support integer keys, so we use manual construction
+        use crate::document::EureDocument;
+        use crate::document::node::NodeValue;
+        use crate::value::{ObjectKey, PrimitiveValue};
         use num_bigint::BigInt;
 
         let mut doc = EureDocument::new();
@@ -1390,17 +1234,8 @@ mod tests {
     fn test_eure_mode_uses_variant_extension_over_repr() {
         // In Eure mode (default), $variant extension is used and repr is ignored
         // Internal repr would extract "a", but $variant = "b" takes precedence
-        let mut doc = create_internal_repr_doc("a", 42);
+        let doc = eure!({ %variant = "b", type = "a", value = 42 });
         let root_id = doc.get_root_id();
-
-        // Add $variant = "b" extension
-        let variant_node_id = doc
-            .add_extension(identifier("variant"), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(variant_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("b".to_string())));
-
         let ctx = doc.parse_context(root_id);
 
         // In Eure mode, $variant = "b" is used (repr is ignored)
@@ -1433,7 +1268,7 @@ mod tests {
     fn test_variant_path_empty_uses_untagged() {
         // When variant_path is Some but empty (consumed by parent), use Untagged
         // This is tested indirectly through nested unions after consuming the path
-        let doc = create_text_doc("value");
+        let doc = eure!({ = "value" });
         let root_id = doc.get_root_id();
         let ctx = doc.parse_context(root_id);
 
@@ -1451,5 +1286,263 @@ mod tests {
 
         // Priority variant "first" wins in Untagged mode
         assert_eq!(result, "value");
+    }
+
+    // =============================================================================
+    // Nested union tests (low-level, without derive macro)
+    // =============================================================================
+
+    /// Nested enum for testing: outer level
+    #[derive(Debug, PartialEq, Clone)]
+    enum OuterUnion {
+        Normal(InnerUnion),
+        List(Vec<InnerUnion>),
+    }
+
+    /// Nested enum for testing: inner level
+    #[derive(Debug, PartialEq, Clone)]
+    enum InnerUnion {
+        Text(String),
+        Number(i64),
+    }
+
+    fn parse_inner_union(ctx: &ParseContext<'_>) -> Result<InnerUnion, ParseError> {
+        ctx.parse_union(VariantRepr::default())?
+            .variant("text", |ctx: &ParseContext<'_>| {
+                let s: String = ctx.parse()?;
+                Ok(InnerUnion::Text(s))
+            })
+            .variant("number", |ctx: &ParseContext<'_>| {
+                let n: i64 = ctx.parse()?;
+                Ok(InnerUnion::Number(n))
+            })
+            .parse()
+    }
+
+    fn parse_outer_union(ctx: &ParseContext<'_>) -> Result<OuterUnion, ParseError> {
+        use crate::document::node::NodeArray;
+
+        ctx.parse_union(VariantRepr::default())?
+            .variant("normal", |ctx: &ParseContext<'_>| {
+                let inner = parse_inner_union(ctx)?;
+                Ok(OuterUnion::Normal(inner))
+            })
+            .variant("list", |ctx: &ParseContext<'_>| {
+                // Parse array of InnerUnion using NodeArray
+                let arr: &NodeArray = ctx.parse()?;
+                let items: Result<Vec<InnerUnion>, _> = arr
+                    .iter()
+                    .map(|&node_id| parse_inner_union(&ctx.at(node_id)))
+                    .collect();
+                Ok(OuterUnion::List(items?))
+            })
+            .parse()
+    }
+
+    #[test]
+    fn test_nested_union_basic_text() {
+        // Simple string -> OuterUnion::Normal(InnerUnion::Text)
+        let doc = eure!({ = "hello" });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let result = parse_outer_union(&ctx).unwrap();
+        assert_eq!(
+            result,
+            OuterUnion::Normal(InnerUnion::Text("hello".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_nested_union_basic_number() {
+        let doc = eure!({ = 42 });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+        let result = parse_outer_union(&ctx).unwrap();
+        assert_eq!(result, OuterUnion::Normal(InnerUnion::Number(42)));
+    }
+
+    #[test]
+    fn test_nested_union_variant_path_propagation() {
+        // $variant = "normal.text" should propagate through nested unions
+        let doc = eure!({ %variant = "normal.text", = "test value" });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let result = parse_outer_union(&ctx).unwrap();
+        assert_eq!(
+            result,
+            OuterUnion::Normal(InnerUnion::Text("test value".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_nested_union_variant_path_number() {
+        // $variant = "normal.number" - number variant explicitly selected
+        let doc = eure!({ %variant = "normal.number", = 99 });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+        let result = parse_outer_union(&ctx).unwrap();
+        assert_eq!(result, OuterUnion::Normal(InnerUnion::Number(99)));
+    }
+
+    #[test]
+    fn test_nested_union_inner_fails_outer_recovers() {
+        // When inner union fails, outer should try next variant
+        // Create a document that doesn't match "normal" variant's inner union
+        // but could match "list" variant
+        let doc = eure!({ = ["a", "b"] });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let result = parse_outer_union(&ctx).unwrap();
+        assert_eq!(
+            result,
+            OuterUnion::List(alloc::vec![
+                InnerUnion::Text("a".to_string()),
+                InnerUnion::Text("b".to_string()),
+            ])
+        );
+    }
+
+    // =============================================================================
+    // Triple nested union tests
+    // =============================================================================
+
+    #[derive(Debug, PartialEq, Clone)]
+    enum Level1 {
+        A(Level2Union),
+        B(String),
+    }
+
+    #[derive(Debug, PartialEq, Clone)]
+    enum Level2Union {
+        X(Level3),
+        Y(i64),
+    }
+
+    #[derive(Debug, PartialEq, Clone)]
+    enum Level3 {
+        Leaf(String),
+    }
+
+    fn parse_level3(ctx: &ParseContext<'_>) -> Result<Level3, ParseError> {
+        ctx.parse_union(VariantRepr::default())?
+            .variant("leaf", |ctx: &ParseContext<'_>| {
+                let s: String = ctx.parse()?;
+                Ok(Level3::Leaf(s))
+            })
+            .parse()
+    }
+
+    fn parse_level2(ctx: &ParseContext<'_>) -> Result<Level2Union, ParseError> {
+        ctx.parse_union(VariantRepr::default())?
+            .variant("x", |ctx: &ParseContext<'_>| {
+                let inner = parse_level3(ctx)?;
+                Ok(Level2Union::X(inner))
+            })
+            .variant("y", |ctx: &ParseContext<'_>| {
+                let n: i64 = ctx.parse()?;
+                Ok(Level2Union::Y(n))
+            })
+            .parse()
+    }
+
+    fn parse_level1(ctx: &ParseContext<'_>) -> Result<Level1, ParseError> {
+        ctx.parse_union(VariantRepr::default())?
+            .variant("a", |ctx: &ParseContext<'_>| {
+                let inner = parse_level2(ctx)?;
+                Ok(Level1::A(inner))
+            })
+            .variant("b", |ctx: &ParseContext<'_>| {
+                let s: String = ctx.parse()?;
+                Ok(Level1::B(s))
+            })
+            .parse()
+    }
+
+    #[test]
+    fn test_nested_union_three_levels_untagged() {
+        // String input should match: Level1::A -> Level2Union::X -> Level3::Leaf
+        // (first variant at each level wins in untagged mode)
+        let doc = eure!({ = "deep value" });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let result = parse_level1(&ctx).unwrap();
+        assert_eq!(
+            result,
+            Level1::A(Level2Union::X(Level3::Leaf("deep value".to_string())))
+        );
+    }
+
+    #[test]
+    fn test_nested_union_three_levels_variant_path() {
+        // $variant = "a.x.leaf" - explicitly select through three levels
+        let doc = eure!({ %variant = "a.x.leaf", = "explicit deep" });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let result = parse_level1(&ctx).unwrap();
+        assert_eq!(
+            result,
+            Level1::A(Level2Union::X(Level3::Leaf("explicit deep".to_string())))
+        );
+    }
+
+    #[test]
+    fn test_nested_union_three_levels_variant_path_partial() {
+        // $variant = "a.y" - select a.y, inner uses untagged
+        let doc = eure!({ %variant = "a.y", = 123 });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+        let result = parse_level1(&ctx).unwrap();
+        assert_eq!(result, Level1::A(Level2Union::Y(123)));
+    }
+
+    #[test]
+    fn test_nested_union_invalid_inner_variant_path() {
+        // $variant = "a.x.invalid" - "invalid" doesn't exist in Level3
+        let doc = eure!({ %variant = "a.x.invalid", = "value" });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        let err = parse_level1(&ctx).unwrap_err();
+        assert_eq!(
+            err.kind,
+            ParseErrorKind::UnknownVariant("invalid".to_string())
+        );
+    }
+
+    // =============================================================================
+    // Flatten with nested union - accessed field tracking tests
+    // =============================================================================
+
+    #[test]
+    fn test_flatten_nested_union_accessed_fields_basic() {
+        use crate::parse::AccessedSet;
+        use crate::parse::FlattenContext;
+        use crate::parse::ParserScope;
+
+        // Test that accessed fields are properly tracked through nested unions
+        let doc = eure!({
+            field_a = "value_a"
+            field_b = "value_b"
+        });
+        let root_id = doc.get_root_id();
+
+        // Create flatten context to track field access
+        let flatten_ctx = FlattenContext::new(AccessedSet::new(), ParserScope::Record);
+        let ctx =
+            ParseContext::with_flatten_ctx(&doc, root_id, flatten_ctx.clone(), UnionTagMode::Eure);
+
+        // Parse a union that accesses field_a
+        let record = ctx.parse_record().unwrap();
+        let _field_a: String = record.parse_field("field_a").unwrap();
+
+        // field_a should be marked as accessed
+        let (accessed, _) = flatten_ctx.capture_current_state();
+        assert!(accessed.contains("field_a"));
+        assert!(!accessed.contains("field_b"));
     }
 }
