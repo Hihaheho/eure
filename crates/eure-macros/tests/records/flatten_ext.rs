@@ -349,3 +349,120 @@ fn test_flatten_with_ext_parsing_type() {
         }
     );
 }
+
+// =============================================================================
+// Case: Alternating flatten/flatten_ext pattern (deeply nested record+ext)
+// =============================================================================
+
+/// Innermost content (record)
+#[derive(Debug, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+struct InnerContent {
+    content: String,
+}
+
+/// Level 3: Record with extension (alternating)
+#[derive(Debug, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+struct Level3Record {
+    normal: i32,
+    #[eure(ext)]
+    item: InnerContent,
+}
+
+/// Level 2: Record with extension (alternating)
+#[derive(Debug, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+struct Level2Record {
+    normal: i32,
+    #[eure(ext)]
+    item: Level3Record,
+}
+
+/// Level 1: Root record with extension (alternating)
+#[derive(Debug, PartialEq, ParseDocument)]
+#[eure(crate = ::eure::document)]
+struct Level1Record {
+    normal: i32,
+    #[eure(ext)]
+    item: Level2Record,
+}
+
+#[test]
+fn test_deeply_nested_record_ext_alternating() {
+    use eure::eure;
+
+    let doc = eure!({
+        normal = 1
+        %item {
+            normal = 2
+            %item {
+                normal = 3
+                %item {
+                    content = "Hello"
+                }
+            }
+        }
+    });
+
+    let result = doc.parse::<Level1Record>(doc.get_root_id());
+    assert_eq!(
+        result.unwrap(),
+        Level1Record {
+            normal: 1,
+            item: Level2Record {
+                normal: 2,
+                item: Level3Record {
+                    normal: 3,
+                    item: InnerContent {
+                        content: "Hello".to_string(),
+                    },
+                },
+            },
+        }
+    );
+}
+
+#[test]
+fn test_deeply_nested_record_ext_unknown_field_detection() {
+    use eure::eure;
+
+    let doc = eure!({
+        normal = 1
+        unknown = "should fail"
+        %item {
+            normal = 2
+            %item {
+                normal = 3
+                %item {
+                    content = "Hello"
+                }
+            }
+        }
+    });
+
+    let result = doc.parse::<Level1Record>(doc.get_root_id());
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_deeply_nested_record_ext_unknown_ext_detection() {
+    use eure::eure;
+
+    let doc = eure!({
+        normal = 1
+        %item {
+            normal = 2
+            %item {
+                normal = 3
+                %item {
+                    content = "Hello"
+                }
+            }
+        }
+        %unknown = "should fail"
+    });
+
+    let result = doc.parse::<Level1Record>(doc.get_root_id());
+    assert!(result.is_err());
+}

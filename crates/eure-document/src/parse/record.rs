@@ -796,4 +796,128 @@ mod tests {
             }
         );
     }
+
+    // =========================================================================
+    // Tests for alternating flatten/flatten_ext scope changes
+    // =========================================================================
+
+    /// Tests alternating flatten -> flatten_ext -> flatten -> flatten_ext pattern
+    #[derive(Debug, PartialEq)]
+    struct AlternatingFlattenTest {
+        normal1: i32,
+        ext_normal2: i32,
+        ext_normal3: i32,
+        ext_content: String,
+    }
+
+    impl<'doc> ParseDocument<'doc> for AlternatingFlattenTest {
+        type Error = ParseError;
+
+        fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+            // Level 1: Record scope (flatten)
+            let rec1 = ctx.parse_record()?;
+            let normal1 = rec1.parse_field("normal")?;
+            let ctx1 = rec1.flatten();
+
+            // Level 2: Extension scope (flatten_ext)
+            let ctx2 = ctx1.flatten_ext();
+            assert_eq!(ctx2.parser_scope(), Some(ParserScope::Extension));
+            let ext1_ctx = ctx2.ext("item")?;
+
+            // Level 3: Record scope (flatten) - inside extension value
+            let rec2 = ext1_ctx.parse_record()?;
+            let ext_normal2 = rec2.parse_field("normal")?;
+            let ctx3 = rec2.flatten();
+            assert_eq!(ctx3.parser_scope(), Some(ParserScope::Record));
+
+            // Level 4: Extension scope (flatten_ext)
+            let ctx4 = ctx3.flatten_ext();
+            assert_eq!(ctx4.parser_scope(), Some(ParserScope::Extension));
+            let ext2_ctx = ctx4.ext("item")?;
+
+            // Level 5: Record scope (flatten)
+            let rec3 = ext2_ctx.parse_record()?;
+            let ext_normal3 = rec3.parse_field("normal")?;
+            let ctx5 = rec3.flatten();
+
+            // Level 6: Extension scope (flatten_ext)
+            let ctx6 = ctx5.flatten_ext();
+            let ext3_ctx = ctx6.ext("item")?;
+
+            // Innermost: Record
+            let rec4 = ext3_ctx.parse_record()?;
+            let ext_content = rec4.parse_field("content")?;
+
+            // Deny at all levels
+            rec4.deny_unknown_fields()?;
+            ctx6.deny_unknown_extensions()?;
+            rec3.deny_unknown_fields()?;
+            ctx4.deny_unknown_extensions()?;
+            rec2.deny_unknown_fields()?;
+            ctx2.deny_unknown_extensions()?;
+            rec1.deny_unknown_fields()?;
+            ctx1.deny_unknown_extensions()?;
+
+            Ok(Self {
+                normal1,
+                ext_normal2,
+                ext_normal3,
+                ext_content,
+            })
+        }
+    }
+
+    #[test]
+    fn test_alternating_flatten_flatten_ext() {
+        use crate::eure;
+
+        let doc = eure!({
+            normal = 1
+            %item {
+                normal = 2
+                %item {
+                    normal = 3
+                    %item {
+                        content = "Hello"
+                    }
+                }
+            }
+        });
+
+        let result: AlternatingFlattenTest = doc.parse(doc.get_root_id()).unwrap();
+        assert_eq!(
+            result,
+            AlternatingFlattenTest {
+                normal1: 1,
+                ext_normal2: 2,
+                ext_normal3: 3,
+                ext_content: "Hello".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_alternating_flatten_scope_changes() {
+        use crate::eure;
+
+        let doc = eure!({});
+        let root_id = doc.get_root_id();
+        let ctx = ParseContext::new(&doc, root_id);
+
+        // flatten -> Record
+        let ctx1 = ctx.flatten();
+        assert_eq!(ctx1.parser_scope(), Some(ParserScope::Record));
+
+        // flatten_ext -> Extension
+        let ctx2 = ctx1.flatten_ext();
+        assert_eq!(ctx2.parser_scope(), Some(ParserScope::Extension));
+
+        // flatten -> Record (THIS IS THE BUG - currently stays Extension)
+        let ctx3 = ctx2.flatten();
+        assert_eq!(ctx3.parser_scope(), Some(ParserScope::Record));
+
+        // flatten_ext -> Extension
+        let ctx4 = ctx3.flatten_ext();
+        assert_eq!(ctx4.parser_scope(), Some(ParserScope::Extension));
+    }
 }

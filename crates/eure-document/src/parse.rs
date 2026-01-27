@@ -423,6 +423,24 @@ impl<'doc> ParseContext<'doc> {
     /// access tracking (so deny_unknown_* works correctly), use this method
     /// to create a shared context first.
     ///
+    /// # Scope
+    ///
+    /// This method always sets `ParserScope::Record`. When alternating between
+    /// `flatten()` and `flatten_ext()`, the scope is updated each time:
+    ///
+    /// ```ignore
+    /// ctx.flatten()       // scope = Record
+    ///    .flatten_ext()   // scope = Extension
+    ///    .flatten()       // scope = Record (updated, not inherited)
+    /// ```
+    ///
+    /// # AccessedSet Sharing
+    ///
+    /// The `AccessedSet` is shared across all contexts in the flatten chain
+    /// (via `Rc`). This ensures that field/extension accesses are tracked
+    /// regardless of which scope they were accessed from, and the root parser
+    /// can validate everything with `deny_unknown_*`.
+    ///
     /// # Example
     ///
     /// ```ignore
@@ -434,20 +452,14 @@ impl<'doc> ParseContext<'doc> {
     /// rec.deny_unknown_fields()?;  // Validates both fields and extensions
     /// ```
     pub fn flatten(&self) -> Self {
-        // If already has flatten context, reuse it
-        if let Some(fc) = &self.flatten_ctx {
-            return Self {
-                doc: self.doc,
-                node_id: self.node_id,
-                variant_path: self.variant_path.clone(),
-                flatten_ctx: Some(fc.clone()),
-                union_tag_mode: self.union_tag_mode,
-                accessed: self.accessed.clone(),
-            };
-        }
-
-        // Create new flatten context with shared AccessedSet (Record scope for general use)
-        let flatten_ctx = FlattenContext::new(self.accessed.clone(), ParserScope::Record);
+        // Always create a NEW FlattenContext with Record scope.
+        // We cannot just clone the existing FlattenContext because that would
+        // preserve the old scope. Instead, we create a new one with the correct
+        // scope while sharing the AccessedSet (via Rc clone).
+        let flatten_ctx = match &self.flatten_ctx {
+            Some(fc) => FlattenContext::new(fc.accessed_set().clone(), ParserScope::Record),
+            None => FlattenContext::new(self.accessed.clone(), ParserScope::Record),
+        };
         Self {
             doc: self.doc,
             node_id: self.node_id,
@@ -696,14 +708,30 @@ impl<'doc> ParseContext<'doc> {
     /// - Have deny_unknown_extensions() be a no-op
     ///
     /// The root parser should call deny_unknown_extensions() after all children are done.
+    ///
+    /// # Scope
+    ///
+    /// This method always sets `ParserScope::Extension`. When alternating between
+    /// `flatten()` and `flatten_ext()`, the scope is updated each time:
+    ///
+    /// ```ignore
+    /// ctx.flatten()       // scope = Record
+    ///    .flatten_ext()   // scope = Extension (updated, not inherited)
+    ///    .flatten()       // scope = Record
+    /// ```
+    ///
+    /// # AccessedSet Sharing
+    ///
+    /// The `AccessedSet` is shared across all contexts in the flatten chain
+    /// (via `Rc`). See [`flatten()`](Self::flatten) for details.
     pub fn flatten_ext(&self) -> ParseContext<'doc> {
-        // Create or reuse flatten context with Extension scope
+        // Always create a NEW FlattenContext with Extension scope.
+        // We cannot just clone the existing FlattenContext because that would
+        // preserve the old scope. Instead, we create a new one with the correct
+        // scope while sharing the AccessedSet (via Rc clone).
         let flatten_ctx = match &self.flatten_ctx {
-            Some(fc) => fc.clone(),
-            None => {
-                // Root: create new FlattenContext wrapping our AccessedSet with Extension scope
-                FlattenContext::new(self.accessed.clone(), ParserScope::Extension)
-            }
+            Some(fc) => FlattenContext::new(fc.accessed_set().clone(), ParserScope::Extension),
+            None => FlattenContext::new(self.accessed.clone(), ParserScope::Extension),
         };
 
         ParseContext::with_flatten_ctx(self.doc, self.node_id, flatten_ctx, self.union_tag_mode)
