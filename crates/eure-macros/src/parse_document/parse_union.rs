@@ -9,6 +9,8 @@ use syn::{DataEnum, Fields, Variant};
 use crate::attrs::{FieldAttrs, VariantAttrs};
 use crate::{config::MacroConfig, context::MacroContext};
 
+use super::parse_record::{generate_ext_field, generate_record_field};
+
 pub fn generate_union_parser(context: &MacroContext, input: &DataEnum) -> TokenStream {
     let MacroConfig { document_crate, .. } = &context.config;
     let DataEnum { variants, .. } = input;
@@ -110,6 +112,12 @@ fn generate_struct_variant(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
     variant_attrs: &VariantAttrs,
 ) -> TokenStream {
+    // Check if there are any "regular" record fields (not flatten, ext, or flatten_ext)
+    let has_record = fields.iter().any(|f| {
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        !attrs.flatten && !attrs.ext && !attrs.flatten_ext
+    });
+
     let field_assignments: Vec<_> = fields
         .iter()
         .map(|f| {
@@ -118,59 +126,56 @@ fn generate_struct_variant(
             let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
 
             if attrs.flatten {
-                quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
+                // Use rec.flatten() when we have a record, ctx.flatten() otherwise
+                if has_record {
+                    quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
+                } else {
+                    quote! { #field_name: <#field_ty>::parse(&ctx.flatten())? }
+                }
+            } else if attrs.flatten_ext {
+                quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
+            } else if attrs.ext {
+                let field_name_str = attrs
+                    .rename
+                    .clone()
+                    .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
+                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
             } else {
                 let field_name_str = attrs
                     .rename
                     .clone()
                     .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
-                generate_variant_record_field(field_name, field_ty, &field_name_str, &attrs.default)
+                generate_record_field(field_name, field_ty, &field_name_str, &attrs.default)
             }
         })
         .collect();
 
-    let unknown_fields_check = if variant_attrs.allow_unknown_fields {
-        quote! { rec.allow_unknown_fields()?; }
+    if has_record {
+        let unknown_fields_check = if variant_attrs.allow_unknown_fields {
+            quote! { rec.allow_unknown_fields()?; }
+        } else {
+            quote! { rec.deny_unknown_fields()?; }
+        };
+
+        quote! {
+            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+                let mut rec = ctx.parse_record()?;
+                let value = #enum_ident::#variant_ident {
+                    #(#field_assignments),*
+                };
+                #unknown_fields_check
+                Ok(value)
+            })
+        }
     } else {
-        quote! { rec.deny_unknown_fields()?; }
-    };
-
-    quote! {
-        .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
-            let mut rec = ctx.parse_record()?;
-            let value = #enum_ident::#variant_ident {
-                #(#field_assignments),*
-            };
-            #unknown_fields_check
-            Ok(value)
-        })
-    }
-}
-
-/// Generate field assignment for struct variant fields.
-/// Handles #[eure(default)] to use parse_field_optional.
-fn generate_variant_record_field(
-    field_name: &syn::Ident,
-    field_ty: &syn::Type,
-    field_name_str: &str,
-    default: &crate::attrs::DefaultValue,
-) -> TokenStream {
-    use crate::attrs::DefaultValue;
-    match default {
-        DefaultValue::None => {
-            quote! { #field_name: rec.parse_field(#field_name_str)? }
-        }
-        DefaultValue::Default => {
-            quote! {
-                #field_name: rec.parse_field_optional(#field_name_str)?
-                    .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
-            }
-        }
-        DefaultValue::Path(path) => {
-            quote! {
-                #field_name: rec.parse_field_optional(#field_name_str)?
-                    .unwrap_or_else(#path)
-            }
+        quote! {
+            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+                let value = #enum_ident::#variant_ident {
+                    #(#field_assignments),*
+                };
+                ctx.deny_unknown_extensions()?;
+                Ok(value)
+            })
         }
     }
 }

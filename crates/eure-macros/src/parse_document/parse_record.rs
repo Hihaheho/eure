@@ -195,7 +195,7 @@ fn generate_newtype_struct(
     })
 }
 
-fn generate_record_field(
+pub(super) fn generate_record_field(
     field_name: &syn::Ident,
     field_ty: &syn::Type,
     field_name_str: &str,
@@ -220,7 +220,7 @@ fn generate_record_field(
     }
 }
 
-fn generate_ext_field(
+pub(super) fn generate_ext_field(
     field_name: &syn::Ident,
     field_ty: &syn::Type,
     field_name_str: &str,

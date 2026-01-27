@@ -514,3 +514,221 @@ fn test_enum_multiple_type_params_with_custom_error() {
         .to_string()
     );
 }
+
+// =============================================================================
+// Struct variant with flatten + ext (no regular fields)
+// =============================================================================
+
+/// When a struct variant has ONLY flatten field(s), no parse_record() is needed.
+/// The flatten field should be parsed via ctx.flatten() (not rec.flatten()).
+#[test]
+fn test_struct_variant_flatten_only() {
+    let input = generate(parse_quote! {
+        enum Content {
+            Text {
+                #[eure(flatten)]
+                value: TextValue,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Content<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Text", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let value = Content::Text {
+                                value: <TextValue>::parse(&ctx.flatten())?
+                            };
+                            ctx.deny_unknown_extensions()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+/// When a struct variant has ONLY ext field(s), no parse_record() is needed.
+#[test]
+fn test_struct_variant_ext_only() {
+    let input = generate(parse_quote! {
+        enum Item {
+            WithMeta {
+                #[eure(ext)]
+                meta: MetaData,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let value = Item::WithMeta {
+                                meta: ctx.parse_ext("meta")?
+                            };
+                            ctx.deny_unknown_extensions()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+/// When a struct variant has ONLY ext field(s) with default, use parse_ext_optional.
+#[test]
+fn test_struct_variant_ext_with_default() {
+    let input = generate(parse_quote! {
+        enum Item {
+            WithMeta {
+                #[eure(ext, default)]
+                meta: Option<MetaData>,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let value = Item::WithMeta {
+                                meta: ctx.parse_ext_optional("meta")?.unwrap_or_else(<Option<MetaData> as ::core::default::Default>::default)
+                            };
+                            ctx.deny_unknown_extensions()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+/// Main reproduction case: struct variant with flatten + ext fields (no regular fields).
+/// This should NOT call parse_record() since:
+/// - flatten field parses via ctx.flatten() (not rec.flatten())
+/// - ext field parses from extensions via ctx.parse_ext()
+#[test]
+fn test_struct_variant_flatten_and_ext() {
+    let input = generate(parse_quote! {
+        enum TextOrNested {
+            Text {
+                #[eure(flatten)]
+                text: TextValue,
+                #[eure(ext, default)]
+                mark: MarkOptions,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TextOrNested<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Text", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let value = TextOrNested::Text {
+                                text: <TextValue>::parse(&ctx.flatten())?,
+                                mark: ctx.parse_ext_optional("mark")?.unwrap_or_else(<MarkOptions as ::core::default::Default>::default)
+                            };
+                            ctx.deny_unknown_extensions()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+/// When struct variant has ext + regular fields, parse_record() IS needed.
+#[test]
+fn test_struct_variant_ext_with_regular_fields() {
+    let input = generate(parse_quote! {
+        enum Item {
+            WithMeta {
+                name: String,
+                #[eure(ext)]
+                meta: MetaData,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let mut rec = ctx.parse_record()?;
+                            let value = Item::WithMeta {
+                                name: rec.parse_field("name")?,
+                                meta: ctx.parse_ext("meta")?
+                            };
+                            rec.deny_unknown_fields()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+/// Struct variant with flatten_ext only (no regular fields).
+#[test]
+fn test_struct_variant_flatten_ext_only() {
+    let input = generate(parse_quote! {
+        enum Item {
+            WithMeta {
+                #[eure(flatten_ext)]
+                meta: MetaData,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let value = Item::WithMeta {
+                                meta: <MetaData>::parse(&ctx.flatten_ext())?
+                            };
+                            ctx.deny_unknown_extensions()?;
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
