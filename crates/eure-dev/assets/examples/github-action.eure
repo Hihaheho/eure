@@ -27,6 +27,9 @@ cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
   @ steps[]
   uses: actions/checkout@v6
+
+  @ steps[]
+  uses: actions/cache@v4
   with {
     key: ${{ runner.os }}-stable-${{ hashFiles('**/Cargo.toml') }}
     path = ```
@@ -35,7 +38,7 @@ cancel-in-progress: ${{github.event_name == 'pull_request'}}
       ~/.cargo/registry/cache/
       ~/.cargo/git/db/
       target/
-    ```
+      ```
   }
 
   @ steps[]
