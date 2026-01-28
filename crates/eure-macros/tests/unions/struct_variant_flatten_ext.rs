@@ -1,10 +1,5 @@
 //! Tests for struct variants with #[eure(flatten)] and #[eure(ext)] together
 //!
-//! This reproduces an issue where a union's struct variant that uses:
-//! - `#[eure(flatten)]` on one field (to parse the value directly)
-//! - `#[eure(ext)]` on another field (to parse from extensions)
-//! fails to parse correctly.
-//!
 //! Use case: A union that can be either a Text value with optional mark options,
 //! or a nested structure.
 //!
