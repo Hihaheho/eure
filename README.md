@@ -4,8 +4,8 @@
   <img alt="Eure" src="https://raw.githubusercontent.com/Hihaheho/eure/main/assets/eure-logo.svg" height="100px" >
 </picture>
 
-> [!NOTE]
-> Preparing for Alpha Release!
+Web Playground: <https://eure.dev>
+Release Blog: [Eure: filling the gap between TOML and YAML with arbitrary nesting and tagged unions](https://blog.eure.dev/articles/000-alpha-release)
 
 ## Name
 
