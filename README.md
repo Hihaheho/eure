@@ -5,6 +5,7 @@
 </picture>
 
 Web Playground: <https://eure.dev>
+
 Release Blog: [Eure: filling the gap between TOML and YAML with arbitrary nesting and tagged unions](https://blog.eure.dev/articles/000-alpha-release)
 
 ## Name
