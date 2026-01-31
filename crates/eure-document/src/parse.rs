@@ -1,4 +1,4 @@
-//! ParseDocument trait for parsing Rust types from Eure documents.
+//! FromEure trait for parsing Rust types from Eure documents.
 
 extern crate alloc;
 
@@ -476,7 +476,7 @@ impl<'doc> ParseContext<'doc> {
     }
 
     /// Parse the current node as type T.
-    pub fn parse<T: ParseDocument<'doc>>(&self) -> Result<T, T::Error> {
+    pub fn parse<T: FromEure<'doc>>(&self) -> Result<T, T::Error> {
         T::parse(self)
     }
 
@@ -550,7 +550,7 @@ impl<'doc> ParseContext<'doc> {
     /// Returns `ParseErrorKind::MissingExtension` if the extension is not present.
     pub fn parse_ext<T>(&self, name: &str) -> Result<T, T::Error>
     where
-        T: ParseDocument<'doc>,
+        T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
         self.parse_ext_with(name, T::parse)
@@ -584,7 +584,7 @@ impl<'doc> ParseContext<'doc> {
     /// Returns `Ok(None)` if the extension is not present.
     pub fn parse_ext_optional<T>(&self, name: &str) -> Result<Option<T>, T::Error>
     where
-        T: ParseDocument<'doc>,
+        T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
         self.parse_ext_optional_with(name, T::parse)
@@ -777,7 +777,7 @@ impl<'doc> ParseContext<'doc> {
 }
 
 // =============================================================================
-// ParseDocument trait
+// FromEure trait
 // =============================================================================
 
 /// Trait for parsing Rust types from Eure documents.
@@ -794,12 +794,12 @@ impl<'doc> ParseContext<'doc> {
 ///
 /// ```ignore
 /// // Reference type - borrows from document
-/// impl<'doc> ParseDocument<'doc> for &'doc str { ... }
+/// impl<'doc> FromEure<'doc> for &'doc str { ... }
 ///
 /// // Owned type - no lifetime dependency
-/// impl ParseDocument<'_> for String { ... }
+/// impl FromEure<'_> for String { ... }
 /// ```
-pub trait ParseDocument<'doc>: Sized {
+pub trait FromEure<'doc>: Sized {
     /// The error type returned by parsing.
     type Error;
 
@@ -945,7 +945,7 @@ impl ParseErrorKind {
 
 impl<'doc> EureDocument {
     /// Parse a value of type T from the given node.
-    pub fn parse<T: ParseDocument<'doc>>(&'doc self, node_id: NodeId) -> Result<T, T::Error> {
+    pub fn parse<T: FromEure<'doc>>(&'doc self, node_id: NodeId) -> Result<T, T::Error> {
         self.parse_with(node_id, T::parse)
     }
 
@@ -985,7 +985,7 @@ impl<'doc> EureDocument {
     }
 }
 
-impl<'doc> ParseDocument<'doc> for EureDocument {
+impl<'doc> FromEure<'doc> for EureDocument {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -993,7 +993,7 @@ impl<'doc> ParseDocument<'doc> for EureDocument {
     }
 }
 
-impl<'doc> ParseDocument<'doc> for &'doc str {
+impl<'doc> FromEure<'doc> for &'doc str {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -1010,7 +1010,7 @@ impl<'doc> ParseDocument<'doc> for &'doc str {
     }
 }
 
-impl ParseDocument<'_> for String {
+impl FromEure<'_> for String {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1018,7 +1018,7 @@ impl ParseDocument<'_> for String {
     }
 }
 
-impl ParseDocument<'_> for Text {
+impl FromEure<'_> for Text {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1035,7 +1035,7 @@ impl ParseDocument<'_> for Text {
     }
 }
 
-impl ParseDocument<'_> for bool {
+impl FromEure<'_> for bool {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1052,7 +1052,7 @@ impl ParseDocument<'_> for bool {
     }
 }
 
-impl ParseDocument<'_> for BigInt {
+impl FromEure<'_> for BigInt {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1069,7 +1069,7 @@ impl ParseDocument<'_> for BigInt {
     }
 }
 
-impl ParseDocument<'_> for f32 {
+impl FromEure<'_> for f32 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1086,7 +1086,7 @@ impl ParseDocument<'_> for f32 {
     }
 }
 
-impl ParseDocument<'_> for f64 {
+impl FromEure<'_> for f64 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1105,7 +1105,7 @@ impl ParseDocument<'_> for f64 {
     }
 }
 
-impl ParseDocument<'_> for u32 {
+impl FromEure<'_> for u32 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1117,7 +1117,7 @@ impl ParseDocument<'_> for u32 {
     }
 }
 
-impl ParseDocument<'_> for i32 {
+impl FromEure<'_> for i32 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1129,7 +1129,7 @@ impl ParseDocument<'_> for i32 {
     }
 }
 
-impl ParseDocument<'_> for i64 {
+impl FromEure<'_> for i64 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1141,7 +1141,7 @@ impl ParseDocument<'_> for i64 {
     }
 }
 
-impl ParseDocument<'_> for u64 {
+impl FromEure<'_> for u64 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1153,7 +1153,7 @@ impl ParseDocument<'_> for u64 {
     }
 }
 
-impl ParseDocument<'_> for usize {
+impl FromEure<'_> for usize {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1165,7 +1165,7 @@ impl ParseDocument<'_> for usize {
     }
 }
 
-impl<'doc> ParseDocument<'doc> for &'doc PrimitiveValue {
+impl<'doc> FromEure<'doc> for &'doc PrimitiveValue {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -1173,7 +1173,7 @@ impl<'doc> ParseDocument<'doc> for &'doc PrimitiveValue {
     }
 }
 
-impl ParseDocument<'_> for PrimitiveValue {
+impl FromEure<'_> for PrimitiveValue {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1181,7 +1181,7 @@ impl ParseDocument<'_> for PrimitiveValue {
     }
 }
 
-impl ParseDocument<'_> for Identifier {
+impl FromEure<'_> for Identifier {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1205,7 +1205,7 @@ impl ParseDocument<'_> for Identifier {
     }
 }
 
-impl<'doc> ParseDocument<'doc> for &'doc NodeArray {
+impl<'doc> FromEure<'doc> for &'doc NodeArray {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -1220,9 +1220,9 @@ impl<'doc> ParseDocument<'doc> for &'doc NodeArray {
     }
 }
 
-impl<'doc, T> ParseDocument<'doc> for Vec<T>
+impl<'doc, T> FromEure<'doc> for Vec<T>
 where
-    T: ParseDocument<'doc>,
+    T: FromEure<'doc>,
     T::Error: From<ParseError>,
 {
     type Error = T::Error;
@@ -1243,9 +1243,9 @@ where
     }
 }
 
-impl<'doc, T> ParseDocument<'doc> for IndexSet<T>
+impl<'doc, T> FromEure<'doc> for IndexSet<T>
 where
-    T: ParseDocument<'doc> + Eq + std::hash::Hash,
+    T: FromEure<'doc> + Eq + std::hash::Hash,
     T::Error: From<ParseError>,
 {
     type Error = T::Error;
@@ -1267,8 +1267,8 @@ where
 
 macro_rules! parse_tuple {
     ($n:expr, $($var:ident),*) => {
-        impl<'doc, $($var),*, Err> ParseDocument<'doc> for ($($var),*,)
-            where $($var: ParseDocument<'doc, Error = Err>),*,
+        impl<'doc, $($var),*, Err> FromEure<'doc> for ($($var),*,)
+            where $($var: FromEure<'doc, Error = Err>),*,
             Err: From<ParseError>,
         {
             type Error = Err;
@@ -1383,10 +1383,10 @@ macro_rules! parse_map {
     }};
 }
 
-impl<'doc, K, T> ParseDocument<'doc> for Map<K, T>
+impl<'doc, K, T> FromEure<'doc> for Map<K, T>
 where
     K: ParseObjectKey<'doc>,
-    T: ParseDocument<'doc>,
+    T: FromEure<'doc>,
     T::Error: From<ParseError>,
 {
     type Error = T::Error;
@@ -1396,10 +1396,10 @@ where
     }
 }
 
-impl<'doc, K, T> ParseDocument<'doc> for BTreeMap<K, T>
+impl<'doc, K, T> FromEure<'doc> for BTreeMap<K, T>
 where
     K: ParseObjectKey<'doc>,
-    T: ParseDocument<'doc>,
+    T: FromEure<'doc>,
     T::Error: From<ParseError>,
 {
     type Error = T::Error;
@@ -1408,10 +1408,10 @@ where
     }
 }
 
-impl<'doc, K, T> ParseDocument<'doc> for HashMap<K, T>
+impl<'doc, K, T> FromEure<'doc> for HashMap<K, T>
 where
     K: ParseObjectKey<'doc>,
-    T: ParseDocument<'doc>,
+    T: FromEure<'doc>,
     T::Error: From<ParseError>,
 {
     type Error = T::Error;
@@ -1420,10 +1420,10 @@ where
     }
 }
 
-impl<'doc, K, T> ParseDocument<'doc> for IndexMap<K, T>
+impl<'doc, K, T> FromEure<'doc> for IndexMap<K, T>
 where
     K: ParseObjectKey<'doc>,
-    T: ParseDocument<'doc>,
+    T: FromEure<'doc>,
     T::Error: From<ParseError>,
 {
     type Error = T::Error;
@@ -1432,7 +1432,7 @@ where
     }
 }
 
-impl ParseDocument<'_> for regex::Regex {
+impl FromEure<'_> for regex::Regex {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1453,9 +1453,9 @@ impl ParseDocument<'_> for regex::Regex {
 /// - `$variant: none` -> None
 /// - No `$variant` and value is null -> None
 /// - No `$variant` and value is not null -> try parsing as T (Some)
-impl<'doc, T> ParseDocument<'doc> for Option<T>
+impl<'doc, T> FromEure<'doc> for Option<T>
 where
-    T: ParseDocument<'doc>,
+    T: FromEure<'doc>,
     T::Error: From<ParseError>,
 {
     type Error = T::Error;
@@ -1486,10 +1486,10 @@ where
 /// - `$variant: ok` -> parse T as Ok
 /// - `$variant: err` -> parse E as Err
 /// - No `$variant` -> try Ok first, then Err (priority-based)
-impl<'doc, T, E, Err> ParseDocument<'doc> for Result<T, E>
+impl<'doc, T, E, Err> FromEure<'doc> for Result<T, E>
 where
-    T: ParseDocument<'doc, Error = Err>,
-    E: ParseDocument<'doc, Error = Err>,
+    T: FromEure<'doc, Error = Err>,
+    E: FromEure<'doc, Error = Err>,
     Err: From<ParseError>,
 {
     type Error = Err;
@@ -1502,7 +1502,7 @@ where
     }
 }
 
-impl ParseDocument<'_> for crate::data_model::VariantRepr {
+impl FromEure<'_> for crate::data_model::VariantRepr {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -1542,14 +1542,14 @@ impl ParseDocument<'_> for crate::data_model::VariantRepr {
     }
 }
 
-impl<'doc> ParseDocument<'doc> for () {
+impl<'doc> FromEure<'doc> for () {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         ctx.parse_tuple()?.finish()
     }
 }
 
-impl<'doc> ParseDocument<'doc> for NodeId {
+impl<'doc> FromEure<'doc> for NodeId {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
         Ok(ctx.node_id())
@@ -1596,7 +1596,7 @@ pub struct LiteralParser<T>(pub T);
 
 impl<'doc, T, E> DocumentParser<'doc> for LiteralParser<T>
 where
-    T: ParseDocument<'doc, Error = E> + PartialEq + core::fmt::Debug,
+    T: FromEure<'doc, Error = E> + PartialEq + core::fmt::Debug,
     E: From<ParseError>,
 {
     type Output = T;

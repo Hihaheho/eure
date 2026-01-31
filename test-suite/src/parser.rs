@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
 use eure::{
-    BuildSchema, ParseDocument,
+    BuildSchema, FromEure,
     document::{DocumentConstructionError, parse::ParseError as DocumentParseError},
     parol::EureParseError,
     tree::Cst,
@@ -13,7 +13,7 @@ use eure::{
 // ============================================================================
 
 /// A single completion item expected in completions scenario
-#[derive(Debug, Clone, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, FromEure, BuildSchema)]
 pub struct CompletionItem {
     pub label: String,
     #[eure(default)]
@@ -25,7 +25,7 @@ pub struct CompletionItem {
 // ============================================================================
 
 /// A single diagnostic item expected in diagnostics scenario
-#[derive(Debug, Clone, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, FromEure, BuildSchema)]
 pub struct DiagnosticItem {
     #[eure(default)]
     pub severity: Option<String>,
@@ -49,7 +49,7 @@ pub struct DiagnosticItem {
 }
 
 /// Union tag mode for validation tests.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, FromEure, BuildSchema)]
 pub enum InputUnionTagMode {
     /// Use `$variant` extension or untagged matching (default for native Eure)
     #[default]
@@ -59,7 +59,7 @@ pub enum InputUnionTagMode {
     Repr,
 }
 
-#[derive(Debug, Clone, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, FromEure, BuildSchema)]
 pub enum JsonData {
     Both {
         json: Text,
@@ -117,7 +117,7 @@ impl Default for JsonData {
 
 /// JSON Schema data for test cases - supports bidirectional testing.
 /// Similar to JsonData, but for JSON Schema conversion tests.
-#[derive(Debug, Clone, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, FromEure, BuildSchema)]
 pub enum JsonSchemaData {
     /// Same JSON Schema used for both input and output
     Both { json_schema: Text },
@@ -174,7 +174,7 @@ impl Default for JsonSchemaData {
 }
 
 /// A single test case's data fields
-#[derive(Debug, Clone, Default, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, Default, FromEure, BuildSchema)]
 pub struct CaseData {
     #[eure(default)]
     pub input_eure: Option<Text>,
@@ -244,7 +244,7 @@ impl CaseData {
     }
 }
 
-#[derive(Debug, Clone, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, FromEure, BuildSchema)]
 pub enum UnimplementedReason {
     Boolean(bool),
     Text(Text),
@@ -261,7 +261,7 @@ impl UnimplementedReason {
 }
 
 /// A file containing one or more test cases
-#[derive(Debug, Clone, ParseDocument, BuildSchema)]
+#[derive(Debug, Clone, FromEure, BuildSchema)]
 pub struct CaseFile {
     #[eure(flatten)]
     pub default_case: CaseData,

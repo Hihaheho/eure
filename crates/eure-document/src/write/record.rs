@@ -8,7 +8,7 @@ use crate::document::constructor::DocumentConstructor;
 use crate::path::PathSegment;
 use crate::value::ObjectKey;
 
-use super::{IntoDocument, WriteError};
+use super::{IntoEure, WriteError};
 
 /// Helper for writing record (map with string keys) to Eure documents.
 ///
@@ -40,7 +40,7 @@ impl<'a> RecordWriter<'a> {
     /// ```ignore
     /// rec.field("name", "Alice")?;
     /// ```
-    pub fn field<T: IntoDocument>(&mut self, name: &str, value: T) -> Result<(), WriteError> {
+    pub fn field<T: IntoEure>(&mut self, name: &str, value: T) -> Result<(), WriteError> {
         let scope = self.constructor.begin_scope();
         self.constructor
             .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))?;
@@ -57,7 +57,7 @@ impl<'a> RecordWriter<'a> {
     /// ```ignore
     /// rec.field_optional("age", self.age)?;
     /// ```
-    pub fn field_optional<T: IntoDocument>(
+    pub fn field_optional<T: IntoEure>(
         &mut self,
         name: &str,
         value: Option<T>,

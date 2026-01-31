@@ -3,7 +3,7 @@
 use crate::parse::DocumentParser;
 use crate::prelude_internal::*;
 
-use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind, ParserScope, UnionTagMode};
+use super::{FromEure, ParseContext, ParseError, ParseErrorKind, ParserScope, UnionTagMode};
 
 /// Helper for parsing record (map with string keys) from Eure documents.
 ///
@@ -22,7 +22,7 @@ use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind, ParserScope
 /// # Example
 ///
 /// ```ignore
-/// impl<'doc> ParseDocument<'doc> for User {
+/// impl<'doc> FromEure<'doc> for User {
 ///     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
 ///         let mut rec = ctx.parse_record()?;
 ///         let name = rec.field::<String>("name")?;
@@ -103,7 +103,7 @@ impl<'doc> RecordParser<'doc> {
     /// Returns `ParseErrorKind::MissingField` if the field is not present or is excluded.
     pub fn parse_field<T>(&self, name: &str) -> Result<T, T::Error>
     where
-        T: ParseDocument<'doc>,
+        T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
         self.parse_field_with(name, T::parse)
@@ -129,7 +129,7 @@ impl<'doc> RecordParser<'doc> {
 
     pub fn parse_field_optional<T>(&self, name: &str) -> Result<Option<T>, T::Error>
     where
-        T: ParseDocument<'doc>,
+        T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
         self.parse_field_optional_with(name, T::parse)
@@ -645,7 +645,7 @@ mod tests {
         e: i32,
     }
 
-    impl<'doc> ParseDocument<'doc> for ThreeLevelFlatten {
+    impl<'doc> FromEure<'doc> for ThreeLevelFlatten {
         type Error = ParseError;
 
         fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -746,7 +746,7 @@ mod tests {
             B { a: i32, b: i32 },
         }
 
-        impl<'doc> ParseDocument<'doc> for TestOption {
+        impl<'doc> FromEure<'doc> for TestOption {
             type Error = ParseError;
 
             fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -810,7 +810,7 @@ mod tests {
         ext_content: String,
     }
 
-    impl<'doc> ParseDocument<'doc> for AlternatingFlattenTest {
+    impl<'doc> FromEure<'doc> for AlternatingFlattenTest {
         type Error = ParseError;
 
         fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {

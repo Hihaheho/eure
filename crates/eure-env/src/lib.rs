@@ -16,8 +16,8 @@ pub mod cache;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
-use eure_macros::ParseDocument;
+use eure_document::parse::{FromEure, ParseContext, ParseError, ParseErrorKind};
+use eure_macros::FromEure;
 use eure_parol::EureParseError;
 
 /// The standard configuration filename.
@@ -56,7 +56,7 @@ impl From<EureParseError> for ConfigError {
 }
 
 /// A check target definition.
-#[derive(Debug, Clone, ParseDocument, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, FromEure, PartialEq, Eq, Hash)]
 #[eure(crate = eure_document, allow_unknown_fields)]
 pub struct Target {
     /// Glob patterns for files to include in this target.
@@ -68,7 +68,7 @@ pub struct Target {
 
 /// CLI-specific configuration.
 #[cfg(feature = "cli")]
-#[derive(Debug, Clone, Default, ParseDocument, PartialEq)]
+#[derive(Debug, Clone, Default, FromEure, PartialEq)]
 #[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
 pub struct CliConfig {
     /// Default targets to check when running `eure check` without arguments.
@@ -78,7 +78,7 @@ pub struct CliConfig {
 
 /// Language server configuration.
 #[cfg(feature = "ls")]
-#[derive(Debug, Clone, Default, ParseDocument, PartialEq)]
+#[derive(Debug, Clone, Default, FromEure, PartialEq)]
 #[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
 pub struct LsConfig {
     /// Whether to format on save.
@@ -87,7 +87,7 @@ pub struct LsConfig {
 }
 
 /// Security configuration for remote URL access.
-#[derive(Debug, Clone, Default, ParseDocument, PartialEq)]
+#[derive(Debug, Clone, Default, FromEure, PartialEq)]
 #[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields)]
 pub struct SecurityConfig {
     /// Additional allowed hosts for remote URL fetching (beyond eure.dev).
@@ -116,7 +116,7 @@ pub struct EureConfig {
     pub ls: Option<LsConfig>,
 }
 
-impl ParseDocument<'_> for EureConfig {
+impl FromEure<'_> for EureConfig {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {

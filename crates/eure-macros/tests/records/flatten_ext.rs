@@ -8,7 +8,7 @@
 //! - #[eure(flatten)] flattens record types
 //! - #[eure(flatten_ext)] flattens extension types from record context
 
-use eure::ParseDocument;
+use eure::FromEure;
 use eure::document::parse::ParseErrorKind;
 use std::collections::HashMap;
 
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 // =============================================================================
 
 /// Child that also parses from extensions
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct ExtValidation {
     min: Option<i32>,
@@ -25,7 +25,7 @@ struct ExtValidation {
 }
 
 /// Both parse from extensions - use flatten_ext for extension flattening
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct FullExtMeta {
     optional: bool,
@@ -38,7 +38,7 @@ struct FullExtMeta {
 // =============================================================================
 
 /// Catch all unknown extensions using flatten_ext
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct UnknownExtMeta {
     a: i32,
@@ -52,7 +52,7 @@ struct UnknownExtMeta {
 // =============================================================================
 
 /// Record that parses a single extension field
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct RecordWithSingleExt {
     name: String,
@@ -61,7 +61,7 @@ struct RecordWithSingleExt {
 }
 
 /// Record with multiple extension fields
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct RecordWithMultipleExt {
     name: String,
@@ -76,7 +76,7 @@ struct RecordWithMultipleExt {
 // =============================================================================
 
 /// Nested record type
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct NestedRecord {
     x: i32,
@@ -84,14 +84,14 @@ struct NestedRecord {
 }
 
 /// Nested extension type
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct NestedExt {
     meta: Option<String>,
 }
 
 /// Record context using flatten for record types
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct RecordWithFlatten {
     name: String,
@@ -100,7 +100,7 @@ struct RecordWithFlatten {
 }
 
 /// Record context using flatten_ext for extension types
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct RecordWithFlattenExt {
     name: String,
@@ -108,28 +108,28 @@ struct RecordWithFlattenExt {
     ext: NestedExt,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct WronglyRecord {
     a: i32,
     b: i32,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct FlattenExtWithWrongRecord {
     #[eure(flatten_ext)]
     ext: WronglyRecord,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct WronglyExt {
     c: i32,
     d: i32,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct FlattenWithWrongExt {
     #[eure(flatten)]
@@ -355,14 +355,14 @@ fn test_flatten_with_ext_parsing_type() {
 // =============================================================================
 
 /// Innermost content (record)
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct InnerContent {
     content: String,
 }
 
 /// Level 3: Record with extension (alternating)
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Level3Record {
     normal: i32,
@@ -371,7 +371,7 @@ struct Level3Record {
 }
 
 /// Level 2: Record with extension (alternating)
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Level2Record {
     normal: i32,
@@ -380,7 +380,7 @@ struct Level2Record {
 }
 
 /// Level 1: Root record with extension (alternating)
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Level1Record {
     normal: i32,

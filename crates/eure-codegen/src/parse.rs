@@ -1,4 +1,4 @@
-//! ParseDocument implementations for codegen configuration types.
+//! FromEure implementations for codegen configuration types.
 //!
 //! These types represent the `$codegen` and `$codegen-defaults` extensions
 //! defined in the Eure schema spec (`assets/schemas/eure-schema.schema.eure`).
@@ -11,7 +11,7 @@
 //! - [`RecordCodegen`] - Codegen settings for record types
 //! - [`FieldCodegen`] - Codegen settings for individual record fields
 
-use eure_macros::ParseDocument;
+use eure_macros::FromEure;
 
 // ============================================================================
 // Root-Level Codegen Types
@@ -29,7 +29,7 @@ use eure_macros::ParseDocument;
 ///   type = "MyRootType"
 /// }
 /// ```
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, FromEure)]
 #[eure(crate = eure_document)]
 pub struct RootCodegen {
     /// The root type name for the generated code.
@@ -52,7 +52,7 @@ pub struct RootCodegen {
 ///   document-node-id-field = "doc_node"
 /// }
 /// ```
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct CodegenDefaults {
     /// Default derive macros for all generated types.
@@ -93,7 +93,7 @@ pub struct CodegenDefaults {
 ///   variants.b = `integer`
 /// }
 /// ```
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct UnionCodegen {
     /// Override the generated type name (from base-codegen).
@@ -131,7 +131,7 @@ pub struct UnionCodegen {
 ///   age = `integer`
 /// }
 /// ```
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, FromEure)]
 #[eure(crate = eure_document)]
 pub struct RecordCodegen {
     /// Override the generated type name (from base-codegen).
@@ -155,7 +155,7 @@ pub struct RecordCodegen {
 ///   user-name.$codegen.name = "username"  // Rename to `username` in Rust
 /// }
 /// ```
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, FromEure)]
 #[eure(crate = eure_document)]
 pub struct FieldCodegen {
     /// Override the field name in generated Rust code.

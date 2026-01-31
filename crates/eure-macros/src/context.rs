@@ -85,9 +85,9 @@ impl MacroContext {
     }
 
     #[allow(non_snake_case)]
-    pub fn ParseDocument(&self) -> TokenStream {
+    pub fn FromEure(&self) -> TokenStream {
         let document_crate = &self.config.document_crate;
-        quote!(#document_crate::parse::ParseDocument)
+        quote!(#document_crate::parse::FromEure)
     }
 
     #[allow(non_snake_case)]
@@ -130,10 +130,10 @@ impl MacroContext {
         }
     }
 
-    pub fn impl_parse_document(&self, parse_body: TokenStream) -> TokenStream {
+    pub fn impl_from_eure(&self, parse_body: TokenStream) -> TokenStream {
         let ident = self.ident();
         let for_generics = self.for_generics();
-        let parse_document = self.ParseDocument();
+        let parse_document = self.FromEure();
         let parse_context = self.ParseContext();
         let parse_error = self.ParseError();
 
@@ -154,7 +154,7 @@ impl MacroContext {
                 }
             }
         } else if has_custom_error {
-            // Custom error specified: add ParseDocument bounds and CustomErr: From<T::Error> bounds
+            // Custom error specified: add FromEure bounds and CustomErr: From<T::Error> bounds
             let base_generics = self.impl_generics_with_parse_document_bounds();
             let from_bounds: Vec<_> = type_params
                 .iter()
@@ -191,9 +191,9 @@ impl MacroContext {
         }
     }
 
-    /// Returns impl generics with ParseDocument<'doc> bounds added to type parameters.
+    /// Returns impl generics with FromEure<'doc> bounds added to type parameters.
     fn impl_generics_with_parse_document_bounds(&self) -> Vec<TokenStream> {
-        let parse_document = self.ParseDocument();
+        let parse_document = self.FromEure();
         self.generics()
             .lifetimes()
             .map(
@@ -235,7 +235,7 @@ impl MacroContext {
 
     /// Returns impl generics with unified error type bounds for multiple type parameters.
     fn impl_generics_with_unified_error_bounds(&self, error_type: TokenStream) -> Vec<TokenStream> {
-        let parse_document = self.ParseDocument();
+        let parse_document = self.FromEure();
         self.generics()
             .lifetimes()
             .map(

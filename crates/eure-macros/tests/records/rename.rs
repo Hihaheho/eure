@@ -1,7 +1,7 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
 // Basic struct with explicit field rename
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct BasicRename {
     #[eure(rename = "userName")]
@@ -11,7 +11,7 @@ struct BasicRename {
 }
 
 // Struct with rename that overrides rename_all
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "snake_case")]
 struct RenameOverridesRenameAll {
     // This field uses rename_all (snake_case, but already snake_case so no change)
@@ -22,7 +22,7 @@ struct RenameOverridesRenameAll {
 }
 
 // Struct with ext field and rename
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct ExtFieldRename {
     name: String,
@@ -31,7 +31,7 @@ struct ExtFieldRename {
 }
 
 // Struct in parse_ext context with rename
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct ParseExtRename {
     #[eure(rename = "enableFeature")]

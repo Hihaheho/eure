@@ -1,4 +1,4 @@
-//! IntoDocument trait for writing Rust types to Eure documents.
+//! IntoEure trait for writing Rust types to Eure documents.
 
 extern crate alloc;
 
@@ -41,7 +41,7 @@ pub enum WriteError {
 /// # Examples
 ///
 /// ```ignore
-/// impl IntoDocument for User {
+/// impl IntoEure for User {
 ///     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
 ///         c.record(|rec| {
 ///             rec.field("name", self.name)?;
@@ -51,7 +51,7 @@ pub enum WriteError {
 ///     }
 /// }
 /// ```
-pub trait IntoDocument {
+pub trait IntoEure {
     /// Write this value to the current node in the document constructor.
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError>;
 }
@@ -60,98 +60,98 @@ pub trait IntoDocument {
 // Primitive implementations
 // ============================================================================
 
-impl IntoDocument for bool {
+impl IntoEure for bool {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Bool(self))?;
         Ok(())
     }
 }
 
-impl IntoDocument for i32 {
+impl IntoEure for i32 {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
         Ok(())
     }
 }
 
-impl IntoDocument for i64 {
+impl IntoEure for i64 {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
         Ok(())
     }
 }
 
-impl IntoDocument for u32 {
+impl IntoEure for u32 {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
         Ok(())
     }
 }
 
-impl IntoDocument for u64 {
+impl IntoEure for u64 {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
         Ok(())
     }
 }
 
-impl IntoDocument for usize {
+impl IntoEure for usize {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
         Ok(())
     }
 }
 
-impl IntoDocument for f32 {
+impl IntoEure for f32 {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::F32(self))?;
         Ok(())
     }
 }
 
-impl IntoDocument for f64 {
+impl IntoEure for f64 {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::F64(self))?;
         Ok(())
     }
 }
 
-impl IntoDocument for BigInt {
+impl IntoEure for BigInt {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Integer(self))?;
         Ok(())
     }
 }
 
-impl IntoDocument for String {
+impl IntoEure for String {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Text(Text::plaintext(self)))?;
         Ok(())
     }
 }
 
-impl IntoDocument for &str {
+impl IntoEure for &str {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Text(Text::plaintext(self)))?;
         Ok(())
     }
 }
 
-impl IntoDocument for Text {
+impl IntoEure for Text {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Text(self))?;
         Ok(())
     }
 }
 
-impl IntoDocument for PrimitiveValue {
+impl IntoEure for PrimitiveValue {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(self)?;
         Ok(())
     }
 }
 
-impl IntoDocument for Identifier {
+impl IntoEure for Identifier {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Text(Text::plaintext(self.into_string())))?;
         Ok(())
@@ -162,7 +162,7 @@ impl IntoDocument for Identifier {
 // Collection implementations
 // ============================================================================
 
-impl<T: IntoDocument> IntoDocument for Vec<T> {
+impl<T: IntoEure> IntoEure for Vec<T> {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_empty_array()?;
         for item in self {
@@ -175,10 +175,10 @@ impl<T: IntoDocument> IntoDocument for Vec<T> {
     }
 }
 
-impl<K, V> IntoDocument for Map<K, V>
+impl<K, V> IntoEure for Map<K, V>
 where
     K: Into<ObjectKey>,
-    V: IntoDocument,
+    V: IntoEure,
 {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_empty_map()?;
@@ -192,7 +192,7 @@ where
     }
 }
 
-impl<T: IntoDocument> IntoDocument for Option<T> {
+impl<T: IntoEure> IntoEure for Option<T> {
     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         match self {
             Some(value) => value.write_to(c),
@@ -210,7 +210,7 @@ impl<T: IntoDocument> IntoDocument for Option<T> {
 
 macro_rules! impl_into_document_tuple {
     ($n:expr, $($idx:tt: $var:ident),+) => {
-        impl<$($var: IntoDocument),+> IntoDocument for ($($var,)+) {
+        impl<$($var: IntoEure),+> IntoEure for ($($var,)+) {
             fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
                 c.bind_empty_tuple()?;
                 $(
@@ -295,11 +295,7 @@ impl DocumentConstructor {
     /// ```ignore
     /// c.set_extension("optional", true)?;
     /// ```
-    pub fn set_extension<T: IntoDocument>(
-        &mut self,
-        name: &str,
-        value: T,
-    ) -> Result<(), WriteError> {
+    pub fn set_extension<T: IntoEure>(&mut self, name: &str, value: T) -> Result<(), WriteError> {
         let ident: Identifier = name
             .parse()
             .map_err(|_| WriteError::InvalidIdentifier(name.into()))?;
@@ -318,7 +314,7 @@ impl DocumentConstructor {
     /// ```ignore
     /// c.set_extension_optional("default", self.default)?;
     /// ```
-    pub fn set_extension_optional<T: IntoDocument>(
+    pub fn set_extension_optional<T: IntoEure>(
         &mut self,
         name: &str,
         value: Option<T>,
@@ -345,14 +341,14 @@ impl DocumentConstructor {
         self.set_extension("variant", variant)
     }
 
-    /// Write a value implementing `IntoDocument` to the current node.
+    /// Write a value implementing `IntoEure` to the current node.
     ///
     /// # Example
     ///
     /// ```ignore
     /// c.write(my_value)?;
     /// ```
-    pub fn write<T: IntoDocument>(&mut self, value: T) -> Result<(), WriteError> {
+    pub fn write<T: IntoEure>(&mut self, value: T) -> Result<(), WriteError> {
         value.write_to(self)
     }
 }

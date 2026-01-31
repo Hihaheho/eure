@@ -1,21 +1,21 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct User {
     name: String,
     age: i32,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Unit;
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Point(i32, i32);
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Name(String);
 

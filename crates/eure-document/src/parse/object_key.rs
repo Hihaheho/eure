@@ -23,7 +23,7 @@ use num_bigint::BigInt;
 /// # Examples
 ///
 /// ```ignore
-/// use eure_document::{EureDocument, Map, ObjectKey, ParseDocument};
+/// use eure_document::{EureDocument, Map, ObjectKey, FromEure};
 ///
 /// // Parse map with borrowed keys (zero-copy)
 /// let map: Map<&ObjectKey, String> = doc.parse(root_id)?;

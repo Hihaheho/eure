@@ -1,10 +1,10 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
 /// Tests for enum with rename_all using untagged representation (default).
 /// Container-level rename_all only renames variant names, not struct variant fields
 /// (matching serde's behavior).
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "camelCase")]
 enum Action {
     DoSomething(String),
@@ -51,7 +51,7 @@ fn test_parse_enum_with_rename_all_camel_case_field_names_error() {
 
 // Tests for rename_all_fields attribute
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all_fields = "camelCase")]
 enum ActionWithFieldRename {
     DoSomething(String),
@@ -85,7 +85,7 @@ fn test_parse_enum_with_rename_all_fields_wrong_case_error() {
 
 // Tests for combining rename_all and rename_all_fields
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "snake_case", rename_all_fields = "camelCase")]
 enum Event {
     UserCreated { user_id: i32, created_at: String },

@@ -45,7 +45,7 @@ mod eure_macro;
 
 pub mod map;
 
-/// Zero-sized types for compile-time literal matching in `ParseDocument`.
+/// Zero-sized types for compile-time literal matching in `FromEure`.
 pub mod must_be;
 
 pub(crate) mod prelude_internal {

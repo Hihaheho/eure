@@ -105,7 +105,7 @@ fn generate_named_struct_from_record(
         quote! { ctx.deny_unknown_extensions()?; }
     };
 
-    context.impl_parse_document(quote! {
+    context.impl_from_eure(quote! {
         let rec = ctx.parse_record()?;
         let value = #ident {
             #(#field_assignments),*
@@ -153,7 +153,7 @@ fn generate_named_struct_from_ext(
 
     // No need to call deny_unknown_extensions in parse_ext context
     // (the caller is responsible for validation)
-    context.impl_parse_document(quote! {
+    context.impl_from_eure(quote! {
         let value = #ident {
             #(#field_assignments),*
         };
@@ -162,7 +162,7 @@ fn generate_named_struct_from_ext(
 }
 
 fn generate_unit_struct(context: &MacroContext, ident: &syn::Ident) -> TokenStream {
-    context.impl_parse_document(quote! {
+    context.impl_from_eure(quote! {
         ctx.parse::<()>()?;
         Ok(#ident)
     })
@@ -178,7 +178,7 @@ fn generate_tuple_struct(
         .map(|i| format_ident!("field_{}", i))
         .collect();
 
-    context.impl_parse_document(quote! {
+    context.impl_from_eure(quote! {
         let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
         Ok(#ident(#(#field_names),*))
     })
@@ -189,7 +189,7 @@ fn generate_newtype_struct(
     ident: &syn::Ident,
     field_ty: &syn::Type,
 ) -> TokenStream {
-    context.impl_parse_document(quote! {
+    context.impl_from_eure(quote! {
         let field_0 = ctx.parse::<#field_ty>()?;
         Ok(#ident(field_0))
     })

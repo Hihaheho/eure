@@ -1,13 +1,13 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "camelCase")]
 struct User {
     user_name: String,
     email_address: String,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "kebab-case")]
 struct Config {
     max_retries: i32,
@@ -15,7 +15,7 @@ struct Config {
 }
 
 #[allow(non_snake_case)]
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "snake_case")]
 struct PascalCaseFields {
     UserName: String,

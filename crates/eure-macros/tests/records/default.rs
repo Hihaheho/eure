@@ -1,4 +1,4 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
 fn default_timeout() -> i32 {
     30
@@ -9,7 +9,7 @@ fn default_name() -> String {
 }
 
 // Basic struct with Default trait
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct ConfigWithDefault {
     name: String,
@@ -20,7 +20,7 @@ struct ConfigWithDefault {
 }
 
 // Struct with custom default functions
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct ConfigWithCustomDefault {
     #[eure(default = "default_name")]
@@ -30,7 +30,7 @@ struct ConfigWithCustomDefault {
 }
 
 // Struct with ext field and default
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct ConfigWithExtDefault {
     name: String,
@@ -39,7 +39,7 @@ struct ConfigWithExtDefault {
 }
 
 // Struct with ext field and custom default
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct ConfigWithExtCustomDefault {
     name: String,
@@ -48,7 +48,7 @@ struct ConfigWithExtCustomDefault {
 }
 
 // parse_ext context with default
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct ExtFieldsWithDefault {
     required: bool,
@@ -57,7 +57,7 @@ struct ExtFieldsWithDefault {
 }
 
 // parse_ext context with custom default
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct ExtFieldsWithCustomDefault {
     #[eure(default = "default_timeout")]

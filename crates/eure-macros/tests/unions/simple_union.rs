@@ -1,6 +1,6 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 enum TestEnum {
     Unit,

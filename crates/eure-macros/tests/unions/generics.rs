@@ -1,13 +1,13 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 enum Item<T> {
     Normal(T),
     List(Vec<T>),
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 enum Either<L, R> {
     Left(L),

@@ -13,7 +13,7 @@ pub struct MacroConfig {
     pub allow_unknown_fields: bool,
     /// Allow unknown extensions instead of denying them.
     pub allow_unknown_extensions: bool,
-    /// Custom error type for the ParseDocument impl.
+    /// Custom error type for the FromEure impl.
     pub parse_error: Option<TokenStream>,
     /// Type name for BuildSchema registration.
     pub type_name: Option<String>,

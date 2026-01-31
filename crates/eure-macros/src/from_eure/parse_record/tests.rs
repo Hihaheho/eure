@@ -3,7 +3,7 @@ use quote::quote;
 use syn::parse_quote;
 
 fn generate(input: syn::DeriveInput) -> TokenStream {
-    crate::parse_document::derive(crate::create_context(input))
+    crate::from_eure::derive(crate::create_context(input))
 }
 
 #[test]
@@ -17,7 +17,7 @@ fn test_named_fields_struct() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for User<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -44,7 +44,7 @@ fn test_unit_struct() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Unit<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Unit<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -65,7 +65,7 @@ fn test_tuple_struct() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Point<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Point<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -86,7 +86,7 @@ fn test_newtype_struct() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Name<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Name<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -111,7 +111,7 @@ fn test_named_fields_struct_with_custom_crate() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure_document::parse::ParseDocument<'doc> for User<> {
+            impl<'doc,> ::eure_document::parse::FromEure<'doc> for User<> {
                 type Error = ::eure_document::parse::ParseError;
 
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -142,7 +142,7 @@ fn test_named_fields_struct_with_rename_all_camel_case() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for User<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -173,7 +173,7 @@ fn test_named_fields_struct_with_rename_all_kebab_case() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Config<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Config<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -204,7 +204,7 @@ fn test_parse_ext_basic() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for ExtFields<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for ExtFields<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -232,7 +232,7 @@ fn test_parse_ext_with_rename_all() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for ExtFields<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for ExtFields<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -260,7 +260,7 @@ fn test_flatten_field() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Person<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Person<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -293,7 +293,7 @@ fn test_multiple_flatten_fields() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Combined<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Combined<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -326,7 +326,7 @@ fn test_flatten_with_rename_all() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Person<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Person<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -361,7 +361,7 @@ fn test_flatten_ext_field() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Person<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Person<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -394,7 +394,7 @@ fn test_custom_parse_error() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for User<> {
                 type Error = MyCustomError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -424,7 +424,7 @@ fn test_custom_parse_error_with_path() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for User<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for User<> {
                 type Error = crate::errors::MyCustomError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -453,7 +453,7 @@ fn test_custom_parse_error_with_custom_crate() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure_document::parse::ParseDocument<'doc> for User<> {
+            impl<'doc,> ::eure_document::parse::FromEure<'doc> for User<> {
                 type Error = MyError;
 
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -481,7 +481,7 @@ fn test_single_type_param() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Wrapper<T> {
+            impl<'doc, T: ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::FromEure<'doc> for Wrapper<T> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -510,7 +510,7 @@ fn test_multiple_type_params() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, A: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError>, B: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Pair<A, B> {
+            impl<'doc, A: ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError>, B: ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::FromEure<'doc> for Pair<A, B> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -539,7 +539,7 @@ fn test_type_param_with_existing_bounds() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, T: Clone + ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Wrapper<T> {
+            impl<'doc, T: Clone + ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::FromEure<'doc> for Wrapper<T> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -568,9 +568,9 @@ fn test_type_param_with_custom_error() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Wrapper<T>
+            impl<'doc, T: ::eure::document::parse::FromEure<'doc> > ::eure::document::parse::FromEure<'doc> for Wrapper<T>
             where
-                MyError: From<<T as ::eure::document::parse::ParseDocument<'doc>>::Error>
+                MyError: From<<T as ::eure::document::parse::FromEure<'doc>>::Error>
             {
                 type Error = MyError;
 
@@ -601,10 +601,10 @@ fn test_multiple_type_params_with_custom_error() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, A: ::eure::document::parse::ParseDocument<'doc>, B: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Pair<A, B>
+            impl<'doc, A: ::eure::document::parse::FromEure<'doc>, B: ::eure::document::parse::FromEure<'doc> > ::eure::document::parse::FromEure<'doc> for Pair<A, B>
             where
-                MyError: From<<A as ::eure::document::parse::ParseDocument<'doc>>::Error>,
-                MyError: From<<B as ::eure::document::parse::ParseDocument<'doc>>::Error>
+                MyError: From<<A as ::eure::document::parse::FromEure<'doc>>::Error>,
+                MyError: From<<B as ::eure::document::parse::FromEure<'doc>>::Error>
             {
                 type Error = MyError;
 
@@ -632,7 +632,7 @@ fn test_newtype_struct_with_type_param() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Wrapped<T> {
+            impl<'doc, T: ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::FromEure<'doc> for Wrapped<T> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {

@@ -82,10 +82,10 @@ assert_eq!(doc.node(name_id).as_primitive().unwrap().as_str(), Some("Alice"));
 - MUST handle errors properly, and NEVER ignore or fallback errors or invalid states.
 - Error data must be enum with thiserror, never use String.
 
-**ParseDocument API:**
-- Use `ParseDocument` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.
+**FromEure API:**
+- Use `FromEure` trait for type-safe extraction from `EureDocument`. Avoid manual `node.content` matching.
 - Primitives: `doc.parse::<&str>(node_id)`, `doc.parse::<i32>(node_id)`, `doc.parse::<bool>(node_id)`
 - Records: `let rec = doc.parse_record(node_id)?; rec.field::<T>("name")?; rec.field_optional::<T>("opt")?`
 - Extensions: `let ext = doc.parse_extension(node_id); ext.field_optional::<T>("ext-name")?`
 - Collections: `doc.parse::<Vec<T>>(node_id)`, `doc.parse::<Map<K, V>>(node_id)`
-- Implement `ParseDocument` for custom types; see `crates/eure-schema/src/parse.rs` for examples.
+- Implement `FromEure` for custom types; see `crates/eure-schema/src/parse.rs` for examples.

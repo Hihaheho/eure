@@ -1,13 +1,19 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
 // Enum with variant that allows unknown fields
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 enum Message {
     Text(String),
     #[eure(allow_unknown_fields)]
-    Data { id: i32, value: String },
-    Strict { id: i32, value: String },
+    Data {
+        id: i32,
+        value: String,
+    },
+    Strict {
+        id: i32,
+        value: String,
+    },
 }
 
 #[test]
@@ -32,8 +38,8 @@ fn test_variant_allow_unknown_fields_accepts_extra() {
 
 #[test]
 fn test_variant_default_deny_unknown_fields() {
-    use eure::eure;
     use eure::document::parse::ParseErrorKind;
+    use eure::eure;
     let doc = eure!({
         %variant = "Strict",
         id = 1,

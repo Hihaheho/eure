@@ -1,7 +1,7 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
 // Struct that allows unknown fields
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, allow_unknown_fields)]
 struct ConfigWithUnknown {
     name: String,
@@ -9,7 +9,7 @@ struct ConfigWithUnknown {
 }
 
 // Default behavior: deny unknown fields
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct ConfigStrict {
     name: String,

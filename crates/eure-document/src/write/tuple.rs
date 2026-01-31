@@ -5,7 +5,7 @@ extern crate alloc;
 use crate::document::constructor::DocumentConstructor;
 use crate::path::PathSegment;
 
-use super::{IntoDocument, WriteError};
+use super::{IntoEure, WriteError};
 
 /// Helper for writing tuple types to Eure documents.
 ///
@@ -44,7 +44,7 @@ impl<'a> TupleWriter<'a> {
     /// t.next("value")?;
     /// t.next(123)?;
     /// ```
-    pub fn next<T: IntoDocument>(&mut self, value: T) -> Result<(), WriteError> {
+    pub fn next<T: IntoEure>(&mut self, value: T) -> Result<(), WriteError> {
         let scope = self.constructor.begin_scope();
         self.constructor
             .navigate(PathSegment::TupleIndex(self.position))?;

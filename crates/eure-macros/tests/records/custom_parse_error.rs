@@ -1,7 +1,7 @@
 use eure::document::parse::{ParseContext, ParseError, ParseErrorKind};
-use eure::ParseDocument;
+use eure::FromEure;
 
-/// A custom inner error type that can be returned from manual ParseDocument implementations.
+/// A custom inner error type that can be returned from manual FromEure implementations.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum InnerError {
     #[error("parse error: {0}")]
@@ -19,14 +19,14 @@ pub enum CustomError {
     Inner(#[from] InnerError),
 }
 
-/// An inner struct that uses manual ParseDocument implementation
+/// An inner struct that uses manual FromEure implementation
 /// that returns InnerError.
 #[derive(Debug, PartialEq)]
 pub struct InnerStruct {
     pub value: i32,
 }
 
-impl<'doc> eure::document::parse::ParseDocument<'doc> for InnerStruct {
+impl<'doc> eure::document::parse::FromEure<'doc> for InnerStruct {
     type Error = InnerError;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -49,7 +49,7 @@ impl<'doc> eure::document::parse::ParseDocument<'doc> for InnerStruct {
 /// The derive macro will use CustomError as the error type instead of ParseError.
 /// Since CustomError implements From<InnerError>, the `?` operator will convert
 /// InnerError to CustomError automatically.
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_error = CustomError)]
 pub struct OuterStruct {
     pub name: String,
@@ -114,7 +114,7 @@ fn test_custom_error_from_inner_error() {
 
 /// A nested struct that contains another derived struct
 /// to test that nested types also work with custom errors.
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, parse_error = CustomError)]
 pub struct NestedStruct {
     pub outer: OuterStruct,

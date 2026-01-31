@@ -1,9 +1,9 @@
-//! ParseDocument implementations for schema types.
+//! FromEure implementations for schema types.
 //!
 //! This module provides two categories of types:
 //!
-//! 1. **ParseDocument implementations for existing types** - Types that don't contain
-//!    `SchemaNodeId` can implement `ParseDocument` directly (e.g., `BindingStyle`, `TextSchema`).
+//! 1. **FromEure implementations for existing types** - Types that don't contain
+//!    `SchemaNodeId` can implement `FromEure` directly (e.g., `BindingStyle`, `TextSchema`).
 //!
 //! 2. **Parsed types** - Syntactic representations of schema types that use `NodeId`
 //!    instead of `SchemaNodeId` (e.g., `ParsedArraySchema`, `ParsedRecordSchema`).
@@ -12,7 +12,7 @@
 //!
 //! ```text
 //! EureDocument
-//!     ↓ ParseDocument trait
+//!     ↓ FromEure trait
 //! ParsedSchemaNode, ParsedArraySchema, ...
 //!     ↓ Converter (convert.rs)
 //! SchemaDocument, SchemaNode, ArraySchema, ...
@@ -21,13 +21,13 @@
 use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
-use eure_document::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use eure_document::parse::{FromEure, ParseContext, ParseError, ParseErrorKind};
 use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
 
-impl ParseDocument<'_> for TypeReference {
+impl FromEure<'_> for TypeReference {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         // TypeReference is parsed from a path like `$types.my-type` or `$types.namespace.type`
@@ -83,7 +83,7 @@ impl ParseDocument<'_> for TypeReference {
     }
 }
 
-impl ParseDocument<'_> for crate::SchemaRef {
+impl FromEure<'_> for crate::SchemaRef {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
@@ -102,7 +102,7 @@ impl ParseDocument<'_> for crate::SchemaRef {
 // ============================================================================
 
 /// Parsed integer schema - syntactic representation with range as string.
-#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[derive(Debug, Clone, eure_macros::FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedIntegerSchema {
     /// Range constraint as string (e.g., "[0, 100)", "(-∞, 0]")
@@ -114,7 +114,7 @@ pub struct ParsedIntegerSchema {
 }
 
 /// Parsed float schema - syntactic representation with range as string.
-#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[derive(Debug, Clone, eure_macros::FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedFloatSchema {
     /// Range constraint as string
@@ -129,7 +129,7 @@ pub struct ParsedFloatSchema {
 }
 
 /// Parsed array schema with NodeId references.
-#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[derive(Debug, Clone, eure_macros::FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedArraySchema {
     /// Schema for array elements
@@ -152,7 +152,7 @@ pub struct ParsedArraySchema {
 }
 
 /// Parsed map schema with NodeId references.
-#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[derive(Debug, Clone, eure_macros::FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedMapSchema {
     /// Schema for keys
@@ -168,7 +168,7 @@ pub struct ParsedMapSchema {
 }
 
 /// Parsed record field schema with NodeId reference.
-#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[derive(Debug, Clone, eure_macros::FromEure)]
 #[eure(crate = eure_document, parse_ext, rename_all = "kebab-case")]
 pub struct ParsedRecordFieldSchema {
     /// Schema for this field's value (NodeId reference)
@@ -194,7 +194,7 @@ pub enum ParsedUnknownFieldsPolicy {
     Schema(NodeId),
 }
 
-impl ParseDocument<'_> for ParsedUnknownFieldsPolicy {
+impl FromEure<'_> for ParsedUnknownFieldsPolicy {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let node = ctx.node();
@@ -231,7 +231,7 @@ pub struct ParsedRecordSchema {
     pub unknown_fields: ParsedUnknownFieldsPolicy,
 }
 
-impl ParseDocument<'_> for ParsedRecordSchema {
+impl FromEure<'_> for ParsedRecordSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         // Parse $unknown-fields extension
@@ -266,7 +266,7 @@ impl ParseDocument<'_> for ParsedRecordSchema {
 }
 
 /// Parsed tuple schema with NodeId references.
-#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[derive(Debug, Clone, eure_macros::FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case")]
 pub struct ParsedTupleSchema {
     /// Schema for each element by position (NodeId references)
@@ -290,7 +290,7 @@ pub struct ParsedUnionSchema {
     pub deny_untagged: IndexSet<String>,
 }
 
-impl ParseDocument<'_> for ParsedUnionSchema {
+impl FromEure<'_> for ParsedUnionSchema {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let rec = ctx.parse_record()?;
@@ -341,7 +341,7 @@ impl ParseDocument<'_> for ParsedUnionSchema {
 }
 
 /// Parsed extension type schema with NodeId reference.
-#[derive(Debug, Clone, eure_macros::ParseDocument)]
+#[derive(Debug, Clone, eure_macros::FromEure)]
 #[eure(crate = eure_document, parse_ext)]
 pub struct ParsedExtTypeSchema {
     /// Schema for the extension value (NodeId reference)
@@ -582,7 +582,7 @@ fn parse_map_as_schema(
     }
 }
 
-impl ParseDocument<'_> for ParsedSchemaNodeContent {
+impl FromEure<'_> for ParsedSchemaNodeContent {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         let node_id = ctx.node_id();
@@ -641,7 +641,7 @@ impl ParseDocument<'_> for ParsedSchemaNodeContent {
     }
 }
 
-impl ParseDocument<'_> for ParsedSchemaNode {
+impl FromEure<'_> for ParsedSchemaNode {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         // Create a flattened context so child parsers' deny_unknown_* are no-ops.

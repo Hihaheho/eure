@@ -1,12 +1,12 @@
-//! Zero-sized types for compile-time literal matching in `ParseDocument`.
+//! Zero-sized types for compile-time literal matching in `FromEure`.
 //!
 //! This module provides `MustBeText<M>`, a zero-sized type that only successfully
 //! parses from a specific Text value (content + language). It's similar to
-//! monostate's `MustBe!` macro but for Eure's `ParseDocument` trait.
+//! monostate's `MustBe!` macro but for Eure's `FromEure` trait.
 
 use core::marker::PhantomData;
 
-use crate::parse::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use crate::parse::{FromEure, ParseContext, ParseError, ParseErrorKind};
 use crate::text::{Language, Text};
 
 /// Marker trait for `MustBeText` types.
@@ -22,7 +22,7 @@ pub trait MustBeTextMarker: Copy {
 
 /// Zero-sized type that only parses from a specific Text value.
 ///
-/// This type implements `ParseDocument` and succeeds only when the parsed
+/// This type implements `FromEure` and succeeds only when the parsed
 /// value matches the expected content and has a compatible language.
 ///
 /// Use the `MustBeText!` macro to create instances of this type.
@@ -36,7 +36,7 @@ impl<M: MustBeTextMarker> MustBeText<M> {
     }
 }
 
-impl<M: MustBeTextMarker> ParseDocument<'_> for MustBeText<M> {
+impl<M: MustBeTextMarker> FromEure<'_> for MustBeText<M> {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {

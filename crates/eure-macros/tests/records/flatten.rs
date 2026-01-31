@@ -1,13 +1,13 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Address {
     city: String,
     country: String,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Person {
     name: String,
@@ -15,14 +15,14 @@ struct Person {
     address: Address,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct ContactInfo {
     email: String,
     phone: String,
 }
 
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct FullProfile {
     id: i32,

@@ -4,11 +4,11 @@
 //! unions contain other unions as type parameters. Inspired by blog.eure.dev's
 //! article structure which uses nested union patterns.
 
-use eure::ParseDocument;
+use eure::FromEure;
 
 /// An item can be either a single value or a list of values.
 /// Uses lowercase variant names like JSON/YAML conventions.
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "lowercase")]
 enum Item<T> {
     Normal(T),
@@ -17,7 +17,7 @@ enum Item<T> {
 
 /// A value can be either nested (containing a struct) or plain text.
 /// Uses lowercase variant names.
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "lowercase")]
 enum TextOrNested<T> {
     Nested(T),
@@ -25,7 +25,7 @@ enum TextOrNested<T> {
 }
 
 /// A simple leaf struct for nesting.
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 struct Level2 {
     title: String,
@@ -148,7 +148,7 @@ fn test_nested_union_variant_path_list() {
 // =============================================================================
 
 /// Third level of nesting for testing deep union hierarchies.
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "lowercase")]
 enum DeepChoice {
     Leaf(String),
@@ -223,7 +223,7 @@ fn test_item_nested_in_list_with_numbers() {
 }
 
 /// Either<L, R> nested inside Item<T>
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 enum Either<L, R> {
     Left(L),

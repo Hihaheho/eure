@@ -1,7 +1,7 @@
-use eure::ParseDocument;
+use eure::FromEure;
 
 // Basic enum with explicit variant rename
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 enum BasicVariantRename {
     #[eure(rename = "first_action")]
@@ -11,7 +11,7 @@ enum BasicVariantRename {
 }
 
 // Enum with rename that overrides rename_all
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "snake_case")]
 enum RenameOverridesRenameAll {
     // This variant uses rename_all (snake_case)
@@ -22,7 +22,7 @@ enum RenameOverridesRenameAll {
 }
 
 // Enum with struct variant and field rename
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 enum StructVariantFieldRename {
     Simple(String),
@@ -35,7 +35,7 @@ enum StructVariantFieldRename {
 }
 
 // Enum with field rename that overrides rename_all_fields
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all_fields = "camelCase")]
 enum FieldRenameOverridesRenameAllFields {
     Data {
@@ -48,7 +48,7 @@ enum FieldRenameOverridesRenameAllFields {
 }
 
 // Enum with both variant and field renames
-#[derive(Debug, PartialEq, ParseDocument)]
+#[derive(Debug, PartialEq, FromEure)]
 #[eure(crate = ::eure::document, rename_all = "snake_case", rename_all_fields = "camelCase")]
 enum CombinedRenames {
     // Variant uses explicit rename, overriding rename_all
@@ -88,14 +88,16 @@ fn test_variant_rename_overrides_rename_all() {
     // NormalVariant uses rename_all (snake_case -> normal_variant)
     let doc1 = eure!({ = "test" });
     assert_eq!(
-        doc1.parse::<RenameOverridesRenameAll>(doc1.get_root_id()).unwrap(),
+        doc1.parse::<RenameOverridesRenameAll>(doc1.get_root_id())
+            .unwrap(),
         RenameOverridesRenameAll::NormalVariant("test".to_string())
     );
 
     // OverriddenVariant uses explicit rename "customName"
     let doc2 = eure!({ = 123 });
     assert_eq!(
-        doc2.parse::<RenameOverridesRenameAll>(doc2.get_root_id()).unwrap(),
+        doc2.parse::<RenameOverridesRenameAll>(doc2.get_root_id())
+            .unwrap(),
         RenameOverridesRenameAll::OverriddenVariant(123)
     );
 }
@@ -105,7 +107,8 @@ fn test_struct_variant_field_rename() {
     use eure::eure;
     let doc = eure!({ = { userName => "Alice", userAge => 30 } });
     assert_eq!(
-        doc.parse::<StructVariantFieldRename>(doc.get_root_id()).unwrap(),
+        doc.parse::<StructVariantFieldRename>(doc.get_root_id())
+            .unwrap(),
         StructVariantFieldRename::Complex {
             user_name: "Alice".to_string(),
             user_age: 30
@@ -129,7 +132,8 @@ fn test_field_rename_overrides_rename_all_fields() {
     // last_name uses explicit rename "customField"
     let doc = eure!({ = { firstName => "John", customField => "Doe" } });
     assert_eq!(
-        doc.parse::<FieldRenameOverridesRenameAllFields>(doc.get_root_id()).unwrap(),
+        doc.parse::<FieldRenameOverridesRenameAllFields>(doc.get_root_id())
+            .unwrap(),
         FieldRenameOverridesRenameAllFields::Data {
             first_name: "John".to_string(),
             last_name: "Doe".to_string()

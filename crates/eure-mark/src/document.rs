@@ -1,10 +1,10 @@
 //! Eumd document data structures
 
-use eure::ParseDocument;
+use eure::FromEure;
 use eure_document::map::Map;
 
 /// Root document structure for `.eumd` files
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct EumdDocument {
     /// Schema reference (extension field)
@@ -52,7 +52,7 @@ pub struct EumdDocument {
 }
 
 /// Author information
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub enum Author {
     /// Detailed author information (try first due to more specific shape)
@@ -63,7 +63,7 @@ pub enum Author {
 }
 
 /// Detailed author information
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct DetailedAuthor {
     pub name: String,
@@ -76,7 +76,7 @@ pub struct DetailedAuthor {
 }
 
 /// Footnote definition
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct Footnote {
     /// Footnote content (inline markdown)
@@ -84,7 +84,7 @@ pub struct Footnote {
 }
 
 /// Section structure (recursive)
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct Section {
     /// Section header (inline markdown). If omitted, section key is used.

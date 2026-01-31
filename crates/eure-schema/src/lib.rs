@@ -40,7 +40,7 @@ pub use build::{BuildSchema, SchemaBuilder};
 use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
-use eure_macros::ParseDocument;
+use eure_macros::FromEure;
 use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 use regex::Regex;
@@ -262,7 +262,7 @@ pub enum Bound<T> {
 /// max-length = .integer (optional)
 /// pattern = .text (optional)
 /// ```
-#[derive(Debug, Clone, Default, ParseDocument)]
+#[derive(Debug, Clone, Default, FromEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields, allow_unknown_extensions)]
 pub struct TextSchema {
     /// Language identifier (e.g., "rust", "javascript", "email", "plaintext")
@@ -518,7 +518,7 @@ pub struct UnionSchema {
 /// $variant: union
 /// variants { auto, passthrough, section, nested, binding, section-binding, section-root-binding }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Default, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, FromEure)]
 #[eure(crate = ::eure_document, rename_all = "kebab-case")]
 pub enum BindingStyle {
     /// Automatically determine the best representation
@@ -564,7 +564,7 @@ pub struct TypeReference {
 /// ```eure
 /// description => { $variant: union, variants.string => .text, variants.markdown => .text.markdown }
 /// ```
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = eure_document, rename_all = "lowercase")]
 pub enum Description {
     /// Plain text description

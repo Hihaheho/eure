@@ -18,7 +18,7 @@ pub fn generate_union_parser(context: &MacroContext, input: &DataEnum) -> TokenS
     let variants = variants
         .iter()
         .map(|variant| generate_variant(context, variant));
-    context.impl_parse_document(quote! {
+    context.impl_from_eure(quote! {
         ctx.parse_union(#variant_repr)?
             #(#variants)*
             .parse()

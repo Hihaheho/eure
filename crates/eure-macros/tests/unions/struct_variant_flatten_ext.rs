@@ -15,11 +15,11 @@
 //! - text: the markdown code block
 //! - mark: MarkOptions { alert: Some(AlertType::Note) }
 
-use eure::ParseDocument;
+use eure::FromEure;
 use eure::value::Text;
 
 /// Alert type enum
-#[derive(Debug, Clone, Copy, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, Copy, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub enum AlertType {
     #[eure(rename = "NOTE")]
@@ -31,7 +31,7 @@ pub enum AlertType {
 }
 
 /// Mark options parsed from extensions
-#[derive(Debug, Clone, PartialEq, ParseDocument, Default)]
+#[derive(Debug, Clone, PartialEq, FromEure, Default)]
 #[eure(crate = ::eure::document)]
 pub struct MarkOptions {
     #[eure(default)]
@@ -39,7 +39,7 @@ pub struct MarkOptions {
 }
 
 /// Union that can be Text with extensions, or a nested struct
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub enum TextOrNested {
     /// Text variant with flattened text and extension-parsed mark options
@@ -53,7 +53,7 @@ pub enum TextOrNested {
     Nested(NestedContent),
 }
 
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct NestedContent {
     pub header: String,
@@ -134,7 +134,7 @@ fn test_nested_variant() {
 // =============================================================================
 
 /// Simpler enum to isolate the issue
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub enum SimpleTextOrMap {
     /// Text with optional extension

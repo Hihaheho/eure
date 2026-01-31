@@ -166,9 +166,9 @@ impl<'a> Converter<'a> {
         Ok(())
     }
 
-    /// Convert a document node to a schema node using ParseDocument trait
+    /// Convert a document node to a schema node using FromEure trait
     fn convert_node(&mut self, node_id: NodeId) -> Result<SchemaNodeId, ConversionError> {
-        // Parse the node using ParseDocument trait
+        // Parse the node using FromEure trait
         let parsed: ParsedSchemaNode = self.doc.parse(node_id)?;
 
         // Convert the parsed node to final schema

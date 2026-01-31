@@ -3,7 +3,7 @@ use quote::quote;
 use syn::parse_quote;
 
 fn generate(input: syn::DeriveInput) -> TokenStream {
-    crate::parse_document::derive(crate::create_context(input))
+    crate::from_eure::derive(crate::create_context(input))
 }
 
 #[test]
@@ -16,7 +16,7 @@ fn test_unit_variant() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TestEnum<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -40,7 +40,7 @@ fn test_tuple_variant() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TestEnum<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -64,7 +64,7 @@ fn test_struct_variant() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TestEnum<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -96,7 +96,7 @@ fn test_newtype_variant() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TestEnum<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -123,7 +123,7 @@ fn test_mixed_variants() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TestEnum<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -162,7 +162,7 @@ fn test_mixed_variants_with_custom_crate() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure_document::parse::ParseDocument<'doc> for TestEnum<> {
+            impl<'doc,> ::eure_document::parse::FromEure<'doc> for TestEnum<> {
                 type Error = ::eure_document::parse::ParseError;
 
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -199,7 +199,7 @@ fn test_unit_variant_with_rename_all_snake_case() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Event<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -227,7 +227,7 @@ fn test_struct_variant_with_rename_all_camel_case() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Event<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -261,7 +261,7 @@ fn test_struct_variant_with_rename_all_fields() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Event<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -295,7 +295,7 @@ fn test_struct_variant_with_both_rename_all_and_rename_all_fields() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Event<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Event<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -331,7 +331,7 @@ fn test_struct_variant_with_flatten() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Entity<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Entity<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -365,7 +365,7 @@ fn test_enum_custom_parse_error() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TestEnum<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
                 type Error = MyCustomError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -391,7 +391,7 @@ fn test_enum_single_type_param() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Item<T> {
+            impl<'doc, T: ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::FromEure<'doc> for Item<T> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -417,7 +417,7 @@ fn test_enum_multiple_type_params() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, L: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError>, R: ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Either<L, R> {
+            impl<'doc, L: ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError>, R: ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::FromEure<'doc> for Either<L, R> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -442,7 +442,7 @@ fn test_enum_type_param_with_existing_bounds() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, T: Clone + ::eure::document::parse::ParseDocument<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::ParseDocument<'doc> for Item<T> {
+            impl<'doc, T: Clone + ::eure::document::parse::FromEure<'doc, Error = ::eure::document::parse::ParseError> > ::eure::document::parse::FromEure<'doc> for Item<T> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -467,9 +467,9 @@ fn test_enum_type_param_with_custom_error() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, T: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Item<T>
+            impl<'doc, T: ::eure::document::parse::FromEure<'doc> > ::eure::document::parse::FromEure<'doc> for Item<T>
             where
-                MyError: From<<T as ::eure::document::parse::ParseDocument<'doc>>::Error>
+                MyError: From<<T as ::eure::document::parse::FromEure<'doc>>::Error>
             {
                 type Error = MyError;
 
@@ -496,10 +496,10 @@ fn test_enum_multiple_type_params_with_custom_error() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc, L: ::eure::document::parse::ParseDocument<'doc>, R: ::eure::document::parse::ParseDocument<'doc> > ::eure::document::parse::ParseDocument<'doc> for Either<L, R>
+            impl<'doc, L: ::eure::document::parse::FromEure<'doc>, R: ::eure::document::parse::FromEure<'doc> > ::eure::document::parse::FromEure<'doc> for Either<L, R>
             where
-                MyError: From<<L as ::eure::document::parse::ParseDocument<'doc>>::Error>,
-                MyError: From<<R as ::eure::document::parse::ParseDocument<'doc>>::Error>
+                MyError: From<<L as ::eure::document::parse::FromEure<'doc>>::Error>,
+                MyError: From<<R as ::eure::document::parse::FromEure<'doc>>::Error>
             {
                 type Error = MyError;
 
@@ -534,7 +534,7 @@ fn test_struct_variant_flatten_only() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Content<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Content<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -568,7 +568,7 @@ fn test_struct_variant_ext_only() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Item<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -602,7 +602,7 @@ fn test_struct_variant_ext_with_default() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Item<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -641,7 +641,7 @@ fn test_struct_variant_flatten_and_ext() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for TextOrNested<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TextOrNested<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -677,7 +677,7 @@ fn test_struct_variant_ext_with_regular_fields() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Item<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
@@ -713,7 +713,7 @@ fn test_struct_variant_flatten_ext_only() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::ParseDocument<'doc> for Item<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Item<> {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {

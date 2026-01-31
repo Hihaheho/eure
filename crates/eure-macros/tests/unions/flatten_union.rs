@@ -2,14 +2,14 @@
 //!
 //! BUG: parse_map! doesn't mark fields as accessed, causing deny_unknown_fields to fail.
 
-use eure::ParseDocument;
+use eure::FromEure;
 use indexmap::IndexMap;
 
 // =============================================================================
 // Minimal reproduction: flatten with IndexMap
 // =============================================================================
 
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct Container {
     pub name: String,
@@ -45,27 +45,27 @@ fn test_flatten_indexmap_simple() {
 // Flatten with nested union (blog.eure.dev pattern)
 // =============================================================================
 
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub enum Item<T> {
     Normal(T),
     List(Vec<T>),
 }
 
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub enum TextOrNested<T> {
     Text(String),
     Nested(T),
 }
 
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct Level3 {
     pub title: String,
 }
 
-#[derive(Debug, Clone, PartialEq, ParseDocument)]
+#[derive(Debug, Clone, PartialEq, FromEure)]
 #[eure(crate = ::eure::document)]
 pub struct Level2 {
     pub header: String,

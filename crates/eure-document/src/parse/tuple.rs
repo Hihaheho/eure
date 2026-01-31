@@ -7,7 +7,7 @@ use alloc::format;
 use crate::document::node::NodeTuple;
 use crate::prelude_internal::*;
 
-use super::{ParseContext, ParseDocument, ParseError, ParseErrorKind};
+use super::{FromEure, ParseContext, ParseError, ParseErrorKind};
 
 /// Helper for parsing tuple types from Eure documents.
 ///
@@ -78,7 +78,7 @@ impl<'doc> TupleParser<'doc> {
     #[allow(clippy::should_implement_trait)]
     pub fn next<T>(&mut self) -> Result<T, T::Error>
     where
-        T: ParseDocument<'doc>,
+        T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
         let index = self.position;
@@ -96,7 +96,7 @@ impl<'doc> TupleParser<'doc> {
     /// Returns `ParseErrorKind::MissingField` if the index is out of bounds.
     pub fn get<T>(&self, index: usize) -> Result<T, T::Error>
     where
-        T: ParseDocument<'doc>,
+        T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
         let element_node_id = self.tuple.get(index).ok_or_else(|| ParseError {

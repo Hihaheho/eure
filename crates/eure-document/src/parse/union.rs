@@ -11,7 +11,7 @@ use crate::data_model::VariantRepr;
 use crate::document::node::NodeValue;
 use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
-use crate::parse::{DocumentParser, ParseDocument};
+use crate::parse::{DocumentParser, FromEure};
 use crate::value::ObjectKey;
 
 use super::variant_path::VariantPath;
@@ -137,7 +137,7 @@ fn try_extract_adjacent(
 /// # Example
 ///
 /// ```ignore
-/// impl<'doc> ParseDocument<'doc> for Description {
+/// impl<'doc> FromEure<'doc> for Description {
 ///     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
 ///         ctx.parse_union(VariantRepr::default())?
 ///             .variant("string", |ctx| {
@@ -366,8 +366,8 @@ where
         self
     }
 
-    /// Register a variant with short-circuit semantics using ParseDocument.
-    pub fn parse_variant<V: ParseDocument<'doc, Error = E>>(
+    /// Register a variant with short-circuit semantics using FromEure.
+    pub fn parse_variant<V: FromEure<'doc, Error = E>>(
         mut self,
         name: &str,
         mut then: impl FnMut(V) -> Result<T, E>,
@@ -397,8 +397,8 @@ where
         self
     }
 
-    /// Register a variant with unambiguous semantics using ParseDocument.
-    pub fn parse_variant_unambiguous<V: ParseDocument<'doc, Error = E>>(
+    /// Register a variant with unambiguous semantics using FromEure.
+    pub fn parse_variant_unambiguous<V: FromEure<'doc, Error = E>>(
         mut self,
         name: &str,
         mut then: impl FnMut(V) -> Result<T, E>,
