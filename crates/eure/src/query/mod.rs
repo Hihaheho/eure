@@ -12,6 +12,7 @@ pub mod error;
 #[cfg(feature = "http")]
 pub mod http;
 pub mod parse;
+pub mod report;
 pub mod schema;
 pub mod semantic_token;
 pub mod validation;
@@ -52,15 +53,16 @@ pub use http::fetch_url;
 #[cfg(feature = "native")]
 pub use http::{CacheOptions, base_cache_dir, fetch_url_cached, https_cache_dir, parse_duration};
 pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst};
+pub use report::WithFormattedError;
 #[cfg(feature = "http")]
 pub use reqwest;
 pub use schema::{
-    DocumentToSchemaQuery, GetSchemaConversionErrorFormatted, GetSchemaExtension,
-    GetSchemaExtensionDiagnostics, GetValidationErrorsFormatted,
-    GetValidationErrorsFormattedExplicit, GetValidationErrorsFormattedExplicitWithMode,
-    GetValidationErrorsFormattedWithMode, ResolveSchema, UnionTagMode,
-    ValidateAgainstExplicitSchema, ValidateAgainstExplicitSchemaWithMode, ValidateAgainstSchema,
-    ValidateAgainstSchemaWithMode, ValidatedSchema,
+    DocumentToSchemaQuery, GetSchemaExtension, GetSchemaExtensionDiagnostics,
+    GetValidationErrorsFormatted, GetValidationErrorsFormattedExplicit,
+    GetValidationErrorsFormattedExplicitWithMode, GetValidationErrorsFormattedWithMode,
+    ResolveSchema, UnionTagMode, ValidateAgainstExplicitSchema,
+    ValidateAgainstExplicitSchemaWithMode, ValidateAgainstSchema, ValidateAgainstSchemaWithMode,
+    ValidatedSchema,
 };
 pub use semantic_token::{
     GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens,

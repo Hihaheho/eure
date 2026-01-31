@@ -72,30 +72,6 @@ pub fn document_to_schema_query(
     }
 }
 
-/// Try to convert document to SchemaDocument and return formatted error if conversion fails.
-///
-/// Returns `Some(formatted_error)` if conversion fails.
-/// Returns `None` if parsing failed or conversion succeeds.
-#[query(debug = "{Self}({file})")]
-pub fn get_schema_conversion_error_formatted(
-    db: &impl Db,
-    file: TextFile,
-) -> Result<Option<String>, QueryError> {
-    match db.query(DocumentToSchemaQuery::new(file.clone())) {
-        Ok(_) => Ok(None), // Schema conversion succeeded
-        Err(QueryError::UserError(e)) => {
-            // Try to downcast to ErrorReports
-            if let Some(reports) = e.downcast_ref::<ErrorReports>() {
-                Ok(Some(format_error_reports(db, reports, false)?))
-            } else {
-                // Can't downcast, re-propagate the error
-                Err(QueryError::UserError(e))
-            }
-        }
-        Err(other) => Err(other), // Re-propagate system errors
-    }
-}
-
 /// Validate document against schema.
 ///
 /// Resolves the schema internally from the document's $schema extension,
