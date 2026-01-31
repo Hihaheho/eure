@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
+use eure_document::parse::FromEure;
 use eure_parol::{EureParseError, ParseResult, parse_tolerant};
 use eure_tree::prelude::Cst;
-use query_flow::{Db, QueryError, query};
+use query_flow::{Db, QueryError, QueryOutput, query};
 
 use crate::document::{
     DocumentConstructionError, EureDocument, OriginMap, cst_to_document_and_origin_map,
@@ -96,4 +97,20 @@ fn report_document_error(
         .or_else(|| error.span(cst))
         .unwrap_or(InputSpan::EMPTY);
     ErrorReport::error(error.to_string(), Origin::new(file, span))
+}
+
+#[query(debug = "{Self}({file})")]
+pub fn parse_eure<T: for<'doc> FromEure<'doc> + QueryOutput>(
+    db: &impl Db,
+    file: TextFile,
+) -> Result<T, QueryError>
+where
+    for<'doc> <T as FromEure<'doc>>::Error: Into<anyhow::Error>,
+{
+    let parsed = db.query(ParseDocument::new(file.clone()))?;
+    parsed
+        .doc
+        .parse(parsed.doc.get_root_id())
+        .map_err(Into::into)
+        .map_err(Into::into)
 }
