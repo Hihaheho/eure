@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use eure_document::value::ObjectKey;
 use eure_schema::SchemaDocument;
-use eure_schema::convert::{ConversionError, SchemaSourceMap, document_to_schema};
+use eure_schema::convert::{SchemaSourceMap, document_to_schema};
 pub use eure_schema::validate::UnionTagMode;
 use eure_schema::validate::{ValidationError, validate, validate_with_mode};
 use eure_tree::prelude::Cst;
@@ -20,6 +20,7 @@ use crate::report::{
 
 use super::assets::TextFile;
 use super::config::ResolveConfig;
+use super::error::FileError;
 use super::parse::{ParseCst, ParseDocument, ParsedDocument};
 
 /// Validated schema with the SchemaDocument and source map.
@@ -51,7 +52,8 @@ pub struct ResolvedSchema {
 /// Convert document to SchemaDocument.
 ///
 /// Returns `None` if parsing failed.
-/// Returns `UserError` if schema conversion fails.
+/// Returns `UserError(SchemaConversionError)` if schema conversion fails.
+/// The `SchemaConversionError` contains the file information for proper error reporting.
 #[query(debug = "{Self}({file})")]
 pub fn document_to_schema_query(
     db: &impl Db,
@@ -59,17 +61,15 @@ pub fn document_to_schema_query(
 ) -> Result<ValidatedSchema, QueryError> {
     let parsed = db.query(ParseDocument::new(file.clone()))?;
 
-    match document_to_schema(&parsed.doc) {
-        Ok((schema, source_map)) => Ok(ValidatedSchema {
-            schema: Arc::new(schema),
-            source_map: Arc::new(source_map),
-            parsed: parsed.as_ref().clone(),
-        }),
-        Err(e) => {
-            let cst = db.query(ParseCst::new(file.clone()))?;
-            Err(report_schema_conversion_error(&e, &parsed, &cst.cst, file))?
-        }
-    }
+    let (schema, source_map) = document_to_schema(&parsed.doc).map_err(|kind| FileError {
+        file: file.clone(),
+        kind,
+    })?;
+    Ok(ValidatedSchema {
+        schema: Arc::new(schema),
+        source_map: Arc::new(source_map),
+        parsed: parsed.as_ref().clone(),
+    })
 }
 
 /// Validate document against schema.
@@ -519,26 +519,4 @@ pub fn resolve_validation_error_span(
         // For all other errors, use the standard node span
         _ => origins.get_value_span(node_id, cst),
     }
-}
-
-/// Convert schema conversion error to ErrorReports.
-fn report_schema_conversion_error(
-    error: &ConversionError,
-    parsed: &ParsedDocument,
-    cst: &Cst,
-    file: TextFile,
-) -> ErrorReports {
-    // FIXME: Fallback to EMPTY span when span resolution fails or for non-ParseError errors.
-    // This reports errors at the file start instead of the actual error location.
-    // Non-ParseError cases should attempt to provide better location information.
-    let span = match error {
-        ConversionError::ParseError(parse_error) => parsed
-            .origins
-            .get_value_span(parse_error.node_id, cst)
-            .unwrap_or(InputSpan::EMPTY),
-        _ => InputSpan::EMPTY,
-    };
-
-    let origin = Origin::new(file, span);
-    ErrorReports::from(vec![ErrorReport::error(error.to_string(), origin)])
 }

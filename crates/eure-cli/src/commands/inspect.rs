@@ -40,7 +40,7 @@ pub fn run(args: Args) {
     // Parse with tolerant mode
     let parsed = match runtime.query(ParseCst::new(file.clone())) {
         Ok(result) => result,
-        Err(e) => handle_query_error(&runtime, e),
+        Err(e) => handle_query_error(e),
     };
 
     // Print any parse errors

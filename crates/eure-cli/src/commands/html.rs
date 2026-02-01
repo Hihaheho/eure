@@ -49,7 +49,7 @@ pub fn run(args: Args) {
     // Get semantic tokens
     let tokens = match runtime.query(GetSemanticTokens::new(file)) {
         Ok(result) => result,
-        Err(e) => handle_query_error(&runtime, e),
+        Err(e) => handle_query_error(e),
     };
 
     // 4. Get color palette

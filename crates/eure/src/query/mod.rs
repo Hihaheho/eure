@@ -22,7 +22,7 @@ pub use assets::{
     DecorStyle, DecorStyleKey, Glob, GlobResult, OpenDocuments, OpenDocumentsList, TextFile,
     TextFileContent, Workspace, WorkspaceId,
 };
-pub use error::EureQueryError;
+pub use error::{EureQueryError, FileError};
 
 use query_flow::{QueryRuntime, QueryRuntimeBuilder};
 
@@ -52,8 +52,8 @@ pub use diagnostics::{
 pub use http::fetch_url;
 #[cfg(feature = "native")]
 pub use http::{CacheOptions, base_cache_dir, fetch_url_cached, https_cache_dir, parse_duration};
-pub use parse::{ParseCst, ParseDocument, ParsedCst, ParsedDocument, ValidCst};
-pub use report::WithFormattedError;
+pub use parse::{ParseCst, ParseDocument, ParseEure, ParsedCst, ParsedDocument, ValidCst};
+pub use report::{WithErrorReports, WithFormattedError};
 #[cfg(feature = "http")]
 pub use reqwest;
 pub use schema::{

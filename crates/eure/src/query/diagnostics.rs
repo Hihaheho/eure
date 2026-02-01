@@ -21,6 +21,7 @@ use crate::query::parse::{ParseCst, ParseDocument};
 use crate::report::{ErrorReport, ErrorReports};
 
 use super::assets::{OpenDocuments, OpenDocumentsList, TextFile};
+use super::report::WithErrorReports;
 use super::schema::{
     DocumentToSchemaQuery, GetSchemaExtension, GetSchemaExtensionDiagnostics, ResolveSchema,
     ValidateAgainstSchema,
@@ -84,16 +85,18 @@ pub fn get_schema_conversion_diagnostics(
         return Ok(vec![]);
     }
 
-    match db.query(DocumentToSchemaQuery::new(file.clone())) {
+    match db
+        .query(WithErrorReports::new(DocumentToSchemaQuery::new(
+            file.clone(),
+        )))
+        .downcast_err::<ErrorReports>()?
+    {
         Ok(_) => Ok(vec![]),
-        Err(QueryError::UserError(e)) => {
-            if let Some(reports) = e.downcast_ref::<ErrorReports>() {
-                Ok(reports.iter().map(error_report_to_diagnostic).collect())
-            } else {
-                Err(QueryError::UserError(e))
-            }
-        }
-        Err(other) => Err(other),
+        Err(reports) => Ok(reports
+            .get()
+            .iter()
+            .map(error_report_to_diagnostic)
+            .collect()),
     }
 }
 
@@ -204,10 +207,11 @@ pub fn get_validation_diagnostics(
     };
 
     // Check if schema can be converted (detect schema errors)
-    // DocumentToSchemaQuery returns:
-    // - EureQueryError::ContentNotFound when file doesn't exist
-    // - ErrorReports when schema has conversion errors
-    let schema_result = db.query(DocumentToSchemaQuery::new(resolved_schema.file.clone()));
+    // WithErrorReports converts ConversionError to ErrorReports
+    // EureQueryError (ContentNotFound, HostNotAllowed, etc.) propagates as-is
+    let schema_result = db.query(WithErrorReports::new(DocumentToSchemaQuery::new(
+        resolved_schema.file.clone(),
+    )));
     match schema_result {
         Ok(_) => {
             // Schema is valid, proceed with validation
@@ -234,7 +238,7 @@ pub fn get_validation_diagnostics(
             }
         }
         Err(QueryError::UserError(e)) => {
-            // Schema has conversion errors - emit a warning in the document
+            // Schema has errors - emit a warning/error in the document
             // Location depends on whether schema was explicit ($schema) or implicit (config)
             let (start, end) = if let Some(origin) = &resolved_schema.origin {
                 // Explicit: use the $schema value span
@@ -244,7 +248,7 @@ pub fn get_validation_diagnostics(
                 (0, 1)
             };
 
-            // Check for specific error types
+            // Check for EureQueryError (system errors) first
             if let Some(query_err) = e.downcast_ref::<EureQueryError>() {
                 match query_err {
                     EureQueryError::ContentNotFound(text_file) => {
@@ -288,14 +292,23 @@ pub fn get_validation_diagnostics(
                         });
                     }
                 }
-            } else {
-                // Schema has conversion errors (ErrorReports or other)
+            } else if e.downcast_ref::<ErrorReports>().is_some() {
+                // Schema has conversion errors (ConversionError converted to ErrorReports)
                 diagnostics.push(DiagnosticMessage {
                     file: doc_file.clone(),
                     start,
                     end,
                     message: "Schema has errors, validation skipped".to_string(),
                     severity: DiagnosticSeverity::Warning,
+                });
+            } else {
+                // Other unexpected error
+                diagnostics.push(DiagnosticMessage {
+                    file: doc_file.clone(),
+                    start,
+                    end,
+                    message: format!("Schema error: {}", e),
+                    severity: DiagnosticSeverity::Error,
                 });
             }
         }

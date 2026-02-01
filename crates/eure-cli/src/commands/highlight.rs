@@ -33,7 +33,7 @@ pub fn run(args: Args) {
     // Get semantic tokens
     let tokens = match runtime.query(GetSemanticTokens::new(file)) {
         Ok(result) => result,
-        Err(e) => handle_query_error(&runtime, e),
+        Err(e) => handle_query_error(e),
     };
 
     // Build colored output

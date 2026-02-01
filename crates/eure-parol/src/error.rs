@@ -35,6 +35,8 @@ impl fmt::Display for EureParseError {
     }
 }
 
+impl std::error::Error for EureParseError {}
+
 impl fmt::Display for ParseErrorEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message)?;

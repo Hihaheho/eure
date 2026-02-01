@@ -7,10 +7,10 @@ use eure_env::EureConfig;
 use query_flow::{Db, QueryError, query};
 
 use crate::document::cst_to_document_and_origin_map;
-use crate::report::report_config_error;
 
 use super::assets::{TextFile, WorkspaceId};
-use super::parse::{ParseCst, ParseDocument};
+use super::error::FileError;
+use super::parse::ParseDocument;
 
 /// Resolved configuration with its directory.
 #[derive(Clone, PartialEq)]
@@ -21,23 +21,23 @@ pub struct ResolvedConfig {
 }
 
 /// Parse EureConfig from a config file.
+///
+/// Returns `FileError<ConfigError>` on failure, preserving the strongly-typed
+/// error for programmatic handling. Use `WithErrorReports` to convert to
+/// `ErrorReports` for display.
 #[query(debug = "{Self}({config_file})")]
 pub fn parse_config(db: &impl Db, config_file: TextFile) -> Result<EureConfig, QueryError> {
     let parsed = db.query(ParseDocument::new(config_file.clone()))?;
     let root_id = parsed.doc.get_root_id();
 
-    match parsed.doc.parse::<EureConfig>(root_id) {
-        Ok(config) => Ok(config),
-        Err(e) => {
-            let cst = db.query(ParseCst::new(config_file.clone()))?;
-            Err(report_config_error(
-                &eure_env::ConfigError::from(e),
-                config_file,
-                &cst.cst,
-                &parsed.origins,
-            ))?
-        }
-    }
+    parsed
+        .doc
+        .parse::<EureConfig>(root_id)
+        .map_err(|e| FileError {
+            file: config_file,
+            kind: eure_env::ConfigError::from(e),
+        })
+        .map_err(QueryError::from)
 }
 
 /// Resolve the EureConfig that applies to a file.

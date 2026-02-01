@@ -9,10 +9,10 @@ use query_flow::{Db, QueryError, QueryOutput, query};
 use crate::document::{
     DocumentConstructionError, EureDocument, OriginMap, cst_to_document_and_origin_map,
 };
-use crate::query::error::EureQueryError;
 use crate::report::{ErrorReport, ErrorReports, IntoErrorReports, Origin};
 
-use super::assets::{TextFile, TextFileContent};
+use super::assets::TextFile;
+use super::error::FileError;
 
 /// Result of tolerant parsing - always returns CST, optionally with error.
 #[derive(Clone, PartialEq)]
@@ -21,17 +21,13 @@ pub struct ParsedCst {
     pub error: Option<EureParseError>,
 }
 
-pub fn read_text_file(db: &impl Db, file: TextFile) -> Result<Arc<TextFileContent>, QueryError> {
-    db.asset(file.clone())
-}
-
 /// Step 1: Parse text content to CST (tolerant).
 ///
 /// Always succeeds and returns a (possibly partial) CST.
 /// Parse errors are included in the result for downstream processing.
 #[query(debug = "{Self}({file})")]
 pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> {
-    let text = read_text_file(db, file.clone())?;
+    let text = db.asset(file.clone())?;
     let parsed = match parse_tolerant(text.get()) {
         ParseResult::Ok(cst) => ParsedCst { cst, error: None },
         ParseResult::ErrWithCst { cst, error } => ParsedCst {
@@ -46,7 +42,11 @@ pub fn parse_cst(db: &impl Db, file: TextFile) -> Result<ParsedCst, QueryError> 
 pub fn valid_cst(db: &impl Db, file: TextFile) -> Result<Cst, QueryError> {
     let parsed = db.query(ParseCst::new(file.clone()))?;
     if let Some(error) = &parsed.error {
-        return Err(EureQueryError::ParseError(error.clone()).into());
+        return Err(FileError {
+            file,
+            kind: error.clone(),
+        }
+        .into());
     }
     Ok(parsed.cst.clone())
 }
@@ -66,7 +66,7 @@ pub struct ParsedDocument {
 pub fn parse_document(db: &impl Db, file: TextFile) -> Result<ParsedDocument, QueryError> {
     // Get CST from previous step
     let cst = db.query(ValidCst::new(file.clone()))?;
-    let source = read_text_file(db, file.clone())?;
+    let source = db.asset(file.clone())?;
 
     // Build document
     match cst_to_document_and_origin_map(source.get(), &cst) {

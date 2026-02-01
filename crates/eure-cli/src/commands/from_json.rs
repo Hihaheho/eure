@@ -63,7 +63,7 @@ pub fn run(args: Args) {
     // 5. Execute query to convert JSON to EureDocument
     let document = match runtime.query(JsonToEure::new(file.clone(), config)) {
         Ok(doc) => doc,
-        Err(e) => handle_query_error(&runtime, e),
+        Err(e) => handle_query_error(e),
     };
 
     // 6. Build minimal SourceDocument for formatting

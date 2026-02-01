@@ -8,7 +8,6 @@ use eure::query::{
     CacheOptions, Glob, GlobResult, TextFile, TextFileContent, fetch_url, fetch_url_cached,
 };
 use eure::query_flow::{DurabilityLevel, Query, QueryError, QueryRuntime};
-use eure::report::{ErrorReports, format_error_reports};
 
 /// Read input from file path or stdin.
 /// - `None` or `Some("-")` reads from stdin
@@ -44,20 +43,35 @@ pub enum VariantFormat {
     Untagged,
 }
 
-/// Handle query errors by printing formatted error reports and exiting.
+/// Handle results from queries wrapped with `WithFormattedError`.
 ///
-/// This function provides unified error handling for CLI commands:
-/// - If the error contains `ErrorReports`, formats and prints them
-/// - Otherwise prints the error message directly
-pub fn handle_query_error(runtime: &QueryRuntime, e: QueryError) -> ! {
-    if let Some(reports) = e.downcast_ref::<ErrorReports>() {
-        eprintln!(
-            "{}",
-            format_error_reports(runtime, reports, true).expect("file content should be loaded")
-        );
-    } else {
-        eprintln!("Error: {e}");
+/// - `Ok(Ok(value))` - returns the value
+/// - `Ok(Err(formatted))` - prints the formatted error and exits
+/// - `Err(e)` - prints the system error and exits
+pub fn handle_formatted_error<T>(
+    result: Result<Arc<Result<Arc<T>, String>>, QueryError>,
+) -> Arc<T> {
+    match result {
+        Ok(inner) => match inner.as_ref() {
+            Ok(value) => value.clone(),
+            Err(formatted_error) => {
+                eprintln!("{formatted_error}");
+                std::process::exit(1);
+            }
+        },
+        Err(e) => {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
     }
+}
+
+/// Handle query errors by printing the error message and exiting.
+///
+/// Use this for queries that don't produce formatted error reports
+/// (e.g., tolerant parsing or non-Eure formats).
+pub fn handle_query_error(e: QueryError) -> ! {
+    eprintln!("Error: {e}");
     std::process::exit(1);
 }
 

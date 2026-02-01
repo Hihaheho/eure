@@ -1,9 +1,9 @@
-use eure::query::{TextFile, TextFileContent, ValidCst, build_runtime};
+use eure::query::{TextFile, TextFileContent, ValidCst, WithFormattedError, build_runtime};
 use eure::query_flow::DurabilityLevel;
 use eure::tree::write_cst;
 use eure_fmt::unformat::{unformat, unformat_with_seed};
 
-use crate::util::{display_path, handle_query_error, read_input};
+use crate::util::{display_path, handle_formatted_error, read_input};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -34,10 +34,9 @@ pub fn run(args: Args) {
     );
 
     // Parse CST (fails on parse errors)
-    let cst = match runtime.query(ValidCst::new(file)) {
-        Ok(result) => result,
-        Err(e) => handle_query_error(&runtime, e),
-    };
+    let cst = handle_formatted_error(
+        runtime.query(WithFormattedError::new(ValidCst::new(file), true)),
+    );
 
     // Clone CST for mutation
     let mut tree = (*cst).clone();

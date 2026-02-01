@@ -8,7 +8,8 @@ use std::time::Instant;
 
 use eure::query::{
     DecorStyle, DecorStyleKey, TextFile, TextFileContent, ValidateDocument, ValidateTargetResult,
-    ValidateTargets, ValidateTargetsResult, Workspace, WorkspaceId, build_runtime, load_config,
+    ValidateTargets, ValidateTargetsResult, WithFormattedError, Workspace, WorkspaceId,
+    build_runtime, load_config,
 };
 use eure::query_flow::DurabilityLevel;
 use eure::report::{ErrorReports, format_error_reports};
@@ -16,7 +17,7 @@ use eure_env::{CONFIG_FILENAME, EureConfig};
 use nu_ansi_term::Color;
 
 use crate::args::CacheArgs;
-use crate::util::{handle_query_error, read_input, run_query_with_file_loading_cached};
+use crate::util::{handle_formatted_error, read_input, run_query_with_file_loading_cached};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -140,16 +141,15 @@ fn run_project_mode(args: Args, config_path: &Path) {
 
     let cache_opts = args.cache.to_cache_options();
 
-    let result = match run_query_with_file_loading_cached(
+    let result = handle_formatted_error(run_query_with_file_loading_cached(
         &runtime,
-        ValidateTargets::new(Arc::new(targets), config_dir.to_path_buf()),
+        WithFormattedError::new(
+            ValidateTargets::new(Arc::new(targets), config_dir.to_path_buf()),
+            true,
+        ),
         Some(&cache_opts),
-    ) {
-        Ok(r) => r,
-        Err(e) => handle_query_error(&runtime, e),
-    };
+    ));
 
-    // Report results
     report_targets_result(&runtime, &result, &args, target_names.len(), start);
 }
 
@@ -233,18 +233,13 @@ fn run_file_mode(args: Args) {
         sf
     });
 
-    // Single query for validation
     let cache_opts = args.cache.to_cache_options();
-    let result = match run_query_with_file_loading_cached(
+    let result = handle_formatted_error(run_query_with_file_loading_cached(
         &runtime,
-        ValidateDocument::new(doc_file.clone(), schema_file),
+        WithFormattedError::new(ValidateDocument::new(doc_file.clone(), schema_file), true),
         Some(&cache_opts),
-    ) {
-        Ok(r) => r,
-        Err(e) => handle_query_error(&runtime, e),
-    };
+    ));
 
-    // Report result
     report_document_result(&runtime, file, &result, args.quiet, start);
 }
 
