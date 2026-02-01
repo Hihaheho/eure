@@ -8,11 +8,13 @@ use crate::{
 };
 use dioxus::prelude::*;
 use eure::query::{
-    DiagnosticMessage, EureQueryError, GetFileDiagnostics, GetSemanticTokens, OpenDocuments,
-    OpenDocumentsList, SemanticToken, TextFile, TextFileContent, TextFileLocator, Workspace,
-    WorkspaceId,
+    DecorStyle, DecorStyleKey, DiagnosticMessage, EureQueryError, GetFileDiagnostics,
+    GetFileErrorReports, GetSemanticTokens, OpenDocuments, OpenDocumentsList, SemanticToken,
+    TextFile, TextFileContent, TextFileLocator, Workspace, WorkspaceId,
 };
-use eure::report::{ErrorReports, error_reports_comparator, format_error_report};
+use eure::report::{
+    ErrorReports, error_reports_comparator, format_error_report, format_error_reports,
+};
 use eure_json::EureToJsonFormatted;
 use query_flow::{DurabilityLevel, QueryError, QueryRuntime, QueryRuntimeBuilder, Tracer};
 use url::Url;
@@ -48,10 +50,6 @@ struct AllErrors {
 impl AllErrors {
     fn total_count(&self) -> usize {
         self.doc_errors.len() + self.schema_errors.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.total_count() == 0
     }
 }
 
@@ -401,6 +399,7 @@ fn run_queries<T: query_flow::tracer::Tracer>(
     mut json_output: Signal<String>,
     mut json_errors: Signal<Vec<String>>,
     mut all_errors: Signal<AllErrors>,
+    mut formatted_errors_html: Signal<String>,
 ) -> Vec<Url> {
     let mut pending_urls = Vec::new();
 
@@ -491,6 +490,31 @@ fn run_queries<T: query_flow::tracer::Tracer>(
         schema_errors,
     });
 
+    // Get error reports and format them for CLI-style display
+    let mut all_reports = ErrorReports::new();
+
+    match runtime.query(GetFileErrorReports::new(doc_file.clone())) {
+        Ok(reports) => all_reports.extend((*reports).clone()),
+        Err(QueryError::Suspend { .. }) => collect_pending_urls(),
+        Err(e) => tracing::error!("Error reports query failed: {}", e),
+    }
+
+    match runtime.query(GetFileErrorReports::new(schema_file.clone())) {
+        Ok(reports) => all_reports.extend((*reports).clone()),
+        Err(QueryError::Suspend { .. }) => collect_pending_urls(),
+        Err(e) => tracing::error!("Error reports query failed: {}", e),
+    }
+
+    let formatted = if all_reports.is_empty() {
+        String::new()
+    } else {
+        match format_error_reports(runtime, &all_reports, true) {
+            Ok(ansi) => ansi_to_html::convert(&ansi).unwrap_or(ansi),
+            Err(e) => format!("Error formatting reports: {}", e),
+        }
+    };
+    formatted_errors_html.set(formatted);
+
     pending_urls
 }
 
@@ -511,6 +535,8 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
             .error_comparator(error_reports_comparator)
             .build();
         runtime.register_asset_locator(TextFileLocator);
+        // Register Unicode decor style for CLI-style error output
+        runtime.resolve_asset(DecorStyleKey, DecorStyle::Unicode, DurabilityLevel::Static);
         EureExample::register_all(&runtime);
         runtime
     });
@@ -541,6 +567,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
     let json_output: Signal<String> = use_signal(String::new);
     let json_errors: Signal<Vec<String>> = use_signal(Vec::new);
     let all_errors: Signal<AllErrors> = use_signal(AllErrors::default);
+    let formatted_errors_html: Signal<String> = use_signal(String::new);
 
     // Trace signals
     let mut trace_entries: Signal<Vec<TraceEntry>> = use_signal(Vec::new);
@@ -564,6 +591,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
             json_output,
             json_errors,
             all_errors,
+            formatted_errors_html,
         );
 
         // Resolve any pending local files as ContentNotFound
@@ -593,6 +621,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                 json_output,
                 json_errors,
                 all_errors,
+                formatted_errors_html,
             );
         }
 
@@ -620,6 +649,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                     json_output,
                     json_errors,
                     all_errors,
+                    formatted_errors_html,
                 );
 
                 // Update trace entries after async queries
@@ -848,7 +878,7 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                             }
                         },
                         RightTab::Errors => rsx! {
-                            div { class: "p-3 font-mono text-sm",
+                            div { class: "p-3 font-mono text-sm overflow-auto",
                                 // Show loading indicator when fetching remote schemas
                                 if !pending_remote_urls().is_empty() {
                                     div {
@@ -858,36 +888,11 @@ pub fn Home(example: ReadSignal<Option<String>>, tab: ReadSignal<Option<String>>
                                     }
                                 }
 
-                                if all_errors().is_empty() {
+                                if formatted_errors_html().is_empty() {
                                     span { class: "opacity-50", "No errors" }
                                 } else {
-                                    if !all_errors().doc_errors.is_empty() {
-                                        div { class: "mb-4",
-                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "Document Errors ({all_errors().doc_errors.len()})"
-                                            }
-                                            for error in all_errors().doc_errors.iter() {
-                                                div {
-                                                    class: "mb-2 p-2 rounded border",
-                                                    style: "border-color: {border_color}",
-                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if !all_errors().schema_errors.is_empty() {
-                                        div { class: "mb-4",
-                                            div { class: "text-xs font-bold uppercase opacity-60 mb-2",
-                                                "Schema Errors ({all_errors().schema_errors.len()})"
-                                            }
-                                            for error in all_errors().schema_errors.iter() {
-                                                div {
-                                                    class: "mb-2 p-2 rounded border",
-                                                    style: "border-color: {border_color}",
-                                                    pre { class: "whitespace-pre-wrap", "{error.message}" }
-                                                }
-                                            }
-                                        }
+                                    pre {
+                                        dangerous_inner_html: "{formatted_errors_html()}"
                                     }
                                 }
                             }
