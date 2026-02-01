@@ -117,7 +117,7 @@ pub fn get_document_construction_diagnostics(
 
     // Try to construct document from valid CST
     match db
-        .query(ParseDocument::new(file.clone()))
+        .query(WithErrorReports::new(ParseDocument::new(file.clone())))
         .downcast_err::<ErrorReports>()?
     {
         Err(e) => {

@@ -21,7 +21,7 @@ use eure_tree::tree::InputSpan;
 use query_flow::{Db, QueryError};
 use thisisplural::Plural;
 
-use crate::document::OriginMap;
+use crate::document::{DocumentConstructionError, OriginMap};
 use crate::query::{
     DecorStyle, DecorStyleKey, DocumentToSchemaQuery, ParseCst, ParseDocument, TextFile,
     TextFileContent, ValidCst,
@@ -378,6 +378,22 @@ pub fn report_parse_error(error: &EureParseError, file: TextFile) -> ErrorReport
         .iter()
         .map(|entry| report_parse_entry(entry, file.clone()))
         .collect()
+}
+
+/// Convert a document construction error to an ErrorReport.
+/// Uses OriginMap for precise key span resolution when available.
+pub fn report_document_error(
+    error: &DocumentConstructionError,
+    file: TextFile,
+    cst: &Cst,
+    origins: &OriginMap,
+) -> ErrorReport {
+    // Use span_with_origin_map for precise key spans, fallback to regular span
+    let span = error
+        .span_with_origin_map(cst, origins)
+        .or_else(|| error.span(cst))
+        .unwrap_or(InputSpan::EMPTY);
+    ErrorReport::error(error.to_string(), Origin::new(file, span))
 }
 
 fn report_parse_entry(entry: &ParseErrorEntry, file: TextFile) -> ErrorReport {

@@ -3,13 +3,10 @@ use std::sync::Arc;
 use eure_document::parse::FromEure;
 use eure_parol::{EureParseError, ParseResult, parse_tolerant};
 use eure_tree::prelude::Cst;
-use eure_tree::tree::InputSpan;
 use query_flow::{Db, QueryError, QueryOutput, query};
 
-use crate::document::{
-    DocumentConstructionError, EureDocument, OriginMap, cst_to_document_and_origin_map,
-};
-use crate::report::{ErrorReport, ErrorReports, IntoErrorReports, Origin};
+use crate::document::{EureDocument, OriginMap, cst_to_document_and_origin_map};
+use crate::report::IntoErrorReports;
 
 use super::assets::TextFile;
 use super::error::FileError;
@@ -74,29 +71,8 @@ pub fn parse_document(db: &impl Db, file: TextFile) -> Result<ParsedDocument, Qu
             doc: Arc::new(doc),
             origins: Arc::new(origins),
         }),
-        Err(e) => Err(ErrorReports::from(vec![report_document_error(
-            &e.error,
-            file,
-            &cst,
-            &e.partial_origins,
-        )]))?,
+        Err(e) => Err(FileError { file, kind: e })?,
     }
-}
-
-/// Convert a document construction error to an ErrorReport.
-/// Uses OriginMap for precise key span resolution when available.
-fn report_document_error(
-    error: &DocumentConstructionError,
-    file: TextFile,
-    cst: &Cst,
-    origins: &OriginMap,
-) -> ErrorReport {
-    // Use span_with_origin_map for precise key spans, fallback to regular span
-    let span = error
-        .span_with_origin_map(cst, origins)
-        .or_else(|| error.span(cst))
-        .unwrap_or(InputSpan::EMPTY);
-    ErrorReport::error(error.to_string(), Origin::new(file, span))
 }
 
 #[query(debug = "{Self}({file})")]

@@ -7,9 +7,10 @@ use query_flow::{Cachable, Db, Query, QueryError, QueryResultExt as _, query};
 
 use super::error::{EureQueryError, FileError};
 use super::parse::{ParseCst, ParseDocument};
+use crate::document::DocumentConstructionErrorWithOriginMap;
 use crate::report::{
     ErrorReports, format_error_reports, report_config_error, report_conversion_error,
-    report_parse_error,
+    report_document_error, report_parse_error,
 };
 
 /// Wraps a query and converts all user errors to `ErrorReports`.
@@ -71,6 +72,20 @@ where
             if let Some(error) = original.downcast_ref::<FileError<EureParseError>>() {
                 let reports = report_parse_error(&error.kind, error.file.clone());
                 return Err(reports.into());
+            }
+
+            // Try FileError<Box<DocumentConstructionErrorWithOriginMap>>
+            if let Some(error) =
+                original.downcast_ref::<FileError<Box<DocumentConstructionErrorWithOriginMap>>>()
+                && let Ok(cst) = db.query(ParseCst::new(error.file.clone()))
+            {
+                let report = report_document_error(
+                    &error.kind.error,
+                    error.file.clone(),
+                    &cst.cst,
+                    &error.kind.partial_origins,
+                );
+                return Err(ErrorReports::from(vec![report]).into());
             }
 
             // EureQueryError (ContentNotFound, HostNotAllowed, etc.) propagate as-is
