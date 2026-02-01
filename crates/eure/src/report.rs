@@ -8,6 +8,7 @@ use std::borrow::Cow;
 
 use annotate_snippets::renderer::DecorStyle as AnnotateDecorStyle;
 use eure_document::document::NodeId;
+use eure_document::parse::ParseError;
 use eure_document::path::EurePath;
 use eure_document::value::ObjectKey;
 use eure_parol::EureParseError;
@@ -339,6 +340,31 @@ pub enum Element {
         message: Cow<'static, str>,
         replacement: Cow<'static, str>,
     },
+}
+
+// ============================================================================
+// IntoErrorReports Trait
+// ============================================================================
+
+/// Trait for errors that can be converted to ErrorReports.
+///
+/// This trait allows custom error types to be converted to `ErrorReports`
+/// for rich error reporting with source locations.
+pub trait IntoErrorReports {
+    fn to_error_reports(&self, db: &impl Db, file: TextFile) -> Result<ErrorReports, QueryError>;
+}
+
+impl IntoErrorReports for ParseError {
+    fn to_error_reports(&self, db: &impl Db, file: TextFile) -> Result<ErrorReports, QueryError> {
+        let parsed_cst = db.query(ParseCst::new(file.clone()))?;
+        let parsed = db.query(ParseDocument::new(file.clone()))?;
+        Ok(report_from_eure_parse_error(
+            self,
+            file,
+            &parsed_cst.cst,
+            &parsed.origins,
+        ))
+    }
 }
 
 // ============================================================================
@@ -1099,6 +1125,24 @@ pub fn error_reports_comparator(a: &anyhow::Error, b: &anyhow::Error) -> bool {
     }
 }
 
+/// Convert a FromEure ParseError to ErrorReports.
+///
+/// This is the shared implementation used by both `IntoErrorReports` and `report_config_error`.
+pub fn report_from_eure_parse_error(
+    error: &ParseError,
+    file: TextFile,
+    cst: &Cst,
+    origins: &OriginMap,
+) -> ErrorReports {
+    // FIXME: Fallback to EMPTY span when node span resolution fails.
+    // Should set is_fallback flag on Origin when span is missing.
+    let span = origins
+        .get_value_span(error.node_id, cst)
+        .unwrap_or(InputSpan::EMPTY);
+    let origin = Origin::with_hints(file, span, OriginHints::default().with_doc(error.node_id));
+    ErrorReports::from(vec![ErrorReport::error(error.to_string(), origin)])
+}
+
 /// Convert a ConfigError to ErrorReports.
 pub fn report_config_error(
     error: &eure_env::ConfigError,
@@ -1116,16 +1160,6 @@ pub fn report_config_error(
             Origin::new(file, InputSpan::EMPTY),
         )]),
         ConfigError::Syntax(e) => report_parse_error(e, file),
-        ConfigError::Parse(e) => {
-            // FIXME: Fallback to EMPTY span when node span resolution fails.
-            // Should set is_fallback flag on Origin when span is missing.
-            let span = origins
-                .get_value_span(e.node_id, cst)
-                .unwrap_or(InputSpan::EMPTY);
-            ErrorReports::from(vec![ErrorReport::error(
-                e.to_string(),
-                Origin::new(file, span),
-            )])
-        }
+        ConfigError::Parse(e) => report_from_eure_parse_error(e, file, cst, origins),
     }
 }
