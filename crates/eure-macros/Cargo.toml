@@ -26,3 +26,4 @@ eure-document = { workspace = true }
 eure-schema = { workspace = true }
 indexmap = { workspace = true }
 thiserror = { workspace = true }
+trybuild = "1.0"
