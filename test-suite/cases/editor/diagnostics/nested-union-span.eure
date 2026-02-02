@@ -119,7 +119,8 @@ print("hello")
 severity = "error"
 source = "editor.eure"
 message = "Language mismatch: expected yaml, got Other(\"python\") at path value.code (based on nearest variant 'yaml' for union at path value)"
-span = "```python"
+start = 41
+end = 69
 
 @ cases.out-of-range
 
@@ -330,7 +331,7 @@ value {
 severity = "error"
 source = "editor.eure"
 message = "Missing required field 'name' at path value (based on nearest variant 'full' for union at path value)"
-span = "value {"
+span = "value"
 
 @ cases.tuple-length-mismatch
 
@@ -552,7 +553,8 @@ value {
 severity = "error"
 source = "editor.eure"
 message = "Invalid variant tag 'invalid-tag' at path value.inner (based on nearest variant 'option-b' for union at path value)"
-span = "inner {"
+start = 34
+end = 86
 
 // ============================================================================
 // Errors NOT applicable to nested union span descent:

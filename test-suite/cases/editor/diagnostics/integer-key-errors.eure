@@ -61,7 +61,7 @@ a.3.1 = "duplicate"
 severity = "error"
 source = "editor.eure"
 message = "Document insert error: Insert error: Binding target already has a value at a.3.1"
-span = "a.3.1"
+span = "a.3.1 = \"duplicate\""
 
 // Type mismatch - trying to navigate into scalar value
 @cases.type-mismatch-scalar
@@ -74,7 +74,8 @@ x.3.1 = "trying-to-nest"
 severity = "error"
 source = "editor.eure"
 message = "Document insert error: Insert error: Expected map at x.3"
-span = "x.3.1"
+span = "3"
+span_index = 2
 
 // Array marker on scalar - trying to make scalar into array
 @cases.array-on-scalar
@@ -87,7 +88,7 @@ item.2.3[] = "array-item"
 severity = "error"
 source = "editor.eure"
 message = "Document insert error: Insert error: Expected array at item.2.3"
-span = "item.2.3"
+span = "2.3[]"
 
 // First error stops document construction
 @cases.first-error-stops
@@ -166,7 +167,7 @@ severity = "error"
 source = "editor.eure"
 message = "Document insert error: Insert error: Binding target already has a value at a.3.1"
 // TODO: When OriginMap is available in error context, this should be just "1"
-span = "a.3.1"
+span = "a.3.1 = \"duplicate\""
 
 // Precise span test: trying to extend scalar at first key of float pattern
 // This demonstrates precise span tracking for split float keys
@@ -182,3 +183,4 @@ source = "editor.eure"
 message = "Document insert error: Insert error: Expected map at a.3"
 // Precise span: points to just "3" from the float "3.2"
 span = "3"
+span_index = 2

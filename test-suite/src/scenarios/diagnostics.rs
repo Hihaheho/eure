@@ -62,6 +62,64 @@ impl Scenario for DiagnosticsScenario {
             });
         }
 
+        // Verify spans when specified.
+        // Keep the order aligned with diagnostics comparison above.
+        for (index, expected) in self.diagnostics.iter().enumerate() {
+            if expected.span.is_none() && expected.start.is_none() && expected.end.is_none() {
+                continue;
+            }
+
+            let Some((file, actual)) = actual_diagnostics_by_file.get(index) else {
+                continue;
+            };
+
+            let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(file.clone())?;
+            let (actual_start, actual_end) = diagnostic_to_offsets(actual, source.get());
+
+            if let Some(expected_span) = expected.span.as_deref() {
+                let (span_start, span_end) =
+                    find_span(source.get(), expected_span, expected.span_index, index)?;
+                if actual_start as i64 != span_start as i64 {
+                    return Err(ScenarioError::SpanMismatch {
+                        diagnostic_index: index,
+                        field: "start".to_string(),
+                        expected: span_start as i64,
+                        actual: actual_start as i64,
+                    });
+                }
+                if actual_end as i64 != span_end as i64 {
+                    return Err(ScenarioError::SpanMismatch {
+                        diagnostic_index: index,
+                        field: "end".to_string(),
+                        expected: span_end as i64,
+                        actual: actual_end as i64,
+                    });
+                }
+            }
+
+            if let Some(expected_start) = expected.start
+                && actual_start as i64 != expected_start
+            {
+                return Err(ScenarioError::SpanMismatch {
+                    diagnostic_index: index,
+                    field: "start".to_string(),
+                    expected: expected_start,
+                    actual: actual_start as i64,
+                });
+            }
+
+            if let Some(expected_end) = expected.end
+                && actual_end as i64 != expected_end
+            {
+                return Err(ScenarioError::SpanMismatch {
+                    diagnostic_index: index,
+                    field: "end".to_string(),
+                    expected: expected_end,
+                    actual: actual_end as i64,
+                });
+            }
+        }
+
         Ok(())
     }
 }
@@ -87,4 +145,77 @@ fn format_lsp_diagnostic(diag: &lsp_types::Diagnostic, file: &TextFile) -> Strin
         _ => "error",
     };
     format!("[{}] {} ({})", severity, diag.message, file)
+}
+
+fn diagnostic_to_offsets(diag: &lsp_types::Diagnostic, source: &str) -> (usize, usize) {
+    let line_offsets = compute_line_offsets(source);
+    let start = position_to_offset(diag.range.start, source, &line_offsets);
+    let end = position_to_offset(diag.range.end, source, &line_offsets);
+    (start, end)
+}
+
+fn compute_line_offsets(source: &str) -> Vec<usize> {
+    let mut offsets = vec![0];
+    for (i, c) in source.char_indices() {
+        if c == '\n' {
+            offsets.push(i + 1);
+        }
+    }
+    offsets
+}
+
+fn position_to_offset(pos: lsp_types::Position, source: &str, line_offsets: &[usize]) -> usize {
+    let line = (pos.line as usize).min(line_offsets.len().saturating_sub(1));
+    let line_start = line_offsets[line];
+    let line_end = line_offsets.get(line + 1).copied().unwrap_or(source.len());
+    let line_str = &source[line_start..line_end];
+
+    let mut utf16_units = 0u32;
+    let mut byte_offset = 0usize;
+    for ch in line_str.chars() {
+        if utf16_units >= pos.character {
+            break;
+        }
+        utf16_units += ch.len_utf16() as u32;
+        byte_offset += ch.len_utf8();
+    }
+
+    (line_start + byte_offset).min(source.len())
+}
+
+fn find_span(
+    source: &str,
+    span: &str,
+    span_index: Option<i64>,
+    diagnostic_index: usize,
+) -> Result<(usize, usize), ScenarioError> {
+    let matches: Vec<(usize, &str)> = source.match_indices(span).collect();
+    if matches.is_empty() {
+        return Err(ScenarioError::SpanStringNotFound {
+            diagnostic_index,
+            span: span.to_string(),
+        });
+    }
+
+    if let Some(index) = span_index {
+        let one_based = index.max(1) as usize;
+        if let Some((start, _)) = matches.get(one_based - 1) {
+            return Ok((*start, *start + span.len()));
+        }
+        return Err(ScenarioError::SpanStringNotFound {
+            diagnostic_index,
+            span: span.to_string(),
+        });
+    }
+
+    if matches.len() > 1 {
+        return Err(ScenarioError::SpanStringAmbiguous {
+            diagnostic_index,
+            span: span.to_string(),
+            occurrences: matches.len(),
+        });
+    }
+
+    let (start, _) = matches[0];
+    Ok((start, start + span.len()))
 }

@@ -40,6 +40,9 @@ pub struct DiagnosticItem {
     /// exactly once in the editor content.
     #[eure(default)]
     pub span: Option<String>,
+    /// 1-based occurrence index when span text matches multiple times.
+    #[eure(default)]
+    pub span_index: Option<i64>,
     /// Expected start byte offset (for span verification)
     #[eure(default)]
     pub start: Option<i64>,

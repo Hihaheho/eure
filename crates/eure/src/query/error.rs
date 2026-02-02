@@ -16,7 +16,7 @@ pub enum EureQueryError {
     #[error("Offline mode: no cached version available for {0}")]
     OfflineNoCache(Url),
     #[error(
-        "Remote host not allowed: {host} (URL: {url}). Add the host to security.allowed-hosts in Eure.eure"
+        "Remote host not allowed: {host} (URL: {url}). If you trust this host, add it to security.allowed-hosts in Eure.eure"
     )]
     HostNotAllowed { url: Url, host: String },
     #[error("Invalid URL '{url}': {reason}")]

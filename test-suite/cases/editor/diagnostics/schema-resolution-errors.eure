@@ -12,7 +12,7 @@ name = "test"
 @ cases.local-file-not-found.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Failed to load schema file: non-existing.eure"
+message = "Failed to load schema file non-existing.eure: file not found"
 span = `"non-existing.eure"`
 
 // Case 2: Local path that doesn't exist (not a URL)
@@ -25,7 +25,7 @@ name = "test"
 @ cases.local-path-not-found.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Failed to load schema file: htt"
+message = "Failed to load schema file htt: file not found"
 span = `"htt"`
 
 // Case 3: Invalid URL (malformed https://)
@@ -38,7 +38,7 @@ name = "test"
 @ cases.invalid-url.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Invalid URL 'https://': empty host"
+message = "Failed to load schema file https://: empty host"
 span = `"https://"`
 
 // Case 4: Host not in allowlist
@@ -52,5 +52,5 @@ name = "test"
 @ cases.host-not-allowed.diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Remote host not allowed: invalid.example.com (URL: https://invalid.example.com/schema.eure). If you trust this host, add it to security.allowed-hosts in Eure.eure"
+message = "Failed to load schema file https://invalid.example.com/schema.eure: remote host not allowed: invalid.example.com. If you trust this host, add it to security.allowed-hosts in Eure.eure"
 span = `"https://invalid.example.com/schema.eure"`

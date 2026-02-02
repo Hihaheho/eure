@@ -45,8 +45,7 @@ pub fn build_runtime() -> QueryRuntime {
 pub use config::{LoadConfigError, ParseConfig, ResolveConfig, ResolvedConfig, load_config};
 pub use diagnostics::{
     CollectDiagnosticTargets, CollectSchemaFiles, DiagnosticMessage, DiagnosticSeverity,
-    GetAllDiagnostics, GetDiagnostics, GetDocumentConstructionDiagnostics, GetFileDiagnostics,
-    GetParseDiagnostics, GetSchemaConversionDiagnostics, GetValidationDiagnostics,
+    GetAllDiagnostics, GetFileDiagnostics,
 };
 #[cfg(feature = "http")]
 pub use http::fetch_url;

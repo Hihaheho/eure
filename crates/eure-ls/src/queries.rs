@@ -1,8 +1,8 @@
 //! LSP-specific queries that convert to LSP types.
 
 use eure::query::{
-    DiagnosticMessage, DiagnosticSeverity, GetDiagnostics, GetFileDiagnostics, GetSemanticTokens,
-    SemanticToken, TextFile,
+    DiagnosticMessage, DiagnosticSeverity, GetFileDiagnostics, GetSemanticTokens, SemanticToken,
+    TextFile,
 };
 use lsp_types::{
     Diagnostic, DiagnosticSeverity as LspSeverity, Position, Range,
@@ -25,7 +25,7 @@ pub fn lsp_semantic_tokens(
 
 /// LSP-formatted diagnostics query, grouped by file.
 ///
-/// Wraps `GetDiagnostics` and converts to LSP `Diagnostic` format.
+/// Wraps `GetFileDiagnostics` and converts to LSP `Diagnostic` format.
 /// Returns diagnostics grouped by file, so that each file can receive
 /// its own publishDiagnostics notification.
 #[query]
@@ -33,7 +33,7 @@ pub fn lsp_diagnostics(
     db: &impl Db,
     file: TextFile,
 ) -> Result<Vec<(TextFile, Vec<Diagnostic>)>, QueryError> {
-    let diagnostics = db.query(GetDiagnostics::new(file.clone()))?;
+    let diagnostics = db.query(GetFileDiagnostics::new(file.clone()))?;
 
     // Group diagnostics by file
     let mut by_file: std::collections::HashMap<TextFile, Vec<DiagnosticMessage>> =

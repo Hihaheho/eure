@@ -22,6 +22,7 @@ use query_flow::{Db, QueryError};
 use thisisplural::Plural;
 
 use crate::document::{DocumentConstructionError, OriginMap};
+use crate::query::error::EureQueryError;
 use crate::query::{
     DecorStyle, DecorStyleKey, DocumentToSchemaQuery, ParseCst, ParseDocument, TextFile,
     TextFileContent, ValidCst,
@@ -70,6 +71,18 @@ impl Origin {
     pub fn as_fallback(mut self) -> Self {
         self.is_fallback = true;
         self
+    }
+
+    /// Create an origin pointing to the start of a file.
+    ///
+    /// Used when an error relates to a file but has no specific location (e.g., implicit schema).
+    pub fn file_start(file: TextFile) -> Self {
+        Self {
+            file,
+            span: InputSpan { start: 0, end: 1 },
+            hints: OriginHints::default(),
+            is_fallback: true,
+        }
     }
 }
 
@@ -288,6 +301,14 @@ impl ErrorReports {
     }
 }
 
+impl std::ops::Index<usize> for ErrorReports {
+    type Output = ErrorReport;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
 impl std::fmt::Display for ErrorReports {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, report) in self.0.iter().enumerate() {
@@ -370,6 +391,32 @@ impl IntoErrorReports for ParseError {
 // ============================================================================
 // Conversion Functions
 // ============================================================================
+
+/// Convert an EureQueryError to an ErrorReport for schema loading failures.
+pub fn report_schema_load_error(error: &EureQueryError, origin: Origin) -> ErrorReport {
+    let (file, reason) = match error {
+        EureQueryError::ContentNotFound(f) => (f.to_string(), "file not found".to_string()),
+        EureQueryError::HostNotAllowed { url, host } => (
+            url.to_string(),
+            format!(
+                "remote host not allowed: {}. If you trust this host, add it to security.allowed-hosts in Eure.eure",
+                host
+            ),
+        ),
+        EureQueryError::InvalidUrl { url, reason } => (url.clone(), reason.clone()),
+        EureQueryError::OfflineNoCache(url) => (
+            url.to_string(),
+            "offline mode, no cached version".to_string(),
+        ),
+        EureQueryError::RateLimitExceeded(url) => {
+            (url.to_string(), "rate limit exceeded".to_string())
+        }
+    };
+    ErrorReport::error(
+        format!("Failed to load schema file {}: {}", file, reason),
+        origin,
+    )
+}
 
 /// Convert a parse error to ErrorReports.
 pub fn report_parse_error(error: &EureParseError, file: TextFile) -> ErrorReports {
