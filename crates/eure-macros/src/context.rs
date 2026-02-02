@@ -19,6 +19,18 @@ impl MacroContext {
         &self.input.ident
     }
 
+    /// Returns the type to construct when parsing.
+    ///
+    /// If `remote` is set, returns the remote type; otherwise returns `Self`.
+    pub fn target_type(&self) -> TokenStream {
+        if let Some(ref remote) = self.config.remote {
+            quote! { #remote }
+        } else {
+            let ident = self.ident();
+            quote! { #ident }
+        }
+    }
+
     pub fn generics(&self) -> &Generics {
         &self.input.generics
     }
@@ -131,6 +143,24 @@ impl MacroContext {
     }
 
     pub fn impl_from_eure(&self, parse_body: TokenStream) -> TokenStream {
+        // Delegate to impl_from_eure_for with appropriate target type
+        if let Some(ref remote) = self.config.remote {
+            self.impl_from_eure_for(parse_body, Some(quote! { #remote }))
+        } else {
+            // For non-remote types, target defaults to Self (omit second type param)
+            self.impl_from_eure_for(parse_body, None)
+        }
+    }
+
+    /// Generate FromEure implementation with specified target type.
+    ///
+    /// When `target_type` is `None`, this generates standard `FromEure<'doc>`.
+    /// When `target_type` is `Some(T)`, this generates `FromEure<'doc, T>`.
+    fn impl_from_eure_for(
+        &self,
+        parse_body: TokenStream,
+        target_type: Option<TokenStream>,
+    ) -> TokenStream {
         let ident = self.ident();
         let for_generics = self.for_generics();
         let parse_document = self.FromEure();
@@ -140,15 +170,27 @@ impl MacroContext {
         let type_params: Vec<_> = self.generics().type_params().collect();
         let has_custom_error = self.config.parse_error.is_some();
 
+        // Trait signature: FromEure<'doc> or FromEure<'doc, RemoteType>
+        let trait_sig = match &target_type {
+            Some(remote) => quote! { #parse_document<'doc, #remote> },
+            None => quote! { #parse_document<'doc> },
+        };
+
+        // Return type: Self or RemoteType
+        let return_type = match &target_type {
+            Some(remote) => quote! { #remote },
+            None => quote! { Self },
+        };
+
         // Build impl generics based on the number of type parameters and error configuration
         if type_params.is_empty() {
             // No type parameters: use default or custom error
             let impl_generics = self.impl_generics();
             quote! {
-                impl<'doc, #(#impl_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*> {
+                impl<'doc, #(#impl_generics),*> #trait_sig for #ident<#(#for_generics),*> {
                     type Error = #parse_error;
 
-                    fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
+                    fn parse(ctx: &#parse_context<'doc>) -> Result<#return_type, Self::Error> {
                         #parse_body
                     }
                 }
@@ -164,13 +206,13 @@ impl MacroContext {
                 })
                 .collect();
             quote! {
-                impl<'doc, #(#base_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*>
+                impl<'doc, #(#base_generics),*> #trait_sig for #ident<#(#for_generics),*>
                 where
                     #(#from_bounds),*
                 {
                     type Error = #parse_error;
 
-                    fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
+                    fn parse(ctx: &#parse_context<'doc>) -> Result<#return_type, Self::Error> {
                         #parse_body
                     }
                 }
@@ -180,10 +222,10 @@ impl MacroContext {
             // This ensures compatibility with the existing eure-document API constraints
             let base_generics = self.impl_generics_with_unified_error_bounds(parse_error.clone());
             quote! {
-                impl<'doc, #(#base_generics),*> #parse_document<'doc> for #ident<#(#for_generics),*> {
+                impl<'doc, #(#base_generics),*> #trait_sig for #ident<#(#for_generics),*> {
                     type Error = #parse_error;
 
-                    fn parse(ctx: &#parse_context<'doc>) -> Result<Self, Self::Error> {
+                    fn parse(ctx: &#parse_context<'doc>) -> Result<#return_type, Self::Error> {
                         #parse_body
                     }
                 }

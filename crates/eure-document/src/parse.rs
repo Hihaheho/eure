@@ -476,8 +476,19 @@ impl<'doc> ParseContext<'doc> {
     }
 
     /// Parse the current node as type T.
-    pub fn parse<T: FromEure<'doc>>(&self) -> Result<T, T::Error> {
+    pub fn parse<T: FromEure<'doc, T>>(&self) -> Result<T, T::Error> {
         T::parse(self)
+    }
+
+    /// Parse the current node as type T using a marker/strategy type M.
+    ///
+    /// This is used for parsing remote types where `M` implements
+    /// `FromEure<'doc, T>` but `T` doesn't implement `FromEure` itself.
+    pub fn parse_via<M, T>(&self) -> Result<T, M::Error>
+    where
+        M: FromEure<'doc, T>,
+    {
+        M::parse(self)
     }
 
     pub fn parse_with<T: DocumentParser<'doc>>(
@@ -785,10 +796,38 @@ impl<'doc> ParseContext<'doc> {
 /// Types implementing this trait can be constructed from [`EureDocument`]
 /// via [`ParseContext`].
 ///
-/// # Lifetime Parameter
+/// # Type Parameters
 ///
-/// The `'doc` lifetime ties the parsed output to the document's lifetime,
-/// allowing zero-copy parsing for reference types like `&'doc str`.
+/// - `'doc`: The document lifetime, allowing zero-copy parsing for references
+/// - `T`: The target type to parse (defaults to `Self`)
+///
+/// When `T = Self` (the default), this is standard parsing.
+/// When `T != Self`, `Self` acts as a "strategy" type for parsing remote types.
+/// This follows the same pattern as `PartialEq<Rhs = Self>`.
+///
+/// # Remote Type Support
+///
+/// The `T` parameter enables parsing external crate types that can't implement
+/// `FromEure` directly (due to Rust's orphan rule). Define a marker type and
+/// implement `FromEure<'doc, RemoteType>` for it:
+///
+/// ```ignore
+/// struct DurationDef;
+///
+/// impl<'doc> FromEure<'doc, std::time::Duration> for DurationDef {
+///     type Error = ParseError;
+///     fn parse(ctx: &ParseContext<'doc>) -> Result<std::time::Duration, Self::Error> {
+///         let rec = ctx.parse_record()?;
+///         let secs: u64 = rec.parse_field("secs")?;
+///         let nanos: u32 = rec.parse_field("nanos")?;
+///         rec.deny_unknown_fields()?;
+///         Ok(std::time::Duration::new(secs, nanos))
+///     }
+/// }
+/// ```
+///
+/// Container types (`Option<M>`, `Vec<M>`, etc.) automatically support remote types:
+/// if `M: FromEure<'doc, T>`, then `Option<M>: FromEure<'doc, Option<T>>`.
 ///
 /// # Examples
 ///
@@ -804,12 +843,12 @@ impl<'doc> ParseContext<'doc> {
     label = "this type does not implement `FromEure`",
     note = "consider adding `#[derive(FromEure)]` to `{Self}`"
 )]
-pub trait FromEure<'doc>: Sized {
+pub trait FromEure<'doc, T = Self>: Sized {
     /// The error type returned by parsing.
     type Error;
 
-    /// Parse a value of this type from the given parse context.
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error>;
+    /// Parse a value of type T from the given parse context.
+    fn parse(ctx: &ParseContext<'doc>) -> Result<T, Self::Error>;
 }
 
 fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
@@ -950,8 +989,20 @@ impl ParseErrorKind {
 
 impl<'doc> EureDocument {
     /// Parse a value of type T from the given node.
-    pub fn parse<T: FromEure<'doc>>(&'doc self, node_id: NodeId) -> Result<T, T::Error> {
+    pub fn parse<T: FromEure<'doc, T>>(&'doc self, node_id: NodeId) -> Result<T, T::Error> {
         self.parse_with(node_id, T::parse)
+    }
+
+    /// Parse a value of type T from the given node using a marker/strategy type M.
+    ///
+    /// This is used for parsing remote types where `M` implements
+    /// `FromEure<'doc, T>` but `T` doesn't implement `FromEure` itself.
+    pub fn parse_via<M, T>(&'doc self, node_id: NodeId) -> Result<T, M::Error>
+    where
+        M: FromEure<'doc, T>,
+    {
+        let ctx = self.parse_context(node_id);
+        M::parse(&ctx)
     }
 
     pub fn parse_with<T: DocumentParser<'doc>>(
@@ -1225,20 +1276,24 @@ impl<'doc> FromEure<'doc> for &'doc NodeArray {
     }
 }
 
+/// `Vec<M>` parses `Vec<T>` using M's FromEure implementation.
+///
+/// When `M = T`, this is standard `Vec<T>` parsing.
+/// When `M ≠ T`, M acts as a strategy type for parsing remote type T.
 #[diagnostic::do_not_recommend]
-impl<'doc, T> FromEure<'doc> for Vec<T>
+impl<'doc, M, T> FromEure<'doc, Vec<T>> for Vec<M>
 where
-    T: FromEure<'doc>,
-    T::Error: From<ParseError>,
+    M: FromEure<'doc, T>,
+    M::Error: From<ParseError>,
 {
-    type Error = T::Error;
+    type Error = M::Error;
 
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Vec<T>, Self::Error> {
         ctx.ensure_no_variant_path()?;
         match &ctx.node().content {
             NodeValue::Array(array) => array
                 .iter()
-                .map(|item| T::parse(&ctx.at(*item)))
+                .map(|item| M::parse(&ctx.at(*item)))
                 .collect::<Result<Vec<_>, _>>(),
             value => Err(ParseError {
                 node_id: ctx.node_id(),
@@ -1249,19 +1304,21 @@ where
     }
 }
 
+/// `IndexSet<M>` parses `IndexSet<T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
-impl<'doc, T> FromEure<'doc> for IndexSet<T>
+impl<'doc, M, T> FromEure<'doc, IndexSet<T>> for IndexSet<M>
 where
-    T: FromEure<'doc> + Eq + std::hash::Hash,
-    T::Error: From<ParseError>,
+    M: FromEure<'doc, T>,
+    T: Eq + std::hash::Hash,
+    M::Error: From<ParseError>,
 {
-    type Error = T::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+    type Error = M::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<IndexSet<T>, Self::Error> {
         ctx.ensure_no_variant_path()?;
         match &ctx.node().content {
             NodeValue::Array(array) => array
                 .iter()
-                .map(|item| T::parse(&ctx.at(*item)))
+                .map(|item| M::parse(&ctx.at(*item)))
                 .collect::<Result<IndexSet<_>, _>>(),
             value => Err(ParseError {
                 node_id: ctx.node_id(),
@@ -1314,8 +1371,12 @@ parse_tuple!(14, A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 parse_tuple!(15, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 parse_tuple!(16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
+/// Internal macro for parsing maps.
+/// $M is the marker type, $T is the target type.
+/// When $M = $T, this is standard parsing.
+/// When $M ≠ $T, $M acts as a strategy type for parsing remote type $T.
 macro_rules! parse_map {
-    ($ctx:ident) => {{
+    ($ctx:ident, $M:ty, $T:ty) => {{
         $ctx.ensure_no_variant_path()?;
 
         // Check scope: Extension scope iterates extensions, otherwise record fields
@@ -1340,7 +1401,7 @@ macro_rules! parse_map {
                             node_id: $ctx.node_id(),
                             kind,
                         })?,
-                        T::parse(&$ctx.at(node_id))?,
+                        <$M as FromEure<'doc, $T>>::parse(&$ctx.at(node_id))?,
                     ))
                 })
                 .collect::<Result<_, _>>()
@@ -1383,7 +1444,7 @@ macro_rules! parse_map {
                             node_id: $ctx.node_id(),
                             kind,
                         })?,
-                        T::parse(&$ctx.at(*value))?,
+                        <$M as FromEure<'doc, $T>>::parse(&$ctx.at(*value))?,
                     ))
                 })
                 .collect::<Result<_, _>>()
@@ -1391,56 +1452,60 @@ macro_rules! parse_map {
     }};
 }
 
+/// `Map<K, M>` parses `Map<K, T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
-impl<'doc, K, T> FromEure<'doc> for Map<K, T>
+impl<'doc, K, M, T> FromEure<'doc, Map<K, T>> for Map<K, M>
 where
     K: ParseObjectKey<'doc>,
-    T: FromEure<'doc>,
-    T::Error: From<ParseError>,
+    M: FromEure<'doc, T>,
+    M::Error: From<ParseError>,
 {
-    type Error = T::Error;
+    type Error = M::Error;
 
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        parse_map!(ctx)
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Map<K, T>, Self::Error> {
+        parse_map!(ctx, M, T)
     }
 }
 
+/// `BTreeMap<K, M>` parses `BTreeMap<K, T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
-impl<'doc, K, T> FromEure<'doc> for BTreeMap<K, T>
+impl<'doc, K, M, T> FromEure<'doc, BTreeMap<K, T>> for BTreeMap<K, M>
 where
     K: ParseObjectKey<'doc>,
-    T: FromEure<'doc>,
-    T::Error: From<ParseError>,
+    M: FromEure<'doc, T>,
+    M::Error: From<ParseError>,
 {
-    type Error = T::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        parse_map!(ctx)
+    type Error = M::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<BTreeMap<K, T>, Self::Error> {
+        parse_map!(ctx, M, T)
     }
 }
 
+/// `HashMap<K, M>` parses `HashMap<K, T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
-impl<'doc, K, T> FromEure<'doc> for HashMap<K, T>
+impl<'doc, K, M, T> FromEure<'doc, HashMap<K, T>> for HashMap<K, M>
 where
     K: ParseObjectKey<'doc>,
-    T: FromEure<'doc>,
-    T::Error: From<ParseError>,
+    M: FromEure<'doc, T>,
+    M::Error: From<ParseError>,
 {
-    type Error = T::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        parse_map!(ctx)
+    type Error = M::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<HashMap<K, T>, Self::Error> {
+        parse_map!(ctx, M, T)
     }
 }
 
+/// `IndexMap<K, M>` parses `IndexMap<K, T>` using M's FromEure implementation.
 #[diagnostic::do_not_recommend]
-impl<'doc, K, T> FromEure<'doc> for IndexMap<K, T>
+impl<'doc, K, M, T> FromEure<'doc, IndexMap<K, T>> for IndexMap<K, M>
 where
     K: ParseObjectKey<'doc>,
-    T: FromEure<'doc>,
-    T::Error: From<ParseError>,
+    M: FromEure<'doc, T>,
+    M::Error: From<ParseError>,
 {
-    type Error = T::Error;
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        parse_map!(ctx)
+    type Error = M::Error;
+    fn parse(ctx: &ParseContext<'doc>) -> Result<IndexMap<K, T>, Self::Error> {
+        parse_map!(ctx, M, T)
     }
 }
 
@@ -1459,23 +1524,26 @@ impl FromEure<'_> for regex::Regex {
     }
 }
 
-/// `Option<T>` is a union with variants `some` and `none`.
+/// `Option<M>` parses `Option<T>` using M's FromEure implementation.
 ///
-/// - `$variant: some` -> parse T
+/// When `M = T` (same type), this is standard `Option<T>` parsing.
+/// When `M ≠ T`, M acts as a strategy type for parsing remote type T.
+///
+/// - `$variant: some` -> parse T via M
 /// - `$variant: none` -> None
 /// - No `$variant` and value is null -> None
 /// - No `$variant` and value is not null -> try parsing as T (Some)
 #[diagnostic::do_not_recommend]
-impl<'doc, T> FromEure<'doc> for Option<T>
+impl<'doc, M, T> FromEure<'doc, Option<T>> for Option<M>
 where
-    T: FromEure<'doc>,
-    T::Error: From<ParseError>,
+    M: FromEure<'doc, T>,
+    M::Error: From<ParseError>,
 {
-    type Error = T::Error;
+    type Error = M::Error;
 
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        ctx.parse_union::<Option<T>, T::Error>(VariantRepr::default())?
-            .variant("some", (T::parse).map(Some))
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Option<T>, Self::Error> {
+        ctx.parse_union::<Option<T>, M::Error>(VariantRepr::default())?
+            .variant("some", (M::parse).map(Some))
             .variant("none", |ctx: &ParseContext<'_>| {
                 if ctx.is_null() {
                     Ok(None)
@@ -1494,24 +1562,27 @@ where
     }
 }
 
-/// `Result<T, E>` is a union with variants `ok` and `err`.
+/// `Result<MT, ME>` parses `Result<T, E>` using MT and ME's FromEure implementations.
 ///
-/// - `$variant: ok` -> parse T as Ok
-/// - `$variant: err` -> parse E as Err
+/// When `MT = T` and `ME = E` (same types), this is standard `Result` parsing.
+/// When different, MT and ME act as strategy types for parsing remote types.
+///
+/// - `$variant: ok` -> parse T via MT
+/// - `$variant: err` -> parse E via ME
 /// - No `$variant` -> try Ok first, then Err (priority-based)
 #[diagnostic::do_not_recommend]
-impl<'doc, T, E, Err> FromEure<'doc> for Result<T, E>
+impl<'doc, MT, T, ME, E, Err> FromEure<'doc, Result<T, E>> for Result<MT, ME>
 where
-    T: FromEure<'doc, Error = Err>,
-    E: FromEure<'doc, Error = Err>,
+    MT: FromEure<'doc, T, Error = Err>,
+    ME: FromEure<'doc, E, Error = Err>,
     Err: From<ParseError>,
 {
     type Error = Err;
 
-    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        ctx.parse_union::<Self, Self::Error>(VariantRepr::default())?
-            .variant("ok", (T::parse).map(Ok))
-            .variant("err", (E::parse).map(Err))
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Result<T, E>, Self::Error> {
+        ctx.parse_union::<Result<T, E>, Self::Error>(VariantRepr::default())?
+            .variant("ok", (MT::parse).map(Ok))
+            .variant("err", (ME::parse).map(Err))
             .parse()
     }
 }
@@ -1940,5 +2011,161 @@ mod tests {
         // BUG: This fails with UnknownField("foo") because parse_map! doesn't
         // mark "foo" and "baz" as accessed when parsing into IndexMap
         rec.deny_unknown_fields().unwrap();
+    }
+
+    // =========================================================================
+    // Remote type support tests
+    // =========================================================================
+
+    /// A "remote" type that we can't implement FromEure for directly.
+    #[derive(Debug, PartialEq)]
+    struct RemoteDuration {
+        secs: u64,
+        nanos: u32,
+    }
+
+    /// Marker type that implements FromEure<'doc, RemoteDuration>.
+    struct RemoteDurationDef;
+
+    impl<'doc> FromEure<'doc, RemoteDuration> for RemoteDurationDef {
+        type Error = ParseError;
+
+        fn parse(ctx: &ParseContext<'doc>) -> Result<RemoteDuration, Self::Error> {
+            let rec = ctx.parse_record()?;
+            let secs: u64 = rec.parse_field("secs")?;
+            let nanos: u32 = rec.parse_field("nanos")?;
+            rec.deny_unknown_fields()?;
+            Ok(RemoteDuration { secs, nanos })
+        }
+    }
+
+    #[test]
+    fn test_remote_type_basic_parsing() {
+        let doc = eure!({ secs = 10, nanos = 500 });
+        let root_id = doc.get_root_id();
+
+        // Use parse_via to parse RemoteDuration via RemoteDurationDef
+        let duration: RemoteDuration = doc.parse_via::<RemoteDurationDef, _>(root_id).unwrap();
+
+        assert_eq!(
+            duration,
+            RemoteDuration {
+                secs: 10,
+                nanos: 500
+            }
+        );
+    }
+
+    #[test]
+    fn test_remote_type_in_option() {
+        // When the marker type implements FromEure<T>,
+        // Option<Marker> implements FromEure<Option<T>>
+        let doc = eure!({ secs = 5, nanos = 0 });
+        let root_id = doc.get_root_id();
+
+        // Parse Option<RemoteDuration> via Option<RemoteDurationDef>
+        let duration: Option<RemoteDuration> = doc
+            .parse_via::<Option<RemoteDurationDef>, _>(root_id)
+            .unwrap();
+
+        assert_eq!(duration, Some(RemoteDuration { secs: 5, nanos: 0 }));
+    }
+
+    #[test]
+    fn test_remote_type_in_option_none() {
+        let doc = eure!({ = null });
+        let root_id = doc.get_root_id();
+
+        let duration: Option<RemoteDuration> = doc
+            .parse_via::<Option<RemoteDurationDef>, _>(root_id)
+            .unwrap();
+
+        assert_eq!(duration, None);
+    }
+
+    #[test]
+    fn test_remote_type_in_vec() {
+        let doc = eure!({
+            items[] { secs = 1, nanos = 0 }
+            items[] { secs = 2, nanos = 100 }
+        });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let items_ctx = rec.field("items").unwrap();
+
+        // Parse Vec<RemoteDuration> via Vec<RemoteDurationDef>
+        let durations: Vec<RemoteDuration> =
+            items_ctx.parse_via::<Vec<RemoteDurationDef>, _>().unwrap();
+
+        assert_eq!(
+            durations,
+            vec![
+                RemoteDuration { secs: 1, nanos: 0 },
+                RemoteDuration {
+                    secs: 2,
+                    nanos: 100
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remote_type_in_indexmap() {
+        let doc = eure!({
+            short { secs = 1, nanos = 0 }
+            long { secs = 10, nanos = 0 }
+        });
+        let root_id = doc.get_root_id();
+
+        // Parse IndexMap<String, RemoteDuration> via IndexMap<String, RemoteDurationDef>
+        let durations: IndexMap<String, RemoteDuration> = doc
+            .parse_via::<IndexMap<String, RemoteDurationDef>, _>(root_id)
+            .unwrap();
+
+        assert_eq!(durations.len(), 2);
+        assert_eq!(
+            durations.get("short"),
+            Some(&RemoteDuration { secs: 1, nanos: 0 })
+        );
+        assert_eq!(
+            durations.get("long"),
+            Some(&RemoteDuration { secs: 10, nanos: 0 })
+        );
+    }
+
+    #[test]
+    fn test_remote_type_in_nested_containers() {
+        // Test Option<Vec<RemoteDuration>>
+        let doc = eure!({
+            items[] { secs = 1, nanos = 0 }
+        });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let items_ctx = rec.field("items").unwrap();
+
+        // Parse Option<Vec<RemoteDuration>> via Option<Vec<RemoteDurationDef>>
+        let durations: Option<Vec<RemoteDuration>> = items_ctx
+            .parse_via::<Option<Vec<RemoteDurationDef>>, _>()
+            .unwrap();
+
+        assert_eq!(durations, Some(vec![RemoteDuration { secs: 1, nanos: 0 }]));
+    }
+
+    #[test]
+    fn test_parse_context_parse_via() {
+        let doc = eure!({ secs = 42, nanos = 123 });
+        let root_id = doc.get_root_id();
+        let ctx = doc.parse_context(root_id);
+
+        // Use parse_via on ParseContext
+        let duration: RemoteDuration = ctx.parse_via::<RemoteDurationDef, _>().unwrap();
+
+        assert_eq!(
+            duration,
+            RemoteDuration {
+                secs: 42,
+                nanos: 123
+            }
+        );
     }
 }

@@ -1,5 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
+use syn::Type;
 
 use crate::attrs::{ContainerAttrs, RenameAll};
 
@@ -17,6 +18,9 @@ pub struct MacroConfig {
     pub parse_error: Option<TokenStream>,
     /// Type name for BuildSchema registration.
     pub type_name: Option<String>,
+    /// Remote type to implement FromEure for.
+    /// When set, generates `FromEure<'doc, RemoteType>` instead of `FromEure<'doc>`.
+    pub remote: Option<Type>,
 }
 
 impl MacroConfig {
@@ -36,6 +40,7 @@ impl MacroConfig {
             allow_unknown_extensions: attrs.allow_unknown_extensions,
             parse_error,
             type_name: attrs.type_name,
+            remote: attrs.remote,
         }
     }
 }

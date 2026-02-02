@@ -644,3 +644,159 @@ fn test_newtype_struct_with_type_param() {
         .to_string()
     );
 }
+
+// ===========================================================================
+// Remote type support tests
+// ===========================================================================
+
+#[test]
+fn test_remote_type_basic() {
+    let input = generate(parse_quote! {
+        #[eure(remote = "external::Duration")]
+        struct DurationDef {
+            secs: u64,
+            nanos: u32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Duration> for DurationDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Duration, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = external::Duration {
+                        secs: rec.parse_field::<u64>("secs")?,
+                        nanos: rec.parse_field::<u32>("nanos")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_via_attribute_on_field() {
+    let input = generate(parse_quote! {
+        struct Config {
+            name: String,
+            #[eure(via = "DurationDef")]
+            timeout: Duration,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Config<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Config {
+                        name: rec.parse_field::<String>("name")?,
+                        timeout: rec.parse_field_with("timeout", <DurationDef as ::eure::document::parse::FromEure<'doc, Duration>>::parse)?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_via_attribute_with_container_type() {
+    let input = generate(parse_quote! {
+        struct Config {
+            #[eure(via = "Option<DurationDef>")]
+            timeout: Option<Duration>,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Config<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Config {
+                        timeout: rec.parse_field_with("timeout", <Option<DurationDef> as ::eure::document::parse::FromEure<'doc, Option<Duration> >>::parse)?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_via_attribute_with_default() {
+    let input = generate(parse_quote! {
+        struct Config {
+            #[eure(via = "DurationDef", default)]
+            timeout: Duration,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Config<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Config {
+                        timeout: rec.parse_field_optional_with("timeout", <DurationDef as ::eure::document::parse::FromEure<'doc, Duration>>::parse)?
+                            .unwrap_or_else(<Duration as ::core::default::Default>::default)
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_via_attribute_on_ext_field() {
+    let input = generate(parse_quote! {
+        struct Config {
+            name: String,
+            #[eure(ext, via = "DurationDef")]
+            timeout: Duration,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Config<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = Config {
+                        name: rec.parse_field::<String>("name")?,
+                        timeout: ctx.parse_ext_with("timeout", <DurationDef as ::eure::document::parse::FromEure<'doc, Duration>>::parse)?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}

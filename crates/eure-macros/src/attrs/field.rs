@@ -1,4 +1,5 @@
 use darling::FromField;
+use syn::Type;
 
 use super::DefaultValue;
 
@@ -20,4 +21,18 @@ pub struct FieldAttrs {
     pub default: DefaultValue,
     /// Explicit rename for this field (overrides rename_all/rename_all_fields)
     pub rename: Option<String>,
+    /// Parse this field using a strategy type that implements `FromEure<'doc, T>`.
+    ///
+    /// This enables parsing remote types (types from external crates) that can't
+    /// implement `FromEure` directly due to Rust's orphan rule.
+    ///
+    /// Example:
+    /// ```ignore
+    /// #[eure(via = "DurationDef")]
+    /// timeout: Duration,
+    ///
+    /// #[eure(via = "Option<DurationDef>")]
+    /// optional_timeout: Option<Duration>,
+    /// ```
+    pub via: Option<Type>,
 }

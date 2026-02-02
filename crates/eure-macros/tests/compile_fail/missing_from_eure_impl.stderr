@@ -10,7 +10,7 @@ help: the trait `FromEure<'_>` is not implemented for `NoFromEure`
 3 | struct NoFromEure;
   | ^^^^^^^^^^^^^^^^^
   = note: consider adding `#[derive(FromEure)]` to `NoFromEure`
-  = help: the following other types implement trait `FromEure<'doc>`:
+  = help: the following other types implement trait `FromEure<'doc, T>`:
             `&'doc NodeArray` implements `FromEure<'doc>`
             `&'doc PrimitiveValue` implements `FromEure<'doc>`
             `&'doc str` implements `FromEure<'doc>`

@@ -11,33 +11,29 @@ use crate::attrs::{DefaultValue, FieldAttrs};
 use crate::context::MacroContext;
 
 pub fn generate_record_parser(context: &MacroContext, input: &DataStruct) -> TokenStream {
-    let ident = context.ident();
-
     match &input.fields {
-        Fields::Named(fields) => generate_named_struct(context, ident, &fields.named),
+        Fields::Named(fields) => generate_named_struct(context, &fields.named),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            generate_newtype_struct(context, ident, &fields.unnamed[0].ty)
+            generate_newtype_struct(context, &fields.unnamed[0].ty)
         }
-        Fields::Unnamed(fields) => generate_tuple_struct(context, ident, &fields.unnamed),
-        Fields::Unit => generate_unit_struct(context, ident),
+        Fields::Unnamed(fields) => generate_tuple_struct(context, &fields.unnamed),
+        Fields::Unit => generate_unit_struct(context),
     }
 }
 
 fn generate_named_struct(
     context: &MacroContext,
-    ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
     if context.config.parse_ext {
-        generate_named_struct_from_ext(context, ident, fields)
+        generate_named_struct_from_ext(context, fields)
     } else {
-        generate_named_struct_from_record(context, ident, fields)
+        generate_named_struct_from_record(context, fields)
     }
 }
 
 fn generate_named_struct_from_record(
     context: &MacroContext,
-    ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
     let field_assignments: Vec<_> = fields
@@ -73,6 +69,12 @@ fn generate_named_struct_from_record(
                     field_name
                 );
             }
+            if attrs.via.is_some() && (attrs.flatten || attrs.flatten_ext) {
+                panic!(
+                    "cannot use #[eure(via = \"...\")] with #[eure(flatten)] or #[eure(flatten_ext)] on field `{}`",
+                    field_name
+                );
+            }
 
             if attrs.flatten {
                 quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
@@ -83,13 +85,13 @@ fn generate_named_struct_from_record(
                     .rename
                     .clone()
                     .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
+                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default, attrs.via.as_ref())
             } else {
                 let field_name_str = attrs
                     .rename
                     .clone()
                     .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_record_field(field_name, field_ty, &field_name_str, &attrs.default)
+                generate_record_field(field_name, field_ty, &field_name_str, &attrs.default, attrs.via.as_ref())
             }
         })
         .collect();
@@ -106,9 +108,11 @@ fn generate_named_struct_from_record(
         quote! { ctx.deny_unknown_extensions()?; }
     };
 
+    // Use target_type() which returns remote type if set, otherwise ident
+    let target_type = context.target_type();
     context.impl_from_eure(quote! {
         let rec = ctx.parse_record()?;
-        let value = #ident {
+        let value = #target_type {
             #(#field_assignments),*
         };
         #unknown_fields_check
@@ -119,7 +123,6 @@ fn generate_named_struct_from_record(
 
 fn generate_named_struct_from_ext(
     context: &MacroContext,
-    ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
     let field_assignments: Vec<_> = fields
@@ -139,6 +142,12 @@ fn generate_named_struct_from_ext(
                     field_name
                 );
             }
+            if attrs.via.is_some() && attrs.flatten_ext {
+                panic!(
+                    "cannot use #[eure(via = \"...\")] with #[eure(flatten_ext)] on field `{}`",
+                    field_name
+                );
+            }
 
             if attrs.flatten_ext {
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
@@ -147,33 +156,36 @@ fn generate_named_struct_from_ext(
                     .rename
                     .clone()
                     .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
+                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default, attrs.via.as_ref())
             }
         })
         .collect();
 
     // No need to call deny_unknown_extensions in parse_ext context
     // (the caller is responsible for validation)
+    // Use target_type() which returns remote type if set, otherwise ident
+    let target_type = context.target_type();
     context.impl_from_eure(quote! {
-        let value = #ident {
+        let value = #target_type {
             #(#field_assignments),*
         };
         Ok(value)
     })
 }
 
-fn generate_unit_struct(context: &MacroContext, ident: &syn::Ident) -> TokenStream {
+fn generate_unit_struct(context: &MacroContext) -> TokenStream {
+    let target_type = context.target_type();
     context.impl_from_eure(quote! {
         ctx.parse::<()>()?;
-        Ok(#ident)
+        Ok(#target_type)
     })
 }
 
 fn generate_tuple_struct(
     context: &MacroContext,
-    ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
+    let target_type = context.target_type();
     let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
     let field_names: Vec<_> = (0..fields.len())
         .map(|i| format_ident!("field_{}", i))
@@ -181,18 +193,15 @@ fn generate_tuple_struct(
 
     context.impl_from_eure(quote! {
         let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
-        Ok(#ident(#(#field_names),*))
+        Ok(#target_type(#(#field_names),*))
     })
 }
 
-fn generate_newtype_struct(
-    context: &MacroContext,
-    ident: &syn::Ident,
-    field_ty: &syn::Type,
-) -> TokenStream {
+fn generate_newtype_struct(context: &MacroContext, field_ty: &syn::Type) -> TokenStream {
+    let target_type = context.target_type();
     context.impl_from_eure(quote! {
         let field_0 = ctx.parse::<#field_ty>()?;
-        Ok(#ident(field_0))
+        Ok(#target_type(field_0))
     })
 }
 
@@ -201,8 +210,33 @@ pub(super) fn generate_record_field(
     field_ty: &syn::Type,
     field_name_str: &str,
     default: &DefaultValue,
+    via: Option<&syn::Type>,
 ) -> TokenStream {
     let span = field_ty.span();
+
+    // When via is specified, we use parse_field_with to call the marker type's parse method
+    if let Some(via_type) = via {
+        return match default {
+            DefaultValue::None => {
+                quote_spanned! {span=>
+                    #field_name: rec.parse_field_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
+                }
+            }
+            DefaultValue::Default => {
+                quote_spanned! {span=>
+                    #field_name: rec.parse_field_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
+                        .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
+                }
+            }
+            DefaultValue::Path(path) => {
+                quote_spanned! {span=>
+                    #field_name: rec.parse_field_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
+                        .unwrap_or_else(#path)
+                }
+            }
+        };
+    }
+
     match default {
         DefaultValue::None => {
             quote_spanned! {span=> #field_name: rec.parse_field::<#field_ty>(#field_name_str)? }
@@ -227,8 +261,33 @@ pub(super) fn generate_ext_field(
     field_ty: &syn::Type,
     field_name_str: &str,
     default: &DefaultValue,
+    via: Option<&syn::Type>,
 ) -> TokenStream {
     let span = field_ty.span();
+
+    // When via is specified, we use parse_ext_with to call the marker type's parse method
+    if let Some(via_type) = via {
+        return match default {
+            DefaultValue::None => {
+                quote_spanned! {span=>
+                    #field_name: ctx.parse_ext_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
+                }
+            }
+            DefaultValue::Default => {
+                quote_spanned! {span=>
+                    #field_name: ctx.parse_ext_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
+                        .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
+                }
+            }
+            DefaultValue::Path(path) => {
+                quote_spanned! {span=>
+                    #field_name: ctx.parse_ext_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
+                        .unwrap_or_else(#path)
+                }
+            }
+        };
+    }
+
     match default {
         DefaultValue::None => {
             quote_spanned! {span=> #field_name: ctx.parse_ext::<#field_ty>(#field_name_str)? }

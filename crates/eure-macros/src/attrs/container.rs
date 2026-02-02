@@ -1,5 +1,5 @@
 use darling::FromDeriveInput;
-use syn::Path;
+use syn::{Path, Type};
 
 use super::RenameAll;
 
@@ -32,4 +32,21 @@ pub struct ContainerAttrs {
     /// When specified, the type is registered as `$types.<type_name>`.
     /// Example: `#[eure(type_name = "user")]` registers as `$types.user`.
     pub type_name: Option<String>,
+    /// Generate `FromEure<'doc, RemoteType>` instead of `FromEure<'doc>`.
+    ///
+    /// This enables defining a local type that mirrors a remote type's structure
+    /// for parsing purposes, without needing to implement FromEure on the remote
+    /// type directly (which would violate the orphan rule).
+    ///
+    /// Example:
+    /// ```ignore
+    /// #[derive(FromEure)]
+    /// #[eure(remote = "external::Duration")]
+    /// struct DurationDef {
+    ///     secs: u64,
+    ///     nanos: u32,
+    /// }
+    /// // Generates: impl FromEure<'doc, external::Duration> for DurationDef
+    /// ```
+    pub remote: Option<Type>,
 }

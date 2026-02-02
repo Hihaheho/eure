@@ -139,13 +139,25 @@ fn generate_struct_variant(
                     .rename
                     .clone()
                     .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
-                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default)
+                generate_ext_field(
+                    field_name,
+                    field_ty,
+                    &field_name_str,
+                    &attrs.default,
+                    attrs.via.as_ref(),
+                )
             } else {
                 let field_name_str = attrs
                     .rename
                     .clone()
                     .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
-                generate_record_field(field_name, field_ty, &field_name_str, &attrs.default)
+                generate_record_field(
+                    field_name,
+                    field_ty,
+                    &field_name_str,
+                    &attrs.default,
+                    attrs.via.as_ref(),
+                )
             }
         })
         .collect();
