@@ -646,13 +646,48 @@ fn test_newtype_struct_with_type_param() {
 }
 
 // ===========================================================================
-// Remote type support tests
+// Proxy type support tests (transparent proxy with public fields)
 // ===========================================================================
 
 #[test]
-fn test_remote_type_basic() {
+fn test_proxy_basic() {
     let input = generate(parse_quote! {
-        #[eure(remote = "external::Duration")]
+        #[eure(proxy = "external::PublicConfig")]
+        struct PublicConfigDef {
+            host: String,
+            port: u16,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::PublicConfig> for PublicConfigDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::PublicConfig, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = external::PublicConfig {
+                        host: rec.parse_field::<String>("host")?,
+                        port: rec.parse_field::<u16>("port")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+// ===========================================================================
+// Opaque type support tests (private fields, needs From impl)
+// ===========================================================================
+
+#[test]
+fn test_opaque_basic() {
+    let input = generate(parse_quote! {
+        #[eure(opaque = "std::time::Duration")]
         struct DurationDef {
             secs: u64,
             nanos: u32,
@@ -661,18 +696,233 @@ fn test_remote_type_basic() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Duration> for DurationDef<> {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, std::time::Duration> for DurationDef<> {
                 type Error = ::eure::document::parse::ParseError;
 
-                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Duration, Self::Error> {
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<std::time::Duration, Self::Error> {
                     let rec = ctx.parse_record()?;
-                    let value = external::Duration {
+                    let value = DurationDef {
                         secs: rec.parse_field::<u64>("secs")?,
                         nanos: rec.parse_field::<u32>("nanos")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
+                    let value: std::time::Duration = value.into();
                     Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_opaque_newtype() {
+    let input = generate(parse_quote! {
+        #[eure(opaque = "external::Wrapper")]
+        struct WrapperDef(String);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Wrapper> for WrapperDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Wrapper, Self::Error> {
+                    let field_0 = ctx.parse::<String>()?;
+                    let value: external::Wrapper = WrapperDef(field_0).into();
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_proxy_with_rename_all() {
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Config", rename_all = "camelCase")]
+        struct ConfigDef {
+            max_retries: i32,
+            timeout_seconds: i32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Config> for ConfigDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Config, Self::Error> {
+                    let rec = ctx.parse_record()?;
+                    let value = external::Config {
+                        max_retries: rec.parse_field::<i32>("maxRetries")?,
+                        timeout_seconds: rec.parse_field::<i32>("timeoutSeconds")?
+                    };
+                    rec.deny_unknown_fields()?;
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+#[should_panic(
+    expected = "cannot use both #[eure(proxy = \"...\")] and #[eure(opaque = \"...\")] on the same type"
+)]
+fn test_proxy_and_opaque_mutually_exclusive() {
+    generate(parse_quote! {
+        #[eure(proxy = "Foo", opaque = "Bar")]
+        struct Test {
+            field: String,
+        }
+    });
+}
+
+#[test]
+fn test_opaque_tuple_struct() {
+    let input = generate(parse_quote! {
+        #[eure(opaque = "external::Point")]
+        struct PointDef(i32, i32);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Point> for PointDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Point, Self::Error> {
+                    let (field_0, field_1,) = ctx.parse::<(i32, i32,)>()?;
+                    let value: external::Point = PointDef(field_0, field_1).into();
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_opaque_unit_struct() {
+    let input = generate(parse_quote! {
+        #[eure(opaque = "external::Marker")]
+        struct MarkerDef;
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Marker> for MarkerDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Marker, Self::Error> {
+                    ctx.parse::<()>()?;
+                    let value: external::Marker = MarkerDef.into();
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_opaque_with_parse_ext() {
+    let input = generate(parse_quote! {
+        #[eure(opaque = "external::ExtConfig", parse_ext)]
+        struct ExtConfigDef {
+            optional: bool,
+            deprecated: bool,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::ExtConfig> for ExtConfigDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::ExtConfig, Self::Error> {
+                    let value = ExtConfigDef {
+                        optional: ctx.parse_ext::<bool>("optional")?,
+                        deprecated: ctx.parse_ext::<bool>("deprecated")?
+                    };
+                    let value: external::ExtConfig = value.into();
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_proxy_with_parse_ext() {
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::ExtConfig", parse_ext)]
+        struct ExtConfigDef {
+            optional: bool,
+            deprecated: bool,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::ExtConfig> for ExtConfigDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::ExtConfig, Self::Error> {
+                    let value = external::ExtConfig {
+                        optional: ctx.parse_ext::<bool>("optional")?,
+                        deprecated: ctx.parse_ext::<bool>("deprecated")?
+                    };
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_proxy_tuple_struct() {
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Point")]
+        struct PointDef(i32, i32);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Point> for PointDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Point, Self::Error> {
+                    let (field_0, field_1,) = ctx.parse::<(i32, i32,)>()?;
+                    Ok(external::Point(field_0, field_1))
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_proxy_unit_struct() {
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Marker")]
+        struct MarkerDef;
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Marker> for MarkerDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Marker, Self::Error> {
+                    ctx.parse::<()>()?;
+                    Ok(external::Marker)
                 }
             }
         }

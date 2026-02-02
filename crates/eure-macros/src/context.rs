@@ -21,14 +21,32 @@ impl MacroContext {
 
     /// Returns the type to construct when parsing.
     ///
-    /// If `remote` is set, returns the remote type; otherwise returns `Self`.
+    /// - For `opaque = "T"`: returns self type (then converts via `.into()`)
+    /// - For `proxy = "T"`: returns the target type (direct struct literal)
+    /// - Otherwise: returns self type
     pub fn target_type(&self) -> TokenStream {
-        if let Some(ref remote) = self.config.remote {
-            quote! { #remote }
-        } else {
-            let ident = self.ident();
-            quote! { #ident }
+        match &self.config.proxy {
+            Some(proxy) if !proxy.is_opaque => {
+                // proxy = "T": use target type directly for struct literal
+                let target = &proxy.target;
+                quote! { #target }
+            }
+            _ => {
+                // opaque = "T" or no proxy: construct self type
+                let ident = self.ident();
+                quote! { #ident }
+            }
         }
+    }
+
+    /// Returns the opaque target type if `opaque = "T"` is set.
+    /// Returns `None` for `proxy = "T"` or no proxy attribute.
+    pub fn opaque_target(&self) -> Option<&syn::Type> {
+        self.config
+            .proxy
+            .as_ref()
+            .filter(|p| p.is_opaque)
+            .map(|p| &p.target)
     }
 
     pub fn generics(&self) -> &Generics {
@@ -144,10 +162,11 @@ impl MacroContext {
 
     pub fn impl_from_eure(&self, parse_body: TokenStream) -> TokenStream {
         // Delegate to impl_from_eure_for with appropriate target type
-        if let Some(ref remote) = self.config.remote {
-            self.impl_from_eure_for(parse_body, Some(quote! { #remote }))
+        if let Some(ref proxy) = self.config.proxy {
+            let target = &proxy.target;
+            self.impl_from_eure_for(parse_body, Some(quote! { #target }))
         } else {
-            // For non-remote types, target defaults to Self (omit second type param)
+            // For non-proxy types, target defaults to Self (omit second type param)
             self.impl_from_eure_for(parse_body, None)
         }
     }

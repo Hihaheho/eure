@@ -32,21 +32,44 @@ pub struct ContainerAttrs {
     /// When specified, the type is registered as `$types.<type_name>`.
     /// Example: `#[eure(type_name = "user")]` registers as `$types.user`.
     pub type_name: Option<String>,
-    /// Generate `FromEure<'doc, RemoteType>` instead of `FromEure<'doc>`.
+    /// Transparent proxy type for types with public fields.
     ///
-    /// This enables defining a local type that mirrors a remote type's structure
-    /// for parsing purposes, without needing to implement FromEure on the remote
-    /// type directly (which would violate the orphan rule).
+    /// Generates `FromEure<'doc, TargetType>` using direct struct literal syntax.
+    /// Use this when the target type has public fields that match the proxy struct.
     ///
     /// Example:
     /// ```ignore
     /// #[derive(FromEure)]
-    /// #[eure(remote = "external::Duration")]
+    /// #[eure(proxy = "external::PublicConfig")]
+    /// struct PublicConfigDef {
+    ///     host: String,
+    ///     port: u16,
+    /// }
+    /// // Generates: impl FromEure<'doc, external::PublicConfig> for PublicConfigDef
+    /// // Uses: external::PublicConfig { host: ..., port: ... }
+    /// ```
+    pub proxy: Option<Type>,
+    /// Opaque proxy type for types with private fields.
+    ///
+    /// Generates `FromEure<'doc, TargetType>` using From conversion.
+    /// Use this when the target type has private fields and requires
+    /// `From<ProxyDef> for TargetType` to be implemented.
+    ///
+    /// Example:
+    /// ```ignore
+    /// #[derive(FromEure)]
+    /// #[eure(opaque = "std::time::Duration")]
     /// struct DurationDef {
     ///     secs: u64,
     ///     nanos: u32,
     /// }
-    /// // Generates: impl FromEure<'doc, external::Duration> for DurationDef
+    /// impl From<DurationDef> for std::time::Duration {
+    ///     fn from(def: DurationDef) -> Self {
+    ///         Duration::new(def.secs, def.nanos)
+    ///     }
+    /// }
+    /// // Generates: impl FromEure<'doc, std::time::Duration> for DurationDef
+    /// // Uses: DurationDef { secs: ..., nanos: ... }.into()
     /// ```
-    pub remote: Option<Type>,
+    pub opaque: Option<Type>,
 }

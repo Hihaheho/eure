@@ -108,17 +108,32 @@ fn generate_named_struct_from_record(
         quote! { ctx.deny_unknown_extensions()?; }
     };
 
-    // Use target_type() which returns remote type if set, otherwise ident
+    // Use target_type() which returns the type to construct (proxy target or self)
     let target_type = context.target_type();
-    context.impl_from_eure(quote! {
-        let rec = ctx.parse_record()?;
-        let value = #target_type {
-            #(#field_assignments),*
-        };
-        #unknown_fields_check
-        #unknown_extensions_check
-        Ok(value)
-    })
+
+    // For opaque proxy, we need to convert via .into()
+    if let Some(opaque_target) = context.opaque_target() {
+        context.impl_from_eure(quote! {
+            let rec = ctx.parse_record()?;
+            let value = #target_type {
+                #(#field_assignments),*
+            };
+            #unknown_fields_check
+            #unknown_extensions_check
+            let value: #opaque_target = value.into();
+            Ok(value)
+        })
+    } else {
+        context.impl_from_eure(quote! {
+            let rec = ctx.parse_record()?;
+            let value = #target_type {
+                #(#field_assignments),*
+            };
+            #unknown_fields_check
+            #unknown_extensions_check
+            Ok(value)
+        })
+    }
 }
 
 fn generate_named_struct_from_ext(
@@ -163,22 +178,44 @@ fn generate_named_struct_from_ext(
 
     // No need to call deny_unknown_extensions in parse_ext context
     // (the caller is responsible for validation)
-    // Use target_type() which returns remote type if set, otherwise ident
+    // Use target_type() which returns the type to construct (proxy target or self)
     let target_type = context.target_type();
-    context.impl_from_eure(quote! {
-        let value = #target_type {
-            #(#field_assignments),*
-        };
-        Ok(value)
-    })
+
+    // For opaque proxy, we need to convert via .into()
+    if let Some(opaque_target) = context.opaque_target() {
+        context.impl_from_eure(quote! {
+            let value = #target_type {
+                #(#field_assignments),*
+            };
+            let value: #opaque_target = value.into();
+            Ok(value)
+        })
+    } else {
+        context.impl_from_eure(quote! {
+            let value = #target_type {
+                #(#field_assignments),*
+            };
+            Ok(value)
+        })
+    }
 }
 
 fn generate_unit_struct(context: &MacroContext) -> TokenStream {
     let target_type = context.target_type();
-    context.impl_from_eure(quote! {
-        ctx.parse::<()>()?;
-        Ok(#target_type)
-    })
+
+    // For opaque proxy, we need to convert via .into()
+    if let Some(opaque_target) = context.opaque_target() {
+        context.impl_from_eure(quote! {
+            ctx.parse::<()>()?;
+            let value: #opaque_target = #target_type.into();
+            Ok(value)
+        })
+    } else {
+        context.impl_from_eure(quote! {
+            ctx.parse::<()>()?;
+            Ok(#target_type)
+        })
+    }
 }
 
 fn generate_tuple_struct(
@@ -191,18 +228,37 @@ fn generate_tuple_struct(
         .map(|i| format_ident!("field_{}", i))
         .collect();
 
-    context.impl_from_eure(quote! {
-        let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
-        Ok(#target_type(#(#field_names),*))
-    })
+    // For opaque proxy, we need to convert via .into()
+    if let Some(opaque_target) = context.opaque_target() {
+        context.impl_from_eure(quote! {
+            let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
+            let value: #opaque_target = #target_type(#(#field_names),*).into();
+            Ok(value)
+        })
+    } else {
+        context.impl_from_eure(quote! {
+            let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
+            Ok(#target_type(#(#field_names),*))
+        })
+    }
 }
 
 fn generate_newtype_struct(context: &MacroContext, field_ty: &syn::Type) -> TokenStream {
     let target_type = context.target_type();
-    context.impl_from_eure(quote! {
-        let field_0 = ctx.parse::<#field_ty>()?;
-        Ok(#target_type(field_0))
-    })
+
+    // For opaque proxy, we need to convert via .into()
+    if let Some(opaque_target) = context.opaque_target() {
+        context.impl_from_eure(quote! {
+            let field_0 = ctx.parse::<#field_ty>()?;
+            let value: #opaque_target = #target_type(field_0).into();
+            Ok(value)
+        })
+    } else {
+        context.impl_from_eure(quote! {
+            let field_0 = ctx.parse::<#field_ty>()?;
+            Ok(#target_type(field_0))
+        })
+    }
 }
 
 pub(super) fn generate_record_field(

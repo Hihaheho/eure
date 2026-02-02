@@ -4,6 +4,15 @@ use syn::Type;
 
 use crate::attrs::{ContainerAttrs, RenameAll};
 
+/// Configuration for proxy/opaque type generation.
+#[derive(Debug, Clone)]
+pub struct ProxyConfig {
+    /// The target type to implement `FromEure<'doc, Target>` for.
+    pub target: Type,
+    /// If true, uses `From` conversion; if false, uses struct literal directly.
+    pub is_opaque: bool,
+}
+
 pub struct MacroConfig {
     pub document_crate: TokenStream,
     pub rename_all: Option<RenameAll>,
@@ -18,9 +27,10 @@ pub struct MacroConfig {
     pub parse_error: Option<TokenStream>,
     /// Type name for BuildSchema registration.
     pub type_name: Option<String>,
-    /// Remote type to implement FromEure for.
-    /// When set, generates `FromEure<'doc, RemoteType>` instead of `FromEure<'doc>`.
-    pub remote: Option<Type>,
+    /// Proxy configuration for implementing `FromEure<'doc, Target>`.
+    /// - `proxy = "T"` → `ProxyConfig { target: T, is_opaque: false }`
+    /// - `opaque = "T"` → `ProxyConfig { target: T, is_opaque: true }`
+    pub proxy: Option<ProxyConfig>,
 }
 
 impl MacroConfig {
@@ -31,6 +41,28 @@ impl MacroConfig {
             .map(|path| path.into_token_stream())
             .unwrap_or_else(|| quote! { ::eure::document });
         let parse_error = attrs.parse_error.map(|path| path.into_token_stream());
+
+        // Validate that proxy and opaque are mutually exclusive
+        if attrs.proxy.is_some() && attrs.opaque.is_some() {
+            panic!(
+                "cannot use both #[eure(proxy = \"...\")] and #[eure(opaque = \"...\")] on the same type; they are mutually exclusive"
+            );
+        }
+
+        // Convert proxy/opaque attributes to unified ProxyConfig
+        let proxy = attrs
+            .proxy
+            .map(|target| ProxyConfig {
+                target,
+                is_opaque: false,
+            })
+            .or_else(|| {
+                attrs.opaque.map(|target| ProxyConfig {
+                    target,
+                    is_opaque: true,
+                })
+            });
+
         Self {
             document_crate,
             rename_all: attrs.rename_all,
@@ -40,7 +72,7 @@ impl MacroConfig {
             allow_unknown_extensions: attrs.allow_unknown_extensions,
             parse_error,
             type_name: attrs.type_name,
-            remote: attrs.remote,
+            proxy,
         }
     }
 }

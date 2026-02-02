@@ -1,0 +1,7 @@
+error: proc-macro derive panicked
+ --> tests/compile_fail/proxy_and_opaque_mutually_exclusive.rs:3:10
+  |
+3 | #[derive(FromEure)]
+  |          ^^^^^^^^
+  |
+  = help: message: cannot use both #[eure(proxy = "...")] and #[eure(opaque = "...")] on the same type; they are mutually exclusive
