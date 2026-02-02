@@ -23,8 +23,8 @@ fn test_named_fields_struct() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = User {
-                        name: rec.parse_field("name")?,
-                        age: rec.parse_field("age")?
+                        name: rec.parse_field::<String>("name")?,
+                        age: rec.parse_field::<i32>("age")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -117,8 +117,8 @@ fn test_named_fields_struct_with_custom_crate() {
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = User {
-                        name: rec.parse_field("name")?,
-                        age: rec.parse_field("age")?
+                        name: rec.parse_field::<String>("name")?,
+                        age: rec.parse_field::<i32>("age")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -148,8 +148,8 @@ fn test_named_fields_struct_with_rename_all_camel_case() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = User {
-                        user_name: rec.parse_field("userName")?,
-                        email_address: rec.parse_field("emailAddress")?
+                        user_name: rec.parse_field::<String>("userName")?,
+                        email_address: rec.parse_field::<String>("emailAddress")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -179,8 +179,8 @@ fn test_named_fields_struct_with_rename_all_kebab_case() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Config {
-                        max_retries: rec.parse_field("max-retries")?,
-                        timeout_seconds: rec.parse_field("timeout-seconds")?
+                        max_retries: rec.parse_field::<i32>("max-retries")?,
+                        timeout_seconds: rec.parse_field::<i32>("timeout-seconds")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -209,8 +209,8 @@ fn test_parse_ext_basic() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let value = ExtFields {
-                        optional: ctx.parse_ext("optional")?,
-                        deprecated: ctx.parse_ext("deprecated")?
+                        optional: ctx.parse_ext::<bool>("optional")?,
+                        deprecated: ctx.parse_ext::<bool>("deprecated")?
                     };
                     Ok(value)
                 }
@@ -237,8 +237,8 @@ fn test_parse_ext_with_rename_all() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let value = ExtFields {
-                        binding_style: ctx.parse_ext("binding-style")?,
-                        deny_untagged: ctx.parse_ext("deny-untagged")?
+                        binding_style: ctx.parse_ext::<String>("binding-style")?,
+                        deny_untagged: ctx.parse_ext::<bool>("deny-untagged")?
                     };
                     Ok(value)
                 }
@@ -266,7 +266,7 @@ fn test_flatten_field() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Person {
-                        name: rec.parse_field("name")?,
+                        name: rec.parse_field::<String>("name")?,
                         address: <Address>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
@@ -299,7 +299,7 @@ fn test_multiple_flatten_fields() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Combined {
-                        id: rec.parse_field("id")?,
+                        id: rec.parse_field::<i32>("id")?,
                         personal: <PersonalInfo>::parse(&rec.flatten())?,
                         contact: <ContactInfo>::parse(&rec.flatten())?
                     };
@@ -332,7 +332,7 @@ fn test_flatten_with_rename_all() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Person {
-                        full_name: rec.parse_field("fullName")?,
+                        full_name: rec.parse_field::<String>("fullName")?,
                         address_info: <AddressInfo>::parse(&rec.flatten())?
                     };
                     rec.deny_unknown_fields()?;
@@ -367,8 +367,8 @@ fn test_flatten_ext_field() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Person {
-                        name: rec.parse_field("name")?,
-                        optional: ctx.parse_ext("optional")?,
+                        name: rec.parse_field::<String>("name")?,
+                        optional: ctx.parse_ext::<bool>("optional")?,
                         address: <ExtAddress>::parse(&ctx.flatten_ext())?,
                         contact: <ExtContact>::parse(&ctx.flatten_ext())?
                     };
@@ -400,8 +400,8 @@ fn test_custom_parse_error() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = User {
-                        name: rec.parse_field("name")?,
-                        age: rec.parse_field("age")?
+                        name: rec.parse_field::<String>("name")?,
+                        age: rec.parse_field::<i32>("age")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -430,7 +430,7 @@ fn test_custom_parse_error_with_path() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = User {
-                        name: rec.parse_field("name")?
+                        name: rec.parse_field::<String>("name")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -459,7 +459,7 @@ fn test_custom_parse_error_with_custom_crate() {
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = User {
-                        name: rec.parse_field("name")?
+                        name: rec.parse_field::<String>("name")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -487,7 +487,7 @@ fn test_single_type_param() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Wrapper {
-                        inner: rec.parse_field("inner")?
+                        inner: rec.parse_field::<T>("inner")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -516,8 +516,8 @@ fn test_multiple_type_params() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Pair {
-                        first: rec.parse_field("first")?,
-                        second: rec.parse_field("second")?
+                        first: rec.parse_field::<A>("first")?,
+                        second: rec.parse_field::<B>("second")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -545,7 +545,7 @@ fn test_type_param_with_existing_bounds() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Wrapper {
-                        inner: rec.parse_field("inner")?
+                        inner: rec.parse_field::<T>("inner")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -577,7 +577,7 @@ fn test_type_param_with_custom_error() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Wrapper {
-                        inner: rec.parse_field("inner")?
+                        inner: rec.parse_field::<T>("inner")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;
@@ -611,8 +611,8 @@ fn test_multiple_type_params_with_custom_error() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     let rec = ctx.parse_record()?;
                     let value = Pair {
-                        first: rec.parse_field("first")?,
-                        second: rec.parse_field("second")?
+                        first: rec.parse_field::<A>("first")?,
+                        second: rec.parse_field::<B>("second")?
                     };
                     rec.deny_unknown_fields()?;
                     ctx.deny_unknown_extensions()?;

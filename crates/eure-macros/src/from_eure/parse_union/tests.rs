@@ -72,8 +72,8 @@ fn test_struct_variant() {
                         .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = TestEnum::Struct {
-                                a: rec.parse_field("a")?,
-                                b: rec.parse_field("b")?
+                                a: rec.parse_field::<i32>("a")?,
+                                b: rec.parse_field::<bool>("b")?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)
@@ -133,8 +133,8 @@ fn test_mixed_variants() {
                         .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = TestEnum::Struct {
-                                a: rec.parse_field("a")?,
-                                b: rec.parse_field("b")?
+                                a: rec.parse_field::<i32>("a")?,
+                                b: rec.parse_field::<bool>("b")?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)
@@ -172,8 +172,8 @@ fn test_mixed_variants_with_custom_crate() {
                         .variant("Struct", |ctx: &::eure_document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = TestEnum::Struct {
-                                a: rec.parse_field("a")?,
-                                b: rec.parse_field("b")?
+                                a: rec.parse_field::<i32>("a")?,
+                                b: rec.parse_field::<bool>("b")?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)
@@ -235,8 +235,8 @@ fn test_struct_variant_with_rename_all_camel_case() {
                         .variant("userCreated", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
-                                user_id: rec.parse_field("user_id")?,
-                                created_at: rec.parse_field("created_at")?
+                                user_id: rec.parse_field::<i32>("user_id")?,
+                                created_at: rec.parse_field::<String>("created_at")?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)
@@ -269,8 +269,8 @@ fn test_struct_variant_with_rename_all_fields() {
                         .variant("UserCreated", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
-                                user_id: rec.parse_field("userId")?,
-                                created_at: rec.parse_field("createdAt")?
+                                user_id: rec.parse_field::<i32>("userId")?,
+                                created_at: rec.parse_field::<String>("createdAt")?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)
@@ -303,8 +303,8 @@ fn test_struct_variant_with_both_rename_all_and_rename_all_fields() {
                         .variant("user_created", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
-                                user_id: rec.parse_field("userId")?,
-                                created_at: rec.parse_field("createdAt")?
+                                user_id: rec.parse_field::<i32>("userId")?,
+                                created_at: rec.parse_field::<String>("createdAt")?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)
@@ -339,7 +339,7 @@ fn test_struct_variant_with_flatten() {
                         .variant("Person", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Entity::Person {
-                                name: rec.parse_field("name")?,
+                                name: rec.parse_field::<String>("name")?,
                                 details: <PersonDetails>::parse(&rec.flatten())?
                             };
                             rec.deny_unknown_fields()?;
@@ -575,7 +575,7 @@ fn test_struct_variant_ext_only() {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
                         .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let value = Item::WithMeta {
-                                meta: ctx.parse_ext("meta")?
+                                meta: ctx.parse_ext::<MetaData>("meta")?
                             };
                             ctx.deny_unknown_extensions()?;
                             Ok(value)
@@ -609,7 +609,7 @@ fn test_struct_variant_ext_with_default() {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
                         .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let value = Item::WithMeta {
-                                meta: ctx.parse_ext_optional("meta")?.unwrap_or_else(<Option<MetaData> as ::core::default::Default>::default)
+                                meta: ctx.parse_ext_optional::<Option<MetaData> >("meta")?.unwrap_or_else(<Option<MetaData> as ::core::default::Default>::default)
                             };
                             ctx.deny_unknown_extensions()?;
                             Ok(value)
@@ -649,7 +649,7 @@ fn test_struct_variant_flatten_and_ext() {
                         .variant("Text", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let value = TextOrNested::Text {
                                 text: <TextValue>::parse(&ctx.flatten())?,
-                                mark: ctx.parse_ext_optional("mark")?.unwrap_or_else(<MarkOptions as ::core::default::Default>::default)
+                                mark: ctx.parse_ext_optional::<MarkOptions>("mark")?.unwrap_or_else(<MarkOptions as ::core::default::Default>::default)
                             };
                             ctx.deny_unknown_extensions()?;
                             Ok(value)
@@ -685,8 +685,8 @@ fn test_struct_variant_ext_with_regular_fields() {
                         .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Item::WithMeta {
-                                name: rec.parse_field("name")?,
-                                meta: ctx.parse_ext("meta")?
+                                name: rec.parse_field::<String>("name")?,
+                                meta: ctx.parse_ext::<MetaData>("meta")?
                             };
                             rec.deny_unknown_fields()?;
                             Ok(value)

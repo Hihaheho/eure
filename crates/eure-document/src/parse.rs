@@ -799,6 +799,11 @@ impl<'doc> ParseContext<'doc> {
 /// // Owned type - no lifetime dependency
 /// impl FromEure<'_> for String { ... }
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be parsed from Eure document",
+    label = "this type does not implement `FromEure`",
+    note = "consider adding `#[derive(FromEure)]` to `{Self}`"
+)]
 pub trait FromEure<'doc>: Sized {
     /// The error type returned by parsing.
     type Error;
@@ -1220,6 +1225,7 @@ impl<'doc> FromEure<'doc> for &'doc NodeArray {
     }
 }
 
+#[diagnostic::do_not_recommend]
 impl<'doc, T> FromEure<'doc> for Vec<T>
 where
     T: FromEure<'doc>,
@@ -1243,6 +1249,7 @@ where
     }
 }
 
+#[diagnostic::do_not_recommend]
 impl<'doc, T> FromEure<'doc> for IndexSet<T>
 where
     T: FromEure<'doc> + Eq + std::hash::Hash,
@@ -1267,6 +1274,7 @@ where
 
 macro_rules! parse_tuple {
     ($n:expr, $($var:ident),*) => {
+        #[diagnostic::do_not_recommend]
         impl<'doc, $($var),*, Err> FromEure<'doc> for ($($var),*,)
             where $($var: FromEure<'doc, Error = Err>),*,
             Err: From<ParseError>,
@@ -1383,6 +1391,7 @@ macro_rules! parse_map {
     }};
 }
 
+#[diagnostic::do_not_recommend]
 impl<'doc, K, T> FromEure<'doc> for Map<K, T>
 where
     K: ParseObjectKey<'doc>,
@@ -1396,6 +1405,7 @@ where
     }
 }
 
+#[diagnostic::do_not_recommend]
 impl<'doc, K, T> FromEure<'doc> for BTreeMap<K, T>
 where
     K: ParseObjectKey<'doc>,
@@ -1408,6 +1418,7 @@ where
     }
 }
 
+#[diagnostic::do_not_recommend]
 impl<'doc, K, T> FromEure<'doc> for HashMap<K, T>
 where
     K: ParseObjectKey<'doc>,
@@ -1420,6 +1431,7 @@ where
     }
 }
 
+#[diagnostic::do_not_recommend]
 impl<'doc, K, T> FromEure<'doc> for IndexMap<K, T>
 where
     K: ParseObjectKey<'doc>,
@@ -1453,6 +1465,7 @@ impl FromEure<'_> for regex::Regex {
 /// - `$variant: none` -> None
 /// - No `$variant` and value is null -> None
 /// - No `$variant` and value is not null -> try parsing as T (Some)
+#[diagnostic::do_not_recommend]
 impl<'doc, T> FromEure<'doc> for Option<T>
 where
     T: FromEure<'doc>,
@@ -1486,6 +1499,7 @@ where
 /// - `$variant: ok` -> parse T as Ok
 /// - `$variant: err` -> parse E as Err
 /// - No `$variant` -> try Ok first, then Err (priority-based)
+#[diagnostic::do_not_recommend]
 impl<'doc, T, E, Err> FromEure<'doc> for Result<T, E>
 where
     T: FromEure<'doc, Error = Err>,
@@ -1542,6 +1556,7 @@ impl FromEure<'_> for crate::data_model::VariantRepr {
     }
 }
 
+#[diagnostic::do_not_recommend]
 impl<'doc> FromEure<'doc> for () {
     type Error = ParseError;
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {

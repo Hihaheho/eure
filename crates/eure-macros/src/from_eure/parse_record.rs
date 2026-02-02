@@ -3,7 +3,8 @@ mod tests;
 
 use darling::FromField;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
+use syn::spanned::Spanned;
 use syn::{DataStruct, Fields};
 
 use crate::attrs::{DefaultValue, FieldAttrs};
@@ -201,19 +202,20 @@ pub(super) fn generate_record_field(
     field_name_str: &str,
     default: &DefaultValue,
 ) -> TokenStream {
+    let span = field_ty.span();
     match default {
         DefaultValue::None => {
-            quote! { #field_name: rec.parse_field(#field_name_str)? }
+            quote_spanned! {span=> #field_name: rec.parse_field::<#field_ty>(#field_name_str)? }
         }
         DefaultValue::Default => {
-            quote! {
-                #field_name: rec.parse_field_optional(#field_name_str)?
+            quote_spanned! {span=>
+                #field_name: rec.parse_field_optional::<#field_ty>(#field_name_str)?
                     .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
             }
         }
         DefaultValue::Path(path) => {
-            quote! {
-                #field_name: rec.parse_field_optional(#field_name_str)?
+            quote_spanned! {span=>
+                #field_name: rec.parse_field_optional::<#field_ty>(#field_name_str)?
                     .unwrap_or_else(#path)
             }
         }
@@ -226,19 +228,20 @@ pub(super) fn generate_ext_field(
     field_name_str: &str,
     default: &DefaultValue,
 ) -> TokenStream {
+    let span = field_ty.span();
     match default {
         DefaultValue::None => {
-            quote! { #field_name: ctx.parse_ext(#field_name_str)? }
+            quote_spanned! {span=> #field_name: ctx.parse_ext::<#field_ty>(#field_name_str)? }
         }
         DefaultValue::Default => {
-            quote! {
-                #field_name: ctx.parse_ext_optional(#field_name_str)?
+            quote_spanned! {span=>
+                #field_name: ctx.parse_ext_optional::<#field_ty>(#field_name_str)?
                     .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
             }
         }
         DefaultValue::Path(path) => {
-            quote! {
-                #field_name: ctx.parse_ext_optional(#field_name_str)?
+            quote_spanned! {span=>
+                #field_name: ctx.parse_ext_optional::<#field_ty>(#field_name_str)?
                     .unwrap_or_else(#path)
             }
         }
