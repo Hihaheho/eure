@@ -1,0 +1,23 @@
+// Test that eure_schema_to_json_schema_error scenario can detect error mismatches
+
+schema = ```eure
+// Valid schema that converts successfully
+value = `text`
+```
+
+// Wrong expected error (but conversion will actually succeed)
+json_schema_errors = [
+  ```
+Wrong JSON schema error
+```
+]
+
+@ scenario_errors[]
+scenario = "eure_schema_to_json_schema_error"
+output = ```
+Expected JSON Schema conversion to fail, but conversion succeeded.
+Expected errors (1):
+
+--- Expected Error 1 ---
+Wrong JSON schema error
+```

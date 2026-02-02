@@ -1,0 +1,107 @@
+// Test that toml_to_eure_* scenarios can detect mismatches
+
+input_toml = ```toml
+value = 42
+```
+
+// Wrong expected eure output
+input_eure = ```eure
+value = 99
+```
+
+@ scenario_errors[]
+scenario = "toml_to_eure_document"
+output = ```
+TOML to Eure document mismatch.
+Expected:
+EureDocument {
+    root: NodeId(
+        0,
+    ),
+    nodes: [
+        Node {
+            content: Map(
+                Map(
+                    {
+                        String(
+                            "value",
+                        ): NodeId(
+                            1,
+                        ),
+                    },
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+        Node {
+            content: Primitive(
+                Integer(
+                    99,
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+    ],
+}
+Actual:
+EureDocument {
+    root: NodeId(
+        0,
+    ),
+    nodes: [
+        Node {
+            content: Map(
+                Map(
+                    {
+                        String(
+                            "value",
+                        ): NodeId(
+                            1,
+                        ),
+                    },
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+        Node {
+            content: Primitive(
+                Integer(
+                    42,
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+    ],
+}
+```
+
+@ scenario_errors[]
+scenario = "toml_to_json"
+output = ```
+Eure to JSON mismatch.
+Expected:
+{
+  "value": 99
+}
+Actual:
+{
+  "value": 42
+}
+```
+
+@ scenario_errors[]
+scenario = "toml_to_eure_source"
+output = ```
+TOML to Eure source mismatch.
+Diff (expected → actual):
+-value = 99
++value = 42
+```

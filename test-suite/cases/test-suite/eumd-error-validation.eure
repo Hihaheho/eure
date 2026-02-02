@@ -1,0 +1,27 @@
+// Test that eumd_error_validation scenario can detect error mismatches
+
+input_eure = ````eure
+title = "Valid Document"
+
+// No invalid references - should not produce errors
+intro = ```markdown
+Just some text.
+```
+````
+
+// Wrong expected error (but there are no actual errors)
+euremark_errors = [
+  ```
+Wrong eure-mark error
+```
+]
+
+@ scenario_errors[]
+scenario = "eumd_error_validation"
+output = ```
+Expected validation to fail, but validation passed.
+Expected errors (1):
+
+--- Expected Error 1 ---
+Wrong eure-mark error
+```

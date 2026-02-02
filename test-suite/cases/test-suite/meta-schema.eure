@@ -1,0 +1,23 @@
+// Test that meta_schema scenario can detect validation errors
+
+// Valid schema syntax that validates against meta-schema
+schema = ```eure
+value = `text`
+```
+
+// Wrong expected errors (expect validation to find errors but it passes)
+meta_schema_errors = [
+  ```
+Wrong meta-schema error
+```
+]
+
+@ scenario_errors[]
+scenario = "meta_schema"
+output = ```
+Expected validation to fail, but validation passed.
+Expected errors (1):
+
+--- Expected Error 1 ---
+Wrong meta-schema error
+```

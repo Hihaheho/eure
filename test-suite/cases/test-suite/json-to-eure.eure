@@ -1,0 +1,84 @@
+// Test that json_to_eure scenario can detect mismatches
+
+input_json = ```json
+{"value": 42}
+```
+
+// Wrong expected eure output
+input_eure = ```eure
+value = 99
+```
+
+@ scenario_errors[]
+scenario = "json_to_eure(input_eure)"
+output = ```
+JSON to Eure mismatch.
+Expected:
+EureDocument {
+    root: NodeId(
+        0,
+    ),
+    nodes: [
+        Node {
+            content: Map(
+                Map(
+                    {
+                        String(
+                            "value",
+                        ): NodeId(
+                            1,
+                        ),
+                    },
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+        Node {
+            content: Primitive(
+                Integer(
+                    99,
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+    ],
+}
+Actual:
+EureDocument {
+    root: NodeId(
+        0,
+    ),
+    nodes: [
+        Node {
+            content: Map(
+                Map(
+                    {
+                        String(
+                            "value",
+                        ): NodeId(
+                            1,
+                        ),
+                    },
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+        Node {
+            content: Primitive(
+                Integer(
+                    42,
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+    ],
+}
+```

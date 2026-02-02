@@ -1,0 +1,18 @@
+// Test that completions scenario can detect failures
+// Note: completions scenario is currently unimplemented
+
+editor = ```eure
+value = 42
+```
+
+// trigger makes completions scenario run
+trigger = "="
+
+@ completions[]
+label = "some_completion"
+
+@ scenario_errors[]
+scenario = "completions"
+output = ```
+Scenario 'completions' is not yet implemented
+```

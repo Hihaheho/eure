@@ -1,0 +1,23 @@
+// Test that eure_to_json_error scenario can detect error mismatches
+
+input_eure = ```eure
+// Valid eure that converts without error
+value = 42
+```
+
+// Wrong expected error (but conversion will actually succeed)
+json_errors = [
+  ```
+Wrong JSON conversion error
+```
+]
+
+@ scenario_errors[]
+scenario = "eure_to_json_error"
+output = ```
+Expected validation to fail, but validation passed.
+Expected errors (1):
+
+--- Expected Error 1 ---
+Wrong JSON conversion error
+```

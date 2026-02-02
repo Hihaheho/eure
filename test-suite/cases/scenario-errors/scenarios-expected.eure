@@ -1,0 +1,14 @@
+// Test that scenarios_expected validates scenario names exist
+
+input_eure = ```eure
+name = "Alice"
+```
+
+normalized = ```eure
+= { name => "Alice" }
+```
+
+output_json = json`{"name": "Alice"}`
+
+// Assert these scenarios actually run (catches typos in field names)
+scenarios_expected = ["normalization", "eure_to_json(input_eure)", "eure_to_json(normalized)"]

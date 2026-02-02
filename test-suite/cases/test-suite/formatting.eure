@@ -1,0 +1,26 @@
+// Test that formatting scenario can detect mismatches
+
+input_eure = ```eure
+value = 42
+```
+
+// Wrong formatted output
+formatted_input = ```eure
+value = 99
+```
+
+@ scenario_errors[]
+scenario = "formatting"
+output = ```
+Formatting mismatch.
+Input:
+value = 42
+
+
+Expected:
+value = 99
+
+
+Actual:
+value = 42
+```

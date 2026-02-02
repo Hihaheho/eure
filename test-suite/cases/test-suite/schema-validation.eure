@@ -1,0 +1,18 @@
+// Test that schema_validation scenario can detect validation failures
+
+input_eure = ```eure
+value = "not an integer"
+```
+
+schema = ```eure
+value = `integer`
+```
+
+// No schema_errors means we expect validation to pass, but it will fail
+
+@ scenario_errors[]
+scenario = "schema_validation"
+output = ```
+Schema validation failed:
+Type mismatch: expected integer, got text at path value
+```

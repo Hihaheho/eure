@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use eure::query::error::EureQueryError;
@@ -711,6 +712,9 @@ impl Case {
             eprintln!("=== End Debug Trace ===\n");
         }
 
+        // Post-process: apply scenario_errors and scenarios_expected assertions
+        let results = apply_scenario_assertions(results, &self.data);
+
         CaseResult { scenarios: results }
     }
 
@@ -756,4 +760,105 @@ impl Case {
     pub fn scenario_count(&self) -> usize {
         self.scenarios().len()
     }
+}
+
+/// Normalize trailing whitespace on each line for comparison
+fn normalize_trailing_whitespace(s: &str) -> String {
+    s.lines()
+        .map(|line| line.trim_end())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Apply scenario_errors and scenarios_expected assertions as post-processing.
+///
+/// This transforms raw scenario results based on test case assertions:
+/// - `scenario_errors`: expects specific scenarios to fail with exact error output
+/// - `scenarios_expected`: validates that specific scenarios were actually run
+fn apply_scenario_assertions(
+    results: Vec<NamedScenarioResult>,
+    data: &CaseData,
+) -> Vec<NamedScenarioResult> {
+    let scenario_names: HashSet<&str> = results.iter().map(|r| r.name.as_str()).collect();
+
+    // Build expected failures lookup
+    let expected_failures: HashMap<&str, &str> = data
+        .scenario_errors
+        .iter()
+        .map(|item| (item.scenario.as_str(), item.output.as_str()))
+        .collect();
+
+    let mut output = Vec::new();
+
+    // Validate scenario_errors references exist
+    for item in &data.scenario_errors {
+        if !scenario_names.contains(item.scenario.as_str()) {
+            output.push(NamedScenarioResult {
+                name: format!("scenario_errors[{}]", item.scenario),
+                result: ScenarioResult::Failed {
+                    error: format!(
+                        "Scenario '{}' not found. Available: {:?}",
+                        item.scenario, scenario_names
+                    ),
+                },
+            });
+        }
+    }
+
+    // Validate scenarios_expected references exist
+    for expected in &data.scenarios_expected {
+        if !scenario_names.contains(expected.as_str()) {
+            output.push(NamedScenarioResult {
+                name: format!("scenarios_expected[{}]", expected),
+                result: ScenarioResult::Failed {
+                    error: format!(
+                        "Scenario '{}' not found. Available: {:?}",
+                        expected, scenario_names
+                    ),
+                },
+            });
+        }
+    }
+
+    // Transform results based on expected failures
+    for r in results {
+        let transformed = match (r.result, expected_failures.get(r.name.as_str())) {
+            // Passed, no expectation -> keep as passed
+            (ScenarioResult::Passed, None) => ScenarioResult::Passed,
+
+            // Passed, but expected to fail -> error
+            (ScenarioResult::Passed, Some(expected)) => ScenarioResult::Failed {
+                error: format!(
+                    "Expected scenario to fail with:\n{}\nBut it passed.",
+                    expected
+                ),
+            },
+
+            // Failed, no expectation -> keep as failed
+            (ScenarioResult::Failed { error }, None) => ScenarioResult::Failed { error },
+
+            // Failed, expected to fail -> check if error matches
+            (ScenarioResult::Failed { error }, Some(expected)) => {
+                let normalized_actual = normalize_trailing_whitespace(&error);
+                let normalized_expected = normalize_trailing_whitespace(expected);
+                if normalized_actual == normalized_expected {
+                    ScenarioResult::Passed
+                } else {
+                    ScenarioResult::Failed {
+                        error: format!(
+                            "Scenario failed as expected, but output mismatch.\n\
+                             --- Expected ---\n{}\n--- Actual ---\n{}",
+                            expected, error
+                        ),
+                    }
+                }
+            }
+        };
+        output.push(NamedScenarioResult {
+            name: r.name,
+            result: transformed,
+        });
+    }
+
+    output
 }

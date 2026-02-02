@@ -45,6 +45,19 @@ pub struct DiagnosticItem {
     pub span_index: Option<i64>,
 }
 
+// ============================================================================
+// Scenario Error Testing Types
+// ============================================================================
+
+/// A single scenario error expectation for testing scenarios that should fail
+#[derive(Debug, Clone, FromEure, BuildSchema)]
+pub struct ScenarioErrorItem {
+    /// The exact scenario name (e.g., "normalization", "eure_to_json(input_eure)")
+    pub scenario: String,
+    /// The expected error output (trailing whitespace per line is normalized)
+    pub output: Text,
+}
+
 /// Union tag mode for validation tests.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, FromEure, BuildSchema)]
 pub enum InputUnionTagMode {
@@ -218,6 +231,13 @@ pub struct CaseData {
     // JSON conversion errors (for testing eure-to-json error messages with spans)
     #[eure(default)]
     pub json_errors: Vec<Text>,
+    // Scenario error testing fields
+    /// Assert that specific scenarios fail with expected error output
+    #[eure(default)]
+    pub scenario_errors: Vec<ScenarioErrorItem>,
+    /// Assert that specific scenarios are selected and run (catches typos in field names)
+    #[eure(default)]
+    pub scenarios_expected: Vec<String>,
 }
 
 impl CaseData {
@@ -238,6 +258,8 @@ impl CaseData {
             && self.euremark_errors.is_empty()
             && self.editor.is_none()
             && self.json_errors.is_empty()
+            && self.scenario_errors.is_empty()
+            && self.scenarios_expected.is_empty()
     }
 }
 

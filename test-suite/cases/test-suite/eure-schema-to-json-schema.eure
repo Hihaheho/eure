@@ -1,0 +1,33 @@
+// Test that eure_schema_to_json_schema scenario can detect mismatches
+
+schema = ```eure
+value = `text`
+```
+
+// Wrong expected JSON schema output
+output_json_schema = ```json
+{"wrong": "schema"}
+```
+
+@ scenario_errors[]
+scenario = "eure_schema_to_json_schema"
+output = ```
+JSON Schema output mismatch.
+Expected:
+{
+  "wrong": "schema"
+}
+Actual:
+{
+  "additionalProperties": false,
+  "properties": {
+    "value": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "value"
+  ],
+  "type": "object"
+}
+```

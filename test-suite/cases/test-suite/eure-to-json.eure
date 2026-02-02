@@ -1,0 +1,24 @@
+// Test that eure_to_json scenario can detect mismatches
+
+input_eure = ```eure
+value = 42
+```
+
+// Wrong JSON output
+output_json = ```json
+{"value": 99}
+```
+
+@ scenario_errors[]
+scenario = "eure_to_json(input_eure)"
+output = ```
+Eure to JSON mismatch.
+Expected:
+{
+  "value": 99
+}
+Actual:
+{
+  "value": 42
+}
+```

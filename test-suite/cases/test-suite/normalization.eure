@@ -1,0 +1,84 @@
+// Test that normalization scenario can detect mismatches
+
+input_eure = ```eure
+value = 42
+```
+
+// Wrong value to trigger mismatch
+normalized = ```eure
+= { value => 99 }
+```
+
+@ scenario_errors[]
+scenario = "normalization"
+output = ```
+Normalization mismatch.
+Input:
+EureDocument {
+    root: NodeId(
+        0,
+    ),
+    nodes: [
+        Node {
+            content: Map(
+                Map(
+                    {
+                        String(
+                            "value",
+                        ): NodeId(
+                            1,
+                        ),
+                    },
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+        Node {
+            content: Primitive(
+                Integer(
+                    42,
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+    ],
+}
+Normalized:
+EureDocument {
+    root: NodeId(
+        0,
+    ),
+    nodes: [
+        Node {
+            content: Map(
+                Map(
+                    {
+                        String(
+                            "value",
+                        ): NodeId(
+                            1,
+                        ),
+                    },
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+        Node {
+            content: Primitive(
+                Integer(
+                    99,
+                ),
+            ),
+            extensions: Map(
+                {},
+            ),
+        },
+    ],
+}
+```

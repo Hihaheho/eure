@@ -1,0 +1,39 @@
+// Test that schema_error_validation scenario can detect error mismatches
+
+input_eure = ```eure
+value = "not an integer"
+```
+
+schema = ```eure
+value = `integer`
+```
+
+// Wrong expected error
+schema_errors = [
+  ```
+Wrong error message
+```
+]
+
+@ scenario_errors[]
+scenario = "schema_error_validation"
+output = ```
+Schema validation errors mismatch.
+
+--- Expected (1) ---
+Wrong error message
+
+
+--- Actual (1) ---
+error: Type mismatch: expected integer, got text at path value
+ --> input.eure:1:9
+  |
+1 | value = "not an integer"
+  |         ^^^^^^^^^^^^^^^^ Type mismatch: expected integer, got text at path value
+  |
+note: constraint defined here
+ --> schema.eure:1:9
+  |
+1 | value = `integer`
+  |         --------- constraint defined here
+```

@@ -1,0 +1,20 @@
+// Test that diagnostics scenario can detect mismatches
+
+editor = ```eure
+value = 42
+```
+
+// Wrong expected diagnostic
+@ diagnostics[]
+message = "Wrong diagnostic message"
+
+@ scenario_errors[]
+scenario = "diagnostics"
+output = ```
+Diagnostics mismatch.
+
+--- Expected (1) ---
+[error] Wrong diagnostic message
+
+--- Actual (0) ---
+```

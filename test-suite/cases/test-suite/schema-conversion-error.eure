@@ -1,0 +1,27 @@
+// Test that schema_conversion_error scenario can detect error mismatches
+
+schema = ```eure
+// Invalid schema - unknown type
+value = `unknown_type`
+```
+
+// Wrong expected error
+schema_conversion_error = ```
+Wrong error message
+```
+
+@ scenario_errors[]
+scenario = "schema_conversion_error"
+output = ```
+Schema conversion error mismatch.
+
+--- Expected ---
+Wrong error message
+
+--- Actual ---
+error: Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'unknown_type'
+ --> schema.eure:2:9
+  |
+2 | value = `unknown_type`
+  |         ^^^^^^^^^^^^^^ Parse error: parse error: invalid type reference: expected 'text', 'integer', '$types.name', etc., got 'unknown_type'
+```
