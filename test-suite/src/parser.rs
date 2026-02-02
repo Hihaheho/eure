@@ -36,19 +36,13 @@ pub struct DiagnosticItem {
     #[eure(default)]
     pub code: Option<String>,
     /// Expected span text (exact match in editor content).
-    /// More readable than start/end offsets. If specified, the text must appear
-    /// exactly once in the editor content.
+    /// If specified, the text must appear exactly once in the editor content
+    /// (or use `span_index` when it appears multiple times).
     #[eure(default)]
     pub span: Option<String>,
     /// 1-based occurrence index when span text matches multiple times.
     #[eure(default)]
     pub span_index: Option<i64>,
-    /// Expected start byte offset (for span verification)
-    #[eure(default)]
-    pub start: Option<i64>,
-    /// Expected end byte offset (for span verification)
-    #[eure(default)]
-    pub end: Option<i64>,
 }
 
 /// Union tag mode for validation tests.

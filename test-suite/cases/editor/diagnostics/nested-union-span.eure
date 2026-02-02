@@ -119,8 +119,7 @@ print("hello")
 severity = "error"
 source = "editor.eure"
 message = "Language mismatch: expected yaml, got Other(\"python\") at path value.code (based on nearest variant 'yaml' for union at path value)"
-start = 41
-end = 69
+span = "```python\nprint(\"hello\")\n```"
 
 @ cases.out-of-range
 
@@ -553,8 +552,7 @@ value {
 severity = "error"
 source = "editor.eure"
 message = "Invalid variant tag 'invalid-tag' at path value.inner (based on nearest variant 'option-b' for union at path value)"
-start = 34
-end = 86
+span = "inner {\n    $variant: invalid-tag\n    data = 123\n  }"
 
 // ============================================================================
 // Errors NOT applicable to nested union span descent:

@@ -10,8 +10,7 @@ name = "unclosed string
 @ diagnostics[]
 severity = "error"
 source = "editor.eure"
-start = 7
-end = 8
+span = "\""
 message = ```
 LA(1): " (Error) at test.eure:1:8-1:9[2].
 at non-terminal "Value"

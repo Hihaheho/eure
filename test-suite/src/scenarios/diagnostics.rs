@@ -65,9 +65,9 @@ impl Scenario for DiagnosticsScenario {
         // Verify spans when specified.
         // Keep the order aligned with diagnostics comparison above.
         for (index, expected) in self.diagnostics.iter().enumerate() {
-            if expected.span.is_none() && expected.start.is_none() && expected.end.is_none() {
+            let Some(expected_span) = expected.span.as_deref() else {
                 continue;
-            }
+            };
 
             let Some((file, actual)) = actual_diagnostics_by_file.get(index) else {
                 continue;
@@ -76,45 +76,21 @@ impl Scenario for DiagnosticsScenario {
             let source: std::sync::Arc<eure::query::TextFileContent> = db.asset(file.clone())?;
             let (actual_start, actual_end) = diagnostic_to_offsets(actual, source.get());
 
-            if let Some(expected_span) = expected.span.as_deref() {
-                let (span_start, span_end) =
-                    find_span(source.get(), expected_span, expected.span_index, index)?;
-                if actual_start as i64 != span_start as i64 {
-                    return Err(ScenarioError::SpanMismatch {
-                        diagnostic_index: index,
-                        field: "start".to_string(),
-                        expected: span_start as i64,
-                        actual: actual_start as i64,
-                    });
-                }
-                if actual_end as i64 != span_end as i64 {
-                    return Err(ScenarioError::SpanMismatch {
-                        diagnostic_index: index,
-                        field: "end".to_string(),
-                        expected: span_end as i64,
-                        actual: actual_end as i64,
-                    });
-                }
-            }
-
-            if let Some(expected_start) = expected.start
-                && actual_start as i64 != expected_start
-            {
+            let (span_start, span_end) =
+                find_span(source.get(), expected_span, expected.span_index, index)?;
+            if actual_start as i64 != span_start as i64 {
                 return Err(ScenarioError::SpanMismatch {
                     diagnostic_index: index,
                     field: "start".to_string(),
-                    expected: expected_start,
+                    expected: span_start as i64,
                     actual: actual_start as i64,
                 });
             }
-
-            if let Some(expected_end) = expected.end
-                && actual_end as i64 != expected_end
-            {
+            if actual_end as i64 != span_end as i64 {
                 return Err(ScenarioError::SpanMismatch {
                     diagnostic_index: index,
                     field: "end".to_string(),
-                    expected: expected_end,
+                    expected: span_end as i64,
                     actual: actual_end as i64,
                 });
             }

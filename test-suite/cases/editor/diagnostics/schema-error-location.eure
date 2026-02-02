@@ -62,8 +62,8 @@ value = 123
 severity = "warning"
 source = "/test-workspace/editor.eure"
 message = "Schema has errors, validation skipped"
-start = 0
-end = 1
+span = "v"
+span_index = 1
 
 // Error in schema file at the typo location
 @ cases.implicit-schema.diagnostics[]
