@@ -42,9 +42,14 @@ impl IdentifierParser {
         if matches.len() == s.len() {
             Ok(Identifier(Cow::Owned(matches.as_str().to_string())))
         } else {
+            // matches.end() is a byte index, but we need a character index for the error.
+            // Count how many characters are in the matched portion.
+            let char_index = matches.as_str().chars().count();
+            // Get the invalid character from the remainder of the string.
+            let invalid_char = s[matches.end()..].chars().next().unwrap();
             Err(IdentifierError::InvalidChar {
-                at: matches.end(),
-                invalid_char: s.chars().nth(matches.end()).unwrap(),
+                at: char_index,
+                invalid_char,
             })
         }
     }
@@ -206,5 +211,268 @@ mod tests {
         // Verify it's using borrowed variant
         let id = Identifier::new_unchecked("borrowed");
         assert_eq!(id.as_ref(), "borrowed");
+    }
+}
+
+#[cfg(test)]
+mod proptests {
+    extern crate std;
+
+    use super::*;
+    use core::str::FromStr;
+    use proptest::prelude::*;
+    use std::format;
+    use std::string::String;
+    use std::vec;
+
+    /// Characters valid as the first character of an identifier (XID_Start or underscore).
+    /// We use a representative subset of XID_Start for efficiency.
+    fn xid_start_char() -> impl Strategy<Value = char> {
+        prop_oneof![
+            // ASCII letters
+            prop::char::range('a', 'z'),
+            prop::char::range('A', 'Z'),
+            // Underscore (explicitly allowed)
+            Just('_'),
+            // Some Unicode XID_Start characters
+            Just('α'), // Greek
+            Just('β'),
+            Just('お'), // Japanese hiragana
+            Just('日'), // CJK
+            Just('é'),  // Latin extended
+            Just('ñ'),
+        ]
+    }
+
+    /// Characters valid in the continuation of an identifier (XID_Continue or hyphen).
+    fn xid_continue_char() -> impl Strategy<Value = char> {
+        prop_oneof![
+            // ASCII letters and digits
+            prop::char::range('a', 'z'),
+            prop::char::range('A', 'Z'),
+            prop::char::range('0', '9'),
+            // Underscore and hyphen
+            Just('_'),
+            Just('-'),
+            // Some Unicode XID_Continue characters
+            Just('α'),
+            Just('β'),
+            Just('ー'), // Japanese prolonged sound mark (XID_Continue)
+            Just('日'),
+            Just('é'),
+        ]
+    }
+
+    /// Strategy to generate valid identifiers.
+    fn valid_identifier() -> impl Strategy<Value = String> {
+        (
+            xid_start_char(),
+            proptest::collection::vec(xid_continue_char(), 0..20),
+        )
+            .prop_map(|(first, rest)| {
+                let mut s = String::with_capacity(1 + rest.len());
+                s.push(first);
+                s.extend(rest);
+                s
+            })
+    }
+
+    /// Characters that are invalid as the first character of an identifier.
+    fn invalid_first_char() -> impl Strategy<Value = char> {
+        prop_oneof![
+            // Digits
+            prop::char::range('0', '9'),
+            // Dollar sign (reserved for extensions)
+            Just('$'),
+            // Common invalid punctuation
+            Just(' '),
+            Just('\t'),
+            Just('\n'),
+            Just('.'),
+            Just(','),
+            Just('!'),
+            Just('@'),
+            Just('#'),
+            Just('%'),
+            Just('^'),
+            Just('&'),
+            Just('*'),
+            Just('('),
+            Just(')'),
+            Just('='),
+            Just('+'),
+            Just('['),
+            Just(']'),
+            Just('{'),
+            Just('}'),
+            Just('|'),
+            Just('\\'),
+            Just('/'),
+            Just('<'),
+            Just('>'),
+            Just('?'),
+            Just(':'),
+            Just(';'),
+            Just('"'),
+            Just('\''),
+        ]
+    }
+
+    /// Characters that are invalid in the continuation of an identifier.
+    fn invalid_continue_char() -> impl Strategy<Value = char> {
+        prop_oneof![
+            // Common invalid characters
+            Just(' '),
+            Just('\t'),
+            Just('\n'),
+            Just('.'),
+            Just(','),
+            Just('!'),
+            Just('@'),
+            Just('#'),
+            Just('$'),
+            Just('%'),
+            Just('^'),
+            Just('&'),
+            Just('*'),
+            Just('('),
+            Just(')'),
+            Just('='),
+            Just('+'),
+            Just('['),
+            Just(']'),
+            Just('{'),
+            Just('}'),
+            Just('|'),
+            Just('\\'),
+            Just('/'),
+            Just('<'),
+            Just('>'),
+            Just('?'),
+            Just(':'),
+            Just(';'),
+            Just('"'),
+            Just('\''),
+        ]
+    }
+
+    proptest! {
+        /// Valid identifiers should always parse successfully.
+        #[test]
+        fn valid_identifiers_parse_successfully(s in valid_identifier()) {
+            let result = Identifier::from_str(&s);
+            prop_assert!(result.is_ok(), "Failed to parse valid identifier: {:?}", s);
+        }
+
+        /// Parsed identifiers should round-trip correctly (parse -> to_string -> parse).
+        #[test]
+        fn round_trip_stability(s in valid_identifier()) {
+            let id1 = Identifier::from_str(&s).expect("should parse");
+            let string_repr = id1.to_string();
+            let id2 = Identifier::from_str(&string_repr).expect("should re-parse");
+            prop_assert_eq!(id1.as_ref(), id2.as_ref(), "Round-trip failed for: {:?}", s);
+        }
+
+        /// Identifiers starting with invalid characters should be rejected with error at position 0.
+        #[test]
+        fn invalid_first_char_rejected(
+            first in invalid_first_char(),
+            rest in proptest::collection::vec(xid_continue_char(), 0..10)
+        ) {
+            let mut s = String::with_capacity(1 + rest.len());
+            s.push(first);
+            s.extend(rest);
+
+            let result = Identifier::from_str(&s);
+            prop_assert!(result.is_err(), "Should reject invalid first char: {:?}", s);
+
+            if let Err(IdentifierError::InvalidChar { at, invalid_char }) = result {
+                prop_assert_eq!(at, 0, "Error position should be 0 for invalid first char");
+                prop_assert_eq!(invalid_char, first, "Reported char should match first char");
+            } else {
+                prop_assert!(false, "Expected InvalidChar error, got {:?}", result);
+            }
+        }
+
+        /// Identifiers with invalid characters in the middle should be rejected at the correct position.
+        #[test]
+        fn invalid_middle_char_rejected(
+            prefix_len in 1usize..10,
+            invalid in invalid_continue_char()
+        ) {
+            // Build a valid prefix
+            let prefix: String = (0..prefix_len)
+                .map(|i| if i == 0 { 'a' } else { 'b' })
+                .collect();
+
+            let mut s = prefix.clone();
+            s.push(invalid);
+            s.push_str("suffix");
+
+            let result = Identifier::from_str(&s);
+            prop_assert!(result.is_err(), "Should reject invalid middle char: {:?}", s);
+
+            if let Err(IdentifierError::InvalidChar { at, invalid_char }) = result {
+                prop_assert_eq!(at, prefix_len, "Error position should be at the invalid char position");
+                prop_assert_eq!(invalid_char, invalid, "Reported char should match invalid char");
+            } else {
+                prop_assert!(false, "Expected InvalidChar error, got {:?}", result);
+            }
+        }
+
+        /// Empty string should always return Empty error.
+        #[test]
+        fn empty_string_returns_empty_error(_dummy in Just(())) {
+            let result = Identifier::from_str("");
+            prop_assert_eq!(result, Err(IdentifierError::Empty));
+        }
+
+        /// Parsing arbitrary strings should never panic.
+        #[test]
+        fn parsing_never_panics(s in ".*") {
+            // Just ensure this doesn't panic
+            let _ = Identifier::from_str(&s);
+        }
+
+        /// Dollar prefix should always be rejected with InvalidChar at position 0.
+        #[test]
+        fn dollar_prefix_always_rejected(rest in "[a-zA-Z0-9_-]*") {
+            let s = format!("${}", rest);
+            let result = Identifier::from_str(&s);
+
+            match result {
+                Err(IdentifierError::InvalidChar { at: 0, invalid_char: '$' }) => {
+                    // Expected
+                }
+                _ => {
+                    prop_assert!(false, "Dollar prefix should return InvalidChar at 0, got {:?}", result);
+                }
+            }
+        }
+
+        /// For InvalidChar errors, the position should always be within bounds.
+        #[test]
+        fn error_position_within_bounds(s in ".+") {
+            if let Err(IdentifierError::InvalidChar { at, invalid_char }) = Identifier::from_str(&s) {
+                prop_assert!(at < s.len(), "Error position {} out of bounds for string of len {}", at, s.len());
+                // Verify the character at that position matches
+                let actual_char = s.chars().nth(at);
+                prop_assert_eq!(actual_char, Some(invalid_char), "Char at position {} should match reported char", at);
+            }
+        }
+
+        /// AsRef<str> should return the same string that was parsed.
+        #[test]
+        fn as_ref_returns_original_string(s in valid_identifier()) {
+            let id = Identifier::from_str(&s).expect("should parse");
+            prop_assert_eq!(id.as_ref(), s.as_str());
+        }
+
+        /// Display implementation should match AsRef<str>.
+        #[test]
+        fn display_matches_as_ref(s in valid_identifier()) {
+            let id = Identifier::from_str(&s).expect("should parse");
+            prop_assert_eq!(id.to_string(), id.as_ref());
+        }
     }
 }
