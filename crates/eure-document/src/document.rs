@@ -358,11 +358,6 @@ impl EureDocument {
     pub fn copy_subtree(&self, src_id: NodeId, dst: &mut EureDocument, dst_id: NodeId) {
         let src_node = self.node(src_id);
 
-        // Skip ALL extensions during literal comparison.
-        // Extensions are schema metadata (like $variant, $deny-untagged, $optional, etc.)
-        // and should not be part of the literal value comparison.
-        // Literal types compare only the data structure, not metadata.
-
         // Copy content based on type. For containers, we must NOT clone the content
         // directly because it contains NodeIds from the source document. Instead,
         // create empty containers and populate with recursively copied children.
@@ -399,6 +394,20 @@ impl EureDocument {
                         self.copy_subtree(child_src_id, dst, child_dst_id);
                     }
                 }
+            }
+        }
+
+        // Copy extensions recursively
+        let extensions: Vec<_> = self
+            .node(src_id)
+            .extensions
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+        for (ext_name, ext_src_id) in extensions {
+            if let Ok(result) = dst.add_extension(ext_name, dst_id) {
+                let ext_dst_id = result.node_id;
+                self.copy_subtree(ext_src_id, dst, ext_dst_id);
             }
         }
     }
@@ -1838,6 +1847,61 @@ mod proptests {
                 &dst_elem.content,
                 &NodeValue::Primitive(value),
                 "Primitive value should be preserved in nested structure"
+            );
+        }
+
+        /// Invariant: copy_subtree preserves extensions on nodes.
+        #[test]
+        fn copy_subtree_preserves_extensions(
+            ext_name in arb_identifier(),
+            ext_value in arb_primitive_value(),
+        ) {
+            let mut src = EureDocument::new();
+            let node_id = src.create_node(NodeValue::empty_map());
+
+            // Add extension to the node
+            let ext_id = src.add_extension(ext_name.clone(), node_id).expect("Add ext failed").node_id;
+            src.node_mut(ext_id).content = NodeValue::Primitive(ext_value.clone());
+
+            let dst = src.node_subtree_to_document(node_id);
+
+            // Verify extension exists in destination
+            let dst_ext = dst.root().extensions.get(&ext_name);
+            prop_assert!(dst_ext.is_some(), "Extension should be copied");
+
+            let dst_ext_id = *dst_ext.unwrap();
+            let dst_ext_node = dst.get_node(dst_ext_id).expect("Extension node should exist");
+            prop_assert_eq!(
+                &dst_ext_node.content,
+                &NodeValue::Primitive(ext_value),
+                "Extension value should be preserved"
+            );
+        }
+
+        /// Invariant: copy_subtree preserves extensions on nested nodes.
+        #[test]
+        fn copy_subtree_preserves_nested_extensions(
+            key in arb_object_key(),
+            ext_name in arb_identifier(),
+        ) {
+            let mut src = EureDocument::new();
+            let map_id = src.create_node(NodeValue::empty_map());
+
+            // Add child to map
+            let child_id = src.add_map_child(key.clone(), map_id).expect("Add failed").node_id;
+            // Add extension to child
+            src.add_extension(ext_name.clone(), child_id).expect("Add ext failed");
+
+            let dst = src.node_subtree_to_document(map_id);
+
+            // Verify nested extension exists
+            let dst_map = dst.root().as_map().expect("Expected map");
+            let dst_child_id = dst_map.get(&key).expect("Should have key");
+            let dst_child = dst.get_node(*dst_child_id).expect("Child should exist");
+
+            prop_assert!(
+                dst_child.extensions.contains_key(&ext_name),
+                "Extension on nested node should be preserved"
             );
         }
     }
