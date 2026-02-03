@@ -16,6 +16,9 @@ regex = { version = "1.11", default-features = false, features = ["unicode"] }
 thiserror = { workspace = true }
 thisisplural = { workspace = true }
 
+[dev-dependencies]
+proptest = "1.9"
+
 [features]
 default = ["std"]
 std = ["indexmap/std", "regex/perf"]
