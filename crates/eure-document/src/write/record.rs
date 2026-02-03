@@ -18,8 +18,8 @@ use super::{IntoEure, WriteError};
 ///
 /// ```ignore
 /// c.record(|rec| {
-///     rec.field("name", "Alice")?;
-///     rec.field_optional("age", Some(30))?;
+///     rec.field("name", &"Alice")?;
+///     rec.field_optional("age", Some(&30))?;
 ///     Ok(())
 /// })?;
 /// ```
@@ -40,12 +40,42 @@ impl<'a> RecordWriter<'a> {
     /// ```ignore
     /// rec.field("name", "Alice")?;
     /// ```
-    pub fn field<T: IntoEure>(&mut self, name: &str, value: T) -> Result<(), WriteError> {
+    pub fn field<T: IntoEure<Error = WriteError> + ?Sized>(
+        &mut self,
+        name: &str,
+        value: &T,
+    ) -> Result<(), WriteError> {
         let scope = self.constructor.begin_scope();
         self.constructor
             .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))?;
-        value.write_to(self.constructor)?;
+        T::write_to(value, self.constructor)?;
         self.constructor.end_scope(scope)?;
+        Ok(())
+    }
+
+    /// Write a required field using a marker/strategy type.
+    ///
+    /// This is used for writing remote types where `M` implements
+    /// `IntoEure<T>` but `T` doesn't implement `IntoEure` itself.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// rec.field_via::<DurationDef, _>("timeout", &duration)?;
+    /// ```
+    pub fn field_via<M, T>(&mut self, name: &str, value: &T) -> Result<(), M::Error>
+    where
+        M: IntoEure<T>,
+        M::Error: From<WriteError>,
+    {
+        let scope = self.constructor.begin_scope();
+        self.constructor
+            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))
+            .map_err(|e| M::Error::from(WriteError::from(e)))?;
+        M::write_to(value, self.constructor)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(|e| M::Error::from(WriteError::from(e)))?;
         Ok(())
     }
 
@@ -55,15 +85,38 @@ impl<'a> RecordWriter<'a> {
     /// # Example
     ///
     /// ```ignore
-    /// rec.field_optional("age", self.age)?;
+    /// rec.field_optional("age", self.age.as_ref())?;
     /// ```
-    pub fn field_optional<T: IntoEure>(
+    pub fn field_optional<T: IntoEure<Error = WriteError> + ?Sized>(
         &mut self,
         name: &str,
-        value: Option<T>,
+        value: Option<&T>,
     ) -> Result<(), WriteError> {
         if let Some(v) = value {
             self.field(name, v)?;
+        }
+        Ok(())
+    }
+
+    /// Write an optional field using a marker/strategy type.
+    /// Does nothing if the value is `None`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// rec.field_optional_via::<DurationDef, _>("timeout", self.timeout.as_ref())?;
+    /// ```
+    pub fn field_optional_via<M, T>(
+        &mut self,
+        name: &str,
+        value: Option<&T>,
+    ) -> Result<(), M::Error>
+    where
+        M: IntoEure<T>,
+        M::Error: From<WriteError>,
+    {
+        if let Some(v) = value {
+            self.field_via::<M, T>(name, v)?;
         }
         Ok(())
     }
@@ -77,14 +130,14 @@ impl<'a> RecordWriter<'a> {
     /// ```ignore
     /// rec.field_with("address", |c| {
     ///     c.record(|rec| {
-    ///         rec.field("city", "Tokyo")?;
+    ///         rec.field("city", &"Tokyo")?;
     ///         Ok(())
     ///     })
     /// })?;
     /// ```
-    pub fn field_with<F, T>(&mut self, name: &str, f: F) -> Result<T, WriteError>
+    pub fn field_with<F, R>(&mut self, name: &str, f: F) -> Result<R, WriteError>
     where
-        F: FnOnce(&mut DocumentConstructor) -> Result<T, WriteError>,
+        F: FnOnce(&mut DocumentConstructor) -> Result<R, WriteError>,
     {
         let scope = self.constructor.begin_scope();
         self.constructor
@@ -101,7 +154,7 @@ impl<'a> RecordWriter<'a> {
     ///
     /// ```ignore
     /// rec.field_with_optional("metadata", self.metadata.as_ref(), |c, meta| {
-    ///     meta.write_to(c)
+    ///     MyType::write_to(meta, c)
     /// })?;
     /// ```
     pub fn field_with_optional<T, F, R>(
@@ -140,7 +193,7 @@ mod tests {
     fn test_field() {
         let mut c = DocumentConstructor::new();
         c.record(|rec| {
-            rec.field("name", "Alice")?;
+            rec.field("name", &"Alice")?;
             Ok(())
         })
         .unwrap();
@@ -158,7 +211,7 @@ mod tests {
     fn test_field_optional_some() {
         let mut c = DocumentConstructor::new();
         c.record(|rec| {
-            rec.field_optional("age", Some(30i32))?;
+            rec.field_optional("age", Some(&30i32))?;
             Ok(())
         })
         .unwrap();
@@ -186,7 +239,7 @@ mod tests {
         c.record(|rec| {
             rec.field_with("nested", |c| {
                 c.record(|rec| {
-                    rec.field("inner", "value")?;
+                    rec.field("inner", &"value")?;
                     Ok(())
                 })
             })?;
@@ -208,9 +261,9 @@ mod tests {
     fn test_multiple_fields() {
         let mut c = DocumentConstructor::new();
         c.record(|rec| {
-            rec.field("name", "Bob")?;
-            rec.field("age", 25i32)?;
-            rec.field("active", true)?;
+            rec.field("name", &"Bob")?;
+            rec.field("age", &25i32)?;
+            rec.field("active", &true)?;
             Ok(())
         })
         .unwrap();

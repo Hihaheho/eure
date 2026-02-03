@@ -16,9 +16,9 @@ use super::{IntoEure, WriteError};
 ///
 /// ```ignore
 /// c.tuple(|t| {
-///     t.next("first")?;
-///     t.next(42)?;
-///     t.next(true)?;
+///     t.next(&"first")?;
+///     t.next(&42)?;
+///     t.next(&true)?;
 ///     Ok(())
 /// })?;
 /// ```
@@ -42,14 +42,44 @@ impl<'a> TupleWriter<'a> {
     ///
     /// ```ignore
     /// t.next("value")?;
-    /// t.next(123)?;
+    /// t.next(&123)?;
     /// ```
-    pub fn next<T: IntoEure>(&mut self, value: T) -> Result<(), WriteError> {
+    pub fn next<T: IntoEure<Error = WriteError> + ?Sized>(
+        &mut self,
+        value: &T,
+    ) -> Result<(), WriteError> {
         let scope = self.constructor.begin_scope();
         self.constructor
             .navigate(PathSegment::TupleIndex(self.position))?;
-        value.write_to(self.constructor)?;
+        T::write_to(value, self.constructor)?;
         self.constructor.end_scope(scope)?;
+        self.position += 1;
+        Ok(())
+    }
+
+    /// Write the next element using a marker/strategy type.
+    ///
+    /// This is used for writing remote types where `M` implements
+    /// `IntoEure<T>` but `T` doesn't implement `IntoEure` itself.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// t.next_via::<DurationDef, _>(&duration)?;
+    /// ```
+    pub fn next_via<M, T>(&mut self, value: &T) -> Result<(), M::Error>
+    where
+        M: IntoEure<T>,
+        M::Error: From<WriteError>,
+    {
+        let scope = self.constructor.begin_scope();
+        self.constructor
+            .navigate(PathSegment::TupleIndex(self.position))
+            .map_err(|e| M::Error::from(WriteError::from(e)))?;
+        M::write_to(value, self.constructor)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(|e| M::Error::from(WriteError::from(e)))?;
         self.position += 1;
         Ok(())
     }
@@ -63,7 +93,7 @@ impl<'a> TupleWriter<'a> {
     /// ```ignore
     /// t.next_with(|c| {
     ///     c.record(|rec| {
-    ///         rec.field("inner", "value")?;
+    ///         rec.field("inner", &"value")?;
     ///         Ok(())
     ///     })
     /// })?;
@@ -107,9 +137,9 @@ mod tests {
     fn test_next_sequential() {
         let mut c = DocumentConstructor::new();
         c.tuple(|t| {
-            t.next(1i32)?;
-            t.next("two")?;
-            t.next(true)?;
+            t.next(&1i32)?;
+            t.next(&"two")?;
+            t.next(&true)?;
             Ok(())
         })
         .unwrap();
@@ -122,10 +152,10 @@ mod tests {
     fn test_next_with_nested() {
         let mut c = DocumentConstructor::new();
         c.tuple(|t| {
-            t.next("first")?;
+            t.next(&"first")?;
             t.next_with(|c| {
                 c.record(|rec| {
-                    rec.field("inner", "value")?;
+                    rec.field("inner", &"value")?;
                     Ok(())
                 })
             })?;
@@ -151,9 +181,9 @@ mod tests {
         let mut c = DocumentConstructor::new();
         c.tuple(|t| {
             assert_eq!(t.position(), 0);
-            t.next(1i32)?;
+            t.next(&1i32)?;
             assert_eq!(t.position(), 1);
-            t.next(2i32)?;
+            t.next(&2i32)?;
             assert_eq!(t.position(), 2);
             Ok(())
         })
@@ -173,8 +203,8 @@ mod tests {
     fn test_values_written_correctly() {
         let mut c = DocumentConstructor::new();
         c.tuple(|t| {
-            t.next(42i32)?;
-            t.next("hello")?;
+            t.next(&42i32)?;
+            t.next(&"hello")?;
             Ok(())
         })
         .unwrap();
