@@ -357,16 +357,24 @@ impl EureDocument {
 
     pub fn copy_subtree(&self, src_id: NodeId, dst: &mut EureDocument, dst_id: NodeId) {
         let src_node = self.node(src_id);
-        dst.node_mut(dst_id).content = src_node.content.clone();
 
         // Skip ALL extensions during literal comparison.
         // Extensions are schema metadata (like $variant, $deny-untagged, $optional, etc.)
         // and should not be part of the literal value comparison.
         // Literal types compare only the data structure, not metadata.
 
-        // Copy children based on content type
+        // Copy content based on type. For containers, we must NOT clone the content
+        // directly because it contains NodeIds from the source document. Instead,
+        // create empty containers and populate with recursively copied children.
         match &src_node.content {
+            NodeValue::Hole(label) => {
+                dst.node_mut(dst_id).content = NodeValue::Hole(label.clone());
+            }
+            NodeValue::Primitive(p) => {
+                dst.node_mut(dst_id).content = NodeValue::Primitive(p.clone());
+            }
             NodeValue::Array(arr) => {
+                dst.node_mut(dst_id).content = NodeValue::empty_array();
                 for &child_src_id in arr.iter() {
                     if let Ok(result) = dst.add_array_element(None, dst_id) {
                         let child_dst_id = result.node_id;
@@ -375,6 +383,7 @@ impl EureDocument {
                 }
             }
             NodeValue::Tuple(tuple) => {
+                dst.node_mut(dst_id).content = NodeValue::empty_tuple();
                 for (idx, &child_src_id) in tuple.iter().enumerate() {
                     if let Ok(result) = dst.add_tuple_element(idx as u8, dst_id) {
                         let child_dst_id = result.node_id;
@@ -383,6 +392,7 @@ impl EureDocument {
                 }
             }
             NodeValue::Map(map) => {
+                dst.node_mut(dst_id).content = NodeValue::empty_map();
                 for (key, &child_src_id) in map.iter() {
                     if let Ok(result) = dst.add_map_child(key.clone(), dst_id) {
                         let child_dst_id = result.node_id;
@@ -390,7 +400,6 @@ impl EureDocument {
                     }
                 }
             }
-            _ => {}
         }
     }
 }
@@ -1111,5 +1120,626 @@ mod tests {
 
         // Verify that NodeIds are actually different
         assert_ne!(child1.0, child2.0);
+    }
+}
+
+#[cfg(test)]
+mod proptests {
+    extern crate std;
+
+    use super::*;
+    use proptest::prelude::*;
+    use std::vec::Vec;
+
+    // =========================================================================
+    // Strategy generators
+    // =========================================================================
+
+    /// Strategy for generating valid identifiers.
+    fn arb_identifier() -> impl Strategy<Value = Identifier> {
+        "[a-z][a-z0-9_-]{0,15}"
+            .prop_filter_map("valid identifier", |s| s.parse::<Identifier>().ok())
+    }
+
+    /// Strategy for generating simple object keys (strings only, for simpler testing).
+    fn arb_object_key() -> impl Strategy<Value = ObjectKey> {
+        prop_oneof![
+            "[a-z][a-z0-9_-]{0,15}".prop_map(ObjectKey::String),
+            (0i64..1000).prop_map(|n| ObjectKey::Number(n.into())),
+        ]
+    }
+
+    /// Strategy for generating primitive values.
+    fn arb_primitive_value() -> impl Strategy<Value = PrimitiveValue> {
+        prop_oneof![
+            Just(PrimitiveValue::Null),
+            proptest::bool::ANY.prop_map(PrimitiveValue::Bool),
+            (-1000i64..1000).prop_map(|n| PrimitiveValue::Integer(n.into())),
+            proptest::num::f64::NORMAL.prop_map(PrimitiveValue::F64),
+            "[a-zA-Z0-9 ]{0,50}".prop_map(|s| PrimitiveValue::Text(Text::plaintext(s))),
+        ]
+    }
+
+    // =========================================================================
+    // resolve_child_by_segment idempotency tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: resolve_child_by_segment is idempotent for Ident segments.
+        /// Calling twice with the same identifier returns the same NodeId.
+        #[test]
+        fn resolve_ident_is_idempotent(ident in arb_identifier()) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            let node_id1 = doc
+                .resolve_child_by_segment(PathSegment::Ident(ident.clone()), root_id)
+                .expect("First resolve failed")
+                .node_id;
+
+            let node_id2 = doc
+                .resolve_child_by_segment(PathSegment::Ident(ident), root_id)
+                .expect("Second resolve failed")
+                .node_id;
+
+            prop_assert_eq!(node_id1, node_id2, "Ident resolution should be idempotent");
+        }
+
+        /// Invariant: resolve_child_by_segment is idempotent for Value segments.
+        #[test]
+        fn resolve_value_is_idempotent(key in arb_object_key()) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            let node_id1 = doc
+                .resolve_child_by_segment(PathSegment::Value(key.clone()), root_id)
+                .expect("First resolve failed")
+                .node_id;
+
+            let node_id2 = doc
+                .resolve_child_by_segment(PathSegment::Value(key), root_id)
+                .expect("Second resolve failed")
+                .node_id;
+
+            prop_assert_eq!(node_id1, node_id2, "Value resolution should be idempotent");
+        }
+
+        /// Invariant: resolve_child_by_segment is idempotent for Extension segments.
+        #[test]
+        fn resolve_extension_is_idempotent(ident in arb_identifier()) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            let node_id1 = doc
+                .resolve_child_by_segment(PathSegment::Extension(ident.clone()), root_id)
+                .expect("First resolve failed")
+                .node_id;
+
+            let node_id2 = doc
+                .resolve_child_by_segment(PathSegment::Extension(ident), root_id)
+                .expect("Second resolve failed")
+                .node_id;
+
+            prop_assert_eq!(node_id1, node_id2, "Extension resolution should be idempotent");
+        }
+
+        /// Invariant: resolve_child_by_segment is idempotent for TupleIndex segments.
+        #[test]
+        fn resolve_tuple_index_is_idempotent(index in 0u8..10) {
+            let mut doc = EureDocument::new();
+            let parent_id = doc.create_node_uninitialized();
+
+            // First add indices sequentially up to `index`
+            for i in 0..index {
+                doc.add_tuple_element(i, parent_id).expect("Sequential add failed");
+            }
+
+            // Now resolve the next index
+            let node_id1 = doc
+                .resolve_child_by_segment(PathSegment::TupleIndex(index), parent_id)
+                .expect("First resolve failed")
+                .node_id;
+
+            let node_id2 = doc
+                .resolve_child_by_segment(PathSegment::TupleIndex(index), parent_id)
+                .expect("Second resolve failed")
+                .node_id;
+
+            prop_assert_eq!(node_id1, node_id2, "TupleIndex resolution should be idempotent");
+        }
+
+        /// Invariant: resolve_child_by_segment is idempotent for ArrayIndex(Some(n)) segments.
+        #[test]
+        fn resolve_array_index_some_is_idempotent(index in 0usize..10) {
+            let mut doc = EureDocument::new();
+            let parent_id = doc.create_node_uninitialized();
+
+            // First add indices sequentially up to `index`
+            for i in 0..index {
+                doc.add_array_element(Some(i), parent_id).expect("Sequential add failed");
+            }
+
+            // Now resolve the next index
+            let node_id1 = doc
+                .resolve_child_by_segment(PathSegment::ArrayIndex(Some(index)), parent_id)
+                .expect("First resolve failed")
+                .node_id;
+
+            let node_id2 = doc
+                .resolve_child_by_segment(PathSegment::ArrayIndex(Some(index)), parent_id)
+                .expect("Second resolve failed")
+                .node_id;
+
+            prop_assert_eq!(node_id1, node_id2, "ArrayIndex(Some) resolution should be idempotent");
+        }
+
+        /// Invariant: ArrayIndex(None) always creates new elements (NOT idempotent - push behavior).
+        #[test]
+        fn resolve_array_index_none_always_creates_new(count in 1usize..10) {
+            let mut doc = EureDocument::new();
+            let parent_id = doc.create_node_uninitialized();
+
+            let mut node_ids = Vec::new();
+            for _ in 0..count {
+                let node_id = doc
+                    .resolve_child_by_segment(PathSegment::ArrayIndex(None), parent_id)
+                    .expect("Resolve failed")
+                    .node_id;
+                node_ids.push(node_id);
+            }
+
+            // All node IDs should be unique
+            for i in 0..node_ids.len() {
+                for j in (i+1)..node_ids.len() {
+                    prop_assert_ne!(node_ids[i], node_ids[j],
+                        "ArrayIndex(None) should create unique nodes");
+                }
+            }
+
+            // Array length should match push count
+            let array = doc.node(parent_id).as_array().expect("Expected array");
+            prop_assert_eq!(array.len(), count, "Array length should match push count");
+        }
+    }
+
+    // =========================================================================
+    // Extension uniqueness tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: Multiple different extensions can be added to a single node.
+        #[test]
+        fn multiple_different_extensions_allowed(
+            ext1 in arb_identifier(),
+            ext2 in arb_identifier(),
+        ) {
+            prop_assume!(ext1 != ext2);
+
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            let node_id1 = doc.add_extension(ext1.clone(), root_id)
+                .expect("First extension failed")
+                .node_id;
+            let node_id2 = doc.add_extension(ext2.clone(), root_id)
+                .expect("Second extension failed")
+                .node_id;
+
+            let node = doc.node(root_id);
+            prop_assert_eq!(node.extensions.get(&ext1), Some(&node_id1));
+            prop_assert_eq!(node.extensions.get(&ext2), Some(&node_id2));
+        }
+
+        /// Invariant: Duplicate extension identifier fails with AlreadyAssignedExtension.
+        #[test]
+        fn duplicate_extension_fails(ext in arb_identifier()) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            let _first = doc.add_extension(ext.clone(), root_id)
+                .expect("First extension should succeed");
+
+            let result = doc.add_extension(ext.clone(), root_id);
+            prop_assert_eq!(
+                result.err(),
+                Some(InsertErrorKind::AlreadyAssignedExtension { identifier: ext }),
+                "Duplicate extension should fail"
+            );
+        }
+    }
+
+    // =========================================================================
+    // Document equality tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: Two documents with same structure are equal even with different NodeIds.
+        #[test]
+        fn document_equality_ignores_node_ids(
+            keys in proptest::collection::vec(arb_object_key(), 1..5)
+                .prop_filter("unique keys", |keys| {
+                    let unique: std::collections::HashSet<_> = keys.iter().collect();
+                    unique.len() == keys.len()
+                }),
+        ) {
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            // Add an unrelated node to doc1 to offset NodeIds
+            let _ = doc1.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            // Add same children to both documents
+            for key in &keys {
+                doc1.add_map_child(key.clone(), root1).expect("Add failed");
+                doc2.add_map_child(key.clone(), root2).expect("Add failed");
+            }
+
+            prop_assert_eq!(doc1, doc2, "Documents with same structure should be equal");
+        }
+
+        /// Invariant: Reflexive equality - a document equals itself.
+        #[test]
+        fn document_equality_reflexive(
+            keys in proptest::collection::vec(arb_object_key(), 0..5)
+                .prop_filter("unique keys", |keys| {
+                    let unique: std::collections::HashSet<_> = keys.iter().collect();
+                    unique.len() == keys.len()
+                }),
+        ) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            for key in &keys {
+                doc.add_map_child(key.clone(), root_id).expect("Add failed");
+            }
+
+            prop_assert_eq!(&doc, &doc, "Document should equal itself");
+        }
+
+        /// Invariant: Documents with different content are not equal.
+        #[test]
+        fn document_equality_different_content(
+            key1 in arb_object_key(),
+            key2 in arb_object_key(),
+        ) {
+            prop_assume!(key1 != key2);
+
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            doc1.add_map_child(key1, root1).expect("Add failed");
+            doc2.add_map_child(key2, root2).expect("Add failed");
+
+            prop_assert_ne!(doc1, doc2, "Documents with different keys should not be equal");
+        }
+    }
+
+    // =========================================================================
+    // Copy subtree tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: copy_subtree preserves primitive values.
+        #[test]
+        fn copy_subtree_preserves_primitive(value in arb_primitive_value()) {
+            let mut src = EureDocument::new();
+            let src_id = src.create_node(NodeValue::Primitive(value.clone()));
+
+            let dst = src.node_subtree_to_document(src_id);
+
+            let dst_node = dst.root();
+            match &dst_node.content {
+                NodeValue::Primitive(copied_value) => {
+                    prop_assert_eq!(copied_value, &value, "Primitive value should be preserved");
+                }
+                other => {
+                    prop_assert!(false, "Expected Primitive, got {:?}", other);
+                }
+            }
+        }
+
+        /// Invariant: copy_subtree for arrays must create valid NodeIds in destination.
+        /// All NodeIds stored in the copied array must exist in the destination document.
+        #[test]
+        fn copy_subtree_array_has_valid_node_ids(count in 1usize..10) {
+            let mut src = EureDocument::new();
+            let array_id = src.create_node(NodeValue::empty_array());
+
+            for _ in 0..count {
+                src.add_array_element(None, array_id).expect("Add failed");
+            }
+
+            let dst = src.node_subtree_to_document(array_id);
+
+            // The destination array should have exactly `count` elements
+            let dst_array = dst.root().as_array().expect("Expected array");
+            prop_assert_eq!(dst_array.len(), count, "Copied array should have correct length");
+
+            // All NodeIds in the destination array must be valid
+            for i in 0..dst_array.len() {
+                let child_id = dst_array.get(i).expect("Should have element");
+                prop_assert!(
+                    dst.get_node(child_id).is_some(),
+                    "NodeId {:?} at index {} must exist in destination", child_id, i
+                );
+            }
+        }
+
+        /// Invariant: copy_subtree for maps must create valid NodeIds in destination.
+        #[test]
+        fn copy_subtree_map_has_valid_node_ids(
+            keys in proptest::collection::vec(arb_object_key(), 1..5)
+                .prop_filter("unique keys", |keys| {
+                    let unique: std::collections::HashSet<_> = keys.iter().collect();
+                    unique.len() == keys.len()
+                }),
+        ) {
+            let mut src = EureDocument::new();
+            let map_id = src.create_node(NodeValue::empty_map());
+
+            for key in &keys {
+                src.add_map_child(key.clone(), map_id).expect("Add failed");
+            }
+
+            let dst = src.node_subtree_to_document(map_id);
+
+            let dst_map = dst.root().as_map().expect("Expected map");
+            prop_assert_eq!(dst_map.len(), keys.len(), "Copied map should have correct size");
+
+            // All NodeIds in the destination map must be valid
+            for (key, &child_id) in dst_map.iter() {
+                prop_assert!(
+                    dst.get_node(child_id).is_some(),
+                    "NodeId {:?} for key {:?} must exist in destination", child_id, key
+                );
+            }
+        }
+
+        /// Invariant: copy_subtree for tuples must create valid NodeIds in destination.
+        #[test]
+        fn copy_subtree_tuple_has_valid_node_ids(count in 1u8..10) {
+            let mut src = EureDocument::new();
+            let tuple_id = src.create_node(NodeValue::empty_tuple());
+
+            for i in 0..count {
+                src.add_tuple_element(i, tuple_id).expect("Add failed");
+            }
+
+            let dst = src.node_subtree_to_document(tuple_id);
+
+            let dst_tuple = dst.root().as_tuple().expect("Expected tuple");
+            prop_assert_eq!(dst_tuple.len(), count as usize, "Copied tuple should have correct length");
+
+            // All NodeIds in the destination tuple must be valid
+            for i in 0..dst_tuple.len() {
+                let child_id = dst_tuple.get(i).expect("Should have element");
+                prop_assert!(
+                    dst.get_node(child_id).is_some(),
+                    "NodeId {:?} at index {} must exist in destination", child_id, i
+                );
+            }
+        }
+    }
+
+    // =========================================================================
+    // Map key uniqueness tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: Map keys must be unique; duplicate key fails with AlreadyAssigned.
+        #[test]
+        fn map_key_uniqueness(key in arb_object_key()) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            let _first = doc.add_map_child(key.clone(), root_id)
+                .expect("First add should succeed");
+
+            let result = doc.add_map_child(key.clone(), root_id);
+            prop_assert_eq!(
+                result.err(),
+                Some(InsertErrorKind::AlreadyAssigned { key }),
+                "Duplicate map key should fail"
+            );
+        }
+
+        /// Invariant: Multiple different map keys can coexist.
+        #[test]
+        fn multiple_map_keys_allowed(
+            keys in proptest::collection::vec(arb_object_key(), 2..10)
+                .prop_filter("unique keys", |keys| {
+                    let unique: std::collections::HashSet<_> = keys.iter().collect();
+                    unique.len() == keys.len()
+                })
+        ) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id();
+
+            for key in &keys {
+                doc.add_map_child(key.clone(), root_id).expect("Add should succeed");
+            }
+
+            let map = doc.node(root_id).as_map().expect("Expected map");
+            prop_assert_eq!(map.len(), keys.len(), "All unique keys should be present");
+        }
+    }
+
+    // =========================================================================
+    // Require methods convert holes correctly
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: require_map on a hole converts it to a map.
+        #[test]
+        fn require_map_converts_hole(_dummy in Just(())) {
+            let mut doc = EureDocument::new();
+            let node_id = doc.create_node(NodeValue::hole());
+
+            // Verify it's a hole
+            prop_assert!(doc.node(node_id).content.is_hole());
+
+            // Require map
+            {
+                let node = doc.node_mut(node_id);
+                let _map = node.require_map().expect("Should convert to map");
+            }
+
+            // Verify it's now a map
+            prop_assert!(doc.node(node_id).as_map().is_some());
+        }
+
+        /// Invariant: require_array on a hole converts it to an array.
+        #[test]
+        fn require_array_converts_hole(_dummy in Just(())) {
+            let mut doc = EureDocument::new();
+            let node_id = doc.create_node(NodeValue::hole());
+
+            prop_assert!(doc.node(node_id).content.is_hole());
+
+            {
+                let node = doc.node_mut(node_id);
+                let _array = node.require_array().expect("Should convert to array");
+            }
+
+            prop_assert!(doc.node(node_id).as_array().is_some());
+        }
+
+        /// Invariant: require_tuple on a hole converts it to a tuple.
+        #[test]
+        fn require_tuple_converts_hole(_dummy in Just(())) {
+            let mut doc = EureDocument::new();
+            let node_id = doc.create_node(NodeValue::hole());
+
+            prop_assert!(doc.node(node_id).content.is_hole());
+
+            {
+                let node = doc.node_mut(node_id);
+                let _tuple = node.require_tuple().expect("Should convert to tuple");
+            }
+
+            prop_assert!(doc.node(node_id).as_tuple().is_some());
+        }
+
+        /// Invariant: require methods on wrong types return errors.
+        #[test]
+        fn require_methods_fail_on_wrong_type(_dummy in Just(())) {
+            let mut doc = EureDocument::new();
+            let primitive_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+            let node = doc.node_mut(primitive_id);
+            prop_assert_eq!(node.require_map().err(), Some(InsertErrorKind::ExpectedMap));
+
+            let node = doc.node_mut(primitive_id);
+            prop_assert_eq!(node.require_array().err(), Some(InsertErrorKind::ExpectedArray));
+
+            let node = doc.node_mut(primitive_id);
+            prop_assert_eq!(node.require_tuple().err(), Some(InsertErrorKind::ExpectedTuple));
+        }
+    }
+
+    // =========================================================================
+    // Node validity tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: All created nodes can be accessed via get_node.
+        #[test]
+        fn created_nodes_are_accessible(count in 1usize..20) {
+            let mut doc = EureDocument::new();
+            let mut node_ids = Vec::new();
+
+            for _ in 0..count {
+                let id = doc.create_node_uninitialized();
+                node_ids.push(id);
+            }
+
+            for id in node_ids {
+                prop_assert!(doc.get_node(id).is_some(),
+                    "Created node {:?} should be accessible", id);
+            }
+        }
+
+        /// Invariant: Invalid NodeIds return None from get_node.
+        #[test]
+        fn invalid_node_ids_return_none(count in 1usize..10) {
+            let mut doc = EureDocument::new();
+
+            for _ in 0..count {
+                doc.create_node_uninitialized();
+            }
+
+            // Access an invalid NodeId (beyond the nodes vector)
+            let invalid_id = NodeId(count + 100);
+            prop_assert!(doc.get_node(invalid_id).is_none(),
+                "Invalid NodeId should return None");
+        }
+
+        /// Invariant: Root node is always accessible.
+        #[test]
+        fn root_is_always_accessible(count in 0usize..10) {
+            let mut doc = EureDocument::new();
+
+            // Create some additional nodes
+            for _ in 0..count {
+                doc.create_node_uninitialized();
+            }
+
+            let root_id = doc.get_root_id();
+            prop_assert!(doc.get_node(root_id).is_some(), "Root should always be accessible");
+            prop_assert_eq!(root_id, NodeId(0), "Root should be NodeId(0)");
+        }
+    }
+
+    // =========================================================================
+    // Nested structure tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: Nested structures can be built and are equal across documents.
+        #[test]
+        fn nested_structures_are_equal(
+            keys in proptest::collection::vec(arb_object_key(), 1..3),
+            depth in 1usize..4,
+        ) {
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            fn build_nested(
+                doc: &mut EureDocument,
+                parent_id: NodeId,
+                keys: &[ObjectKey],
+                depth: usize,
+            ) {
+                if depth == 0 {
+                    return;
+                }
+                // First collect child node IDs to avoid borrow conflict
+                let child_ids: Vec<NodeId> = keys
+                    .iter()
+                    .filter_map(|key| {
+                        doc.add_map_child(key.clone(), parent_id).ok().map(|c| c.node_id)
+                    })
+                    .collect();
+
+                // Then recursively build nested structures
+                for child_id in child_ids {
+                    build_nested(doc, child_id, keys, depth - 1);
+                }
+            }
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            build_nested(&mut doc1, root1, &keys, depth);
+            build_nested(&mut doc2, root2, &keys, depth);
+
+            prop_assert_eq!(doc1, doc2, "Nested structures should be equal");
+        }
     }
 }

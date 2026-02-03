@@ -510,3 +510,432 @@ mod tests {
         assert!(debug_output.contains("<invalid>"));
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    extern crate std;
+
+    use super::*;
+    use proptest::prelude::*;
+    use std::vec::Vec;
+
+    // =========================================================================
+    // NodeArray sequential index invariants
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: NodeArray requires sequential indices from 0.
+        /// add_at(0) on empty array succeeds.
+        #[test]
+        fn array_add_at_zero_on_empty_succeeds(_dummy in Just(())) {
+            let mut array = NodeArray::new();
+            let result = array.add_at(0, NodeId(1));
+            prop_assert!(result.is_ok(), "add_at(0) on empty array should succeed");
+            prop_assert_eq!(array.len(), 1);
+        }
+
+        /// Invariant: NodeArray add_at(n) fails when length != n.
+        #[test]
+        fn array_add_at_wrong_index_fails(index in 1usize..100) {
+            let mut array = NodeArray::new();
+
+            let result = array.add_at(index, NodeId(1));
+            prop_assert!(result.is_err(), "add_at({}) on empty array should fail", index);
+
+            match result {
+                Err(InsertErrorKind::ArrayIndexInvalid { index: i, expected_index }) => {
+                    prop_assert_eq!(i, index);
+                    prop_assert_eq!(expected_index, 0);
+                }
+                other => prop_assert!(false, "Expected ArrayIndexInvalid, got {:?}", other),
+            }
+        }
+
+        /// Invariant: NodeArray add_at succeeds for sequential indices.
+        #[test]
+        fn array_sequential_add_succeeds(count in 1usize..50) {
+            let mut array = NodeArray::new();
+
+            for i in 0..count {
+                let result = array.add_at(i, NodeId(i));
+                prop_assert!(result.is_ok(), "add_at({}) should succeed", i);
+            }
+
+            prop_assert_eq!(array.len(), count);
+        }
+
+        /// Invariant: NodeArray add_at fails when skipping an index.
+        #[test]
+        fn array_skip_index_fails(
+            fill_count in 0usize..10,
+            skip_amount in 1usize..10,
+        ) {
+            let mut array = NodeArray::new();
+
+            // Fill sequentially
+            for i in 0..fill_count {
+                array.add_at(i, NodeId(i)).expect("Sequential add failed");
+            }
+
+            // Try to skip indices
+            let bad_index = fill_count + skip_amount;
+            let result = array.add_at(bad_index, NodeId(bad_index));
+
+            match result {
+                Err(InsertErrorKind::ArrayIndexInvalid { index, expected_index }) => {
+                    prop_assert_eq!(index, bad_index);
+                    prop_assert_eq!(expected_index, fill_count);
+                }
+                other => prop_assert!(false, "Expected ArrayIndexInvalid, got {:?}", other),
+            }
+        }
+
+        /// Invariant: NodeArray push always succeeds and appends.
+        #[test]
+        fn array_push_always_succeeds(count in 1usize..50) {
+            let mut array = NodeArray::new();
+
+            for i in 0..count {
+                let result = array.push(NodeId(i));
+                prop_assert!(result.is_ok(), "push should always succeed");
+                prop_assert_eq!(array.len(), i + 1);
+            }
+        }
+
+        /// Invariant: NodeArray get returns correct values for valid indices.
+        #[test]
+        fn array_get_returns_correct_values(count in 1usize..20) {
+            let mut array = NodeArray::new();
+            let mut expected = Vec::new();
+
+            for i in 0..count {
+                let node_id = NodeId(i * 10); // Use distinct values
+                array.push(node_id).unwrap();
+                expected.push(node_id);
+            }
+
+            for (i, &expected_id) in expected.iter().enumerate() {
+                prop_assert_eq!(array.get(i), Some(expected_id),
+                    "get({}) should return {:?}", i, expected_id);
+            }
+
+            // Out of bounds
+            prop_assert_eq!(array.get(count), None);
+            prop_assert_eq!(array.get(count + 100), None);
+        }
+
+        /// Invariant: NodeArray to_vec preserves order and values.
+        #[test]
+        fn array_to_vec_preserves_order(count in 0usize..20) {
+            let mut array = NodeArray::new();
+            let mut expected = Vec::new();
+
+            for i in 0..count {
+                let node_id = NodeId(i);
+                array.push(node_id).unwrap();
+                expected.push(node_id);
+            }
+
+            prop_assert_eq!(array.to_vec(), expected);
+        }
+
+        /// Invariant: NodeArray from_vec creates correct array.
+        #[test]
+        fn array_from_vec_roundtrip(ids in proptest::collection::vec(0usize..1000, 0..20)) {
+            let node_ids: Vec<NodeId> = ids.iter().map(|&i| NodeId(i)).collect();
+            let array = NodeArray::from_vec(node_ids.clone());
+
+            prop_assert_eq!(array.len(), node_ids.len());
+            prop_assert_eq!(array.to_vec(), node_ids);
+        }
+    }
+
+    // =========================================================================
+    // NodeTuple sequential index invariants
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: NodeTuple requires sequential indices from 0.
+        /// add_at(0) on empty tuple succeeds.
+        #[test]
+        fn tuple_add_at_zero_on_empty_succeeds(_dummy in Just(())) {
+            let mut tuple = NodeTuple::new();
+            let result = tuple.add_at(0, NodeId(1));
+            prop_assert!(result.is_ok(), "add_at(0) on empty tuple should succeed");
+            prop_assert_eq!(tuple.len(), 1);
+        }
+
+        /// Invariant: NodeTuple add_at(n) fails when length != n.
+        #[test]
+        fn tuple_add_at_wrong_index_fails(index in 1u8..100) {
+            let mut tuple = NodeTuple::new();
+
+            let result = tuple.add_at(index, NodeId(1));
+            prop_assert!(result.is_err(), "add_at({}) on empty tuple should fail", index);
+
+            match result {
+                Err(InsertErrorKind::TupleIndexInvalid { index: i, expected_index }) => {
+                    prop_assert_eq!(i, index);
+                    prop_assert_eq!(expected_index, 0);
+                }
+                other => prop_assert!(false, "Expected TupleIndexInvalid, got {:?}", other),
+            }
+        }
+
+        /// Invariant: NodeTuple add_at succeeds for sequential indices.
+        #[test]
+        fn tuple_sequential_add_succeeds(count in 1u8..50) {
+            let mut tuple = NodeTuple::new();
+
+            for i in 0..count {
+                let result = tuple.add_at(i, NodeId(i as usize));
+                prop_assert!(result.is_ok(), "add_at({}) should succeed", i);
+            }
+
+            prop_assert_eq!(tuple.len(), count as usize);
+        }
+
+        /// Invariant: NodeTuple add_at fails when skipping an index.
+        #[test]
+        fn tuple_skip_index_fails(
+            fill_count in 0u8..10,
+            skip_amount in 1u8..10,
+        ) {
+            let mut tuple = NodeTuple::new();
+
+            // Fill sequentially
+            for i in 0..fill_count {
+                tuple.add_at(i, NodeId(i as usize)).expect("Sequential add failed");
+            }
+
+            // Try to skip indices
+            let bad_index = fill_count + skip_amount;
+            let result = tuple.add_at(bad_index, NodeId(bad_index as usize));
+
+            match result {
+                Err(InsertErrorKind::TupleIndexInvalid { index, expected_index }) => {
+                    prop_assert_eq!(index, bad_index);
+                    prop_assert_eq!(expected_index, fill_count as usize);
+                }
+                other => prop_assert!(false, "Expected TupleIndexInvalid, got {:?}", other),
+            }
+        }
+
+        /// Invariant: NodeTuple push always succeeds and appends.
+        #[test]
+        fn tuple_push_always_succeeds(count in 1usize..50) {
+            let mut tuple = NodeTuple::new();
+
+            for i in 0..count {
+                let result = tuple.push(NodeId(i));
+                prop_assert!(result.is_ok(), "push should always succeed");
+                prop_assert_eq!(tuple.len(), i + 1);
+            }
+        }
+
+        /// Invariant: NodeTuple get returns correct values for valid indices.
+        #[test]
+        fn tuple_get_returns_correct_values(count in 1usize..20) {
+            let mut tuple = NodeTuple::new();
+            let mut expected = Vec::new();
+
+            for i in 0..count {
+                let node_id = NodeId(i * 10);
+                tuple.push(node_id).unwrap();
+                expected.push(node_id);
+            }
+
+            for (i, &expected_id) in expected.iter().enumerate() {
+                prop_assert_eq!(tuple.get(i), Some(expected_id),
+                    "get({}) should return {:?}", i, expected_id);
+            }
+
+            // Out of bounds
+            prop_assert_eq!(tuple.get(count), None);
+            prop_assert_eq!(tuple.get(count + 100), None);
+        }
+
+        /// Invariant: NodeTuple to_vec preserves order and values.
+        #[test]
+        fn tuple_to_vec_preserves_order(count in 0usize..20) {
+            let mut tuple = NodeTuple::new();
+            let mut expected = Vec::new();
+
+            for i in 0..count {
+                let node_id = NodeId(i);
+                tuple.push(node_id).unwrap();
+                expected.push(node_id);
+            }
+
+            prop_assert_eq!(tuple.to_vec(), expected);
+        }
+
+        /// Invariant: NodeTuple from_vec creates correct tuple.
+        #[test]
+        fn tuple_from_vec_roundtrip(ids in proptest::collection::vec(0usize..1000, 0..20)) {
+            let node_ids: Vec<NodeId> = ids.iter().map(|&i| NodeId(i)).collect();
+            let tuple = NodeTuple::from_vec(node_ids.clone());
+
+            prop_assert_eq!(tuple.len(), node_ids.len());
+            prop_assert_eq!(tuple.to_vec(), node_ids);
+        }
+    }
+
+    // =========================================================================
+    // NodeValue type tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: NodeValue::hole() returns a hole.
+        #[test]
+        fn node_value_hole_is_hole(_dummy in Just(())) {
+            let value = NodeValue::hole();
+            prop_assert!(value.is_hole());
+            prop_assert_eq!(value, NodeValue::Hole(None));
+        }
+
+        /// Invariant: NodeValue::labeled_hole preserves label.
+        #[test]
+        fn node_value_labeled_hole_preserves_label(label in "[a-z][a-z0-9_-]{0,10}") {
+            let identifier: Identifier = label.parse().unwrap();
+            let value = NodeValue::labeled_hole(identifier.clone());
+
+            prop_assert!(value.is_hole());
+            prop_assert_eq!(value, NodeValue::Hole(Some(identifier)));
+        }
+
+        /// Invariant: Empty containers are empty.
+        #[test]
+        fn empty_containers_are_empty(_dummy in Just(())) {
+            let map = NodeValue::empty_map();
+            let array = NodeValue::empty_array();
+            let tuple = NodeValue::empty_tuple();
+
+            if let NodeValue::Map(m) = map {
+                prop_assert!(m.is_empty());
+            } else {
+                prop_assert!(false, "empty_map should create Map");
+            }
+
+            if let NodeValue::Array(a) = array {
+                prop_assert!(a.is_empty());
+            } else {
+                prop_assert!(false, "empty_array should create Array");
+            }
+
+            if let NodeValue::Tuple(t) = tuple {
+                prop_assert!(t.is_empty());
+            } else {
+                prop_assert!(false, "empty_tuple should create Tuple");
+            }
+        }
+
+        /// Invariant: value_kind returns correct kind for each variant.
+        #[test]
+        fn value_kind_correct(_dummy in Just(())) {
+            use crate::value::ValueKind;
+
+            let hole = NodeValue::hole();
+            prop_assert_eq!(hole.value_kind(), None);
+
+            let primitive = NodeValue::Primitive(PrimitiveValue::Null);
+            prop_assert_eq!(primitive.value_kind(), Some(ValueKind::Null));
+
+            let bool_val = NodeValue::Primitive(PrimitiveValue::Bool(true));
+            prop_assert_eq!(bool_val.value_kind(), Some(ValueKind::Bool));
+
+            let array = NodeValue::empty_array();
+            prop_assert_eq!(array.value_kind(), Some(ValueKind::Array));
+
+            let map = NodeValue::empty_map();
+            prop_assert_eq!(map.value_kind(), Some(ValueKind::Map));
+
+            let tuple = NodeValue::empty_tuple();
+            prop_assert_eq!(tuple.value_kind(), Some(ValueKind::Tuple));
+        }
+    }
+
+    // =========================================================================
+    // Node require_* method tests
+    // =========================================================================
+
+    proptest! {
+        /// Invariant: require_map is idempotent on map.
+        #[test]
+        fn require_map_idempotent(_dummy in Just(())) {
+            let mut node = Node {
+                content: NodeValue::empty_map(),
+                extensions: Map::new(),
+            };
+
+            // Call multiple times
+            for _ in 0..5 {
+                let result = node.require_map();
+                prop_assert!(result.is_ok());
+            }
+
+            // Still a map
+            prop_assert!(node.as_map().is_some());
+        }
+
+        /// Invariant: require_array is idempotent on array.
+        #[test]
+        fn require_array_idempotent(_dummy in Just(())) {
+            let mut node = Node {
+                content: NodeValue::empty_array(),
+                extensions: Map::new(),
+            };
+
+            for _ in 0..5 {
+                let result = node.require_array();
+                prop_assert!(result.is_ok());
+            }
+
+            prop_assert!(node.as_array().is_some());
+        }
+
+        /// Invariant: require_tuple is idempotent on tuple.
+        #[test]
+        fn require_tuple_idempotent(_dummy in Just(())) {
+            let mut node = Node {
+                content: NodeValue::empty_tuple(),
+                extensions: Map::new(),
+            };
+
+            for _ in 0..5 {
+                let result = node.require_tuple();
+                prop_assert!(result.is_ok());
+            }
+
+            prop_assert!(node.as_tuple().is_some());
+        }
+
+        /// Invariant: require_* methods fail on incompatible types.
+        #[test]
+        fn require_methods_type_mismatch(_dummy in Just(())) {
+            // Array node
+            let mut array_node = Node {
+                content: NodeValue::empty_array(),
+                extensions: Map::new(),
+            };
+            prop_assert_eq!(array_node.require_map().err(), Some(InsertErrorKind::ExpectedMap));
+            prop_assert_eq!(array_node.require_tuple().err(), Some(InsertErrorKind::ExpectedTuple));
+
+            // Map node
+            let mut map_node = Node {
+                content: NodeValue::empty_map(),
+                extensions: Map::new(),
+            };
+            prop_assert_eq!(map_node.require_array().err(), Some(InsertErrorKind::ExpectedArray));
+            prop_assert_eq!(map_node.require_tuple().err(), Some(InsertErrorKind::ExpectedTuple));
+
+            // Tuple node
+            let mut tuple_node = Node {
+                content: NodeValue::empty_tuple(),
+                extensions: Map::new(),
+            };
+            prop_assert_eq!(tuple_node.require_map().err(), Some(InsertErrorKind::ExpectedMap));
+            prop_assert_eq!(tuple_node.require_array().err(), Some(InsertErrorKind::ExpectedArray));
+        }
+    }
+}
