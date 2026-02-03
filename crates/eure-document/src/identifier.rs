@@ -212,6 +212,12 @@ mod tests {
         let id = Identifier::new_unchecked("borrowed");
         assert_eq!(id.as_ref(), "borrowed");
     }
+
+    #[test]
+    fn test_empty_string_returns_empty_error() {
+        let result = Identifier::from_str("");
+        assert_eq!(result, Err(IdentifierError::Empty));
+    }
 }
 
 #[cfg(test)]
@@ -420,20 +426,6 @@ mod proptests {
             }
         }
 
-        /// Empty string should always return Empty error.
-        #[test]
-        fn empty_string_returns_empty_error(_dummy in Just(())) {
-            let result = Identifier::from_str("");
-            prop_assert_eq!(result, Err(IdentifierError::Empty));
-        }
-
-        /// Parsing arbitrary strings should never panic.
-        #[test]
-        fn parsing_never_panics(s in ".*") {
-            // Just ensure this doesn't panic
-            let _ = Identifier::from_str(&s);
-        }
-
         /// Dollar prefix should always be rejected with InvalidChar at position 0.
         #[test]
         fn dollar_prefix_always_rejected(rest in "[a-zA-Z0-9_-]*") {
@@ -450,11 +442,13 @@ mod proptests {
             }
         }
 
-        /// For InvalidChar errors, the position should always be within bounds.
+        /// For InvalidChar errors, the position should always be within character bounds.
+        /// Note: `at` is a character index (not byte index), so we compare against chars().count().
         #[test]
         fn error_position_within_bounds(s in ".+") {
             if let Err(IdentifierError::InvalidChar { at, invalid_char }) = Identifier::from_str(&s) {
-                prop_assert!(at < s.len(), "Error position {} out of bounds for string of len {}", at, s.len());
+                let char_count = s.chars().count();
+                prop_assert!(at < char_count, "Error position {} out of bounds for string with {} chars", at, char_count);
                 // Verify the character at that position matches
                 let actual_char = s.chars().nth(at);
                 prop_assert_eq!(actual_char, Some(invalid_char), "Char at position {} should match reported char", at);

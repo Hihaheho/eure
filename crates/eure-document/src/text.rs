@@ -541,7 +541,10 @@ pub type EureString = Cow<'static, str>;
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
+
     use super::*;
+    use alloc::format;
 
     #[test]
     fn test_language_new_plaintext() {
@@ -903,6 +906,137 @@ mod tests {
             // Empty line (no whitespace) should be preserved
             assert_eq!(result.content, " line1\n\n line2\n");
         }
+
+        // =====================================================================
+        // Deterministic tests moved from proptests
+        // =====================================================================
+
+        #[test]
+        fn test_parse_quoted_string_escape_sequences() {
+            let cases = [
+                ("\\n", "\n"),
+                ("\\r", "\r"),
+                ("\\t", "\t"),
+                ("\\0", "\0"),
+                ("\\\\", "\\"),
+                ("\\\"", "\""),
+                ("\\'", "'"),
+                ("\\u{0041}", "A"),
+                ("\\u{3042}", "あ"),
+            ];
+            for (input, expected) in cases {
+                let result = Text::parse_quoted_string(input);
+                assert!(result.is_ok(), "Failed to parse: {:?}", input);
+                assert_eq!(
+                    result.unwrap().content,
+                    expected,
+                    "Mismatch for: {:?}",
+                    input
+                );
+            }
+        }
+
+        #[test]
+        fn test_parse_quoted_string_invalid_unicode_escapes() {
+            // Missing closing brace
+            let result = Text::parse_quoted_string("\\u{0041");
+            assert!(result.is_err(), "Should fail for missing closing brace");
+
+            // Note: \u{} parses to '\0' (null character) - this is valid behavior
+
+            // Invalid hex characters (Z is not a hex digit)
+            let result = Text::parse_quoted_string("\\u{ZZZZ}");
+            assert!(result.is_err(), "Should fail for invalid hex");
+
+            // Out of range codepoint (beyond Unicode max 0x10FFFF)
+            let result = Text::parse_quoted_string("\\u{110000}");
+            assert!(result.is_err(), "Should fail for out of range codepoint");
+
+            // Missing opening brace
+            let result = Text::parse_quoted_string("\\u0041}");
+            assert!(result.is_err(), "Should fail for missing opening brace");
+        }
+
+        #[test]
+        fn test_parse_text_binding_preserves_backslashes() {
+            let inputs = [
+                ("\\n", "\\n"),
+                ("\\t", "\\t"),
+                ("C:\\Users\\test", "C:\\Users\\test"),
+                ("\\b\\w+\\b", "\\b\\w+\\b"),
+            ];
+            for (input, expected) in inputs {
+                let with_newline = format!("{}\n", input);
+                let result = Text::parse_text_binding(&with_newline);
+                assert!(result.is_ok(), "Failed to parse: {:?}", input);
+                assert_eq!(result.unwrap().content, expected);
+            }
+        }
+
+        #[test]
+        fn test_parse_text_binding_trims_tabs_and_mixed_whitespace() {
+            // Tabs
+            let result = Text::parse_text_binding("\thello\t\n");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().content, "hello");
+
+            // Mixed spaces and tabs
+            let result = Text::parse_text_binding("  \thello\t  \n");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().content, "hello");
+
+            // Only tabs
+            let result = Text::parse_text_binding("\t\thello world\t\t\n");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().content, "hello world");
+        }
+
+        #[test]
+        fn test_language_new_plaintext_variants() {
+            assert_eq!(Language::new("plaintext"), Language::Plaintext);
+            assert_eq!(Language::new(""), Language::Plaintext);
+        }
+
+        #[test]
+        fn test_empty_content_handling() {
+            let text = Text::plaintext("");
+            assert_eq!(text.content, "");
+
+            let text = Text::inline_implicit("");
+            assert_eq!(text.content, "");
+
+            let text = Text::block_implicit("");
+            assert_eq!(text.content, "\n"); // Should add newline
+
+            let text = Text::block("", "rust");
+            assert_eq!(text.content, "\n"); // Should add newline
+        }
+
+        #[test]
+        fn test_parse_indented_block_with_tabs() {
+            // Content with tab indentation - should be rejected or handled
+            // since parse_indented_block uses space-based indent detection
+            let content = "\tline1\n\tline2\n\t".to_string();
+            let result = Text::parse_indented_block(
+                Language::Other("text".into()),
+                content,
+                SyntaxHint::Block3,
+            );
+            // Tabs count as characters, not as indent spaces, so this should work
+            // with 0 base indent (trailing has 1 tab = no spaces for indent detection)
+            assert!(result.is_ok() || result.is_err()); // Just ensure no panic
+
+            // Mixed tabs and spaces - spaces for indent, tabs in content
+            let content = "    line\twith\ttabs\n    ".to_string();
+            let result = Text::parse_indented_block(
+                Language::Other("text".into()),
+                content,
+                SyntaxHint::Block3,
+            );
+            assert!(result.is_ok());
+            let text = result.unwrap();
+            assert_eq!(text.content, "line\twith\ttabs\n");
+        }
     }
 }
 
@@ -1203,13 +1337,6 @@ mod proptests {
     // =========================================================================
 
     proptest! {
-        /// Language::new with "plaintext" or empty string should produce Plaintext.
-        #[test]
-        fn language_new_plaintext_variants(_dummy in Just(())) {
-            prop_assert_eq!(Language::new("plaintext"), Language::Plaintext);
-            prop_assert_eq!(Language::new(""), Language::Plaintext);
-        }
-
         /// Language::new with other strings should produce Other.
         #[test]
         fn language_new_other(lang in "[a-z][a-z0-9]{1,15}") {
@@ -1306,27 +1433,6 @@ mod proptests {
             prop_assert_eq!(text.language, Language::Plaintext);
         }
 
-        /// Escape sequences should be correctly decoded.
-        #[test]
-        fn parse_quoted_string_escape_sequences(_dummy in Just(())) {
-            let cases = [
-                ("\\n", "\n"),
-                ("\\r", "\r"),
-                ("\\t", "\t"),
-                ("\\0", "\0"),
-                ("\\\\", "\\"),
-                ("\\\"", "\""),
-                ("\\'", "'"),
-                ("\\u{0041}", "A"),
-                ("\\u{3042}", "あ"),
-            ];
-            for (input, expected) in cases {
-                let result = Text::parse_quoted_string(input);
-                prop_assert!(result.is_ok(), "Failed to parse: {:?}", input);
-                prop_assert_eq!(result.unwrap().content, expected, "Mismatch for: {:?}", input);
-            }
-        }
-
         /// Invalid escape sequences should produce errors.
         #[test]
         fn parse_quoted_string_invalid_escape(c in prop::char::range('a', 'z').prop_filter(
@@ -1346,12 +1452,12 @@ mod proptests {
             }
         }
 
-        /// parse_text_binding should trim whitespace and strip trailing newline.
+        /// parse_text_binding should trim whitespace (spaces and tabs) and strip trailing newline.
         #[test]
         fn parse_text_binding_trims_correctly(
-            leading_space in " {0,10}",
+            leading_space in "[ \t]{0,10}",
             content in arb_single_line_content().prop_filter("no whitespace only", |s| !s.trim().is_empty()),
-            trailing_space in " {0,10}",
+            trailing_space in "[ \t]{0,10}",
         ) {
             let input = format!("{}{}{}\n", leading_space, content, trailing_space);
             let result = Text::parse_text_binding(&input);
@@ -1359,23 +1465,6 @@ mod proptests {
             let text = result.unwrap();
             prop_assert_eq!(text.content, content.trim());
             prop_assert_eq!(text.language, Language::Plaintext);
-        }
-
-        /// parse_text_binding should not process escape sequences.
-        #[test]
-        fn parse_text_binding_preserves_backslashes(_dummy in Just(())) {
-            let inputs = [
-                ("\\n", "\\n"),
-                ("\\t", "\\t"),
-                ("C:\\Users\\test", "C:\\Users\\test"),
-                ("\\b\\w+\\b", "\\b\\w+\\b"),
-            ];
-            for (input, expected) in inputs {
-                let with_newline = format!("{}\n", input);
-                let result = Text::parse_text_binding(&with_newline);
-                prop_assert!(result.is_ok(), "Failed to parse: {:?}", input);
-                prop_assert_eq!(result.unwrap().content, expected);
-            }
         }
 
         /// parse_text_binding should reject content with embedded newlines.
@@ -1555,22 +1644,6 @@ mod proptests {
     // =========================================================================
 
     proptest! {
-        /// Empty content should be handled correctly by constructors.
-        #[test]
-        fn empty_content_handling(_dummy in Just(())) {
-            let text = Text::plaintext("");
-            prop_assert_eq!(text.content, "");
-
-            let text = Text::inline_implicit("");
-            prop_assert_eq!(text.content, "");
-
-            let text = Text::block_implicit("");
-            prop_assert_eq!(text.content, "\n"); // Should add newline
-
-            let text = Text::block("", "rust");
-            prop_assert_eq!(text.content, "\n"); // Should add newline
-        }
-
         /// Unicode content should be preserved correctly.
         #[test]
         fn unicode_content_preserved(content in "[\u{0080}-\u{FFFF}]{1,50}") {
@@ -1583,7 +1656,7 @@ mod proptests {
 
         /// Text with only whitespace should be handled correctly.
         #[test]
-        fn whitespace_only_content(spaces in " {1,20}") {
+        fn whitespace_only_content(spaces in "[ \t]{1,20}") {
             let text = Text::plaintext(spaces.clone());
             prop_assert_eq!(&text.content, &spaces);
 

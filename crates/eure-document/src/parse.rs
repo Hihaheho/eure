@@ -124,6 +124,11 @@ impl AccessedSet {
         self.0.borrow().last().unwrap().1.contains(ext)
     }
 
+    /// Get all accessed extensions.
+    pub fn get_accessed_exts(&self) -> HashSet<Identifier> {
+        self.0.borrow().last().unwrap().1.clone()
+    }
+
     /// Push a snapshot (call at start of union parsing).
     /// Inserts a copy of current BEFORE current, so current can be modified.
     pub fn push_snapshot(&self) {
@@ -549,6 +554,22 @@ impl<'doc> ParseContext<'doc> {
     /// Get the AccessedSet for this context.
     pub(crate) fn accessed(&self) -> &AccessedSet {
         &self.accessed
+    }
+
+    /// Create a standalone document from the current node's subtree,
+    /// excluding extensions that have been marked as accessed.
+    ///
+    /// This is useful for literal comparison in schema validation, where
+    /// extensions like `$variant` have been consumed by union resolution
+    /// and should not be part of the literal value.
+    pub fn node_subtree_to_document_excluding_accessed(&self) -> EureDocument {
+        let mut doc = self.doc.node_subtree_to_document(self.node_id);
+        let root_id = doc.get_root_id();
+        let accessed_exts = self.accessed.get_accessed_exts();
+        for ext in accessed_exts {
+            doc.node_mut(root_id).extensions.remove_fast(&ext);
+        }
+        doc
     }
 
     /// Mark an extension as accessed.

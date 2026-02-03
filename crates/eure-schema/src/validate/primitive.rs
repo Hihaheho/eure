@@ -421,6 +421,9 @@ impl<'a, 'doc> DocumentParser<'doc> for NullValidator<'a, 'doc> {
 // =============================================================================
 
 /// Validates literal values (exact match).
+///
+/// Note: When validating inside a union, accessed extensions (like `$variant`)
+/// are excluded from comparison because they were consumed during parsing/validation.
 pub struct LiteralValidator<'a, 'doc, 's> {
     pub ctx: &'a ValidationContext<'doc>,
     pub expected: &'s EureDocument,
@@ -433,7 +436,9 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for LiteralValidator<'a, 'doc, 's> {
 
     fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
         let node_id = parse_ctx.node_id();
-        let actual = self.ctx.document.node_subtree_to_document(node_id);
+        // Get subtree excluding accessed extensions (like $variant consumed by union)
+        let actual = parse_ctx.node_subtree_to_document_excluding_accessed();
+
         if actual != *self.expected {
             self.ctx.record_error(ValidationError::LiteralMismatch {
                 expected: format!("{:?}", self.expected),

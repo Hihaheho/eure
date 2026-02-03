@@ -509,6 +509,155 @@ mod tests {
         assert!(debug_output.contains("NodeMut"));
         assert!(debug_output.contains("<invalid>"));
     }
+
+    // =====================================================================
+    // Deterministic tests moved from proptests
+    // =====================================================================
+
+    #[test]
+    fn test_node_value_hole_is_hole() {
+        let value = NodeValue::hole();
+        assert!(value.is_hole());
+        assert_eq!(value, NodeValue::Hole(None));
+    }
+
+    #[test]
+    fn test_empty_containers_are_empty() {
+        let map = NodeValue::empty_map();
+        let array = NodeValue::empty_array();
+        let tuple = NodeValue::empty_tuple();
+
+        if let NodeValue::Map(m) = map {
+            assert!(m.is_empty());
+        } else {
+            panic!("empty_map should create Map");
+        }
+
+        if let NodeValue::Array(a) = array {
+            assert!(a.is_empty());
+        } else {
+            panic!("empty_array should create Array");
+        }
+
+        if let NodeValue::Tuple(t) = tuple {
+            assert!(t.is_empty());
+        } else {
+            panic!("empty_tuple should create Tuple");
+        }
+    }
+
+    #[test]
+    fn test_value_kind_correct() {
+        use crate::value::ValueKind;
+
+        let hole = NodeValue::hole();
+        assert_eq!(hole.value_kind(), None);
+
+        let primitive = NodeValue::Primitive(PrimitiveValue::Null);
+        assert_eq!(primitive.value_kind(), Some(ValueKind::Null));
+
+        let bool_val = NodeValue::Primitive(PrimitiveValue::Bool(true));
+        assert_eq!(bool_val.value_kind(), Some(ValueKind::Bool));
+
+        let array = NodeValue::empty_array();
+        assert_eq!(array.value_kind(), Some(ValueKind::Array));
+
+        let map = NodeValue::empty_map();
+        assert_eq!(map.value_kind(), Some(ValueKind::Map));
+
+        let tuple = NodeValue::empty_tuple();
+        assert_eq!(tuple.value_kind(), Some(ValueKind::Tuple));
+    }
+
+    #[test]
+    fn test_require_map_idempotent() {
+        let mut node = Node {
+            content: NodeValue::empty_map(),
+            extensions: Map::new(),
+        };
+
+        for _ in 0..5 {
+            let result = node.require_map();
+            assert!(result.is_ok());
+        }
+
+        assert!(node.as_map().is_some());
+    }
+
+    #[test]
+    fn test_require_array_idempotent() {
+        let mut node = Node {
+            content: NodeValue::empty_array(),
+            extensions: Map::new(),
+        };
+
+        for _ in 0..5 {
+            let result = node.require_array();
+            assert!(result.is_ok());
+        }
+
+        assert!(node.as_array().is_some());
+    }
+
+    #[test]
+    fn test_require_tuple_idempotent() {
+        let mut node = Node {
+            content: NodeValue::empty_tuple(),
+            extensions: Map::new(),
+        };
+
+        for _ in 0..5 {
+            let result = node.require_tuple();
+            assert!(result.is_ok());
+        }
+
+        assert!(node.as_tuple().is_some());
+    }
+
+    #[test]
+    fn test_require_methods_type_mismatch() {
+        // Array node
+        let mut array_node = Node {
+            content: NodeValue::empty_array(),
+            extensions: Map::new(),
+        };
+        assert_eq!(
+            array_node.require_map().err(),
+            Some(InsertErrorKind::ExpectedMap)
+        );
+        assert_eq!(
+            array_node.require_tuple().err(),
+            Some(InsertErrorKind::ExpectedTuple)
+        );
+
+        // Map node
+        let mut map_node = Node {
+            content: NodeValue::empty_map(),
+            extensions: Map::new(),
+        };
+        assert_eq!(
+            map_node.require_array().err(),
+            Some(InsertErrorKind::ExpectedArray)
+        );
+        assert_eq!(
+            map_node.require_tuple().err(),
+            Some(InsertErrorKind::ExpectedTuple)
+        );
+
+        // Tuple node
+        let mut tuple_node = Node {
+            content: NodeValue::empty_tuple(),
+            extensions: Map::new(),
+        };
+        assert_eq!(
+            tuple_node.require_map().err(),
+            Some(InsertErrorKind::ExpectedMap)
+        );
+        assert_eq!(
+            tuple_node.require_array().err(),
+            Some(InsertErrorKind::ExpectedArray)
+        );
+    }
 }
 
 #[cfg(test)]
@@ -786,14 +935,6 @@ mod proptests {
     // =========================================================================
 
     proptest! {
-        /// Invariant: NodeValue::hole() returns a hole.
-        #[test]
-        fn node_value_hole_is_hole(_dummy in Just(())) {
-            let value = NodeValue::hole();
-            prop_assert!(value.is_hole());
-            prop_assert_eq!(value, NodeValue::Hole(None));
-        }
-
         /// Invariant: NodeValue::labeled_hole preserves label.
         #[test]
         fn node_value_labeled_hole_preserves_label(label in "[a-z][a-z0-9_-]{0,10}") {
@@ -802,140 +943,6 @@ mod proptests {
 
             prop_assert!(value.is_hole());
             prop_assert_eq!(value, NodeValue::Hole(Some(identifier)));
-        }
-
-        /// Invariant: Empty containers are empty.
-        #[test]
-        fn empty_containers_are_empty(_dummy in Just(())) {
-            let map = NodeValue::empty_map();
-            let array = NodeValue::empty_array();
-            let tuple = NodeValue::empty_tuple();
-
-            if let NodeValue::Map(m) = map {
-                prop_assert!(m.is_empty());
-            } else {
-                prop_assert!(false, "empty_map should create Map");
-            }
-
-            if let NodeValue::Array(a) = array {
-                prop_assert!(a.is_empty());
-            } else {
-                prop_assert!(false, "empty_array should create Array");
-            }
-
-            if let NodeValue::Tuple(t) = tuple {
-                prop_assert!(t.is_empty());
-            } else {
-                prop_assert!(false, "empty_tuple should create Tuple");
-            }
-        }
-
-        /// Invariant: value_kind returns correct kind for each variant.
-        #[test]
-        fn value_kind_correct(_dummy in Just(())) {
-            use crate::value::ValueKind;
-
-            let hole = NodeValue::hole();
-            prop_assert_eq!(hole.value_kind(), None);
-
-            let primitive = NodeValue::Primitive(PrimitiveValue::Null);
-            prop_assert_eq!(primitive.value_kind(), Some(ValueKind::Null));
-
-            let bool_val = NodeValue::Primitive(PrimitiveValue::Bool(true));
-            prop_assert_eq!(bool_val.value_kind(), Some(ValueKind::Bool));
-
-            let array = NodeValue::empty_array();
-            prop_assert_eq!(array.value_kind(), Some(ValueKind::Array));
-
-            let map = NodeValue::empty_map();
-            prop_assert_eq!(map.value_kind(), Some(ValueKind::Map));
-
-            let tuple = NodeValue::empty_tuple();
-            prop_assert_eq!(tuple.value_kind(), Some(ValueKind::Tuple));
-        }
-    }
-
-    // =========================================================================
-    // Node require_* method tests
-    // =========================================================================
-
-    proptest! {
-        /// Invariant: require_map is idempotent on map.
-        #[test]
-        fn require_map_idempotent(_dummy in Just(())) {
-            let mut node = Node {
-                content: NodeValue::empty_map(),
-                extensions: Map::new(),
-            };
-
-            // Call multiple times
-            for _ in 0..5 {
-                let result = node.require_map();
-                prop_assert!(result.is_ok());
-            }
-
-            // Still a map
-            prop_assert!(node.as_map().is_some());
-        }
-
-        /// Invariant: require_array is idempotent on array.
-        #[test]
-        fn require_array_idempotent(_dummy in Just(())) {
-            let mut node = Node {
-                content: NodeValue::empty_array(),
-                extensions: Map::new(),
-            };
-
-            for _ in 0..5 {
-                let result = node.require_array();
-                prop_assert!(result.is_ok());
-            }
-
-            prop_assert!(node.as_array().is_some());
-        }
-
-        /// Invariant: require_tuple is idempotent on tuple.
-        #[test]
-        fn require_tuple_idempotent(_dummy in Just(())) {
-            let mut node = Node {
-                content: NodeValue::empty_tuple(),
-                extensions: Map::new(),
-            };
-
-            for _ in 0..5 {
-                let result = node.require_tuple();
-                prop_assert!(result.is_ok());
-            }
-
-            prop_assert!(node.as_tuple().is_some());
-        }
-
-        /// Invariant: require_* methods fail on incompatible types.
-        #[test]
-        fn require_methods_type_mismatch(_dummy in Just(())) {
-            // Array node
-            let mut array_node = Node {
-                content: NodeValue::empty_array(),
-                extensions: Map::new(),
-            };
-            prop_assert_eq!(array_node.require_map().err(), Some(InsertErrorKind::ExpectedMap));
-            prop_assert_eq!(array_node.require_tuple().err(), Some(InsertErrorKind::ExpectedTuple));
-
-            // Map node
-            let mut map_node = Node {
-                content: NodeValue::empty_map(),
-                extensions: Map::new(),
-            };
-            prop_assert_eq!(map_node.require_array().err(), Some(InsertErrorKind::ExpectedArray));
-            prop_assert_eq!(map_node.require_tuple().err(), Some(InsertErrorKind::ExpectedTuple));
-
-            // Tuple node
-            let mut tuple_node = Node {
-                content: NodeValue::empty_tuple(),
-                extensions: Map::new(),
-            };
-            prop_assert_eq!(tuple_node.require_map().err(), Some(InsertErrorKind::ExpectedMap));
-            prop_assert_eq!(tuple_node.require_array().err(), Some(InsertErrorKind::ExpectedArray));
         }
     }
 }

@@ -358,11 +358,6 @@ impl EureDocument {
     pub fn copy_subtree(&self, src_id: NodeId, dst: &mut EureDocument, dst_id: NodeId) {
         let src_node = self.node(src_id);
 
-        // Skip ALL extensions during literal comparison.
-        // Extensions are schema metadata (like $variant, $deny-untagged, $optional, etc.)
-        // and should not be part of the literal value comparison.
-        // Literal types compare only the data structure, not metadata.
-
         // Copy content based on type. For containers, we must NOT clone the content
         // directly because it contains NodeIds from the source document. Instead,
         // create empty containers and populate with recursively copied children.
@@ -399,6 +394,20 @@ impl EureDocument {
                         self.copy_subtree(child_src_id, dst, child_dst_id);
                     }
                 }
+            }
+        }
+
+        // Copy extensions recursively
+        let extensions: Vec<_> = self
+            .node(src_id)
+            .extensions
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+        for (ext_name, ext_src_id) in extensions {
+            if let Ok(result) = dst.add_extension(ext_name, dst_id) {
+                let ext_dst_id = result.node_id;
+                self.copy_subtree(ext_src_id, dst, ext_dst_id);
             }
         }
     }
@@ -1121,6 +1130,72 @@ mod tests {
         // Verify that NodeIds are actually different
         assert_ne!(child1.0, child2.0);
     }
+
+    #[test]
+    fn test_require_map_converts_hole() {
+        let mut doc = EureDocument::new();
+        let node_id = doc.create_node(NodeValue::hole());
+
+        assert!(doc.node(node_id).content.is_hole());
+
+        {
+            let node = doc.node_mut(node_id);
+            let _map = node.require_map().expect("Should convert to map");
+        }
+
+        assert!(doc.node(node_id).as_map().is_some());
+    }
+
+    #[test]
+    fn test_require_array_converts_hole() {
+        let mut doc = EureDocument::new();
+        let node_id = doc.create_node(NodeValue::hole());
+
+        assert!(doc.node(node_id).content.is_hole());
+
+        {
+            let node = doc.node_mut(node_id);
+            let _array = node.require_array().expect("Should convert to array");
+        }
+
+        assert!(doc.node(node_id).as_array().is_some());
+    }
+
+    #[test]
+    fn test_require_tuple_converts_hole() {
+        let mut doc = EureDocument::new();
+        let node_id = doc.create_node(NodeValue::hole());
+
+        assert!(doc.node(node_id).content.is_hole());
+
+        {
+            let node = doc.node_mut(node_id);
+            let _tuple = node.require_tuple().expect("Should convert to tuple");
+        }
+
+        assert!(doc.node(node_id).as_tuple().is_some());
+    }
+
+    #[test]
+    fn test_require_methods_fail_on_wrong_type() {
+        let mut doc = EureDocument::new();
+        let primitive_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+        let node = doc.node_mut(primitive_id);
+        assert_eq!(node.require_map().err(), Some(InsertErrorKind::ExpectedMap));
+
+        let node = doc.node_mut(primitive_id);
+        assert_eq!(
+            node.require_array().err(),
+            Some(InsertErrorKind::ExpectedArray)
+        );
+
+        let node = doc.node_mut(primitive_id);
+        assert_eq!(
+            node.require_tuple().err(),
+            Some(InsertErrorKind::ExpectedTuple)
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1135,17 +1210,52 @@ mod proptests {
     // Strategy generators
     // =========================================================================
 
-    /// Strategy for generating valid identifiers.
+    /// Characters valid as the first character of an identifier (XID_Start or underscore).
+    fn xid_start_char() -> impl Strategy<Value = char> {
+        prop_oneof![
+            prop::char::range('a', 'z'),
+            prop::char::range('A', 'Z'),
+            Just('_'),
+            Just('α'),
+            Just('日'),
+        ]
+    }
+
+    /// Characters valid in the continuation of an identifier (XID_Continue or hyphen).
+    fn xid_continue_char() -> impl Strategy<Value = char> {
+        prop_oneof![
+            prop::char::range('a', 'z'),
+            prop::char::range('A', 'Z'),
+            prop::char::range('0', '9'),
+            Just('_'),
+            Just('-'),
+            Just('α'),
+            Just('日'),
+        ]
+    }
+
+    /// Strategy for generating valid identifiers with broader character coverage.
     fn arb_identifier() -> impl Strategy<Value = Identifier> {
-        "[a-z][a-z0-9_-]{0,15}"
+        (
+            xid_start_char(),
+            proptest::collection::vec(xid_continue_char(), 0..15),
+        )
+            .prop_map(|(first, rest)| {
+                let mut s = alloc::string::String::with_capacity(1 + rest.len());
+                s.push(first);
+                s.extend(rest);
+                s
+            })
             .prop_filter_map("valid identifier", |s| s.parse::<Identifier>().ok())
     }
 
-    /// Strategy for generating simple object keys (strings only, for simpler testing).
+    /// Strategy for generating object keys with broader coverage.
     fn arb_object_key() -> impl Strategy<Value = ObjectKey> {
         prop_oneof![
-            "[a-z][a-z0-9_-]{0,15}".prop_map(ObjectKey::String),
-            (0i64..1000).prop_map(|n| ObjectKey::Number(n.into())),
+            // Identifier-style string keys (broader range)
+            arb_identifier().prop_map(|id| ObjectKey::String(id.to_string())),
+            // Numeric keys (including negative)
+            (-1000i64..1000).prop_map(|n| ObjectKey::Number(n.into())),
         ]
     }
 
@@ -1300,6 +1410,79 @@ mod proptests {
             let array = doc.node(parent_id).as_array().expect("Expected array");
             prop_assert_eq!(array.len(), count, "Array length should match push count");
         }
+
+        /// Error: ArrayIndex segment on non-array parent fails.
+        #[test]
+        fn resolve_array_index_on_map_fails(index in 0usize..10) {
+            let mut doc = EureDocument::new();
+            let root_id = doc.get_root_id(); // Root starts as a hole/map
+
+            // Make root explicitly a map
+            doc.node_mut(root_id).content = NodeValue::empty_map();
+
+            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(Some(index)), root_id);
+            prop_assert!(result.is_err(), "ArrayIndex on map should fail");
+            prop_assert_eq!(result.err(), Some(InsertErrorKind::ExpectedArray));
+        }
+
+        /// Error: TupleIndex segment on non-tuple parent fails.
+        #[test]
+        fn resolve_tuple_index_on_array_fails(index in 0u8..10) {
+            let mut doc = EureDocument::new();
+            let parent_id = doc.create_node(NodeValue::empty_array());
+
+            let result = doc.resolve_child_by_segment(PathSegment::TupleIndex(index), parent_id);
+            prop_assert!(result.is_err(), "TupleIndex on array should fail");
+            prop_assert_eq!(result.err(), Some(InsertErrorKind::ExpectedTuple));
+        }
+
+        /// Error: ArrayIndex segment on primitive fails.
+        #[test]
+        fn resolve_array_index_on_primitive_fails(value in arb_primitive_value()) {
+            let mut doc = EureDocument::new();
+            let node_id = doc.create_node(NodeValue::Primitive(value));
+
+            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(Some(0)), node_id);
+            prop_assert!(result.is_err(), "ArrayIndex on primitive should fail");
+            prop_assert_eq!(result.err(), Some(InsertErrorKind::ExpectedArray));
+        }
+
+        /// Error: Non-sequential ArrayIndex fails.
+        #[test]
+        fn resolve_array_index_non_sequential_fails(skip in 1usize..10) {
+            let mut doc = EureDocument::new();
+            let parent_id = doc.create_node(NodeValue::empty_array());
+
+            // Try to add at index `skip` without filling 0..skip first
+            let result = doc.resolve_child_by_segment(PathSegment::ArrayIndex(Some(skip)), parent_id);
+            prop_assert!(result.is_err(), "Non-sequential ArrayIndex should fail");
+
+            match result.err() {
+                Some(InsertErrorKind::ArrayIndexInvalid { index, expected_index }) => {
+                    prop_assert_eq!(index, skip);
+                    prop_assert_eq!(expected_index, 0);
+                }
+                other => prop_assert!(false, "Expected ArrayIndexInvalid, got {:?}", other),
+            }
+        }
+
+        /// Error: Non-sequential TupleIndex fails.
+        #[test]
+        fn resolve_tuple_index_non_sequential_fails(skip in 1u8..10) {
+            let mut doc = EureDocument::new();
+            let parent_id = doc.create_node(NodeValue::empty_tuple());
+
+            let result = doc.resolve_child_by_segment(PathSegment::TupleIndex(skip), parent_id);
+            prop_assert!(result.is_err(), "Non-sequential TupleIndex should fail");
+
+            match result.err() {
+                Some(InsertErrorKind::TupleIndexInvalid { index, expected_index }) => {
+                    prop_assert_eq!(index, skip);
+                    prop_assert_eq!(expected_index, 0);
+                }
+                other => prop_assert!(false, "Expected TupleIndexInvalid, got {:?}", other),
+            }
+        }
     }
 
     // =========================================================================
@@ -1418,6 +1601,114 @@ mod proptests {
 
             prop_assert_ne!(doc1, doc2, "Documents with different keys should not be equal");
         }
+
+        /// Invariant: Document equality works for arrays.
+        #[test]
+        fn document_equality_for_arrays(count in 1usize..10) {
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            // Offset NodeIds in doc1
+            let _ = doc1.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            // Convert roots to arrays
+            doc1.node_mut(root1).content = NodeValue::empty_array();
+            doc2.node_mut(root2).content = NodeValue::empty_array();
+
+            for _ in 0..count {
+                doc1.add_array_element(None, root1).expect("Add failed");
+                doc2.add_array_element(None, root2).expect("Add failed");
+            }
+
+            prop_assert_eq!(doc1, doc2, "Documents with same array structure should be equal");
+        }
+
+        /// Invariant: Document equality works for tuples.
+        #[test]
+        fn document_equality_for_tuples(count in 1u8..10) {
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            let _ = doc1.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            doc1.node_mut(root1).content = NodeValue::empty_tuple();
+            doc2.node_mut(root2).content = NodeValue::empty_tuple();
+
+            for i in 0..count {
+                doc1.add_tuple_element(i, root1).expect("Add failed");
+                doc2.add_tuple_element(i, root2).expect("Add failed");
+            }
+
+            prop_assert_eq!(doc1, doc2, "Documents with same tuple structure should be equal");
+        }
+
+        /// Invariant: Document equality works for primitive values.
+        #[test]
+        fn document_equality_for_primitives(value in arb_primitive_value()) {
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            let _ = doc1.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            doc1.node_mut(root1).content = NodeValue::Primitive(value.clone());
+            doc2.node_mut(root2).content = NodeValue::Primitive(value);
+
+            prop_assert_eq!(doc1, doc2, "Documents with same primitive value should be equal");
+        }
+
+        /// Invariant: Document equality considers extensions.
+        #[test]
+        fn document_equality_considers_extensions(
+            ext_name in arb_identifier(),
+            value in arb_primitive_value(),
+        ) {
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            let _ = doc1.create_node(NodeValue::Primitive(PrimitiveValue::Null));
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            // Add same extension to both
+            let ext1_id = doc1.add_extension(ext_name.clone(), root1).expect("Add ext failed").node_id;
+            let ext2_id = doc2.add_extension(ext_name.clone(), root2).expect("Add ext failed").node_id;
+
+            // Set same value in extensions
+            doc1.node_mut(ext1_id).content = NodeValue::Primitive(value.clone());
+            doc2.node_mut(ext2_id).content = NodeValue::Primitive(value);
+
+            prop_assert_eq!(doc1, doc2, "Documents with same extensions should be equal");
+        }
+
+        /// Invariant: Documents with different extensions are not equal.
+        #[test]
+        fn document_equality_different_extensions(
+            ext1 in arb_identifier(),
+            ext2 in arb_identifier(),
+        ) {
+            prop_assume!(ext1 != ext2);
+
+            let mut doc1 = EureDocument::new();
+            let mut doc2 = EureDocument::new();
+
+            let root1 = doc1.get_root_id();
+            let root2 = doc2.get_root_id();
+
+            doc1.add_extension(ext1, root1).expect("Add ext failed");
+            doc2.add_extension(ext2, root2).expect("Add ext failed");
+
+            prop_assert_ne!(doc1, doc2, "Documents with different extensions should not be equal");
+        }
     }
 
     // =========================================================================
@@ -1525,6 +1816,94 @@ mod proptests {
                 );
             }
         }
+
+        /// Invariant: copy_subtree preserves nested mixed content (map → array → primitive).
+        #[test]
+        fn copy_subtree_preserves_nested_mixed_content(
+            key in arb_object_key(),
+            value in arb_primitive_value(),
+        ) {
+            let mut src = EureDocument::new();
+            let map_id = src.create_node(NodeValue::empty_map());
+
+            // Create map → array → primitive structure
+            let child_id = src.add_map_child(key.clone(), map_id).expect("Add failed").node_id;
+            src.node_mut(child_id).content = NodeValue::empty_array();
+            let elem_id = src.add_array_element(None, child_id).expect("Add failed").node_id;
+            src.node_mut(elem_id).content = NodeValue::Primitive(value.clone());
+
+            let dst = src.node_subtree_to_document(map_id);
+
+            // Verify structure
+            let dst_map = dst.root().as_map().expect("Expected map");
+            let dst_child_id = dst_map.get(&key).expect("Should have key");
+            let dst_child = dst.get_node(*dst_child_id).expect("Child should exist");
+            let dst_array = dst_child.as_array().expect("Expected array");
+            prop_assert_eq!(dst_array.len(), 1);
+
+            let dst_elem_id = dst_array.get(0).expect("Should have element");
+            let dst_elem = dst.get_node(dst_elem_id).expect("Element should exist");
+            prop_assert_eq!(
+                &dst_elem.content,
+                &NodeValue::Primitive(value),
+                "Primitive value should be preserved in nested structure"
+            );
+        }
+
+        /// Invariant: copy_subtree preserves extensions on nodes.
+        #[test]
+        fn copy_subtree_preserves_extensions(
+            ext_name in arb_identifier(),
+            ext_value in arb_primitive_value(),
+        ) {
+            let mut src = EureDocument::new();
+            let node_id = src.create_node(NodeValue::empty_map());
+
+            // Add extension to the node
+            let ext_id = src.add_extension(ext_name.clone(), node_id).expect("Add ext failed").node_id;
+            src.node_mut(ext_id).content = NodeValue::Primitive(ext_value.clone());
+
+            let dst = src.node_subtree_to_document(node_id);
+
+            // Verify extension exists in destination
+            let dst_ext = dst.root().extensions.get(&ext_name);
+            prop_assert!(dst_ext.is_some(), "Extension should be copied");
+
+            let dst_ext_id = *dst_ext.unwrap();
+            let dst_ext_node = dst.get_node(dst_ext_id).expect("Extension node should exist");
+            prop_assert_eq!(
+                &dst_ext_node.content,
+                &NodeValue::Primitive(ext_value),
+                "Extension value should be preserved"
+            );
+        }
+
+        /// Invariant: copy_subtree preserves extensions on nested nodes.
+        #[test]
+        fn copy_subtree_preserves_nested_extensions(
+            key in arb_object_key(),
+            ext_name in arb_identifier(),
+        ) {
+            let mut src = EureDocument::new();
+            let map_id = src.create_node(NodeValue::empty_map());
+
+            // Add child to map
+            let child_id = src.add_map_child(key.clone(), map_id).expect("Add failed").node_id;
+            // Add extension to child
+            src.add_extension(ext_name.clone(), child_id).expect("Add ext failed");
+
+            let dst = src.node_subtree_to_document(map_id);
+
+            // Verify nested extension exists
+            let dst_map = dst.root().as_map().expect("Expected map");
+            let dst_child_id = dst_map.get(&key).expect("Should have key");
+            let dst_child = dst.get_node(*dst_child_id).expect("Child should exist");
+
+            prop_assert!(
+                dst_child.extensions.contains_key(&ext_name),
+                "Extension on nested node should be preserved"
+            );
+        }
     }
 
     // =========================================================================
@@ -1567,79 +1946,6 @@ mod proptests {
 
             let map = doc.node(root_id).as_map().expect("Expected map");
             prop_assert_eq!(map.len(), keys.len(), "All unique keys should be present");
-        }
-    }
-
-    // =========================================================================
-    // Require methods convert holes correctly
-    // =========================================================================
-
-    proptest! {
-        /// Invariant: require_map on a hole converts it to a map.
-        #[test]
-        fn require_map_converts_hole(_dummy in Just(())) {
-            let mut doc = EureDocument::new();
-            let node_id = doc.create_node(NodeValue::hole());
-
-            // Verify it's a hole
-            prop_assert!(doc.node(node_id).content.is_hole());
-
-            // Require map
-            {
-                let node = doc.node_mut(node_id);
-                let _map = node.require_map().expect("Should convert to map");
-            }
-
-            // Verify it's now a map
-            prop_assert!(doc.node(node_id).as_map().is_some());
-        }
-
-        /// Invariant: require_array on a hole converts it to an array.
-        #[test]
-        fn require_array_converts_hole(_dummy in Just(())) {
-            let mut doc = EureDocument::new();
-            let node_id = doc.create_node(NodeValue::hole());
-
-            prop_assert!(doc.node(node_id).content.is_hole());
-
-            {
-                let node = doc.node_mut(node_id);
-                let _array = node.require_array().expect("Should convert to array");
-            }
-
-            prop_assert!(doc.node(node_id).as_array().is_some());
-        }
-
-        /// Invariant: require_tuple on a hole converts it to a tuple.
-        #[test]
-        fn require_tuple_converts_hole(_dummy in Just(())) {
-            let mut doc = EureDocument::new();
-            let node_id = doc.create_node(NodeValue::hole());
-
-            prop_assert!(doc.node(node_id).content.is_hole());
-
-            {
-                let node = doc.node_mut(node_id);
-                let _tuple = node.require_tuple().expect("Should convert to tuple");
-            }
-
-            prop_assert!(doc.node(node_id).as_tuple().is_some());
-        }
-
-        /// Invariant: require methods on wrong types return errors.
-        #[test]
-        fn require_methods_fail_on_wrong_type(_dummy in Just(())) {
-            let mut doc = EureDocument::new();
-            let primitive_id = doc.create_node(NodeValue::Primitive(PrimitiveValue::Null));
-
-            let node = doc.node_mut(primitive_id);
-            prop_assert_eq!(node.require_map().err(), Some(InsertErrorKind::ExpectedMap));
-
-            let node = doc.node_mut(primitive_id);
-            prop_assert_eq!(node.require_array().err(), Some(InsertErrorKind::ExpectedArray));
-
-            let node = doc.node_mut(primitive_id);
-            prop_assert_eq!(node.require_tuple().err(), Some(InsertErrorKind::ExpectedTuple));
         }
     }
 
