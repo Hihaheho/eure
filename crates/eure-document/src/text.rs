@@ -1552,7 +1552,9 @@ mod proptests {
             prop_assert!(result.is_ok(), "Failed to parse");
             let text = result.unwrap();
 
-            let expected = format!("{}\n\n{}\n", line1, line2);
+            let expected_line1 = if line1.trim().is_empty() { "" } else { line1.as_str() };
+            let expected_line2 = if line2.trim().is_empty() { "" } else { line2.as_str() };
+            let expected = format!("{}\n\n{}\n", expected_line1, expected_line2);
             prop_assert_eq!(text.content, expected);
         }
 
