@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Attribute, DeriveInput};
+use syn::{Attribute, DeriveInput, Variant};
 
 /// Extracts spans of individual attribute keys from `#[eure(...)]` attributes.
 ///
@@ -43,6 +43,14 @@ pub fn extract_eure_attr_spans(attrs: &[Attribute]) -> HashMap<String, Span> {
 /// on a struct/enum definition.
 pub fn extract_container_attr_spans(input: &DeriveInput) -> HashMap<String, Span> {
     extract_eure_attr_spans(&input.attrs)
+}
+
+/// Extracts spans from variant-level `#[eure(...)]` attributes on an enum variant.
+///
+/// This is a convenience wrapper for extracting spans from the attributes
+/// on an enum variant.
+pub fn extract_variant_attr_spans(variant: &Variant) -> HashMap<String, Span> {
+    extract_eure_attr_spans(&variant.attrs)
 }
 
 #[cfg(test)]

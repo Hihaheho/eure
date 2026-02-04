@@ -7,7 +7,7 @@ use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
-use crate::attrs::{FieldAttrs, VariantAttrs, extract_eure_attr_spans};
+use crate::attrs::{FieldAttrs, VariantAttrs, extract_eure_attr_spans, extract_variant_attr_spans};
 use crate::context::MacroContext;
 
 pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::Result<TokenStream> {
@@ -44,10 +44,23 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
     let variant_ident = &variant.ident;
     let variant_attrs =
         VariantAttrs::from_variant(variant).expect("failed to parse variant attributes");
+    let variant_attr_spans = extract_variant_attr_spans(variant);
     let variant_name = variant_attrs
         .rename
         .clone()
         .unwrap_or_else(|| context.apply_rename(&variant_ident.to_string()));
+
+    // Validate allow_unknown_fields is only on struct variants
+    if variant_attrs.allow_unknown_fields && !matches!(&variant.fields, Fields::Named(_)) {
+        let span = variant_attr_spans
+            .get("allow_unknown_fields")
+            .copied()
+            .unwrap_or_else(|| variant.span());
+        return Err(syn::Error::new(
+            span,
+            "#[eure(allow_unknown_fields)] is only valid on struct variants with named fields",
+        ));
+    }
 
     match &variant.fields {
         Fields::Unit => Ok(generate_unit_variant_arm(

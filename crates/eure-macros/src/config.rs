@@ -49,6 +49,7 @@ impl MacroConfig {
         if attrs.proxy.is_some() && attrs.opaque.is_some() {
             let span = attr_spans
                 .get("proxy")
+                .or_else(|| attr_spans.get("opaque"))
                 .copied()
                 .unwrap_or_else(Span::call_site);
             return Err(syn::Error::new(

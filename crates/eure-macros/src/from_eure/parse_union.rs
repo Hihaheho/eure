@@ -4,25 +4,27 @@ mod tests;
 use darling::{FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
-use crate::attrs::{FieldAttrs, VariantAttrs};
+use crate::attrs::{FieldAttrs, VariantAttrs, extract_variant_attr_spans};
 use crate::{config::MacroConfig, context::MacroContext};
 
 use super::parse_record::{generate_ext_field, generate_record_field};
 
-pub fn generate_union_parser(context: &MacroContext, input: &DataEnum) -> TokenStream {
+pub fn generate_union_parser(context: &MacroContext, input: &DataEnum) -> syn::Result<TokenStream> {
     let MacroConfig { document_crate, .. } = &context.config;
     let DataEnum { variants, .. } = input;
     let variant_repr = variant_repr(document_crate);
-    let variants = variants
-        .iter()
-        .map(|variant| generate_variant(context, variant));
-    context.impl_from_eure(quote! {
+    let mut variant_tokens = Vec::new();
+    for variant in variants {
+        variant_tokens.push(generate_variant(context, variant)?);
+    }
+    Ok(context.impl_from_eure(quote! {
         ctx.parse_union(#variant_repr)?
-            #(#variants)*
+            #(#variant_tokens)*
             .parse()
-    })
+    }))
 }
 
 fn variant_repr(document_crate: &TokenStream) -> TokenStream {
@@ -30,26 +32,50 @@ fn variant_repr(document_crate: &TokenStream) -> TokenStream {
     quote! { #document_crate::data_model::VariantRepr::default() }
 }
 
-fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
+fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<TokenStream> {
     let ident = context.ident();
     let MacroConfig { document_crate, .. } = &context.config;
     let variant_ident = &variant.ident;
     let variant_attrs =
         VariantAttrs::from_variant(variant).expect("failed to parse variant attributes");
+    let variant_attr_spans = extract_variant_attr_spans(variant);
     let variant_name = variant_attrs
         .rename
         .clone()
         .unwrap_or_else(|| context.apply_rename(&variant_ident.to_string()));
 
+    // Validate allow_unknown_fields is only on struct variants
+    if variant_attrs.allow_unknown_fields && !matches!(&variant.fields, Fields::Named(_)) {
+        let span = variant_attr_spans
+            .get("allow_unknown_fields")
+            .copied()
+            .unwrap_or_else(|| variant.span());
+        return Err(syn::Error::new(
+            span,
+            "#[eure(allow_unknown_fields)] is only valid on struct variants with named fields",
+        ));
+    }
+
     match &variant.fields {
-        Fields::Unit => generate_unit_variant(context, ident, &variant_name, variant_ident),
-        Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            generate_newtype_variant(ident, &variant_name, variant_ident, &fields.unnamed[0].ty)
-        }
-        Fields::Unnamed(fields) => {
-            generate_tuple_variant(ident, &variant_name, variant_ident, &fields.unnamed)
-        }
-        Fields::Named(fields) => generate_struct_variant(
+        Fields::Unit => Ok(generate_unit_variant(
+            context,
+            ident,
+            &variant_name,
+            variant_ident,
+        )),
+        Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(generate_newtype_variant(
+            ident,
+            &variant_name,
+            variant_ident,
+            &fields.unnamed[0].ty,
+        )),
+        Fields::Unnamed(fields) => Ok(generate_tuple_variant(
+            ident,
+            &variant_name,
+            variant_ident,
+            &fields.unnamed,
+        )),
+        Fields::Named(fields) => Ok(generate_struct_variant(
             context,
             ident,
             document_crate,
@@ -57,7 +83,7 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> TokenStream {
             variant_ident,
             &fields.named,
             &variant_attrs,
-        ),
+        )),
     }
 }
 

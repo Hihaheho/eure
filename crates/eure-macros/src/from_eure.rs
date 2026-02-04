@@ -15,6 +15,6 @@ fn derive_inner(context: &MacroContext) -> syn::Result<TokenStream> {
     match &context.input.data {
         Data::Struct(data) => parse_record::generate_record_parser(context, data),
         Data::Union(_) => Ok(quote! { compile_error!("Union is not supported yet") }),
-        Data::Enum(data) => Ok(parse_union::generate_union_parser(context, data)),
+        Data::Enum(data) => parse_union::generate_union_parser(context, data),
     }
 }

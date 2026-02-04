@@ -9,5 +9,7 @@ pub use container::ContainerAttrs;
 pub use default_value::DefaultValue;
 pub use field::FieldAttrs;
 pub use rename_all::RenameAll;
-pub use span_extract::{extract_container_attr_spans, extract_eure_attr_spans};
+pub use span_extract::{
+    extract_container_attr_spans, extract_eure_attr_spans, extract_variant_attr_spans,
+};
 pub use variant::VariantAttrs;

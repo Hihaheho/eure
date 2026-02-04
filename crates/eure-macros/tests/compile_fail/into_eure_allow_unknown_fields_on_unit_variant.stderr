@@ -1,0 +1,5 @@
+error: #[eure(allow_unknown_fields)] is only valid on struct variants with named fields
+ --> tests/compile_fail/into_eure_allow_unknown_fields_on_unit_variant.rs:5:12
+  |
+5 |     #[eure(allow_unknown_fields)]
+  |            ^^^^^^^^^^^^^^^^^^^^
