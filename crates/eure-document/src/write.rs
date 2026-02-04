@@ -13,9 +13,12 @@ use num_bigint::BigInt;
 
 use crate::document::InsertError;
 use crate::document::constructor::{DocumentConstructor, ScopeError};
+use crate::identifier::IdentifierError;
+use crate::parse::VariantPath;
 use crate::path::PathSegment;
 use crate::prelude_internal::*;
 use crate::text::Text;
+use crate::value::ValueKind;
 
 /// Error type for write operations.
 #[derive(Debug, thiserror::Error, Clone)]
@@ -31,6 +34,14 @@ pub enum WriteError {
     /// Invalid identifier provided.
     #[error("invalid identifier: {0}")]
     InvalidIdentifier(String),
+
+    /// Invalid `$variant` extension type (must be text).
+    #[error("invalid $variant extension type: expected text, got {actual}")]
+    InvalidVariantExtensionType { actual: ValueKind },
+
+    /// Invalid `$variant` path syntax.
+    #[error("invalid $variant path: {source}")]
+    InvalidVariantPath { source: IdentifierError },
 }
 
 /// Trait for writing Rust types to Eure documents.
@@ -371,6 +382,9 @@ impl DocumentConstructor {
 
     /// Set the `$variant` extension for union types.
     ///
+    /// If called multiple times on the same node (nested unions), the variant
+    /// path is appended using `.` (e.g., `outer.inner.leaf`).
+    ///
     /// # Example
     ///
     /// ```ignore
@@ -382,7 +396,34 @@ impl DocumentConstructor {
     /// }
     /// ```
     pub fn set_variant(&mut self, variant: &str) -> Result<(), WriteError> {
-        self.set_extension("variant", variant)
+        VariantPath::parse(variant)
+            .map_err(|err| WriteError::InvalidVariantPath { source: err })?;
+        let current_id = self.current_node_id();
+        if let Some(variant_node_id) = self
+            .document()
+            .node(current_id)
+            .get_extension(&Identifier::VARIANT)
+        {
+            let node = self.document().node(variant_node_id);
+            let existing = match node.as_primitive().and_then(|value| value.as_str()) {
+                Some(existing) => existing,
+                None => {
+                    let actual = node.content.value_kind().unwrap_or(ValueKind::Hole);
+                    return Err(WriteError::InvalidVariantExtensionType { actual });
+                }
+            };
+            VariantPath::parse(existing)
+                .map_err(|err| WriteError::InvalidVariantPath { source: err })?;
+            let mut combined = String::with_capacity(existing.len() + 1 + variant.len());
+            combined.push_str(existing);
+            combined.push('.');
+            combined.push_str(variant);
+            self.document_mut().node_mut(variant_node_id).content =
+                NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext(combined)));
+            Ok(())
+        } else {
+            self.set_extension("variant", variant)
+        }
     }
 
     /// Write a value implementing `IntoEure` to the current node.
@@ -507,6 +548,19 @@ mod tests {
             root.extensions
                 .contains_key(&"variant".parse::<Identifier>().unwrap())
         );
+    }
+
+    #[test]
+    fn test_set_variant_invalid_extension_type() {
+        let mut c = DocumentConstructor::new();
+        c.set_extension("variant", 1i32).unwrap();
+        let err = c.set_variant("foo").unwrap_err();
+        assert!(matches!(
+            err,
+            WriteError::InvalidVariantExtensionType {
+                actual: ValueKind::Integer
+            }
+        ));
     }
 
     #[test]
