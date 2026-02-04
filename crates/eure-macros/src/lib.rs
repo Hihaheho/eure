@@ -1,7 +1,9 @@
 use darling::FromDeriveInput;
 use syn::parse_macro_input;
 
-use crate::{attrs::ContainerAttrs, config::MacroConfig, context::MacroContext};
+use crate::attrs::{ContainerAttrs, extract_container_attr_spans};
+use crate::config::MacroConfig;
+use crate::context::MacroContext;
 
 mod attrs;
 mod build_schema;
@@ -14,24 +16,35 @@ mod must_be_text;
 #[proc_macro_derive(IntoEure, attributes(eure))]
 pub fn into_eure_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
-    into_eure::derive(create_context(input)).into()
+    match create_context(input) {
+        Ok(context) => into_eure::derive(context).into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }
 
 #[proc_macro_derive(FromEure, attributes(eure))]
 pub fn from_eure_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
-    from_eure::derive(create_context(input)).into()
+    match create_context(input) {
+        Ok(context) => from_eure::derive(context).into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }
 
 #[proc_macro_derive(BuildSchema, attributes(eure))]
 pub fn build_schema_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
-    build_schema::derive(create_context(input)).into()
+    match create_context(input) {
+        Ok(context) => build_schema::derive(context).into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }
 
-fn create_context(input: syn::DeriveInput) -> MacroContext {
+fn create_context(input: syn::DeriveInput) -> syn::Result<MacroContext> {
     let attrs = ContainerAttrs::from_derive_input(&input).expect("Failed to parse eure attributes");
-    MacroContext::new(MacroConfig::from_attrs(attrs), input)
+    let attr_spans = extract_container_attr_spans(&input);
+    let config = MacroConfig::from_attrs(attrs, attr_spans)?;
+    Ok(MacroContext::new(config, input))
 }
 
 /// Creates a zero-sized type that only parses from a specific Text value.

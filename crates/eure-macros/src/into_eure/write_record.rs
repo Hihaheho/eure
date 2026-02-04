@@ -7,78 +7,124 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DataStruct, Fields};
 
-use crate::attrs::FieldAttrs;
+use crate::attrs::{FieldAttrs, extract_eure_attr_spans};
 use crate::context::MacroContext;
 
-pub fn generate_record_writer(context: &MacroContext, input: &DataStruct) -> TokenStream {
+pub fn generate_record_writer(
+    context: &MacroContext,
+    input: &DataStruct,
+) -> syn::Result<TokenStream> {
     match &input.fields {
         Fields::Named(fields) => generate_named_struct(context, &fields.named),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            generate_newtype_struct(context, &fields.unnamed[0].ty)
+            Ok(generate_newtype_struct(context, &fields.unnamed[0].ty))
         }
-        Fields::Unnamed(fields) => generate_tuple_struct(context, &fields.unnamed),
-        Fields::Unit => generate_unit_struct(context),
+        Fields::Unnamed(fields) => Ok(generate_tuple_struct(context, &fields.unnamed)),
+        Fields::Unit => Ok(generate_unit_struct(context)),
     }
 }
 
 fn generate_named_struct(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let document_crate = &context.config.document_crate;
 
-    let field_writes: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let field_name = f.ident.as_ref().expect("named fields must have names");
-            let field_ty = &f.ty;
-            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+    let mut field_writes = Vec::new();
+    for f in fields {
+        let field_name = f.ident.as_ref().expect("named fields must have names");
+        let field_ty = &f.ty;
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        let spans = extract_eure_attr_spans(&f.attrs);
 
-            // Validate incompatible attribute combinations (similar to from_eure)
-            if attrs.flatten && attrs.flatten_ext {
-                panic!(
-                    "cannot use both #[eure(flatten)] and #[eure(flatten_ext)] on the same field"
-                );
-            }
-            if attrs.flatten && attrs.ext {
-                panic!("cannot use both #[eure(flatten)] and #[eure(ext)] on the same field");
-            }
-            if attrs.ext && attrs.flatten_ext {
-                panic!("cannot use both #[eure(ext)] and #[eure(flatten_ext)] on the same field");
-            }
-            if attrs.via.is_some() && (attrs.flatten || attrs.flatten_ext) {
-                panic!(
+        // Validate incompatible attribute combinations (similar to from_eure)
+        if attrs.flatten && attrs.flatten_ext {
+            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                "cannot use both #[eure(flatten)] and #[eure(flatten_ext)] on the same field",
+            ));
+        }
+        if attrs.flatten && attrs.ext {
+            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                "cannot use both #[eure(flatten)] and #[eure(ext)] on the same field",
+            ));
+        }
+        if attrs.ext && attrs.flatten_ext {
+            let span = spans.get("ext").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                "cannot use both #[eure(ext)] and #[eure(flatten_ext)] on the same field",
+            ));
+        }
+        if attrs.via.is_some() && (attrs.flatten || attrs.flatten_ext) {
+            let span = spans.get("via").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
                     "cannot use #[eure(via = \"...\")] with #[eure(flatten)] or #[eure(flatten_ext)] on field `{}`",
                     field_name
-                );
-            }
+                ),
+            ));
+        }
 
-            // For IntoEure, flatten is not yet implemented
-            if attrs.flatten || attrs.flatten_ext {
-                panic!(
-                    "#[eure(flatten)] and #[eure(flatten_ext)] are not yet supported for IntoEure derive on field `{}`",
+        // For IntoEure, flatten is not yet implemented
+        if attrs.flatten {
+            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "#[eure(flatten)] is not yet supported for IntoEure derive on field `{}`",
                     field_name
-                );
-            }
+                ),
+            ));
+        }
+        if attrs.flatten_ext {
+            let span = spans
+                .get("flatten_ext")
+                .copied()
+                .unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "#[eure(flatten_ext)] is not yet supported for IntoEure derive on field `{}`",
+                    field_name
+                ),
+            ));
+        }
 
-            if attrs.ext {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_ext_write(document_crate, field_name, field_ty, &field_name_str, attrs.via.as_ref())
-            } else {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_record_field_write(document_crate, field_name, field_ty, &field_name_str, attrs.via.as_ref())
-            }
-        })
-        .collect();
+        let write = if attrs.ext {
+            let field_name_str = attrs
+                .rename
+                .clone()
+                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+            generate_ext_write(
+                document_crate,
+                field_name,
+                field_ty,
+                &field_name_str,
+                attrs.via.as_ref(),
+            )
+        } else {
+            let field_name_str = attrs
+                .rename
+                .clone()
+                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+            generate_record_field_write(
+                document_crate,
+                field_name,
+                field_ty,
+                &field_name_str,
+                attrs.via.as_ref(),
+            )
+        };
+        field_writes.push(write);
+    }
 
     // For opaque proxy, we need to convert via .into() first
-    if context.opaque_target().is_some() {
+    Ok(if context.opaque_target().is_some() {
         let ident = context.ident();
         context.impl_into_eure(quote! {
             let value: #ident = value.into();
@@ -94,7 +140,7 @@ fn generate_named_struct(
                 Ok(())
             })
         })
-    }
+    })
 }
 
 fn generate_unit_struct(context: &MacroContext) -> TokenStream {

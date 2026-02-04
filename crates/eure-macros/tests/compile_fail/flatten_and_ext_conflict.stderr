@@ -1,0 +1,5 @@
+error: cannot use both #[eure(flatten)] and #[eure(ext)] on the same field
+ --> tests/compile_fail/flatten_and_ext_conflict.rs:5:12
+  |
+5 |     #[eure(flatten, ext)]
+  |            ^^^^^^^

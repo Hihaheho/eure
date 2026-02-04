@@ -1,0 +1,5 @@
+error: cannot use #[eure(via = "...")] with #[eure(flatten)] or #[eure(flatten_ext)] on field `field`
+ --> tests/compile_fail/via_and_flatten_conflict.rs:5:12
+  |
+5 |     #[eure(via = "SomeType", flatten)]
+  |            ^^^

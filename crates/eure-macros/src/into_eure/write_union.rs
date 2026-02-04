@@ -4,23 +4,25 @@ mod tests;
 use darling::{FromField, FromVariant};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
-use crate::attrs::{FieldAttrs, VariantAttrs};
+use crate::attrs::{FieldAttrs, VariantAttrs, extract_eure_attr_spans};
 use crate::context::MacroContext;
 
-pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> TokenStream {
+pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::Result<TokenStream> {
     let DataEnum { variants, .. } = input;
 
-    let variant_arms: Vec<_> = variants
-        .iter()
-        .map(|variant| generate_variant_arm(context, variant))
-        .collect();
+    let mut variant_arms = Vec::new();
+    for variant in variants {
+        let arm = generate_variant_arm(context, variant)?;
+        variant_arms.push(arm);
+    }
 
     let enum_ident = context.ident();
 
     // For opaque proxy, we need to convert via .into() first
-    if context.opaque_target().is_some() {
+    Ok(if context.opaque_target().is_some() {
         context.impl_into_eure(quote! {
             let value: #enum_ident = value.into();
             match value {
@@ -33,10 +35,10 @@ pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> TokenS
                 #(#variant_arms)*
             }
         })
-    }
+    })
 }
 
-fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> TokenStream {
+fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Result<TokenStream> {
     let document_crate = &context.config.document_crate;
     let enum_ident = context.ident();
     let variant_ident = &variant.ident;
@@ -48,23 +50,26 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> TokenStrea
         .unwrap_or_else(|| context.apply_rename(&variant_ident.to_string()));
 
     match &variant.fields {
-        Fields::Unit => {
-            generate_unit_variant_arm(document_crate, enum_ident, variant_ident, &variant_name)
-        }
-        Fields::Unnamed(fields) if fields.unnamed.len() == 1 => generate_newtype_variant_arm(
+        Fields::Unit => Ok(generate_unit_variant_arm(
+            document_crate,
+            enum_ident,
+            variant_ident,
+            &variant_name,
+        )),
+        Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(generate_newtype_variant_arm(
             document_crate,
             enum_ident,
             variant_ident,
             &variant_name,
             &fields.unnamed[0].ty,
-        ),
-        Fields::Unnamed(fields) => generate_tuple_variant_arm(
+        )),
+        Fields::Unnamed(fields) => Ok(generate_tuple_variant_arm(
             document_crate,
             enum_ident,
             variant_ident,
             &variant_name,
             &fields.unnamed,
-        ),
+        )),
         Fields::Named(fields) => generate_struct_variant_arm(
             context,
             document_crate,
@@ -144,44 +149,73 @@ fn generate_struct_variant_arm(
     variant_ident: &syn::Ident,
     variant_name: &str,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let field_names: Vec<_> = fields
         .iter()
         .map(|f| f.ident.as_ref().expect("struct fields must have names"))
         .collect();
 
-    let field_writes: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let field_name = f.ident.as_ref().expect("struct fields must have names");
-            let field_ty = &f.ty;
-            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+    let mut field_writes = Vec::new();
+    for f in fields {
+        let field_name = f.ident.as_ref().expect("struct fields must have names");
+        let field_ty = &f.ty;
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        let spans = extract_eure_attr_spans(&f.attrs);
 
-            // Validate incompatible attribute combinations
-            if attrs.flatten || attrs.flatten_ext {
-                panic!(
-                    "#[eure(flatten)] and #[eure(flatten_ext)] are not yet supported for IntoEure derive on field `{}`",
+        // Validate incompatible attribute combinations
+        if attrs.flatten {
+            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "#[eure(flatten)] is not yet supported for IntoEure derive on field `{}`",
                     field_name
-                );
-            }
+                ),
+            ));
+        }
+        if attrs.flatten_ext {
+            let span = spans
+                .get("flatten_ext")
+                .copied()
+                .unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "#[eure(flatten_ext)] is not yet supported for IntoEure derive on field `{}`",
+                    field_name
+                ),
+            ));
+        }
 
-            if attrs.ext {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
-                generate_ext_write_variant(document_crate, field_name, field_ty, &field_name_str, attrs.via.as_ref())
-            } else {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
-                generate_record_field_write_variant(document_crate, field_name, field_ty, &field_name_str, attrs.via.as_ref())
-            }
-        })
-        .collect();
+        let write = if attrs.ext {
+            let field_name_str = attrs
+                .rename
+                .clone()
+                .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
+            generate_ext_write_variant(
+                document_crate,
+                field_name,
+                field_ty,
+                &field_name_str,
+                attrs.via.as_ref(),
+            )
+        } else {
+            let field_name_str = attrs
+                .rename
+                .clone()
+                .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
+            generate_record_field_write_variant(
+                document_crate,
+                field_name,
+                field_ty,
+                &field_name_str,
+                attrs.via.as_ref(),
+            )
+        };
+        field_writes.push(write);
+    }
 
-    quote! {
+    Ok(quote! {
         #enum_ident::#variant_ident { #(#field_names),* } => {
             c.set_variant(#variant_name)?;
             c.record(|rec| {
@@ -189,7 +223,7 @@ fn generate_struct_variant_arm(
                 Ok(())
             })
         }
-    }
+    })
 }
 
 /// Generate field write for a struct variant (bindings are direct variables, not value.field)

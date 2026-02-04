@@ -7,24 +7,27 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DataStruct, Fields};
 
-use crate::attrs::{DefaultValue, FieldAttrs};
+use crate::attrs::{DefaultValue, FieldAttrs, extract_eure_attr_spans};
 use crate::context::MacroContext;
 
-pub fn generate_record_parser(context: &MacroContext, input: &DataStruct) -> TokenStream {
+pub fn generate_record_parser(
+    context: &MacroContext,
+    input: &DataStruct,
+) -> syn::Result<TokenStream> {
     match &input.fields {
         Fields::Named(fields) => generate_named_struct(context, &fields.named),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            generate_newtype_struct(context, &fields.unnamed[0].ty)
+            Ok(generate_newtype_struct(context, &fields.unnamed[0].ty))
         }
-        Fields::Unnamed(fields) => generate_tuple_struct(context, &fields.unnamed),
-        Fields::Unit => generate_unit_struct(context),
+        Fields::Unnamed(fields) => Ok(generate_tuple_struct(context, &fields.unnamed)),
+        Fields::Unit => Ok(generate_unit_struct(context)),
     }
 }
 
 fn generate_named_struct(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     if context.config.parse_ext {
         generate_named_struct_from_ext(context, fields)
     } else {
@@ -35,66 +38,100 @@ fn generate_named_struct(
 fn generate_named_struct_from_record(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
-) -> TokenStream {
-    let field_assignments: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let field_name = f.ident.as_ref().expect("named fields must have names");
-            let field_ty = &f.ty;
-            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+) -> syn::Result<TokenStream> {
+    let mut field_assignments = Vec::new();
+    for f in fields {
+        let field_name = f.ident.as_ref().expect("named fields must have names");
+        let field_ty = &f.ty;
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        let spans = extract_eure_attr_spans(&f.attrs);
 
-            // Validate incompatible attribute combinations
-            if attrs.flatten && attrs.flatten_ext {
-                panic!(
-                    "cannot use both #[eure(flatten)] and #[eure(flatten_ext)] on the same field"
-                );
-            }
-            if attrs.flatten && attrs.ext {
-                panic!("cannot use both #[eure(flatten)] and #[eure(ext)] on the same field");
-            }
-            if attrs.ext && attrs.flatten_ext {
-                panic!("cannot use both #[eure(ext)] and #[eure(flatten_ext)] on the same field");
-            }
-            if attrs.default.is_some() && attrs.flatten {
-                panic!(
+        // Validate incompatible attribute combinations
+        if attrs.flatten && attrs.flatten_ext {
+            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                "cannot use both #[eure(flatten)] and #[eure(flatten_ext)] on the same field",
+            ));
+        }
+        if attrs.flatten && attrs.ext {
+            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                "cannot use both #[eure(flatten)] and #[eure(ext)] on the same field",
+            ));
+        }
+        if attrs.ext && attrs.flatten_ext {
+            let span = spans.get("ext").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                "cannot use both #[eure(ext)] and #[eure(flatten_ext)] on the same field",
+            ));
+        }
+        if attrs.default.is_some() && attrs.flatten {
+            let span = spans.get("default").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
                     "cannot use #[eure(default)] with #[eure(flatten)] on field `{}`; \
                     flatten parses entire nested types, not optional fields",
                     field_name
-                );
-            }
-            if attrs.default.is_some() && attrs.flatten_ext {
-                panic!(
+                ),
+            ));
+        }
+        if attrs.default.is_some() && attrs.flatten_ext {
+            let span = spans.get("default").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
                     "cannot use #[eure(default)] with #[eure(flatten_ext)] on field `{}`; \
                     flatten_ext parses entire nested types, not optional fields",
                     field_name
-                );
-            }
-            if attrs.via.is_some() && (attrs.flatten || attrs.flatten_ext) {
-                panic!(
+                ),
+            ));
+        }
+        if attrs.via.is_some() && (attrs.flatten || attrs.flatten_ext) {
+            let span = spans.get("via").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
                     "cannot use #[eure(via = \"...\")] with #[eure(flatten)] or #[eure(flatten_ext)] on field `{}`",
                     field_name
-                );
-            }
+                ),
+            ));
+        }
 
-            if attrs.flatten {
-                quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
-            } else if attrs.flatten_ext {
-                quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
-            } else if attrs.ext {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default, attrs.via.as_ref())
-            } else {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_record_field(field_name, field_ty, &field_name_str, &attrs.default, attrs.via.as_ref())
-            }
-        })
-        .collect();
+        let assignment = if attrs.flatten {
+            quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
+        } else if attrs.flatten_ext {
+            quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
+        } else if attrs.ext {
+            let field_name_str = attrs
+                .rename
+                .clone()
+                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+            generate_ext_field(
+                field_name,
+                field_ty,
+                &field_name_str,
+                &attrs.default,
+                attrs.via.as_ref(),
+            )
+        } else {
+            let field_name_str = attrs
+                .rename
+                .clone()
+                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+            generate_record_field(
+                field_name,
+                field_ty,
+                &field_name_str,
+                &attrs.default,
+                attrs.via.as_ref(),
+            )
+        };
+        field_assignments.push(assignment);
+    }
 
     let unknown_fields_check = if context.config.allow_unknown_fields {
         quote! { rec.allow_unknown_fields()?; }
@@ -112,7 +149,7 @@ fn generate_named_struct_from_record(
     let target_type = context.target_type();
 
     // For opaque proxy, we need to convert via .into()
-    if let Some(opaque_target) = context.opaque_target() {
+    Ok(if let Some(opaque_target) = context.opaque_target() {
         context.impl_from_eure(quote! {
             let rec = ctx.parse_record()?;
             let value = #target_type {
@@ -133,48 +170,66 @@ fn generate_named_struct_from_record(
             #unknown_extensions_check
             Ok(value)
         })
-    }
+    })
 }
 
 fn generate_named_struct_from_ext(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
-) -> TokenStream {
-    let field_assignments: Vec<_> = fields
-        .iter()
-        .map(|f| {
-            let field_name = f.ident.as_ref().expect("named fields must have names");
-            let field_ty = &f.ty;
-            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+) -> syn::Result<TokenStream> {
+    let mut field_assignments = Vec::new();
+    for f in fields {
+        let field_name = f.ident.as_ref().expect("named fields must have names");
+        let field_ty = &f.ty;
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        let spans = extract_eure_attr_spans(&f.attrs);
 
-            if attrs.flatten {
-                panic!("#[eure(flatten)] cannot be used in #[eure(parse_ext)] context; use #[eure(flatten_ext)] instead");
-            }
-            if attrs.default.is_some() && attrs.flatten_ext {
-                panic!(
+        if attrs.flatten {
+            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                "#[eure(flatten)] cannot be used in #[eure(parse_ext)] context; use #[eure(flatten_ext)] instead",
+            ));
+        }
+        if attrs.default.is_some() && attrs.flatten_ext {
+            let span = spans.get("default").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
                     "cannot use #[eure(default)] with #[eure(flatten_ext)] on field `{}`; \
                     flatten_ext parses entire nested types, not optional fields",
                     field_name
-                );
-            }
-            if attrs.via.is_some() && attrs.flatten_ext {
-                panic!(
+                ),
+            ));
+        }
+        if attrs.via.is_some() && attrs.flatten_ext {
+            let span = spans.get("via").copied().unwrap_or_else(|| f.span());
+            return Err(syn::Error::new(
+                span,
+                format!(
                     "cannot use #[eure(via = \"...\")] with #[eure(flatten_ext)] on field `{}`",
                     field_name
-                );
-            }
+                ),
+            ));
+        }
 
-            if attrs.flatten_ext {
-                quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
-            } else {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-                generate_ext_field(field_name, field_ty, &field_name_str, &attrs.default, attrs.via.as_ref())
-            }
-        })
-        .collect();
+        let assignment = if attrs.flatten_ext {
+            quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
+        } else {
+            let field_name_str = attrs
+                .rename
+                .clone()
+                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+            generate_ext_field(
+                field_name,
+                field_ty,
+                &field_name_str,
+                &attrs.default,
+                attrs.via.as_ref(),
+            )
+        };
+        field_assignments.push(assignment);
+    }
 
     // No need to call deny_unknown_extensions in parse_ext context
     // (the caller is responsible for validation)
@@ -182,7 +237,7 @@ fn generate_named_struct_from_ext(
     let target_type = context.target_type();
 
     // For opaque proxy, we need to convert via .into()
-    if let Some(opaque_target) = context.opaque_target() {
+    Ok(if let Some(opaque_target) = context.opaque_target() {
         context.impl_from_eure(quote! {
             let value = #target_type {
                 #(#field_assignments),*
@@ -197,7 +252,7 @@ fn generate_named_struct_from_ext(
             };
             Ok(value)
         })
-    }
+    })
 }
 
 fn generate_unit_struct(context: &MacroContext) -> TokenStream {

@@ -1,0 +1,5 @@
+error: #[eure(flatten)] cannot be used in #[eure(parse_ext)] context; use #[eure(flatten_ext)] instead
+ --> tests/compile_fail/flatten_in_parse_ext_context.rs:6:12
+  |
+6 |     #[eure(flatten)]
+  |            ^^^^^^^

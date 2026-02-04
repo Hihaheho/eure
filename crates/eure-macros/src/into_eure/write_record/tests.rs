@@ -3,7 +3,7 @@ use quote::quote;
 use syn::parse_quote;
 
 fn generate(input: syn::DeriveInput) -> TokenStream {
-    crate::into_eure::derive(crate::create_context(input))
+    crate::into_eure::derive(crate::create_context(input).expect("failed to create context"))
 }
 
 #[test]
@@ -393,19 +393,6 @@ fn test_proxy_with_rename_all() {
         }
         .to_string()
     );
-}
-
-#[test]
-#[should_panic(
-    expected = "cannot use both #[eure(proxy = \"...\")] and #[eure(opaque = \"...\")] on the same type"
-)]
-fn test_proxy_and_opaque_mutually_exclusive() {
-    generate(parse_quote! {
-        #[eure(proxy = "Foo", opaque = "Bar")]
-        struct Test {
-            field: String,
-        }
-    });
 }
 
 #[test]

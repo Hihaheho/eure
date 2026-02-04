@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Type;
 
@@ -34,7 +34,10 @@ pub struct MacroConfig {
 }
 
 impl MacroConfig {
-    pub fn from_attrs(attrs: ContainerAttrs) -> Self {
+    pub fn from_attrs(
+        attrs: ContainerAttrs,
+        attr_spans: std::collections::HashMap<String, Span>,
+    ) -> syn::Result<Self> {
         use quote::ToTokens;
         let document_crate = attrs
             .crate_path
@@ -44,9 +47,14 @@ impl MacroConfig {
 
         // Validate that proxy and opaque are mutually exclusive
         if attrs.proxy.is_some() && attrs.opaque.is_some() {
-            panic!(
-                "cannot use both #[eure(proxy = \"...\")] and #[eure(opaque = \"...\")] on the same type; they are mutually exclusive"
-            );
+            let span = attr_spans
+                .get("proxy")
+                .copied()
+                .unwrap_or_else(Span::call_site);
+            return Err(syn::Error::new(
+                span,
+                "cannot use both #[eure(proxy = \"...\")] and #[eure(opaque = \"...\")] on the same type; they are mutually exclusive",
+            ));
         }
 
         // Convert proxy/opaque attributes to unified ProxyConfig
@@ -63,7 +71,7 @@ impl MacroConfig {
                 })
             });
 
-        Self {
+        Ok(Self {
             document_crate,
             rename_all: attrs.rename_all,
             rename_all_fields: attrs.rename_all_fields,
@@ -73,6 +81,6 @@ impl MacroConfig {
             parse_error,
             type_name: attrs.type_name,
             proxy,
-        }
+        })
     }
 }

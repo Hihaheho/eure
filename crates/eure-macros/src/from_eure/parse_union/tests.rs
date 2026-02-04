@@ -3,7 +3,7 @@ use quote::quote;
 use syn::parse_quote;
 
 fn generate(input: syn::DeriveInput) -> TokenStream {
-    crate::from_eure::derive(crate::create_context(input))
+    crate::from_eure::derive(crate::create_context(input).expect("failed to create context"))
 }
 
 #[test]

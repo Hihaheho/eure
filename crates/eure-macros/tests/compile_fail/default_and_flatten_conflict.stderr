@@ -1,0 +1,5 @@
+error: cannot use #[eure(default)] with #[eure(flatten)] on field `field`; flatten parses entire nested types, not optional fields
+ --> tests/compile_fail/default_and_flatten_conflict.rs:5:12
+  |
+5 |     #[eure(default, flatten)]
+  |            ^^^^^^^
