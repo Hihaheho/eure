@@ -137,6 +137,24 @@ impl MacroContext {
     }
 
     #[allow(non_snake_case)]
+    pub fn IntoEure(&self) -> TokenStream {
+        let document_crate = &self.config.document_crate;
+        quote!(#document_crate::write::IntoEure)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn WriteError(&self) -> TokenStream {
+        let document_crate = &self.config.document_crate;
+        quote!(#document_crate::write::WriteError)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn DocumentConstructor(&self) -> TokenStream {
+        let document_crate = &self.config.document_crate;
+        quote!(#document_crate::constructor::DocumentConstructor)
+    }
+
+    #[allow(non_snake_case)]
     pub fn VariantLiteralParser(&self, value: TokenStream, mapper: TokenStream) -> TokenStream {
         let document_crate = &self.config.document_crate;
         quote!(#document_crate::parse::DocumentParserExt::map(#document_crate::parse::VariantLiteralParser(#value), #mapper))
@@ -168,6 +186,17 @@ impl MacroContext {
         } else {
             // For non-proxy types, target defaults to Self (omit second type param)
             self.impl_from_eure_for(parse_body, None)
+        }
+    }
+
+    pub fn impl_into_eure(&self, write_body: TokenStream) -> TokenStream {
+        // Delegate to impl_into_eure_for with appropriate target type
+        if let Some(ref proxy) = self.config.proxy {
+            let target = &proxy.target;
+            self.impl_into_eure_for(write_body, Some(quote! { #target }))
+        } else {
+            // For non-proxy types, target defaults to Self (omit second type param)
+            self.impl_into_eure_for(write_body, None)
         }
     }
 
@@ -250,6 +279,110 @@ impl MacroContext {
                 }
             }
         }
+    }
+
+    /// Generate IntoEure implementation with specified target type.
+    ///
+    /// When `target_type` is `None`, this generates standard `IntoEure`.
+    /// When `target_type` is `Some(T)`, this generates `IntoEure<T>`.
+    fn impl_into_eure_for(
+        &self,
+        write_body: TokenStream,
+        target_type: Option<TokenStream>,
+    ) -> TokenStream {
+        let ident = self.ident();
+        let for_generics = self.for_generics();
+        let into_eure = self.IntoEure();
+        let write_error = self.WriteError();
+        let document_constructor = self.DocumentConstructor();
+
+        let type_params: Vec<_> = self.generics().type_params().collect();
+
+        // Trait signature: IntoEure or IntoEure<RemoteType>
+        let trait_sig = match &target_type {
+            Some(remote) => quote! { #into_eure<#remote> },
+            None => quote! { #into_eure },
+        };
+
+        // Value type in signature: Self or RemoteType
+        let value_type = match &target_type {
+            Some(remote) => quote! { #remote },
+            None => quote! { Self },
+        };
+
+        // Build impl generics based on the number of type parameters
+        if type_params.is_empty() {
+            let impl_generics = self.impl_generics();
+            if impl_generics.is_empty() {
+                quote! {
+                    impl #trait_sig for #ident {
+                        fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), #write_error> {
+                            #write_body
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    impl<#(#impl_generics),*> #trait_sig for #ident<#(#for_generics),*> {
+                        fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), #write_error> {
+                            #write_body
+                        }
+                    }
+                }
+            }
+        } else {
+            // Generic type parameters: require all to impl IntoEure
+            let base_generics = self.impl_generics_with_into_eure_bounds();
+            quote! {
+                impl<#(#base_generics),*> #trait_sig for #ident<#(#for_generics),*> {
+                    fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), #write_error> {
+                        #write_body
+                    }
+                }
+            }
+        }
+    }
+
+    /// Returns impl generics with IntoEure bounds added to type parameters.
+    fn impl_generics_with_into_eure_bounds(&self) -> Vec<TokenStream> {
+        let into_eure = self.IntoEure();
+        self.generics()
+            .lifetimes()
+            .map(
+                |LifetimeParam {
+                     lifetime,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    quote! { #lifetime #colon_token #bounds }
+                },
+            )
+            .chain(self.generics().const_params().map(
+                |ConstParam {
+                     const_token,
+                     colon_token,
+                     ty,
+                     ..
+                 }| {
+                    quote! { #const_token #colon_token #ty }
+                },
+            ))
+            .chain(self.generics().type_params().map(
+                |TypeParam {
+                     ident,
+                     colon_token,
+                     bounds,
+                     ..
+                 }| {
+                    if bounds.is_empty() {
+                        quote! { #ident: #into_eure }
+                    } else {
+                        quote! { #ident #colon_token #bounds + #into_eure }
+                    }
+                },
+            ))
+            .collect()
     }
 
     /// Returns impl generics with FromEure<'doc> bounds added to type parameters.

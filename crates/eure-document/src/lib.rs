@@ -22,6 +22,9 @@ pub mod value;
 /// A data structure for representing a Eure document including extensions.
 pub mod document;
 
+// Re-export constructor at the root for macro compatibility with `#[eure(crate = ::eure_document)]`
+pub use document::constructor;
+
 /// Data structure for representing a path in a Eure document.
 pub mod path;
 

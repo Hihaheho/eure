@@ -44,7 +44,30 @@ impl<'a> RecordWriter<'a> {
         let scope = self.constructor.begin_scope();
         self.constructor
             .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))?;
-        value.write_to(self.constructor)?;
+        T::write(value, self.constructor)?;
+        self.constructor.end_scope(scope)?;
+        Ok(())
+    }
+
+    /// Write a required field using a marker type.
+    ///
+    /// This enables writing types from external crates that can't implement
+    /// `IntoEure` directly due to Rust's orphan rule.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // DurationDef implements IntoEure<std::time::Duration>
+    /// rec.field_via::<DurationDef, _>("timeout", duration)?;
+    /// ```
+    pub fn field_via<M, T>(&mut self, name: &str, value: T) -> Result<(), WriteError>
+    where
+        M: IntoEure<T>,
+    {
+        let scope = self.constructor.begin_scope();
+        self.constructor
+            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))?;
+        M::write(value, self.constructor)?;
         self.constructor.end_scope(scope)?;
         Ok(())
     }
@@ -101,7 +124,7 @@ impl<'a> RecordWriter<'a> {
     ///
     /// ```ignore
     /// rec.field_with_optional("metadata", self.metadata.as_ref(), |c, meta| {
-    ///     meta.write_to(c)
+    ///     c.write(meta)
     /// })?;
     /// ```
     pub fn field_with_optional<T, F, R>(

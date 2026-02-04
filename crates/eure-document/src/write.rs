@@ -38,22 +38,41 @@ pub enum WriteError {
 /// Types implementing this trait can be serialized into [`EureDocument`]
 /// via [`DocumentConstructor`].
 ///
+/// The generic parameter `T` defaults to `Self`, allowing remote type support
+/// via marker types:
+/// - `IntoEure` (same as `IntoEure<Self>`) - standard implementation
+/// - `IntoEure<RemoteType>` - marker type implements writing for a remote type
+///
 /// # Examples
 ///
+/// Standard implementation:
 /// ```ignore
 /// impl IntoEure for User {
-///     fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+///     fn write(value: User, c: &mut DocumentConstructor) -> Result<(), WriteError> {
 ///         c.record(|rec| {
-///             rec.field("name", self.name)?;
-///             rec.field_optional("age", self.age)?;
+///             rec.field("name", value.name)?;
+///             rec.field_optional("age", value.age)?;
 ///             Ok(())
 ///         })
 ///     }
 /// }
 /// ```
-pub trait IntoEure {
-    /// Write this value to the current node in the document constructor.
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError>;
+///
+/// Remote type support via marker:
+/// ```ignore
+/// impl IntoEure<std::time::Duration> for DurationDef {
+///     fn write(value: std::time::Duration, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+///         c.record(|rec| {
+///             rec.field("secs", value.as_secs())?;
+///             rec.field("nanos", value.subsec_nanos())?;
+///             Ok(())
+///         })
+///     }
+/// }
+/// ```
+pub trait IntoEure<T = Self>: Sized {
+    /// Write a value to the current node in the document constructor.
+    fn write(value: T, c: &mut DocumentConstructor) -> Result<(), WriteError>;
 }
 
 // ============================================================================
@@ -61,99 +80,99 @@ pub trait IntoEure {
 // ============================================================================
 
 impl IntoEure for bool {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Bool(self))?;
+    fn write(value: bool, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Bool(value))?;
         Ok(())
     }
 }
 
 impl IntoEure for i32 {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
+    fn write(value: i32, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
         Ok(())
     }
 }
 
 impl IntoEure for i64 {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
+    fn write(value: i64, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
         Ok(())
     }
 }
 
 impl IntoEure for u32 {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
+    fn write(value: u32, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
         Ok(())
     }
 }
 
 impl IntoEure for u64 {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
+    fn write(value: u64, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
         Ok(())
     }
 }
 
 impl IntoEure for usize {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(self)))?;
+    fn write(value: usize, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
         Ok(())
     }
 }
 
 impl IntoEure for f32 {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::F32(self))?;
+    fn write(value: f32, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::F32(value))?;
         Ok(())
     }
 }
 
 impl IntoEure for f64 {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::F64(self))?;
+    fn write(value: f64, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::F64(value))?;
         Ok(())
     }
 }
 
 impl IntoEure for BigInt {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(self))?;
+    fn write(value: BigInt, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Integer(value))?;
         Ok(())
     }
 }
 
 impl IntoEure for String {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(self)))?;
+    fn write(value: String, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value)))?;
         Ok(())
     }
 }
 
-impl IntoEure for &str {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(self)))?;
+impl<'a> IntoEure for &'a str {
+    fn write(value: &'a str, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value)))?;
         Ok(())
     }
 }
 
 impl IntoEure for Text {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(self))?;
+    fn write(value: Text, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Text(value))?;
         Ok(())
     }
 }
 
 impl IntoEure for PrimitiveValue {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(self)?;
+    fn write(value: PrimitiveValue, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(value)?;
         Ok(())
     }
 }
 
 impl IntoEure for Identifier {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(self.into_string())))?;
+    fn write(value: Identifier, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value.into_string())))?;
         Ok(())
     }
 }
@@ -162,40 +181,46 @@ impl IntoEure for Identifier {
 // Collection implementations
 // ============================================================================
 
-impl<T: IntoEure> IntoEure for Vec<T> {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+impl<M, T> IntoEure<Vec<T>> for Vec<M>
+where
+    M: IntoEure<T>,
+{
+    fn write(value: Vec<T>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_empty_array()?;
-        for item in self {
+        for item in value {
             let scope = c.begin_scope();
             c.navigate(PathSegment::ArrayIndex(None))?;
-            item.write_to(c)?;
+            M::write(item, c)?;
             c.end_scope(scope)?;
         }
         Ok(())
     }
 }
 
-impl<K, V> IntoEure for Map<K, V>
+impl<M, K, V> IntoEure<Map<K, V>> for Map<K, M>
 where
+    M: IntoEure<V>,
     K: Into<ObjectKey>,
-    V: IntoEure,
 {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    fn write(value: Map<K, V>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_empty_map()?;
-        for (key, value) in self {
+        for (key, v) in value {
             let scope = c.begin_scope();
             c.navigate(PathSegment::Value(key.into()))?;
-            value.write_to(c)?;
+            M::write(v, c)?;
             c.end_scope(scope)?;
         }
         Ok(())
     }
 }
 
-impl<T: IntoEure> IntoEure for Option<T> {
-    fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        match self {
-            Some(value) => value.write_to(c),
+impl<M, T> IntoEure<Option<T>> for Option<M>
+where
+    M: IntoEure<T>,
+{
+    fn write(value: Option<T>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        match value {
+            Some(v) => M::write(v, c),
             None => {
                 c.bind_primitive(PrimitiveValue::Null)?;
                 Ok(())
@@ -209,14 +234,17 @@ impl<T: IntoEure> IntoEure for Option<T> {
 // ============================================================================
 
 macro_rules! impl_into_document_tuple {
-    ($n:expr, $($idx:tt: $var:ident),+) => {
-        impl<$($var: IntoEure),+> IntoEure for ($($var,)+) {
-            fn write_to(self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    ($n:expr, $($idx:tt: $marker:ident : $ty:ident),+) => {
+        impl<$($marker, $ty),+> IntoEure<($($ty,)+)> for ($($marker,)+)
+        where
+            $($marker: IntoEure<$ty>),+
+        {
+            fn write(value: ($($ty,)+), c: &mut DocumentConstructor) -> Result<(), WriteError> {
                 c.bind_empty_tuple()?;
                 $(
                     let scope = c.begin_scope();
                     c.navigate(PathSegment::TupleIndex($idx))?;
-                    self.$idx.write_to(c)?;
+                    $marker::write(value.$idx, c)?;
                     c.end_scope(scope)?;
                 )+
                 Ok(())
@@ -225,22 +253,22 @@ macro_rules! impl_into_document_tuple {
     };
 }
 
-impl_into_document_tuple!(1, 0: A);
-impl_into_document_tuple!(2, 0: A, 1: B);
-impl_into_document_tuple!(3, 0: A, 1: B, 2: C);
-impl_into_document_tuple!(4, 0: A, 1: B, 2: C, 3: D);
-impl_into_document_tuple!(5, 0: A, 1: B, 2: C, 3: D, 4: E);
-impl_into_document_tuple!(6, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F);
-impl_into_document_tuple!(7, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G);
-impl_into_document_tuple!(8, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H);
-impl_into_document_tuple!(9, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I);
-impl_into_document_tuple!(10, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J);
-impl_into_document_tuple!(11, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K);
-impl_into_document_tuple!(12, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L);
-impl_into_document_tuple!(13, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M);
-impl_into_document_tuple!(14, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M, 13: N);
-impl_into_document_tuple!(15, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M, 13: N, 14: O);
-impl_into_document_tuple!(16, 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L, 12: M, 13: N, 14: O, 15: P);
+impl_into_document_tuple!(1, 0: MA: A);
+impl_into_document_tuple!(2, 0: MA: A, 1: MB: B);
+impl_into_document_tuple!(3, 0: MA: A, 1: MB: B, 2: MC: C);
+impl_into_document_tuple!(4, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D);
+impl_into_document_tuple!(5, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E);
+impl_into_document_tuple!(6, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F);
+impl_into_document_tuple!(7, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G);
+impl_into_document_tuple!(8, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H);
+impl_into_document_tuple!(9, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I);
+impl_into_document_tuple!(10, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I, 9: MJ: J);
+impl_into_document_tuple!(11, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I, 9: MJ: J, 10: MK: K);
+impl_into_document_tuple!(12, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I, 9: MJ: J, 10: MK: K, 11: ML: L);
+impl_into_document_tuple!(13, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I, 9: MJ: J, 10: MK: K, 11: ML: L, 12: MM: M);
+impl_into_document_tuple!(14, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I, 9: MJ: J, 10: MK: K, 11: ML: L, 12: MM: M, 13: MN: N);
+impl_into_document_tuple!(15, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I, 9: MJ: J, 10: MK: K, 11: ML: L, 12: MM: M, 13: MN: N, 14: MO: O);
+impl_into_document_tuple!(16, 0: MA: A, 1: MB: B, 2: MC: C, 3: MD: D, 4: ME: E, 5: MF: F, 6: MG: G, 7: MH: H, 8: MI: I, 9: MJ: J, 10: MK: K, 11: ML: L, 12: MM: M, 13: MN: N, 14: MO: O, 15: MP: P);
 
 // ============================================================================
 // DocumentConstructor extensions
@@ -301,7 +329,7 @@ impl DocumentConstructor {
             .map_err(|_| WriteError::InvalidIdentifier(name.into()))?;
         let scope = self.begin_scope();
         self.navigate(PathSegment::Extension(ident))?;
-        value.write_to(self)?;
+        T::write(value, self)?;
         self.end_scope(scope)?;
         Ok(())
     }
@@ -333,7 +361,7 @@ impl DocumentConstructor {
     /// match self {
     ///     MyEnum::Foo(inner) => {
     ///         c.set_variant("foo")?;
-    ///         inner.write_to(c)?;
+    ///         c.write(inner)?;
     ///     }
     /// }
     /// ```
@@ -349,7 +377,25 @@ impl DocumentConstructor {
     /// c.write(my_value)?;
     /// ```
     pub fn write<T: IntoEure>(&mut self, value: T) -> Result<(), WriteError> {
-        value.write_to(self)
+        T::write(value, self)
+    }
+
+    /// Write a remote type using a marker type.
+    ///
+    /// This enables writing types from external crates that can't implement
+    /// `IntoEure` directly due to Rust's orphan rule.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // DurationDef implements IntoEure<std::time::Duration>
+    /// c.write_via::<DurationDef, _>(duration)?;
+    /// ```
+    pub fn write_via<M, T>(&mut self, value: T) -> Result<(), WriteError>
+    where
+        M: IntoEure<T>,
+    {
+        M::write(value, self)
     }
 }
 
@@ -360,7 +406,7 @@ mod tests {
     #[test]
     fn test_primitive_bool() {
         let mut c = DocumentConstructor::new();
-        true.write_to(&mut c).unwrap();
+        c.write(true).unwrap();
         let doc = c.finish();
         assert_eq!(
             doc.root().content,
@@ -371,7 +417,7 @@ mod tests {
     #[test]
     fn test_primitive_string() {
         let mut c = DocumentConstructor::new();
-        "hello".write_to(&mut c).unwrap();
+        c.write("hello").unwrap();
         let doc = c.finish();
         assert_eq!(
             doc.root().content,
@@ -382,7 +428,7 @@ mod tests {
     #[test]
     fn test_vec() {
         let mut c = DocumentConstructor::new();
-        vec![1i32, 2, 3].write_to(&mut c).unwrap();
+        c.write(vec![1i32, 2, 3]).unwrap();
         let doc = c.finish();
         let arr = doc.root().as_array().unwrap();
         assert_eq!(arr.len(), 3);
@@ -391,7 +437,7 @@ mod tests {
     #[test]
     fn test_tuple() {
         let mut c = DocumentConstructor::new();
-        (1i32, "two", true).write_to(&mut c).unwrap();
+        c.write((1i32, "two", true)).unwrap();
         let doc = c.finish();
         let tuple = doc.root().as_tuple().unwrap();
         assert_eq!(tuple.len(), 3);
@@ -460,6 +506,36 @@ mod tests {
                 })
             })?;
             Ok(())
+        })
+        .unwrap();
+        let doc = c.finish();
+        let map = doc.root().as_map().unwrap();
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn test_write_via() {
+        // Marker type for Duration-like struct
+        struct DurationMarker;
+        struct DurationLike {
+            secs: u64,
+            nanos: u32,
+        }
+
+        impl IntoEure<DurationLike> for DurationMarker {
+            fn write(value: DurationLike, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+                c.record(|rec| {
+                    rec.field("secs", value.secs)?;
+                    rec.field("nanos", value.nanos)?;
+                    Ok(())
+                })
+            }
+        }
+
+        let mut c = DocumentConstructor::new();
+        c.write_via::<DurationMarker, _>(DurationLike {
+            secs: 60,
+            nanos: 123,
         })
         .unwrap();
         let doc = c.finish();

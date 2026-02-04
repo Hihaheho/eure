@@ -5,10 +5,15 @@ pub use eure_document::data_model;
 use eure_document::document::constructor::ScopeError;
 pub use eure_document::document::node::NodeValue;
 pub use eure_document::document::*;
+pub use eure_document::identifier;
 use eure_document::identifier::IdentifierError;
 pub use eure_document::must_be;
 pub use eure_document::parse;
+pub use eure_document::path;
+pub use eure_document::text;
 use eure_document::text::TextParseError;
+pub use eure_document::value;
+pub use eure_document::write;
 use eure_parol::EureParseError;
 
 use crate::document::interpreter::CstInterpreter;

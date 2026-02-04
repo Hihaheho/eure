@@ -48,7 +48,31 @@ impl<'a> TupleWriter<'a> {
         let scope = self.constructor.begin_scope();
         self.constructor
             .navigate(PathSegment::TupleIndex(self.position))?;
-        value.write_to(self.constructor)?;
+        T::write(value, self.constructor)?;
+        self.constructor.end_scope(scope)?;
+        self.position += 1;
+        Ok(())
+    }
+
+    /// Write the next element using a marker type, advancing position automatically.
+    ///
+    /// This enables writing types from external crates that can't implement
+    /// `IntoEure` directly due to Rust's orphan rule.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // DurationDef implements IntoEure<std::time::Duration>
+    /// t.next_via::<DurationDef, _>(duration)?;
+    /// ```
+    pub fn next_via<M, T>(&mut self, value: T) -> Result<(), WriteError>
+    where
+        M: IntoEure<T>,
+    {
+        let scope = self.constructor.begin_scope();
+        self.constructor
+            .navigate(PathSegment::TupleIndex(self.position))?;
+        M::write(value, self.constructor)?;
         self.constructor.end_scope(scope)?;
         self.position += 1;
         Ok(())
