@@ -87,6 +87,10 @@ pub enum IdentifierError {
 }
 
 impl Identifier {
+    // Don't write any extension not in the language spec e.g. $optional defined in Eure Schema
+    pub const VARIANT: Self = Self::new_unchecked("variant");
+    pub const SCHEMA: Self = Self::new_unchecked("schema");
+
     /// Creates a new Identifier without validation.
     ///
     /// This function is intended for creating compile-time constants where the
