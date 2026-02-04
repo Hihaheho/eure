@@ -1098,7 +1098,7 @@ fn build_trace_forest(entries: &[TraceEntry]) -> Vec<TraceTreeNode> {
     }
 
     // Sort roots by sequence number descending (newest first)
-    roots.sort_by(|a, b| b.entry.seq.cmp(&a.entry.seq));
+    roots.sort_by_key(|a| std::cmp::Reverse(a.entry.seq));
 
     roots
 }

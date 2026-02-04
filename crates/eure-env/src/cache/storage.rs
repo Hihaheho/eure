@@ -274,7 +274,7 @@ impl CacheStorage for FsStorage {
         let mut entries = self.list()?;
 
         // Sort by last_used_at (oldest first)
-        entries.sort_by(|a, b| a.meta.last_used_at.cmp(&b.meta.last_used_at));
+        entries.sort_by_key(|a| a.meta.last_used_at);
 
         let now = chrono::Utc::now();
 
