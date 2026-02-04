@@ -8,7 +8,8 @@ use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
 use crate::attrs::{FieldAttrs, VariantAttrs, extract_variant_attr_spans};
-use crate::{config::MacroConfig, context::MacroContext};
+use crate::config::MacroConfig;
+use crate::context::MacroContext;
 
 use super::parse_record::{generate_ext_field, generate_record_field};
 
@@ -33,8 +34,9 @@ fn variant_repr(document_crate: &TokenStream) -> TokenStream {
 }
 
 fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<TokenStream> {
-    let ident = context.ident();
-    let MacroConfig { document_crate, .. } = &context.config;
+    // Use target_type() which returns the type to construct (proxy target or self)
+    let target_type = context.target_type();
+    let opaque_target = context.opaque_target();
     let variant_ident = &variant.ident;
     let variant_attrs =
         VariantAttrs::from_variant(variant).expect("failed to parse variant attributes");
@@ -59,26 +61,27 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<To
     match &variant.fields {
         Fields::Unit => Ok(generate_unit_variant(
             context,
-            ident,
+            &target_type,
+            opaque_target,
             &variant_name,
             variant_ident,
         )),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(generate_newtype_variant(
-            ident,
+            &target_type,
+            opaque_target,
             &variant_name,
             variant_ident,
             &fields.unnamed[0].ty,
         )),
         Fields::Unnamed(fields) => Ok(generate_tuple_variant(
-            ident,
+            &target_type,
+            opaque_target,
             &variant_name,
             variant_ident,
             &fields.unnamed,
         )),
         Fields::Named(fields) => Ok(generate_struct_variant(
             context,
-            ident,
-            document_crate,
             &variant_name,
             variant_ident,
             &fields.named,
@@ -89,32 +92,47 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<To
 
 fn generate_unit_variant(
     context: &MacroContext,
-    enum_ident: &syn::Ident,
+    target_type: &TokenStream,
+    opaque_target: Option<&syn::Type>,
     variant_name: &str,
     variant_ident: &syn::Ident,
 ) -> TokenStream {
-    let variant_parser = context.VariantLiteralParser(
-        quote!(#variant_name),
-        quote!(|_| #enum_ident::#variant_ident),
-    );
+    // For opaque: construct target_type then convert via .into()
+    // For proxy/normal: construct target_type directly
+    let mapper = if opaque_target.is_some() {
+        quote!(|_| #target_type::#variant_ident.into())
+    } else {
+        quote!(|_| #target_type::#variant_ident)
+    };
+    let variant_parser = context.VariantLiteralParser(quote!(#variant_name), mapper);
     quote! {
         .variant(#variant_name, #variant_parser)
     }
 }
 
 fn generate_newtype_variant(
-    enum_ident: &syn::Ident,
+    target_type: &TokenStream,
+    opaque_target: Option<&syn::Type>,
     variant_name: &str,
     variant_ident: &syn::Ident,
     field_ty: &syn::Type,
 ) -> TokenStream {
-    quote! {
-        .parse_variant::<#field_ty>(#variant_name, |field_0| Ok(#enum_ident::#variant_ident(field_0)))
+    // For opaque: construct target_type then convert via .into()
+    // For proxy/normal: construct target_type directly
+    if opaque_target.is_some() {
+        quote! {
+            .parse_variant::<#field_ty>(#variant_name, |field_0| Ok(#target_type::#variant_ident(field_0).into()))
+        }
+    } else {
+        quote! {
+            .parse_variant::<#field_ty>(#variant_name, |field_0| Ok(#target_type::#variant_ident(field_0)))
+        }
     }
 }
 
 fn generate_tuple_variant(
-    enum_ident: &syn::Ident,
+    target_type: &TokenStream,
+    opaque_target: Option<&syn::Type>,
     variant_name: &str,
     variant_ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
@@ -124,20 +142,29 @@ fn generate_tuple_variant(
         .map(|i| format_ident!("field_{}", i))
         .collect();
 
-    quote! {
-        .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| Ok(#enum_ident::#variant_ident(#(#field_names),*)))
+    // For opaque: construct target_type then convert via .into()
+    // For proxy/normal: construct target_type directly
+    if opaque_target.is_some() {
+        quote! {
+            .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| Ok(#target_type::#variant_ident(#(#field_names),*).into()))
+        }
+    } else {
+        quote! {
+            .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| Ok(#target_type::#variant_ident(#(#field_names),*)))
+        }
     }
 }
 
 fn generate_struct_variant(
     context: &MacroContext,
-    enum_ident: &syn::Ident,
-    document_crate: &TokenStream,
     variant_name: &str,
     variant_ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
     variant_attrs: &VariantAttrs,
 ) -> TokenStream {
+    let target_type = context.target_type();
+    let opaque_target = context.opaque_target();
+    let document_crate = &context.config.document_crate;
     // Check if there are any "regular" record fields (not flatten, ext, or flatten_ext)
     let has_record = fields.iter().any(|f| {
         let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
@@ -188,6 +215,14 @@ fn generate_struct_variant(
         })
         .collect();
 
+    // For opaque: construct target_type then convert via .into()
+    // For proxy/normal: construct target_type directly
+    let return_value = if opaque_target.is_some() {
+        quote! { Ok(value.into()) }
+    } else {
+        quote! { Ok(value) }
+    };
+
     if has_record {
         let unknown_fields_check = if variant_attrs.allow_unknown_fields {
             quote! { rec.allow_unknown_fields()?; }
@@ -198,21 +233,21 @@ fn generate_struct_variant(
         quote! {
             .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
                 let mut rec = ctx.parse_record()?;
-                let value = #enum_ident::#variant_ident {
+                let value = #target_type::#variant_ident {
                     #(#field_assignments),*
                 };
                 #unknown_fields_check
-                Ok(value)
+                #return_value
             })
         }
     } else {
         quote! {
             .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
-                let value = #enum_ident::#variant_ident {
+                let value = #target_type::#variant_ident {
                     #(#field_assignments),*
                 };
                 ctx.deny_unknown_extensions()?;
-                Ok(value)
+                #return_value
             })
         }
     }

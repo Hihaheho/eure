@@ -539,3 +539,73 @@ fn test_struct_variant_with_via_field() {
         .to_string()
     );
 }
+
+#[test]
+fn test_proxy_enum() {
+    // Proxy enum: value type is the target type, so match patterns use target type
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Status")]
+        enum StatusDef {
+            Active,
+            Inactive,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure<external::Status> for StatusDef {
+                fn write(value: external::Status, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        external::Status::Active => {
+                            c.set_variant("Active")?;
+                            c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
+                                ::eure::document::text::Text::plaintext("Active")
+                            ))?;
+                            Ok(())
+                        }
+                        external::Status::Inactive => {
+                            c.set_variant("Inactive")?;
+                            c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
+                                ::eure::document::text::Text::plaintext("Inactive")
+                            ))?;
+                            Ok(())
+                        }
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_proxy_enum_newtype_variant() {
+    // Proxy enum with newtype variant: match patterns use target type
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Value")]
+        enum ValueDef {
+            Text(String),
+            Number(i32),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure<external::Value> for ValueDef {
+                fn write(value: external::Value, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        external::Value::Text(inner) => {
+                            c.set_variant("Text")?;
+                            <String as ::eure::document::write::IntoEure>::write(inner, c)
+                        }
+                        external::Value::Number(inner) => {
+                            c.set_variant("Number")?;
+                            <i32 as ::eure::document::write::IntoEure>::write(inner, c)
+                        }
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}

@@ -732,3 +732,123 @@ fn test_struct_variant_flatten_ext_only() {
         .to_string()
     );
 }
+
+// =============================================================================
+// Proxy enum tests
+// =============================================================================
+
+/// Proxy enum: constructs target type directly (unit variants).
+#[test]
+fn test_proxy_enum_unit_variant() {
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Status")]
+        enum StatusDef {
+            Active,
+            Inactive,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Status> for StatusDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Status, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Active", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Active"), |_| external::Status::Active))
+                        .variant("Inactive", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Inactive"), |_| external::Status::Inactive))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+/// Proxy enum: constructs target type directly (newtype variants).
+#[test]
+fn test_proxy_enum_newtype_variant() {
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Value")]
+        enum ValueDef {
+            Text(String),
+            Number(i32),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Value> for ValueDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Value, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<String>("Text", |field_0| Ok(external::Value::Text(field_0)))
+                        .parse_variant::<i32>("Number", |field_0| Ok(external::Value::Number(field_0)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+// =============================================================================
+// Opaque enum tests
+// =============================================================================
+
+/// Opaque enum: constructs definition type then converts via .into() (unit variants).
+#[test]
+fn test_opaque_enum_unit_variant() {
+    let input = generate(parse_quote! {
+        #[eure(opaque = "external::Status")]
+        enum StatusDef {
+            Active,
+            Inactive,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Status> for StatusDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Status, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Active", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Active"), |_| StatusDef::Active.into()))
+                        .variant("Inactive", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Inactive"), |_| StatusDef::Inactive.into()))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+/// Opaque enum: constructs definition type then converts via .into() (newtype variants).
+#[test]
+fn test_opaque_enum_newtype_variant() {
+    let input = generate(parse_quote! {
+        #[eure(opaque = "external::Value")]
+        enum ValueDef {
+            Text(String),
+            Number(i32),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc, external::Value> for ValueDef<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Value, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .parse_variant::<String>("Text", |field_0| Ok(ValueDef::Text(field_0).into()))
+                        .parse_variant::<i32>("Number", |field_0| Ok(ValueDef::Number(field_0).into()))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}

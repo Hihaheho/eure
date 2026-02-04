@@ -40,7 +40,17 @@ pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::R
 
 fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Result<TokenStream> {
     let document_crate = &context.config.document_crate;
-    let enum_ident = context.ident();
+    // For opaque: we already converted to definition type, so use ident()
+    // For proxy: value is target type, so use target_type()
+    // For normal: value is Self, so use ident()
+    let enum_type = if context.opaque_target().is_some() {
+        // Opaque: value was converted, use definition type
+        let ident = context.ident();
+        quote!(#ident)
+    } else {
+        // Proxy or normal: use target_type() which returns target or self
+        context.target_type()
+    };
     let variant_ident = &variant.ident;
     let variant_attrs =
         VariantAttrs::from_variant(variant).expect("failed to parse variant attributes");
@@ -65,20 +75,20 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
     match &variant.fields {
         Fields::Unit => Ok(generate_unit_variant_arm(
             document_crate,
-            enum_ident,
+            &enum_type,
             variant_ident,
             &variant_name,
         )),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(generate_newtype_variant_arm(
             document_crate,
-            enum_ident,
+            &enum_type,
             variant_ident,
             &variant_name,
             &fields.unnamed[0].ty,
         )),
         Fields::Unnamed(fields) => Ok(generate_tuple_variant_arm(
             document_crate,
-            enum_ident,
+            &enum_type,
             variant_ident,
             &variant_name,
             &fields.unnamed,
@@ -86,7 +96,7 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
         Fields::Named(fields) => generate_struct_variant_arm(
             context,
             document_crate,
-            enum_ident,
+            &enum_type,
             variant_ident,
             &variant_name,
             &fields.named,
@@ -96,12 +106,12 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
 
 fn generate_unit_variant_arm(
     document_crate: &TokenStream,
-    enum_ident: &syn::Ident,
+    enum_type: &TokenStream,
     variant_ident: &syn::Ident,
     variant_name: &str,
 ) -> TokenStream {
     quote! {
-        #enum_ident::#variant_ident => {
+        #enum_type::#variant_ident => {
             c.set_variant(#variant_name)?;
             c.bind_primitive(#document_crate::value::PrimitiveValue::Text(
                 #document_crate::text::Text::plaintext(#variant_name)
@@ -113,13 +123,13 @@ fn generate_unit_variant_arm(
 
 fn generate_newtype_variant_arm(
     document_crate: &TokenStream,
-    enum_ident: &syn::Ident,
+    enum_type: &TokenStream,
     variant_ident: &syn::Ident,
     variant_name: &str,
     field_ty: &syn::Type,
 ) -> TokenStream {
     quote! {
-        #enum_ident::#variant_ident(inner) => {
+        #enum_type::#variant_ident(inner) => {
             c.set_variant(#variant_name)?;
             <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
         }
@@ -128,7 +138,7 @@ fn generate_newtype_variant_arm(
 
 fn generate_tuple_variant_arm(
     _document_crate: &TokenStream,
-    enum_ident: &syn::Ident,
+    enum_type: &TokenStream,
     variant_ident: &syn::Ident,
     variant_name: &str,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
@@ -145,7 +155,7 @@ fn generate_tuple_variant_arm(
         .collect();
 
     quote! {
-        #enum_ident::#variant_ident(#(#field_names),*) => {
+        #enum_type::#variant_ident(#(#field_names),*) => {
             c.set_variant(#variant_name)?;
             c.tuple(|t| {
                 #(#field_writes)*
@@ -158,7 +168,7 @@ fn generate_tuple_variant_arm(
 fn generate_struct_variant_arm(
     context: &MacroContext,
     document_crate: &TokenStream,
-    enum_ident: &syn::Ident,
+    enum_type: &TokenStream,
     variant_ident: &syn::Ident,
     variant_name: &str,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
@@ -229,7 +239,7 @@ fn generate_struct_variant_arm(
     }
 
     Ok(quote! {
-        #enum_ident::#variant_ident { #(#field_names),* } => {
+        #enum_type::#variant_ident { #(#field_names),* } => {
             c.set_variant(#variant_name)?;
             c.record(|rec| {
                 #(#field_writes)*
