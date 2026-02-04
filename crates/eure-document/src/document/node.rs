@@ -295,6 +295,12 @@ impl NodeArray {
     pub fn from_vec(vec: Vec<NodeId>) -> Self {
         Self(vec)
     }
+
+    /// Try to convert to a fixed-size array.
+    /// Returns `None` if the length doesn't match.
+    pub fn try_into_array<const N: usize>(&self) -> Option<[NodeId; N]> {
+        self.0.as_slice().try_into().ok()
+    }
 }
 
 #[cfg(test)]

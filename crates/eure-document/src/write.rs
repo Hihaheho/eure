@@ -197,6 +197,22 @@ where
     }
 }
 
+impl<M, T, const N: usize> IntoEure<[T; N]> for [M; N]
+where
+    M: IntoEure<T>,
+{
+    fn write(value: [T; N], c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_empty_array()?;
+        for item in value {
+            let scope = c.begin_scope();
+            c.navigate(PathSegment::ArrayIndex(None))?;
+            M::write(item, c)?;
+            c.end_scope(scope)?;
+        }
+        Ok(())
+    }
+}
+
 impl<M, K, V> IntoEure<Map<K, V>> for Map<K, M>
 where
     M: IntoEure<V>,
@@ -541,5 +557,40 @@ mod tests {
         let doc = c.finish();
         let map = doc.root().as_map().unwrap();
         assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn test_array_write() {
+        let mut c = DocumentConstructor::new();
+        c.write([1i32, 2, 3]).unwrap();
+        let doc = c.finish();
+        let arr = doc.root().as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+    }
+
+    #[test]
+    fn test_array_empty_write() {
+        let mut c = DocumentConstructor::new();
+        let empty: [i32; 0] = [];
+        c.write(empty).unwrap();
+        let doc = c.finish();
+        let arr = doc.root().as_array().unwrap();
+        assert_eq!(arr.len(), 0);
+    }
+
+    #[test]
+    fn test_array_roundtrip() {
+        let original: [i32; 3] = [10, 20, 30];
+
+        // Write
+        let mut c = DocumentConstructor::new();
+        c.write(original).unwrap();
+        let doc = c.finish();
+
+        // Parse back
+        let root_id = doc.get_root_id();
+        let parsed: [i32; 3] = doc.parse(root_id).unwrap();
+
+        assert_eq!(parsed, original);
     }
 }

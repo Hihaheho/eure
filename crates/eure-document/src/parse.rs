@@ -996,6 +996,10 @@ pub enum ParseErrorKind {
         "cannot parse record in extension scope: use #[eure(flatten)] instead of #[eure(flatten_ext)]"
     )]
     RecordInExtensionScope,
+
+    /// Unexpected array length.
+    #[error("unexpected array length: expected {expected}, got {actual}")]
+    UnexpectedArrayLength { expected: usize, actual: usize },
 }
 
 impl ParseErrorKind {
@@ -1316,6 +1320,47 @@ where
                 .iter()
                 .map(|item| M::parse(&ctx.at(*item)))
                 .collect::<Result<Vec<_>, _>>(),
+            value => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: handle_unexpected_node_value(value),
+            }
+            .into()),
+        }
+    }
+}
+
+/// `[M; N]` parses `[T; N]` using M's FromEure implementation.
+///
+/// When `M = T`, this is standard fixed-size array parsing.
+/// When `M ≠ T`, M acts as a strategy type for parsing remote type T.
+#[diagnostic::do_not_recommend]
+impl<'doc, M, T, const N: usize> FromEure<'doc, [T; N]> for [M; N]
+where
+    M: FromEure<'doc, T>,
+    M::Error: From<ParseError>,
+{
+    type Error = M::Error;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<[T; N], Self::Error> {
+        ctx.ensure_no_variant_path()?;
+        match &ctx.node().content {
+            NodeValue::Array(array) => {
+                let node_ids: [NodeId; N] = array.try_into_array().ok_or_else(|| ParseError {
+                    node_id: ctx.node_id(),
+                    kind: ParseErrorKind::UnexpectedArrayLength {
+                        expected: N,
+                        actual: array.len(),
+                    },
+                })?;
+                let mut parsed = Vec::with_capacity(N);
+                for id in node_ids {
+                    parsed.push(M::parse(&ctx.at(id))?);
+                }
+                let parsed: [T; N] = parsed
+                    .try_into()
+                    .unwrap_or_else(|_| unreachable!("length was asserted previously"));
+                Ok(parsed)
+            }
             value => Err(ParseError {
                 node_id: ctx.node_id(),
                 kind: handle_unexpected_node_value(value),
@@ -2187,6 +2232,115 @@ mod tests {
                 secs: 42,
                 nanos: 123
             }
+        );
+    }
+
+    // =========================================================================
+    // Fixed-size array tests
+    // =========================================================================
+
+    #[test]
+    fn test_array_basic_parsing() {
+        let doc = eure!({ items = [1, 2, 3] });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let items: [i32; 3] = rec.parse_field("items").unwrap();
+        assert_eq!(items, [1, 2, 3]);
+    }
+
+    #[test]
+    fn test_array_empty() {
+        let doc = eure!({ items = [] });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let items: [i32; 0] = rec.parse_field("items").unwrap();
+        assert_eq!(items, []);
+    }
+
+    #[test]
+    fn test_array_length_mismatch_too_few() {
+        let doc = eure!({ items = [1, 2] });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let result: Result<[i32; 3], _> = rec.parse_field("items");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(
+            err.kind,
+            ParseErrorKind::UnexpectedArrayLength {
+                expected: 3,
+                actual: 2
+            }
+        ));
+    }
+
+    #[test]
+    fn test_array_length_mismatch_too_many() {
+        let doc = eure!({ items = [1, 2, 3, 4] });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let result: Result<[i32; 3], _> = rec.parse_field("items");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(
+            err.kind,
+            ParseErrorKind::UnexpectedArrayLength {
+                expected: 3,
+                actual: 4
+            }
+        ));
+    }
+
+    #[test]
+    fn test_array_nested_types() {
+        let doc = eure!({ items = ["a", "b"] });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let items: [String; 2] = rec.parse_field("items").unwrap();
+        assert_eq!(items, ["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn test_array_in_option() {
+        let doc = eure!({ items = [1, 2, 3] });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let items: Option<[i32; 3]> = rec.parse_field("items").unwrap();
+        assert_eq!(items, Some([1, 2, 3]));
+    }
+
+    #[test]
+    fn test_array_of_arrays() {
+        let doc = eure!({ matrix = [[1, 2], [3, 4]] });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let matrix: [[i32; 2]; 2] = rec.parse_field("matrix").unwrap();
+        assert_eq!(matrix, [[1, 2], [3, 4]]);
+    }
+
+    #[test]
+    fn test_array_remote_type() {
+        let doc = eure!({
+            items[] { secs = 1, nanos = 0 }
+            items[] { secs = 2, nanos = 100 }
+        });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let items_ctx = rec.field("items").unwrap();
+
+        // Parse [RemoteDuration; 2] via [RemoteDurationDef; 2]
+        let durations: [RemoteDuration; 2] =
+            items_ctx.parse_via::<[RemoteDurationDef; 2], _>().unwrap();
+
+        assert_eq!(
+            durations,
+            [
+                RemoteDuration { secs: 1, nanos: 0 },
+                RemoteDuration {
+                    secs: 2,
+                    nanos: 100
+                },
+            ]
         );
     }
 }
