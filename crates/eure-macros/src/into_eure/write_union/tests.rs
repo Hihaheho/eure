@@ -64,6 +64,35 @@ fn test_tuple_variant() {
 }
 
 #[test]
+fn test_tuple_variant_with_via() {
+    let input = generate(parse_quote! {
+        enum TestEnum {
+            Tuple(usize, #[eure(via = "JumpAtProxy")] JumpAt),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure for TestEnum {
+                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        TestEnum::Tuple(field_0, field_1) => {
+                            c.set_variant("Tuple")?;
+                            c.tuple(|t| {
+                                t.next(field_0)?;
+                                t.next_via::<JumpAtProxy, _>(field_1)?;
+                                Ok(())
+                            })
+                        }
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
 fn test_struct_variant() {
     let input = generate(parse_quote! {
         enum TestEnum {
@@ -108,6 +137,31 @@ fn test_newtype_variant() {
                         TestEnum::Newtype(inner) => {
                             c.set_variant("Newtype")?;
                             <String as ::eure::document::write::IntoEure>::write(inner, c)
+                        }
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_newtype_variant_with_via() {
+    let input = generate(parse_quote! {
+        enum TestEnum {
+            Newtype(#[eure(via = "JumpAtProxy")] JumpAt),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure for TestEnum {
+                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        TestEnum::Newtype(inner) => {
+                            c.set_variant("Newtype")?;
+                            c.write_via::<JumpAtProxy, _>(inner)
                         }
                     }
                 }

@@ -55,6 +55,37 @@ fn test_tuple_variant() {
 }
 
 #[test]
+fn test_tuple_variant_with_via() {
+    let input = generate(parse_quote! {
+        enum TestEnum {
+            Tuple(usize, #[eure(via = "JumpAtProxy")] JumpAt),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Tuple", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let mut tuple = ctx.parse_tuple()?;
+                            tuple.expect_len(2)?;
+                            let field_0 = tuple.next::<usize>()?;
+                            let field_1 = tuple.next_via::<JumpAtProxy, JumpAt>()?;
+                            let value : TestEnum = TestEnum::Tuple(field_0, field_1);
+                            Ok(value)
+                        })
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
 fn test_struct_variant() {
     let input = generate(parse_quote! {
         enum TestEnum {
@@ -102,6 +133,33 @@ fn test_newtype_variant() {
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
                         .parse_variant::<String>("Newtype", |field_0| Ok(TestEnum::Newtype(field_0)))
+                        .parse()
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_newtype_variant_with_via() {
+    let input = generate(parse_quote! {
+        enum TestEnum {
+            Newtype(#[eure(via = "JumpAtProxy")] JumpAt),
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for TestEnum<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                        .variant("Newtype", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                            let field_0 = ctx.parse_via::<JumpAtProxy, JumpAt>()?;
+                            Ok(TestEnum::Newtype(field_0))
+                        })
                         .parse()
                 }
             }

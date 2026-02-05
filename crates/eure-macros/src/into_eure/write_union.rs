@@ -107,7 +107,7 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
             &enum_type,
             variant_ident,
             &variant_name,
-            &fields.unnamed[0].ty,
+            &fields.unnamed[0],
         )),
         Fields::Unnamed(fields) => Ok(generate_tuple_variant_arm(
             document_crate,
@@ -151,11 +151,19 @@ fn generate_newtype_variant_arm(
     enum_type: &TokenStream,
     variant_ident: &syn::Ident,
     variant_name: &str,
-    field_ty: &syn::Type,
+    field: &syn::Field,
 ) -> TokenStream {
+    let field_ty = &field.ty;
     let field_span = field_ty.span();
-    let write = quote_spanned! {field_span=>
-        <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
+    let attrs = FieldAttrs::from_field(field).expect("failed to parse field attributes");
+    let write = if let Some(via_type) = attrs.via.as_ref() {
+        quote_spanned! {field_span=>
+            c.write_via::<#via_type, _>(inner)
+        }
+    } else {
+        quote_spanned! {field_span=>
+            <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
+        }
     };
     quote! {
         #enum_type::#variant_ident(inner) => {
@@ -174,33 +182,31 @@ fn generate_tuple_variant_arm(
     needs_type_asserts: bool,
 ) -> TokenStream {
     let pattern_span = fields.span();
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
-    let field_names: Vec<_> = fields
-        .iter()
-        .enumerate()
-        .map(|(i, f)| format_ident!("field_{}", i, span = f.ty.span()))
-        .collect();
+    let mut field_names = Vec::new();
+    let mut field_writes = Vec::new();
+    let mut type_asserts = Vec::new();
 
-    let type_asserts: Vec<_> = if needs_type_asserts {
-        field_names
-            .iter()
-            .zip(field_types.iter())
-            .map(|(name, ty)| {
-                quote_spanned! {ty.span()=>
-                    let _: &#ty = &#name;
-                }
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
-
-    let field_writes: Vec<_> = field_names
-        .iter()
-        .map(|name| {
-            quote! { t.next(#name)?; }
-        })
-        .collect();
+    for (i, f) in fields.iter().enumerate() {
+        let field_name = format_ident!("field_{}", i, span = f.ty.span());
+        let field_ty = &f.ty;
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        if needs_type_asserts {
+            type_asserts.push(quote_spanned! {field_ty.span()=>
+                let _: &#field_ty = &#field_name;
+            });
+        }
+        let write = if let Some(via_type) = attrs.via.as_ref() {
+            quote_spanned! {field_ty.span()=>
+                t.next_via::<#via_type, _>(#field_name)?;
+            }
+        } else {
+            quote_spanned! {field_ty.span()=>
+                t.next(#field_name)?;
+            }
+        };
+        field_names.push(field_name);
+        field_writes.push(write);
+    }
 
     let pattern = quote_spanned! {pattern_span=>
         #enum_type::#variant_ident(#(#field_names),*)

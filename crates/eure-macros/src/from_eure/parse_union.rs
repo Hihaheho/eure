@@ -2,7 +2,7 @@
 mod tests;
 
 use darling::{FromField, FromVariant};
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
@@ -60,6 +60,7 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<To
         ));
     }
 
+    let document_crate = &context.config.document_crate;
     match &variant.fields {
         Fields::Unit => Ok(generate_unit_variant(
             context,
@@ -70,14 +71,16 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<To
             variant_ident,
         )),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(generate_newtype_variant(
+            document_crate,
             &target_type,
             opaque_target,
             opaque_span,
             &variant_name,
             variant_ident,
-            &fields.unnamed[0].ty,
+            &fields.unnamed[0],
         )),
         Fields::Unnamed(fields) => Ok(generate_tuple_variant(
+            document_crate,
             &target_type,
             opaque_target,
             opaque_span,
@@ -118,17 +121,36 @@ fn generate_unit_variant(
 }
 
 fn generate_newtype_variant(
+    document_crate: &TokenStream,
     target_type: &TokenStream,
     opaque_target: Option<&syn::Type>,
     opaque_span: Span,
     variant_name: &str,
     variant_ident: &syn::Ident,
-    field_ty: &syn::Type,
+    field: &syn::Field,
 ) -> TokenStream {
+    let field_ty = &field.ty;
     let field_span = field_ty.span();
+    let attrs = FieldAttrs::from_field(field).expect("failed to parse field attributes");
     // For opaque: construct target_type then convert via .into()
     // For proxy/normal: construct target_type directly
-    if opaque_target.is_some() {
+    if let Some(via_type) = attrs.via.as_ref() {
+        let body = if opaque_target.is_some() {
+            quote_spanned! {opaque_span=>
+                Ok(#target_type::#variant_ident(field_0).into())
+            }
+        } else {
+            quote_spanned! {field_span=>
+                Ok(#target_type::#variant_ident(field_0))
+            }
+        };
+        quote_spanned! {field_span=>
+            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+                let field_0 = ctx.parse_via::<#via_type, #field_ty>()?;
+                #body
+            })
+        }
+    } else if opaque_target.is_some() {
         quote_spanned! {opaque_span=>
             .parse_variant::<#field_ty>(#variant_name, |field_0| Ok(#target_type::#variant_ident(field_0).into()))
         }
@@ -140,6 +162,7 @@ fn generate_newtype_variant(
 }
 
 fn generate_tuple_variant(
+    document_crate: &TokenStream,
     target_type: &TokenStream,
     opaque_target: Option<&syn::Type>,
     opaque_span: Span,
@@ -148,19 +171,33 @@ fn generate_tuple_variant(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
     let tuple_span = fields.span();
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
-    let field_names: Vec<_> = fields
-        .iter()
-        .enumerate()
-        .map(|(i, f)| format_ident!("field_{}", i, span = f.ty.span()))
-        .collect();
-    let field_args: Vec<_> = field_names
-        .iter()
-        .zip(field_types.iter())
-        .map(|(name, ty)| {
-            quote_spanned! {ty.span()=> #name}
-        })
-        .collect();
+    let mut field_types = Vec::new();
+    let mut field_names = Vec::new();
+    let mut field_args = Vec::new();
+    let mut field_parsers = Vec::new();
+    let mut has_via = false;
+
+    for (i, f) in fields.iter().enumerate() {
+        let field_ty = &f.ty;
+        let field_name = format_ident!("field_{}", i, span = f.ty.span());
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        if attrs.via.is_some() {
+            has_via = true;
+        }
+        let parser = if let Some(via_type) = attrs.via.as_ref() {
+            quote_spanned! {field_ty.span()=>
+                let #field_name = tuple.next_via::<#via_type, #field_ty>()?;
+            }
+        } else {
+            quote_spanned! {field_ty.span()=>
+                let #field_name = tuple.next::<#field_ty>()?;
+            }
+        };
+        field_types.push(field_ty);
+        field_names.push(field_name.clone());
+        field_args.push(quote_spanned! {field_ty.span()=> #field_name});
+        field_parsers.push(parser);
+    }
 
     let body = if opaque_target.is_some() {
         quote_spanned! {opaque_span=>
@@ -174,7 +211,28 @@ fn generate_tuple_variant(
         }
     };
 
-    if opaque_target.is_some() {
+    if has_via {
+        let tuple_len = Literal::usize_unsuffixed(fields.len());
+        if opaque_target.is_some() {
+            quote_spanned! {opaque_span=>
+                .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+                    let mut tuple = ctx.parse_tuple()?;
+                    tuple.expect_len(#tuple_len)?;
+                    #(#field_parsers)*
+                    #body
+                })
+            }
+        } else {
+            quote_spanned! {tuple_span=>
+                .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+                    let mut tuple = ctx.parse_tuple()?;
+                    tuple.expect_len(#tuple_len)?;
+                    #(#field_parsers)*
+                    #body
+                })
+            }
+        }
+    } else if opaque_target.is_some() {
         quote_spanned! {opaque_span=>
             .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| {
                 #body

@@ -75,6 +75,29 @@ fn test_tuple_struct() {
 }
 
 #[test]
+fn test_tuple_struct_with_via() {
+    let input = generate(parse_quote! {
+        struct Steps(usize, #[eure(via = "JumpAtProxy")] JumpAt);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure for Steps {
+                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    let Steps(field_0, field_1) = value;
+                    c.tuple(|t| {
+                        t.next(field_0)?;
+                        t.next_via::<JumpAtProxy, _>(field_1)?;
+                        Ok(())
+                    })
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
 fn test_newtype_struct() {
     let input = generate(parse_quote! {
         struct Name(String);

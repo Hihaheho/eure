@@ -7,7 +7,7 @@ use alloc::format;
 use crate::document::node::NodeTuple;
 use crate::prelude_internal::*;
 
-use super::{FromEure, ParseContext, ParseError, ParseErrorKind};
+use super::{DocumentParser, FromEure, ParseContext, ParseError, ParseErrorKind, UnionTagMode};
 
 /// Helper for parsing tuple types from Eure documents.
 ///
@@ -29,18 +29,27 @@ pub struct TupleParser<'doc> {
     node_id: NodeId,
     tuple: &'doc NodeTuple,
     position: usize,
+    union_tag_mode: UnionTagMode,
 }
 
 impl<'doc> TupleParser<'doc> {
     /// Create a new TupleParser for the given context.
     pub(crate) fn new(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        Self::from_doc_and_node(ctx.doc(), ctx.node_id())
+        Self::from_doc_and_node_with_mode(ctx.doc(), ctx.node_id(), ctx.union_tag_mode())
     }
 
     /// Create a new TupleParser from document and node ID directly.
     pub(crate) fn from_doc_and_node(
         doc: &'doc EureDocument,
         node_id: NodeId,
+    ) -> Result<Self, ParseError> {
+        Self::from_doc_and_node_with_mode(doc, node_id, UnionTagMode::default())
+    }
+
+    fn from_doc_and_node_with_mode(
+        doc: &'doc EureDocument,
+        node_id: NodeId,
+        union_tag_mode: UnionTagMode,
     ) -> Result<Self, ParseError> {
         let node = doc.node(node_id);
         match &node.content {
@@ -49,6 +58,7 @@ impl<'doc> TupleParser<'doc> {
                 node_id,
                 tuple,
                 position: 0,
+                union_tag_mode,
             }),
             NodeValue::Hole(_) => Err(ParseError {
                 node_id,
@@ -81,14 +91,32 @@ impl<'doc> TupleParser<'doc> {
         T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
+        self.next_with(T::parse)
+    }
+
+    /// Get the next element using a custom parser, advancing the position.
+    pub fn next_with<T>(&mut self, mut parser: T) -> Result<T::Output, T::Error>
+    where
+        T: DocumentParser<'doc>,
+        T::Error: From<ParseError>,
+    {
         let index = self.position;
         let element_node_id = self.tuple.get(index).ok_or_else(|| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingField(format!("#{}", index)),
         })?;
         self.position += 1;
-        let ctx = ParseContext::new(self.doc, element_node_id);
-        T::parse(&ctx)
+        let ctx = ParseContext::with_union_tag_mode(self.doc, element_node_id, self.union_tag_mode);
+        parser.parse(&ctx)
+    }
+
+    /// Get the next element using a marker type, advancing the position.
+    pub fn next_via<M, T>(&mut self) -> Result<T, M::Error>
+    where
+        M: FromEure<'doc, T>,
+        M::Error: From<ParseError>,
+    {
+        self.next_with(M::parse)
     }
 
     /// Get the element at a specific index without advancing position.
@@ -99,12 +127,30 @@ impl<'doc> TupleParser<'doc> {
         T: FromEure<'doc>,
         T::Error: From<ParseError>,
     {
+        self.get_with(index, T::parse)
+    }
+
+    /// Get the element at a specific index using a custom parser.
+    pub fn get_with<T>(&self, index: usize, mut parser: T) -> Result<T::Output, T::Error>
+    where
+        T: DocumentParser<'doc>,
+        T::Error: From<ParseError>,
+    {
         let element_node_id = self.tuple.get(index).ok_or_else(|| ParseError {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingField(format!("#{}", index)),
         })?;
-        let ctx = ParseContext::new(self.doc, element_node_id);
-        T::parse(&ctx)
+        let ctx = ParseContext::with_union_tag_mode(self.doc, element_node_id, self.union_tag_mode);
+        parser.parse(&ctx)
+    }
+
+    /// Get the element at a specific index using a marker type.
+    pub fn get_via<M, T>(&self, index: usize) -> Result<T, M::Error>
+    where
+        M: FromEure<'doc, T>,
+        M::Error: From<ParseError>,
+    {
+        self.get_with(index, M::parse)
     }
 
     /// Get the number of remaining elements.

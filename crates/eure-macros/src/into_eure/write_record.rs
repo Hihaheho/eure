@@ -18,7 +18,7 @@ pub fn generate_record_writer(
     match &input.fields {
         Fields::Named(fields) => generate_named_struct(context, &fields.named),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            Ok(generate_newtype_struct(context, &fields.unnamed[0].ty))
+            Ok(generate_newtype_struct(context, &fields.unnamed[0]))
         }
         Fields::Unnamed(fields) => Ok(generate_tuple_struct(context, &fields.unnamed)),
         Fields::Unit => Ok(generate_unit_struct(context)),
@@ -188,16 +188,25 @@ fn generate_tuple_struct(
 ) -> TokenStream {
     let span = fields.span();
     let target_type = respan(context.target_type(), span);
-    let field_names: Vec<_> = (0..fields.len())
-        .map(|i| format_ident!("field_{}", i))
-        .collect();
+    let mut field_names = Vec::new();
+    let mut field_writes = Vec::new();
 
-    let field_writes: Vec<_> = field_names
-        .iter()
-        .map(|name| {
-            quote! { t.next(#name)?; }
-        })
-        .collect();
+    for (i, f) in fields.iter().enumerate() {
+        let field_name = format_ident!("field_{}", i);
+        let field_ty = &f.ty;
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        let write = if let Some(via_type) = attrs.via.as_ref() {
+            quote_spanned! {field_ty.span()=>
+                t.next_via::<#via_type, _>(#field_name)?;
+            }
+        } else {
+            quote_spanned! {field_ty.span()=>
+                t.next(#field_name)?;
+            }
+        };
+        field_names.push(field_name);
+        field_writes.push(write);
+    }
 
     // For opaque proxy, we need to convert via .into() first
     if context.opaque_target().is_some() {
@@ -225,10 +234,21 @@ fn generate_tuple_struct(
     }
 }
 
-fn generate_newtype_struct(context: &MacroContext, field_ty: &syn::Type) -> TokenStream {
+fn generate_newtype_struct(context: &MacroContext, field: &syn::Field) -> TokenStream {
     let document_crate = &context.config.document_crate;
+    let field_ty = &field.ty;
     let span = field_ty.span();
     let target_type = respan(context.target_type(), span);
+    let attrs = FieldAttrs::from_field(field).expect("failed to parse field attributes");
+    let write = if let Some(via_type) = attrs.via.as_ref() {
+        quote_spanned! {span=>
+            c.write_via::<#via_type, _>(inner)
+        }
+    } else {
+        quote_spanned! {span=>
+            <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
+        }
+    };
 
     // For opaque proxy, we need to convert via .into() first
     if context.opaque_target().is_some() {
@@ -240,12 +260,12 @@ fn generate_newtype_struct(context: &MacroContext, field_ty: &syn::Type) -> Toke
         context.impl_into_eure(quote_spanned! {span=>
             #into_value
             let #ident(inner) = value;
-            <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
+            #write
         })
     } else {
         context.impl_into_eure(quote_spanned! {span=>
             let #target_type(inner) = value;
-            <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
+            #write
         })
     }
 }

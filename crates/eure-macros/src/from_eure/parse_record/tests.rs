@@ -79,6 +79,30 @@ fn test_tuple_struct() {
 }
 
 #[test]
+fn test_tuple_struct_with_via() {
+    let input = generate(parse_quote! {
+        struct Steps(usize, #[eure(via = "JumpAtProxy")] JumpAt);
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Steps<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let mut tuple = ctx.parse_tuple()?;
+                    tuple.expect_len(2)?;
+                    let field_0 = tuple.next::<usize>()?;
+                    let field_1 = tuple.next_via::<JumpAtProxy, JumpAt>()?;
+                    Ok(Steps(field_0, field_1))
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
 fn test_newtype_struct() {
     let input = generate(parse_quote! {
         struct Name(String);
