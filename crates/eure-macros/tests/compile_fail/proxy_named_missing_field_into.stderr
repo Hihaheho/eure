@@ -1,0 +1,11 @@
+error[E0609]: no field `a` on type `Target`
+  --> tests/compile_fail/proxy_named_missing_field_into.rs:12:5
+   |
+12 |     a: u32,
+   |     ^ unknown field
+   |
+help: a field with a similar name exists
+   |
+12 -     a: u32,
+12 +     b: u32,
+   |

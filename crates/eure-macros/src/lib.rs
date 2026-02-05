@@ -12,6 +12,7 @@ pub(crate) mod context;
 mod from_eure;
 mod into_eure;
 mod must_be_text;
+mod util;
 
 #[proc_macro_derive(IntoEure, attributes(eure))]
 pub fn into_eure_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

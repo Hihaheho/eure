@@ -306,6 +306,8 @@ fn test_proxy_basic() {
             impl ::eure::document::write::IntoEure<external::PublicConfig> for PublicConfigDef {
                 fn write(value: external::PublicConfig, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
                     c.record(|rec| {
+                        let _: &String = &value.host;
+                        let _: &u16 = &value.port;
                         rec.field("host", value.host)?;
                         rec.field("port", value.port)?;
                         Ok(())
@@ -337,6 +339,8 @@ fn test_opaque_basic() {
                 fn write(value: std::time::Duration, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
                     let value: DurationDef = value.into();
                     c.record(|rec| {
+                        let _: &u64 = &value.secs;
+                        let _: &u32 = &value.nanos;
                         rec.field("secs", value.secs)?;
                         rec.field("nanos", value.nanos)?;
                         Ok(())
@@ -384,6 +388,8 @@ fn test_proxy_with_rename_all() {
             impl ::eure::document::write::IntoEure<external::Config> for ConfigDef {
                 fn write(value: external::Config, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
                     c.record(|rec| {
+                        let _: &i32 = &value.max_retries;
+                        let _: &i32 = &value.timeout_seconds;
                         rec.field("maxRetries", value.max_retries)?;
                         rec.field("timeoutSeconds", value.timeout_seconds)?;
                         Ok(())

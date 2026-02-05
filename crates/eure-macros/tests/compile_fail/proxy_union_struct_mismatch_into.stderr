@@ -1,0 +1,11 @@
+error[E0308]: mismatched types
+  --> tests/compile_fail/proxy_union_struct_mismatch_into.rs:12:9
+   |
+12 |     S { a: u64 },
+   |         ^^^---
+   |         |  |
+   |         |  expected due to this
+   |         expected `&u64`, found `&u32`
+   |
+   = note: expected reference `&u64`
+              found reference `&u32`

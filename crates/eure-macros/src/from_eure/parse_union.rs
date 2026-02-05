@@ -2,14 +2,15 @@
 mod tests;
 
 use darling::{FromField, FromVariant};
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
 use crate::attrs::{FieldAttrs, VariantAttrs, extract_variant_attr_spans};
 use crate::config::MacroConfig;
 use crate::context::MacroContext;
+use crate::util::respan;
 
 use super::parse_record::{generate_ext_field, generate_record_field};
 
@@ -35,8 +36,9 @@ fn variant_repr(document_crate: &TokenStream) -> TokenStream {
 
 fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<TokenStream> {
     // Use target_type() which returns the type to construct (proxy target or self)
-    let target_type = context.target_type();
+    let target_type = respan(context.target_type(), variant.ident.span());
     let opaque_target = context.opaque_target();
+    let opaque_span = context.opaque_error_span();
     let variant_ident = &variant.ident;
     let variant_attrs =
         VariantAttrs::from_variant(variant).expect("failed to parse variant attributes");
@@ -63,12 +65,14 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<To
             context,
             &target_type,
             opaque_target,
+            opaque_span,
             &variant_name,
             variant_ident,
         )),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(generate_newtype_variant(
             &target_type,
             opaque_target,
+            opaque_span,
             &variant_name,
             variant_ident,
             &fields.unnamed[0].ty,
@@ -76,12 +80,14 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<To
         Fields::Unnamed(fields) => Ok(generate_tuple_variant(
             &target_type,
             opaque_target,
+            opaque_span,
             &variant_name,
             variant_ident,
             &fields.unnamed,
         )),
         Fields::Named(fields) => Ok(generate_struct_variant(
             context,
+            opaque_span,
             &variant_name,
             variant_ident,
             &fields.named,
@@ -94,13 +100,14 @@ fn generate_unit_variant(
     context: &MacroContext,
     target_type: &TokenStream,
     opaque_target: Option<&syn::Type>,
+    opaque_span: Span,
     variant_name: &str,
     variant_ident: &syn::Ident,
 ) -> TokenStream {
     // For opaque: construct target_type then convert via .into()
     // For proxy/normal: construct target_type directly
     let mapper = if opaque_target.is_some() {
-        quote!(|_| #target_type::#variant_ident.into())
+        quote_spanned! {opaque_span=> |_| #target_type::#variant_ident.into()}
     } else {
         quote!(|_| #target_type::#variant_ident)
     };
@@ -113,18 +120,20 @@ fn generate_unit_variant(
 fn generate_newtype_variant(
     target_type: &TokenStream,
     opaque_target: Option<&syn::Type>,
+    opaque_span: Span,
     variant_name: &str,
     variant_ident: &syn::Ident,
     field_ty: &syn::Type,
 ) -> TokenStream {
+    let field_span = field_ty.span();
     // For opaque: construct target_type then convert via .into()
     // For proxy/normal: construct target_type directly
     if opaque_target.is_some() {
-        quote! {
+        quote_spanned! {opaque_span=>
             .parse_variant::<#field_ty>(#variant_name, |field_0| Ok(#target_type::#variant_ident(field_0).into()))
         }
     } else {
-        quote! {
+        quote_spanned! {field_span=>
             .parse_variant::<#field_ty>(#variant_name, |field_0| Ok(#target_type::#variant_ident(field_0)))
         }
     }
@@ -133,36 +142,62 @@ fn generate_newtype_variant(
 fn generate_tuple_variant(
     target_type: &TokenStream,
     opaque_target: Option<&syn::Type>,
+    opaque_span: Span,
     variant_name: &str,
     variant_ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
+    let tuple_span = fields.span();
     let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
-    let field_names: Vec<_> = (0..fields.len())
-        .map(|i| format_ident!("field_{}", i))
+    let field_names: Vec<_> = fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| format_ident!("field_{}", i, span = f.ty.span()))
+        .collect();
+    let field_args: Vec<_> = field_names
+        .iter()
+        .zip(field_types.iter())
+        .map(|(name, ty)| {
+            quote_spanned! {ty.span()=> #name}
+        })
         .collect();
 
-    // For opaque: construct target_type then convert via .into()
-    // For proxy/normal: construct target_type directly
-    if opaque_target.is_some() {
-        quote! {
-            .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| Ok(#target_type::#variant_ident(#(#field_names),*).into()))
+    let body = if opaque_target.is_some() {
+        quote_spanned! {opaque_span=>
+            let value: #target_type = #target_type::#variant_ident(#(#field_args),*);
+            Ok(value.into())
         }
     } else {
-        quote! {
-            .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| Ok(#target_type::#variant_ident(#(#field_names),*)))
+        quote_spanned! {tuple_span=>
+            let value: #target_type = #target_type::#variant_ident(#(#field_args),*);
+            Ok(value)
+        }
+    };
+
+    if opaque_target.is_some() {
+        quote_spanned! {opaque_span=>
+            .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| {
+                #body
+            })
+        }
+    } else {
+        quote_spanned! {tuple_span=>
+            .parse_variant::<(#(#field_types,)*)>(#variant_name, |(#(#field_names,)*)| {
+                #body
+            })
         }
     }
 }
 
 fn generate_struct_variant(
     context: &MacroContext,
+    opaque_span: Span,
     variant_name: &str,
     variant_ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
     variant_attrs: &VariantAttrs,
 ) -> TokenStream {
-    let target_type = context.target_type();
+    let target_type = respan(context.target_type(), fields.span());
     let opaque_target = context.opaque_target();
     let document_crate = &context.config.document_crate;
     // Check if there are any "regular" record fields (not flatten, ext, or flatten_ext)
@@ -218,7 +253,7 @@ fn generate_struct_variant(
     // For opaque: construct target_type then convert via .into()
     // For proxy/normal: construct target_type directly
     let return_value = if opaque_target.is_some() {
-        quote! { Ok(value.into()) }
+        quote_spanned! {opaque_span=> Ok(value.into()) }
     } else {
         quote! { Ok(value) }
     };

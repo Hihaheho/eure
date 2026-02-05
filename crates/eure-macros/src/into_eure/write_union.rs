@@ -3,12 +3,13 @@ mod tests;
 
 use darling::{FromField, FromVariant};
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
 use crate::attrs::{FieldAttrs, VariantAttrs, extract_eure_attr_spans, extract_variant_attr_spans};
 use crate::context::MacroContext;
+use crate::util::respan;
 
 pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::Result<TokenStream> {
     let DataEnum { variants, .. } = input;
@@ -23,8 +24,12 @@ pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::R
 
     // For opaque proxy, we need to convert via .into() first
     Ok(if context.opaque_target().is_some() {
-        context.impl_into_eure(quote! {
+        let opaque_span = context.opaque_error_span();
+        let into_value = quote_spanned! {opaque_span=>
             let value: #enum_ident = value.into();
+        };
+        context.impl_into_eure(quote! {
+            #into_value
             match value {
                 #(#variant_arms)*
             }
@@ -40,6 +45,7 @@ pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::R
 
 fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Result<TokenStream> {
     let document_crate = &context.config.document_crate;
+    let needs_type_asserts = context.config.proxy.is_some();
     // For opaque: we already converted to definition type, so use ident()
     // For proxy: value is target type, so use target_type()
     // For normal: value is Self, so use ident()
@@ -49,7 +55,7 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
         quote!(#ident)
     } else {
         // Proxy or normal: use target_type() which returns target or self
-        context.target_type()
+        respan(context.target_type(), variant.ident.span())
     };
     let variant_ident = &variant.ident;
     let variant_attrs =
@@ -92,6 +98,7 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
             variant_ident,
             &variant_name,
             &fields.unnamed,
+            needs_type_asserts,
         )),
         Fields::Named(fields) => generate_struct_variant_arm(
             context,
@@ -100,6 +107,7 @@ fn generate_variant_arm(context: &MacroContext, variant: &Variant) -> syn::Resul
             variant_ident,
             &variant_name,
             &fields.named,
+            needs_type_asserts,
         ),
     }
 }
@@ -128,10 +136,14 @@ fn generate_newtype_variant_arm(
     variant_name: &str,
     field_ty: &syn::Type,
 ) -> TokenStream {
+    let field_span = field_ty.span();
+    let write = quote_spanned! {field_span=>
+        <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
+    };
     quote! {
         #enum_type::#variant_ident(inner) => {
             c.set_variant(#variant_name)?;
-            <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
+            #write
         }
     }
 }
@@ -142,10 +154,29 @@ fn generate_tuple_variant_arm(
     variant_ident: &syn::Ident,
     variant_name: &str,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
+    needs_type_asserts: bool,
 ) -> TokenStream {
-    let field_names: Vec<_> = (0..fields.len())
-        .map(|i| format_ident!("field_{}", i))
+    let pattern_span = fields.span();
+    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+    let field_names: Vec<_> = fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| format_ident!("field_{}", i, span = f.ty.span()))
         .collect();
+
+    let type_asserts: Vec<_> = if needs_type_asserts {
+        field_names
+            .iter()
+            .zip(field_types.iter())
+            .map(|(name, ty)| {
+                quote_spanned! {ty.span()=>
+                    let _: &#ty = &#name;
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     let field_writes: Vec<_> = field_names
         .iter()
@@ -154,8 +185,12 @@ fn generate_tuple_variant_arm(
         })
         .collect();
 
+    let pattern = quote_spanned! {pattern_span=>
+        #enum_type::#variant_ident(#(#field_names),*)
+    };
     quote! {
-        #enum_type::#variant_ident(#(#field_names),*) => {
+        #pattern => {
+            #(#type_asserts)*
             c.set_variant(#variant_name)?;
             c.tuple(|t| {
                 #(#field_writes)*
@@ -172,6 +207,7 @@ fn generate_struct_variant_arm(
     variant_ident: &syn::Ident,
     variant_name: &str,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
+    needs_type_asserts: bool,
 ) -> syn::Result<TokenStream> {
     let field_names: Vec<_> = fields
         .iter()
@@ -179,6 +215,7 @@ fn generate_struct_variant_arm(
         .collect();
 
     let mut field_writes = Vec::new();
+    let mut field_asserts = Vec::new();
     for f in fields {
         let field_name = f.ident.as_ref().expect("struct fields must have names");
         let field_ty = &f.ty;
@@ -236,10 +273,16 @@ fn generate_struct_variant_arm(
             )
         };
         field_writes.push(write);
+        if needs_type_asserts {
+            field_asserts.push(quote_spanned! {field_ty.span()=>
+                let _: &#field_ty = &#field_name;
+            });
+        }
     }
 
     Ok(quote! {
         #enum_type::#variant_ident { #(#field_names),* } => {
+            #(#field_asserts)*
             c.set_variant(#variant_name)?;
             c.record(|rec| {
                 #(#field_writes)*

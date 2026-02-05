@@ -1,0 +1,16 @@
+error[E0308]: `?` operator has incompatible types
+  --> tests/compile_fail/proxy_union_struct_mismatch_from.rs:12:12
+   |
+12 |     S { a: u64 },
+   |            ^^^ expected `u32`, found `u64`
+   |
+   = note: `?` operator cannot convert from `u64` to `u32`
+note: return type inferred to be `u32` here
+  --> tests/compile_fail/proxy_union_struct_mismatch_from.rs:9:10
+   |
+ 9 | #[derive(FromEure)]
+   |          ^^^^^^^^
+help: you can convert a `u64` to a `u32` and panic if the converted value doesn't fit
+   |
+12 |     S { a: u64.try_into().unwrap() },
+   |               ++++++++++++++++++++

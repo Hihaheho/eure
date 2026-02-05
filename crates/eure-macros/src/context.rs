@@ -1,5 +1,5 @@
 use convert_case::Casing as _;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{ConstParam, DeriveInput, Generics, Ident, LifetimeParam, TypeParam};
 
@@ -47,6 +47,12 @@ impl MacroContext {
             .as_ref()
             .filter(|p| p.is_opaque)
             .map(|p| &p.target)
+    }
+
+    pub fn opaque_error_span(&self) -> Span {
+        self.config
+            .opaque_span
+            .unwrap_or_else(|| self.ident().span())
     }
 
     pub fn generics(&self) -> &Generics {

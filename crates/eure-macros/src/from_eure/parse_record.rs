@@ -9,6 +9,7 @@ use syn::{DataStruct, Fields};
 
 use crate::attrs::{DefaultValue, FieldAttrs, extract_eure_attr_spans};
 use crate::context::MacroContext;
+use crate::util::respan;
 
 pub fn generate_record_parser(
     context: &MacroContext,
@@ -39,6 +40,7 @@ fn generate_named_struct_from_record(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> syn::Result<TokenStream> {
+    let target_span = fields.span();
     let mut field_assignments = Vec::new();
     for f in fields {
         let field_name = f.ident.as_ref().expect("named fields must have names");
@@ -146,10 +148,15 @@ fn generate_named_struct_from_record(
     };
 
     // Use target_type() which returns the type to construct (proxy target or self)
-    let target_type = context.target_type();
+    let target_type = respan(context.target_type(), target_span);
 
     // For opaque proxy, we need to convert via .into()
     Ok(if let Some(opaque_target) = context.opaque_target() {
+        let opaque_span = context.opaque_error_span();
+        let opaque_target = quote_spanned! {opaque_span=> #opaque_target};
+        let into_value = quote_spanned! {opaque_span=>
+            let value: #opaque_target = value.into();
+        };
         context.impl_from_eure(quote! {
             let rec = ctx.parse_record()?;
             let value = #target_type {
@@ -157,7 +164,7 @@ fn generate_named_struct_from_record(
             };
             #unknown_fields_check
             #unknown_extensions_check
-            let value: #opaque_target = value.into();
+            #into_value
             Ok(value)
         })
     } else {
@@ -177,6 +184,7 @@ fn generate_named_struct_from_ext(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> syn::Result<TokenStream> {
+    let target_span = fields.span();
     let mut field_assignments = Vec::new();
     for f in fields {
         let field_name = f.ident.as_ref().expect("named fields must have names");
@@ -234,15 +242,20 @@ fn generate_named_struct_from_ext(
     // No need to call deny_unknown_extensions in parse_ext context
     // (the caller is responsible for validation)
     // Use target_type() which returns the type to construct (proxy target or self)
-    let target_type = context.target_type();
+    let target_type = respan(context.target_type(), target_span);
 
     // For opaque proxy, we need to convert via .into()
     Ok(if let Some(opaque_target) = context.opaque_target() {
+        let opaque_span = context.opaque_error_span();
+        let opaque_target = quote_spanned! {opaque_span=> #opaque_target};
+        let into_value = quote_spanned! {opaque_span=>
+            let value: #opaque_target = value.into();
+        };
         context.impl_from_eure(quote! {
             let value = #target_type {
                 #(#field_assignments),*
             };
-            let value: #opaque_target = value.into();
+            #into_value
             Ok(value)
         })
     } else {
@@ -256,17 +269,23 @@ fn generate_named_struct_from_ext(
 }
 
 fn generate_unit_struct(context: &MacroContext) -> TokenStream {
-    let target_type = context.target_type();
+    let span = context.ident().span();
+    let target_type = respan(context.target_type(), span);
 
     // For opaque proxy, we need to convert via .into()
     if let Some(opaque_target) = context.opaque_target() {
-        context.impl_from_eure(quote! {
-            ctx.parse::<()>()?;
+        let opaque_span = context.opaque_error_span();
+        let opaque_target = quote_spanned! {opaque_span=> #opaque_target};
+        let into_value = quote_spanned! {opaque_span=>
             let value: #opaque_target = #target_type.into();
             Ok(value)
+        };
+        context.impl_from_eure(quote_spanned! {span=>
+            ctx.parse::<()>()?;
+            #into_value
         })
     } else {
-        context.impl_from_eure(quote! {
+        context.impl_from_eure(quote_spanned! {span=>
             ctx.parse::<()>()?;
             Ok(#target_type)
         })
@@ -277,7 +296,8 @@ fn generate_tuple_struct(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
-    let target_type = context.target_type();
+    let span = fields.span();
+    let target_type = respan(context.target_type(), span);
     let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
     let field_names: Vec<_> = (0..fields.len())
         .map(|i| format_ident!("field_{}", i))
@@ -285,13 +305,18 @@ fn generate_tuple_struct(
 
     // For opaque proxy, we need to convert via .into()
     if let Some(opaque_target) = context.opaque_target() {
-        context.impl_from_eure(quote! {
-            let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
+        let opaque_span = context.opaque_error_span();
+        let opaque_target = quote_spanned! {opaque_span=> #opaque_target};
+        let into_value = quote_spanned! {opaque_span=>
             let value: #opaque_target = #target_type(#(#field_names),*).into();
             Ok(value)
+        };
+        context.impl_from_eure(quote_spanned! {span=>
+            let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
+            #into_value
         })
     } else {
-        context.impl_from_eure(quote! {
+        context.impl_from_eure(quote_spanned! {span=>
             let (#(#field_names,)*) = ctx.parse::<(#(#field_types,)*)>()?;
             Ok(#target_type(#(#field_names),*))
         })
@@ -299,17 +324,23 @@ fn generate_tuple_struct(
 }
 
 fn generate_newtype_struct(context: &MacroContext, field_ty: &syn::Type) -> TokenStream {
-    let target_type = context.target_type();
+    let span = field_ty.span();
+    let target_type = respan(context.target_type(), span);
 
     // For opaque proxy, we need to convert via .into()
     if let Some(opaque_target) = context.opaque_target() {
-        context.impl_from_eure(quote! {
-            let field_0 = ctx.parse::<#field_ty>()?;
+        let opaque_span = context.opaque_error_span();
+        let opaque_target = quote_spanned! {opaque_span=> #opaque_target};
+        let into_value = quote_spanned! {opaque_span=>
             let value: #opaque_target = #target_type(field_0).into();
             Ok(value)
+        };
+        context.impl_from_eure(quote_spanned! {span=>
+            let field_0 = ctx.parse::<#field_ty>()?;
+            #into_value
         })
     } else {
-        context.impl_from_eure(quote! {
+        context.impl_from_eure(quote_spanned! {span=>
             let field_0 = ctx.parse::<#field_ty>()?;
             Ok(#target_type(field_0))
         })

@@ -1,0 +1,11 @@
+error[E0308]: `?` operator has incompatible types
+  --> tests/compile_fail/proxy_named_type_mismatch_from.rs:12:8
+   |
+12 |     a: u64,
+   |        ^^^ expected `u32`, found `u64`
+   |
+   = note: `?` operator cannot convert from `u64` to `u32`
+help: you can convert a `u64` to a `u32` and panic if the converted value doesn't fit
+   |
+12 |     a: u64.try_into().unwrap(),
+   |           ++++++++++++++++++++

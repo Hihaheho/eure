@@ -1,0 +1,15 @@
+error[E0061]: this struct takes 2 arguments but 1 argument was supplied
+ --> tests/compile_fail/proxy_tuple_arity_mismatch_from.rs:9:18
+  |
+9 | struct Proxy(pub u32);
+  |                  ^^^ argument #2 of type `u32` is missing
+  |
+note: tuple struct defined here
+ --> tests/compile_fail/proxy_tuple_arity_mismatch_from.rs:4:16
+  |
+4 |     pub struct Target(pub u32, pub u32);
+  |                ^^^^^^
+help: provide the argument
+  |
+9 | struct Proxy(pub u32(u32, /* u32 */));
+  |                     ++++++++++++++++

@@ -9,6 +9,7 @@ use syn::{DataStruct, Fields};
 
 use crate::attrs::{FieldAttrs, extract_eure_attr_spans};
 use crate::context::MacroContext;
+use crate::util::respan;
 
 pub fn generate_record_writer(
     context: &MacroContext,
@@ -30,7 +31,9 @@ fn generate_named_struct(
 ) -> syn::Result<TokenStream> {
     let document_crate = &context.config.document_crate;
 
+    let needs_type_asserts = context.config.proxy.is_some();
     let mut field_writes = Vec::new();
+    let mut field_asserts = Vec::new();
     for f in fields {
         let field_name = f.ident.as_ref().expect("named fields must have names");
         let field_ty = &f.ty;
@@ -121,14 +124,24 @@ fn generate_named_struct(
             )
         };
         field_writes.push(write);
+        if needs_type_asserts {
+            field_asserts.push(quote_spanned! {field_ty.span()=>
+                let _: &#field_ty = &value.#field_name;
+            });
+        }
     }
 
     // For opaque proxy, we need to convert via .into() first
     Ok(if context.opaque_target().is_some() {
         let ident = context.ident();
-        context.impl_into_eure(quote! {
+        let opaque_span = context.opaque_error_span();
+        let into_value = quote_spanned! {opaque_span=>
             let value: #ident = value.into();
+        };
+        context.impl_into_eure(quote! {
+            #into_value
             c.record(|rec| {
+                #(#field_asserts)*
                 #(#field_writes)*
                 Ok(())
             })
@@ -136,6 +149,7 @@ fn generate_named_struct(
     } else {
         context.impl_into_eure(quote! {
             c.record(|rec| {
+                #(#field_asserts)*
                 #(#field_writes)*
                 Ok(())
             })
@@ -145,17 +159,22 @@ fn generate_named_struct(
 
 fn generate_unit_struct(context: &MacroContext) -> TokenStream {
     let document_crate = &context.config.document_crate;
+    let span = context.ident().span();
 
     // For opaque proxy, we need to convert via .into() first
     if context.opaque_target().is_some() {
         let ident = context.ident();
-        context.impl_into_eure(quote! {
+        let opaque_span = context.opaque_error_span();
+        let into_value = quote_spanned! {opaque_span=>
             let _: #ident = value.into();
+        };
+        context.impl_into_eure(quote_spanned! {span=>
+            #into_value
             c.bind_primitive(#document_crate::value::PrimitiveValue::Null)?;
             Ok(())
         })
     } else {
-        context.impl_into_eure(quote! {
+        context.impl_into_eure(quote_spanned! {span=>
             let _ = value;
             c.bind_primitive(#document_crate::value::PrimitiveValue::Null)?;
             Ok(())
@@ -167,6 +186,8 @@ fn generate_tuple_struct(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
+    let span = fields.span();
+    let target_type = respan(context.target_type(), span);
     let field_names: Vec<_> = (0..fields.len())
         .map(|i| format_ident!("field_{}", i))
         .collect();
@@ -181,8 +202,12 @@ fn generate_tuple_struct(
     // For opaque proxy, we need to convert via .into() first
     if context.opaque_target().is_some() {
         let ident = context.ident();
-        context.impl_into_eure(quote! {
+        let opaque_span = context.opaque_error_span();
+        let into_value = quote_spanned! {opaque_span=>
             let value: #ident = value.into();
+        };
+        context.impl_into_eure(quote_spanned! {span=>
+            #into_value
             let #ident(#(#field_names),*) = value;
             c.tuple(|t| {
                 #(#field_writes)*
@@ -190,8 +215,7 @@ fn generate_tuple_struct(
             })
         })
     } else {
-        let target_type = context.target_type();
-        context.impl_into_eure(quote! {
+        context.impl_into_eure(quote_spanned! {span=>
             let #target_type(#(#field_names),*) = value;
             c.tuple(|t| {
                 #(#field_writes)*
@@ -203,18 +227,23 @@ fn generate_tuple_struct(
 
 fn generate_newtype_struct(context: &MacroContext, field_ty: &syn::Type) -> TokenStream {
     let document_crate = &context.config.document_crate;
+    let span = field_ty.span();
+    let target_type = respan(context.target_type(), span);
 
     // For opaque proxy, we need to convert via .into() first
     if context.opaque_target().is_some() {
         let ident = context.ident();
-        context.impl_into_eure(quote! {
+        let opaque_span = context.opaque_error_span();
+        let into_value = quote_spanned! {opaque_span=>
             let value: #ident = value.into();
+        };
+        context.impl_into_eure(quote_spanned! {span=>
+            #into_value
             let #ident(inner) = value;
             <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
         })
     } else {
-        let target_type = context.target_type();
-        context.impl_into_eure(quote! {
+        context.impl_into_eure(quote_spanned! {span=>
             let #target_type(inner) = value;
             <#field_ty as #document_crate::write::IntoEure>::write(inner, c)
         })

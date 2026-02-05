@@ -31,6 +31,8 @@ pub struct MacroConfig {
     /// - `proxy = "T"` → `ProxyConfig { target: T, is_opaque: false }`
     /// - `opaque = "T"` → `ProxyConfig { target: T, is_opaque: true }`
     pub proxy: Option<ProxyConfig>,
+    /// Span for `#[eure(opaque = "...")]` attribute (if present).
+    pub opaque_span: Option<Span>,
 }
 
 impl MacroConfig {
@@ -82,6 +84,7 @@ impl MacroConfig {
             parse_error,
             type_name: attrs.type_name,
             proxy,
+            opaque_span: attr_spans.get("opaque").copied(),
         })
     }
 }

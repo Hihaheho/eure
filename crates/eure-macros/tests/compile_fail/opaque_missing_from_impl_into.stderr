@@ -1,0 +1,12 @@
+error[E0277]: the trait bound `Proxy: From<Target>` is not satisfied
+ --> tests/compile_fail/opaque_missing_from_impl_into.rs:8:8
+  |
+8 | #[eure(opaque = "external::Target")]
+  |        ^^^^^^ unsatisfied trait bound
+  |
+help: the trait `From<Target>` is not implemented for `Proxy`
+ --> tests/compile_fail/opaque_missing_from_impl_into.rs:9:1
+  |
+9 | struct Proxy {
+  | ^^^^^^^^^^^^
+  = note: required for `Target` to implement `Into<Proxy>`

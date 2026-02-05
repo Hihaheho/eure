@@ -1,0 +1,13 @@
+error[E0023]: this pattern has 1 field, but the corresponding tuple struct has 2 fields
+ --> tests/compile_fail/proxy_tuple_arity_mismatch_into.rs:9:18
+  |
+4 |     pub struct Target(pub u32, pub u32);
+  |                       -------  ------- tuple struct has 2 fields
+...
+9 | struct Proxy(pub u32);
+  |                  ^^^ expected 2 fields, found 1
+  |
+help: use `_` to explicitly ignore each field
+  |
+9 | struct Proxy(pub u3, _2);
+  |                    +++
