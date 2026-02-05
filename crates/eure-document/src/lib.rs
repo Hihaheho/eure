@@ -51,6 +51,9 @@ pub mod map;
 /// Zero-sized types for compile-time literal matching in `FromEure`.
 pub mod must_be;
 
+/// Proxy types for use with `#[eure(via = "...")]` attribute.
+pub mod proxy;
+
 pub(crate) mod prelude_internal {
     #![allow(unused_imports)]
     #![allow(deprecated)]

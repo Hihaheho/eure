@@ -8,6 +8,7 @@ pub mod tuple;
 pub use record::RecordWriter;
 pub use tuple::TupleWriter;
 
+use alloc::borrow::{Cow, ToOwned};
 use alloc::string::String;
 use num_bigint::BigInt;
 
@@ -168,6 +169,16 @@ impl<'a> IntoEure for &'a str {
     fn write(value: &'a str, c: &mut DocumentConstructor) -> Result<(), WriteError> {
         c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value)))?;
         Ok(())
+    }
+}
+
+impl<'a, T> IntoEure<Cow<'a, T>> for Cow<'a, T>
+where
+    T: ToOwned + ?Sized,
+    T::Owned: IntoEure,
+{
+    fn write(value: Cow<'a, T>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        <T::Owned as IntoEure>::write(value.into_owned(), c)
     }
 }
 
@@ -650,5 +661,33 @@ mod tests {
         let parsed: [i32; 3] = doc.parse(root_id).unwrap();
 
         assert_eq!(parsed, original);
+    }
+
+    // =========================================================================
+    // Cow tests
+    // =========================================================================
+
+    #[test]
+    fn test_cow_borrowed_str() {
+        let mut c = DocumentConstructor::new();
+        let value: Cow<'_, str> = Cow::Borrowed("hello");
+        c.write(value).unwrap();
+        let doc = c.finish();
+        assert_eq!(
+            doc.root().content,
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("hello")))
+        );
+    }
+
+    #[test]
+    fn test_cow_owned_str() {
+        let mut c = DocumentConstructor::new();
+        let value: Cow<'static, str> = Cow::Owned("hello".to_string());
+        c.write(value).unwrap();
+        let doc = c.finish();
+        assert_eq!(
+            doc.root().content,
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("hello")))
+        );
     }
 }

@@ -8,6 +8,7 @@ pub mod tuple;
 pub mod union;
 pub mod variant_path;
 
+use alloc::borrow::{Cow, ToOwned};
 use indexmap::{IndexMap, IndexSet};
 pub use object_key::ParseObjectKey;
 pub use record::RecordParser;
@@ -1096,6 +1097,19 @@ impl FromEure<'_> for String {
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         ctx.parse::<&str>().map(String::from)
+    }
+}
+
+#[diagnostic::do_not_recommend]
+impl<'doc, T> FromEure<'doc> for Cow<'static, T>
+where
+    T: ToOwned + ?Sized,
+    T::Owned: FromEure<'doc>,
+{
+    type Error = <T::Owned as FromEure<'doc>>::Error;
+
+    fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
+        <T::Owned as FromEure<'doc>>::parse(ctx).map(Cow::Owned)
     }
 }
 
@@ -2342,5 +2356,20 @@ mod tests {
                 },
             ]
         );
+    }
+
+    // =========================================================================
+    // Cow tests
+    // =========================================================================
+
+    #[test]
+    fn test_cow_static_str_from_eure() {
+        use alloc::borrow::Cow;
+
+        let doc = eure!({ name = "hello" });
+        let root_id = doc.get_root_id();
+        let rec = doc.parse_record(root_id).unwrap();
+        let value: Cow<'static, str> = rec.parse_field("name").unwrap();
+        assert_eq!(value, Cow::<str>::Owned("hello".to_string()));
     }
 }
