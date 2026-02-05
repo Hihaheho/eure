@@ -196,7 +196,7 @@ fn generate_tuple_struct(
         let field_ty = &f.ty;
         let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
         let write = if let Some(via_type) = attrs.via.as_ref() {
-            quote_spanned! {field_ty.span()=>
+            quote_spanned! {via_type.span()=>
                 t.next_via::<#via_type, _>(#field_name)?;
             }
         } else {
@@ -241,7 +241,7 @@ fn generate_newtype_struct(context: &MacroContext, field: &syn::Field) -> TokenS
     let target_type = respan(context.target_type(), span);
     let attrs = FieldAttrs::from_field(field).expect("failed to parse field attributes");
     let write = if let Some(via_type) = attrs.via.as_ref() {
-        quote_spanned! {span=>
+        quote_spanned! {via_type.span()=>
             c.write_via::<#via_type, _>(inner)
         }
     } else {
@@ -281,7 +281,7 @@ pub(super) fn generate_record_field_write(
 
     // When via is specified, we use field_via to call the marker type's write method
     if let Some(via_type) = via {
-        quote_spanned! {span=>
+        quote_spanned! {via_type.span()=>
             rec.field_via::<#via_type, _>(#field_name_str, value.#field_name)?;
         }
     } else {
@@ -303,7 +303,7 @@ pub(super) fn generate_ext_write(
     // Extension writes go through set_extension
     // When via is specified, we need to use write_via
     if let Some(via_type) = via {
-        quote_spanned! {span=>
+        quote_spanned! {via_type.span()=>
             {
                 let scope = rec.constructor().begin_scope();
                 let ident: #document_crate::identifier::Identifier = #field_name_str.parse()

@@ -144,7 +144,7 @@ fn generate_newtype_variant(
                 Ok(#target_type::#variant_ident(field_0))
             }
         };
-        quote_spanned! {field_span=>
+        quote_spanned! {via_type.span()=>
             .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
                 let field_0 = ctx.parse_via::<#via_type, #field_ty>()?;
                 #body
@@ -185,7 +185,7 @@ fn generate_tuple_variant(
             has_via = true;
         }
         let parser = if let Some(via_type) = attrs.via.as_ref() {
-            quote_spanned! {field_ty.span()=>
+            quote_spanned! {via_type.span()=>
                 let #field_name = tuple.next_via::<#via_type, #field_ty>()?;
             }
         } else {

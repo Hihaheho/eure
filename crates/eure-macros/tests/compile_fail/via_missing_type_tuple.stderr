@@ -1,0 +1,5 @@
+error[E0425]: cannot find type `MissingProxy` in this scope
+ --> tests/compile_fail/via_missing_type_tuple.rs:6:34
+  |
+6 | struct Steps(usize, #[eure(via = "MissingProxy")] JumpAt);
+  |                                  ^^^^^^^^^^^^^^ not found in this scope

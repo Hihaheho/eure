@@ -1,0 +1,29 @@
+error[E0277]: the trait bound `JumpAtProxy: IntoEure<_>` is not satisfied
+ --> tests/compile_fail/via_missing_into_eure_impl_tuple_variant.rs:8:30
+  |
+8 |     Jump(usize, #[eure(via = "JumpAtProxy")] JumpAt),
+  |                              ^^^^^^^^^^^^^ unsatisfied trait bound
+  |
+help: the trait `IntoEure<_>` is not implemented for `JumpAtProxy`
+ --> tests/compile_fail/via_missing_into_eure_impl_tuple_variant.rs:4:1
+  |
+4 | struct JumpAtProxy;
+  | ^^^^^^^^^^^^^^^^^^
+  = help: the following other types implement trait `IntoEure<T>`:
+            `&'a str` implements `IntoEure`
+            `(MA, MB)` implements `IntoEure<(A, B)>`
+            `(MA, MB, MC)` implements `IntoEure<(A, B, C)>`
+            `(MA, MB, MC, MD)` implements `IntoEure<(A, B, C, D)>`
+            `(MA, MB, MC, MD, ME)` implements `IntoEure<(A, B, C, D, E)>`
+            `(MA, MB, MC, MD, ME, MF)` implements `IntoEure<(A, B, C, D, E, F)>`
+            `(MA, MB, MC, MD, ME, MF, MG)` implements `IntoEure<(A, B, C, D, E, F, G)>`
+            `(MA, MB, MC, MD, ME, MF, MG, MH)` implements `IntoEure<(A, B, C, D, E, F, G, H)>`
+          and $N others
+note: required by a bound in `TupleWriter::<'a>::next_via`
+ --> $WORKSPACE/crates/eure-document/src/write/tuple.rs
+  |
+  |     pub fn next_via<M, T>(&mut self, value: T) -> Result<(), WriteError>
+  |            -------- required by a bound in this associated function
+  |     where
+  |         M: IntoEure<T>,
+  |            ^^^^^^^^^^^ required by this bound in `TupleWriter::<'a>::next_via`

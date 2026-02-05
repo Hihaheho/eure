@@ -1,0 +1,22 @@
+error[E0277]: `JumpAtProxy` cannot be parsed from Eure document
+ --> tests/compile_fail/via_missing_from_eure_impl_tuple_variant.rs:8:30
+  |
+8 |     Jump(usize, #[eure(via = "JumpAtProxy")] JumpAt),
+  |                              ^^^^^^^^^^^^^ this type does not implement `FromEure`
+  |
+help: the trait `FromEure<'_, JumpAt>` is not implemented for `JumpAtProxy`
+ --> tests/compile_fail/via_missing_from_eure_impl_tuple_variant.rs:4:1
+  |
+4 | struct JumpAtProxy;
+  | ^^^^^^^^^^^^^^^^^^
+  = note: consider adding `#[derive(FromEure)]` to `JumpAtProxy`
+  = help: the following other types implement trait `FromEure<'doc, T>`:
+            `&'doc NodeArray` implements `FromEure<'doc>`
+            `&'doc PrimitiveValue` implements `FromEure<'doc>`
+            `&'doc str` implements `FromEure<'doc>`
+            `Cmd` implements `FromEure<'doc>`
+            `EureDocument` implements `FromEure<'doc>`
+            `Identifier` implements `FromEure<'_>`
+            `MustBeText<M>` implements `FromEure<'_>`
+            `NodeId` implements `FromEure<'doc>`
+          and $N others

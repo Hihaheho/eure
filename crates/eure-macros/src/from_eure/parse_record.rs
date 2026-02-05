@@ -311,7 +311,7 @@ fn generate_tuple_struct(
             has_via = true;
         }
         let parser = if let Some(via_type) = attrs.via.as_ref() {
-            quote_spanned! {field_ty.span()=>
+            quote_spanned! {via_type.span()=>
                 let #field_name = tuple.next_via::<#via_type, #field_ty>()?;
             }
         } else {
@@ -368,7 +368,7 @@ fn generate_newtype_struct(context: &MacroContext, field: &syn::Field) -> TokenS
     let target_type = respan(context.target_type(), span);
     let attrs = FieldAttrs::from_field(field).expect("failed to parse field attributes");
     let parse = if let Some(via_type) = attrs.via.as_ref() {
-        quote_spanned! {span=>
+        quote_spanned! {via_type.span()=>
             let field_0 = ctx.parse_via::<#via_type, #field_ty>()?;
         }
     } else {
@@ -408,20 +408,21 @@ pub(super) fn generate_record_field(
 
     // When via is specified, we use parse_field_with to call the marker type's parse method
     if let Some(via_type) = via {
+        let via_span = via_type.span();
         return match default {
             DefaultValue::None => {
-                quote_spanned! {span=>
+                quote_spanned! {via_span=>
                     #field_name: rec.parse_field_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
                 }
             }
             DefaultValue::Default => {
-                quote_spanned! {span=>
+                quote_spanned! {via_span=>
                     #field_name: rec.parse_field_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
                         .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
                 }
             }
             DefaultValue::Path(path) => {
-                quote_spanned! {span=>
+                quote_spanned! {via_span=>
                     #field_name: rec.parse_field_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
                         .unwrap_or_else(#path)
                 }
@@ -459,20 +460,21 @@ pub(super) fn generate_ext_field(
 
     // When via is specified, we use parse_ext_with to call the marker type's parse method
     if let Some(via_type) = via {
+        let via_span = via_type.span();
         return match default {
             DefaultValue::None => {
-                quote_spanned! {span=>
+                quote_spanned! {via_span=>
                     #field_name: ctx.parse_ext_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
                 }
             }
             DefaultValue::Default => {
-                quote_spanned! {span=>
+                quote_spanned! {via_span=>
                     #field_name: ctx.parse_ext_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
                         .unwrap_or_else(<#field_ty as ::core::default::Default>::default)
                 }
             }
             DefaultValue::Path(path) => {
-                quote_spanned! {span=>
+                quote_spanned! {via_span=>
                     #field_name: ctx.parse_ext_optional_with(#field_name_str, <#via_type as ::eure::document::parse::FromEure<'doc, #field_ty>>::parse)?
                         .unwrap_or_else(#path)
                 }
