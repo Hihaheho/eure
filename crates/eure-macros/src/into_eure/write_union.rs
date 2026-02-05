@@ -19,6 +19,23 @@ pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::R
         let arm = generate_variant_arm(context, variant)?;
         variant_arms.push(arm);
     }
+    let needs_non_exhaustive_fallback = context.config.proxy.is_some()
+        && context.config.non_exhaustive
+        && context.opaque_target().is_none();
+    if needs_non_exhaustive_fallback {
+        let write_error = context.WriteError();
+        let proxy_target = &context
+            .config
+            .proxy
+            .as_ref()
+            .expect("non-exhaustive fallback requires proxy target")
+            .target;
+        variant_arms.push(quote! {
+            _ => Err(#write_error::NonExhaustiveVariant {
+                type_name: ::core::any::type_name::<#proxy_target>(),
+            })
+        });
+    }
 
     let enum_ident = context.ident();
 

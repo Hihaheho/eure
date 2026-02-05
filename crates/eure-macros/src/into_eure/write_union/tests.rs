@@ -609,3 +609,84 @@ fn test_proxy_enum_newtype_variant() {
         .to_string()
     );
 }
+
+#[test]
+fn test_proxy_enum_non_exhaustive() {
+    let input = generate(parse_quote! {
+        #[non_exhaustive]
+        #[eure(proxy = "external::Status")]
+        enum StatusDef {
+            Active,
+            Inactive,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure<external::Status> for StatusDef {
+                fn write(value: external::Status, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        external::Status::Active => {
+                            c.set_variant("Active")?;
+                            c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
+                                ::eure::document::text::Text::plaintext("Active")
+                            ))?;
+                            Ok(())
+                        }
+                        external::Status::Inactive => {
+                            c.set_variant("Inactive")?;
+                            c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
+                                ::eure::document::text::Text::plaintext("Inactive")
+                            ))?;
+                            Ok(())
+                        }
+                        _ => Err(::eure::document::write::WriteError::NonExhaustiveVariant {
+                            type_name: ::core::any::type_name::<external::Status>(),
+                        })
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_proxy_enum_non_exhaustive_eure_attr() {
+    let input = generate(parse_quote! {
+        #[eure(proxy = "external::Status", non_exhaustive)]
+        enum StatusDef {
+            Active,
+            Inactive,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure<external::Status> for StatusDef {
+                fn write(value: external::Status, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        external::Status::Active => {
+                            c.set_variant("Active")?;
+                            c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
+                                ::eure::document::text::Text::plaintext("Active")
+                            ))?;
+                            Ok(())
+                        }
+                        external::Status::Inactive => {
+                            c.set_variant("Inactive")?;
+                            c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
+                                ::eure::document::text::Text::plaintext("Inactive")
+                            ))?;
+                            Ok(())
+                        }
+                        _ => Err(::eure::document::write::WriteError::NonExhaustiveVariant {
+                            type_name: ::core::any::type_name::<external::Status>(),
+                        })
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}

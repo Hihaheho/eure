@@ -32,6 +32,11 @@ pub struct ContainerAttrs {
     /// When specified, the type is registered as `$types.<type_name>`.
     /// Example: `#[eure(type_name = "user")]` registers as `$types.user`.
     pub type_name: Option<String>,
+    /// Treat proxy enums as non-exhaustive (adds a wildcard arm in IntoEure).
+    ///
+    /// This is equivalent to `#[non_exhaustive]` on the enum, but allows
+    /// opt-in without changing the enum's public API surface.
+    pub non_exhaustive: bool,
     /// Transparent proxy type for types with public fields.
     ///
     /// Generates `FromEure<'doc, TargetType>` using direct struct literal syntax.

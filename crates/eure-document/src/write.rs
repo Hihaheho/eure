@@ -42,6 +42,10 @@ pub enum WriteError {
     /// Invalid `$variant` path syntax.
     #[error("invalid $variant path: {source}")]
     InvalidVariantPath { source: IdentifierError },
+
+    /// Unknown variant when writing a non-exhaustive proxy enum.
+    #[error("non-exhaustive enum variant for {type_name}")]
+    NonExhaustiveVariant { type_name: &'static str },
 }
 
 /// Trait for writing Rust types to Eure documents.

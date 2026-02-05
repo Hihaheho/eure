@@ -44,8 +44,17 @@ pub fn build_schema_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 fn create_context(input: syn::DeriveInput) -> syn::Result<MacroContext> {
     let attrs = ContainerAttrs::from_derive_input(&input).expect("Failed to parse eure attributes");
     let attr_spans = extract_container_attr_spans(&input);
-    let config = MacroConfig::from_attrs(attrs, attr_spans)?;
+    let mut config = MacroConfig::from_attrs(attrs, attr_spans)?;
+    if has_non_exhaustive_attr(&input.attrs) {
+        config.non_exhaustive = true;
+    }
     Ok(MacroContext::new(config, input))
+}
+
+fn has_non_exhaustive_attr(attrs: &[syn::Attribute]) -> bool {
+    attrs
+        .iter()
+        .any(|attr| attr.path().is_ident("non_exhaustive"))
 }
 
 /// Creates a zero-sized type that only parses from a specific Text value.

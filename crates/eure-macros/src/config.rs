@@ -27,6 +27,8 @@ pub struct MacroConfig {
     pub parse_error: Option<TokenStream>,
     /// Type name for BuildSchema registration.
     pub type_name: Option<String>,
+    /// Treat proxy enums as non-exhaustive (adds a wildcard arm in IntoEure).
+    pub non_exhaustive: bool,
     /// Proxy configuration for implementing `FromEure<'doc, Target>`.
     /// - `proxy = "T"` → `ProxyConfig { target: T, is_opaque: false }`
     /// - `opaque = "T"` → `ProxyConfig { target: T, is_opaque: true }`
@@ -83,6 +85,7 @@ impl MacroConfig {
             allow_unknown_extensions: attrs.allow_unknown_extensions,
             parse_error,
             type_name: attrs.type_name,
+            non_exhaustive: attrs.non_exhaustive,
             proxy,
             opaque_span: attr_spans.get("opaque").copied(),
         })
