@@ -69,7 +69,7 @@ fn test_tuple_variant_with_via() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Tuple", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("Tuple", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut tuple = ctx.parse_tuple()?;
                             tuple.expect_len(2)?;
                             let field_0 = tuple.next::<usize>()?;
@@ -100,7 +100,7 @@ fn test_struct_variant() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = TestEnum::Struct {
                                 a: rec.parse_field::<i32>("a")?,
@@ -156,7 +156,7 @@ fn test_newtype_variant_with_via() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Newtype", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("Newtype", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let field_0 = ctx.parse_via::<JumpAtProxy, JumpAt>()?;
                             Ok(TestEnum::Newtype(field_0))
                         })
@@ -188,7 +188,7 @@ fn test_mixed_variants() {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
                         .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| { let value : TestEnum = TestEnum::Tuple(field_0, field_1) ; Ok(value) })
-                        .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = TestEnum::Struct {
                                 a: rec.parse_field::<i32>("a")?,
@@ -227,7 +227,7 @@ fn test_mixed_variants_with_custom_crate() {
                     ctx.parse_union(::eure_document::data_model::VariantRepr::default())?
                         .variant("Unit", ::eure_document::parse::DocumentParserExt::map(::eure_document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| { let value : TestEnum = TestEnum::Tuple(field_0, field_1) ; Ok(value) })
-                        .variant("Struct", |ctx: &::eure_document::parse::ParseContext<'_>| {
+                        .variant("Struct", |ctx: &::eure_document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = TestEnum::Struct {
                                 a: rec.parse_field::<i32>("a")?,
@@ -290,7 +290,7 @@ fn test_struct_variant_with_rename_all_camel_case() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("userCreated", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("userCreated", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
                                 user_id: rec.parse_field::<i32>("user_id")?,
@@ -324,7 +324,7 @@ fn test_struct_variant_with_rename_all_fields() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("UserCreated", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("UserCreated", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
                                 user_id: rec.parse_field::<i32>("userId")?,
@@ -358,7 +358,7 @@ fn test_struct_variant_with_both_rename_all_and_rename_all_fields() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("user_created", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("user_created", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
                                 user_id: rec.parse_field::<i32>("userId")?,
@@ -394,7 +394,7 @@ fn test_struct_variant_with_flatten() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Person", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("Person", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Entity::Person {
                                 name: rec.parse_field::<String>("name")?,
@@ -597,7 +597,7 @@ fn test_struct_variant_flatten_only() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Text", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("Text", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Content::Text {
                                 value: <TextValue>::parse(&ctx.flatten())?
                             };
@@ -631,7 +631,7 @@ fn test_struct_variant_ext_only() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Item::WithMeta {
                                 meta: ctx.parse_ext::<MetaData>("meta")?
                             };
@@ -665,7 +665,7 @@ fn test_struct_variant_ext_with_default() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Item::WithMeta {
                                 meta: ctx.parse_ext_optional::<Option<MetaData> >("meta")?.unwrap_or_else(<Option<MetaData> as ::core::default::Default>::default)
                             };
@@ -704,7 +704,7 @@ fn test_struct_variant_flatten_and_ext() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("Text", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("Text", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = TextOrNested::Text {
                                 text: <TextValue>::parse(&ctx.flatten())?,
                                 mark: ctx.parse_ext_optional::<MarkOptions>("mark")?.unwrap_or_else(<MarkOptions as ::core::default::Default>::default)
@@ -740,7 +740,7 @@ fn test_struct_variant_ext_with_regular_fields() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Item::WithMeta {
                                 name: rec.parse_field::<String>("name")?,
@@ -776,7 +776,7 @@ fn test_struct_variant_flatten_ext_only() {
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
                     ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
-                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'_>| {
+                        .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Item::WithMeta {
                                 meta: <MetaData>::parse(&ctx.flatten_ext())?
                             };

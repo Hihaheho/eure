@@ -145,7 +145,7 @@ fn generate_newtype_variant(
             }
         };
         quote_spanned! {via_type.span()=>
-            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'doc>| {
                 let field_0 = ctx.parse_via::<#via_type, #field_ty>()?;
                 #body
             })
@@ -215,7 +215,7 @@ fn generate_tuple_variant(
         let tuple_len = Literal::usize_unsuffixed(fields.len());
         if opaque_target.is_some() {
             quote_spanned! {opaque_span=>
-                .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+                .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'doc>| {
                     let mut tuple = ctx.parse_tuple()?;
                     tuple.expect_len(#tuple_len)?;
                     #(#field_parsers)*
@@ -224,7 +224,7 @@ fn generate_tuple_variant(
             }
         } else {
             quote_spanned! {tuple_span=>
-                .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+                .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'doc>| {
                     let mut tuple = ctx.parse_tuple()?;
                     tuple.expect_len(#tuple_len)?;
                     #(#field_parsers)*
@@ -324,7 +324,7 @@ fn generate_struct_variant(
         };
 
         quote! {
-            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'doc>| {
                 let mut rec = ctx.parse_record()?;
                 let value = #target_type::#variant_ident {
                     #(#field_assignments),*
@@ -335,7 +335,7 @@ fn generate_struct_variant(
         }
     } else {
         quote! {
-            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'_>| {
+            .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'doc>| {
                 let value = #target_type::#variant_ident {
                     #(#field_assignments),*
                 };
