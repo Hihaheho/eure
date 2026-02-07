@@ -141,17 +141,19 @@ impl From<bool> for ObjectKey {
     }
 }
 
-impl From<i32> for ObjectKey {
-    fn from(n: i32) -> Self {
-        ObjectKey::Number(BigInt::from(n))
-    }
+macro_rules! impl_from_int_for_object_key {
+    ($($ty:ty),*) => {
+        $(
+            impl From<$ty> for ObjectKey {
+                fn from(n: $ty) -> Self {
+                    ObjectKey::Number(BigInt::from(n))
+                }
+            }
+        )*
+    };
 }
 
-impl From<i64> for ObjectKey {
-    fn from(n: i64) -> Self {
-        ObjectKey::Number(BigInt::from(n))
-    }
-}
+impl_from_int_for_object_key!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
 impl From<BigInt> for ObjectKey {
     fn from(n: BigInt) -> Self {
@@ -185,17 +187,19 @@ impl From<bool> for PrimitiveValue {
     }
 }
 
-impl From<i32> for PrimitiveValue {
-    fn from(n: i32) -> Self {
-        PrimitiveValue::Integer(BigInt::from(n))
-    }
+macro_rules! impl_from_int_for_primitive_value {
+    ($($ty:ty),*) => {
+        $(
+            impl From<$ty> for PrimitiveValue {
+                fn from(n: $ty) -> Self {
+                    PrimitiveValue::Integer(BigInt::from(n))
+                }
+            }
+        )*
+    };
 }
 
-impl From<i64> for PrimitiveValue {
-    fn from(n: i64) -> Self {
-        PrimitiveValue::Integer(BigInt::from(n))
-    }
-}
+impl_from_int_for_primitive_value!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
 impl From<f32> for PrimitiveValue {
     fn from(n: f32) -> Self {

@@ -102,40 +102,20 @@ impl IntoEure for bool {
     }
 }
 
-impl IntoEure for i32 {
-    fn write(value: i32, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
-        Ok(())
-    }
+macro_rules! impl_into_eure_int {
+    ($($ty:ty),*) => {
+        $(
+            impl IntoEure for $ty {
+                fn write(value: $ty, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+                    c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
+                    Ok(())
+                }
+            }
+        )*
+    };
 }
 
-impl IntoEure for i64 {
-    fn write(value: i64, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
-        Ok(())
-    }
-}
-
-impl IntoEure for u32 {
-    fn write(value: u32, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
-        Ok(())
-    }
-}
-
-impl IntoEure for u64 {
-    fn write(value: u64, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
-        Ok(())
-    }
-}
-
-impl IntoEure for usize {
-    fn write(value: usize, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
-        Ok(())
-    }
-}
+impl_into_eure_int!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
 impl IntoEure for f32 {
     fn write(value: f32, c: &mut DocumentConstructor) -> Result<(), WriteError> {

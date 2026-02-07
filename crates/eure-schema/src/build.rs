@@ -263,79 +263,21 @@ impl BuildSchema for bool {
     }
 }
 
-// Signed integers
-impl BuildSchema for i8 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
+macro_rules! impl_build_schema_int {
+    ($($ty:ty),*) => {
+        $(
+            impl BuildSchema for $ty {
+                fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
+                    SchemaNodeContent::Integer(crate::IntegerSchema::default())
+                }
+            }
+        )*
+    };
 }
 
-impl BuildSchema for i16 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for i32 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for i64 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for i128 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for isize {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-// Unsigned integers
-impl BuildSchema for u8 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for u16 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for u32 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for u64 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for u128 {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
-
-impl BuildSchema for usize {
-    fn build_schema(_ctx: &mut SchemaBuilder) -> SchemaNodeContent {
-        SchemaNodeContent::Integer(crate::IntegerSchema::default())
-    }
-}
+impl_build_schema_int!(
+    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize
+);
 
 // Floats
 impl BuildSchema for f32 {

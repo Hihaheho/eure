@@ -1187,7 +1187,9 @@ macro_rules! impl_from_eure_int {
     };
 }
 
-impl_from_eure_int!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
+impl_from_eure_int!(
+    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize
+);
 
 impl<'doc> FromEure<'doc> for &'doc PrimitiveValue {
     type Error = ParseError;
