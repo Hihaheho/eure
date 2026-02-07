@@ -66,16 +66,7 @@ impl<'doc> RecordParser<'doc> {
                 node_id: ctx.node_id(),
                 kind: ParseErrorKind::UnexpectedHole,
             }),
-            value => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: value
-                    .value_kind()
-                    .map(|actual| ParseErrorKind::TypeMismatch {
-                        expected: crate::value::ValueKind::Map,
-                        actual,
-                    })
-                    .unwrap_or(ParseErrorKind::UnexpectedHole),
-            }),
+            _ => Err(ctx.unexpected_kind(crate::value::ValueKind::Map)),
         }
     }
 

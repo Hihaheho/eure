@@ -64,15 +64,12 @@ impl<'doc> TupleParser<'doc> {
                 node_id,
                 kind: ParseErrorKind::UnexpectedHole,
             }),
-            value => Err(ParseError {
+            _ => Err(ParseError {
                 node_id,
-                kind: value
-                    .value_kind()
-                    .map(|actual| ParseErrorKind::TypeMismatch {
-                        expected: crate::value::ValueKind::Tuple,
-                        actual,
-                    })
-                    .unwrap_or(ParseErrorKind::UnexpectedHole),
+                kind: ParseErrorKind::TypeMismatch {
+                    expected: crate::value::ValueKind::Tuple,
+                    actual: node.content.value_kind(),
+                },
             }),
         }
     }

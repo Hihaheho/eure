@@ -423,7 +423,7 @@ impl DocumentConstructor {
             let existing = match node.as_primitive().and_then(|value| value.as_str()) {
                 Some(existing) => existing,
                 None => {
-                    let actual = node.content.value_kind().unwrap_or(ValueKind::Hole);
+                    let actual = node.content.value_kind();
                     return Err(WriteError::InvalidVariantExtensionType { actual });
                 }
             };

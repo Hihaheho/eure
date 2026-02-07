@@ -339,12 +339,7 @@ where
         let variant_node = ctx.doc().node(variant_node_id);
         let s: &str = ctx.doc().parse(variant_node_id).map_err(|_| ParseError {
             node_id: variant_node_id,
-            kind: ParseErrorKind::InvalidVariantType(
-                variant_node
-                    .content
-                    .value_kind()
-                    .unwrap_or(crate::value::ValueKind::Null),
-            ),
+            kind: ParseErrorKind::InvalidVariantType(variant_node.content.value_kind()),
         })?;
 
         VariantPath::parse(s).map(Some).map_err(|_| ParseError {

@@ -40,6 +40,7 @@ pub(crate) fn actual_type_from_error(kind: &eure_document::parse::ParseErrorKind
 
     match kind {
         ParseErrorKind::TypeMismatch { actual, .. } => value_kind_to_name(*actual),
+        ParseErrorKind::NotPrimitive { actual } => value_kind_to_name(*actual),
         ParseErrorKind::UnexpectedHole => "hole".to_string(),
         _ => format!("{}", kind),
     }

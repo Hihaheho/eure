@@ -536,14 +536,17 @@ impl<'doc> ParseContext<'doc> {
 
     /// Parse the current node as a primitive value.
     ///
-    /// Returns error if variant path is not empty.
+    /// Returns `NotPrimitive` error if the node is not a primitive.
+    /// Returns `UnexpectedVariantPath` error if variant path is not empty.
     pub fn parse_primitive(&self) -> Result<&'doc PrimitiveValue, ParseError> {
         self.ensure_no_variant_path()?;
         match &self.node().content {
             NodeValue::Primitive(p) => Ok(p),
-            value => Err(ParseError {
-                node_id: self.node_id,
-                kind: handle_unexpected_node_value(value),
+            _ => Err(ParseError {
+                node_id: self.node_id(),
+                kind: ParseErrorKind::NotPrimitive {
+                    actual: self.node().content.value_kind(),
+                },
             }),
         }
     }
@@ -807,6 +810,16 @@ impl<'doc> ParseContext<'doc> {
         }
         Ok(())
     }
+
+    fn unexpected_kind(&self, expected: ValueKind) -> ParseError {
+        ParseError {
+            node_id: self.node_id(),
+            kind: ParseErrorKind::TypeMismatch {
+                expected,
+                actual: self.node().content.value_kind(),
+            },
+        }
+    }
 }
 
 // =============================================================================
@@ -871,19 +884,6 @@ pub trait FromEure<'doc, T = Self>: Sized {
 
     /// Parse a value of type T from the given parse context.
     fn parse(ctx: &ParseContext<'doc>) -> Result<T, Self::Error>;
-}
-
-fn handle_unexpected_node_value(node_value: &NodeValue) -> ParseErrorKind {
-    match node_value {
-        NodeValue::Hole(_) => ParseErrorKind::UnexpectedHole,
-        value => value
-            .value_kind()
-            .map(|actual| ParseErrorKind::TypeMismatch {
-                expected: ValueKind::Text,
-                actual,
-            })
-            .unwrap_or_else(|| ParseErrorKind::UnexpectedHole),
-    }
 }
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]
@@ -1001,6 +1001,10 @@ pub enum ParseErrorKind {
     /// Unexpected array length.
     #[error("unexpected array length: expected {expected}, got {actual}")]
     UnexpectedArrayLength { expected: usize, actual: usize },
+
+    /// Expected a primitive value but got a non-primitive node.
+    #[error("expected primitive value, got {actual}")]
+    NotPrimitive { actual: ValueKind },
 }
 
 impl ParseErrorKind {
@@ -1079,16 +1083,10 @@ impl<'doc> FromEure<'doc> for &'doc str {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-        match ctx.parse_primitive()? {
-            PrimitiveValue::Text(text) => Ok(text.as_str()),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::Text,
-                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
-                },
-            }),
+        if let PrimitiveValue::Text(text) = ctx.parse_primitive()? {
+            return Ok(text.as_str());
         }
+        Err(ctx.unexpected_kind(ValueKind::Text))
     }
 }
 
@@ -1117,16 +1115,10 @@ impl FromEure<'_> for Text {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        match ctx.parse_primitive()? {
-            PrimitiveValue::Text(text) => Ok(text.clone()),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::Text,
-                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
-                },
-            }),
+        if let PrimitiveValue::Text(text) = ctx.parse_primitive()? {
+            return Ok(text.clone());
         }
+        Err(ctx.unexpected_kind(ValueKind::Text))
     }
 }
 
@@ -1134,16 +1126,10 @@ impl FromEure<'_> for bool {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        match ctx.parse_primitive()? {
-            PrimitiveValue::Bool(b) => Ok(*b),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::Bool,
-                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
-                },
-            }),
+        if let PrimitiveValue::Bool(b) = ctx.parse_primitive()? {
+            return Ok(*b);
         }
+        Err(ctx.unexpected_kind(ValueKind::Bool))
     }
 }
 
@@ -1151,16 +1137,10 @@ impl FromEure<'_> for BigInt {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        match ctx.parse_primitive()? {
-            PrimitiveValue::Integer(i) => Ok(i.clone()),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::Integer,
-                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
-                },
-            }),
+        if let PrimitiveValue::Integer(i) = ctx.parse_primitive()? {
+            return Ok(i.clone());
         }
+        Err(ctx.unexpected_kind(ValueKind::Integer))
     }
 }
 
@@ -1168,16 +1148,10 @@ impl FromEure<'_> for f32 {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        match ctx.parse_primitive()? {
-            PrimitiveValue::F32(f) => Ok(*f),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::F32,
-                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
-                },
-            }),
+        if let PrimitiveValue::F32(f) = ctx.parse_primitive()? {
+            return Ok(*f);
         }
+        Err(ctx.unexpected_kind(ValueKind::F32))
     }
 }
 
@@ -1186,79 +1160,34 @@ impl FromEure<'_> for f64 {
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
         match ctx.parse_primitive()? {
-            // Accept both F32 (with conversion) and F64
             PrimitiveValue::F32(f) => Ok(*f as f64),
             PrimitiveValue::F64(f) => Ok(*f),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::F64,
-                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
-                },
-            }),
+            _ => Err(ctx.unexpected_kind(ValueKind::F64)),
         }
     }
 }
 
-impl FromEure<'_> for u32 {
-    type Error = ParseError;
+macro_rules! impl_from_eure_int {
+    ($($ty:ty),*) => {
+        $(
+            impl FromEure<'_> for $ty {
+                type Error = ParseError;
 
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let value: BigInt = ctx.parse()?;
-        u32::try_from(&value).map_err(|_| ParseError {
-            node_id: ctx.node_id(),
-            kind: ParseErrorKind::OutOfRange(format!("value {} out of u32 range", value)),
-        })
-    }
+                fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+                    let value: BigInt = ctx.parse()?;
+                    <$ty>::try_from(&value).map_err(|_| ParseError {
+                        node_id: ctx.node_id(),
+                        kind: ParseErrorKind::OutOfRange(
+                            format!("value {} out of {} range", value, stringify!($ty)),
+                        ),
+                    })
+                }
+            }
+        )*
+    };
 }
 
-impl FromEure<'_> for i32 {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let value: BigInt = ctx.parse()?;
-        i32::try_from(&value).map_err(|_| ParseError {
-            node_id: ctx.node_id(),
-            kind: ParseErrorKind::OutOfRange(format!("value {} out of i32 range", value)),
-        })
-    }
-}
-
-impl FromEure<'_> for i64 {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let value: BigInt = ctx.parse()?;
-        i64::try_from(&value).map_err(|_| ParseError {
-            node_id: ctx.node_id(),
-            kind: ParseErrorKind::OutOfRange(format!("value {} out of i64 range", value)),
-        })
-    }
-}
-
-impl FromEure<'_> for u64 {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let value: BigInt = ctx.parse()?;
-        u64::try_from(&value).map_err(|_| ParseError {
-            node_id: ctx.node_id(),
-            kind: ParseErrorKind::OutOfRange(format!("value {} out of u64 range", value)),
-        })
-    }
-}
-
-impl FromEure<'_> for usize {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        let value: BigInt = ctx.parse()?;
-        usize::try_from(&value).map_err(|_| ParseError {
-            node_id: ctx.node_id(),
-            kind: ParseErrorKind::OutOfRange(format!("value {} out of usize range", value)),
-        })
-    }
-}
+impl_from_eure_int!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
 impl<'doc> FromEure<'doc> for &'doc PrimitiveValue {
     type Error = ParseError;
@@ -1280,23 +1209,17 @@ impl FromEure<'_> for Identifier {
     type Error = ParseError;
 
     fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        match ctx.parse_primitive()? {
-            PrimitiveValue::Text(text) => text
+        if let PrimitiveValue::Text(text) = ctx.parse_primitive()? {
+            return text
                 .content
                 .parse()
                 .map_err(ParseErrorKind::InvalidIdentifier)
                 .map_err(|kind| ParseError {
                     node_id: ctx.node_id(),
                     kind,
-                }),
-            _ => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::TypeMismatch {
-                    expected: ValueKind::Text,
-                    actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
-                },
-            }),
+                });
         }
+        Err(ctx.unexpected_kind(ValueKind::Text))
     }
 }
 
@@ -1307,10 +1230,7 @@ impl<'doc> FromEure<'doc> for &'doc NodeArray {
         ctx.ensure_no_variant_path()?;
         match &ctx.node().content {
             NodeValue::Array(array) => Ok(array),
-            value => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: handle_unexpected_node_value(value),
-            }),
+            _ => Err(ctx.unexpected_kind(ValueKind::Array)),
         }
     }
 }
@@ -1334,11 +1254,7 @@ where
                 .iter()
                 .map(|item| M::parse(&ctx.at(*item)))
                 .collect::<Result<Vec<_>, _>>(),
-            value => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: handle_unexpected_node_value(value),
-            }
-            .into()),
+            _ => Err(ctx.unexpected_kind(ValueKind::Array).into()),
         }
     }
 }
@@ -1375,11 +1291,7 @@ where
                     .unwrap_or_else(|_| unreachable!("length was asserted previously"));
                 Ok(parsed)
             }
-            value => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: handle_unexpected_node_value(value),
-            }
-            .into()),
+            _ => Err(ctx.unexpected_kind(ValueKind::Array).into()),
         }
     }
 }
@@ -1400,11 +1312,7 @@ where
                 .iter()
                 .map(|item| M::parse(&ctx.at(*item)))
                 .collect::<Result<IndexSet<_>, _>>(),
-            value => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: handle_unexpected_node_value(value),
-            }
-            .into()),
+            _ => Err(ctx.unexpected_kind(ValueKind::Array).into()),
         }
     }
 }
@@ -1422,7 +1330,7 @@ macro_rules! parse_tuple {
                 ctx.ensure_no_variant_path()?;
                 let tuple = match &ctx.node().content {
                     NodeValue::Tuple(tuple) => tuple,
-                    value => return Err(ParseError { node_id: ctx.node_id(), kind: handle_unexpected_node_value(value) }.into()),
+                    _ => return Err(ctx.unexpected_kind(ValueKind::Tuple).into()),
                 };
                 if tuple.len() != $n {
                     return Err(ParseError { node_id: ctx.node_id(), kind: ParseErrorKind::UnexpectedTupleLength { expected: $n, actual: tuple.len() } }.into());
@@ -1489,12 +1397,8 @@ macro_rules! parse_map {
             // Record scope or no scope: iterate record fields
             let map = match &$ctx.node().content {
                 NodeValue::Map(map) => map,
-                value => {
-                    return Err(ParseError {
-                        node_id: $ctx.node_id(),
-                        kind: handle_unexpected_node_value(value),
-                    }
-                    .into());
+                _ => {
+                    return Err($ctx.unexpected_kind(ValueKind::Map).into());
                 }
             };
             // If in flatten context with Record scope, only iterate UNACCESSED fields
@@ -1632,7 +1536,7 @@ where
                         node_id: ctx.node_id(),
                         kind: ParseErrorKind::TypeMismatch {
                             expected: ValueKind::Null,
-                            actual: ctx.node().content.value_kind().unwrap_or(ValueKind::Null),
+                            actual: ctx.node().content.value_kind(),
                         },
                     }
                     .into())

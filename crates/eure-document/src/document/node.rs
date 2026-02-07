@@ -206,13 +206,13 @@ impl NodeValue {
         Self::Tuple(NodeTuple::new())
     }
 
-    pub fn value_kind(&self) -> Option<ValueKind> {
+    pub fn value_kind(&self) -> ValueKind {
         match self {
-            Self::Hole(_) => None,
-            Self::Primitive(primitive) => Some(primitive.kind()),
-            Self::Array(_) => Some(ValueKind::Array),
-            Self::Map(_) => Some(ValueKind::Map),
-            Self::Tuple(_) => Some(ValueKind::Tuple),
+            Self::Hole(_) => ValueKind::Hole,
+            Self::Primitive(primitive) => primitive.kind(),
+            Self::Array(_) => ValueKind::Array,
+            Self::Map(_) => ValueKind::Map,
+            Self::Tuple(_) => ValueKind::Tuple,
         }
     }
 }
@@ -557,22 +557,22 @@ mod tests {
         use crate::value::ValueKind;
 
         let hole = NodeValue::hole();
-        assert_eq!(hole.value_kind(), None);
+        assert_eq!(hole.value_kind(), ValueKind::Hole);
 
         let primitive = NodeValue::Primitive(PrimitiveValue::Null);
-        assert_eq!(primitive.value_kind(), Some(ValueKind::Null));
+        assert_eq!(primitive.value_kind(), ValueKind::Null);
 
         let bool_val = NodeValue::Primitive(PrimitiveValue::Bool(true));
-        assert_eq!(bool_val.value_kind(), Some(ValueKind::Bool));
+        assert_eq!(bool_val.value_kind(), ValueKind::Bool);
 
         let array = NodeValue::empty_array();
-        assert_eq!(array.value_kind(), Some(ValueKind::Array));
+        assert_eq!(array.value_kind(), ValueKind::Array);
 
         let map = NodeValue::empty_map();
-        assert_eq!(map.value_kind(), Some(ValueKind::Map));
+        assert_eq!(map.value_kind(), ValueKind::Map);
 
         let tuple = NodeValue::empty_tuple();
-        assert_eq!(tuple.value_kind(), Some(ValueKind::Tuple));
+        assert_eq!(tuple.value_kind(), ValueKind::Tuple);
     }
 
     #[test]

@@ -447,7 +447,7 @@ fn get_variant_string(ctx: &ParseContext<'_>) -> Result<Option<String>, ParseErr
                     node_id: var_ctx.node_id(),
                     kind: ParseErrorKind::TypeMismatch {
                         expected: ValueKind::Text,
-                        actual: node.content.value_kind().unwrap_or(ValueKind::Null),
+                        actual: node.content.value_kind(),
                     },
                 }),
             }

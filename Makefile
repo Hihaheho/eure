@@ -9,7 +9,7 @@ export CARGO_INCREMENTAL=0
 
 .PHONY: check clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eure-check
 
-check: clippy eure-ls-wasm test test-no-default-features fmt-check test-suite eure-check
+check: fmt-check clippy test-no-default-features test test-suite eure-check eure-ls-wasm
 	@echo "All checks passed."
 
 clippy:
