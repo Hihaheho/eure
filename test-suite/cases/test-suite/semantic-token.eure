@@ -1,0 +1,113 @@
+// Test that semantic_tokens scenario can detect mismatches
+
+// Wrong token type: "number" instead of "property" for key
+@cases.token-type-mismatch
+editor = ```eure
+key = 42
+```
+
+semantic_tokens = [
+  ("key", "number"),
+  ("=", "operator"),
+  ("42", "number"),
+]
+
+@ cases.token-type-mismatch.scenario_errors[]
+scenario = "semantic_tokens"
+output = ```
+Semantic tokens mismatch.
+
+--- Expected (3) ---
+("key", "number")
+("=", "operator")
+("42", "number")
+
+--- Actual (3) ---
+("key", "property", ["declaration"])
+("=", "operator")
+("42", "number")
+```
+
+// Extra expected token that doesn't exist in actual
+@cases.extra-expected-token
+editor = ```eure
+key = 42
+```
+
+semantic_tokens = [
+  ("key", "property", ["declaration"]),
+  ("=", "operator"),
+  ("42", "number"),
+  ("extra", "keyword"),
+]
+
+@ cases.extra-expected-token.scenario_errors[]
+scenario = "semantic_tokens"
+output = ```
+Semantic tokens mismatch.
+
+--- Expected (4) ---
+("key", "property", ["declaration"])
+("=", "operator")
+("42", "number")
+("extra", "keyword")
+
+--- Actual (3) ---
+("key", "property", ["declaration"])
+("=", "operator")
+("42", "number")
+```
+
+// Missing expected token: omit ("=", "operator")
+@cases.missing-expected-token
+editor = ```eure
+key = 42
+```
+
+semantic_tokens = [
+  ("key", "property", ["declaration"]),
+  ("42", "number"),
+]
+
+@ cases.missing-expected-token.scenario_errors[]
+scenario = "semantic_tokens"
+output = ```
+Semantic tokens mismatch.
+
+--- Expected (2) ---
+("key", "property", ["declaration"])
+("42", "number")
+
+--- Actual (3) ---
+("key", "property", ["declaration"])
+("=", "operator")
+("42", "number")
+```
+
+// Wrong modifier: missing ["declaration"] on "key"
+@cases.wrong-modifier
+editor = ```eure
+key = 42
+```
+
+semantic_tokens = [
+  ("key", "property"),
+  ("=", "operator"),
+  ("42", "number"),
+]
+
+@ cases.wrong-modifier.scenario_errors[]
+scenario = "semantic_tokens"
+output = ```
+Semantic tokens mismatch.
+
+--- Expected (3) ---
+("key", "property")
+("=", "operator")
+("42", "number")
+
+--- Actual (3) ---
+("key", "property", ["declaration"])
+("=", "operator")
+("42", "number")
+```
