@@ -1,0 +1,14 @@
+editor = ```eure
+@section.name
+key = true
+```
+
+semantic_tokens = [
+  ("@", "sectionMarker", ["sectionHeader"]),
+  ("section", "property", ["declaration", "definition", "sectionHeader"]),
+  (".", "operator", ["sectionHeader"]),
+  ("name", "property", ["declaration", "definition", "sectionHeader"]),
+  ("key", "property", ["declaration"]),
+  ("=", "operator"),
+  ("true", "keyword"),
+]

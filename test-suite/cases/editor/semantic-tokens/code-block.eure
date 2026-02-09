@@ -1,0 +1,13 @@
+editor = ````eure
+code = ```rust
+fn main() {}
+```
+````
+
+semantic_tokens = [
+  ("code", "property", ["declaration"]),
+  ("=", "operator"),
+  ('```', "macro"),
+  ("rust", "decorator"),
+  ('```', "macro"),
+]

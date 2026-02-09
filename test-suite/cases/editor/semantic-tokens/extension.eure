@@ -1,0 +1,10 @@
+editor = ```eure
+$variant = "value"
+```
+
+semantic_tokens = [
+  ("$", "extensionMarker"),
+  ("variant", "extensionIdent", ["declaration"]),
+  ("=", "operator"),
+  ('"value"', "string"),
+]

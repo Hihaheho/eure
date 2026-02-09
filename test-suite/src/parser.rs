@@ -46,6 +46,36 @@ pub struct DiagnosticItem {
 }
 
 // ============================================================================
+// Semantic Tokens Scenario Types
+// ============================================================================
+
+/// A single semantic token expectation: (span, token_type) or (span, token_type, [modifiers])
+#[derive(Debug, Clone, FromEure, BuildSchema)]
+pub enum SemanticTokenItem {
+    WithModifiers(String, String, Vec<String>),
+    Plain(String, String),
+}
+
+impl SemanticTokenItem {
+    pub fn span(&self) -> &str {
+        match self {
+            Self::WithModifiers(span, _, _) | Self::Plain(span, _) => span,
+        }
+    }
+    pub fn token_type(&self) -> &str {
+        match self {
+            Self::WithModifiers(_, tt, _) | Self::Plain(_, tt) => tt,
+        }
+    }
+    pub fn modifiers(&self) -> &[String] {
+        match self {
+            Self::WithModifiers(_, _, mods) => mods,
+            Self::Plain(_, _) => &[],
+        }
+    }
+}
+
+// ============================================================================
 // Scenario Error Testing Types
 // ============================================================================
 
@@ -231,6 +261,9 @@ pub struct CaseData {
     // JSON conversion errors (for testing eure-to-json error messages with spans)
     #[eure(default)]
     pub json_errors: Vec<Text>,
+    // Semantic tokens scenario fields
+    #[eure(default)]
+    pub semantic_tokens: Vec<SemanticTokenItem>,
     // Scenario error testing fields
     /// Assert that specific scenarios fail with expected error output
     #[eure(default)]
@@ -258,6 +291,7 @@ impl CaseData {
             && self.euremark_errors.is_empty()
             && self.editor.is_none()
             && self.json_errors.is_empty()
+            && self.semantic_tokens.is_empty()
             && self.scenario_errors.is_empty()
             && self.scenarios_expected.is_empty()
     }

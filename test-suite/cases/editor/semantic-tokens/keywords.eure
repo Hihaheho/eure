@@ -1,0 +1,17 @@
+editor = ```eure
+a = true
+b = false
+c = null
+```
+
+semantic_tokens = [
+  ("a", "property", ["declaration"]),
+  ("=", "operator"),
+  ("true", "keyword"),
+  ("b", "property", ["declaration"]),
+  ("=", "operator"),
+  ("false", "keyword"),
+  ("c", "property", ["declaration"]),
+  ("=", "operator"),
+  ("null", "keyword"),
+]

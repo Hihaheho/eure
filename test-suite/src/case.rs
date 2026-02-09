@@ -34,6 +34,7 @@ use crate::scenarios::normalization::NormalizationScenario;
 use crate::scenarios::schema_conversion_error::SchemaConversionErrorScenario;
 use crate::scenarios::schema_error_validation::SchemaErrorValidationScenario;
 use crate::scenarios::schema_validation::SchemaValidationScenario;
+use crate::scenarios::semantic_tokens::SemanticTokensScenario;
 use crate::scenarios::toml_to_eure_document::TomlToEureDocumentScenario;
 use crate::scenarios::toml_to_eure_source::TomlToEureSourceScenario;
 use crate::scenarios::toml_to_json::TomlToJsonScenario;
@@ -150,6 +151,7 @@ pub enum Scenario {
     EumdErrorValidation(EumdErrorValidationScenario),
     Completions(CompletionsScenario),
     Diagnostics(DiagnosticsScenario),
+    SemanticTokens(SemanticTokensScenario),
 }
 
 impl Scenario {
@@ -174,6 +176,7 @@ impl Scenario {
             Scenario::EumdErrorValidation(_) => "eumd_error_validation".to_string(),
             Scenario::Completions(_) => "completions".to_string(),
             Scenario::Diagnostics(_) => "diagnostics".to_string(),
+            Scenario::SemanticTokens(_) => "semantic_tokens".to_string(),
         }
     }
 
@@ -196,6 +199,7 @@ impl Scenario {
             Scenario::EumdErrorValidation(s) => s.run(db),
             Scenario::Completions(s) => s.run(db),
             Scenario::Diagnostics(s) => s.run(db),
+            Scenario::SemanticTokens(s) => s.run(db),
         }
     }
 }
@@ -621,6 +625,14 @@ impl Case {
                     editor: Self::resolve_path(editor, &self.editor_file_path()),
                     completions: self.data.completions.clone(),
                     trigger: self.data.trigger.clone(),
+                }));
+            }
+
+            // Semantic tokens scenario - run when semantic_tokens is specified
+            if !self.data.semantic_tokens.is_empty() {
+                scenarios.push(Scenario::SemanticTokens(SemanticTokensScenario {
+                    editor: Self::resolve_path(editor, &self.editor_file_path()),
+                    semantic_tokens: self.data.semantic_tokens.clone(),
                 }));
             }
         }

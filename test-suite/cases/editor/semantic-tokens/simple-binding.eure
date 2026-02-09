@@ -1,0 +1,9 @@
+editor = ```eure
+key = 42
+```
+
+semantic_tokens = [
+  ("key", "property", ["declaration"]),
+  ("=", "operator"),
+  ("42", "number"),
+]

@@ -17,6 +17,7 @@ pub mod normalization;
 pub mod schema_conversion_error;
 pub mod schema_error_validation;
 pub mod schema_validation;
+pub mod semantic_tokens;
 pub mod toml_to_eure_document;
 pub mod toml_to_eure_source;
 pub mod toml_to_json;
@@ -162,6 +163,11 @@ pub enum ScenarioError {
         diagnostic_index: usize,
         span: String,
         occurrences: usize,
+    },
+    /// Semantic tokens mismatch (expected vs actual)
+    SemanticTokensMismatch {
+        expected: Vec<String>,
+        actual: Vec<String>,
     },
     /// Query error
     QueryError(QueryError),
@@ -436,6 +442,18 @@ impl std::fmt::Display for ScenarioError {
                     "Diagnostic span string is ambiguous at index {}.\nSpan {:?} found {} times (must be unique)",
                     diagnostic_index, span, occurrences
                 )
+            }
+            ScenarioError::SemanticTokensMismatch { expected, actual } => {
+                writeln!(f, "Semantic tokens mismatch.")?;
+                writeln!(f, "\n--- Expected ({}) ---", expected.len())?;
+                for token in expected {
+                    writeln!(f, "{}", token)?;
+                }
+                writeln!(f, "\n--- Actual ({}) ---", actual.len())?;
+                for token in actual {
+                    writeln!(f, "{}", token)?;
+                }
+                Ok(())
             }
             ScenarioError::QueryError(error) => {
                 write!(f, "Query error: {}", error)

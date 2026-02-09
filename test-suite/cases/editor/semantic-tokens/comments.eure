@@ -1,0 +1,13 @@
+editor = ```eure
+// line comment
+/* block comment */
+key = 1
+```
+
+semantic_tokens = [
+  ("// line comment\n", "comment"),
+  ("/* block comment */", "comment"),
+  ("key", "property", ["declaration"]),
+  ("=", "operator"),
+  ("1", "number"),
+]

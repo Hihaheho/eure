@@ -1,0 +1,17 @@
+editor = ```eure
+name = "Alice"
+active = true
+count = 42
+```
+
+semantic_tokens = [
+  ("name", "property", ["declaration"]),
+  ("=", "operator"),
+  ('"Alice"', "string"),
+  ("active", "property", ["declaration"]),
+  ("=", "operator"),
+  ("true", "keyword"),
+  ("count", "property", ["declaration"]),
+  ("=", "operator"),
+  ("42", "number"),
+]
