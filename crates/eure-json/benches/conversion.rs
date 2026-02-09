@@ -6,10 +6,11 @@
 //!
 //! Run with: cargo bench -p eure-json
 
+use std::hint::black_box;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use eure::document::{EureDocument, cst_to_document};
 use eure::query::{TextFile, TextFileContent, build_runtime};
 use eure_json::{Config, EureToJson, document_to_value};

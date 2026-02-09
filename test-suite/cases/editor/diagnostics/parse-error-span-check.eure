@@ -12,7 +12,7 @@ severity = "error"
 source = "editor.eure"
 span = "\""
 message = ```
-LA(1): " (Error) at test.eure:1:8-1:9[2].
+LA(1): " (Error) at test.eure:1:8-9[2].
 at non-terminal "Value"
 Current scanner is INITIAL
 Current production is:
@@ -23,7 +23,7 @@ Current production is:
 severity = "error"
 source = "editor.eure"
 message = ```
-LA(1): string (Ident) at test.eure:2:10-2:16[4].
+LA(1): string (Ident) at test.eure:2:10-16[4].
 at non-terminal "KeysList"
 Current scanner is INITIAL
 Current production is:
@@ -34,7 +34,7 @@ Current production is:
 severity = "error"
 source = "editor.eure"
 message = ```
-LA(1): $ (EndOfInput) at test.eure:0:0-0:0[6].
+LA(1): $ (EndOfInput) at test.eure:0:0-0[6].
 at non-terminal "ArrayMarkerOpt"
 Current scanner is INITIAL
 Current production is:
