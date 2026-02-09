@@ -4,18 +4,29 @@
 %line_comment '//'
 %block_comment '/*' '*/'
 
+%on At %enter Header
 %on TextStart %enter Text
 %on CodeBlockStart3 %enter InCodeBlock3
 %on CodeBlockStart4 %enter InCodeBlock4
 %on CodeBlockStart5 %enter InCodeBlock5
 %on CodeBlockStart6 %enter InCodeBlock6
-%on LitStr1Start %enter InLitStr1
-%on LitStr2Start %enter InLitStr2
-%on LitStr3Start %enter InLitStr3
+%on LitStr1Start %push InLitStr1
+%on LitStr2Start %push InLitStr2
+%on LitStr3Start %push InLitStr3
 %on DelimCodeStart1 %enter InDelimCode1
 %on DelimCodeStart2 %enter InDelimCode2
 %on DelimCodeStart3 %enter InDelimCode3
 
+%scanner Header {
+  %auto_newline_off
+  %on NewlineBind %enter INITIAL
+  %on NewlineTextStart %enter Text
+  %on GrammarNewline %enter INITIAL
+  %on Begin %enter INITIAL
+  %on LitStr1Start %push InLitStr1
+  %on LitStr2Start %push InLitStr2
+  %on LitStr3Start %push InLitStr3
+}
 %scanner Text {
   %auto_newline_off
   %auto_ws_off
@@ -26,17 +37,20 @@
 %scanner InCodeBlock4 { %auto_newline_off %auto_ws_off %on CodeBlockEnd4 %enter INITIAL }
 %scanner InCodeBlock5 { %auto_newline_off %auto_ws_off %on CodeBlockEnd5 %enter INITIAL }
 %scanner InCodeBlock6 { %auto_newline_off %auto_ws_off %on CodeBlockEnd6 %enter INITIAL }
-%scanner InLitStr1 { %auto_newline_off %auto_ws_off %on LitStr1End %enter INITIAL }
-%scanner InLitStr2 { %auto_newline_off %auto_ws_off %on LitStr2End %enter INITIAL }
-%scanner InLitStr3 { %auto_newline_off %auto_ws_off %on LitStr3End %enter INITIAL }
+%scanner InLitStr1 { %auto_newline_off %auto_ws_off %on LitStr1End %pop }
+%scanner InLitStr2 { %auto_newline_off %auto_ws_off %on LitStr2End %pop }
+%scanner InLitStr3 { %auto_newline_off %auto_ws_off %on LitStr3End %pop }
 %scanner InDelimCode1 { %auto_newline_off %auto_ws_off %on DelimCodeEnd1 %enter INITIAL }
 %scanner InDelimCode2 { %auto_newline_off %auto_ws_off %on DelimCodeEnd2 %enter INITIAL }
 %scanner InDelimCode3 { %auto_newline_off %auto_ws_off %on DelimCodeEnd3 %enter INITIAL }
 
 %%
 
-Eure: [ RootBinding ] { Binding } { Section } ;
-RootBinding: ValueBinding | TextBinding ;
+Eure: [ TopLevelBinding ] { Binding } { Section } ;
+TopLevelBinding: ValueBinding | TextBinding ;
+RootBinding: RootValueBinding | RootTextBinding ;
+  RootValueBinding: NewlineBind Value ;
+  RootTextBinding: NewlineTextStart [Ws^] [Text] [GrammarNewline] ;
 
 Binding: Keys BindingRhs ;
   BindingRhs: ValueBinding | SectionBinding | TextBinding ;
@@ -45,11 +59,18 @@ Binding: Keys BindingRhs ;
   TextBinding: TextStart [Ws^] [Text] [GrammarNewline] ;
 
 Section: At Keys SectionBody ;
-  SectionBody: [ RootBinding ] { Binding } | Begin Eure End ;
-  Keys: Key { Dot Key } ;
-  Key: KeyBase [ ArrayMarker ] ;
+  SectionBody: [ FlatBody ] | BlockBody ;
+  FlatBody: SectionHead { Binding } ;
+  SectionHead: RootBinding | NewlineHead ;
+  NewlineHead: GrammarNewline [ FlatRootBinding ] ;
+  FlatRootBinding: ValueBinding | TextBinding ;
+  BlockBody: Begin Eure End ;
+  Keys: FirstKey { KeyTail } ;
+  FirstKey: Key | ArrayMarker ;
+  KeyTail: DotKey | ArrayMarker ;
+  DotKey: Dot Key ;
   ArrayMarker: ArrayBegin [ Integer ] ArrayEnd ;
-  KeyBase: KeyIdent | ExtensionNameSpace | String | Integer | Float | KeyTuple | TupleIndex ;
+  Key: KeyIdent | ExtensionNameSpace | String | Integer | Float | KeyTuple | TupleIndex ;
   TupleIndex: '#' Integer ;
   // extension name must always be valid ident, not quoted ident
   ExtensionNameSpace: Ext KeyIdent ;
@@ -74,17 +95,17 @@ Value: Object | Array | Tuple | Number | Boolean | Null | Strings | Hole | CodeB
   // Number: unified numeric type (Float before Integer for longest match)
   Number: Float | Integer | Inf | NaN ;
   // Integer: optional sign, digits with underscores
-  Integer: /[-+]?\d[\d_]*/ ;
+  Integer: <INITIAL, Header>/[-+]?\d[\d_]*/ ;
   // Float: requires decimal point or exponent, optional f32/f64 suffix
   // NOTE: Requires at least one digit after decimal to avoid conflicts with dot-separated integer keys (e.g., a.1.x)
-  Float: /[-+]?\d[\d_]*\.\d+([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/ ;
+  Float: <INITIAL, Header>/[-+]?\d[\d_]*\.\d+([eE][-+]?\d+)?(f32|f64)?|[-+]?\d[\d_]*[eE][-+]?\d+(f32|f64)?/ ;
   // Infinity and NaN as separate tokens
   Inf: /[-+]?[Ii]nf/ ;
   NaN: /[Nn]a[Nn]/ ;
   Boolean: True | False ;
-  True: 'true' ;
-  False: 'false';
-  Null: 'null' ;
+  True: <INITIAL, Header>'true' ;
+  False: <INITIAL, Header>'false';
+  Null: <INITIAL, Header>'null' ;
   Hole: /![\p{XID_Start}_]?[\p{XID_Continue}-]*/ ;
 
 // Unified String type for both keys and values
@@ -96,10 +117,10 @@ String: Str | LitStr | LitStr1 | LitStr2 | LitStr3 ;
 Strings: String { Continue String } ;
 
 // Escaped string: "..." with backslash escapes
-Str: /"([^"]|\\")*"/ ;
+Str: <INITIAL, Header>/"([^"]|\\")*"/ ;
 
 // Literal string: '...' with no escape processing (single quote cannot appear inside)
-LitStr: /'[^']*'/ ;
+LitStr: <INITIAL, Header>/'[^']*'/ ;
 
 // No escape character in text
 Text: <Text>/[^\r\n]*/ ;
@@ -129,9 +150,9 @@ CodeBlock5: CodeBlockStart5 { NoBacktick | Backtick4 } CodeBlockEnd5;
 CodeBlock6: CodeBlockStart6 { NoBacktick | Backtick5 } CodeBlockEnd6;
 
 // Start tokens for delimited literal strings (order: longest first)
-LitStr3Start: "<<<'" ;
-LitStr2Start: "<<'" ;
-LitStr1Start: "<'" ;
+LitStr3Start: <INITIAL, Header>"<<<'" ;
+LitStr2Start: <INITIAL, Header>"<<'" ;
+LitStr1Start: <INITIAL, Header>"<'" ;
 
 // Start tokens for delimited code with optional language prefix (order: longest first)
 DelimCodeStart3: /[a-zA-Z0-9-_]*<<<`/ ;
@@ -175,19 +196,21 @@ DelimCodeEnd2: <InDelimCode2>'`>>' ;
 DelimCodeEnd1: <InDelimCode1>'`>' ;
 BacktickDelim: <InDelimCode1, InDelimCode2, InDelimCode3>'`' ;
 
-GrammarNewline: <Text>/\r\n|\r|\n/ ;
+GrammarNewline: <Text, Header>/\r\n|\r|\n/ ;
 Ws: <Text>/[\s--\r\n]+/ ;
-At: '@' ;
-Ext: '$' ;
-Dot: '.' ;
-Begin: '{' ;
+At: <INITIAL, Header>'@' ;
+Ext: <INITIAL, Header>'$' ;
+Dot: <INITIAL, Header>'.' ;
+Begin: <INITIAL, Header>'{' ;
 End: '}' ;
-ArrayBegin: '[' ;
-ArrayEnd: ']' ;
-LParen: '(' ;
-RParen: ')' ;
+ArrayBegin: <INITIAL, Header>'[' ;
+ArrayEnd: <INITIAL, Header>']' ;
+LParen: <INITIAL, Header>'(' ;
+RParen: <INITIAL, Header>')' ;
+NewlineBind: <Header>/(\r\n|\r|\n)*=/ ;
 Bind: '=' ;
-Comma: ',' ;
+Comma: <INITIAL, Header>',' ;
 Continue: '\' ;
+NewlineTextStart: <Header>/(\r\n|\r|\n)*:/ ;
 TextStart: ":" ;
-Ident: /[\p{XID_Start}_][\p{XID_Continue}-]*/ ;
+Ident: <INITIAL, Header>/[\p{XID_Start}_][\p{XID_Continue}-]*/ ;

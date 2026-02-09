@@ -376,7 +376,10 @@ impl<'a> SemanticTokenVisitor<'a> {
             | TerminalKind::LitStr3Start
             | TerminalKind::DelimCodeStart1
             | TerminalKind::DelimCodeStart2
-            | TerminalKind::DelimCodeStart3 => None,
+            | TerminalKind::DelimCodeStart3
+            // Handled specially in visit_terminal (span trimming)
+            | TerminalKind::NewlineBind
+            | TerminalKind::NewlineTextStart => None,
         }
     }
 }
@@ -405,6 +408,22 @@ impl<F: CstFacade> CstVisitor<F> for SemanticTokenVisitor<'_> {
         let TerminalData::Input(span) = data else {
             return Ok(());
         };
+
+        // NewlineBind (/(\r\n|\r|\n)*=/) and NewlineTextStart (/(\r\n|\r|\n)*:/)
+        // include leading newlines in the token span — only emit the trailing = or :
+        if kind == TerminalKind::NewlineBind || kind == TerminalKind::NewlineTextStart {
+            let token_type = if kind == TerminalKind::NewlineBind {
+                SemanticTokenType::Operator
+            } else {
+                SemanticTokenType::Punctuation
+            };
+            let last_char = InputSpan {
+                start: span.end - 1,
+                end: span.end,
+            };
+            self.emit_token_with_modifiers(last_char, token_type, 0);
+            return Ok(());
+        }
 
         let Some(token_type) = self.terminal_to_token_type(kind) else {
             return Ok(());

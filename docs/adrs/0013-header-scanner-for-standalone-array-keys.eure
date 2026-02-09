@@ -1,0 +1,151 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0013-header-scanner-for-standalone-array-keys"
+title = "Header Scanner for Standalone Array Marker Keys"
+status = "accepted"
+decision-date = `2026-02-07`
+tags = ["grammar", "parser", "array", "scanner"]
+
+context = ````markdown
+Eure's array push syntax `[]` was previously modeled as an optional suffix on keys:
+
+```
+Key: KeyBase [ ArrayMarker ] ;
+KeyBase: KeyIdent | ExtensionNameSpace | String | Integer | Float | KeyTuple | TupleIndex ;
+```
+
+This meant `[]` always required a preceding key identifier (e.g., `actions[] = 1`). Standalone
+`[]` as a key was not supported, preventing useful patterns in section bodies:
+
+```eure
+@items
+
+[]: item 1
+[]: item 2
+[][0][] = "nested"
+```
+
+Making `ArrayMarker` an independent key variant introduces an ambiguity in section headers.
+Given the input `@ a.b[] [] = 1`, the parser cannot determine where the section's `Keys` end
+and the binding's `Keys` begin — is the second `[]` part of the section path (`a.b[][]`) or
+the start of a binding key (`[] = 1`)?
+
+The LL(k) parser cannot resolve this with finite lookahead because `Keys` is a repeating
+sequence of key segments, and both section keys and binding keys share the same `[]` syntax.
+````
+
+decision = ````markdown
+Introduce a **Header scanner** with `%auto_newline_off` to make newlines a mandatory boundary
+between section header keys and body bindings.
+
+### Header Scanner
+
+When `@` is encountered, the scanner enters the Header state. In this state, newlines are
+**not** automatically skipped — they become significant tokens that the grammar must explicitly
+consume. This makes newlines function as the boundary between section keys and body content:
+
+```
+%on At %enter Header
+
+%scanner Header {
+  %auto_newline_off
+  %on NewlineBind %enter INITIAL
+  %on NewlineTextStart %enter Text
+  %on GrammarNewline %enter INITIAL
+  %on Begin %enter INITIAL
+}
+```
+
+### NewlineBind / NewlineTextStart Tokens
+
+Because Header has `%auto_newline_off`, newlines before `=` or `:` are not automatically
+consumed. Without special handling, a root binding like the following would fail to parse
+because the newline blocks the `=` token:
+
+```eure
+@section
+= value
+```
+
+`NewlineBind` (`/(\r\n|\r|\n)*=/`) and `NewlineTextStart` (`/(\r\n|\r|\n)*:/`) are
+Header-only tokens that consume zero or more newlines together with the operator as a single
+token. This allows users to write root bindings both inline and after newlines:
+
+```eure
+@section= value       // NewlineBind matches "=" (zero newlines)
+@section
+= value               // NewlineBind matches "\n=" (one newline)
+```
+
+For regular bindings (`key = value`), the newline before the key does **not** precede `=`,
+so `NewlineBind` cannot match. Instead `GrammarNewline` consumes the newline, transitions to
+INITIAL, and `key = value` is parsed as a normal `Binding`:
+
+```eure
+@section
+key = value           // GrammarNewline matches "\n", then Binding in INITIAL
+```
+
+### Key Grammar
+
+`Key` becomes a flat enum without the `ArrayMarker` suffix. `ArrayMarker` is an independent
+variant in `FirstKey` and `KeyTail`:
+
+```parol
+Keys: FirstKey { KeyTail } ;
+FirstKey: Key | ArrayMarker ;
+KeyTail: DotKey | ArrayMarker ;
+DotKey: Dot Key ;
+Key: KeyIdent | ExtensionNameSpace | String | Integer | Float | KeyTuple | TupleIndex ;
+```
+
+### Section Body
+
+```parol
+Section: At Keys SectionBody ;
+SectionBody: [ FlatBody ] | BlockBody ;
+FlatBody: SectionHead { Binding } ;
+SectionHead: RootBinding | NewlineHead ;
+RootBinding: RootValueBinding | RootTextBinding ;
+RootValueBinding: NewlineBind Value ;
+RootTextBinding: NewlineTextStart [Ws^] [Text] [GrammarNewline] ;
+NewlineHead: GrammarNewline [ FlatRootBinding ] ;
+FlatRootBinding: ValueBinding | TextBinding ;
+BlockBody: Begin Eure End ;
+```
+````
+
+consequences = ```markdown
+**Positive:**
+
+- Standalone `[]` keys are now supported, enabling array-push patterns in section bodies
+- Newlines serve as a clear, intuitive boundary between section headers and body content
+- No syntactic ambiguity for the LL(1) parser
+- Root bindings work both inline (`@section= value`) and after newlines (`@section\n= value`)
+
+**Negative:**
+
+- Section headers and body bindings must be separated by a newline (or `{` for block bodies),
+  making `@ section key = value` on a single line invalid
+- Additional scanner state and Header-only tokens increase grammar complexity
+- Tokens used in key positions (Integer, Float, Str, Ident, etc.) require explicit
+  `<INITIAL, Header>` scanner prefixes
+- `LitStr` scanners must use `%push`/`%pop` instead of `%enter`/`%enter INITIAL` to correctly
+  return to the originating scanner (Header or INITIAL)
+```
+
+alternatives-considered = [
+  ```markdown
+  **Require a dot before array index (like other key segments):**
+  Keep `Keys: Key { Dot Key }` and add `ArrayMarker` as a `Key` variant. Array indexing
+  would use dot-separated syntax: `a.[0]`, `a.[]`, `items.[].name`.
+
+  Rejected because:
+  - Breaks the established `a[]`, `a[0]` syntax that users already expect
+  - Most programming languages users are familiar with use `a[0]`, not `a.[0]` —
+    dot-separated array indexing would feel unnatural
+  - `a.[]` is visually noisy compared to `a[]`
+  - Array indexing is syntactically distinct from named keys (brackets are self-delimiting),
+    so requiring a dot adds no clarity
+  ```,
+]

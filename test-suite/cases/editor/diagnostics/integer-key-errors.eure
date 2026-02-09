@@ -88,7 +88,7 @@ item.2.3[] = "array-item"
 severity = "error"
 source = "editor.eure"
 message = "Document insert error: Insert error: Expected array at item.2.3"
-span = "2.3[]"
+span = "[]"
 
 // First error stops document construction
 @cases.first-error-stops

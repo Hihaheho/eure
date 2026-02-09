@@ -411,8 +411,6 @@ impl<'a> CstInterpreter<'a> {
     /// Handle Float token in key position by splitting <int>.<int> into two integer keys
     fn handle_float_as_integer_keys<F: CstFacade>(
         &mut self,
-        handle: KeyHandle,
-        view: KeyView,
         float_handle: FloatHandle,
         tree: &F,
     ) -> Result<(), DocumentConstructionError> {
@@ -508,30 +506,6 @@ impl<'a> CstInterpreter<'a> {
 
         let second_child_id = self.document.current_node_id();
         self.record_definition(second_child_id, float_handle.node_id());
-
-        // Handle ArrayMarker if present (e.g., a.3.1[0])
-        let key_opt_view = view.key_opt.get_view(tree)?;
-        if let Some(array_marker_handle) = key_opt_view {
-            let array_marker_view = array_marker_handle.get_view(tree)?;
-            let index =
-                if let Some(int_handle) = array_marker_view.array_marker_opt.get_view(tree)? {
-                    let int_view = int_handle.get_view(tree)?;
-                    let str = self.get_terminal_str(tree, int_view.integer)?;
-                    let index: usize = str
-                        .parse()
-                        .map_err(|_| DocumentConstructionError::InvalidInteger(str.to_string()))?;
-                    Some(index)
-                } else {
-                    None
-                };
-            self.document
-                .navigate(PathSegment::ArrayIndex(index))
-                .map_err(|e| DocumentConstructionError::DocumentInsert {
-                    error: e,
-                    node_id: handle.node_id(),
-                    parent_node_id: None,
-                })?;
-        }
 
         Ok(())
     }
@@ -759,20 +733,17 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
     }
 
     fn visit_key(&mut self, handle: KeyHandle, view: KeyView, tree: &F) -> Result<(), Self::Error> {
-        // 1. KeyBase から PathSegment を構築
-        let key_base_view = view.key_base.get_view(tree)?;
-
         // Special handling for Float -> two integer keys
-        if let KeyBaseView::Float(float_handle) = key_base_view {
-            return self.handle_float_as_integer_keys(handle, view, float_handle, tree);
+        if let KeyView::Float(float_handle) = view {
+            return self.handle_float_as_integer_keys(float_handle, tree);
         }
 
         // Capture container node ID before navigation (for key origin tracking)
         let container_id = self.document.current_node_id();
 
         // Build segment and optionally capture key origin info for ObjectKey-based keys
-        let (segment, key_origin_info) = match key_base_view {
-            KeyBaseView::KeyIdent(ident_handle) => {
+        let (segment, key_origin_info) = match view {
+            KeyView::KeyIdent(ident_handle) => {
                 let ident_str = self.get_key_ident_str(tree, ident_handle)?;
                 let identifier: Identifier = ident_str.parse()?;
                 // Record key origin as string key (identifiers become string keys in maps)
@@ -782,13 +753,13 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     Some((object_key, ident_handle.node_id())),
                 )
             }
-            KeyBaseView::ExtensionNameSpace(ext_handle) => {
+            KeyView::ExtensionNameSpace(ext_handle) => {
                 let ext_view = ext_handle.get_view(tree)?;
                 let ident_str = self.get_key_ident_str(tree, ext_view.key_ident)?;
                 let identifier: Identifier = ident_str.parse()?;
                 (PathSegment::Extension(identifier), None)
             }
-            KeyBaseView::String(string_handle) => {
+            KeyView::String(string_handle) => {
                 let content = self.parse_string(string_handle, tree)?;
                 let object_key = ObjectKey::String(content);
                 (
@@ -796,7 +767,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     Some((object_key, string_handle.node_id())),
                 )
             }
-            KeyBaseView::Integer(int_handle) => {
+            KeyView::Integer(int_handle) => {
                 let int_view = int_handle.get_view(tree)?;
                 let str = self.get_terminal_str(tree, int_view.integer)?;
                 let big_int: BigInt = str
@@ -808,7 +779,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     Some((object_key, int_handle.node_id())),
                 )
             }
-            KeyBaseView::KeyTuple(tuple_handle) => {
+            KeyView::KeyTuple(tuple_handle) => {
                 // Use visitor pattern to collect ObjectKeys
                 self.collecting_object_keys.push(vec![]);
                 self.visit_key_tuple_handle(tuple_handle, tree)?;
@@ -821,7 +792,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                     Some((object_key, tuple_handle.node_id())),
                 )
             }
-            KeyBaseView::TupleIndex(tuple_index_handle) => {
+            KeyView::TupleIndex(tuple_index_handle) => {
                 let tuple_index_view = tuple_index_handle.get_view(tree)?;
                 let int_view = tuple_index_view.integer.get_view(tree)?;
                 let str = self.get_terminal_str(tree, int_view.integer)?;
@@ -833,7 +804,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                         })?;
                 (PathSegment::TupleIndex(length), None)
             }
-            KeyBaseView::Float(_) => unreachable!("Float handled above"),
+            KeyView::Float(_) => unreachable!("handled above"),
         };
 
         // Capture CST node ID before consuming key_origin_info
@@ -844,7 +815,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             self.record_key_origin(container_id, object_key, key_cst_node_id);
         }
 
-        // 2. Navigate to this segment
+        // Navigate to this segment
         self.document
             .navigate(segment)
             .map_err(|e| DocumentConstructionError::DocumentInsert {
@@ -860,30 +831,32 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
             self.record_definition(child_id, cst_node_id);
         }
 
-        // 3. ArrayMarker の処理
-        let key_opt_view = view.key_opt.get_view(tree)?;
-        if let Some(array_marker_handle) = key_opt_view {
-            let array_marker_view = array_marker_handle.get_view(tree)?;
-            let index =
-                if let Some(int_handle) = array_marker_view.array_marker_opt.get_view(tree)? {
-                    let int_view = int_handle.get_view(tree)?;
-                    let str = self.get_terminal_str(tree, int_view.integer)?;
-                    let index: usize = str
-                        .parse()
-                        .map_err(|_| DocumentConstructionError::InvalidInteger(str.to_string()))?;
-                    Some(index)
-                } else {
-                    None
-                };
-            self.document
-                .navigate(PathSegment::ArrayIndex(index))
-                .map_err(|e| DocumentConstructionError::DocumentInsert {
-                    error: e,
-                    node_id: handle.node_id(),
-                    parent_node_id: None,
-                })?;
-        }
+        Ok(())
+    }
 
+    fn visit_array_marker(
+        &mut self,
+        handle: ArrayMarkerHandle,
+        view: ArrayMarkerView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let index = if let Some(int_handle) = view.array_marker_opt.get_view(tree)? {
+            let int_view = int_handle.get_view(tree)?;
+            let str = self.get_terminal_str(tree, int_view.integer)?;
+            let index: usize = str
+                .parse()
+                .map_err(|_| DocumentConstructionError::InvalidInteger(str.to_string()))?;
+            Some(index)
+        } else {
+            None
+        };
+        self.document
+            .navigate(PathSegment::ArrayIndex(index))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+                parent_node_id: None,
+            })?;
         Ok(())
     }
 
@@ -1032,7 +1005,7 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
 
         // Determine if this is a block section (@ path { }) or item section (@ path)
         let section_body_view = section_body.get_view(tree)?;
-        let is_block = matches!(section_body_view, SectionBodyView::Alt1(_));
+        let is_block = matches!(section_body_view, SectionBodyView::BlockBody(_));
 
         if is_block {
             self.document.begin_eure_block();
@@ -1081,15 +1054,11 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
         tree: &F,
     ) -> Result<(), Self::Error> {
         match view {
-            SectionBodyView::Alt0(alt0) => {
-                // TOML-like section: `@ foo` followed by optional bindings
-                // Check if section body is truly empty (no ValueBinding, no Bindings)
-                let has_value_binding = alt0.section_body_opt.get_view(tree)?.is_some();
-                let has_bindings = alt0.section_body_list.get_view(tree)?.is_some();
-                let is_empty = !has_value_binding && !has_bindings;
-
-                // Only convert Hole to empty map if section body was truly empty
-                if is_empty {
+            SectionBodyView::SectionBodyOpt(section_body_opt) => {
+                if let Some(flat_body_handle) = section_body_opt.get_view(tree)? {
+                    self.visit_flat_body_handle(flat_body_handle, tree)?;
+                } else {
+                    // Empty section body (no newline, no bindings): bind as empty map
                     self.document.bind_empty_map().map_err(|e| {
                         DocumentConstructionError::DocumentInsert {
                             error: e,
@@ -1097,17 +1066,75 @@ impl<F: CstFacade> CstVisitor<F> for CstInterpreter<'_> {
                             parent_node_id: None,
                         }
                     })?;
-                } else {
-                    // Visit children using the default super implementation
-                    self.visit_section_body_super(handle, view, tree)?;
                 }
             }
-            SectionBodyView::Alt1(_) => {
-                // Block-style section: `@ foo { ... }`
-                // visit_eure handles the empty case
+            SectionBodyView::BlockBody(_) => {
                 self.visit_section_body_super(handle, view, tree)?;
             }
         }
+        Ok(())
+    }
+
+    fn visit_flat_body(
+        &mut self,
+        handle: FlatBodyHandle,
+        view: FlatBodyView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let section_head_view = view.section_head.get_view(tree)?;
+        let has_bindings = view.flat_body_list.get_view(tree)?.is_some();
+        let has_root_binding = match &section_head_view {
+            SectionHeadView::RootBinding(_) => true,
+            SectionHeadView::NewlineHead(newline_head_handle) => {
+                let newline_head_view = newline_head_handle.get_view(tree)?;
+                newline_head_view.newline_head_opt.get_view(tree)?.is_some()
+            }
+        };
+        let is_empty = !has_root_binding && !has_bindings;
+
+        if is_empty {
+            // Empty section body (just a newline, no bindings): bind as empty map
+            self.document.bind_empty_map().map_err(|e| {
+                DocumentConstructionError::DocumentInsert {
+                    error: e,
+                    node_id: handle.node_id(),
+                    parent_node_id: None,
+                }
+            })?;
+        } else {
+            self.visit_flat_body_super(handle, view, tree)?;
+        }
+        Ok(())
+    }
+
+    fn visit_root_text_binding(
+        &mut self,
+        handle: RootTextBindingHandle,
+        view: RootTextBindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text_view = view.root_text_binding_opt_0.get_view(tree)?;
+        let text = if let Some(text_handle) = text_view {
+            let text_view = text_handle.get_view(tree)?;
+            let text_str = self.get_terminal_str(tree, text_view.text)?;
+            Text::parse_text_binding(text_str).map_err(|error| {
+                DocumentConstructionError::InvalidStringKey {
+                    node_id: text_handle.node_id(),
+                    error,
+                }
+            })?
+        } else {
+            Text::new(String::new(), Language::Plaintext)
+        };
+        let node_id = self.document.current_node_id();
+        self.document
+            .bind_primitive(PrimitiveValue::Text(text))
+            .map_err(|e| DocumentConstructionError::DocumentInsert {
+                error: e,
+                node_id: handle.node_id(),
+                parent_node_id: None,
+            })?;
+        self.record_value(node_id, handle.node_id());
         Ok(())
     }
 

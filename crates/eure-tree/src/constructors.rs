@@ -903,6 +903,23 @@ impl From<RParenToken> for BuilderNodeId {
         token.node_id
     }
 }
+///Branded type for NewlineBind terminal
+#[derive(Debug, Clone)]
+pub struct NewlineBindToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NewlineBindToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NewlineBindToken> for BuilderNodeId {
+    fn from(token: NewlineBindToken) -> Self {
+        token.node_id
+    }
+}
 ///Branded type for Bind terminal
 #[derive(Debug, Clone)]
 pub struct BindToken {
@@ -951,6 +968,23 @@ impl EscToken {
 }
 impl From<EscToken> for BuilderNodeId {
     fn from(token: EscToken) -> Self {
+        token.node_id
+    }
+}
+///Branded type for NewlineTextStart terminal
+#[derive(Debug, Clone)]
+pub struct NewlineTextStartToken {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NewlineTextStartToken {
+    /// Consume this token and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NewlineTextStartToken> for BuilderNodeId {
+    fn from(token: NewlineTextStartToken) -> Self {
         token.node_id
     }
 }
@@ -1325,6 +1359,23 @@ impl BindingRhsNode {
 }
 impl From<BindingRhsNode> for BuilderNodeId {
     fn from(node: BindingRhsNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for BlockBody non-terminal
+#[derive(Debug, Clone)]
+pub struct BlockBodyNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl BlockBodyNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<BlockBodyNode> for BuilderNodeId {
+    fn from(node: BlockBodyNode) -> Self {
         node.node_id
     }
 }
@@ -2025,6 +2076,23 @@ impl From<DotNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for DotKey non-terminal
+#[derive(Debug, Clone)]
+pub struct DotKeyNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl DotKeyNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<DotKeyNode> for BuilderNodeId {
+    fn from(node: DotKeyNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for End non-terminal
 #[derive(Debug, Clone)]
 pub struct EndNode {
@@ -2158,6 +2226,74 @@ impl FalseNode {
 }
 impl From<FalseNode> for BuilderNodeId {
     fn from(node: FalseNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for FirstKey non-terminal
+#[derive(Debug, Clone)]
+pub struct FirstKeyNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl FirstKeyNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<FirstKeyNode> for BuilderNodeId {
+    fn from(node: FirstKeyNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for FlatBody non-terminal
+#[derive(Debug, Clone)]
+pub struct FlatBodyNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl FlatBodyNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<FlatBodyNode> for BuilderNodeId {
+    fn from(node: FlatBodyNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for FlatBodyList non-terminal
+#[derive(Debug, Clone)]
+pub struct FlatBodyListNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl FlatBodyListNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<FlatBodyListNode> for BuilderNodeId {
+    fn from(node: FlatBodyListNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for FlatRootBinding non-terminal
+#[derive(Debug, Clone)]
+pub struct FlatRootBindingNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl FlatRootBindingNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<FlatRootBindingNode> for BuilderNodeId {
+    fn from(node: FlatRootBindingNode) -> Self {
         node.node_id
     }
 }
@@ -2314,23 +2450,6 @@ impl From<KeyNode> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for KeyBase non-terminal
-#[derive(Debug, Clone)]
-pub struct KeyBaseNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl KeyBaseNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<KeyBaseNode> for BuilderNodeId {
-    fn from(node: KeyBaseNode) -> Self {
-        node.node_id
-    }
-}
 ///Branded type for KeyIdent non-terminal
 #[derive(Debug, Clone)]
 pub struct KeyIdentNode {
@@ -2348,20 +2467,20 @@ impl From<KeyIdentNode> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for KeyOpt non-terminal
+///Branded type for KeyTail non-terminal
 #[derive(Debug, Clone)]
-pub struct KeyOptNode {
+pub struct KeyTailNode {
     pub(super) node_id: BuilderNodeId,
     pub(super) builder: CstBuilder,
 }
-impl KeyOptNode {
+impl KeyTailNode {
     /// Consume this node and return its builder
     pub fn into_builder(self) -> CstBuilder {
         self.builder
     }
 }
-impl From<KeyOptNode> for BuilderNodeId {
-    fn from(node: KeyOptNode) -> Self {
+impl From<KeyTailNode> for BuilderNodeId {
+    fn from(node: KeyTailNode) -> Self {
         node.node_id
     }
 }
@@ -2841,6 +2960,74 @@ impl From<NaNNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for NewlineBind non-terminal
+#[derive(Debug, Clone)]
+pub struct NewlineBindNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NewlineBindNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NewlineBindNode> for BuilderNodeId {
+    fn from(node: NewlineBindNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for NewlineHead non-terminal
+#[derive(Debug, Clone)]
+pub struct NewlineHeadNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NewlineHeadNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NewlineHeadNode> for BuilderNodeId {
+    fn from(node: NewlineHeadNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for NewlineHeadOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct NewlineHeadOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NewlineHeadOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NewlineHeadOptNode> for BuilderNodeId {
+    fn from(node: NewlineHeadOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for NewlineTextStart non-terminal
+#[derive(Debug, Clone)]
+pub struct NewlineTextStartNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl NewlineTextStartNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<NewlineTextStartNode> for BuilderNodeId {
+    fn from(node: NewlineTextStartNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for NoBacktick non-terminal
 #[derive(Debug, Clone)]
 pub struct NoBacktickNode {
@@ -3028,6 +3215,91 @@ impl From<RootBindingNode> for BuilderNodeId {
         node.node_id
     }
 }
+///Branded type for RootTextBinding non-terminal
+#[derive(Debug, Clone)]
+pub struct RootTextBindingNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RootTextBindingNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RootTextBindingNode> for BuilderNodeId {
+    fn from(node: RootTextBindingNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for RootTextBindingOpt non-terminal
+#[derive(Debug, Clone)]
+pub struct RootTextBindingOptNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RootTextBindingOptNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RootTextBindingOptNode> for BuilderNodeId {
+    fn from(node: RootTextBindingOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for RootTextBindingOpt0 non-terminal
+#[derive(Debug, Clone)]
+pub struct RootTextBindingOpt0Node {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RootTextBindingOpt0Node {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RootTextBindingOpt0Node> for BuilderNodeId {
+    fn from(node: RootTextBindingOpt0Node) -> Self {
+        node.node_id
+    }
+}
+///Branded type for RootTextBindingOpt1 non-terminal
+#[derive(Debug, Clone)]
+pub struct RootTextBindingOpt1Node {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RootTextBindingOpt1Node {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RootTextBindingOpt1Node> for BuilderNodeId {
+    fn from(node: RootTextBindingOpt1Node) -> Self {
+        node.node_id
+    }
+}
+///Branded type for RootValueBinding non-terminal
+#[derive(Debug, Clone)]
+pub struct RootValueBindingNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl RootValueBindingNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<RootValueBindingNode> for BuilderNodeId {
+    fn from(node: RootValueBindingNode) -> Self {
+        node.node_id
+    }
+}
 ///Branded type for SQuote non-terminal
 #[derive(Debug, Clone)]
 pub struct SQuoteNode {
@@ -3096,23 +3368,6 @@ impl From<SectionBodyNode> for BuilderNodeId {
         node.node_id
     }
 }
-///Branded type for SectionBodyList non-terminal
-#[derive(Debug, Clone)]
-pub struct SectionBodyListNode {
-    pub(super) node_id: BuilderNodeId,
-    pub(super) builder: CstBuilder,
-}
-impl SectionBodyListNode {
-    /// Consume this node and return its builder
-    pub fn into_builder(self) -> CstBuilder {
-        self.builder
-    }
-}
-impl From<SectionBodyListNode> for BuilderNodeId {
-    fn from(node: SectionBodyListNode) -> Self {
-        node.node_id
-    }
-}
 ///Branded type for SectionBodyOpt non-terminal
 #[derive(Debug, Clone)]
 pub struct SectionBodyOptNode {
@@ -3127,6 +3382,23 @@ impl SectionBodyOptNode {
 }
 impl From<SectionBodyOptNode> for BuilderNodeId {
     fn from(node: SectionBodyOptNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for SectionHead non-terminal
+#[derive(Debug, Clone)]
+pub struct SectionHeadNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl SectionHeadNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<SectionHeadNode> for BuilderNodeId {
+    fn from(node: SectionHeadNode) -> Self {
         node.node_id
     }
 }
@@ -3297,6 +3569,23 @@ impl TextStartNode {
 }
 impl From<TextStartNode> for BuilderNodeId {
     fn from(node: TextStartNode) -> Self {
+        node.node_id
+    }
+}
+///Branded type for TopLevelBinding non-terminal
+#[derive(Debug, Clone)]
+pub struct TopLevelBindingNode {
+    pub(super) node_id: BuilderNodeId,
+    pub(super) builder: CstBuilder,
+}
+impl TopLevelBindingNode {
+    /// Consume this node and return its builder
+    pub fn into_builder(self) -> CstBuilder {
+        self.builder
+    }
+}
+impl From<TopLevelBindingNode> for BuilderNodeId {
+    fn from(node: TopLevelBindingNode) -> Self {
         node.node_id
     }
 }
@@ -3789,6 +4078,22 @@ impl BindingRhsConstructor {
         };
         let node_id = builder.non_terminal(NonTerminalKind::BindingRhs, vec![child_id]);
         BindingRhsNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct BlockBodyConstructor {
+    begin: BeginNode,
+    eure: EureNode,
+    end: EndNode,
+}
+impl BlockBodyConstructor {
+    pub fn build(self) -> BlockBodyNode {
+        let mut builder = CstBuilder::new();
+        let begin = builder.embed(self.begin.builder);
+        let eure = builder.embed(self.eure.builder);
+        let end = builder.embed(self.end.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::BlockBody, vec![begin, eure, end]);
+        BlockBodyNode { node_id, builder }
     }
 }
 pub enum BooleanConstructor {
@@ -4467,6 +4772,20 @@ impl DotConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct DotKeyConstructor {
+    dot: DotNode,
+    key: KeyNode,
+}
+impl DotKeyConstructor {
+    pub fn build(self) -> DotKeyNode {
+        let mut builder = CstBuilder::new();
+        let dot = builder.embed(self.dot.builder);
+        let key = builder.embed(self.key.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::DotKey, vec![dot, key]);
+        DotKeyNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct EndConstructor {
     r_brace: RBraceToken,
 }
@@ -4542,12 +4861,12 @@ impl EureSectionsConstructor {
 }
 #[derive(bon::Builder)]
 pub struct EureOptConstructor {
-    root_binding: Option<RootBindingNode>,
+    top_level_binding: Option<TopLevelBindingNode>,
 }
 impl EureOptConstructor {
     pub fn build(self) -> EureOptNode {
         let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.root_binding {
+        let children = if let Some(child) = self.top_level_binding {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()
@@ -4593,6 +4912,76 @@ impl FalseConstructor {
         let r#false = builder.embed(self.r#false.builder);
         let node_id = builder.non_terminal(NonTerminalKind::False, vec![r#false]);
         FalseNode { node_id, builder }
+    }
+}
+pub enum FirstKeyConstructor {
+    Key(KeyNode),
+    ArrayMarker(ArrayMarkerNode),
+}
+impl FirstKeyConstructor {
+    pub fn build(self) -> FirstKeyNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::Key(node) => builder.embed(node.builder),
+            Self::ArrayMarker(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::FirstKey, vec![child_id]);
+        FirstKeyNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct FlatBodyConstructor {
+    section_head: SectionHeadNode,
+    flat_body_list: FlatBodyListNode,
+}
+impl FlatBodyConstructor {
+    pub fn build(self) -> FlatBodyNode {
+        let mut builder = CstBuilder::new();
+        let section_head = builder.embed(self.section_head.builder);
+        let flat_body_list = builder.embed(self.flat_body_list.builder);
+        let node_id = builder.non_terminal(
+            NonTerminalKind::FlatBody,
+            vec![section_head, flat_body_list],
+        );
+        FlatBodyNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct FlatBodyListConstructor {
+    binding: BindingNode,
+    flat_body_list: FlatBodyListNode,
+}
+impl FlatBodyListConstructor {
+    /// Create an empty node (base case for recursion)
+    pub fn empty() -> FlatBodyListNode {
+        let mut builder = CstBuilder::new();
+        let node_id =
+            builder.non_terminal(NonTerminalKind::FlatBodyList, Vec::<BuilderNodeId>::new());
+        FlatBodyListNode { node_id, builder }
+    }
+    /// Create a node with children (recursive case)
+    pub fn build(self) -> FlatBodyListNode {
+        let mut builder = CstBuilder::new();
+        let binding = builder.embed(self.binding.builder);
+        let flat_body_list = builder.embed(self.flat_body_list.builder);
+        let node_id =
+            builder.non_terminal(NonTerminalKind::FlatBodyList, vec![binding, flat_body_list]);
+        FlatBodyListNode { node_id, builder }
+    }
+}
+pub enum FlatRootBindingConstructor {
+    ValueBinding(ValueBindingNode),
+    TextBinding(TextBindingNode),
+}
+impl FlatRootBindingConstructor {
+    pub fn build(self) -> FlatRootBindingNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::ValueBinding(node) => builder.embed(node.builder),
+            Self::TextBinding(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::FlatRootBinding, vec![child_id]);
+        FlatRootBindingNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4694,21 +5083,7 @@ impl IntegerConstructor {
         IntegerNode { node_id, builder }
     }
 }
-#[derive(bon::Builder)]
-pub struct KeyConstructor {
-    key_base: KeyBaseNode,
-    key_opt: KeyOptNode,
-}
-impl KeyConstructor {
-    pub fn build(self) -> KeyNode {
-        let mut builder = CstBuilder::new();
-        let key_base = builder.embed(self.key_base.builder);
-        let key_opt = builder.embed(self.key_opt.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::Key, vec![key_base, key_opt]);
-        KeyNode { node_id, builder }
-    }
-}
-pub enum KeyBaseConstructor {
+pub enum KeyConstructor {
     KeyIdent(KeyIdentNode),
     ExtensionNameSpace(ExtensionNameSpaceNode),
     String(StringNode),
@@ -4717,8 +5092,8 @@ pub enum KeyBaseConstructor {
     KeyTuple(KeyTupleNode),
     TupleIndex(TupleIndexNode),
 }
-impl KeyBaseConstructor {
-    pub fn build(self) -> KeyBaseNode {
+impl KeyConstructor {
+    pub fn build(self) -> KeyNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::KeyIdent(node) => builder.embed(node.builder),
@@ -4729,8 +5104,8 @@ impl KeyBaseConstructor {
             Self::KeyTuple(node) => builder.embed(node.builder),
             Self::TupleIndex(node) => builder.embed(node.builder),
         };
-        let node_id = builder.non_terminal(NonTerminalKind::KeyBase, vec![child_id]);
-        KeyBaseNode { node_id, builder }
+        let node_id = builder.non_terminal(NonTerminalKind::Key, vec![child_id]);
+        KeyNode { node_id, builder }
     }
 }
 pub enum KeyIdentConstructor {
@@ -4752,20 +5127,19 @@ impl KeyIdentConstructor {
         KeyIdentNode { node_id, builder }
     }
 }
-#[derive(bon::Builder)]
-pub struct KeyOptConstructor {
-    array_marker: Option<ArrayMarkerNode>,
+pub enum KeyTailConstructor {
+    DotKey(DotKeyNode),
+    ArrayMarker(ArrayMarkerNode),
 }
-impl KeyOptConstructor {
-    pub fn build(self) -> KeyOptNode {
+impl KeyTailConstructor {
+    pub fn build(self) -> KeyTailNode {
         let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.array_marker {
-            vec![builder.embed(child.builder)]
-        } else {
-            Vec::<BuilderNodeId>::new()
+        let child_id = match self {
+            Self::DotKey(node) => builder.embed(node.builder),
+            Self::ArrayMarker(node) => builder.embed(node.builder),
         };
-        let node_id = builder.non_terminal(NonTerminalKind::KeyOpt, children);
-        KeyOptNode { node_id, builder }
+        let node_id = builder.non_terminal(NonTerminalKind::KeyTail, vec![child_id]);
+        KeyTailNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -4890,22 +5264,21 @@ impl KeyValueConstructor {
 }
 #[derive(bon::Builder)]
 pub struct KeysConstructor {
-    key: KeyNode,
+    first_key: FirstKeyNode,
     keys_list: KeysListNode,
 }
 impl KeysConstructor {
     pub fn build(self) -> KeysNode {
         let mut builder = CstBuilder::new();
-        let key = builder.embed(self.key.builder);
+        let first_key = builder.embed(self.first_key.builder);
         let keys_list = builder.embed(self.keys_list.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::Keys, vec![key, keys_list]);
+        let node_id = builder.non_terminal(NonTerminalKind::Keys, vec![first_key, keys_list]);
         KeysNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
 pub struct KeysListConstructor {
-    dot: DotNode,
-    key: KeyNode,
+    key_tail: KeyTailNode,
     keys_list: KeysListNode,
 }
 impl KeysListConstructor {
@@ -4918,10 +5291,9 @@ impl KeysListConstructor {
     /// Create a node with children (recursive case)
     pub fn build(self) -> KeysListNode {
         let mut builder = CstBuilder::new();
-        let dot = builder.embed(self.dot.builder);
-        let key = builder.embed(self.key.builder);
+        let key_tail = builder.embed(self.key_tail.builder);
         let keys_list = builder.embed(self.keys_list.builder);
-        let node_id = builder.non_terminal(NonTerminalKind::KeysList, vec![dot, key, keys_list]);
+        let node_id = builder.non_terminal(NonTerminalKind::KeysList, vec![key_tail, keys_list]);
         KeysListNode { node_id, builder }
     }
 }
@@ -5223,6 +5595,64 @@ impl NaNConstructor {
     }
 }
 #[derive(bon::Builder)]
+pub struct NewlineBindConstructor {
+    newline_bind: NewlineBindToken,
+}
+impl NewlineBindConstructor {
+    pub fn build(self) -> NewlineBindNode {
+        let mut builder = CstBuilder::new();
+        let newline_bind = builder.embed(self.newline_bind.builder);
+        let node_id = builder.non_terminal(NonTerminalKind::NewlineBind, vec![newline_bind]);
+        NewlineBindNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct NewlineHeadConstructor {
+    grammar_newline: GrammarNewlineNode,
+    newline_head_opt: NewlineHeadOptNode,
+}
+impl NewlineHeadConstructor {
+    pub fn build(self) -> NewlineHeadNode {
+        let mut builder = CstBuilder::new();
+        let grammar_newline = builder.embed(self.grammar_newline.builder);
+        let newline_head_opt = builder.embed(self.newline_head_opt.builder);
+        let node_id = builder.non_terminal(
+            NonTerminalKind::NewlineHead,
+            vec![grammar_newline, newline_head_opt],
+        );
+        NewlineHeadNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct NewlineHeadOptConstructor {
+    flat_root_binding: Option<FlatRootBindingNode>,
+}
+impl NewlineHeadOptConstructor {
+    pub fn build(self) -> NewlineHeadOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.flat_root_binding {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::NewlineHeadOpt, children);
+        NewlineHeadOptNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct NewlineTextStartConstructor {
+    newline_text_start: NewlineTextStartToken,
+}
+impl NewlineTextStartConstructor {
+    pub fn build(self) -> NewlineTextStartNode {
+        let mut builder = CstBuilder::new();
+        let newline_text_start = builder.embed(self.newline_text_start.builder);
+        let node_id =
+            builder.non_terminal(NonTerminalKind::NewlineTextStart, vec![newline_text_start]);
+        NewlineTextStartNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
 pub struct NoBacktickConstructor {
     no_backtick: NoBacktickToken,
 }
@@ -5391,18 +5821,107 @@ impl RParenConstructor {
     }
 }
 pub enum RootBindingConstructor {
-    ValueBinding(ValueBindingNode),
-    TextBinding(TextBindingNode),
+    RootValueBinding(RootValueBindingNode),
+    RootTextBinding(RootTextBindingNode),
 }
 impl RootBindingConstructor {
     pub fn build(self) -> RootBindingNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
-            Self::ValueBinding(node) => builder.embed(node.builder),
-            Self::TextBinding(node) => builder.embed(node.builder),
+            Self::RootValueBinding(node) => builder.embed(node.builder),
+            Self::RootTextBinding(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::RootBinding, vec![child_id]);
         RootBindingNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct RootTextBindingConstructor {
+    newline_text_start: NewlineTextStartNode,
+    root_text_binding_opt: RootTextBindingOptNode,
+    root_text_binding_opt_0: RootTextBindingOpt0Node,
+    root_text_binding_opt_1: RootTextBindingOpt1Node,
+}
+impl RootTextBindingConstructor {
+    pub fn build(self) -> RootTextBindingNode {
+        let mut builder = CstBuilder::new();
+        let newline_text_start = builder.embed(self.newline_text_start.builder);
+        let root_text_binding_opt = builder.embed(self.root_text_binding_opt.builder);
+        let root_text_binding_opt_0 = builder.embed(self.root_text_binding_opt_0.builder);
+        let root_text_binding_opt_1 = builder.embed(self.root_text_binding_opt_1.builder);
+        let node_id = builder.non_terminal(
+            NonTerminalKind::RootTextBinding,
+            vec![
+                newline_text_start,
+                root_text_binding_opt,
+                root_text_binding_opt_0,
+                root_text_binding_opt_1,
+            ],
+        );
+        RootTextBindingNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct RootTextBindingOptConstructor {
+    ws: Option<WsNode>,
+}
+impl RootTextBindingOptConstructor {
+    pub fn build(self) -> RootTextBindingOptNode {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.ws {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::RootTextBindingOpt, children);
+        RootTextBindingOptNode { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct RootTextBindingOpt0Constructor {
+    text: Option<TextNode>,
+}
+impl RootTextBindingOpt0Constructor {
+    pub fn build(self) -> RootTextBindingOpt0Node {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.text {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::RootTextBindingOpt0, children);
+        RootTextBindingOpt0Node { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct RootTextBindingOpt1Constructor {
+    grammar_newline: Option<GrammarNewlineNode>,
+}
+impl RootTextBindingOpt1Constructor {
+    pub fn build(self) -> RootTextBindingOpt1Node {
+        let mut builder = CstBuilder::new();
+        let children = if let Some(child) = self.grammar_newline {
+            vec![builder.embed(child.builder)]
+        } else {
+            Vec::<BuilderNodeId>::new()
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::RootTextBindingOpt1, children);
+        RootTextBindingOpt1Node { node_id, builder }
+    }
+}
+#[derive(bon::Builder)]
+pub struct RootValueBindingConstructor {
+    newline_bind: NewlineBindNode,
+    value: ValueNode,
+}
+impl RootValueBindingConstructor {
+    pub fn build(self) -> RootValueBindingNode {
+        let mut builder = CstBuilder::new();
+        let newline_bind = builder.embed(self.newline_bind.builder);
+        let value = builder.embed(self.value.builder);
+        let node_id =
+            builder.non_terminal(NonTerminalKind::RootValueBinding, vec![newline_bind, value]);
+        RootValueBindingNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -5451,60 +5970,48 @@ impl SectionBindingConstructor {
 }
 pub enum SectionBodyConstructor {
     SectionBodyOpt(SectionBodyOptNode),
-    Begin(BeginNode),
+    BlockBody(BlockBodyNode),
 }
 impl SectionBodyConstructor {
     pub fn build(self) -> SectionBodyNode {
         let mut builder = CstBuilder::new();
         let child_id = match self {
             Self::SectionBodyOpt(node) => builder.embed(node.builder),
-            Self::Begin(node) => builder.embed(node.builder),
+            Self::BlockBody(node) => builder.embed(node.builder),
         };
         let node_id = builder.non_terminal(NonTerminalKind::SectionBody, vec![child_id]);
         SectionBodyNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
-pub struct SectionBodyListConstructor {
-    binding: BindingNode,
-    section_body_list: SectionBodyListNode,
-}
-impl SectionBodyListConstructor {
-    /// Create an empty node (base case for recursion)
-    pub fn empty() -> SectionBodyListNode {
-        let mut builder = CstBuilder::new();
-        let node_id = builder.non_terminal(
-            NonTerminalKind::SectionBodyList,
-            Vec::<BuilderNodeId>::new(),
-        );
-        SectionBodyListNode { node_id, builder }
-    }
-    /// Create a node with children (recursive case)
-    pub fn build(self) -> SectionBodyListNode {
-        let mut builder = CstBuilder::new();
-        let binding = builder.embed(self.binding.builder);
-        let section_body_list = builder.embed(self.section_body_list.builder);
-        let node_id = builder.non_terminal(
-            NonTerminalKind::SectionBodyList,
-            vec![binding, section_body_list],
-        );
-        SectionBodyListNode { node_id, builder }
-    }
-}
-#[derive(bon::Builder)]
 pub struct SectionBodyOptConstructor {
-    root_binding: Option<RootBindingNode>,
+    flat_body: Option<FlatBodyNode>,
 }
 impl SectionBodyOptConstructor {
     pub fn build(self) -> SectionBodyOptNode {
         let mut builder = CstBuilder::new();
-        let children = if let Some(child) = self.root_binding {
+        let children = if let Some(child) = self.flat_body {
             vec![builder.embed(child.builder)]
         } else {
             Vec::<BuilderNodeId>::new()
         };
         let node_id = builder.non_terminal(NonTerminalKind::SectionBodyOpt, children);
         SectionBodyOptNode { node_id, builder }
+    }
+}
+pub enum SectionHeadConstructor {
+    RootBinding(RootBindingNode),
+    NewlineHead(NewlineHeadNode),
+}
+impl SectionHeadConstructor {
+    pub fn build(self) -> SectionHeadNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::RootBinding(node) => builder.embed(node.builder),
+            Self::NewlineHead(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::SectionHead, vec![child_id]);
+        SectionHeadNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -5677,6 +6184,21 @@ impl TextStartConstructor {
         let text_start = builder.embed(self.text_start.builder);
         let node_id = builder.non_terminal(NonTerminalKind::TextStart, vec![text_start]);
         TextStartNode { node_id, builder }
+    }
+}
+pub enum TopLevelBindingConstructor {
+    ValueBinding(ValueBindingNode),
+    TextBinding(TextBindingNode),
+}
+impl TopLevelBindingConstructor {
+    pub fn build(self) -> TopLevelBindingNode {
+        let mut builder = CstBuilder::new();
+        let child_id = match self {
+            Self::ValueBinding(node) => builder.embed(node.builder),
+            Self::TextBinding(node) => builder.embed(node.builder),
+        };
+        let node_id = builder.non_terminal(NonTerminalKind::TopLevelBinding, vec![child_id]);
+        TopLevelBindingNode { node_id, builder }
     }
 }
 #[derive(bon::Builder)]
@@ -6140,6 +6662,11 @@ pub mod terminals {
         let node_id = builder.terminal(TerminalKind::RParen, "");
         RParenToken { node_id, builder }
     }
+    pub fn newline_bind() -> NewlineBindToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::NewlineBind, "");
+        NewlineBindToken { node_id, builder }
+    }
     pub fn bind() -> BindToken {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::Bind, "=");
@@ -6154,6 +6681,11 @@ pub mod terminals {
         let mut builder = CstBuilder::new();
         let node_id = builder.terminal(TerminalKind::Esc, "\\\\");
         EscToken { node_id, builder }
+    }
+    pub fn newline_text_start() -> NewlineTextStartToken {
+        let mut builder = CstBuilder::new();
+        let node_id = builder.terminal(TerminalKind::NewlineTextStart, "");
+        NewlineTextStartToken { node_id, builder }
     }
     pub fn text_start() -> TextStartToken {
         let mut builder = CstBuilder::new();

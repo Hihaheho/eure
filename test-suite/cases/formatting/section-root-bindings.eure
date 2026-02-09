@@ -1,0 +1,45 @@
+// Format section root bindings (inline and newline)
+
+@cases.inline-value
+
+input_eure = ```eure
+@section=1
+```
+
+formatted_input = ```eure
+@ section = 1
+```
+
+@cases.inline-text
+
+input_eure = ```eure
+@section: hello
+```
+
+formatted_input = ```eure
+@ section: hello
+```
+
+@cases.newline-value
+
+input_eure = ```eure
+@section
+=1
+```
+
+formatted_input = ```eure
+@ section
+= 1
+```
+
+@cases.newline-text
+
+input_eure = ```eure
+@section
+: hello
+```
+
+formatted_input = ```eure
+@ section
+: hello
+```

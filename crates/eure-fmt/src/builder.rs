@@ -147,6 +147,22 @@ impl<'a> FormatVisitor<'a> {
         }
     }
 
+    fn count_newlines(&self, text: &str) -> u32 {
+        let mut count = 0;
+        let mut chars = text.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\n' {
+                count += 1;
+            } else if ch == '\r' {
+                count += 1;
+                if matches!(chars.peek(), Some('\n')) {
+                    chars.next();
+                }
+            }
+        }
+        count
+    }
+
     /// Emit the text of a terminal directly
     fn emit_terminal(&mut self, data: TerminalData) {
         let text = self.get_text(data);
@@ -452,6 +468,34 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         Ok(())
     }
 
+    fn visit_newline_head(
+        &mut self,
+        _handle: NewlineHeadHandle,
+        view: NewlineHeadView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // Treat GrammarNewline as a pending newline so we don't emit an extra blank line
+        // when the next Binding requests its own newline.
+        self.seen_newline = true;
+        self.newline_count += 1;
+        self.visit_newline_head_opt_handle(view.newline_head_opt, tree)?;
+        Ok(())
+    }
+
+    fn visit_flat_root_binding(
+        &mut self,
+        handle: FlatRootBindingHandle,
+        view: FlatRootBindingView,
+        tree: &F,
+    ) -> Result<(), Self::Error> {
+        // FlatRootBinding doesn't request a newline on its own, so insert one here.
+        self.request_newline();
+        // Root bindings begin the line, so "=" should not get a leading space.
+        self.at_start = true;
+        self.visit_flat_root_binding_super(handle, view, tree)?;
+        Ok(())
+    }
+
     // === Terminal handling ===
 
     fn visit_bind_terminal(
@@ -466,6 +510,25 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         } else {
             self.emit_text(" = ");
         }
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_newline_bind_terminal(
+        &mut self,
+        _terminal: NewlineBind,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        let newlines = self.count_newlines(&text);
+        if newlines > 0 {
+            self.seen_newline = true;
+            self.newline_count += newlines;
+            self.request_newline();
+        }
+        let bind_text = if newlines > 0 { "= " } else { " = " };
+        self.emit_text(bind_text);
         self.mark_content(data);
         Ok(())
     }
@@ -1110,6 +1173,24 @@ impl<F: CstFacade> CstVisitor<F> for FormatVisitor<'_> {
         data: TerminalData,
         _tree: &F,
     ) -> Result<(), Self::Error> {
+        self.emit_text(":");
+        self.mark_content(data);
+        Ok(())
+    }
+
+    fn visit_newline_text_start_terminal(
+        &mut self,
+        _terminal: NewlineTextStart,
+        data: TerminalData,
+        _tree: &F,
+    ) -> Result<(), Self::Error> {
+        let text = self.get_text(data);
+        let newlines = self.count_newlines(&text);
+        if newlines > 0 {
+            self.seen_newline = true;
+            self.newline_count += newlines;
+            self.request_newline();
+        }
         self.emit_text(":");
         self.mark_content(data);
         Ok(())

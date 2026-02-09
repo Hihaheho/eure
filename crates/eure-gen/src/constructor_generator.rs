@@ -433,11 +433,10 @@ impl ConstructorGenerator {
             .terminals
             .iter()
             .filter(|t| {
-                !t.name.starts_with("Newline")
-                    && !t.name.starts_with("Whitespace")
-                    && !t.name.starts_with("LineComment")
-                    && !t.name.starts_with("BlockComment")
-                    && t.name != "NewLine"
+                !matches!(
+                    t.name.as_str(),
+                    "NewLine" | "Whitespace" | "LineComment" | "BlockComment"
+                )
             })
             .map(|t| self.generate_terminal_constructor(t))
             .collect();
@@ -539,11 +538,10 @@ impl ConstructorGenerator {
             .terminals
             .iter()
             .filter(|t| {
-                !t.name.starts_with("Newline")
-                    && !t.name.starts_with("Whitespace")
-                    && !t.name.starts_with("LineComment")
-                    && !t.name.starts_with("BlockComment")
-                    && t.name != "NewLine"
+                !matches!(
+                    t.name.as_str(),
+                    "NewLine" | "Whitespace" | "LineComment" | "BlockComment"
+                )
             })
             .map(|t| {
                 let type_name = format_ident!("{}Token", t.name);

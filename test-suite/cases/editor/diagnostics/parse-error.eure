@@ -14,7 +14,7 @@ LA(1): " (Error) at test.eure:1:8-1:9[2].
 at non-terminal "Value"
 Current scanner is INITIAL
 Current production is:
-/* 13 */ ValueBinding: Bind Value;
+/* 23 */ ValueBinding: Bind Value;
 ```
 
 @ diagnostics[]
@@ -22,18 +22,19 @@ severity = "error"
 source = "editor.eure"
 message = ```
 LA(1): string (Ident) at test.eure:2:10-2:16[4].
-at non-terminal "BindingRhs"
+at non-terminal "KeysList"
 Current scanner is INITIAL
 Current production is:
-/* 9 */ Binding: Keys BindingRhs;
+/* 48 */ Keys: FirstKey KeysList;
 ```
 
 @ diagnostics[]
 severity = "error"
 source = "editor.eure"
 message = ```
-Syntax error: found $ (EndOfInput) at test.eure:0:0-0:0[6]
+LA(1): $ (EndOfInput) at test.eure:0:0-0:0[6].
+at non-terminal "ArrayMarkerOpt"
 Current scanner is INITIAL
 Current production is:
-/* 221 */ End: "End";
+/* 56 */ ArrayMarker: ArrayBegin ArrayMarkerOpt ArrayEnd;
 ```

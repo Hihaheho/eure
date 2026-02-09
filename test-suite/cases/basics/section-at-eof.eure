@@ -1,0 +1,9 @@
+// Section at EOF without trailing newline
+
+input_eure = `@ section`
+
+normalized = ```eure
+= {
+  section => {}
+}
+```
