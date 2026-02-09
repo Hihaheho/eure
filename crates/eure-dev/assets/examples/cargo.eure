@@ -13,7 +13,7 @@ repository: https://github.com/Hihaheho/eure
 serde: "1"
 eure = { path => "crates/eure", version => "0.1.0" }
 
-@ target."cfg(not(target = \"wasm32\"))".dev-dependencies
+@ target.'cfg(not(target = "wasm32"))'.dev-dependencies
 getrandom = { version => "0.3", features => ["wasm_js"] }
 
 @ example[]
