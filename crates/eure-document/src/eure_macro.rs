@@ -447,6 +447,21 @@ macro_rules! eure {
         $crate::eure!(@stmt $c; $($rest)*);
     }};
 
+    // Section: @[] / @[N] followed by bindings
+    // In section context, raw []/[N] is only allowed immediately after `@`.
+    (@stmt $c:ident; @ [] $($rest:tt)*) => {{
+        $c.begin_section();
+        let scope = $c.begin_scope();
+        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $crate::eure!(@section_after_seg $c scope; $($rest)*);
+    }};
+    (@stmt $c:ident; @ [$idx:literal] $($rest:tt)*) => {{
+        $c.begin_section();
+        let scope = $c.begin_scope();
+        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $crate::eure!(@section_after_seg $c scope; $($rest)*);
+    }};
+
     // Section: @path followed by bindings
     (@stmt $c:ident; @ $seg:ident $($rest:tt)*) => {{
         $c.begin_section();
@@ -477,6 +492,19 @@ macro_rules! eure {
             $crate::identifier::Identifier::new_unchecked(stringify!($seg))
         )).unwrap();
         $crate::eure!(@section_after_seg $c $scope; $($rest)*);
+    }};
+    (@section_after_seg $c:ident $scope:ident; # [] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $crate::eure!(@section_after_seg $c $scope; $($rest)*);
+    }};
+    (@section_after_seg $c:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $crate::eure!(@section_after_seg $c $scope; $($rest)*);
+    }};
+    (@section_after_seg $c:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
+        compile_error!(
+            "in section headers, raw []/[N] is only allowed immediately after `@`; use #[] or #[N] for continuation"
+        );
     }};
 
     // Section with value binding: @path = value (pattern #4 with value)
@@ -525,6 +553,16 @@ macro_rules! eure {
     }};
 
     // Section bindings: new section starts - close current and start new
+    (@section_bindings $c:ident $scope:ident; @ [] $($rest:tt)*) => {{
+        $c.end_section_items().unwrap();
+        $c.end_scope($scope).unwrap();
+        $crate::eure!(@stmt $c; @ [] $($rest)*);
+    }};
+    (@section_bindings $c:ident $scope:ident; @ [$idx:literal] $($rest:tt)*) => {{
+        $c.end_section_items().unwrap();
+        $c.end_scope($scope).unwrap();
+        $crate::eure!(@stmt $c; @ [$idx] $($rest)*);
+    }};
     (@section_bindings $c:ident $scope:ident; @ $seg:ident $($rest:tt)*) => {{
         $c.end_section_items().unwrap();
         $c.end_scope($scope).unwrap();
@@ -562,6 +600,16 @@ macro_rules! eure {
         $crate::eure!(@section_after_path $c $section_scope $scope; $($rest)*);
     }};
 
+    // Section path: explicit array marker
+    (@section_path $c:ident $section_scope:ident $scope:ident; # [] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
+    }};
+    (@section_path $c:ident $section_scope:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
+    }};
+
     // Section path: tuple index
     (@section_path $c:ident $section_scope:ident $scope:ident; # $idx:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::TupleIndex($idx)).unwrap();
@@ -580,10 +628,17 @@ macro_rules! eure {
         $c.navigate($crate::path::PathSegment::Value($key.into())).unwrap();
         $crate::eure!(@section_after_path $c $section_scope $scope; $($rest)*);
     }};
+    (@section_path $c:ident $section_scope:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
+        compile_error!(
+            "in section bindings, raw []/[N] is not allowed; use #[] or #[N] for array segments"
+        );
+    }};
 
-    // After section path segment: array marker
+    // After section path segment: raw []/[N] is disallowed in section bindings
     (@section_after_path $c:ident $section_scope:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
-        $crate::eure!(@section_array_marker $c $section_scope $scope [$($arr)*]; $($rest)*);
+        compile_error!(
+            "in section bindings, raw []/[N] is not allowed; use #[] or #[N] for array segments"
+        );
     }};
 
     // After section path segment: continue to terminal
@@ -591,21 +646,22 @@ macro_rules! eure {
         $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
     }};
 
-    // Section array marker: empty (push)
-    (@section_array_marker $c:ident $section_scope:ident $scope:ident []; $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
-        $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
-    }};
-
-    // Section array marker: with index
-    (@section_array_marker $c:ident $section_scope:ident $scope:ident [$idx:literal]; $($rest:tt)*) => {{
-        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
-        $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
-    }};
-
     // Section terminal: more path
     (@section_terminal $c:ident $section_scope:ident $scope:ident; . $($rest:tt)+) => {{
         $crate::eure!(@section_path $c $section_scope $scope; $($rest)+);
+    }};
+    (@section_terminal $c:ident $section_scope:ident $scope:ident; # [] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
+    }};
+    (@section_terminal $c:ident $section_scope:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $crate::eure!(@section_terminal $c $section_scope $scope; $($rest)*);
+    }};
+    (@section_terminal $c:ident $section_scope:ident $scope:ident; [$($arr:tt)*] $($rest:tt)*) => {{
+        compile_error!(
+            "in section bindings, raw []/[N] is not allowed; use #[] or #[N] for array segments"
+        );
     }};
 
     // Section terminal: hole
@@ -716,6 +772,16 @@ macro_rules! eure {
         $crate::eure!(@after_path $c $scope; $($rest)*);
     }};
 
+    // Segment: explicit array marker (e.g., `#[]`, `#[0]`)
+    (@path $c:ident $scope:ident; # [] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $crate::eure!(@terminal $c $scope; $($rest)*);
+    }};
+    (@path $c:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $crate::eure!(@terminal $c $scope; $($rest)*);
+    }};
+
     // Segment: tuple index (e.g., `#0`, `#1`, `#255`)
     (@path $c:ident $scope:ident; # $idx:literal $($rest:tt)*) => {{
         $c.navigate($crate::path::PathSegment::TupleIndex($idx)).unwrap();
@@ -812,6 +878,14 @@ macro_rules! eure {
     // Continuation: more path segments after dot
     (@terminal $c:ident $scope:ident; . $($rest:tt)+) => {{
         $crate::eure!(@path $c $scope; $($rest)+);
+    }};
+    (@terminal $c:ident $scope:ident; # [] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(None)).unwrap();
+        $crate::eure!(@terminal $c $scope; $($rest)*);
+    }};
+    (@terminal $c:ident $scope:ident; # [$idx:literal] $($rest:tt)*) => {{
+        $c.navigate($crate::path::PathSegment::ArrayIndex(Some($idx))).unwrap();
+        $crate::eure!(@terminal $c $scope; $($rest)*);
     }};
 
     // Terminal: hole (!) - explicit unbound placeholder
@@ -1206,6 +1280,37 @@ mod tests {
         let name_id = first.as_map().unwrap().get_node_id(&"name".into()).unwrap();
         let name = doc.node(name_id);
         assert_eq!(name.as_primitive().unwrap().as_str(), Some("first"));
+    }
+
+    #[test]
+    fn test_eure_root_extension_with_explicit_array_entries() {
+        let doc = eure!({
+            %meta { speaker = "Alice" }
+            #[] = "Hello"
+            #[] = "World"
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+
+        let meta_id = root.get_extension(&"meta".parse().unwrap()).unwrap();
+        let meta = doc.node(meta_id);
+        let speaker_id = meta
+            .as_map()
+            .unwrap()
+            .get_node_id(&"speaker".into())
+            .unwrap();
+        let speaker = doc.node(speaker_id);
+        assert_eq!(speaker.as_primitive().unwrap().as_str(), Some("Alice"));
+
+        let array = root.as_array().unwrap();
+        assert_eq!(array.len(), 2);
+
+        let first = doc.node(array.get(0).unwrap());
+        assert_eq!(first.as_primitive().unwrap().as_str(), Some("Hello"));
+
+        let second = doc.node(array.get(1).unwrap());
+        assert_eq!(second.as_primitive().unwrap().as_str(), Some("World"));
     }
 
     #[test]
@@ -2003,6 +2108,70 @@ mod tests {
                 .get_node_id(&"name".into())
                 .is_some()
         );
+    }
+
+    #[test]
+    fn test_eure_section_root_array_marker() {
+        let doc = eure!({
+            @[]
+            text = "Hello"
+            @[]
+            text = "World"
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let array = root.as_array().unwrap();
+        assert_eq!(array.len(), 2);
+
+        let first = doc.node(array.get(0).unwrap());
+        let first_text_id = first.as_map().unwrap().get_node_id(&"text".into()).unwrap();
+        let first_text = doc.node(first_text_id);
+        assert_eq!(first_text.as_primitive().unwrap().as_str(), Some("Hello"));
+
+        let second = doc.node(array.get(1).unwrap());
+        let second_text_id = second
+            .as_map()
+            .unwrap()
+            .get_node_id(&"text".into())
+            .unwrap();
+        let second_text = doc.node(second_text_id);
+        assert_eq!(second_text.as_primitive().unwrap().as_str(), Some("World"));
+    }
+
+    #[test]
+    fn test_eure_section_explicit_array_continuation() {
+        let doc = eure!({
+            @dialog #[]
+            text = "Hello"
+            @dialog #[]
+            text = "World"
+        });
+
+        let root_id = doc.get_root_id();
+        let root = doc.node(root_id);
+        let dialog_id = root
+            .as_map()
+            .unwrap()
+            .get_node_id(&"dialog".into())
+            .unwrap();
+        let dialog = doc.node(dialog_id);
+        let array = dialog.as_array().unwrap();
+        assert_eq!(array.len(), 2);
+
+        let first = doc.node(array.get(0).unwrap());
+        let first_text_id = first.as_map().unwrap().get_node_id(&"text".into()).unwrap();
+        let first_text = doc.node(first_text_id);
+        assert_eq!(first_text.as_primitive().unwrap().as_str(), Some("Hello"));
+
+        let second = doc.node(array.get(1).unwrap());
+        let second_text_id = second
+            .as_map()
+            .unwrap()
+            .get_node_id(&"text".into())
+            .unwrap();
+        let second_text = doc.node(second_text_id);
+        assert_eq!(second_text.as_primitive().unwrap().as_str(), Some("World"));
     }
 
     #[test]

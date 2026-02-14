@@ -304,6 +304,39 @@ fn test_flatten_field() {
 }
 
 #[test]
+fn test_flatten_content_field_with_ext() {
+    let input = generate(parse_quote! {
+        struct Envelope {
+            #[eure(ext)]
+            kind: String,
+            #[eure(flatten)]
+            payload: i32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl<'doc,> ::eure::document::parse::FromEure<'doc> for Envelope<> {
+                type Error = ::eure::document::parse::ParseError;
+
+                fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
+                    let value = Envelope {
+                        kind: ctx.parse_ext::<String>("kind")?,
+                        payload: <i32>::parse(&ctx.flatten())?
+                    };
+                    if let Ok(rec) = ctx.parse_record() {
+                        rec.deny_unknown_fields()?;
+                    }
+                    ctx.deny_unknown_extensions()?;
+                    Ok(value)
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
 fn test_multiple_flatten_fields() {
     let input = generate(parse_quote! {
         struct Combined {

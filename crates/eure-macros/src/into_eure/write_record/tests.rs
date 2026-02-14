@@ -675,6 +675,31 @@ fn test_flatten_field() {
 }
 
 #[test]
+fn test_flatten_content_field_with_ext() {
+    let input = generate(parse_quote! {
+        struct Envelope {
+            #[eure(ext)]
+            kind: String,
+            #[eure(flatten)]
+            payload: i32,
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure for Envelope {
+                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    c.set_extension("kind", value.kind)?;
+                    <i32 as ::eure::document::write::IntoEure>::write(value.payload, c)?;
+                    Ok(())
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
 fn test_flatten_ext_field() {
     let input = generate(parse_quote! {
         struct Record {

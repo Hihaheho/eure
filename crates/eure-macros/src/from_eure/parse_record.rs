@@ -41,6 +41,10 @@ fn generate_named_struct_from_record(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> syn::Result<TokenStream> {
     let target_span = fields.span();
+    let has_record = fields.iter().any(|f| {
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        !attrs.flatten && !attrs.ext && !attrs.flatten_ext
+    });
     let mut field_assignments = Vec::new();
     for f in fields {
         let field_name = f.ident.as_ref().expect("named fields must have names");
@@ -104,7 +108,11 @@ fn generate_named_struct_from_record(
         }
 
         let assignment = if attrs.flatten {
-            quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
+            if has_record {
+                quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
+            } else {
+                quote! { #field_name: <#field_ty>::parse(&ctx.flatten())? }
+            }
         } else if attrs.flatten_ext {
             quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
         } else if attrs.ext {
@@ -135,10 +143,24 @@ fn generate_named_struct_from_record(
         field_assignments.push(assignment);
     }
 
-    let unknown_fields_check = if context.config.allow_unknown_fields {
-        quote! { rec.allow_unknown_fields()?; }
+    let unknown_fields_check = if has_record {
+        if context.config.allow_unknown_fields {
+            quote! { rec.allow_unknown_fields()?; }
+        } else {
+            quote! { rec.deny_unknown_fields()?; }
+        }
+    } else if context.config.allow_unknown_fields {
+        quote! {
+            if let Ok(rec) = ctx.parse_record() {
+                rec.allow_unknown_fields()?;
+            }
+        }
     } else {
-        quote! { rec.deny_unknown_fields()?; }
+        quote! {
+            if let Ok(rec) = ctx.parse_record() {
+                rec.deny_unknown_fields()?;
+            }
+        }
     };
 
     let unknown_extensions_check = if context.config.allow_unknown_extensions {
@@ -150,13 +172,40 @@ fn generate_named_struct_from_record(
     // Use target_type() which returns the type to construct (proxy target or self)
     let target_type = respan(context.target_type(), target_span);
 
-    // For opaque proxy, we need to convert via .into()
+    // For opaque proxy, we need to convert via .into().
+    // Note: `ctx.parse_record()?` is only emitted when `has_record` is true.
+    // In content mode (`has_record == false`) we intentionally avoid forcing record
+    // parsing so flattened non-record targets (e.g. Vec<T>, NodeId) can parse from
+    // `ctx.flatten()`, while unknown-field checks remain best-effort via `if let Ok(rec) = ...`.
     Ok(if let Some(opaque_target) = context.opaque_target() {
         let opaque_span = context.opaque_error_span();
         let opaque_target = quote_spanned! {opaque_span=> #opaque_target};
         let into_value = quote_spanned! {opaque_span=>
             let value: #opaque_target = value.into();
         };
+        if has_record {
+            context.impl_from_eure(quote! {
+                let rec = ctx.parse_record()?;
+                let value = #target_type {
+                    #(#field_assignments),*
+                };
+                #unknown_fields_check
+                #unknown_extensions_check
+                #into_value
+                Ok(value)
+            })
+        } else {
+            context.impl_from_eure(quote! {
+                let value = #target_type {
+                    #(#field_assignments),*
+                };
+                #unknown_fields_check
+                #unknown_extensions_check
+                #into_value
+                Ok(value)
+            })
+        }
+    } else if has_record {
         context.impl_from_eure(quote! {
             let rec = ctx.parse_record()?;
             let value = #target_type {
@@ -164,12 +213,10 @@ fn generate_named_struct_from_record(
             };
             #unknown_fields_check
             #unknown_extensions_check
-            #into_value
             Ok(value)
         })
     } else {
         context.impl_from_eure(quote! {
-            let rec = ctx.parse_record()?;
             let value = #target_type {
                 #(#field_assignments),*
             };

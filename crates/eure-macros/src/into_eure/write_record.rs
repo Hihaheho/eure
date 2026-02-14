@@ -31,6 +31,19 @@ fn generate_named_struct(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> syn::Result<TokenStream> {
     let document_crate = &context.config.document_crate;
+    let has_record = fields.iter().any(|f| {
+        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+        !attrs.flatten && !attrs.ext && !attrs.flatten_ext
+    });
+    let flatten_count = fields
+        .iter()
+        .filter(|f| {
+            FieldAttrs::from_field(f)
+                .expect("failed to parse field attributes")
+                .flatten
+        })
+        .count();
+    let content_mode = !has_record && flatten_count == 1;
 
     let needs_type_asserts = context.config.proxy.is_some();
     let generic_type_params: BTreeSet<String> = context
@@ -82,7 +95,7 @@ fn generate_named_struct(
                 ),
             ));
         }
-        if (attrs.flatten || attrs.flatten_ext)
+        if (attrs.flatten_ext || (attrs.flatten && !content_mode))
             && let Some(type_param) = flattened_type_param_ident(field_ty)
         {
             let type_param_name = type_param.to_string();
@@ -97,26 +110,51 @@ fn generate_named_struct(
 
         let write = if attrs.flatten {
             let span = field_ty.span();
-            quote_spanned! {span=>
-                rec.flatten::<#field_ty, _>(value.#field_name)?;
+            if content_mode {
+                quote_spanned! {span=>
+                    <#field_ty as #document_crate::write::IntoEure>::write(value.#field_name, c)?;
+                }
+            } else {
+                quote_spanned! {span=>
+                    rec.flatten::<#field_ty, _>(value.#field_name)?;
+                }
             }
         } else if attrs.flatten_ext {
             let span = field_ty.span();
-            quote_spanned! {span=>
-                rec.flatten_ext::<#field_ty, _>(value.#field_name)?;
+            if content_mode {
+                quote_spanned! {span=>
+                    {
+                        let mut ext_rec = #document_crate::write::RecordWriter::new_with_ext_mode(c, true);
+                        <#field_ty as #into_eure_record>::write_to_record(value.#field_name, &mut ext_rec)?;
+                    }
+                }
+            } else {
+                quote_spanned! {span=>
+                    rec.flatten_ext::<#field_ty, _>(value.#field_name)?;
+                }
             }
         } else if attrs.ext {
             let field_name_str = attrs
                 .rename
                 .clone()
                 .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
-            generate_ext_write(
-                document_crate,
-                field_name,
-                field_ty,
-                &field_name_str,
-                attrs.via.as_ref(),
-            )
+            if content_mode {
+                generate_ext_write_constructor(
+                    document_crate,
+                    field_name,
+                    field_ty,
+                    &field_name_str,
+                    attrs.via.as_ref(),
+                )
+            } else {
+                generate_ext_write(
+                    document_crate,
+                    field_name,
+                    field_ty,
+                    &field_name_str,
+                    attrs.via.as_ref(),
+                )
+            }
         } else {
             let field_name_str = attrs
                 .rename
@@ -136,6 +174,34 @@ fn generate_named_struct(
                 let _: &#field_ty = &value.#field_name;
             });
         }
+    }
+
+    if content_mode {
+        let write_body = quote! {
+            #(#field_asserts)*
+            #(#field_writes)*
+            Ok(())
+        };
+
+        // For opaque proxy, we need to convert via .into() first
+        let into_eure_impl = if context.opaque_target().is_some() {
+            let ident = context.ident();
+            let opaque_span = context.opaque_error_span();
+            let into_value = quote_spanned! {opaque_span=>
+                let value: #ident = value.into();
+            };
+            context.impl_into_eure_with_where(
+                quote! {
+                    #into_value
+                    #write_body
+                },
+                &flatten_bounds,
+            )
+        } else {
+            context.impl_into_eure_with_where(write_body, &flatten_bounds)
+        };
+
+        return Ok(into_eure_impl);
     }
 
     // Generate both IntoEureRecord and IntoEure for named structs
@@ -321,6 +387,33 @@ fn generate_newtype_struct(context: &MacroContext, field: &syn::Field) -> TokenS
             let #target_type(inner) = value;
             #write
         })
+    }
+}
+
+fn generate_ext_write_constructor(
+    document_crate: &TokenStream,
+    field_name: &syn::Ident,
+    field_ty: &syn::Type,
+    field_name_str: &str,
+    via: Option<&syn::Type>,
+) -> TokenStream {
+    let span = field_ty.span();
+
+    if let Some(via_type) = via {
+        quote_spanned! {via_type.span()=>
+            {
+                let scope = c.begin_scope();
+                let ident: #document_crate::identifier::Identifier = #field_name_str.parse()
+                    .map_err(|_| #document_crate::write::WriteError::InvalidIdentifier(#field_name_str.into()))?;
+                c.navigate(#document_crate::path::PathSegment::Extension(ident))?;
+                c.write_via::<#via_type, _>(value.#field_name)?;
+                c.end_scope(scope)?;
+            }
+        }
+    } else {
+        quote_spanned! {span=>
+            c.set_extension(#field_name_str, value.#field_name)?;
+        }
     }
 }
 

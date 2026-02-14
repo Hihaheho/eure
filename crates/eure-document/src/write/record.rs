@@ -41,10 +41,10 @@ impl<'a> RecordWriter<'a> {
     }
 
     /// Create a new RecordWriter with the specified `ext_mode`.
-    pub(crate) fn new_with_ext_mode(
-        constructor: &'a mut DocumentConstructor,
-        ext_mode: bool,
-    ) -> Self {
+    ///
+    /// This is primarily used by generated derive code that needs to write
+    /// flattened extension fields onto an existing node.
+    pub fn new_with_ext_mode(constructor: &'a mut DocumentConstructor, ext_mode: bool) -> Self {
         Self {
             constructor,
             ext_mode,

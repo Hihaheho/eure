@@ -1,0 +1,11 @@
+error: in section headers, raw []/[N] is only allowed immediately after `@`; use #[] or #[N] for continuation
+ --> tests/compile_fail/section_raw_array_continuation_newline.rs:4:16
+  |
+4 |       let _doc = eure!({
+  |  ________________^
+5 | |         @a
+6 | |         [] = 1
+7 | |     });
+  | |______^
+  |
+  = note: this error originates in the macro `$crate::eure` which comes from the expansion of the macro `eure` (in Nightly builds, run with -Z macro-backtrace for more info)
