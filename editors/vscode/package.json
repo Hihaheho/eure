@@ -4,7 +4,7 @@
   "description": "Eure Language Server extension for Visual Studio Code",
   "homepage": "https://eure.dev",
   "icon": "assets/icons/eure-icon.png",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "categories": [
     "Programming Languages",
     "Formatters",
