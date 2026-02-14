@@ -1,13 +1,13 @@
-use eure::FromEure;
+use eure::{FromEure, IntoEure};
 
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document)]
 struct Address {
     city: String,
     country: String,
 }
 
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document)]
 struct Person {
     name: String,
@@ -15,14 +15,14 @@ struct Person {
     address: Address,
 }
 
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document)]
 struct ContactInfo {
     email: String,
     phone: String,
 }
 
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document)]
 struct FullProfile {
     id: i32,
@@ -90,4 +90,78 @@ fn test_flatten_missing_field_error() {
     let doc = eure!({ name = "Alice", city = "Tokyo" }); // missing country
     let result = doc.parse::<Person>(doc.get_root_id());
     assert!(result.is_err());
+}
+
+// ===========================================================================
+// IntoEure roundtrip tests
+// ===========================================================================
+
+#[test]
+fn test_into_eure_flatten_basic() {
+    use eure_document::document::constructor::DocumentConstructor;
+
+    let person = Person {
+        name: "Alice".to_string(),
+        address: Address {
+            city: "Tokyo".to_string(),
+            country: "Japan".to_string(),
+        },
+    };
+
+    // Write
+    let mut c = DocumentConstructor::new();
+    c.write(person).unwrap();
+    let doc = c.finish();
+
+    // Parse back
+    let parsed = doc.parse::<Person>(doc.get_root_id()).unwrap();
+    assert_eq!(
+        parsed,
+        Person {
+            name: "Alice".to_string(),
+            address: Address {
+                city: "Tokyo".to_string(),
+                country: "Japan".to_string(),
+            }
+        }
+    );
+}
+
+#[test]
+fn test_into_eure_flatten_multiple() {
+    use eure_document::document::constructor::DocumentConstructor;
+
+    let profile = FullProfile {
+        id: 42,
+        address: Address {
+            city: "New York".to_string(),
+            country: "USA".to_string(),
+        },
+        contact: ContactInfo {
+            email: "test@example.com".to_string(),
+            phone: "123-456-7890".to_string(),
+        },
+    };
+
+    // Write
+    let mut c = DocumentConstructor::new();
+    c.write(profile).unwrap();
+    let doc = c.finish();
+
+    // Parse back
+    let parsed = doc.parse::<FullProfile>(doc.get_root_id()).unwrap();
+    assert_eq!(
+        parsed,
+        FullProfile {
+            id: 42,
+            address: Address {
+                city: "New York".to_string(),
+                country: "USA".to_string(),
+            },
+            contact: ContactInfo {
+                email: "test@example.com".to_string(),
+                phone: "123-456-7890".to_string(),
+            }
+        }
+    );
 }

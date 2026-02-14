@@ -8,7 +8,7 @@
 //! - #[eure(flatten)] flattens record types
 //! - #[eure(flatten_ext)] flattens extension types from record context
 
-use eure::FromEure;
+use eure::{FromEure, IntoEure};
 use eure::document::parse::ParseErrorKind;
 use std::collections::HashMap;
 
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 // =============================================================================
 
 /// Child that also parses from extensions
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct ExtValidation {
     min: Option<i32>,
@@ -25,7 +25,7 @@ struct ExtValidation {
 }
 
 /// Both parse from extensions - use flatten_ext for extension flattening
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct FullExtMeta {
     optional: bool,
@@ -84,7 +84,7 @@ struct NestedRecord {
 }
 
 /// Nested extension type
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document, parse_ext)]
 struct NestedExt {
     meta: Option<String>,
@@ -100,7 +100,7 @@ struct RecordWithFlatten {
 }
 
 /// Record context using flatten_ext for extension types
-#[derive(Debug, PartialEq, FromEure)]
+#[derive(Debug, PartialEq, FromEure, IntoEure)]
 #[eure(crate = ::eure::document)]
 struct RecordWithFlattenExt {
     name: String,
@@ -466,3 +466,41 @@ fn test_deeply_nested_record_ext_unknown_ext_detection() {
     let result = doc.parse::<Level1Record>(doc.get_root_id());
     assert!(result.is_err());
 }
+
+// =============================================================================
+// IntoEure roundtrip tests
+// =============================================================================
+
+#[test]
+fn test_into_eure_flatten_ext() {
+    use eure_document::document::constructor::DocumentConstructor;
+
+    let record = RecordWithFlattenExt {
+        name: "test".to_string(),
+        ext: NestedExt {
+            meta: Some("some metadata".to_string()),
+        },
+    };
+
+    // Write
+    let mut c = DocumentConstructor::new();
+    c.write(record).unwrap();
+    let doc = c.finish();
+
+    // Parse back
+    let parsed = doc.parse::<RecordWithFlattenExt>(doc.get_root_id()).unwrap();
+    assert_eq!(
+        parsed,
+        RecordWithFlattenExt {
+            name: "test".to_string(),
+            ext: NestedExt {
+                meta: Some("some metadata".to_string()),
+            },
+        }
+    );
+}
+
+// Note: FullExtMeta uses #[eure(parse_ext)] which makes FromEure read ALL fields
+// from extensions. IntoEure for parse_ext types is a separate feature - standalone
+// roundtrip of parse_ext types is not supported yet. The flatten_ext roundtrip
+// through a non-parse_ext parent (RecordWithFlattenExt) is tested above.

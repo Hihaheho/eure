@@ -1,5 +1,0 @@
-error: #[eure(flatten_ext)] is not yet supported for IntoEure derive on field `field`
- --> tests/compile_fail/into_eure_variant_flatten_ext_not_supported.rs:6:16
-  |
-6 |         #[eure(flatten_ext)]
-  |                ^^^^^^^^^^^

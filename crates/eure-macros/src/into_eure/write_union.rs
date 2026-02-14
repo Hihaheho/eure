@@ -7,7 +7,7 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
-use crate::attrs::{FieldAttrs, VariantAttrs, extract_eure_attr_spans, extract_variant_attr_spans};
+use crate::attrs::{FieldAttrs, VariantAttrs, extract_variant_attr_spans};
 use crate::context::MacroContext;
 use crate::util::respan;
 
@@ -243,34 +243,20 @@ fn generate_struct_variant_arm(
         let field_name = f.ident.as_ref().expect("struct fields must have names");
         let field_ty = &f.ty;
         let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
-        let spans = extract_eure_attr_spans(&f.attrs);
 
-        // Validate incompatible attribute combinations
-        if attrs.flatten {
-            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                format!(
-                    "#[eure(flatten)] is not yet supported for IntoEure derive on field `{}`",
-                    field_name
-                ),
-            ));
-        }
-        if attrs.flatten_ext {
-            let span = spans
-                .get("flatten_ext")
-                .copied()
-                .unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                format!(
-                    "#[eure(flatten_ext)] is not yet supported for IntoEure derive on field `{}`",
-                    field_name
-                ),
-            ));
-        }
-
-        let write = if attrs.ext {
+        let write = if attrs.flatten {
+            let field_ty = &f.ty;
+            let span = field_ty.span();
+            quote_spanned! {span=>
+                rec.flatten::<#field_ty, _>(#field_name)?;
+            }
+        } else if attrs.flatten_ext {
+            let field_ty = &f.ty;
+            let span = field_ty.span();
+            quote_spanned! {span=>
+                rec.flatten_ext::<#field_ty, _>(#field_name)?;
+            }
+        } else if attrs.ext {
             let field_name_str = attrs
                 .rename
                 .clone()

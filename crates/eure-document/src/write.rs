@@ -8,12 +8,14 @@ pub mod tuple;
 pub use record::RecordWriter;
 pub use tuple::TupleWriter;
 
+use crate::document::constructor::DocumentConstructor;
+
 use alloc::borrow::{Cow, ToOwned};
 use alloc::string::String;
 use num_bigint::BigInt;
 
 use crate::document::InsertError;
-use crate::document::constructor::{DocumentConstructor, ScopeError};
+use crate::document::constructor::ScopeError;
 use crate::identifier::IdentifierError;
 use crate::parse::VariantPath;
 use crate::path::PathSegment;
@@ -89,6 +91,17 @@ pub enum WriteError {
 pub trait IntoEure<T = Self>: Sized {
     /// Write a value to the current node in the document constructor.
     fn write(value: T, c: &mut DocumentConstructor) -> Result<(), WriteError>;
+}
+
+/// Trait for writing struct fields directly to a [`RecordWriter`].
+///
+/// This trait is generated alongside `IntoEure` for named structs and enables
+/// `#[eure(flatten)]` and `#[eure(flatten_ext)]` support on the write side.
+/// Instead of creating a new record, it writes fields into an existing
+/// `RecordWriter`, preserving `ext_mode` context.
+pub trait IntoEureRecord<T = Self>: Sized {
+    /// Write the fields of a value to the given record writer.
+    fn write_to_record(value: T, rec: &mut RecordWriter<'_>) -> Result<(), WriteError>;
 }
 
 // ============================================================================
@@ -231,6 +244,19 @@ where
             c.navigate(PathSegment::Value(key.into()))?;
             M::write(v, c)?;
             c.end_scope(scope)?;
+        }
+        Ok(())
+    }
+}
+
+impl<M, K, V> IntoEureRecord<Map<K, V>> for Map<K, M>
+where
+    M: IntoEure<V>,
+    K: Into<String>,
+{
+    fn write_to_record(value: Map<K, V>, rec: &mut RecordWriter<'_>) -> Result<(), WriteError> {
+        for (key, v) in value {
+            rec.field_via::<M, _>(&key.into(), v)?;
         }
         Ok(())
     }

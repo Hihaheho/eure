@@ -4,6 +4,7 @@ mod tests;
 use darling::FromField;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
+use std::collections::BTreeSet;
 use syn::spanned::Spanned;
 use syn::{DataStruct, Fields};
 
@@ -32,8 +33,17 @@ fn generate_named_struct(
     let document_crate = &context.config.document_crate;
 
     let needs_type_asserts = context.config.proxy.is_some();
+    let generic_type_params: BTreeSet<String> = context
+        .generics()
+        .type_params()
+        .map(|tp| tp.ident.to_string())
+        .collect();
+    let into_eure_record = context.IntoEureRecord();
+
     let mut field_writes = Vec::new();
     let mut field_asserts = Vec::new();
+    let mut flatten_bounds = Vec::new();
+    let mut seen_flatten_type_params = BTreeSet::new();
     for f in fields {
         let field_name = f.ident.as_ref().expect("named fields must have names");
         let field_ty = &f.ty;
@@ -72,33 +82,30 @@ fn generate_named_struct(
                 ),
             ));
         }
-
-        // For IntoEure, flatten is not yet implemented
-        if attrs.flatten {
-            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                format!(
-                    "#[eure(flatten)] is not yet supported for IntoEure derive on field `{}`",
-                    field_name
-                ),
-            ));
-        }
-        if attrs.flatten_ext {
-            let span = spans
-                .get("flatten_ext")
-                .copied()
-                .unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                format!(
-                    "#[eure(flatten_ext)] is not yet supported for IntoEure derive on field `{}`",
-                    field_name
-                ),
-            ));
+        if (attrs.flatten || attrs.flatten_ext)
+            && let Some(type_param) = flattened_type_param_ident(field_ty)
+        {
+            let type_param_name = type_param.to_string();
+            if generic_type_params.contains(&type_param_name)
+                && seen_flatten_type_params.insert(type_param_name)
+            {
+                flatten_bounds.push(quote_spanned! {type_param.span()=>
+                    #type_param: #into_eure_record<#type_param>
+                });
+            }
         }
 
-        let write = if attrs.ext {
+        let write = if attrs.flatten {
+            let span = field_ty.span();
+            quote_spanned! {span=>
+                rec.flatten::<#field_ty, _>(value.#field_name)?;
+            }
+        } else if attrs.flatten_ext {
+            let span = field_ty.span();
+            quote_spanned! {span=>
+                rec.flatten_ext::<#field_ty, _>(value.#field_name)?;
+            }
+        } else if attrs.ext {
             let field_name_str = attrs
                 .rename
                 .clone()
@@ -131,30 +138,77 @@ fn generate_named_struct(
         }
     }
 
+    // Generate both IntoEureRecord and IntoEure for named structs
+    let record_body = quote! {
+        #(#field_asserts)*
+        #(#field_writes)*
+        Ok(())
+    };
+    let record_impl = if flatten_bounds.is_empty() {
+        context.impl_into_eure_record(record_body)
+    } else {
+        context.impl_into_eure_record_with_where(record_body, &flatten_bounds)
+    };
+
     // For opaque proxy, we need to convert via .into() first
-    Ok(if context.opaque_target().is_some() {
+    let into_eure_impl = if context.opaque_target().is_some() {
         let ident = context.ident();
         let opaque_span = context.opaque_error_span();
         let into_value = quote_spanned! {opaque_span=>
             let value: #ident = value.into();
         };
-        context.impl_into_eure(quote! {
-            #into_value
-            c.record(|rec| {
-                #(#field_asserts)*
-                #(#field_writes)*
-                Ok(())
-            })
-        })
+        context.impl_into_eure_with_where(
+            quote! {
+                #into_value
+                c.record(|rec| {
+                    <Self as #into_eure_record>::write_to_record(value, rec)
+                })
+            },
+            &flatten_bounds,
+        )
+    } else if let Some(ref proxy) = context.config.proxy {
+        // Non-opaque proxy: value type is the target, need explicit type param
+        let target = &proxy.target;
+        context.impl_into_eure_with_where(
+            quote! {
+                c.record(|rec| {
+                    <Self as #into_eure_record<#target>>::write_to_record(value, rec)
+                })
+            },
+            &flatten_bounds,
+        )
     } else {
-        context.impl_into_eure(quote! {
-            c.record(|rec| {
-                #(#field_asserts)*
-                #(#field_writes)*
-                Ok(())
-            })
-        })
+        context.impl_into_eure_with_where(
+            quote! {
+                c.record(|rec| {
+                    <Self as #into_eure_record>::write_to_record(value, rec)
+                })
+            },
+            &flatten_bounds,
+        )
+    };
+
+    Ok(quote! {
+        #record_impl
+        #into_eure_impl
     })
+}
+
+fn flattened_type_param_ident(field_ty: &syn::Type) -> Option<&syn::Ident> {
+    let syn::Type::Path(type_path) = field_ty else {
+        return None;
+    };
+    if type_path.qself.is_some() {
+        return None;
+    }
+    if type_path.path.segments.len() != 1 {
+        return None;
+    }
+    let segment = type_path.path.segments.first().expect("checked len");
+    if !matches!(segment.arguments, syn::PathArguments::None) {
+        return None;
+    }
+    Some(&segment.ident)
 }
 
 fn generate_unit_struct(context: &MacroContext) -> TokenStream {

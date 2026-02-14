@@ -744,3 +744,73 @@ fn test_proxy_enum_non_exhaustive_eure_attr() {
         .to_string()
     );
 }
+
+// ===========================================================================
+// Flatten tests for enum struct variants
+// ===========================================================================
+
+#[test]
+fn test_struct_variant_with_flatten() {
+    let input = generate(parse_quote! {
+        enum Composite {
+            WithAddress {
+                name: String,
+                #[eure(flatten)]
+                address: Address,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure for Composite {
+                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        Composite::WithAddress { name, address } => {
+                            c.set_variant("WithAddress")?;
+                            c.record(|rec| {
+                                rec.field("name", name)?;
+                                rec.flatten::<Address, _>(address)?;
+                                Ok(())
+                            })
+                        }
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}
+
+#[test]
+fn test_struct_variant_with_flatten_ext() {
+    let input = generate(parse_quote! {
+        enum Composite {
+            WithExt {
+                name: String,
+                #[eure(flatten_ext)]
+                ext: ExtData,
+            },
+        }
+    });
+    assert_eq!(
+        input.to_string(),
+        quote! {
+            impl ::eure::document::write::IntoEure for Composite {
+                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                    match value {
+                        Composite::WithExt { name, ext } => {
+                            c.set_variant("WithExt")?;
+                            c.record(|rec| {
+                                rec.field("name", name)?;
+                                rec.flatten_ext::<ExtData, _>(ext)?;
+                                Ok(())
+                            })
+                        }
+                    }
+                }
+            }
+        }
+        .to_string()
+    );
+}
