@@ -230,7 +230,7 @@ scopeName: source.eure
 @repository.section-name {
   patterns[] {
     comment: Extension as section name
-    match: (\$)([\p{XID_Start}_][\p{XID_Continue}]*)
+    match: (\$)([\p{XID_Start}_][\p{XID_Continue}-]*)
     captures {
       1.name: punctuation.definition.extension.eure
       2.name: entity.name.tag.eure
@@ -238,7 +238,7 @@ scopeName: source.eure
   }
   patterns[] {
     comment: Identifier as section name
-    match: [\p{XID_Start}_][\p{XID_Continue}]*
+    match: [\p{XID_Start}_][\p{XID_Continue}-]*
     name: entity.name.section.eure
   }
   patterns[] {
@@ -276,7 +276,7 @@ scopeName: source.eure
 @repository.binding-keys {
   patterns[] {
     comment: Extension key
-    match: (\$)([\p{XID_Start}_][\p{XID_Continue}]*)
+    match: (\$)([\p{XID_Start}_][\p{XID_Continue}-]*)
     captures {
       1.name: punctuation.definition.extension.eure
       2.name: entity.name.tag.eure
@@ -284,7 +284,7 @@ scopeName: source.eure
   }
   patterns[] {
     comment: Identifier key
-    match: [\p{XID_Start}_][\p{XID_Continue}]*
+    match: [\p{XID_Start}_][\p{XID_Continue}-]*
     name: variable.other.property.eure
   }
   patterns[] {
