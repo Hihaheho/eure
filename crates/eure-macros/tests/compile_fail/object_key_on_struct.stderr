@@ -1,0 +1,5 @@
+error: ObjectKey can only be derived for enums
+ --> tests/compile_fail/object_key_on_struct.rs:4:8
+  |
+4 | struct NotAnEnum {
+  |        ^^^^^^^^^

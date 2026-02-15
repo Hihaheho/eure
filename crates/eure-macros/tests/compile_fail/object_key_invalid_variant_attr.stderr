@@ -1,0 +1,5 @@
+error: Unknown field: `unknown_option`. Available values: `allow_unknown_fields`, `rename`
+ --> tests/compile_fail/object_key_invalid_variant_attr.rs:5:12
+  |
+5 |     #[eure(unknown_option = "value")]
+  |            ^^^^^^^^^^^^^^

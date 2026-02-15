@@ -15,6 +15,10 @@ mod must_be_text {
     automod::dir!("./tests/must_be_text");
 }
 
+mod object_key {
+    automod::dir!("./tests/object_key");
+}
+
 #[test]
 fn compile_fail_tests() {
     let t = trybuild::TestCases::new();

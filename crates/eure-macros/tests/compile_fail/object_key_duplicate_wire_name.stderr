@@ -1,0 +1,11 @@
+error: duplicate ObjectKey name `same`: variants `First` and `Second` resolve to the same key
+ --> tests/compile_fail/object_key_duplicate_wire_name.rs:7:12
+  |
+7 |     #[eure(rename = "same")]
+  |            ^^^^^^
+
+error: first mapping for `same` appears here
+ --> tests/compile_fail/object_key_duplicate_wire_name.rs:5:12
+  |
+5 |     #[eure(rename = "same")]
+  |            ^^^^^^

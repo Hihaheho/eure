@@ -12,6 +12,7 @@ pub(crate) mod context;
 mod from_eure;
 mod into_eure;
 mod must_be_text;
+mod object_key;
 mod util;
 
 #[proc_macro_derive(IntoEure, attributes(eure))]
@@ -28,6 +29,15 @@ pub fn from_eure_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let input = parse_macro_input!(input as syn::DeriveInput);
     match create_context(input) {
         Ok(context) => from_eure::derive(context).into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+#[proc_macro_derive(ObjectKey, attributes(eure))]
+pub fn object_key_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    match create_context(input) {
+        Ok(context) => object_key::derive(context).into(),
         Err(err) => err.to_compile_error().into(),
     }
 }
