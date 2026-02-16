@@ -8,7 +8,7 @@ use crate::document::constructor::DocumentConstructor;
 use crate::path::PathSegment;
 use crate::value::ObjectKey;
 
-use super::{IntoEure, IntoEureRecord, WriteError};
+use super::{IntoEure, WriteError};
 
 /// Helper for writing record (map with string keys) to Eure documents.
 ///
@@ -60,15 +60,18 @@ impl<'a> RecordWriter<'a> {
     /// ```ignore
     /// rec.field("name", "Alice")?;
     /// ```
-    pub fn field<T: IntoEure>(&mut self, name: &str, value: T) -> Result<(), WriteError> {
+    pub fn field<T: IntoEure>(&mut self, name: &str, value: T) -> Result<(), T::Error> {
         if self.ext_mode {
             return self.constructor.set_extension(name, value);
         }
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))?;
+            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))
+            .map_err(WriteError::from)?;
         T::write(value, self.constructor)?;
-        self.constructor.end_scope(scope)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(WriteError::from)?;
         Ok(())
     }
 
@@ -85,7 +88,7 @@ impl<'a> RecordWriter<'a> {
     /// // DurationDef implements IntoEure<std::time::Duration>
     /// rec.field_via::<DurationDef, _>("timeout", duration)?;
     /// ```
-    pub fn field_via<M, T>(&mut self, name: &str, value: T) -> Result<(), WriteError>
+    pub fn field_via<M, T>(&mut self, name: &str, value: T) -> Result<(), M::Error>
     where
         M: IntoEure<T>,
     {
@@ -94,16 +97,23 @@ impl<'a> RecordWriter<'a> {
                 .parse()
                 .map_err(|_| WriteError::InvalidIdentifier(name.into()))?;
             let scope = self.constructor.begin_scope();
-            self.constructor.navigate(PathSegment::Extension(ident))?;
+            self.constructor
+                .navigate(PathSegment::Extension(ident))
+                .map_err(WriteError::from)?;
             M::write(value, self.constructor)?;
-            self.constructor.end_scope(scope)?;
+            self.constructor
+                .end_scope(scope)
+                .map_err(WriteError::from)?;
             return Ok(());
         }
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))?;
+            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))
+            .map_err(WriteError::from)?;
         M::write(value, self.constructor)?;
-        self.constructor.end_scope(scope)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(WriteError::from)?;
         Ok(())
     }
 
@@ -119,7 +129,7 @@ impl<'a> RecordWriter<'a> {
         &mut self,
         name: &str,
         value: Option<T>,
-    ) -> Result<(), WriteError> {
+    ) -> Result<(), T::Error> {
         if let Some(v) = value {
             self.field(name, v)?;
         }
@@ -146,9 +156,12 @@ impl<'a> RecordWriter<'a> {
     {
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))?;
+            .navigate(PathSegment::Value(ObjectKey::String(name.to_string())))
+            .map_err(WriteError::from)?;
         let result = f(self.constructor)?;
-        self.constructor.end_scope(scope)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(WriteError::from)?;
         Ok(result)
     }
 
@@ -189,11 +202,11 @@ impl<'a> RecordWriter<'a> {
     /// ```ignore
     /// rec.flatten(value.address)?;
     /// ```
-    pub fn flatten<M, T>(&mut self, value: T) -> Result<(), WriteError>
+    pub fn flatten<M, T>(&mut self, value: T) -> Result<(), M::Error>
     where
-        M: IntoEureRecord<T>,
+        M: IntoEure<T>,
     {
-        M::write_to_record(value, self)
+        M::write_flatten(value, self)
     }
 
     /// Flatten a value's fields as extensions into this record.
@@ -206,12 +219,12 @@ impl<'a> RecordWriter<'a> {
     /// ```ignore
     /// rec.flatten_ext(value.ext)?;
     /// ```
-    pub fn flatten_ext<M, T>(&mut self, value: T) -> Result<(), WriteError>
+    pub fn flatten_ext<M, T>(&mut self, value: T) -> Result<(), M::Error>
     where
-        M: IntoEureRecord<T>,
+        M: IntoEure<T>,
     {
         let mut ext_rec = RecordWriter::new_with_ext_mode(self.constructor, true);
-        M::write_to_record(value, &mut ext_rec)
+        M::write_flatten(value, &mut ext_rec)
     }
 
     /// Get a mutable reference to the underlying DocumentConstructor.
@@ -237,7 +250,7 @@ mod tests {
         let mut c = DocumentConstructor::new();
         c.record(|rec| {
             rec.field("name", "Alice")?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -255,7 +268,7 @@ mod tests {
         let mut c = DocumentConstructor::new();
         c.record(|rec| {
             rec.field_optional("age", Some(30i32))?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -268,7 +281,7 @@ mod tests {
         let mut c = DocumentConstructor::new();
         c.record(|rec| {
             rec.field_optional::<i32>("age", None)?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -283,10 +296,10 @@ mod tests {
             rec.field_with("nested", |c| {
                 c.record(|rec| {
                     rec.field("inner", "value")?;
-                    Ok(())
+                    Ok::<(), WriteError>(())
                 })
             })?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -307,7 +320,7 @@ mod tests {
             rec.field("name", "Bob")?;
             rec.field("age", 25i32)?;
             rec.field("active", true)?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -315,17 +328,27 @@ mod tests {
         assert_eq!(map.len(), 3);
     }
 
-    // Manually implement IntoEureRecord for testing
+    // Manually implement IntoEure flatten support for testing
     struct TestAddress {
         city: String,
         country: String,
     }
 
-    impl IntoEureRecord for TestAddress {
-        fn write_to_record(
+    impl IntoEure for TestAddress {
+        type Error = WriteError;
+
+        fn write(value: TestAddress, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+            c.record(|rec| {
+                rec.field("city", value.city)?;
+                rec.field("country", value.country)?;
+                Ok::<(), WriteError>(())
+            })
+        }
+
+        fn write_flatten(
             value: TestAddress,
             rec: &mut super::RecordWriter<'_>,
-        ) -> Result<(), WriteError> {
+        ) -> Result<(), Self::Error> {
             rec.field("city", value.city)?;
             rec.field("country", value.country)?;
             Ok(())
@@ -341,7 +364,7 @@ mod tests {
                 city: "Tokyo".to_string(),
                 country: "Japan".to_string(),
             })?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -357,11 +380,21 @@ mod tests {
         deprecated: bool,
     }
 
-    impl IntoEureRecord for TestMeta {
-        fn write_to_record(
+    impl IntoEure for TestMeta {
+        type Error = WriteError;
+
+        fn write(value: TestMeta, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+            c.record(|rec| {
+                rec.field("version", value.version)?;
+                rec.field("deprecated", value.deprecated)?;
+                Ok::<(), WriteError>(())
+            })
+        }
+
+        fn write_flatten(
             value: TestMeta,
             rec: &mut super::RecordWriter<'_>,
-        ) -> Result<(), WriteError> {
+        ) -> Result<(), Self::Error> {
             rec.field("version", value.version)?;
             rec.field("deprecated", value.deprecated)?;
             Ok(())
@@ -379,7 +412,7 @@ mod tests {
                 version: 2,
                 deprecated: true,
             })?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();

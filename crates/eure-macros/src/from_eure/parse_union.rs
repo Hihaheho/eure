@@ -10,6 +10,7 @@ use syn::{DataEnum, Fields, Variant};
 use crate::attrs::{FieldAttrs, VariantAttrs, extract_variant_attr_spans};
 use crate::config::MacroConfig;
 use crate::context::MacroContext;
+use crate::ir::{FieldMode, RenameScope, analyze_common_named_fields};
 use crate::util::respan;
 
 use super::parse_record::{generate_ext_field, generate_record_field};
@@ -258,51 +259,51 @@ fn generate_struct_variant(
     let target_type = respan(context.target_type(), fields.span());
     let opaque_target = context.opaque_target();
     let document_crate = &context.config.document_crate;
+    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Field)
+        .expect("failed to analyze variant fields");
     // Check if there are any "regular" record fields (not flatten, ext, or flatten_ext)
-    let has_record = fields.iter().any(|f| {
-        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
-        !attrs.flatten && !attrs.ext && !attrs.flatten_ext
-    });
+    let has_record = common_fields
+        .iter()
+        .any(|field| matches!(field.mode, FieldMode::Record));
 
-    let field_assignments: Vec<_> = fields
+    let field_assignments: Vec<_> = common_fields
         .iter()
         .map(|f| {
-            let field_name = f.ident.as_ref().expect("struct fields must have names");
+            let field_name = &f.ident;
             let field_ty = &f.ty;
-            let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
 
-            if attrs.flatten {
+            if matches!(f.mode, FieldMode::Flatten) {
                 // Use rec.flatten() when we have a record, ctx.flatten() otherwise
                 if has_record {
                     quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
                 } else {
                     quote! { #field_name: <#field_ty>::parse(&ctx.flatten())? }
                 }
-            } else if attrs.flatten_ext {
+            } else if matches!(f.mode, FieldMode::FlattenExt) {
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
-            } else if attrs.ext {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
+            } else if matches!(f.mode, FieldMode::Ext) {
+                let field_name_str = f
+                    .wire_name
+                    .as_deref()
+                    .expect("wire name required for ext field");
                 generate_ext_field(
                     field_name,
                     field_ty,
-                    &field_name_str,
-                    &attrs.default,
-                    attrs.via.as_ref(),
+                    field_name_str,
+                    &f.default,
+                    f.via.as_ref(),
                 )
             } else {
-                let field_name_str = attrs
-                    .rename
-                    .clone()
-                    .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
+                let field_name_str = f
+                    .wire_name
+                    .as_deref()
+                    .expect("wire name required for record field");
                 generate_record_field(
                     field_name,
                     field_ty,
-                    &field_name_str,
-                    &attrs.default,
-                    attrs.via.as_ref(),
+                    field_name_str,
+                    &f.default,
+                    f.via.as_ref(),
                 )
             }
         })

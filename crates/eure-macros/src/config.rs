@@ -25,6 +25,8 @@ pub struct MacroConfig {
     pub allow_unknown_extensions: bool,
     /// Custom error type for the FromEure impl.
     pub parse_error: Option<TokenStream>,
+    /// Custom error type for the IntoEure impl.
+    pub write_error: Option<TokenStream>,
     /// Type name for BuildSchema registration.
     pub type_name: Option<String>,
     /// Treat proxy enums as non-exhaustive (adds a wildcard arm in IntoEure).
@@ -48,6 +50,7 @@ impl MacroConfig {
             .map(|path| path.into_token_stream())
             .unwrap_or_else(|| quote! { ::eure::document });
         let parse_error = attrs.parse_error.map(|path| path.into_token_stream());
+        let write_error = attrs.write_error.map(|path| path.into_token_stream());
 
         // Validate that proxy and opaque are mutually exclusive
         if attrs.proxy.is_some() && attrs.opaque.is_some() {
@@ -84,6 +87,7 @@ impl MacroConfig {
             allow_unknown_fields: attrs.allow_unknown_fields,
             allow_unknown_extensions: attrs.allow_unknown_extensions,
             parse_error,
+            write_error,
             type_name: attrs.type_name,
             non_exhaustive: attrs.non_exhaustive,
             proxy,

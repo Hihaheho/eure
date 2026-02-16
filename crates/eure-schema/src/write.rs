@@ -61,7 +61,9 @@ pub fn schema_to_source_document(
 }
 
 impl IntoEure for SchemaDocument {
-    fn write(value: Self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    type Error = WriteError;
+
+    fn write(value: Self, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
         write_schema_document(&value, c)
     }
 }

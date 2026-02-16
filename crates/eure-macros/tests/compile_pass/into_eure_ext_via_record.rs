@@ -5,6 +5,8 @@ use eure_macros::IntoEure;
 struct DurationDef;
 
 impl IntoEure<std::time::Duration> for DurationDef {
+    type Error = WriteError;
+
     fn write(
         _value: std::time::Duration,
         _c: &mut DocumentConstructor,

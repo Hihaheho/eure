@@ -1,13 +1,13 @@
 //! BuildSchema derive implementation for enums (unions)
 
-use darling::FromField;
 use darling::FromVariant;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::DataEnum;
 
-use crate::attrs::{FieldAttrs, VariantAttrs};
+use crate::attrs::VariantAttrs;
 use crate::context::MacroContext;
+use crate::ir::{RenameScope, analyze_common_named_fields};
 
 pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenStream {
     let schema_crate = context.schema_crate();
@@ -29,20 +29,17 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
 
             let schema_build = match &variant.fields {
                 syn::Fields::Unit => {
-                    // Unit variant -> null schema
                     quote! {
                         let #schema_var = ctx.create_node(#schema_crate::SchemaNodeContent::Null);
                     }
                 }
                 syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                    // Newtype variant -> delegate to inner type
                     let field_ty = &fields.unnamed[0].ty;
                     quote! {
                         let #schema_var = ctx.build::<#field_ty>();
                     }
                 }
                 syn::Fields::Unnamed(fields) => {
-                    // Tuple variant -> tuple schema
                     let field_builds: Vec<_> = fields
                         .unnamed
                         .iter()
@@ -71,9 +68,11 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
                     }
                 }
                 syn::Fields::Named(fields) => {
-                    // Struct variant -> record schema
-                    let field_builds: Vec<_> = fields
-                        .named
+                    let common_fields =
+                        analyze_common_named_fields(context, &fields.named, RenameScope::Field)
+                            .expect("failed to analyze variant fields");
+
+                    let field_builds: Vec<_> = common_fields
                         .iter()
                         .enumerate()
                         .map(|(fidx, f)| {
@@ -85,17 +84,14 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
                         })
                         .collect();
 
-                    let property_entries: Vec<_> = fields
-                        .named
+                    let property_entries: Vec<_> = common_fields
                         .iter()
                         .enumerate()
                         .map(|(fidx, f)| {
-                            let field_name = f.ident.as_ref().unwrap();
-                            let field_attrs = FieldAttrs::from_field(f)
-                                .expect("failed to parse field attributes");
-                            let field_name_str = field_attrs.rename.clone().unwrap_or_else(|| {
-                                context.apply_field_rename(&field_name.to_string())
-                            });
+                            let field_name_str = f
+                                .wire_name
+                                .as_deref()
+                                .expect("wire name required for variant field");
                             let field_var = format_ident!("variant_{}_field_{}", idx, fidx);
                             let is_optional = is_option_type(&f.ty);
 
@@ -129,13 +125,11 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
         })
         .collect();
 
-    // Collect all schema builds
     let all_builds: Vec<_> = variant_schemas
         .iter()
         .map(|(_, _, build)| build.clone())
         .collect();
 
-    // Create the variants BTreeMap entries
     let variant_entries: Vec<_> = variant_schemas
         .iter()
         .map(|(name, schema_var, _)| {
@@ -160,7 +154,6 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
     context.impl_build_schema(content)
 }
 
-/// Check if a type is Option<T>
 fn is_option_type(ty: &syn::Type) -> bool {
     if let syn::Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()

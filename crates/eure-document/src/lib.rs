@@ -77,10 +77,9 @@ pub(crate) mod prelude_internal {
 }
 
 impl IntoEure for regex::Regex {
-    fn write(
-        value: Self,
-        c: &mut constructor::DocumentConstructor,
-    ) -> Result<(), write::WriteError> {
+    type Error = write::WriteError;
+
+    fn write(value: Self, c: &mut constructor::DocumentConstructor) -> Result<(), Self::Error> {
         c.write(value.as_str())
     }
 }

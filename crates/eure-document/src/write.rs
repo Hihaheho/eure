@@ -24,6 +24,7 @@ use crate::path::PathSegment;
 use crate::prelude_internal::*;
 use crate::text::Text;
 use crate::value::ValueKind;
+use core::any::type_name;
 
 /// Error type for write operations.
 #[derive(Debug, thiserror::Error, Clone)]
@@ -51,6 +52,10 @@ pub enum WriteError {
     /// Unknown variant when writing a non-exhaustive proxy enum.
     #[error("non-exhaustive enum variant for {type_name}")]
     NonExhaustiveVariant { type_name: &'static str },
+
+    /// Flatten target cannot be written as record fields.
+    #[error("flatten target is not record-like: {type_name}")]
+    FlattenTargetNotRecordLike { type_name: &'static str },
 }
 
 /// Trait for writing Rust types to Eure documents.
@@ -91,23 +96,34 @@ pub enum WriteError {
 /// }
 /// ```
 pub trait IntoEure<T = Self>: Sized {
-    /// Write a value to the current node in the document constructor.
-    fn write(value: T, c: &mut DocumentConstructor) -> Result<(), WriteError>;
-}
+    /// The error type returned when writing.
+    ///
+    /// This must be able to represent `WriteError` so document-constructor
+    /// failures can be propagated through custom user errors.
+    type Error: From<WriteError>;
 
-/// Trait for writing struct fields directly to a [`RecordWriter`].
-///
-/// This trait is generated alongside `IntoEure` for named structs and enables
-/// `#[eure(flatten)]` and `#[eure(flatten_ext)]` support on the write side.
-/// Instead of creating a new record, it writes fields into an existing
-/// `RecordWriter`, preserving `ext_mode` context.
-pub trait IntoEureRecord<T = Self>: Sized {
-    /// Write the fields of a value to the given record writer.
-    fn write_to_record(value: T, rec: &mut RecordWriter<'_>) -> Result<(), WriteError>;
+    /// Write a value to the current node in the document constructor.
+    fn write(value: T, c: &mut DocumentConstructor) -> Result<(), Self::Error>;
+
+    /// Write a value as flattened record fields.
+    ///
+    /// The default implementation returns a runtime error. Types that are
+    /// record-like (e.g. named structs, map-like containers) should override
+    /// this to emit fields into `rec`.
+    fn write_flatten(value: T, rec: &mut RecordWriter<'_>) -> Result<(), Self::Error> {
+        let _ = value;
+        let _ = rec;
+        Err(WriteError::FlattenTargetNotRecordLike {
+            type_name: type_name::<T>(),
+        }
+        .into())
+    }
 }
 
 impl IntoEure for EureDocument {
-    fn write(value: Self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    type Error = WriteError;
+
+    fn write(value: Self, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
         c.write_subtree(&value, value.get_root_id())
     }
 }
@@ -170,8 +186,11 @@ fn write_subtree_node(
 // ============================================================================
 
 impl IntoEure for bool {
-    fn write(value: bool, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Bool(value))?;
+    type Error = WriteError;
+
+    fn write(value: bool, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Bool(value))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
@@ -180,8 +199,11 @@ macro_rules! impl_into_eure_int {
     ($($ty:ty),*) => {
         $(
             impl IntoEure for $ty {
-                fn write(value: $ty, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-                    c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))?;
+                type Error = WriteError;
+
+                fn write(value: $ty, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+                    c.bind_primitive(PrimitiveValue::Integer(BigInt::from(value)))
+                        .map_err(WriteError::from)?;
                     Ok(())
                 }
             }
@@ -192,36 +214,51 @@ macro_rules! impl_into_eure_int {
 impl_into_eure_int!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
 impl IntoEure for f32 {
-    fn write(value: f32, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::F32(value))?;
+    type Error = WriteError;
+
+    fn write(value: f32, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::F32(value))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
 
 impl IntoEure for f64 {
-    fn write(value: f64, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::F64(value))?;
+    type Error = WriteError;
+
+    fn write(value: f64, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::F64(value))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
 
 impl IntoEure for BigInt {
-    fn write(value: BigInt, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Integer(value))?;
+    type Error = WriteError;
+
+    fn write(value: BigInt, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Integer(value))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
 
 impl IntoEure for String {
-    fn write(value: String, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value)))?;
+    type Error = WriteError;
+
+    fn write(value: String, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value)))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
 
 impl<'a> IntoEure for &'a str {
-    fn write(value: &'a str, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value)))?;
+    type Error = WriteError;
+
+    fn write(value: &'a str, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value)))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
@@ -231,28 +268,38 @@ where
     T: ToOwned + ?Sized,
     T::Owned: IntoEure,
 {
-    fn write(value: Cow<'a, T>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    type Error = <T::Owned as IntoEure>::Error;
+
+    fn write(value: Cow<'a, T>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
         <T::Owned as IntoEure>::write(value.into_owned(), c)
     }
 }
 
 impl IntoEure for Text {
-    fn write(value: Text, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(value))?;
+    type Error = WriteError;
+
+    fn write(value: Text, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Text(value))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
 
 impl IntoEure for PrimitiveValue {
-    fn write(value: PrimitiveValue, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(value)?;
+    type Error = WriteError;
+
+    fn write(value: PrimitiveValue, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(value).map_err(WriteError::from)?;
         Ok(())
     }
 }
 
 impl IntoEure for Identifier {
-    fn write(value: Identifier, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value.into_string())))?;
+    type Error = WriteError;
+
+    fn write(value: Identifier, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_primitive(PrimitiveValue::Text(Text::plaintext(value.into_string())))
+            .map_err(WriteError::from)?;
         Ok(())
     }
 }
@@ -265,13 +312,16 @@ impl<M, T> IntoEure<Vec<T>> for Vec<M>
 where
     M: IntoEure<T>,
 {
-    fn write(value: Vec<T>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_empty_array()?;
+    type Error = M::Error;
+
+    fn write(value: Vec<T>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_empty_array().map_err(WriteError::from)?;
         for item in value {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::ArrayIndex(None))?;
+            c.navigate(PathSegment::ArrayIndex(None))
+                .map_err(WriteError::from)?;
             M::write(item, c)?;
-            c.end_scope(scope)?;
+            c.end_scope(scope).map_err(WriteError::from)?;
         }
         Ok(())
     }
@@ -281,13 +331,16 @@ impl<M, T, const N: usize> IntoEure<[T; N]> for [M; N]
 where
     M: IntoEure<T>,
 {
-    fn write(value: [T; N], c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_empty_array()?;
+    type Error = M::Error;
+
+    fn write(value: [T; N], c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_empty_array().map_err(WriteError::from)?;
         for item in value {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::ArrayIndex(None))?;
+            c.navigate(PathSegment::ArrayIndex(None))
+                .map_err(WriteError::from)?;
             M::write(item, c)?;
-            c.end_scope(scope)?;
+            c.end_scope(scope).map_err(WriteError::from)?;
         }
         Ok(())
     }
@@ -298,26 +351,32 @@ where
     M: IntoEure<V>,
     K: Into<ObjectKey>,
 {
-    fn write(value: Map<K, V>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_empty_map()?;
+    type Error = M::Error;
+
+    fn write(value: Map<K, V>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_empty_map().map_err(WriteError::from)?;
         for (key, v) in value {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::Value(key.into()))?;
+            c.navigate(PathSegment::Value(key.into()))
+                .map_err(WriteError::from)?;
             M::write(v, c)?;
-            c.end_scope(scope)?;
+            c.end_scope(scope).map_err(WriteError::from)?;
         }
         Ok(())
     }
-}
 
-impl<M, K, V> IntoEureRecord<Map<K, V>> for Map<K, M>
-where
-    M: IntoEure<V>,
-    K: Into<String>,
-{
-    fn write_to_record(value: Map<K, V>, rec: &mut RecordWriter<'_>) -> Result<(), WriteError> {
+    fn write_flatten(value: Map<K, V>, rec: &mut RecordWriter<'_>) -> Result<(), Self::Error> {
         for (key, v) in value {
-            rec.field_via::<M, _>(&key.into(), v)?;
+            let key = match key.into() {
+                ObjectKey::String(name) => name,
+                _ => {
+                    return Err(WriteError::FlattenTargetNotRecordLike {
+                        type_name: type_name::<Map<K, V>>(),
+                    }
+                    .into());
+                }
+            };
+            rec.field_via::<M, _>(&key, v)?;
         }
         Ok(())
     }
@@ -328,29 +387,32 @@ where
     M: IntoEure<V>,
     K: Into<ObjectKey> + Eq + std::hash::Hash,
 {
-    fn write(value: IndexMap<K, V>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
-        c.bind_empty_map()?;
+    type Error = M::Error;
+
+    fn write(value: IndexMap<K, V>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+        c.bind_empty_map().map_err(WriteError::from)?;
         for (key, v) in value {
             let scope = c.begin_scope();
-            c.navigate(PathSegment::Value(key.into()))?;
+            c.navigate(PathSegment::Value(key.into()))
+                .map_err(WriteError::from)?;
             M::write(v, c)?;
-            c.end_scope(scope)?;
+            c.end_scope(scope).map_err(WriteError::from)?;
         }
         Ok(())
     }
-}
 
-impl<M, K, V> IntoEureRecord<IndexMap<K, V>> for IndexMap<K, M>
-where
-    M: IntoEure<V>,
-    K: Into<String> + Eq + std::hash::Hash,
-{
-    fn write_to_record(
-        value: IndexMap<K, V>,
-        rec: &mut RecordWriter<'_>,
-    ) -> Result<(), WriteError> {
+    fn write_flatten(value: IndexMap<K, V>, rec: &mut RecordWriter<'_>) -> Result<(), Self::Error> {
         for (key, v) in value {
-            rec.field_via::<M, _>(&key.into(), v)?;
+            let key = match key.into() {
+                ObjectKey::String(name) => name,
+                _ => {
+                    return Err(WriteError::FlattenTargetNotRecordLike {
+                        type_name: type_name::<IndexMap<K, V>>(),
+                    }
+                    .into());
+                }
+            };
+            rec.field_via::<M, _>(&key, v)?;
         }
         Ok(())
     }
@@ -360,11 +422,14 @@ impl<M, T> IntoEure<Option<T>> for Option<M>
 where
     M: IntoEure<T>,
 {
-    fn write(value: Option<T>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    type Error = M::Error;
+
+    fn write(value: Option<T>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
         match value {
             Some(v) => M::write(v, c),
             None => {
-                c.bind_primitive(PrimitiveValue::Null)?;
+                c.bind_primitive(PrimitiveValue::Null)
+                    .map_err(WriteError::from)?;
                 Ok(())
             }
         }
@@ -379,15 +444,17 @@ macro_rules! impl_into_document_tuple {
     ($n:expr, $($idx:tt: $marker:ident : $ty:ident),+) => {
         impl<$($marker, $ty),+> IntoEure<($($ty,)+)> for ($($marker,)+)
         where
-            $($marker: IntoEure<$ty>),+
+            $($marker: IntoEure<$ty, Error = WriteError>),+
         {
-            fn write(value: ($($ty,)+), c: &mut DocumentConstructor) -> Result<(), WriteError> {
-                c.bind_empty_tuple()?;
+            type Error = WriteError;
+
+            fn write(value: ($($ty,)+), c: &mut DocumentConstructor) -> Result<(), Self::Error> {
+                c.bind_empty_tuple().map_err(WriteError::from)?;
                 $(
                     let scope = c.begin_scope();
-                    c.navigate(PathSegment::TupleIndex($idx))?;
+                    c.navigate(PathSegment::TupleIndex($idx)).map_err(WriteError::from)?;
                     $marker::write(value.$idx, c)?;
-                    c.end_scope(scope)?;
+                    c.end_scope(scope).map_err(WriteError::from)?;
                 )+
                 Ok(())
             }
@@ -428,11 +495,12 @@ impl DocumentConstructor {
     ///     Ok(())
     /// })?;
     /// ```
-    pub fn record<F, T>(&mut self, f: F) -> Result<T, WriteError>
+    pub fn record<F, T, E>(&mut self, f: F) -> Result<T, E>
     where
-        F: FnOnce(&mut RecordWriter<'_>) -> Result<T, WriteError>,
+        F: FnOnce(&mut RecordWriter<'_>) -> Result<T, E>,
+        E: From<WriteError>,
     {
-        self.bind_empty_map()?;
+        self.bind_empty_map().map_err(WriteError::from)?;
         let mut writer = RecordWriter::new(self);
         f(&mut writer)
     }
@@ -449,11 +517,12 @@ impl DocumentConstructor {
     ///     Ok(())
     /// })?;
     /// ```
-    pub fn tuple<F, T>(&mut self, f: F) -> Result<T, WriteError>
+    pub fn tuple<F, T, E>(&mut self, f: F) -> Result<T, E>
     where
-        F: FnOnce(&mut TupleWriter<'_>) -> Result<T, WriteError>,
+        F: FnOnce(&mut TupleWriter<'_>) -> Result<T, E>,
+        E: From<WriteError>,
     {
-        self.bind_empty_tuple()?;
+        self.bind_empty_tuple().map_err(WriteError::from)?;
         let mut writer = TupleWriter::new(self);
         f(&mut writer)
     }
@@ -465,14 +534,15 @@ impl DocumentConstructor {
     /// ```ignore
     /// c.set_extension("optional", true)?;
     /// ```
-    pub fn set_extension<T: IntoEure>(&mut self, name: &str, value: T) -> Result<(), WriteError> {
+    pub fn set_extension<T: IntoEure>(&mut self, name: &str, value: T) -> Result<(), T::Error> {
         let ident: Identifier = name
             .parse()
             .map_err(|_| WriteError::InvalidIdentifier(name.into()))?;
         let scope = self.begin_scope();
-        self.navigate(PathSegment::Extension(ident))?;
+        self.navigate(PathSegment::Extension(ident))
+            .map_err(WriteError::from)?;
         T::write(value, self)?;
-        self.end_scope(scope)?;
+        self.end_scope(scope).map_err(WriteError::from)?;
         Ok(())
     }
 
@@ -488,7 +558,7 @@ impl DocumentConstructor {
         &mut self,
         name: &str,
         value: Option<T>,
-    ) -> Result<(), WriteError> {
+    ) -> Result<(), T::Error> {
         if let Some(v) = value {
             self.set_extension(name, v)?;
         }
@@ -556,7 +626,7 @@ impl DocumentConstructor {
     /// ```ignore
     /// c.write(my_value)?;
     /// ```
-    pub fn write<T: IntoEure>(&mut self, value: T) -> Result<(), WriteError> {
+    pub fn write<T: IntoEure>(&mut self, value: T) -> Result<(), T::Error> {
         T::write(value, self)
     }
 
@@ -571,7 +641,7 @@ impl DocumentConstructor {
     /// // DurationDef implements IntoEure<std::time::Duration>
     /// c.write_via::<DurationDef, _>(duration)?;
     /// ```
-    pub fn write_via<M, T>(&mut self, value: T) -> Result<(), WriteError>
+    pub fn write_via<M, T>(&mut self, value: T) -> Result<(), M::Error>
     where
         M: IntoEure<T>,
     {
@@ -629,7 +699,7 @@ mod tests {
         c.record(|rec| {
             rec.field("name", "Alice")?;
             rec.field("age", 30i32)?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -642,7 +712,7 @@ mod tests {
         let mut c = DocumentConstructor::new();
         c.record(|rec| {
             rec.field("type", "string")?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         c.set_extension("optional", true).unwrap();
@@ -661,7 +731,7 @@ mod tests {
         c.set_variant("foo").unwrap();
         c.record(|rec| {
             rec.field("value", 42i32)?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -695,10 +765,10 @@ mod tests {
                 c.record(|rec| {
                     rec.field("city", "Tokyo")?;
                     rec.field("zip", "100-0001")?;
-                    Ok(())
+                    Ok::<(), WriteError>(())
                 })
             })?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();
@@ -716,11 +786,13 @@ mod tests {
         }
 
         impl IntoEure<DurationLike> for DurationMarker {
-            fn write(value: DurationLike, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+            type Error = WriteError;
+
+            fn write(value: DurationLike, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
                 c.record(|rec| {
                     rec.field("secs", value.secs)?;
                     rec.field("nanos", value.nanos)?;
-                    Ok(())
+                    Ok::<(), WriteError>(())
                 })
             }
         }
@@ -876,7 +948,7 @@ mod tests {
         c.record(|rec| {
             rec.field("name", "Alice")?;
             rec.field("address", inner)?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let result = c.finish();

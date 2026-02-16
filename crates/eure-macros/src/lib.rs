@@ -11,6 +11,7 @@ pub(crate) mod config;
 pub(crate) mod context;
 mod from_eure;
 mod into_eure;
+mod ir;
 mod must_be_text;
 mod object_key;
 mod util;

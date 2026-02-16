@@ -44,12 +44,15 @@ impl<'a> TupleWriter<'a> {
     /// t.next("value")?;
     /// t.next(123)?;
     /// ```
-    pub fn next<T: IntoEure>(&mut self, value: T) -> Result<(), WriteError> {
+    pub fn next<T: IntoEure>(&mut self, value: T) -> Result<(), T::Error> {
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::TupleIndex(self.position))?;
+            .navigate(PathSegment::TupleIndex(self.position))
+            .map_err(WriteError::from)?;
         T::write(value, self.constructor)?;
-        self.constructor.end_scope(scope)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(WriteError::from)?;
         self.position += 1;
         Ok(())
     }
@@ -65,15 +68,18 @@ impl<'a> TupleWriter<'a> {
     /// // DurationDef implements IntoEure<std::time::Duration>
     /// t.next_via::<DurationDef, _>(duration)?;
     /// ```
-    pub fn next_via<M, T>(&mut self, value: T) -> Result<(), WriteError>
+    pub fn next_via<M, T>(&mut self, value: T) -> Result<(), M::Error>
     where
         M: IntoEure<T>,
     {
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::TupleIndex(self.position))?;
+            .navigate(PathSegment::TupleIndex(self.position))
+            .map_err(WriteError::from)?;
         M::write(value, self.constructor)?;
-        self.constructor.end_scope(scope)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(WriteError::from)?;
         self.position += 1;
         Ok(())
     }
@@ -98,9 +104,12 @@ impl<'a> TupleWriter<'a> {
     {
         let scope = self.constructor.begin_scope();
         self.constructor
-            .navigate(PathSegment::TupleIndex(self.position))?;
+            .navigate(PathSegment::TupleIndex(self.position))
+            .map_err(WriteError::from)?;
         let result = f(self.constructor)?;
-        self.constructor.end_scope(scope)?;
+        self.constructor
+            .end_scope(scope)
+            .map_err(WriteError::from)?;
         self.position += 1;
         Ok(result)
     }
@@ -133,8 +142,7 @@ mod tests {
         c.tuple(|t| {
             t.next(1i32)?;
             t.next("two")?;
-            t.next(true)?;
-            Ok(())
+            t.next(true)
         })
         .unwrap();
         let doc = c.finish();
@@ -150,10 +158,9 @@ mod tests {
             t.next_with(|c| {
                 c.record(|rec| {
                     rec.field("inner", "value")?;
-                    Ok(())
+                    Ok::<(), WriteError>(())
                 })
-            })?;
-            Ok(())
+            })
         })
         .unwrap();
         let doc = c.finish();
@@ -179,7 +186,7 @@ mod tests {
             assert_eq!(t.position(), 1);
             t.next(2i32)?;
             assert_eq!(t.position(), 2);
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
     }
@@ -187,7 +194,7 @@ mod tests {
     #[test]
     fn test_empty_tuple() {
         let mut c = DocumentConstructor::new();
-        c.tuple(|_t| Ok(())).unwrap();
+        c.tuple(|_t| Ok::<(), WriteError>(())).unwrap();
         let doc = c.finish();
         let tuple = doc.root().as_tuple().unwrap();
         assert!(tuple.is_empty());
@@ -199,7 +206,7 @@ mod tests {
         c.tuple(|t| {
             t.next(42i32)?;
             t.next("hello")?;
-            Ok(())
+            Ok::<(), WriteError>(())
         })
         .unwrap();
         let doc = c.finish();

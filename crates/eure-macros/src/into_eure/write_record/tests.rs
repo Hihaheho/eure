@@ -17,18 +17,21 @@ fn test_named_fields_struct() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for User {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for User {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("name", value.name)?;
                     rec.field("age", value.age)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for User {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -45,9 +48,14 @@ fn test_unit_struct() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Unit {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let _ = value;
-                    c.bind_primitive(::eure::document::value::PrimitiveValue::Null)?;
+                    c.bind_primitive(::eure::document::value::PrimitiveValue::Null)
+                        .map_err(::eure::document::write::WriteError::from)?;
                     Ok(())
                 }
             }
@@ -65,7 +73,11 @@ fn test_tuple_struct() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Point {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let Point(field_0, field_1) = value;
                     c.tuple(|t| {
                         t.next(field_0)?;
@@ -88,7 +100,11 @@ fn test_tuple_struct_with_via() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Steps {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let Steps(field_0, field_1) = value;
                     c.tuple(|t| {
                         t.next(field_0)?;
@@ -111,7 +127,11 @@ fn test_newtype_struct() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Name {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let Name(inner) = value;
                     <String as ::eure::document::write::IntoEure>::write(inner, c)
                 }
@@ -133,18 +153,21 @@ fn test_named_fields_struct_with_custom_crate() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure_document::write::IntoEureRecord for User {
-                fn write_to_record(value: Self, rec: &mut ::eure_document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure_document::write::WriteError> {
+            impl ::eure_document::write::IntoEure for User {
+                type Error = ::eure_document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure_document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure_document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure_document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("name", value.name)?;
                     rec.field("age", value.age)?;
                     Ok(())
-                }
-            }
-            impl ::eure_document::write::IntoEure for User {
-                fn write(value: Self, c: &mut ::eure_document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure_document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure_document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -164,18 +187,21 @@ fn test_named_fields_struct_with_rename_all_camel_case() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for User {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for User {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("userName", value.user_name)?;
                     rec.field("emailAddress", value.email_address)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for User {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -195,18 +221,21 @@ fn test_named_fields_struct_with_rename_all_kebab_case() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for Config {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for Config {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("max-retries", value.max_retries)?;
                     rec.field("timeout-seconds", value.timeout_seconds)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for Config {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -226,18 +255,22 @@ fn test_ext_field() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for WithExt {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    rec.field("name", value.name)?;
-                    rec.constructor().set_extension("optional", value.optional)?;
-                    Ok(())
-                }
-            }
             impl ::eure::document::write::IntoEure for WithExt {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
+                    rec.field("name", value.name)?;
+                    rec.constructor()
+                        .set_extension("optional", value.optional)?;
+                    Ok(())
                 }
             }
         }
@@ -255,17 +288,24 @@ fn test_single_type_param() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<T: ::eure::document::write::IntoEure > ::eure::document::write::IntoEureRecord for Wrapper<T> {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl<T: ::eure::document::write::IntoEure> ::eure::document::write::IntoEure for Wrapper<T>
+            where
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<T as ::eure::document::write::IntoEure>::Error>
+            {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("inner", value.inner)?;
                     Ok(())
-                }
-            }
-            impl<T: ::eure::document::write::IntoEure > ::eure::document::write::IntoEure for Wrapper<T> {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -284,18 +324,28 @@ fn test_multiple_type_params() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<A: ::eure::document::write::IntoEure, B: ::eure::document::write::IntoEure > ::eure::document::write::IntoEureRecord for Pair<A, B> {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl<A: ::eure::document::write::IntoEure, B: ::eure::document::write::IntoEure>
+                ::eure::document::write::IntoEure for Pair<A, B>
+            where
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<A as ::eure::document::write::IntoEure>::Error>,
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<B as ::eure::document::write::IntoEure>::Error>
+            {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("first", value.first)?;
                     rec.field("second", value.second)?;
                     Ok(())
-                }
-            }
-            impl<A: ::eure::document::write::IntoEure, B: ::eure::document::write::IntoEure > ::eure::document::write::IntoEure for Pair<A, B> {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -313,17 +363,24 @@ fn test_type_param_with_existing_bounds() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<T: Clone + ::eure::document::write::IntoEure > ::eure::document::write::IntoEureRecord for Wrapper<T> {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl<T: Clone + ::eure::document::write::IntoEure> ::eure::document::write::IntoEure for Wrapper<T>
+            where
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<T as ::eure::document::write::IntoEure>::Error>
+            {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("inner", value.inner)?;
                     Ok(())
-                }
-            }
-            impl<T: Clone + ::eure::document::write::IntoEure > ::eure::document::write::IntoEure for Wrapper<T> {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -339,8 +396,16 @@ fn test_newtype_struct_with_type_param() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<T: ::eure::document::write::IntoEure > ::eure::document::write::IntoEure for Wrapped<T> {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl<T: ::eure::document::write::IntoEure> ::eure::document::write::IntoEure for Wrapped<T>
+            where
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<T as ::eure::document::write::IntoEure>::Error>
+            {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let Wrapped(inner) = value;
                     <T as ::eure::document::write::IntoEure>::write(inner, c)
                 }
@@ -366,20 +431,27 @@ fn test_proxy_basic() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord<external::PublicConfig> for PublicConfigDef {
-                fn write_to_record(value: external::PublicConfig, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure<external::PublicConfig> for PublicConfigDef {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::PublicConfig,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| {
+                        <Self as ::eure::document::write::IntoEure<external::PublicConfig>>::write_flatten(
+                            value, rec
+                        )
+                    })
+                }
+                fn write_flatten(
+                    value: external::PublicConfig,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     let _: &String = &value.host;
                     let _: &u16 = &value.port;
                     rec.field("host", value.host)?;
                     rec.field("port", value.port)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure<external::PublicConfig> for PublicConfigDef {
-                fn write(value: external::PublicConfig, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord<external::PublicConfig>>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -403,21 +475,28 @@ fn test_opaque_basic() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for DurationDef {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure<std::time::Duration> for DurationDef {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: std::time::Duration,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| {
+                        <Self as ::eure::document::write::IntoEure<std::time::Duration>>::write_flatten(
+                            value, rec
+                        )
+                    })
+                }
+                fn write_flatten(
+                    value: std::time::Duration,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
+                    let value: DurationDef = value.into();
                     let _: &u64 = &value.secs;
                     let _: &u32 = &value.nanos;
                     rec.field("secs", value.secs)?;
                     rec.field("nanos", value.nanos)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure<std::time::Duration> for DurationDef {
-                fn write(value: std::time::Duration, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    let value: DurationDef = value.into();
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -435,7 +514,11 @@ fn test_opaque_newtype() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Wrapper> for WrapperDef {
-                fn write(value: external::Wrapper, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Wrapper,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let value: WrapperDef = value.into();
                     let WrapperDef(inner) = value;
                     <String as ::eure::document::write::IntoEure>::write(inner, c)
@@ -458,20 +541,25 @@ fn test_proxy_with_rename_all() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord<external::Config> for ConfigDef {
-                fn write_to_record(value: external::Config, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure<external::Config> for ConfigDef {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Config,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| {
+                        <Self as ::eure::document::write::IntoEure<external::Config>>::write_flatten(value, rec)
+                    })
+                }
+                fn write_flatten(
+                    value: external::Config,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     let _: &i32 = &value.max_retries;
                     let _: &i32 = &value.timeout_seconds;
                     rec.field("maxRetries", value.max_retries)?;
                     rec.field("timeoutSeconds", value.timeout_seconds)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure<external::Config> for ConfigDef {
-                fn write(value: external::Config, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord<external::Config>>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -489,7 +577,11 @@ fn test_opaque_tuple_struct() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Point> for PointDef {
-                fn write(value: external::Point, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Point,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let value: PointDef = value.into();
                     let PointDef(field_0, field_1) = value;
                     c.tuple(|t| {
@@ -514,9 +606,14 @@ fn test_opaque_unit_struct() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Marker> for MarkerDef {
-                fn write(value: external::Marker, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Marker,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let _: MarkerDef = value.into();
-                    c.bind_primitive(::eure::document::value::PrimitiveValue::Null)?;
+                    c.bind_primitive(::eure::document::value::PrimitiveValue::Null)
+                        .map_err(::eure::document::write::WriteError::from)?;
                     Ok(())
                 }
             }
@@ -535,7 +632,11 @@ fn test_proxy_tuple_struct() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Point> for PointDef {
-                fn write(value: external::Point, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Point,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let external::Point(field_0, field_1) = value;
                     c.tuple(|t| {
                         t.next(field_0)?;
@@ -559,9 +660,14 @@ fn test_proxy_unit_struct() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Marker> for MarkerDef {
-                fn write(value: external::Marker, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Marker,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let _ = value;
-                    c.bind_primitive(::eure::document::value::PrimitiveValue::Null)?;
+                    c.bind_primitive(::eure::document::value::PrimitiveValue::Null)
+                        .map_err(::eure::document::write::WriteError::from)?;
                     Ok(())
                 }
             }
@@ -582,18 +688,21 @@ fn test_via_attribute_on_field() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for Config {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for Config {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("name", value.name)?;
                     rec.field_via::<DurationDef, _>("timeout", value.timeout)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for Config {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -613,25 +722,33 @@ fn test_via_attribute_on_ext_field() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for Config {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for Config {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("name", value.name)?;
                     {
                         let scope = rec.constructor().begin_scope();
-                        let ident: ::eure::document::identifier::Identifier = "timeout".parse()
-                            .map_err(|_| ::eure::document::write::WriteError::InvalidIdentifier("timeout".into()))?;
-                        rec.constructor().navigate(::eure::document::path::PathSegment::Extension(ident))?;
-                        rec.constructor().write_via::<DurationDef, _>(value.timeout)?;
-                        rec.constructor().end_scope(scope)?;
+                        let ident: ::eure::document::identifier::Identifier =
+                            "timeout".parse().map_err(|_| ::eure::document::write::WriteError::InvalidIdentifier("timeout".into()))?;
+                        rec.constructor()
+                            .navigate(::eure::document::path::PathSegment::Extension(ident))
+                            .map_err(::eure::document::write::WriteError::from)?;
+                        rec.constructor()
+                            .write_via::<DurationDef, _>(value.timeout)?;
+                        rec.constructor()
+                            .end_scope(scope)
+                            .map_err(::eure::document::write::WriteError::from)?;
                     }
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for Config {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -655,18 +772,21 @@ fn test_flatten_field() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for Person {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for Person {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("name", value.name)?;
                     rec.flatten::<Address, _>(value.address)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for Person {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -688,7 +808,11 @@ fn test_flatten_content_field_with_ext() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Envelope {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     c.set_extension("kind", value.kind)?;
                     <i32 as ::eure::document::write::IntoEure>::write(value.payload, c)?;
                     Ok(())
@@ -711,18 +835,21 @@ fn test_flatten_ext_field() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for Record {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for Record {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("name", value.name)?;
                     rec.flatten_ext::<ExtData, _>(value.ext)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for Record {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }
@@ -744,19 +871,22 @@ fn test_flatten_with_multiple() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl ::eure::document::write::IntoEureRecord for FullProfile {
-                fn write_to_record(value: Self, rec: &mut ::eure::document::write::RecordWriter<'_>) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl ::eure::document::write::IntoEure for FullProfile {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
+                    c.record(|rec| { <Self as ::eure::document::write::IntoEure>::write_flatten(value, rec) })
+                }
+                fn write_flatten(
+                    value: Self,
+                    rec: &mut ::eure::document::write::RecordWriter<'_>
+                ) -> ::core::result::Result<(), Self::Error> {
                     rec.field("id", value.id)?;
                     rec.flatten::<Address, _>(value.address)?;
                     rec.flatten::<ContactInfo, _>(value.contact)?;
                     Ok(())
-                }
-            }
-            impl ::eure::document::write::IntoEure for FullProfile {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
-                    c.record(|rec| {
-                        <Self as ::eure::document::write::IntoEureRecord>::write_to_record(value, rec)
-                    })
                 }
             }
         }

@@ -7,8 +7,9 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DataStruct, Fields};
 
-use crate::attrs::{DefaultValue, FieldAttrs, extract_eure_attr_spans};
+use crate::attrs::{DefaultValue, FieldAttrs};
 use crate::context::MacroContext;
+use crate::ir::{FieldMode, RenameScope, analyze_common_named_fields};
 use crate::util::respan;
 
 pub fn generate_record_parser(
@@ -41,41 +42,21 @@ fn generate_named_struct_from_record(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> syn::Result<TokenStream> {
     let target_span = fields.span();
-    let has_record = fields.iter().any(|f| {
-        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
-        !attrs.flatten && !attrs.ext && !attrs.flatten_ext
-    });
+    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Container)?;
+    let has_record = common_fields
+        .iter()
+        .any(|field| matches!(field.mode, FieldMode::Record));
     let mut field_assignments = Vec::new();
-    for f in fields {
-        let field_name = f.ident.as_ref().expect("named fields must have names");
-        let field_ty = &f.ty;
-        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
-        let spans = extract_eure_attr_spans(&f.attrs);
+    for field in &common_fields {
+        let field_name = &field.ident;
+        let field_ty = &field.ty;
 
-        // Validate incompatible attribute combinations
-        if attrs.flatten && attrs.flatten_ext {
-            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                "cannot use both #[eure(flatten)] and #[eure(flatten_ext)] on the same field",
-            ));
-        }
-        if attrs.flatten && attrs.ext {
-            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                "cannot use both #[eure(flatten)] and #[eure(ext)] on the same field",
-            ));
-        }
-        if attrs.ext && attrs.flatten_ext {
-            let span = spans.get("ext").copied().unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                "cannot use both #[eure(ext)] and #[eure(flatten_ext)] on the same field",
-            ));
-        }
-        if attrs.default.is_some() && attrs.flatten {
-            let span = spans.get("default").copied().unwrap_or_else(|| f.span());
+        if field.default.is_some() && matches!(field.mode, FieldMode::Flatten) {
+            let span = field
+                .attr_spans
+                .get("default")
+                .copied()
+                .unwrap_or_else(|| field.ty.span());
             return Err(syn::Error::new(
                 span,
                 format!(
@@ -85,8 +66,12 @@ fn generate_named_struct_from_record(
                 ),
             ));
         }
-        if attrs.default.is_some() && attrs.flatten_ext {
-            let span = spans.get("default").copied().unwrap_or_else(|| f.span());
+        if field.default.is_some() && matches!(field.mode, FieldMode::FlattenExt) {
+            let span = field
+                .attr_spans
+                .get("default")
+                .copied()
+                .unwrap_or_else(|| field.ty.span());
             return Err(syn::Error::new(
                 span,
                 format!(
@@ -96,48 +81,38 @@ fn generate_named_struct_from_record(
                 ),
             ));
         }
-        if attrs.via.is_some() && (attrs.flatten || attrs.flatten_ext) {
-            let span = spans.get("via").copied().unwrap_or_else(|| f.span());
-            return Err(syn::Error::new(
-                span,
-                format!(
-                    "cannot use #[eure(via = \"...\")] with #[eure(flatten)] or #[eure(flatten_ext)] on field `{}`",
-                    field_name
-                ),
-            ));
-        }
 
-        let assignment = if attrs.flatten {
+        let assignment = if matches!(field.mode, FieldMode::Flatten) {
             if has_record {
                 quote! { #field_name: <#field_ty>::parse(&rec.flatten())? }
             } else {
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten())? }
             }
-        } else if attrs.flatten_ext {
+        } else if matches!(field.mode, FieldMode::FlattenExt) {
             quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
-        } else if attrs.ext {
-            let field_name_str = attrs
-                .rename
-                .clone()
-                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+        } else if matches!(field.mode, FieldMode::Ext) {
+            let field_name_str = field
+                .wire_name
+                .as_deref()
+                .expect("wire name required for ext field");
             generate_ext_field(
                 field_name,
                 field_ty,
-                &field_name_str,
-                &attrs.default,
-                attrs.via.as_ref(),
+                field_name_str,
+                &field.default,
+                field.via.as_ref(),
             )
         } else {
-            let field_name_str = attrs
-                .rename
-                .clone()
-                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+            let field_name_str = field
+                .wire_name
+                .as_deref()
+                .expect("wire name required for record field");
             generate_record_field(
                 field_name,
                 field_ty,
-                &field_name_str,
-                &attrs.default,
-                attrs.via.as_ref(),
+                field_name_str,
+                &field.default,
+                field.via.as_ref(),
             )
         };
         field_assignments.push(assignment);
@@ -232,22 +207,29 @@ fn generate_named_struct_from_ext(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> syn::Result<TokenStream> {
     let target_span = fields.span();
+    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Container)?;
     let mut field_assignments = Vec::new();
-    for f in fields {
-        let field_name = f.ident.as_ref().expect("named fields must have names");
-        let field_ty = &f.ty;
-        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
-        let spans = extract_eure_attr_spans(&f.attrs);
+    for field in &common_fields {
+        let field_name = &field.ident;
+        let field_ty = &field.ty;
 
-        if attrs.flatten {
-            let span = spans.get("flatten").copied().unwrap_or_else(|| f.span());
+        if matches!(field.mode, FieldMode::Flatten) {
+            let span = field
+                .attr_spans
+                .get("flatten")
+                .copied()
+                .unwrap_or_else(|| field.ty.span());
             return Err(syn::Error::new(
                 span,
                 "#[eure(flatten)] cannot be used in #[eure(parse_ext)] context; use #[eure(flatten_ext)] instead",
             ));
         }
-        if attrs.default.is_some() && attrs.flatten_ext {
-            let span = spans.get("default").copied().unwrap_or_else(|| f.span());
+        if field.default.is_some() && matches!(field.mode, FieldMode::FlattenExt) {
+            let span = field
+                .attr_spans
+                .get("default")
+                .copied()
+                .unwrap_or_else(|| field.ty.span());
             return Err(syn::Error::new(
                 span,
                 format!(
@@ -257,8 +239,12 @@ fn generate_named_struct_from_ext(
                 ),
             ));
         }
-        if attrs.via.is_some() && attrs.flatten_ext {
-            let span = spans.get("via").copied().unwrap_or_else(|| f.span());
+        if field.via.is_some() && matches!(field.mode, FieldMode::FlattenExt) {
+            let span = field
+                .attr_spans
+                .get("via")
+                .copied()
+                .unwrap_or_else(|| field.ty.span());
             return Err(syn::Error::new(
                 span,
                 format!(
@@ -268,19 +254,19 @@ fn generate_named_struct_from_ext(
             ));
         }
 
-        let assignment = if attrs.flatten_ext {
+        let assignment = if matches!(field.mode, FieldMode::FlattenExt) {
             quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
         } else {
-            let field_name_str = attrs
-                .rename
-                .clone()
-                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+            let field_name_str = field
+                .wire_name
+                .as_deref()
+                .expect("wire name required for ext/record field");
             generate_ext_field(
                 field_name,
                 field_ty,
-                &field_name_str,
-                &attrs.default,
-                attrs.via.as_ref(),
+                field_name_str,
+                &field.default,
+                field.via.as_ref(),
             )
         };
         field_assignments.push(assignment);

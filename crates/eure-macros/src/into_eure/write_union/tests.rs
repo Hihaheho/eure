@@ -17,13 +17,18 @@ fn test_unit_variant() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Unit => {
                             c.set_variant("Unit")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Unit")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                     }
@@ -45,7 +50,11 @@ fn test_tuple_variant() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Tuple(field_0, field_1) => {
                             c.set_variant("Tuple")?;
@@ -74,7 +83,11 @@ fn test_tuple_variant_with_via() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Tuple(field_0, field_1) => {
                             c.set_variant("Tuple")?;
@@ -103,7 +116,11 @@ fn test_struct_variant() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Struct { a, b } => {
                             c.set_variant("Struct")?;
@@ -132,7 +149,11 @@ fn test_newtype_variant() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Newtype(inner) => {
                             c.set_variant("Newtype")?;
@@ -157,7 +178,11 @@ fn test_newtype_variant_with_via() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Newtype(inner) => {
                             c.set_variant("Newtype")?;
@@ -185,13 +210,18 @@ fn test_mixed_variants() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Unit => {
                             c.set_variant("Unit")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Unit")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         TestEnum::Tuple(field_0, field_1) => {
@@ -237,13 +267,18 @@ fn test_mixed_variants_with_custom_crate() {
         input.to_string(),
         quote! {
             impl ::eure_document::write::IntoEure for TestEnum {
-                fn write(value: Self, c: &mut ::eure_document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure_document::write::WriteError> {
+                type Error = ::eure_document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure_document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         TestEnum::Unit => {
                             c.set_variant("Unit")?;
                             c.bind_primitive(::eure_document::value::PrimitiveValue::Text(
                                 ::eure_document::text::Text::plaintext("Unit")
-                            ))?;
+                            ))
+                            .map_err(::eure_document::write::WriteError::from)?;
                             Ok(())
                         }
                         TestEnum::Tuple(field_0, field_1) => {
@@ -287,20 +322,26 @@ fn test_unit_variant_with_rename_all_snake_case() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Event {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Event::UserCreated => {
                             c.set_variant("user_created")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("user_created")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         Event::OrderPlaced => {
                             c.set_variant("order_placed")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("order_placed")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                     }
@@ -325,9 +366,16 @@ fn test_struct_variant_with_rename_all_camel_case() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Event {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
-                        Event::UserCreated { user_id, created_at } => {
+                        Event::UserCreated {
+                            user_id,
+                            created_at
+                        } => {
                             c.set_variant("userCreated")?;
                             c.record(|rec| {
                                 rec.field("user_id", user_id)?;
@@ -356,9 +404,16 @@ fn test_struct_variant_with_rename_all_fields() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Event {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
-                        Event::UserCreated { user_id, created_at } => {
+                        Event::UserCreated {
+                            user_id,
+                            created_at
+                        } => {
                             c.set_variant("UserCreated")?;
                             c.record(|rec| {
                                 rec.field("userId", user_id)?;
@@ -387,9 +442,16 @@ fn test_struct_variant_with_both_rename_all_and_rename_all_fields() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Event {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
-                        Event::UserCreated { user_id, created_at } => {
+                        Event::UserCreated {
+                            user_id,
+                            created_at
+                        } => {
                             c.set_variant("user_created")?;
                             c.record(|rec| {
                                 rec.field("userId", user_id)?;
@@ -416,8 +478,16 @@ fn test_enum_single_type_param() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<T: ::eure::document::write::IntoEure > ::eure::document::write::IntoEure for Item<T> {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl<T: ::eure::document::write::IntoEure> ::eure::document::write::IntoEure for Item<T>
+            where
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<T as ::eure::document::write::IntoEure>::Error>
+            {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Item::Normal(inner) => {
                             c.set_variant("Normal")?;
@@ -446,8 +516,19 @@ fn test_enum_multiple_type_params() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<L: ::eure::document::write::IntoEure, R: ::eure::document::write::IntoEure > ::eure::document::write::IntoEure for Either<L, R> {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl<L: ::eure::document::write::IntoEure, R: ::eure::document::write::IntoEure>
+                ::eure::document::write::IntoEure for Either<L, R>
+            where
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<L as ::eure::document::write::IntoEure>::Error>,
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<R as ::eure::document::write::IntoEure>::Error>
+            {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Either::Left(inner) => {
                             c.set_variant("Left")?;
@@ -475,8 +556,16 @@ fn test_enum_type_param_with_existing_bounds() {
     assert_eq!(
         input.to_string(),
         quote! {
-            impl<T: Clone + ::eure::document::write::IntoEure > ::eure::document::write::IntoEure for Item<T> {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+            impl<T: Clone + ::eure::document::write::IntoEure> ::eure::document::write::IntoEure for Item<T>
+            where
+                ::eure::document::write::WriteError:
+                    ::core::convert::From<<T as ::eure::document::write::IntoEure>::Error>
+            {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Item::Normal(inner) => {
                             c.set_variant("Normal")?;
@@ -505,7 +594,11 @@ fn test_struct_variant_with_ext_field() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Item {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Item::WithMeta { name, meta } => {
                             c.set_variant("WithMeta")?;
@@ -536,21 +629,27 @@ fn test_opaque_enum() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Status> for StatusDef {
-                fn write(value: external::Status, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Status,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     let value: StatusDef = value.into();
                     match value {
                         StatusDef::Active => {
                             c.set_variant("Active")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Active")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         StatusDef::Inactive => {
                             c.set_variant("Inactive")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Inactive")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                     }
@@ -576,7 +675,11 @@ fn test_struct_variant_with_via_field() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Config {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Config::Timed { name, timeout } => {
                             c.set_variant("Timed")?;
@@ -608,20 +711,26 @@ fn test_proxy_enum() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Status> for StatusDef {
-                fn write(value: external::Status, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Status,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         external::Status::Active => {
                             c.set_variant("Active")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Active")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         external::Status::Inactive => {
                             c.set_variant("Inactive")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Inactive")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                     }
@@ -646,7 +755,11 @@ fn test_proxy_enum_newtype_variant() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Value> for ValueDef {
-                fn write(value: external::Value, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Value,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         external::Value::Text(inner) => {
                             c.set_variant("Text")?;
@@ -678,25 +791,32 @@ fn test_proxy_enum_non_exhaustive() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Status> for StatusDef {
-                fn write(value: external::Status, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Status,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         external::Status::Active => {
                             c.set_variant("Active")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Active")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         external::Status::Inactive => {
                             c.set_variant("Inactive")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Inactive")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         _ => Err(::eure::document::write::WriteError::NonExhaustiveVariant {
-                            type_name: ::core::any::type_name::<external::Status>(),
-                        })
+                            type_name: ::core::any::type_name::<external::Status>()
+                        , }
+                        .into())
                     }
                 }
             }
@@ -718,25 +838,32 @@ fn test_proxy_enum_non_exhaustive_eure_attr() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure<external::Status> for StatusDef {
-                fn write(value: external::Status, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: external::Status,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         external::Status::Active => {
                             c.set_variant("Active")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Active")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         external::Status::Inactive => {
                             c.set_variant("Inactive")?;
                             c.bind_primitive(::eure::document::value::PrimitiveValue::Text(
                                 ::eure::document::text::Text::plaintext("Inactive")
-                            ))?;
+                            ))
+                            .map_err(::eure::document::write::WriteError::from)?;
                             Ok(())
                         }
                         _ => Err(::eure::document::write::WriteError::NonExhaustiveVariant {
-                            type_name: ::core::any::type_name::<external::Status>(),
-                        })
+                            type_name: ::core::any::type_name::<external::Status>()
+                        , }
+                        .into())
                     }
                 }
             }
@@ -764,7 +891,11 @@ fn test_struct_variant_with_flatten() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Composite {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Composite::WithAddress { name, address } => {
                             c.set_variant("WithAddress")?;
@@ -797,7 +928,11 @@ fn test_struct_variant_with_flatten_ext() {
         input.to_string(),
         quote! {
             impl ::eure::document::write::IntoEure for Composite {
-                fn write(value: Self, c: &mut ::eure::document::constructor::DocumentConstructor) -> ::core::result::Result<(), ::eure::document::write::WriteError> {
+                type Error = ::eure::document::write::WriteError;
+                fn write(
+                    value: Self,
+                    c: &mut ::eure::document::constructor::DocumentConstructor
+                ) -> ::core::result::Result<(), Self::Error> {
                     match value {
                         Composite::WithExt { name, ext } => {
                             c.set_variant("WithExt")?;

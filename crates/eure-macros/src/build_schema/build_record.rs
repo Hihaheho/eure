@@ -1,12 +1,11 @@
 //! BuildSchema derive implementation for structs (records)
 
-use darling::FromField;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{DataStruct, Fields};
 
-use crate::attrs::FieldAttrs;
 use crate::context::MacroContext;
+use crate::ir::{FieldMode, RenameScope, analyze_common_named_fields};
 
 pub fn generate_record_schema(context: &MacroContext, input: &DataStruct) -> TokenStream {
     match &input.fields {
@@ -24,27 +23,27 @@ fn generate_named_struct(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> TokenStream {
     let schema_crate = context.schema_crate();
+    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Container)
+        .expect("failed to analyze fields");
 
     // Separate regular fields from flatten fields
     let mut regular_fields = Vec::new();
     let mut flatten_fields = Vec::new();
 
-    for (idx, f) in fields.iter().enumerate() {
-        let field_ty = &f.ty;
-        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
+    for (idx, field) in common_fields.iter().enumerate() {
+        let field_ty = &field.ty;
 
-        if attrs.flatten || attrs.flatten_ext {
+        if matches!(field.mode, FieldMode::Flatten | FieldMode::FlattenExt) {
             // Flatten field - will be added to flatten vec
             // (flatten_ext behaves the same in BuildSchema since we don't model extensions)
             let schema_var = format_ident!("flatten_{}_schema", idx);
             flatten_fields.push((schema_var, field_ty.clone()));
         } else {
             // Regular field
-            let field_name = f.ident.as_ref().expect("named fields must have names");
-            let field_name_str = attrs
-                .rename
+            let field_name_str = field
+                .wire_name
                 .clone()
-                .unwrap_or_else(|| context.apply_rename(&field_name.to_string()));
+                .expect("wire name required for non-flatten field");
             let schema_var = format_ident!("field_{}_schema", idx);
             let is_optional = is_option_type(field_ty);
             regular_fields.push((field_name_str, schema_var, field_ty.clone(), is_optional));

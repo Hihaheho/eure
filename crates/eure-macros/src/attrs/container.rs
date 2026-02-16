@@ -28,6 +28,10 @@ pub struct ContainerAttrs {
     /// When specified, the generated `type Error` is set to this type instead of `ParseError`.
     /// The custom error type must implement `From<ParseError>` for `?` to work.
     pub parse_error: Option<Path>,
+    /// Custom error type for the IntoEure impl.
+    /// When specified, the generated `type Error` is set to this type instead of `WriteError`.
+    /// The custom error type must implement `From<WriteError>` for `?` to work.
+    pub write_error: Option<Path>,
     /// Type name for BuildSchema registration in `$types` namespace.
     /// When specified, the type is registered as `$types.<type_name>`.
     /// Example: `#[eure(type_name = "user")]` registers as `$types.user`.

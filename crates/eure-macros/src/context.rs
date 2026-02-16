@@ -149,12 +149,6 @@ impl MacroContext {
     }
 
     #[allow(non_snake_case)]
-    pub fn IntoEureRecord(&self) -> TokenStream {
-        let document_crate = &self.config.document_crate;
-        quote!(#document_crate::write::IntoEureRecord)
-    }
-
-    #[allow(non_snake_case)]
     pub fn RecordWriter(&self) -> TokenStream {
         let document_crate = &self.config.document_crate;
         quote!(#document_crate::write::RecordWriter)
@@ -164,6 +158,15 @@ impl MacroContext {
     pub fn WriteError(&self) -> TokenStream {
         let document_crate = &self.config.document_crate;
         quote!(#document_crate::write::WriteError)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn WriteImplError(&self) -> TokenStream {
+        if let Some(ref custom_error) = self.config.write_error {
+            custom_error.clone()
+        } else {
+            self.WriteError()
+        }
     }
 
     #[allow(non_snake_case)]
@@ -208,44 +211,27 @@ impl MacroContext {
     }
 
     pub fn impl_into_eure(&self, write_body: TokenStream) -> TokenStream {
-        self.impl_into_eure_with_where(write_body, &[])
+        self.impl_into_eure_with_where_and_flatten(write_body, None, &[])
     }
 
-    pub fn impl_into_eure_with_where(
+    pub fn impl_into_eure_with_where_and_flatten(
         &self,
         write_body: TokenStream,
+        flatten_body: Option<TokenStream>,
         extra_where: &[TokenStream],
     ) -> TokenStream {
         // Delegate to impl_into_eure_for with appropriate target type
         if let Some(ref proxy) = self.config.proxy {
             let target = &proxy.target;
-            self.impl_into_eure_for(write_body, Some(quote! { #target }), extra_where)
+            self.impl_into_eure_for(
+                write_body,
+                flatten_body,
+                Some(quote! { #target }),
+                extra_where,
+            )
         } else {
             // For non-proxy types, target defaults to Self (omit second type param)
-            self.impl_into_eure_for(write_body, None, extra_where)
-        }
-    }
-
-    pub fn impl_into_eure_record(&self, write_body: TokenStream) -> TokenStream {
-        self.impl_into_eure_record_with_where(write_body, &[])
-    }
-
-    pub fn impl_into_eure_record_with_where(
-        &self,
-        write_body: TokenStream,
-        extra_where: &[TokenStream],
-    ) -> TokenStream {
-        // Delegate to impl_into_eure_record_for with appropriate target type
-        if let Some(ref proxy) = self.config.proxy {
-            if proxy.is_opaque {
-                // For opaque types, record writing happens after conversion to self type.
-                self.impl_into_eure_record_for(write_body, None, extra_where)
-            } else {
-                let target = &proxy.target;
-                self.impl_into_eure_record_for(write_body, Some(quote! { #target }), extra_where)
-            }
-        } else {
-            self.impl_into_eure_record_for(write_body, None, extra_where)
+            self.impl_into_eure_for(write_body, flatten_body, None, extra_where)
         }
     }
 
@@ -337,21 +323,31 @@ impl MacroContext {
     fn impl_into_eure_for(
         &self,
         write_body: TokenStream,
+        flatten_body: Option<TokenStream>,
         target_type: Option<TokenStream>,
         extra_where: &[TokenStream],
     ) -> TokenStream {
         let ident = self.ident();
         let for_generics = self.for_generics();
         let into_eure = self.IntoEure();
-        let write_error = self.WriteError();
+        let write_error = self.WriteImplError();
         let document_constructor = self.DocumentConstructor();
-        let where_clause = if extra_where.is_empty() {
-            quote! {}
-        } else {
-            quote! { where #(#extra_where),* }
-        };
+        let record_writer = self.RecordWriter();
 
         let type_params: Vec<_> = self.generics().type_params().collect();
+        let mut where_preds: Vec<TokenStream> = extra_where.to_vec();
+        for tp in &type_params {
+            let ident = &tp.ident;
+            where_preds.push(quote! {
+                #write_error: ::core::convert::From<<#ident as #into_eure>::Error>
+            });
+        }
+
+        let where_clause = if where_preds.is_empty() {
+            quote! {}
+        } else {
+            quote! { where #(#where_preds),* }
+        };
 
         // Trait signature: IntoEure or IntoEure<RemoteType>
         let trait_sig = match &target_type {
@@ -365,72 +361,14 @@ impl MacroContext {
             None => quote! { Self },
         };
 
-        // Build impl generics based on the number of type parameters
-        if type_params.is_empty() {
-            let impl_generics = self.impl_generics();
-            if impl_generics.is_empty() {
-                quote! {
-                    impl #trait_sig for #ident #where_clause {
-                        fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), #write_error> {
-                            #write_body
-                        }
-                    }
-                }
-            } else {
-                quote! {
-                    impl<#(#impl_generics),*> #trait_sig for #ident<#(#for_generics),*> #where_clause {
-                        fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), #write_error> {
-                            #write_body
-                        }
-                    }
+        let flatten_method = if let Some(flatten_body) = flatten_body {
+            quote! {
+                fn write_flatten(value: #value_type, rec: &mut #record_writer<'_>) -> ::core::result::Result<(), Self::Error> {
+                    #flatten_body
                 }
             }
         } else {
-            // Generic type parameters: require all to impl IntoEure
-            let base_generics = self.impl_generics_with_into_eure_bounds();
-            quote! {
-                impl<#(#base_generics),*> #trait_sig for #ident<#(#for_generics),*> #where_clause {
-                    fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), #write_error> {
-                        #write_body
-                    }
-                }
-            }
-        }
-    }
-
-    /// Generate IntoEureRecord implementation with specified target type.
-    ///
-    /// When `target_type` is `None`, this generates standard `IntoEureRecord`.
-    /// When `target_type` is `Some(T)`, this generates `IntoEureRecord<T>`.
-    fn impl_into_eure_record_for(
-        &self,
-        write_body: TokenStream,
-        target_type: Option<TokenStream>,
-        extra_where: &[TokenStream],
-    ) -> TokenStream {
-        let ident = self.ident();
-        let for_generics = self.for_generics();
-        let into_eure_record = self.IntoEureRecord();
-        let record_writer = self.RecordWriter();
-        let write_error = self.WriteError();
-        let where_clause = if extra_where.is_empty() {
             quote! {}
-        } else {
-            quote! { where #(#extra_where),* }
-        };
-
-        let type_params: Vec<_> = self.generics().type_params().collect();
-
-        // Trait signature: IntoEureRecord or IntoEureRecord<RemoteType>
-        let trait_sig = match &target_type {
-            Some(remote) => quote! { #into_eure_record<#remote> },
-            None => quote! { #into_eure_record },
-        };
-
-        // Value type in signature: Self or RemoteType
-        let value_type = match &target_type {
-            Some(remote) => quote! { #remote },
-            None => quote! { Self },
         };
 
         // Build impl generics based on the number of type parameters
@@ -439,17 +377,25 @@ impl MacroContext {
             if impl_generics.is_empty() {
                 quote! {
                     impl #trait_sig for #ident #where_clause {
-                        fn write_to_record(value: #value_type, rec: &mut #record_writer<'_>) -> ::core::result::Result<(), #write_error> {
+                        type Error = #write_error;
+
+                        fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), Self::Error> {
                             #write_body
                         }
+
+                        #flatten_method
                     }
                 }
             } else {
                 quote! {
                     impl<#(#impl_generics),*> #trait_sig for #ident<#(#for_generics),*> #where_clause {
-                        fn write_to_record(value: #value_type, rec: &mut #record_writer<'_>) -> ::core::result::Result<(), #write_error> {
+                        type Error = #write_error;
+
+                        fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), Self::Error> {
                             #write_body
                         }
+
+                        #flatten_method
                     }
                 }
             }
@@ -458,9 +404,13 @@ impl MacroContext {
             let base_generics = self.impl_generics_with_into_eure_bounds();
             quote! {
                 impl<#(#base_generics),*> #trait_sig for #ident<#(#for_generics),*> #where_clause {
-                    fn write_to_record(value: #value_type, rec: &mut #record_writer<'_>) -> ::core::result::Result<(), #write_error> {
+                    type Error = #write_error;
+
+                    fn write(value: #value_type, c: &mut #document_constructor) -> ::core::result::Result<(), Self::Error> {
                         #write_body
                     }
+
+                    #flatten_method
                 }
             }
         }

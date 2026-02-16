@@ -43,7 +43,7 @@ use eure_document::constructor::DocumentConstructor;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use eure_document::layout::LayoutStyle;
-use eure_document::write::{IntoEureRecord, WriteError};
+use eure_document::write::{IntoEure, WriteError};
 use eure_document::{Text, data_model::VariantRepr};
 use eure_macros::{FromEure, IntoEure};
 use indexmap::{IndexMap, IndexSet};
@@ -324,7 +324,7 @@ impl TextSchema {
         } else {
             c.record(|rec| {
                 rec.constructor().set_variant("text")?;
-                <Self as IntoEureRecord>::write_to_record(self.clone(), rec)?;
+                <Self as IntoEure>::write_flatten(self.clone(), rec)?;
                 Ok(())
             })
         }

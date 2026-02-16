@@ -3,7 +3,7 @@ use syn::Type;
 
 use super::DefaultValue;
 
-#[derive(Debug, Default, FromField)]
+#[derive(Debug, Default, Clone, FromField)]
 #[darling(default, attributes(eure))]
 pub struct FieldAttrs {
     /// Flatten a nested record type (shares record field access tracking).

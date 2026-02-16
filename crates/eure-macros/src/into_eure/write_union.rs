@@ -9,6 +9,7 @@ use syn::{DataEnum, Fields, Variant};
 
 use crate::attrs::{FieldAttrs, VariantAttrs, extract_variant_attr_spans};
 use crate::context::MacroContext;
+use crate::ir::{FieldMode, RenameScope, analyze_common_named_fields};
 use crate::util::respan;
 
 pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::Result<TokenStream> {
@@ -33,7 +34,7 @@ pub fn generate_union_writer(context: &MacroContext, input: &DataEnum) -> syn::R
         variant_arms.push(quote! {
             _ => Err(#write_error::NonExhaustiveVariant {
                 type_name: ::core::any::type_name::<#proxy_target>(),
-            })
+            }.into())
         });
     }
 
@@ -140,7 +141,8 @@ fn generate_unit_variant_arm(
             c.set_variant(#variant_name)?;
             c.bind_primitive(#document_crate::value::PrimitiveValue::Text(
                 #document_crate::text::Text::plaintext(#variant_name)
-            ))?;
+            ))
+            .map_err(#document_crate::write::WriteError::from)?;
             Ok(())
         }
     }
@@ -232,53 +234,48 @@ fn generate_struct_variant_arm(
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
     needs_type_asserts: bool,
 ) -> syn::Result<TokenStream> {
-    let field_names: Vec<_> = fields
-        .iter()
-        .map(|f| f.ident.as_ref().expect("struct fields must have names"))
-        .collect();
+    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Field)?;
+    let field_names: Vec<_> = common_fields.iter().map(|f| &f.ident).collect();
 
     let mut field_writes = Vec::new();
     let mut field_asserts = Vec::new();
-    for f in fields {
-        let field_name = f.ident.as_ref().expect("struct fields must have names");
+    for f in &common_fields {
+        let field_name = &f.ident;
         let field_ty = &f.ty;
-        let attrs = FieldAttrs::from_field(f).expect("failed to parse field attributes");
 
-        let write = if attrs.flatten {
-            let field_ty = &f.ty;
+        let write = if matches!(f.mode, FieldMode::Flatten) {
             let span = field_ty.span();
             quote_spanned! {span=>
                 rec.flatten::<#field_ty, _>(#field_name)?;
             }
-        } else if attrs.flatten_ext {
-            let field_ty = &f.ty;
+        } else if matches!(f.mode, FieldMode::FlattenExt) {
             let span = field_ty.span();
             quote_spanned! {span=>
                 rec.flatten_ext::<#field_ty, _>(#field_name)?;
             }
-        } else if attrs.ext {
-            let field_name_str = attrs
-                .rename
-                .clone()
-                .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
+        } else if matches!(f.mode, FieldMode::Ext) {
+            let field_name_str = f
+                .wire_name
+                .as_deref()
+                .expect("wire name required for ext field");
             generate_ext_write_variant(
                 document_crate,
                 field_name,
                 field_ty,
-                &field_name_str,
-                attrs.via.as_ref(),
+                field_name_str,
+                f.via.as_ref(),
             )
         } else {
-            let field_name_str = attrs
-                .rename
-                .clone()
-                .unwrap_or_else(|| context.apply_field_rename(&field_name.to_string()));
+            let field_name_str = f
+                .wire_name
+                .as_deref()
+                .expect("wire name required for record field");
             generate_record_field_write_variant(
                 document_crate,
                 field_name,
                 field_ty,
-                &field_name_str,
-                attrs.via.as_ref(),
+                field_name_str,
+                f.via.as_ref(),
             )
         };
         field_writes.push(write);
@@ -336,9 +333,13 @@ fn generate_ext_write_variant(
                 let scope = rec.constructor().begin_scope();
                 let ident: #document_crate::identifier::Identifier = #field_name_str.parse()
                     .map_err(|_| #document_crate::write::WriteError::InvalidIdentifier(#field_name_str.into()))?;
-                rec.constructor().navigate(#document_crate::path::PathSegment::Extension(ident))?;
+                rec.constructor()
+                    .navigate(#document_crate::path::PathSegment::Extension(ident))
+                    .map_err(#document_crate::write::WriteError::from)?;
                 rec.constructor().write_via::<#via_type, _>(#field_name)?;
-                rec.constructor().end_scope(scope)?;
+                rec.constructor()
+                    .end_scope(scope)
+                    .map_err(#document_crate::write::WriteError::from)?;
             }
         }
     } else {

@@ -6,7 +6,7 @@ use alloc::borrow::{Cow, ToOwned};
 
 use crate::document::constructor::DocumentConstructor;
 use crate::parse::{FromEure, ParseContext, ParseError};
-use crate::write::{IntoEure, WriteError};
+use crate::write::IntoEure;
 
 /// A proxy type that enables borrowing from the document when parsing `Cow<'doc, T>`.
 ///
@@ -46,7 +46,9 @@ where
     T: ToOwned + ?Sized,
     T::Owned: IntoEure,
 {
-    fn write(value: Cow<'a, T>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+    type Error = <T::Owned as IntoEure>::Error;
+
+    fn write(value: Cow<'a, T>, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
         <T::Owned as IntoEure>::write(value.into_owned(), c)
     }
 }
