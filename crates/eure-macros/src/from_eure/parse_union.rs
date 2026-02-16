@@ -89,14 +89,14 @@ fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<To
             variant_ident,
             &fields.unnamed,
         )),
-        Fields::Named(fields) => Ok(generate_struct_variant(
+        Fields::Named(fields) => generate_struct_variant(
             context,
             opaque_span,
             &variant_name,
             variant_ident,
             &fields.named,
             &variant_attrs,
-        )),
+        ),
     }
 }
 
@@ -255,12 +255,11 @@ fn generate_struct_variant(
     variant_ident: &syn::Ident,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
     variant_attrs: &VariantAttrs,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let target_type = respan(context.target_type(), fields.span());
     let opaque_target = context.opaque_target();
     let document_crate = &context.config.document_crate;
-    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Field)
-        .expect("failed to analyze variant fields");
+    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Field)?;
     // Check if there are any "regular" record fields (not flatten, ext, or flatten_ext)
     let has_record = common_fields
         .iter()
@@ -316,7 +315,7 @@ fn generate_struct_variant(
             quote! { rec.deny_unknown_fields()?; }
         };
 
-        quote! {
+        Ok(quote! {
             .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'doc>| {
                 let mut rec = ctx.parse_record()?;
                 let value = #target_type::#variant_ident {
@@ -325,9 +324,9 @@ fn generate_struct_variant(
                 #unknown_fields_check
                 #return_value
             })
-        }
+        })
     } else {
-        quote! {
+        Ok(quote! {
             .variant(#variant_name, |ctx: &#document_crate::parse::ParseContext<'doc>| {
                 let value = #target_type::#variant_ident {
                     #(#field_assignments),*
@@ -335,6 +334,6 @@ fn generate_struct_variant(
                 ctx.deny_unknown_extensions()?;
                 #return_value
             })
-        }
+        })
     }
 }

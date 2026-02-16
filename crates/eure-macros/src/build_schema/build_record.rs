@@ -7,24 +7,26 @@ use syn::{DataStruct, Fields};
 use crate::context::MacroContext;
 use crate::ir::{FieldMode, RenameScope, analyze_common_named_fields};
 
-pub fn generate_record_schema(context: &MacroContext, input: &DataStruct) -> TokenStream {
+pub fn generate_record_schema(
+    context: &MacroContext,
+    input: &DataStruct,
+) -> syn::Result<TokenStream> {
     match &input.fields {
         Fields::Named(fields) => generate_named_struct(context, &fields.named),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            generate_newtype_struct(context, &fields.unnamed[0].ty)
+            Ok(generate_newtype_struct(context, &fields.unnamed[0].ty))
         }
-        Fields::Unnamed(fields) => generate_tuple_struct(context, &fields.unnamed),
-        Fields::Unit => generate_unit_struct(context),
+        Fields::Unnamed(fields) => Ok(generate_tuple_struct(context, &fields.unnamed)),
+        Fields::Unit => Ok(generate_unit_struct(context)),
     }
 }
 
 fn generate_named_struct(
     context: &MacroContext,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let schema_crate = context.schema_crate();
-    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Container)
-        .expect("failed to analyze fields");
+    let common_fields = analyze_common_named_fields(context, fields, RenameScope::Container)?;
 
     // Separate regular fields from flatten fields
     let mut regular_fields = Vec::new();
@@ -112,7 +114,7 @@ fn generate_named_struct(
         })
     };
 
-    context.impl_build_schema(content)
+    Ok(context.impl_build_schema(content))
 }
 
 fn generate_unit_struct(context: &MacroContext) -> TokenStream {

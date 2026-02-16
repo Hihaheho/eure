@@ -9,14 +9,14 @@ use crate::attrs::VariantAttrs;
 use crate::context::MacroContext;
 use crate::ir::{RenameScope, analyze_common_named_fields};
 
-pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenStream {
+pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> syn::Result<TokenStream> {
     let schema_crate = context.schema_crate();
 
-    let variant_schemas: Vec<_> = input
+    let variant_schemas: Vec<(String, syn::Ident, TokenStream)> = input
         .variants
         .iter()
         .enumerate()
-        .map(|(idx, variant)| {
+        .map(|(idx, variant)| -> syn::Result<_> {
             let variant_attrs =
                 VariantAttrs::from_variant(variant).expect("failed to parse variant attributes");
 
@@ -69,8 +69,7 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
                 }
                 syn::Fields::Named(fields) => {
                     let common_fields =
-                        analyze_common_named_fields(context, &fields.named, RenameScope::Field)
-                            .expect("failed to analyze variant fields");
+                        analyze_common_named_fields(context, &fields.named, RenameScope::Field)?;
 
                     let field_builds: Vec<_> = common_fields
                         .iter()
@@ -118,9 +117,9 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
                 }
             };
 
-            (variant_name, schema_var, schema_build)
+            Ok((variant_name, schema_var, schema_build))
         })
-        .collect();
+        .collect::<syn::Result<_>>()?;
 
     let all_builds: Vec<_> = variant_schemas
         .iter()
@@ -148,7 +147,7 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
         })
     };
 
-    context.impl_build_schema(content)
+    Ok(context.impl_build_schema(content))
 }
 
 fn is_option_type(ty: &syn::Type) -> bool {
