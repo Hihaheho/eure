@@ -73,11 +73,13 @@ pub enum WriteError {
 /// Standard implementation:
 /// ```ignore
 /// impl IntoEure for User {
-///     fn write(value: User, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+///     type Error = WriteError;
+///
+///     fn write(value: User, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
 ///         c.record(|rec| {
 ///             rec.field("name", value.name)?;
 ///             rec.field_optional("age", value.age)?;
-///             Ok(())
+///             Ok::<(), WriteError>(())
 ///         })
 ///     }
 /// }
@@ -86,11 +88,13 @@ pub enum WriteError {
 /// Remote type support via marker:
 /// ```ignore
 /// impl IntoEure<std::time::Duration> for DurationDef {
-///     fn write(value: std::time::Duration, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+///     type Error = WriteError;
+///
+///     fn write(value: std::time::Duration, c: &mut DocumentConstructor) -> Result<(), Self::Error> {
 ///         c.record(|rec| {
 ///             rec.field("secs", value.as_secs())?;
 ///             rec.field("nanos", value.subsec_nanos())?;
-///             Ok(())
+///             Ok::<(), WriteError>(())
 ///         })
 ///     }
 /// }

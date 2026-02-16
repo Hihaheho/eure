@@ -26,7 +26,7 @@ pub(crate) struct CommonFieldIr {
     pub ident: syn::Ident,
     pub ty: syn::Type,
     pub mode: FieldMode,
-    pub wire_name: Option<String>,
+    pub wire_name: String,
     pub via: Option<syn::Type>,
     pub default: DefaultValue,
     pub attr_spans: HashMap<String, Span>,
@@ -99,10 +99,10 @@ pub(crate) fn analyze_common_named_fields(
             FieldMode::Record
         };
 
-        let wire_name = Some(attrs.rename.clone().unwrap_or_else(|| match rename_scope {
+        let wire_name = attrs.rename.clone().unwrap_or_else(|| match rename_scope {
             RenameScope::Container => context.apply_rename(&ident.to_string()),
             RenameScope::Field => context.apply_field_rename(&ident.to_string()),
-        }));
+        });
 
         out.push(CommonFieldIr {
             ident,
@@ -178,6 +178,6 @@ mod tests {
 
         let fields = analyze_common_named_fields(&context, fields, RenameScope::Container)
             .expect("valid ir");
-        assert_eq!(fields[0].wire_name.as_deref(), Some("user-name"));
+        assert_eq!(fields[0].wire_name, "user-name");
     }
 }

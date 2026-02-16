@@ -76,16 +76,12 @@ fn generate_named_struct(
                 }
             }
         } else if matches!(field.mode, FieldMode::Ext) {
-            let field_name_str = field
-                .wire_name
-                .as_deref()
-                .expect("wire name required for ext field");
             if content_mode {
                 generate_ext_write_constructor(
                     document_crate,
                     field_name,
                     field_ty,
-                    field_name_str,
+                    &field.wire_name,
                     field.via.as_ref(),
                 )
             } else {
@@ -93,20 +89,16 @@ fn generate_named_struct(
                     document_crate,
                     field_name,
                     field_ty,
-                    field_name_str,
+                    &field.wire_name,
                     field.via.as_ref(),
                 )
             }
         } else {
-            let field_name_str = field
-                .wire_name
-                .as_deref()
-                .expect("wire name required for record field");
             generate_record_field_write(
                 document_crate,
                 field_name,
                 field_ty,
-                field_name_str,
+                &field.wire_name,
                 field.via.as_ref(),
             )
         };

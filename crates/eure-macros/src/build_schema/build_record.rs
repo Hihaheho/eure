@@ -40,10 +40,7 @@ fn generate_named_struct(
             flatten_fields.push((schema_var, field_ty.clone()));
         } else {
             // Regular field
-            let field_name_str = field
-                .wire_name
-                .clone()
-                .expect("wire name required for non-flatten field");
+            let field_name_str = field.wire_name.clone();
             let schema_var = format_ident!("field_{}_schema", idx);
             let is_optional = is_option_type(field_ty);
             regular_fields.push((field_name_str, schema_var, field_ty.clone(), is_optional));

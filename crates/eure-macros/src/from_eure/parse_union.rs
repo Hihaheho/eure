@@ -282,26 +282,18 @@ fn generate_struct_variant(
             } else if matches!(f.mode, FieldMode::FlattenExt) {
                 quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
             } else if matches!(f.mode, FieldMode::Ext) {
-                let field_name_str = f
-                    .wire_name
-                    .as_deref()
-                    .expect("wire name required for ext field");
                 generate_ext_field(
                     field_name,
                     field_ty,
-                    field_name_str,
+                    &f.wire_name,
                     &f.default,
                     f.via.as_ref(),
                 )
             } else {
-                let field_name_str = f
-                    .wire_name
-                    .as_deref()
-                    .expect("wire name required for record field");
                 generate_record_field(
                     field_name,
                     field_ty,
-                    field_name_str,
+                    &f.wire_name,
                     &f.default,
                     f.via.as_ref(),
                 )

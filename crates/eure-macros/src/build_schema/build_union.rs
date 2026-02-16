@@ -88,10 +88,7 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> TokenS
                         .iter()
                         .enumerate()
                         .map(|(fidx, f)| {
-                            let field_name_str = f
-                                .wire_name
-                                .as_deref()
-                                .expect("wire name required for variant field");
+                            let field_name_str = &f.wire_name;
                             let field_var = format_ident!("variant_{}_field_{}", idx, fidx);
                             let is_optional = is_option_type(&f.ty);
 

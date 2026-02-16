@@ -254,27 +254,19 @@ fn generate_struct_variant_arm(
                 rec.flatten_ext::<#field_ty, _>(#field_name)?;
             }
         } else if matches!(f.mode, FieldMode::Ext) {
-            let field_name_str = f
-                .wire_name
-                .as_deref()
-                .expect("wire name required for ext field");
             generate_ext_write_variant(
                 document_crate,
                 field_name,
                 field_ty,
-                field_name_str,
+                &f.wire_name,
                 f.via.as_ref(),
             )
         } else {
-            let field_name_str = f
-                .wire_name
-                .as_deref()
-                .expect("wire name required for record field");
             generate_record_field_write_variant(
                 document_crate,
                 field_name,
                 field_ty,
-                field_name_str,
+                &f.wire_name,
                 f.via.as_ref(),
             )
         };

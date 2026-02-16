@@ -91,26 +91,18 @@ fn generate_named_struct_from_record(
         } else if matches!(field.mode, FieldMode::FlattenExt) {
             quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
         } else if matches!(field.mode, FieldMode::Ext) {
-            let field_name_str = field
-                .wire_name
-                .as_deref()
-                .expect("wire name required for ext field");
             generate_ext_field(
                 field_name,
                 field_ty,
-                field_name_str,
+                &field.wire_name,
                 &field.default,
                 field.via.as_ref(),
             )
         } else {
-            let field_name_str = field
-                .wire_name
-                .as_deref()
-                .expect("wire name required for record field");
             generate_record_field(
                 field_name,
                 field_ty,
-                field_name_str,
+                &field.wire_name,
                 &field.default,
                 field.via.as_ref(),
             )
@@ -257,14 +249,10 @@ fn generate_named_struct_from_ext(
         let assignment = if matches!(field.mode, FieldMode::FlattenExt) {
             quote! { #field_name: <#field_ty>::parse(&ctx.flatten_ext())? }
         } else {
-            let field_name_str = field
-                .wire_name
-                .as_deref()
-                .expect("wire name required for ext/record field");
             generate_ext_field(
                 field_name,
                 field_ty,
-                field_name_str,
+                &field.wire_name,
                 &field.default,
                 field.via.as_ref(),
             )
