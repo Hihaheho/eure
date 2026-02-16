@@ -446,11 +446,12 @@ where
 
 macro_rules! impl_into_document_tuple {
     ($n:expr, $($idx:tt: $marker:ident : $ty:ident),+) => {
-        impl<$($marker, $ty),+> IntoEure<($($ty,)+)> for ($($marker,)+)
+        impl<$($marker, $ty),+, __E> IntoEure<($($ty,)+)> for ($($marker,)+)
         where
-            $($marker: IntoEure<$ty, Error = WriteError>),+
+            $($marker: IntoEure<$ty, Error = __E>,)+
+            __E: From<WriteError>,
         {
-            type Error = WriteError;
+            type Error = __E;
 
             fn write(value: ($($ty,)+), c: &mut DocumentConstructor) -> Result<(), Self::Error> {
                 c.bind_empty_tuple().map_err(WriteError::from)?;
@@ -695,6 +696,24 @@ mod tests {
         let doc = c.finish();
         let tuple = doc.root().as_tuple().unwrap();
         assert_eq!(tuple.len(), 3);
+    }
+
+    #[test]
+    fn test_tuple_roundtrip() {
+        let original = (42i32, "hello".to_string(), true);
+
+        // Write
+        let mut c = DocumentConstructor::new();
+        c.write(original.clone()).unwrap();
+        let doc = c.finish();
+
+        assert_eq!(eure!({=(42i32, "hello", true)}), doc);
+
+        // Parse back
+        let root_id = doc.get_root_id();
+        let parsed: (i32, String, bool) = doc.parse(root_id).unwrap();
+
+        assert_eq!(parsed, original);
     }
 
     #[test]
