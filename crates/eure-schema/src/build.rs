@@ -334,6 +334,7 @@ impl<T: BuildSchema + 'static> BuildSchema for Option<T> {
             ]),
             unambiguous: Default::default(),
             repr: eure_document::data_model::VariantRepr::default(),
+            repr_explicit: false,
             deny_untagged: Default::default(),
         })
     }
@@ -352,6 +353,7 @@ impl<T: BuildSchema + 'static, E: BuildSchema + 'static> BuildSchema for Result<
             ]),
             unambiguous: Default::default(),
             repr: eure_document::data_model::VariantRepr::default(),
+            repr_explicit: false,
             deny_untagged: Default::default(),
         })
     }

@@ -25,10 +25,12 @@ mod error;
 mod primitive;
 mod record;
 mod reference;
+mod trace;
 mod union;
 
 pub use context::{ValidationContext, ValidationOutput, ValidationState};
 pub use error::{ValidationError, ValidationWarning, ValidatorError};
+pub use trace::resolve_node_type_traces;
 
 // Re-export UnionTagMode for convenience
 pub use eure_document::parse::UnionTagMode;
@@ -37,6 +39,7 @@ use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::parse::{DocumentParser, ParseContext};
 
+use crate::type_path_trace::{NodeTypeTraceMap, SchemaNodePathMap};
 use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId, identifiers};
 
 use compound::{ArrayValidator, MapValidator, TupleValidator};
@@ -88,6 +91,39 @@ pub fn validate_with_mode(
 ) -> ValidationOutput {
     let root_id = document.get_root_id();
     validate_node_with_mode(document, schema, root_id, schema.root, mode)
+}
+
+/// Validation output with node-level schema trace mapping.
+#[derive(Debug, Clone, Default)]
+pub struct ValidationTraceOutput {
+    pub output: ValidationOutput,
+    pub node_type_traces: NodeTypeTraceMap,
+}
+
+/// Validate with node-level schema trace mapping.
+///
+/// `schema_node_paths` maps schema node IDs to their concrete paths in the source schema document.
+pub fn validate_with_trace(
+    document: &EureDocument,
+    schema: &SchemaDocument,
+    schema_node_paths: &SchemaNodePathMap,
+) -> ValidationTraceOutput {
+    validate_with_trace_with_mode(document, schema, schema_node_paths, UnionTagMode::default())
+}
+
+/// Validate with node-level schema trace mapping and union tag mode.
+pub fn validate_with_trace_with_mode(
+    document: &EureDocument,
+    schema: &SchemaDocument,
+    schema_node_paths: &SchemaNodePathMap,
+    mode: UnionTagMode,
+) -> ValidationTraceOutput {
+    let output = validate_with_mode(document, schema, mode);
+    let node_type_traces = resolve_node_type_traces(document, schema, schema_node_paths, mode);
+    ValidationTraceOutput {
+        output,
+        node_type_traces,
+    }
 }
 
 /// Validate a specific node against a schema node.
@@ -380,6 +416,8 @@ impl<'a, 'doc> SchemaValidator<'a, 'doc> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::convert::document_to_schema_with_layout;
+    use crate::type_path_trace::{ResolvedTypeTrace, TypeTraceUnresolvedReason};
     use crate::{
         ArraySchema, Bound, IntegerSchema, RecordFieldSchema, RecordSchema, TextSchema,
         UnionSchema, UnknownFieldsPolicy,
@@ -581,6 +619,7 @@ mod tests {
             variants,
             unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged,
         });
 
@@ -617,6 +656,7 @@ mod tests {
             variants,
             unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged,
         });
 
@@ -660,6 +700,7 @@ mod tests {
             variants,
             unambiguous: IndexSet::new(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged,
         });
 
@@ -706,6 +747,50 @@ mod tests {
             result.is_valid,
             "Expected valid, got errors: {:?}",
             result.errors
+        );
+    }
+
+    #[test]
+    fn test_validate_with_trace_covers_all_node_ids_and_is_deterministic() {
+        use eure_document::eure;
+
+        let schema_doc = eure!({
+            profile {
+                name = @code("text")
+                tags = [@code("text")]
+            }
+            active = @code("boolean")
+        });
+        let (schema, layout, _source_map) =
+            document_to_schema_with_layout(&schema_doc).expect("schema conversion should succeed");
+
+        let input_doc = eure!({
+            profile {
+                name = "Alice"
+                tags = ["core", "ops"]
+            }
+            active = true
+        });
+
+        let first = validate_with_trace(&input_doc, &schema, &layout.schema_node_paths);
+        let second = validate_with_trace(&input_doc, &schema, &layout.schema_node_paths);
+
+        assert_eq!(first.node_type_traces, second.node_type_traces);
+        assert_eq!(first.node_type_traces.len(), input_doc.node_count());
+
+        for index in 0..input_doc.node_count() {
+            assert!(
+                first.node_type_traces.contains_key(&NodeId(index)),
+                "missing trace for NodeId({index})"
+            );
+        }
+
+        assert!(
+            first.node_type_traces.values().all(|trace| !matches!(
+                trace,
+                ResolvedTypeTrace::Unresolved(TypeTraceUnresolvedReason::NotVisited)
+            )),
+            "all reachable document nodes must be visited"
         );
     }
 }

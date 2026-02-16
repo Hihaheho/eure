@@ -1098,6 +1098,27 @@ impl FromEure<'_> for String {
     }
 }
 
+impl FromEure<'_> for crate::layout::LayoutStyle {
+    type Error = ParseError;
+
+    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
+        let value: &str = ctx.parse()?;
+        match value {
+            "auto" => Ok(crate::layout::LayoutStyle::Auto),
+            "passthrough" => Ok(crate::layout::LayoutStyle::Passthrough),
+            "section" => Ok(crate::layout::LayoutStyle::Section),
+            "nested" => Ok(crate::layout::LayoutStyle::Nested),
+            "binding" => Ok(crate::layout::LayoutStyle::Binding),
+            "section-binding" => Ok(crate::layout::LayoutStyle::SectionBinding),
+            "section-root-binding" => Ok(crate::layout::LayoutStyle::SectionRootBinding),
+            other => Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::UnknownVariant(other.to_string()),
+            }),
+        }
+    }
+}
+
 #[diagnostic::do_not_recommend]
 impl<'doc, T> FromEure<'doc> for Cow<'static, T>
 where

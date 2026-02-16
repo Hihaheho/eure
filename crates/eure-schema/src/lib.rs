@@ -33,14 +33,19 @@ pub mod convert;
 pub mod identifiers;
 pub mod parse;
 pub mod synth;
+pub mod type_path_trace;
 pub mod validate;
+pub mod write;
 
 pub use build::{BuildSchema, SchemaBuilder};
 
-use eure_document::data_model::VariantRepr;
+use eure_document::constructor::DocumentConstructor;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
-use eure_macros::FromEure;
+use eure_document::layout::LayoutStyle;
+use eure_document::write::{IntoEureRecord, WriteError};
+use eure_document::{Text, data_model::VariantRepr};
+use eure_macros::{FromEure, IntoEure};
 use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 use regex::Regex;
@@ -67,6 +72,8 @@ pub struct ExtTypeSchema {
     pub schema: SchemaNodeId,
     /// Whether the extension is optional (default: false = required)
     pub optional: bool,
+    /// Preferred binding style for the extension value.
+    pub binding_style: Option<BindingStyle>,
 }
 
 /// Reference to a schema node by index
@@ -262,7 +269,7 @@ pub enum Bound<T> {
 /// max-length = .integer (optional)
 /// pattern = .text (optional)
 /// ```
-#[derive(Debug, Clone, Default, FromEure)]
+#[derive(Debug, Clone, Default, FromEure, IntoEure)]
 #[eure(crate = eure_document, rename_all = "kebab-case", allow_unknown_fields, allow_unknown_extensions)]
 pub struct TextSchema {
     /// Language identifier (e.g., "rust", "javascript", "email", "plaintext")
@@ -286,7 +293,42 @@ pub struct TextSchema {
     pub pattern: Option<Regex>,
     /// Unknown fields (for future extensions like "flatten")
     #[eure(flatten)]
-    pub unknown_fields: IndexMap<String, eure_document::document::NodeId>,
+    pub unknown_fields: IndexMap<String, EureDocument>,
+}
+
+impl TextSchema {
+    pub fn is_shorthand_compatible(&self) -> bool {
+        matches!(
+            self,
+            Self {
+                language: _,
+                min_length: None,
+                max_length: None,
+                pattern: None,
+                unknown_fields: _
+            }
+        ) && self.unknown_fields.is_empty()
+    }
+    pub fn shorthand(&self) -> Option<Text> {
+        self.is_shorthand_compatible().then(|| {
+            if let Some(language) = &self.language {
+                Text::inline_implicit(format!("text.{}", language))
+            } else {
+                Text::inline_implicit("text")
+            }
+        })
+    }
+    pub fn write(&self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        if let Some(shorthand) = self.shorthand() {
+            c.write(shorthand)
+        } else {
+            c.record(|rec| {
+                rec.constructor().set_variant("text")?;
+                <Self as IntoEureRecord>::write_to_record(self.clone(), rec)?;
+                Ok(())
+            })
+        }
+    }
 }
 
 impl PartialEq for TextSchema {
@@ -502,6 +544,8 @@ pub struct UnionSchema {
     pub unambiguous: IndexSet<String>,
     /// Variant representation strategy (default: External)
     pub repr: VariantRepr,
+    /// Whether `$variant-repr` was explicitly present in source schema.
+    pub repr_explicit: bool,
     /// Variants that deny untagged matching (require explicit $variant)
     pub deny_untagged: IndexSet<String>,
 }
@@ -518,25 +562,7 @@ pub struct UnionSchema {
 /// $variant: union
 /// variants { auto, passthrough, section, nested, binding, section-binding, section-root-binding }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Default, FromEure)]
-#[eure(crate = ::eure_document, rename_all = "kebab-case")]
-pub enum BindingStyle {
-    /// Automatically determine the best representation
-    #[default]
-    Auto,
-    /// Pass through; defer to subsequent keys
-    Passthrough,
-    /// Create a new section (@ a.b.c)
-    Section,
-    /// Create a nested section (@ a.b.c { ... })
-    Nested,
-    /// Bind value (a.b.c = value)
-    Binding,
-    /// Section with block (a.b.c { ... })
-    SectionBinding,
-    /// Section with root binding (@ a.b.c = value)
-    SectionRootBinding,
-}
+pub type BindingStyle = LayoutStyle;
 
 // ============================================================================
 // Type Reference

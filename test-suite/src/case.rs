@@ -35,6 +35,7 @@ use crate::scenarios::schema_conversion_error::SchemaConversionErrorScenario;
 use crate::scenarios::schema_error_validation::SchemaErrorValidationScenario;
 use crate::scenarios::schema_validation::SchemaValidationScenario;
 use crate::scenarios::semantic_tokens::SemanticTokensScenario;
+use crate::scenarios::serialization::SerializationScenario;
 use crate::scenarios::toml_to_eure_document::TomlToEureDocumentScenario;
 use crate::scenarios::toml_to_eure_source::TomlToEureSourceScenario;
 use crate::scenarios::toml_to_json::TomlToJsonScenario;
@@ -117,6 +118,7 @@ const INPUT_JSON_PATH: &str = "input.json";
 const OUTPUT_JSON_PATH: &str = "output.json";
 const FORMATTED_INPUT_PATH: &str = "formatted_input.eure";
 const FORMATTED_NORMALIZED_PATH: &str = "formatted_normalized.eure";
+const SERIALIZED_PATH: &str = "serialized.eure";
 const OUTPUT_JSON_SCHEMA_PATH: &str = "output.json-schema.json";
 const EDITOR_PATH: &str = "editor.eure";
 const WORKSPACE_PATH: &str = "/test-workspace";
@@ -136,6 +138,7 @@ const META_SCHEMA: &str = include_str!(concat!(
 pub enum Scenario {
     Normalization(NormalizationScenario),
     Formatting(FormattingScenario),
+    Serialization(SerializationScenario),
     EureToJson(EureToJsonScenario),
     EureToJsonError(EureToJsonErrorScenario),
     JsonToEure(JsonToEureScenario),
@@ -159,6 +162,7 @@ impl Scenario {
         match self {
             Scenario::Normalization(_) => "normalization".to_string(),
             Scenario::Formatting(_) => "formatting".to_string(),
+            Scenario::Serialization(_) => "serialization".to_string(),
             Scenario::EureToJson(s) => format!("eure_to_json({})", s.source_name),
             Scenario::EureToJsonError(_) => "eure_to_json_error".to_string(),
             Scenario::JsonToEure(s) => format!("json_to_eure({})", s.source_name),
@@ -184,6 +188,7 @@ impl Scenario {
         match self {
             Scenario::Normalization(s) => s.run(db),
             Scenario::Formatting(s) => s.run(db),
+            Scenario::Serialization(s) => s.run(db),
             Scenario::EureToJson(s) => s.run(db),
             Scenario::EureToJsonError(s) => s.run(db),
             Scenario::JsonToEure(s) => s.run(db),
@@ -327,6 +332,11 @@ impl Case {
         // formatted_normalized → "formatted_normalized.eure"
         if let Some(formatted_normalized) = &self.data.formatted_normalized {
             Self::resolve_asset(runtime, FORMATTED_NORMALIZED_PATH, formatted_normalized)?;
+        }
+
+        // serialized → "serialized.eure"
+        if let Some(serialized) = &self.data.serialized {
+            Self::resolve_asset(runtime, SERIALIZED_PATH, serialized)?;
         }
 
         // output_json_schema → "output.json-schema.json"
@@ -582,6 +592,19 @@ impl Case {
             scenarios.push(Scenario::Formatting(FormattingScenario {
                 input: Self::resolve_path(normalized, NORMALIZED_PATH),
                 expected: Self::resolve_path(formatted_normalized, FORMATTED_NORMALIZED_PATH),
+            }));
+        }
+
+        // Runtime serialization scenario
+        if let (Some(input_eure), Some(schema), Some(serialized)) = (
+            &self.data.input_eure,
+            &self.data.schema,
+            &self.data.serialized,
+        ) {
+            scenarios.push(Scenario::Serialization(SerializationScenario {
+                input: Self::resolve_path(input_eure, INPUT_EURE_PATH),
+                schema: Self::resolve_path(schema, SCHEMA_PATH),
+                expected: Self::resolve_path(serialized, SERIALIZED_PATH),
             }));
         }
 

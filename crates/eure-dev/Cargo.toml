@@ -13,6 +13,7 @@ automod = { workspace = true }
 catppuccin = { workspace = true, features = ["css-colors"] }
 dioxus = { version = "0.7.0", features = ["logger", "router", "web"] }
 eure = { workspace = true }
+eure-fmt = { workspace = true }
 eure-json = { workspace = true }
 eure-parol = { workspace = true }
 eure-schema = { workspace = true }

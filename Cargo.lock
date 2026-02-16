@@ -2015,6 +2015,7 @@ dependencies = [
  "dioxus-primitives",
  "dioxus-sdk-storage",
  "eure",
+ "eure-fmt",
  "eure-json",
  "eure-parol",
  "eure-schema",

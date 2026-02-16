@@ -14,6 +14,8 @@ use alloc::borrow::{Cow, ToOwned};
 use alloc::string::String;
 use num_bigint::BigInt;
 
+use indexmap::IndexMap;
+
 use crate::document::InsertError;
 use crate::document::constructor::ScopeError;
 use crate::identifier::IdentifierError;
@@ -102,6 +104,65 @@ pub trait IntoEure<T = Self>: Sized {
 pub trait IntoEureRecord<T = Self>: Sized {
     /// Write the fields of a value to the given record writer.
     fn write_to_record(value: T, rec: &mut RecordWriter<'_>) -> Result<(), WriteError>;
+}
+
+impl IntoEure for EureDocument {
+    fn write(value: Self, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.write_subtree(&value, value.get_root_id())
+    }
+}
+
+fn write_subtree_node(
+    src: &EureDocument,
+    node_id: NodeId,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    let node = src.node(node_id);
+
+    match &node.content {
+        NodeValue::Hole(label) => {
+            c.bind_hole(label.clone())?;
+        }
+        NodeValue::Primitive(prim) => {
+            c.bind_primitive(prim.clone())?;
+        }
+        NodeValue::Array(array) => {
+            c.bind_empty_array()?;
+            for &child_id in array.iter() {
+                let scope = c.begin_scope();
+                c.navigate(PathSegment::ArrayIndex(None))?;
+                write_subtree_node(src, child_id, c)?;
+                c.end_scope(scope)?;
+            }
+        }
+        NodeValue::Tuple(tuple) => {
+            c.bind_empty_tuple()?;
+            for (index, &child_id) in tuple.iter().enumerate() {
+                let scope = c.begin_scope();
+                c.navigate(PathSegment::TupleIndex(index as u8))?;
+                write_subtree_node(src, child_id, c)?;
+                c.end_scope(scope)?;
+            }
+        }
+        NodeValue::Map(map) => {
+            c.bind_empty_map()?;
+            for (key, &child_id) in map.iter() {
+                let scope = c.begin_scope();
+                c.navigate(PathSegment::Value(key.clone()))?;
+                write_subtree_node(src, child_id, c)?;
+                c.end_scope(scope)?;
+            }
+        }
+    }
+
+    for (ident, &ext_node_id) in node.extensions.iter() {
+        let scope = c.begin_scope();
+        c.navigate(PathSegment::Extension(ident.clone()))?;
+        write_subtree_node(src, ext_node_id, c)?;
+        c.end_scope(scope)?;
+    }
+
+    Ok(())
 }
 
 // ============================================================================
@@ -255,6 +316,39 @@ where
     K: Into<String>,
 {
     fn write_to_record(value: Map<K, V>, rec: &mut RecordWriter<'_>) -> Result<(), WriteError> {
+        for (key, v) in value {
+            rec.field_via::<M, _>(&key.into(), v)?;
+        }
+        Ok(())
+    }
+}
+
+impl<M, K, V> IntoEure<IndexMap<K, V>> for IndexMap<K, M>
+where
+    M: IntoEure<V>,
+    K: Into<ObjectKey> + Eq + std::hash::Hash,
+{
+    fn write(value: IndexMap<K, V>, c: &mut DocumentConstructor) -> Result<(), WriteError> {
+        c.bind_empty_map()?;
+        for (key, v) in value {
+            let scope = c.begin_scope();
+            c.navigate(PathSegment::Value(key.into()))?;
+            M::write(v, c)?;
+            c.end_scope(scope)?;
+        }
+        Ok(())
+    }
+}
+
+impl<M, K, V> IntoEureRecord<IndexMap<K, V>> for IndexMap<K, M>
+where
+    M: IntoEure<V>,
+    K: Into<String> + Eq + std::hash::Hash,
+{
+    fn write_to_record(
+        value: IndexMap<K, V>,
+        rec: &mut RecordWriter<'_>,
+    ) -> Result<(), WriteError> {
         for (key, v) in value {
             rec.field_via::<M, _>(&key.into(), v)?;
         }
@@ -445,6 +539,14 @@ impl DocumentConstructor {
         } else {
             self.set_extension("variant", variant)
         }
+    }
+
+    /// Copy a subtree from another `EureDocument` into the current position.
+    ///
+    /// This recursively copies the node at `node_id` from `src`, including all
+    /// children and extensions, into the current node of this constructor.
+    pub fn write_subtree(&mut self, src: &EureDocument, node_id: NodeId) -> Result<(), WriteError> {
+        write_subtree_node(src, node_id, self)
     }
 
     /// Write a value implementing `IntoEure` to the current node.
@@ -670,6 +772,26 @@ mod tests {
     }
 
     // =========================================================================
+    // Regex tests
+    // =========================================================================
+
+    #[test]
+    fn test_regex_roundtrip() {
+        let original = regex::Regex::new(r"^[a-z]+\d{2,4}$").unwrap();
+
+        // Write
+        let mut c = DocumentConstructor::new();
+        c.write(original.clone()).unwrap();
+        let doc = c.finish();
+
+        // Parse back
+        let root_id = doc.get_root_id();
+        let parsed: regex::Regex = doc.parse(root_id).unwrap();
+
+        assert_eq!(parsed.as_str(), original.as_str());
+    }
+
+    // =========================================================================
     // Cow tests
     // =========================================================================
 
@@ -695,5 +817,85 @@ mod tests {
             doc.root().content,
             NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("hello")))
         );
+    }
+
+    // =========================================================================
+    // IntoEure for EureDocument tests
+    // =========================================================================
+
+    #[test]
+    fn test_document_write_primitive() {
+        let src = eure!({ = "hello" });
+        let mut c = DocumentConstructor::new();
+        c.write(src.clone()).unwrap();
+        let result = c.finish();
+        assert_eq!(result, src);
+    }
+
+    #[test]
+    fn test_document_write_map() {
+        let src = eure!({
+            name = "Alice"
+            age = 30
+        });
+        let mut c = DocumentConstructor::new();
+        c.write(src.clone()).unwrap();
+        let result = c.finish();
+        assert_eq!(result, src);
+    }
+
+    #[test]
+    fn test_document_write_array() {
+        let src = eure!({ = [1, 2, 3] });
+        let mut c = DocumentConstructor::new();
+        c.write(src.clone()).unwrap();
+        let result = c.finish();
+        assert_eq!(result, src);
+    }
+
+    #[test]
+    fn test_document_write_nested() {
+        let src = eure!({
+            name = "Alice"
+            address {
+                city = "Tokyo"
+                zip = "100-0001"
+            }
+            tags = ["a", "b"]
+        });
+        let mut c = DocumentConstructor::new();
+        c.write(src.clone()).unwrap();
+        let result = c.finish();
+        assert_eq!(result, src);
+    }
+
+    #[test]
+    fn test_document_write_as_field() {
+        let inner = eure!({ city = "Tokyo" });
+        let mut c = DocumentConstructor::new();
+        c.record(|rec| {
+            rec.field("name", "Alice")?;
+            rec.field("address", inner)?;
+            Ok(())
+        })
+        .unwrap();
+        let result = c.finish();
+        let expected = eure!({
+            name = "Alice"
+            address { city = "Tokyo" }
+        });
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_document_write_subtree() {
+        let src = eure!({
+            name = "Alice"
+            active = true
+        });
+        let mut c = DocumentConstructor::new();
+        c.write_subtree(&src, src.get_root_id()).unwrap();
+        let result = c.finish();
+        assert_eq!(result, src);
     }
 }

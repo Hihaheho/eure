@@ -78,6 +78,11 @@ impl PartialEq for EureDocument {
 }
 
 impl EureDocument {
+    /// Returns the total number of nodes in this document.
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+
     /// Compare two nodes structurally, ignoring NodeId values
     fn nodes_equal(&self, id1: NodeId, other: &EureDocument, id2: NodeId) -> bool {
         let node1 = &self.nodes[id1.0];

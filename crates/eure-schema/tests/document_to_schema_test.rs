@@ -1781,30 +1781,21 @@ fn test_external_type_reference() {
 }
 
 #[test]
-fn test_circular_type_reference_is_valid() {
+fn test_circular_type_reference_is_rejected_when_non_productive() {
     let doc = eure!({
         %types.a = @code("$types.b"),
         %types.b = @code("$types.a"),
         data = @code("$types.a"),
     });
-    let schema = convert(&doc);
 
-    // Circular references are allowed
-    assert!(schema.types.contains_key(&ident("a")));
-    assert!(schema.types.contains_key(&ident("b")));
-
-    assert_record1(
-        &schema,
-        schema.root,
-        ("data", |s, id| assert_reference(s, id, "a")),
-    );
-
-    // Verify the circular reference structure
-    let a_id = schema.types[&ident("a")];
-    assert_reference(&schema, a_id, "b");
-
-    let b_id = schema.types[&ident("b")];
-    assert_reference(&schema, b_id, "a");
+    let err = document_to_schema(&doc).expect_err("non-productive cycle must be rejected");
+    match err {
+        ConversionError::NonProductiveReferenceCycle(path) => {
+            assert!(path.contains("$types.a"));
+            assert!(path.contains("$types.b"));
+        }
+        other => panic!("Expected NonProductiveReferenceCycle, got {:?}", other),
+    }
 }
 
 #[test]

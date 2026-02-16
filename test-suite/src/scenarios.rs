@@ -18,6 +18,7 @@ pub mod schema_conversion_error;
 pub mod schema_error_validation;
 pub mod schema_validation;
 pub mod semantic_tokens;
+pub mod serialization;
 pub mod toml_to_eure_document;
 pub mod toml_to_eure_source;
 pub mod toml_to_json;
@@ -121,6 +122,16 @@ pub enum ScenarioError {
     },
     /// Formatting error
     FormattingError {
+        message: String,
+    },
+    /// Runtime serialization output mismatch
+    SerializationMismatch {
+        input: String,
+        expected: String,
+        actual: String,
+    },
+    /// Runtime serialization error
+    SerializationError {
         message: String,
     },
     /// TOML parse error
@@ -326,6 +337,20 @@ impl std::fmt::Display for ScenarioError {
             }
             ScenarioError::FormattingError { message } => {
                 write!(f, "Formatting error: {}", message)
+            }
+            ScenarioError::SerializationMismatch {
+                input,
+                expected,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "Serialization mismatch.\nInput:\n{}\n\nExpected:\n{}\n\nActual:\n{}",
+                    input, expected, actual
+                )
+            }
+            ScenarioError::SerializationError { message } => {
+                write!(f, "Serialization error: {}", message)
             }
             ScenarioError::TomlParseError { message } => {
                 write!(f, "TOML parse error: {}", message)

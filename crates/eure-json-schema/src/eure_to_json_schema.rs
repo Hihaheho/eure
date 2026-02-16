@@ -885,6 +885,7 @@ mod tests {
             variants,
             unambiguous: Default::default(),
             repr: VariantRepr::Untagged,
+            repr_explicit: false,
             deny_untagged: Default::default(),
         }));
 
@@ -912,6 +913,7 @@ mod tests {
             variants,
             unambiguous: Default::default(),
             repr: VariantRepr::External,
+            repr_explicit: false,
             deny_untagged: Default::default(),
         }));
 

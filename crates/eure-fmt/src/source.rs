@@ -192,10 +192,7 @@ impl<'a> SourceDocBuilder<'a> {
             }
             BindSource::Block(source_id) => {
                 let inner = self.build_eure_source(self.get_source(*source_id));
-                Doc::text(" {")
-                    .concat(Doc::hardline())
-                    .concat(Doc::indent(inner))
-                    .concat(Doc::text("}"))
+                self.build_braced_block(Doc::text(""), inner)
             }
         };
 
@@ -225,6 +222,18 @@ impl<'a> SourceDocBuilder<'a> {
 
         let section_doc = match &section.body {
             SectionBody::Items { value, bindings } => {
+                if let Some(node_id) = value
+                    && bindings.is_empty()
+                {
+                    parts.push(
+                        header
+                            .concat(Doc::text(" = "))
+                            .concat(self.build_value(*node_id))
+                            .concat(Doc::hardline()),
+                    );
+                    return Doc::concat_all(parts);
+                }
+
                 let mut body_parts = Vec::new();
 
                 // Value binding (if present)
@@ -247,17 +256,26 @@ impl<'a> SourceDocBuilder<'a> {
             }
             SectionBody::Block(source_id) => {
                 let inner = self.build_eure_source(self.get_source(*source_id));
-                header
-                    .concat(Doc::text(" {"))
-                    .concat(Doc::hardline())
-                    .concat(Doc::indent(inner))
-                    .concat(Doc::text("}"))
+                self.build_braced_block(header, inner)
                     .concat(Doc::hardline())
             }
         };
 
         parts.push(section_doc);
         Doc::concat_all(parts)
+    }
+
+    fn build_braced_block(&self, header: Doc, inner: Doc) -> Doc {
+        let (inner, removed) = strip_one_trailing_hardline(inner);
+        if !removed || matches!(inner, Doc::Nil) {
+            return header.concat(Doc::text(" {}"));
+        }
+
+        header
+            .concat(Doc::text(" {"))
+            .concat(Doc::indent(Doc::hardline().concat(inner)))
+            .concat(Doc::hardline())
+            .concat(Doc::text("}"))
     }
 
     fn build_path(&self, path: &[SourcePathSegment]) -> Doc {
@@ -571,6 +589,25 @@ impl<'a> SourceDocBuilder<'a> {
                 Doc::text("(").concat(inner).concat(Doc::text(")"))
             }
         }
+    }
+}
+
+fn strip_one_trailing_hardline(doc: Doc) -> (Doc, bool) {
+    match doc {
+        Doc::HardLine => (Doc::Nil, true),
+        Doc::Concat(left, right) => {
+            let left = *left;
+            let right = *right;
+
+            let (new_right, removed) = strip_one_trailing_hardline(right.clone());
+            if removed {
+                return (left.concat(new_right), true);
+            }
+
+            let (new_left, removed) = strip_one_trailing_hardline(left);
+            (new_left.concat(right), removed)
+        }
+        other => (other, false),
     }
 }
 

@@ -286,6 +286,8 @@ pub struct ParsedUnionSchema {
     pub unambiguous: IndexSet<String>,
     /// Variant representation strategy
     pub repr: VariantRepr,
+    /// Whether `$variant-repr` was explicitly provided.
+    pub repr_explicit: bool,
     /// Variants that deny untagged matching (require explicit $variant)
     pub deny_untagged: IndexSet<String>,
 }
@@ -327,14 +329,15 @@ impl FromEure<'_> for ParsedUnionSchema {
         rec.allow_unknown_fields()?;
 
         // Parse $variant-repr extension
-        let repr = ctx
-            .parse_ext_optional::<VariantRepr>("variant-repr")?
-            .unwrap_or_default();
+        let repr_ext = ctx.parse_ext_optional::<VariantRepr>("variant-repr")?;
+        let repr_explicit = repr_ext.is_some();
+        let repr = repr_ext.unwrap_or_default();
 
         Ok(ParsedUnionSchema {
             variants,
             unambiguous,
             repr,
+            repr_explicit,
             deny_untagged,
         })
     }
@@ -350,6 +353,9 @@ pub struct ParsedExtTypeSchema {
     /// Whether the extension is optional (default: false = required)
     #[eure(default)]
     pub optional: bool,
+    /// Binding style for the extension value.
+    #[eure(default)]
+    pub binding_style: Option<BindingStyle>,
 }
 
 /// Parsed schema metadata - extension metadata via $ext-type on $types.type.

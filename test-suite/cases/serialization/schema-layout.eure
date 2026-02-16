@@ -1,0 +1,238 @@
+// Runtime serialization with schema-driven document layout.
+
+@ cases.binding-styles
+input_eure = ```eure
+section {
+  alpha = 1
+}
+nested {
+  alpha = 1
+}
+passthrough {
+  child {
+    alpha = 1
+  }
+}
+binding {
+  alpha = 1
+}
+section_binding {
+  alpha = 1
+}
+section_root_binding = 1
+fallback {
+  alpha = 1
+}
+```
+
+schema = ```eure
+section {
+  alpha = `integer`
+}
+section.$binding-style = "section"
+
+nested {
+  alpha = `integer`
+}
+nested.$binding-style = "nested"
+
+passthrough {
+  child {
+    alpha = `integer`
+  }
+}
+passthrough.$binding-style = "passthrough"
+passthrough.child.$binding-style = "section-binding"
+
+binding {
+  alpha = `integer`
+}
+binding.$binding-style = "binding"
+
+section_binding {
+  alpha = `integer`
+}
+section_binding.$binding-style = "section-binding"
+
+section_root_binding = `integer`
+section_root_binding.$binding-style = "section-root-binding"
+
+fallback {
+  alpha = `integer`
+}
+```
+
+serialized = ```eure
+passthrough.child {
+  alpha = 1
+}
+binding = { alpha => 1 }
+section_binding {
+  alpha = 1
+}
+fallback = { alpha => 1 }
+@ section
+alpha = 1
+@ nested {
+  alpha = 1
+}
+@ section_root_binding = 1
+```
+
+@ cases.union-explicit-variant-path
+input_eure = ```eure
+$variant = "outer.inner"
+payload {
+  x = 1
+}
+```
+
+schema = ```eure
+$variant = "union"
+variants.outer {
+  $variant = "union"
+  variants.inner {
+    payload {
+      x = `integer`
+    }
+    payload.$binding-style = "section-binding"
+  }
+  variants.other = `integer`
+}
+variants.fallback = `integer`
+```
+
+serialized = ```eure
+$variant = "outer.inner"
+payload {
+  x = 1
+}
+```
+
+@ cases.union-untagged-priority-winner
+input_eure = ```eure
+payload = 1
+```
+
+schema = ```eure
+$variant = "union"
+variants.object {
+  payload = `integer`
+  payload.$binding-style = "section-root-binding"
+}
+variants.number = `integer`
+```
+
+serialized = ```eure
+@ payload = 1
+```
+
+@ cases.union-untagged-ambiguous-fallback
+input_eure = ```eure
+a = 1
+```
+
+schema = ```eure
+$variant = "union"
+variants.one {
+  a = `integer`
+  a.$binding-style = "section"
+}
+variants.one.$unambiguous = true
+
+variants.two {
+  a = `integer`
+  a.$binding-style = "section-binding"
+}
+variants.two.$unambiguous = true
+```
+
+schema_errors[] = ```text
+error: ambiguous union: ["one", "two"] at path (root)
+  --> input.eure:1:1
+   |
+ 1 | a = 1
+   | ^^^^^ ambiguous union: ["one", "two"] at path (root)
+   |
+note: constraint defined here
+  --> schema.eure:1:1
+   |
+ 1 | / $variant = "union"
+ 2 | | variants.one {
+ 3 | |   a = `integer`
+ 4 | |   a.$binding-style = "section"
+...  |
+12 | | variants.two.$unambiguous = true
+   | |________________________________- constraint defined here
+```
+
+serialized = ```eure
+a = 1
+```
+
+@ cases.union-deny-untagged
+input_eure = ```eure
+a {
+  x = 1
+}
+```
+
+schema = ```eure
+$variant = "union"
+variants.strict {
+  a {
+    x = `integer`
+  }
+  a.$binding-style = "section-binding"
+}
+variants.strict.$deny-untagged = true
+```
+
+schema_errors[] = ```text
+error: Variant 'strict' requires explicit $variant tag at path (root)
+ --> input.eure:1:1
+  |
+1 | / a {
+2 | |   x = 1
+3 | | }
+  | |_^ Variant 'strict' requires explicit $variant tag at path (root)
+  |
+note: constraint defined here
+ --> schema.eure:2:1
+  |
+2 | / variants.strict {
+3 | |   a {
+4 | |     x = `integer`
+... |
+7 | | }
+  | |_- constraint defined here
+```
+
+serialized = ```eure
+a = { x => 1 }
+```
+
+@ cases.union-explicit-variant-order
+input_eure = ```eure
+$variant = "v1"
+a = 1
+b = 2
+```
+
+schema = ```eure
+$variant = "union"
+variants.v1 {
+  b = `integer`
+  a = `integer`
+}
+variants.v2 {
+  a = `integer`
+  b = `integer`
+}
+```
+
+serialized = ```eure
+$variant = "v1"
+b = 2
+a = 1
+```

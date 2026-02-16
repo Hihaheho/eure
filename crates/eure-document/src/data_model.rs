@@ -120,6 +120,10 @@ impl VariantRepr {
             _ => None,
         }
     }
+
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::Untagged)
+    }
 }
 
 /// How to represent text with non-plaintext language in a data model.

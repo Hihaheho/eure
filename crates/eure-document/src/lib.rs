@@ -25,6 +25,8 @@ pub mod document;
 // Re-export constructor at the root for macro compatibility with `#[eure(crate = ::eure_document)]`
 pub use document::constructor;
 
+use crate::write::IntoEure;
+
 /// Data structure for representing a path in a Eure document.
 pub mod path;
 
@@ -37,6 +39,8 @@ pub mod parse;
 /// Trait for writing Rust types to Eure documents.
 pub mod write;
 
+/// Deterministic layout for Eure documents.
+pub mod layout;
 /// Source-level document representation with layout metadata.
 ///
 /// Used for programmatic construction of Eure documents with preserved
@@ -70,4 +74,13 @@ pub(crate) mod prelude_internal {
     pub use alloc::boxed::Box;
     pub use alloc::{string::String, string::ToString, vec, vec::Vec};
     pub use thisisplural::Plural;
+}
+
+impl IntoEure for regex::Regex {
+    fn write(
+        value: Self,
+        c: &mut constructor::DocumentConstructor,
+    ) -> Result<(), write::WriteError> {
+        c.write(value.as_str())
+    }
 }

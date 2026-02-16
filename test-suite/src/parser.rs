@@ -246,6 +246,9 @@ pub struct CaseData {
     pub formatted_input: Option<Text>,
     #[eure(default)]
     pub formatted_normalized: Option<Text>,
+    // Runtime serialization testing field
+    #[eure(default)]
+    pub serialized: Option<Text>,
     // Eure-mark errors (for .eumd file validation)
     #[eure(default)]
     pub euremark_errors: Vec<Text>,
@@ -288,6 +291,7 @@ impl CaseData {
             && self.json_schema_errors.is_empty()
             && self.formatted_input.is_none()
             && self.formatted_normalized.is_none()
+            && self.serialized.is_none()
             && self.euremark_errors.is_empty()
             && self.editor.is_none()
             && self.json_errors.is_empty()

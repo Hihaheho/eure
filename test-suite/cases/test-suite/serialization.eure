@@ -1,0 +1,29 @@
+// Test that serialization scenario can detect output mismatches.
+
+input_eure = ```eure
+value = 42
+```
+
+schema = ```eure
+value = `integer`
+```
+
+serialized = ```eure
+value = 99
+```
+
+@ scenario_errors[]
+scenario = "serialization"
+output = ```
+Serialization mismatch.
+Input:
+value = 42
+
+
+Expected:
+value = 99
+
+
+Actual:
+value = 42
+```

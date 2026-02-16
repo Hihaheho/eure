@@ -46,6 +46,44 @@ pub fn extract_repr_variant(
     }
 }
 
+/// Extract `$variant` extension as a parsed [`VariantPath`], if present.
+pub fn extract_explicit_variant_path(
+    doc: &EureDocument,
+    node_id: NodeId,
+) -> Result<Option<VariantPath>, ParseError> {
+    let node = doc.node(node_id);
+    let Some(&variant_node_id) = node.extensions.get(&VARIANT) else {
+        return Ok(None);
+    };
+
+    let variant_node = doc.node(variant_node_id);
+    let s: &str = doc.parse(variant_node_id).map_err(|_| ParseError {
+        node_id: variant_node_id,
+        kind: ParseErrorKind::InvalidVariantType(variant_node.content.value_kind()),
+    })?;
+
+    VariantPath::parse(s).map(Some).map_err(|_| ParseError {
+        node_id: variant_node_id,
+        kind: ParseErrorKind::InvalidVariantPath(s.to_string()),
+    })
+}
+
+/// Returns whether this node has any explicit union tag information.
+///
+/// Explicit tags are either:
+/// - `$variant` extension with valid variant path syntax
+/// - repr-extracted tag for the given repr
+pub fn has_explicit_variant_tag(
+    doc: &EureDocument,
+    node_id: NodeId,
+    repr: &VariantRepr,
+) -> Result<bool, ParseError> {
+    if extract_explicit_variant_path(doc, node_id)?.is_some() {
+        return Ok(true);
+    }
+    Ok(extract_repr_variant(doc, node_id, repr)?.is_some())
+}
+
 /// Try to extract External repr: `{ variant_name = content }`
 fn try_extract_external(doc: &EureDocument, node_id: NodeId) -> Option<(String, NodeId)> {
     let node = doc.node(node_id);
@@ -331,21 +369,7 @@ where
     fn extract_explicit_variant(
         ctx: &ParseContext<'doc>,
     ) -> Result<Option<VariantPath>, ParseError> {
-        let node = ctx.node();
-        let Some(&variant_node_id) = node.extensions.get(&VARIANT) else {
-            return Ok(None);
-        };
-
-        let variant_node = ctx.doc().node(variant_node_id);
-        let s: &str = ctx.doc().parse(variant_node_id).map_err(|_| ParseError {
-            node_id: variant_node_id,
-            kind: ParseErrorKind::InvalidVariantType(variant_node.content.value_kind()),
-        })?;
-
-        VariantPath::parse(s).map(Some).map_err(|_| ParseError {
-            node_id: variant_node_id,
-            kind: ParseErrorKind::InvalidVariantPath(s.to_string()),
-        })
+        extract_explicit_variant_path(ctx.doc(), ctx.node_id())
     }
 
     /// Register a variant with short-circuit semantics (default).

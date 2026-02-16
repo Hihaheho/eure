@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use eure_document::value::ObjectKey;
 use eure_schema::SchemaDocument;
-use eure_schema::convert::{SchemaSourceMap, document_to_schema};
+use eure_schema::convert::{SchemaSourceMap, document_to_schema_with_layout};
+use eure_schema::type_path_trace::LayoutStrategies;
 pub use eure_schema::validate::UnionTagMode;
 use eure_schema::validate::{ValidationError, validate, validate_with_mode};
 use eure_tree::prelude::Cst;
@@ -27,6 +28,7 @@ use super::parse::{ParseCst, ParseDocument, ParsedDocument};
 #[derive(Clone, PartialEq)]
 pub struct ValidatedSchema {
     pub schema: Arc<SchemaDocument>,
+    pub layout: Arc<LayoutStrategies>,
     pub source_map: Arc<SchemaSourceMap>,
     pub parsed: ParsedDocument,
 }
@@ -61,12 +63,14 @@ pub fn document_to_schema_query(
 ) -> Result<ValidatedSchema, QueryError> {
     let parsed = db.query(ParseDocument::new(file.clone()))?;
 
-    let (schema, source_map) = document_to_schema(&parsed.doc).map_err(|kind| FileError {
-        file: file.clone(),
-        kind,
-    })?;
+    let (schema, layout, source_map) =
+        document_to_schema_with_layout(&parsed.doc).map_err(|kind| FileError {
+            file: file.clone(),
+            kind,
+        })?;
     Ok(ValidatedSchema {
         schema: Arc::new(schema),
+        layout: Arc::new(layout),
         source_map: Arc::new(source_map),
         parsed: parsed.as_ref().clone(),
     })

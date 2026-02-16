@@ -2,7 +2,7 @@
 //!
 //! Validates union values using parse_union() API pattern.
 
-use eure_document::parse::union::{VARIANT, extract_repr_variant};
+use eure_document::parse::union::has_explicit_variant_tag;
 use eure_document::parse::{DocumentParser, ParseContext};
 
 use crate::{SchemaNodeId, UnionSchema};
@@ -71,16 +71,21 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
 
         // Check if this value has explicit variant tagging ($variant extension or repr pattern)
         // This is used to enforce deny_untagged: variants in deny_untagged must have explicit tags
-        let has_explicit_tag = {
-            // Check for $variant extension
-            let has_variant_ext = parse_ctx.node().extensions.contains_key(&VARIANT);
-            // Check if repr pattern matches (for non-Untagged reprs)
-            let has_repr_tag =
-                extract_repr_variant(self.ctx.document, parse_ctx.node_id(), &self.schema.repr)
-                    .ok()
-                    .flatten()
-                    .is_some();
-            has_variant_ext || has_repr_tag
+        let has_explicit_tag = match has_explicit_variant_tag(
+            self.ctx.document,
+            parse_ctx.node_id(),
+            &self.schema.repr,
+        ) {
+            Ok(has_tag) => has_tag,
+            Err(parse_error) => {
+                self.ctx.record_error(ValidationError::ParseError {
+                    path: self.ctx.path(),
+                    node_id: parse_ctx.node_id(),
+                    schema_node_id: self.schema_node_id,
+                    error: parse_error,
+                });
+                return Ok(());
+            }
         };
 
         let deny_untagged = &self.schema.deny_untagged;

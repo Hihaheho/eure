@@ -47,6 +47,7 @@ use crate::parse::{
     ParsedMapSchema, ParsedRecordSchema, ParsedSchemaMetadata, ParsedSchemaNode,
     ParsedSchemaNodeContent, ParsedTupleSchema, ParsedUnionSchema, ParsedUnknownFieldsPolicy,
 };
+use crate::type_path_trace::LayoutStrategies;
 use crate::{
     ArraySchema, Bound, ExtTypeSchema, FloatPrecision, FloatSchema, IntegerSchema, MapSchema,
     RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata, SchemaNodeContent,
@@ -56,6 +57,7 @@ use eure_document::document::node::{Node, NodeValue};
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::identifier::Identifier;
 use eure_document::parse::ParseError;
+use eure_document::path::{EurePath, PathSegment};
 use eure_document::value::ObjectKey;
 use indexmap::IndexMap;
 use num_bigint::BigInt;
@@ -81,6 +83,9 @@ pub enum ConversionError {
 
     #[error("Undefined type reference: {0}")]
     UndefinedTypeReference(String),
+
+    #[error("non-productive reference cycle detected: {0}")]
+    NonProductiveReferenceCycle(String),
 
     #[error("Parse error: {0}")]
     ParseError(#[from] ParseError),
@@ -120,6 +125,7 @@ impl<'a> Converter<'a> {
 
         // Validate all type references exist
         self.validate_type_references()?;
+        self.validate_non_productive_reference_cycles()?;
 
         Ok((self.schema, self.source_map))
     }
@@ -162,6 +168,71 @@ impl<'a> Converter<'a> {
                     type_ref.name.to_string(),
                 ));
             }
+        }
+        Ok(())
+    }
+
+    fn validate_non_productive_reference_cycles(&self) -> Result<(), ConversionError> {
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum Mark {
+            Visiting,
+            Done,
+        }
+
+        fn next_ref_target(schema: &SchemaDocument, node_id: SchemaNodeId) -> Option<SchemaNodeId> {
+            let node = schema.node(node_id);
+            let SchemaNodeContent::Reference(type_ref) = &node.content else {
+                return None;
+            };
+            if type_ref.namespace.is_some() {
+                return None;
+            }
+            schema.get_type(&type_ref.name)
+        }
+
+        fn display_node(schema: &SchemaDocument, id: SchemaNodeId) -> String {
+            if let Some((name, _)) = schema.types.iter().find(|(_, sid)| **sid == id) {
+                format!("$types.{}", name)
+            } else {
+                format!("node#{}", id.0)
+            }
+        }
+
+        fn visit(
+            schema: &SchemaDocument,
+            node_id: SchemaNodeId,
+            marks: &mut IndexMap<SchemaNodeId, Mark>,
+            stack: &mut Vec<SchemaNodeId>,
+        ) -> Result<(), ConversionError> {
+            if matches!(marks.get(&node_id), Some(Mark::Done)) {
+                return Ok(());
+            }
+            if matches!(marks.get(&node_id), Some(Mark::Visiting)) {
+                let start = stack.iter().position(|sid| *sid == node_id).unwrap_or(0);
+                let mut cycle: Vec<String> = stack[start..]
+                    .iter()
+                    .map(|sid| display_node(schema, *sid))
+                    .collect();
+                cycle.push(display_node(schema, node_id));
+                return Err(ConversionError::NonProductiveReferenceCycle(
+                    cycle.join(" -> "),
+                ));
+            }
+
+            marks.insert(node_id, Mark::Visiting);
+            stack.push(node_id);
+            if let Some(next_id) = next_ref_target(schema, node_id) {
+                visit(schema, next_id, marks, stack)?;
+            }
+            stack.pop();
+            marks.insert(node_id, Mark::Done);
+            Ok(())
+        }
+
+        let mut marks = IndexMap::new();
+        let mut stack = Vec::new();
+        for index in 0..self.schema.nodes.len() {
+            visit(&self.schema, SchemaNodeId(index), &mut marks, &mut stack)?;
         }
         Ok(())
     }
@@ -366,18 +437,26 @@ impl<'a> Converter<'a> {
         &mut self,
         parsed: ParsedUnionSchema,
     ) -> Result<UnionSchema, ConversionError> {
+        let ParsedUnionSchema {
+            variants: parsed_variants,
+            unambiguous,
+            repr,
+            repr_explicit,
+            deny_untagged,
+        } = parsed;
         let mut variants = IndexMap::new();
 
-        for (variant_name, variant_node_id) in parsed.variants {
+        for (variant_name, variant_node_id) in parsed_variants {
             let schema = self.convert_node(variant_node_id)?;
             variants.insert(variant_name, schema);
         }
 
         Ok(UnionSchema {
             variants,
-            unambiguous: parsed.unambiguous,
-            repr: parsed.repr,
-            deny_untagged: parsed.deny_untagged,
+            unambiguous,
+            repr,
+            repr_explicit,
+            deny_untagged,
         })
     }
 
@@ -437,6 +516,7 @@ impl<'a> Converter<'a> {
                 ExtTypeSchema {
                     schema,
                     optional: parsed_schema.optional,
+                    binding_style: parsed_schema.binding_style,
                 },
             );
         }
@@ -679,6 +759,135 @@ fn parse_interval_float(s: &str) -> Result<(Bound<f64>, Bound<f64>), ConversionE
     Ok((min, max))
 }
 
+fn collect_document_node_paths(doc: &EureDocument) -> IndexMap<NodeId, EurePath> {
+    fn dfs(
+        doc: &EureDocument,
+        node_id: NodeId,
+        path: &mut Vec<PathSegment>,
+        out: &mut IndexMap<NodeId, EurePath>,
+        visited: &mut std::collections::HashSet<NodeId>,
+    ) {
+        if !visited.insert(node_id) {
+            return;
+        }
+        out.insert(node_id, EurePath(path.clone()));
+
+        let node = doc.node(node_id);
+        for (ext, &child_id) in node.extensions.iter() {
+            path.push(PathSegment::Extension(ext.clone()));
+            dfs(doc, child_id, path, out, visited);
+            path.pop();
+        }
+        match &node.content {
+            NodeValue::Array(array) => {
+                for (index, &child_id) in array.iter().enumerate() {
+                    path.push(PathSegment::ArrayIndex(Some(index)));
+                    dfs(doc, child_id, path, out, visited);
+                    path.pop();
+                }
+            }
+            NodeValue::Tuple(tuple) => {
+                for (index, &child_id) in tuple.iter().enumerate() {
+                    path.push(PathSegment::TupleIndex(index as u8));
+                    dfs(doc, child_id, path, out, visited);
+                    path.pop();
+                }
+            }
+            NodeValue::Map(map) => {
+                for (key, &child_id) in map.iter() {
+                    path.push(PathSegment::Value(key.clone()));
+                    dfs(doc, child_id, path, out, visited);
+                    path.pop();
+                }
+            }
+            NodeValue::Primitive(_) | NodeValue::Hole(_) => {}
+        }
+    }
+
+    let mut out = IndexMap::new();
+    let mut path = Vec::new();
+    let mut visited = std::collections::HashSet::new();
+    dfs(doc, doc.get_root_id(), &mut path, &mut out, &mut visited);
+    out
+}
+
+fn schema_node_fallback_path(schema_id: SchemaNodeId) -> EurePath {
+    EurePath(vec![PathSegment::Value(ObjectKey::String(format!(
+        "schema-node-{}",
+        schema_id.0
+    )))])
+}
+
+fn build_layout_strategies(
+    schema: &SchemaDocument,
+    source_map: &SchemaSourceMap,
+    source_node_paths: &IndexMap<NodeId, EurePath>,
+) -> LayoutStrategies {
+    let mut layout = LayoutStrategies::default();
+
+    for (schema_id, source_node_id) in source_map {
+        if let Some(path) = source_node_paths.get(source_node_id) {
+            layout.schema_node_paths.insert(*schema_id, path.clone());
+        }
+    }
+
+    for schema_index in 0..schema.nodes.len() {
+        let schema_id = SchemaNodeId(schema_index);
+        let schema_node = schema.node(schema_id);
+
+        let node_path = layout
+            .schema_node_paths
+            .get(&schema_id)
+            .cloned()
+            .unwrap_or_else(|| schema_node_fallback_path(schema_id));
+
+        if let SchemaNodeContent::Array(array_schema) = &schema_node.content
+            && let Some(style) = array_schema.binding_style
+        {
+            layout.by_path.insert(node_path.clone(), style);
+        }
+        if let SchemaNodeContent::Tuple(tuple_schema) = &schema_node.content
+            && let Some(style) = tuple_schema.binding_style
+        {
+            layout.by_path.insert(node_path.clone(), style);
+        }
+
+        if let SchemaNodeContent::Record(record_schema) = &schema_node.content {
+            let mut order = Vec::new();
+            for (field_name, field_schema) in &record_schema.properties {
+                order.push(PathSegment::Value(ObjectKey::String(field_name.clone())));
+                if let Some(style) = field_schema.binding_style {
+                    let child_path = layout
+                        .schema_node_paths
+                        .get(&field_schema.schema)
+                        .cloned()
+                        .unwrap_or_else(|| schema_node_fallback_path(field_schema.schema));
+                    layout.by_path.insert(child_path, style);
+                }
+            }
+            for ext_name in schema_node.ext_types.keys() {
+                order.push(PathSegment::Extension(ext_name.clone()));
+            }
+            if !order.is_empty() {
+                layout.order_by_path.insert(node_path.clone(), order);
+            }
+        }
+
+        for ext_schema in schema_node.ext_types.values() {
+            if let Some(style) = ext_schema.binding_style {
+                let ext_path = layout
+                    .schema_node_paths
+                    .get(&ext_schema.schema)
+                    .cloned()
+                    .unwrap_or_else(|| schema_node_fallback_path(ext_schema.schema));
+                layout.by_path.insert(ext_path, style);
+            }
+        }
+    }
+
+    layout
+}
+
 fn parse_bigint(s: &str) -> Result<BigInt, ConversionError> {
     s.parse()
         .map_err(|_| ConversionError::InvalidRangeString(format!("Invalid integer: {}", s)))
@@ -722,10 +931,20 @@ fn parse_f64(s: &str) -> Result<f64, ConversionError> {
 /// let doc = parse_to_document(input).unwrap();
 /// let (schema, source_map) = document_to_schema(&doc).unwrap();
 /// ```
+pub fn document_to_schema_with_layout(
+    doc: &EureDocument,
+) -> Result<(SchemaDocument, LayoutStrategies, SchemaSourceMap), ConversionError> {
+    let (schema, source_map) = Converter::new(doc).convert()?;
+    let source_node_paths = collect_document_node_paths(doc);
+    let layout = build_layout_strategies(&schema, &source_map, &source_node_paths);
+    Ok((schema, layout, source_map))
+}
+
 pub fn document_to_schema(
     doc: &EureDocument,
 ) -> Result<(SchemaDocument, SchemaSourceMap), ConversionError> {
-    Converter::new(doc).convert()
+    let (schema, _layout, source_map) = document_to_schema_with_layout(doc)?;
+    Ok((schema, source_map))
 }
 
 #[cfg(test)]
@@ -1051,6 +1270,75 @@ mod tests {
                 }
             }
             other => panic!("Expected Union, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn extracts_layout_style_rules_from_binding_style_extensions() {
+        let mut doc = EureDocument::new();
+        let root_id = doc.get_root_id();
+        doc.node_mut(root_id).content = NodeValue::empty_map();
+
+        let item_id = doc
+            .add_map_child(ObjectKey::String("item".to_string()), root_id)
+            .expect("insert item")
+            .node_id;
+        doc.node_mut(item_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::inline_implicit("integer")));
+
+        let style_id = doc
+            .add_extension("binding-style".parse().unwrap(), item_id)
+            .expect("insert binding-style")
+            .node_id;
+        doc.node_mut(style_id).content =
+            NodeValue::Primitive(PrimitiveValue::Text(Text::plaintext("section-binding")));
+
+        let (_schema, layout, _source_map) =
+            document_to_schema_with_layout(&doc).expect("conversion succeeds");
+
+        let expected_path = EurePath(vec![PathSegment::Value(ObjectKey::String(
+            "item".to_string(),
+        ))]);
+        let style = layout.by_path.get(&expected_path).expect("style for item");
+        assert_eq!(*style, eure_document::layout::LayoutStyle::SectionBinding);
+    }
+
+    #[test]
+    fn preserves_record_property_order_in_layout_rules() {
+        let doc = eure!({
+            b = @code("integer")
+            a = @code("integer")
+        });
+
+        let (_schema, layout, _source_map) =
+            document_to_schema_with_layout(&doc).expect("conversion succeeds");
+
+        let expected = vec![
+            PathSegment::Value(ObjectKey::String("b".to_string())),
+            PathSegment::Value(ObjectKey::String("a".to_string())),
+        ];
+        let root_order = layout
+            .order_by_path
+            .get(&EurePath::root())
+            .expect("root order rule");
+        assert_eq!(*root_order, expected);
+    }
+
+    #[test]
+    fn rejects_non_productive_reference_cycles() {
+        let doc = eure!({
+            %types.a = @code("$types.b")
+            %types.b = @code("$types.a")
+            data = @code("$types.a")
+        });
+
+        let err = document_to_schema(&doc).expect_err("cycle must be rejected");
+        match err {
+            ConversionError::NonProductiveReferenceCycle(path) => {
+                assert!(path.contains("$types.a"));
+                assert!(path.contains("$types.b"));
+            }
+            other => panic!("expected NonProductiveReferenceCycle, got {:?}", other),
         }
     }
 }
