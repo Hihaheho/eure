@@ -20,7 +20,7 @@ fn test_unit_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse()
                 }
@@ -44,7 +44,7 @@ fn test_tuple_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| { let value : TestEnum = TestEnum::Tuple(field_0, field_1) ; Ok(value) })
                         .parse()
                 }
@@ -68,7 +68,7 @@ fn test_tuple_variant_with_via() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Tuple", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut tuple = ctx.parse_tuple()?;
                             tuple.expect_len(2)?;
@@ -99,7 +99,7 @@ fn test_struct_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = TestEnum::Struct {
@@ -131,7 +131,7 @@ fn test_newtype_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<String>("Newtype", |field_0| Ok(TestEnum::Newtype(field_0)))
                         .parse()
                 }
@@ -155,7 +155,7 @@ fn test_newtype_variant_with_via() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Newtype", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let field_0 = ctx.parse_via::<JumpAtProxy, JumpAt>()?;
                             Ok(TestEnum::Newtype(field_0))
@@ -185,7 +185,7 @@ fn test_mixed_variants() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| { let value : TestEnum = TestEnum::Tuple(field_0, field_1) ; Ok(value) })
                         .variant("Struct", |ctx: &::eure::document::parse::ParseContext<'doc>| {
@@ -224,7 +224,7 @@ fn test_mixed_variants_with_custom_crate() {
                 type Error = ::eure_document::parse::ParseError;
 
                 fn parse(ctx: &::eure_document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure_document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Unit", ::eure_document::parse::DocumentParserExt::map(::eure_document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| { let value : TestEnum = TestEnum::Tuple(field_0, field_1) ; Ok(value) })
                         .variant("Struct", |ctx: &::eure_document::parse::ParseContext<'doc>| {
@@ -261,7 +261,7 @@ fn test_unit_variant_with_rename_all_snake_case() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("user_created", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("user_created"), |_| Event::UserCreated))
                         .variant("order_placed", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("order_placed"), |_| Event::OrderPlaced))
                         .parse()
@@ -289,7 +289,7 @@ fn test_struct_variant_with_rename_all_camel_case() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("userCreated", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
@@ -323,7 +323,7 @@ fn test_struct_variant_with_rename_all_fields() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("UserCreated", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
@@ -357,7 +357,7 @@ fn test_struct_variant_with_both_rename_all_and_rename_all_fields() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("user_created", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Event::UserCreated {
@@ -393,7 +393,7 @@ fn test_struct_variant_with_flatten() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Person", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Entity::Person {
@@ -427,7 +427,7 @@ fn test_enum_custom_parse_error() {
                 type Error = MyCustomError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Unit", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Unit"), |_| TestEnum::Unit))
                         .parse_variant::<(i32, bool,)>("Tuple", |(field_0, field_1,)| { let value : TestEnum = TestEnum::Tuple(field_0, field_1) ; Ok(value) })
                         .parse()
@@ -453,7 +453,7 @@ fn test_enum_single_type_param() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<T>("Normal", |field_0| Ok(Item::Normal(field_0)))
                         .parse_variant::<Vec<T> >("List", |field_0| Ok(Item::List(field_0)))
                         .parse()
@@ -479,7 +479,7 @@ fn test_enum_multiple_type_params() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<L>("Left", |field_0| Ok(Either::Left(field_0)))
                         .parse_variant::<R>("Right", |field_0| Ok(Either::Right(field_0)))
                         .parse()
@@ -504,7 +504,7 @@ fn test_enum_type_param_with_existing_bounds() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<T>("Normal", |field_0| Ok(Item::Normal(field_0)))
                         .parse()
                 }
@@ -532,7 +532,7 @@ fn test_enum_type_param_with_custom_error() {
                 type Error = MyError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<T>("Normal", |field_0| Ok(Item::Normal(field_0)))
                         .parse()
                 }
@@ -562,7 +562,7 @@ fn test_enum_multiple_type_params_with_custom_error() {
                 type Error = MyError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<L>("Left", |field_0| Ok(Either::Left(field_0)))
                         .parse_variant::<R>("Right", |field_0| Ok(Either::Right(field_0)))
                         .parse()
@@ -596,7 +596,7 @@ fn test_struct_variant_flatten_only() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Text", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Content::Text {
                                 value: <TextValue>::parse(&ctx.flatten())?
@@ -630,7 +630,7 @@ fn test_struct_variant_ext_only() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Item::WithMeta {
                                 meta: ctx.parse_ext::<MetaData>("meta")?
@@ -664,7 +664,7 @@ fn test_struct_variant_ext_with_default() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Item::WithMeta {
                                 meta: ctx.parse_ext_optional::<Option<MetaData> >("meta")?.unwrap_or_else(<Option<MetaData> as ::core::default::Default>::default)
@@ -703,7 +703,7 @@ fn test_struct_variant_flatten_and_ext() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Text", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = TextOrNested::Text {
                                 text: <TextValue>::parse(&ctx.flatten())?,
@@ -739,7 +739,7 @@ fn test_struct_variant_ext_with_regular_fields() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let mut rec = ctx.parse_record()?;
                             let value = Item::WithMeta {
@@ -775,7 +775,7 @@ fn test_struct_variant_flatten_ext_only() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<Self, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("WithMeta", |ctx: &::eure::document::parse::ParseContext<'doc>| {
                             let value = Item::WithMeta {
                                 meta: <MetaData>::parse(&ctx.flatten_ext())?
@@ -812,7 +812,7 @@ fn test_proxy_enum_unit_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Status, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Active", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Active"), |_| external::Status::Active))
                         .variant("Inactive", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Inactive"), |_| external::Status::Inactive))
                         .parse()
@@ -840,7 +840,7 @@ fn test_proxy_enum_newtype_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Value, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<String>("Text", |field_0| Ok(external::Value::Text(field_0)))
                         .parse_variant::<i32>("Number", |field_0| Ok(external::Value::Number(field_0)))
                         .parse()
@@ -872,7 +872,7 @@ fn test_opaque_enum_unit_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Status, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .variant("Active", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Active"), |_| StatusDef::Active.into()))
                         .variant("Inactive", ::eure::document::parse::DocumentParserExt::map(::eure::document::parse::VariantLiteralParser("Inactive"), |_| StatusDef::Inactive.into()))
                         .parse()
@@ -900,7 +900,7 @@ fn test_opaque_enum_newtype_variant() {
                 type Error = ::eure::document::parse::ParseError;
 
                 fn parse(ctx: &::eure::document::parse::ParseContext<'doc>) -> Result<external::Value, Self::Error> {
-                    ctx.parse_union(::eure::document::data_model::VariantRepr::default())?
+                    ctx.parse_union()?
                         .parse_variant::<String>("Text", |field_0| Ok(ValueDef::Text(field_0).into()))
                         .parse_variant::<i32>("Number", |field_0| Ok(ValueDef::Number(field_0).into()))
                         .parse()

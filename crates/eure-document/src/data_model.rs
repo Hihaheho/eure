@@ -1,4 +1,3 @@
-use crate::document::node::NodeValue;
 use crate::prelude_internal::*;
 
 /// Data model of a document or a value in a document. Corresponds to the `$data-model` extension.
@@ -16,7 +15,6 @@ pub enum DataModel {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DataModelConfig {
     pub data_model: DataModel,
-    pub variant_repr: VariantRepr,
     pub number_key_repr: NumberKeyRepr,
     pub tuple_key_repr: TupleKeyRepr,
     pub boolean_key_repr: BooleanKeyRepr,
@@ -63,67 +61,6 @@ pub enum TupleRepr {
     /// Error on conversion.
     #[default]
     Error,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-/// How to represent variant in a data model. Corresponds to the `$variant-repr` extension.
-pub enum VariantRepr {
-    /// External tagging: {"variant-name": {...}}
-    External,
-
-    /// Internal tagging: {"type": "variant-name", ...fields...}
-    Internal { tag: String },
-
-    /// Adjacent tagging: {"type": "variant-name", "content": {...}}
-    Adjacent { tag: String, content: String },
-
-    /// Untagged: try all variants without structure-based matching.
-    /// This is the default when no `$variant-repr` is specified.
-    #[default]
-    Untagged,
-}
-
-impl VariantRepr {
-    /// Create a VariantRepr from $variant-repr annotation node
-    // FIXME: Use FromEure
-    pub fn from_annotation(doc: &EureDocument, node_id: NodeId) -> Option<Self> {
-        let node = doc.node(node_id);
-        match &node.content {
-            NodeValue::Primitive(PrimitiveValue::Text(t)) if t.as_str() == "untagged" => {
-                Some(VariantRepr::Untagged)
-            }
-            NodeValue::Map(map) => {
-                let tag = map
-                    .get(&ObjectKey::String("tag".to_string()))
-                    .and_then(|&id| match &doc.node(id).content {
-                        NodeValue::Primitive(PrimitiveValue::Text(t)) => {
-                            Some(t.as_str().to_string())
-                        }
-                        _ => None,
-                    });
-
-                let content = map
-                    .get(&ObjectKey::String("content".to_string()))
-                    .and_then(|&id| match &doc.node(id).content {
-                        NodeValue::Primitive(PrimitiveValue::Text(t)) => {
-                            Some(t.as_str().to_string())
-                        }
-                        _ => None,
-                    });
-
-                match (tag, content) {
-                    (Some(tag), Some(content)) => Some(VariantRepr::Adjacent { tag, content }),
-                    (Some(tag), None) => Some(VariantRepr::Internal { tag }),
-                    _ => None,
-                }
-            }
-            _ => None,
-        }
-    }
-
-    pub fn is_default(&self) -> bool {
-        matches!(self, Self::Untagged)
-    }
 }
 
 /// How to represent text with non-plaintext language in a data model.

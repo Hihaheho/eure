@@ -18,13 +18,13 @@
 //! SchemaDocument, SchemaNode, ArraySchema, ...
 //! ```
 
-use eure_document::data_model::VariantRepr;
 use eure_document::document::NodeId;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{FromEure, ParseContext, ParseError, ParseErrorKind};
 use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 
+use crate::interop::UnionInterop;
 use crate::{BindingStyle, Description, TextSchema, TypeReference};
 
 impl FromEure<'_> for TypeReference {
@@ -284,10 +284,8 @@ pub struct ParsedUnionSchema {
     /// Variants that use unambiguous semantics (try all, detect conflicts).
     /// All other variants use short-circuit semantics (first match wins).
     pub unambiguous: IndexSet<String>,
-    /// Variant representation strategy
-    pub repr: VariantRepr,
-    /// Whether `$variant-repr` was explicitly provided.
-    pub repr_explicit: bool,
+    /// Interop metadata (e.g. wire-level variant representation).
+    pub interop: UnionInterop,
     /// Variants that deny untagged matching (require explicit $variant)
     pub deny_untagged: IndexSet<String>,
 }
@@ -328,16 +326,25 @@ impl FromEure<'_> for ParsedUnionSchema {
 
         rec.allow_unknown_fields()?;
 
-        // Parse $variant-repr extension
-        let repr_ext = ctx.parse_ext_optional::<VariantRepr>("variant-repr")?;
-        let repr_explicit = repr_ext.is_some();
-        let repr = repr_ext.unwrap_or_default();
+        // Legacy extension removed from schema semantics.
+        if ctx.ext_optional("variant-repr").is_some() {
+            return Err(ParseError {
+                node_id: ctx.node_id(),
+                kind: ParseErrorKind::InvalidPattern {
+                    kind: "legacy extension".to_string(),
+                    reason: "`$variant-repr` is removed; use `$interop.variant-repr`".to_string(),
+                },
+            });
+        }
+
+        let interop = ctx
+            .parse_ext_optional::<UnionInterop>("interop")?
+            .unwrap_or_default();
 
         Ok(ParsedUnionSchema {
             variants,
             unambiguous,
-            repr,
-            repr_explicit,
+            interop,
             deny_untagged,
         })
     }
@@ -715,6 +722,7 @@ fn parse_ext_types(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::interop::VariantRepr;
     use eure_document::document::EureDocument;
     use eure_document::document::node::NodeValue;
     use eure_document::text::Text;

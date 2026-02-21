@@ -4,7 +4,7 @@
 schema = ```eure
 $variant = "array"
 item.$variant = "union"
-item.$variant-repr = "untagged"
+item.$interop.variant-repr = "untagged"
 item.variants.text = `text`
 item.variants.number = `integer`
 ```

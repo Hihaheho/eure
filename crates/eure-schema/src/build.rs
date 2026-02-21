@@ -333,8 +333,7 @@ impl<T: BuildSchema + 'static> BuildSchema for Option<T> {
                 ("none".to_string(), none_schema),
             ]),
             unambiguous: Default::default(),
-            repr: eure_document::data_model::VariantRepr::default(),
-            repr_explicit: false,
+            interop: crate::interop::UnionInterop::default(),
             deny_untagged: Default::default(),
         })
     }
@@ -352,8 +351,7 @@ impl<T: BuildSchema + 'static, E: BuildSchema + 'static> BuildSchema for Result<
                 ("err".to_string(), err_schema),
             ]),
             unambiguous: Default::default(),
-            repr: eure_document::data_model::VariantRepr::default(),
-            repr_explicit: false,
+            interop: crate::interop::UnionInterop::default(),
             deny_untagged: Default::default(),
         })
     }

@@ -88,17 +88,6 @@ pub struct ScenarioErrorItem {
     pub output: Text,
 }
 
-/// Union tag mode for validation tests.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, FromEure, BuildSchema)]
-pub enum InputUnionTagMode {
-    /// Use `$variant` extension or untagged matching (default for native Eure)
-    #[default]
-    Eure,
-    /// Use only `VariantRepr` patterns (for JSON/YAML imports)
-    #[eure(rename = "repr")]
-    Repr,
-}
-
 #[derive(Debug, Clone, FromEure, BuildSchema)]
 pub enum JsonData {
     Both {
@@ -238,9 +227,6 @@ pub struct CaseData {
     pub json_schema_errors: Vec<Text>,
     #[eure(default)]
     pub unimplemented: Option<UnimplementedReason>,
-    /// Union tag mode for validation (default: eure)
-    #[eure(default)]
-    pub input_union_tag_mode: InputUnionTagMode,
     // Formatter testing fields
     #[eure(default)]
     pub formatted_input: Option<Text>,

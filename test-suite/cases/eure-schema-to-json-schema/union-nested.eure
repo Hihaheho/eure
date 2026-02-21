@@ -3,10 +3,10 @@
 
 schema = ```eure
 $variant = "union"
-$variant-repr = "external"
+$interop.variant-repr = "external"
 variants.text = `text`
 variants.result.$variant = "union"
-variants.result.$variant-repr = "external"
+variants.result.$interop.variant-repr = "external"
 variants.result.variants.ok = `boolean`
 variants.result.variants.error = `text`
 ```

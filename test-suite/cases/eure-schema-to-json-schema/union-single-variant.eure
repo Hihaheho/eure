@@ -2,7 +2,7 @@
 
 schema = ```eure
 $variant = "union"
-$variant-repr = "external"
+$interop.variant-repr = "external"
 variants.only = `text`
 ```
 

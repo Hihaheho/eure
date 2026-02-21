@@ -4,7 +4,7 @@ unimplemented = true
 
 schema = ```eure
 $variant = "union"
-$variant-repr = "internal"
+$interop.variant-repr = "internal"
 tag = "type"
 variants.success = `text`
 variants.error = `text`

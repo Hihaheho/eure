@@ -141,8 +141,7 @@ pub fn generate_union_schema(context: &MacroContext, input: &DataEnum) -> syn::R
         #schema_crate::SchemaNodeContent::Union(#schema_crate::UnionSchema {
             variants: [#(#variant_entries),*].into_iter().collect(),
             unambiguous: Default::default(),
-            repr: ::eure_document::data_model::VariantRepr::default(),
-            repr_explicit: false,
+            interop: #schema_crate::interop::UnionInterop::default(),
             deny_untagged: Default::default(),
         })
     };

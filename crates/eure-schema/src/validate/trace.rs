@@ -1,11 +1,9 @@
 use std::collections::HashSet;
 
-use eure_document::data_model::VariantRepr;
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::parse::ParseError;
-use eure_document::parse::UnionTagMode;
-use eure_document::parse::union::{extract_explicit_variant_path, extract_repr_variant};
+use eure_document::parse::union::extract_explicit_variant_path;
 use eure_document::parse::variant_path::VariantPath;
 use eure_document::path::{EurePath, PathSegment};
 use eure_document::value::ObjectKey;
@@ -17,13 +15,12 @@ use crate::type_path_trace::{
 };
 use crate::{SchemaDocument, SchemaNodeContent, SchemaNodeId, UnknownFieldsPolicy};
 
-use super::validate_node_with_mode;
+use super::validate_node;
 
 pub fn resolve_node_type_traces(
     document: &EureDocument,
     schema: &SchemaDocument,
     schema_node_paths: &SchemaNodePathMap,
-    mode: UnionTagMode,
 ) -> NodeTypeTraceMap {
     let mut traces = IndexMap::new();
     for index in 0..document.node_count() {
@@ -38,7 +35,6 @@ pub fn resolve_node_type_traces(
         document,
         schema,
         schema_node_paths,
-        mode,
         traces,
         visiting: HashSet::new(),
     };
@@ -50,7 +46,6 @@ struct TraceResolver<'a> {
     document: &'a EureDocument,
     schema: &'a SchemaDocument,
     schema_node_paths: &'a SchemaNodePathMap,
-    mode: UnionTagMode,
     traces: NodeTypeTraceMap,
     visiting: HashSet<(NodeId, SchemaNodeId)>,
 }
@@ -102,12 +97,7 @@ impl<'a> TraceResolver<'a> {
                 let explicit_variant = if let Some(forced_variant) = forced_variant {
                     Some(forced_variant)
                 } else {
-                    match explicit_variant_from_mode(
-                        self.document,
-                        node_id,
-                        &union_schema.repr,
-                        self.mode,
-                    ) {
+                    match explicit_variant_from_document(self.document, node_id) {
                         Ok(variant) => variant,
                         Err(reason) => {
                             self.set_trace(node_id, ResolvedTypeTrace::Unresolved(reason.clone()));
@@ -149,13 +139,8 @@ impl<'a> TraceResolver<'a> {
                 let mut chosen: Option<SchemaNodeId> = None;
                 let mut ambiguous_candidates: Vec<TypePathTrace> = Vec::new();
                 for (variant_name, &variant_schema_id) in &union_schema.variants {
-                    let trial = validate_node_with_mode(
-                        self.document,
-                        self.schema,
-                        node_id,
-                        variant_schema_id,
-                        self.mode,
-                    );
+                    let trial =
+                        validate_node(self.document, self.schema, node_id, variant_schema_id);
                     if !trial.errors.is_empty() {
                         continue;
                     }
@@ -448,27 +433,13 @@ fn schema_path(paths: &SchemaNodePathMap, schema_id: SchemaNodeId) -> EurePath {
     })
 }
 
-fn explicit_variant_from_mode(
+fn explicit_variant_from_document(
     doc: &EureDocument,
     node_id: NodeId,
-    repr: &VariantRepr,
-    mode: UnionTagMode,
 ) -> Result<Option<VariantPath>, TypeTraceUnresolvedReason> {
-    match mode {
-        UnionTagMode::Eure => extract_explicit_variant_path(doc, node_id)
-            .map_err(type_trace_parse_error)
-            .map(|variant| variant.and_then(|path| (!path.is_empty()).then_some(path))),
-        UnionTagMode::Repr => {
-            let Some((variant_name, _)) =
-                extract_repr_variant(doc, node_id, repr).map_err(type_trace_parse_error)?
-            else {
-                return Ok(None);
-            };
-            VariantPath::parse(&variant_name)
-                .map(Some)
-                .map_err(|_| TypeTraceUnresolvedReason::InvalidVariantTag { tag: variant_name })
-        }
-    }
+    extract_explicit_variant_path(doc, node_id)
+        .map_err(type_trace_parse_error)
+        .map(|variant| variant.and_then(|path| (!path.is_empty()).then_some(path)))
 }
 
 fn type_trace_parse_error(error: ParseError) -> TypeTraceUnresolvedReason {

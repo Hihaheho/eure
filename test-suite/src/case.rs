@@ -4,22 +4,12 @@ use std::path::PathBuf;
 use eure::query::error::EureQueryError;
 use eure::query::{
     DecorStyle, DecorStyleKey, OpenDocuments, OpenDocumentsList, TextFile, TextFileContent,
-    UnionTagMode, Workspace, WorkspaceId, build_runtime,
+    Workspace, WorkspaceId, build_runtime,
 };
 use eure_document::Text;
 use query_flow::{Db, DurabilityLevel, QueryRuntime};
 
-use crate::parser::{CaseData, InputUnionTagMode};
-
-// Convert InputUnionTagMode to UnionTagMode
-impl From<InputUnionTagMode> for UnionTagMode {
-    fn from(mode: InputUnionTagMode) -> Self {
-        match mode {
-            InputUnionTagMode::Eure => UnionTagMode::Eure,
-            InputUnionTagMode::Repr => UnionTagMode::Repr,
-        }
-    }
-}
+use crate::parser::CaseData;
 use crate::scenarios::completions::CompletionsScenario;
 use crate::scenarios::diagnostics::DiagnosticsScenario;
 use crate::scenarios::eumd_error_validation::EumdErrorValidationScenario;
@@ -500,7 +490,6 @@ impl Case {
                 scenarios.push(Scenario::SchemaValidation(SchemaValidationScenario {
                     input,
                     schema,
-                    union_tag_mode: self.data.input_union_tag_mode,
                 }));
             } else {
                 let expected_errors: Vec<String> = self
@@ -514,7 +503,6 @@ impl Case {
                         input,
                         schema,
                         expected_errors,
-                        union_tag_mode: self.data.input_union_tag_mode,
                     },
                 ));
             }

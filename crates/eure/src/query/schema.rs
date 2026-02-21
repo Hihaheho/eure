@@ -7,8 +7,7 @@ use eure_document::value::ObjectKey;
 use eure_schema::SchemaDocument;
 use eure_schema::convert::{SchemaSourceMap, document_to_schema_with_layout};
 use eure_schema::type_path_trace::LayoutStrategies;
-pub use eure_schema::validate::UnionTagMode;
-use eure_schema::validate::{ValidationError, validate, validate_with_mode};
+use eure_schema::validate::{ValidationError, validate};
 use eure_tree::prelude::Cst;
 use eure_tree::tree::InputSpan;
 use query_flow::{Db, QueryError, query};
@@ -149,28 +148,6 @@ pub fn validate_against_explicit_schema(
     report_schema_validation_errors(db, doc_file, schema_file, &result.errors)
 }
 
-/// Validate document against an explicitly provided schema file with specified union tag mode.
-///
-/// Use this when you have a specific schema file and need to control union tag handling.
-///
-/// Returns empty reports if either document or schema parsing failed.
-#[query(debug = "{Self}({doc_file}, {schema_file}, {mode:?})")]
-pub fn validate_against_explicit_schema_with_mode(
-    db: &impl Db,
-    doc_file: TextFile,
-    schema_file: TextFile,
-    mode: UnionTagMode,
-) -> Result<ErrorReports, QueryError> {
-    let doc_result = db.query(ParseDocument::new(doc_file.clone()))?;
-    let doc_parsed = doc_result.as_ref().clone();
-
-    let schema_result = db.query(DocumentToSchemaQuery::new(schema_file.clone()))?;
-
-    let result = validate_with_mode(&doc_parsed.doc, &schema_result.schema, mode);
-
-    report_schema_validation_errors(db, doc_file, schema_file, &result.errors)
-}
-
 /// Validate document against an explicitly provided schema and return formatted error strings.
 ///
 /// Use this when you have a specific schema file to validate against.
@@ -195,36 +172,6 @@ pub fn get_validation_errors_formatted_explicit(
     Ok(formatted)
 }
 
-/// Validate document against an explicitly provided schema with specified union tag mode
-/// and return formatted error strings.
-///
-/// Use this when you have a specific schema file and need to control union tag handling.
-///
-/// Returns empty vec if either document or schema parsing failed.
-/// Returns formatted error messages suitable for display.
-#[query(debug = "{Self}({doc_file}, {schema_file}, {mode:?})")]
-pub fn get_validation_errors_formatted_explicit_with_mode(
-    db: &impl Db,
-    doc_file: TextFile,
-    schema_file: TextFile,
-    mode: UnionTagMode,
-) -> Result<Vec<String>, QueryError> {
-    let reports = db.query(ValidateAgainstExplicitSchemaWithMode::new(
-        doc_file,
-        schema_file,
-        mode,
-    ))?;
-
-    // Format each error report individually
-    let mut formatted = Vec::new();
-    for report in reports.iter() {
-        let single_report = ErrorReports::from(vec![report.clone()]);
-        formatted.push(format_error_reports(db, &single_report, false)?);
-    }
-
-    Ok(formatted)
-}
-
 /// Validate document against schema and return formatted error strings.
 ///
 /// Resolves the schema internally from the document's $schema extension,
@@ -238,82 +185,6 @@ pub fn get_validation_errors_formatted(
     doc_file: TextFile,
 ) -> Result<Vec<String>, QueryError> {
     let reports = db.query(ValidateAgainstSchema::new(doc_file))?;
-
-    // Format each error report individually
-    let mut formatted = Vec::new();
-    for report in reports.iter() {
-        let single_report = ErrorReports::from(vec![report.clone()]);
-        formatted.push(format_error_reports(db, &single_report, false)?);
-    }
-
-    Ok(formatted)
-}
-
-/// Validate document against schema with specified union tag mode.
-///
-/// Resolves the schema internally from the document's $schema extension,
-/// workspace config, or file name heuristics.
-///
-/// Returns empty reports if no schema is found or parsing failed.
-/// Returns error report with proper origin if schema file is not found.
-#[query(debug = "{Self}({doc_file}, {mode:?})")]
-pub fn validate_against_schema_with_mode(
-    db: &impl Db,
-    doc_file: TextFile,
-    mode: UnionTagMode,
-) -> Result<ErrorReports, QueryError> {
-    // Resolve schema internally
-    let Some(schema) = db
-        .query(ResolveSchema::new(doc_file.clone()))?
-        .as_ref()
-        .clone()
-    else {
-        return Ok(ErrorReports::new());
-    };
-
-    // Parse document
-    let doc_result = db.query(ParseDocument::new(doc_file.clone()))?;
-    let doc_parsed = doc_result.as_ref().clone();
-
-    // Load and convert schema - handle errors appropriately
-    let schema_result = match db.query(DocumentToSchemaQuery::new(schema.file.clone())) {
-        Ok(result) => result,
-        Err(QueryError::UserError(e)) => {
-            // Schema conversion errors are returned as ErrorReports with proper location
-            if let Some(reports) = e.downcast_ref::<ErrorReports>() {
-                return Ok(reports.clone());
-            }
-            // Other errors (file not found, network, etc.) should be reported at $schema origin
-            if let Some(origin) = &schema.origin {
-                return Ok(ErrorReports::from(vec![ErrorReport::error(
-                    format!("Failed to load schema: {}", e),
-                    origin.clone(),
-                )]));
-            }
-            return Err(QueryError::UserError(e));
-        }
-        Err(other) => return Err(other),
-    };
-
-    let result = validate_with_mode(&doc_parsed.doc, &schema_result.schema, mode);
-
-    report_schema_validation_errors(db, doc_file, schema.file, &result.errors)
-}
-
-/// Validate document against schema with specified union tag mode and return formatted error strings.
-///
-/// Resolves the schema internally from the document's $schema extension,
-/// workspace config, or file name heuristics.
-///
-/// Returns empty vec if no schema is found or parsing failed.
-/// Returns formatted error messages suitable for display.
-#[query(debug = "{Self}({doc_file}, {mode:?})")]
-pub fn get_validation_errors_formatted_with_mode(
-    db: &impl Db,
-    doc_file: TextFile,
-    mode: UnionTagMode,
-) -> Result<Vec<String>, QueryError> {
-    let reports = db.query(ValidateAgainstSchemaWithMode::new(doc_file, mode))?;
 
     // Format each error report individually
     let mut formatted = Vec::new();

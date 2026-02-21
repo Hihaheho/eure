@@ -1,0 +1,17 @@
+schema = ```eure
+$variant = "union"
+$variant-repr = "external"
+variants.success = `text`
+variants.error = `text`
+```
+
+schema_conversion_error = ```
+error: Parse error: parse error: invalid legacy extension: `$variant-repr` is removed; use `$interop.variant-repr`
+ --> schema.eure:1:1
+  |
+1 | / $variant = "union"
+2 | | $variant-repr = "external"
+3 | | variants.success = `text`
+4 | | variants.error = `text`
+  | |_______________________^ Parse error: parse error: invalid legacy extension: `$variant-repr` is removed; use `$interop.variant-repr`
+```

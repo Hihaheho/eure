@@ -31,6 +31,7 @@
 pub mod build;
 pub mod convert;
 pub mod identifiers;
+pub mod interop;
 pub mod parse;
 pub mod synth;
 pub mod type_path_trace;
@@ -39,16 +40,18 @@ pub mod write;
 
 pub use build::{BuildSchema, SchemaBuilder};
 
+use eure_document::Text;
 use eure_document::constructor::DocumentConstructor;
 use eure_document::document::EureDocument;
 use eure_document::identifier::Identifier;
 use eure_document::layout::LayoutStyle;
 use eure_document::write::{IntoEure, WriteError};
-use eure_document::{Text, data_model::VariantRepr};
 use eure_macros::{FromEure, IntoEure};
 use indexmap::{IndexMap, IndexSet};
 use num_bigint::BigInt;
 use regex::Regex;
+
+use crate::interop::UnionInterop;
 
 // ============================================================================
 // Schema Document
@@ -533,7 +536,7 @@ pub struct TupleSchema {
 /// ```eure
 /// @variants.union
 /// variants = { $variant: map, key => .text, value => .$types.type }
-/// $ext-type.variant-repr = .$types.variant-repr (optional)
+/// $ext-type.interop = .$types.union-interop (optional)
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionSchema {
@@ -542,10 +545,8 @@ pub struct UnionSchema {
     /// Variants that use unambiguous semantics (try all, detect conflicts).
     /// All other variants use short-circuit semantics (first match wins).
     pub unambiguous: IndexSet<String>,
-    /// Variant representation strategy (default: External)
-    pub repr: VariantRepr,
-    /// Whether `$variant-repr` was explicitly present in source schema.
-    pub repr_explicit: bool,
+    /// Interop metadata for non-native representations.
+    pub interop: UnionInterop,
     /// Variants that deny untagged matching (require explicit $variant)
     pub deny_untagged: IndexSet<String>,
 }

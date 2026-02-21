@@ -3,7 +3,7 @@
 
 schema = ```eure
 $variant = "union"
-$variant-repr = "external"
+$interop.variant-repr = "external"
 variants.none = `null`
 variants.user.name = `text`
 variants.user.id = `integer`

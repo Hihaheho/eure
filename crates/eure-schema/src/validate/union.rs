@@ -19,7 +19,6 @@ use super::error::{ValidationError, ValidatorError, select_best_variant_match};
 ///
 /// Uses similar pattern to `UnionParser` but for validation:
 /// - `$variant` extension for explicit variant tagging
-/// - VariantRepr patterns (External, Internal, Adjacent)
 /// - Short-circuit semantics by default, unambiguous opt-in
 pub struct UnionValidator<'a, 'doc, 's> {
     pub ctx: &'a ValidationContext<'doc>,
@@ -33,60 +32,48 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
 
     fn parse(&mut self, parse_ctx: &ParseContext<'doc>) -> Result<(), ValidatorError> {
         // Use parse_union() API to leverage the same variant resolution logic
-        let union_parser =
-            match parse_ctx.parse_union::<(), ValidatorError>(self.schema.repr.clone()) {
-                Ok(p) => p,
-                Err(e) => {
-                    // Error extracting variant (e.g., invalid $variant type, conflicting tags)
-                    if let Some(parse_error) = e.as_parse_error() {
-                        // Wrap ParseError with schema context
-                        self.ctx.record_error(ValidationError::ParseError {
-                            path: self.ctx.path(),
-                            node_id: parse_ctx.node_id(),
-                            schema_node_id: self.schema_node_id,
-                            error: parse_error.clone(),
-                        });
-                    } else {
-                        // Fallback for other ValidatorErrors
-                        self.ctx.record_error(ValidationError::InvalidVariantTag {
-                            tag: format!("{e}"),
-                            path: self.ctx.path(),
-                            node_id: parse_ctx.node_id(),
-                            schema_node_id: self.schema_node_id,
-                        });
-                    }
-                    return Ok(());
+        let union_parser = match parse_ctx.parse_union::<(), ValidatorError>() {
+            Ok(p) => p,
+            Err(e) => {
+                if let Some(parse_error) = e.as_parse_error() {
+                    self.ctx.record_error(ValidationError::ParseError {
+                        path: self.ctx.path(),
+                        node_id: parse_ctx.node_id(),
+                        schema_node_id: self.schema_node_id,
+                        error: parse_error.clone(),
+                    });
+                } else {
+                    self.ctx.record_error(ValidationError::InvalidVariantTag {
+                        tag: format!("{e}"),
+                        path: self.ctx.path(),
+                        node_id: parse_ctx.node_id(),
+                        schema_node_id: self.schema_node_id,
+                    });
                 }
-            };
+                return Ok(());
+            }
+        };
 
         // Create a validator that tries variants using UnionParser's pattern
         let mut builder = union_parser;
 
-        // Determine if variant is tagged (determined by repr or $variant)
-        // In tagged mode, propagate nested errors; in untagged mode, don't
-        let is_tagged = !matches!(
-            self.schema.repr,
-            eure_document::data_model::VariantRepr::Untagged
-        );
-
-        // Check if this value has explicit variant tagging ($variant extension or repr pattern)
+        // Check if this value has explicit variant tagging ($variant extension)
         // This is used to enforce deny_untagged: variants in deny_untagged must have explicit tags
-        let has_explicit_tag = match has_explicit_variant_tag(
-            self.ctx.document,
-            parse_ctx.node_id(),
-            &self.schema.repr,
-        ) {
-            Ok(has_tag) => has_tag,
-            Err(parse_error) => {
-                self.ctx.record_error(ValidationError::ParseError {
-                    path: self.ctx.path(),
-                    node_id: parse_ctx.node_id(),
-                    schema_node_id: self.schema_node_id,
-                    error: parse_error,
-                });
-                return Ok(());
-            }
-        };
+        let has_explicit_tag =
+            match has_explicit_variant_tag(self.ctx.document, parse_ctx.node_id()) {
+                Ok(has_tag) => has_tag,
+                Err(parse_error) => {
+                    self.ctx.record_error(ValidationError::ParseError {
+                        path: self.ctx.path(),
+                        node_id: parse_ctx.node_id(),
+                        schema_node_id: self.schema_node_id,
+                        error: parse_error,
+                    });
+                    return Ok(());
+                }
+            };
+        // Tagged mode propagates nested errors directly.
+        let is_tagged = has_explicit_tag;
 
         let deny_untagged = &self.schema.deny_untagged;
         let unambiguous = &self.schema.unambiguous;
@@ -169,7 +156,7 @@ impl<'a, 'doc, 's> DocumentParser<'doc> for UnionValidator<'a, 'doc, 's> {
 /// errors for later analysis to find the best matching variant.
 ///
 /// `requires_explicit_tag`: When true, this variant is in deny_untagged and requires explicit tagging.
-/// `has_explicit_tag`: Whether the value has an explicit variant tag ($variant or repr pattern).
+/// `has_explicit_tag`: Whether the value has an explicit variant tag (`$variant`).
 fn validate_variant<'doc>(
     ctx: &ValidationContext<'doc>,
     parse_ctx: &ParseContext<'doc>,
@@ -181,12 +168,7 @@ fn validate_variant<'doc>(
 ) -> Result<(), ValidatorError> {
     // Fork state for trial validation
     let forked_state = ctx.fork_state();
-    let trial_ctx = ValidationContext::with_state_and_mode(
-        ctx.document,
-        ctx.schema,
-        forked_state,
-        ctx.union_tag_mode,
-    );
+    let trial_ctx = ValidationContext::with_state(ctx.document, ctx.schema, forked_state);
 
     let child_validator = SchemaValidator {
         ctx: &trial_ctx,

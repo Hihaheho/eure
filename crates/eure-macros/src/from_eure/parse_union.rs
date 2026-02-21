@@ -8,7 +8,6 @@ use syn::spanned::Spanned;
 use syn::{DataEnum, Fields, Variant};
 
 use crate::attrs::{FieldAttrs, VariantAttrs, extract_variant_attr_spans};
-use crate::config::MacroConfig;
 use crate::context::MacroContext;
 use crate::ir::{FieldMode, RenameScope, analyze_common_named_fields};
 use crate::util::respan;
@@ -16,23 +15,16 @@ use crate::util::respan;
 use super::parse_record::{generate_ext_field, generate_record_field};
 
 pub fn generate_union_parser(context: &MacroContext, input: &DataEnum) -> syn::Result<TokenStream> {
-    let MacroConfig { document_crate, .. } = &context.config;
     let DataEnum { variants, .. } = input;
-    let variant_repr = variant_repr(document_crate);
     let mut variant_tokens = Vec::new();
     for variant in variants {
         variant_tokens.push(generate_variant(context, variant)?);
     }
     Ok(context.impl_from_eure(quote! {
-        ctx.parse_union(#variant_repr)?
+        ctx.parse_union()?
             #(#variant_tokens)*
             .parse()
     }))
-}
-
-fn variant_repr(document_crate: &TokenStream) -> TokenStream {
-    // TODO: Support custom variant repr via attributes
-    quote! { #document_crate::data_model::VariantRepr::default() }
 }
 
 fn generate_variant(context: &MacroContext, variant: &Variant) -> syn::Result<TokenStream> {

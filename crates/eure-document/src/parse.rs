@@ -15,7 +15,6 @@ pub use record::RecordParser;
 pub use tuple::TupleParser;
 pub use union::UnionParser;
 pub use variant_path::VariantPath;
-// UnionTagMode is defined in this module and exported automatically
 
 use alloc::format;
 use alloc::rc::Rc;
@@ -26,43 +25,11 @@ use core::marker::PhantomData;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    data_model::VariantRepr,
     document::node::{Node, NodeArray},
     identifier::IdentifierError,
     prelude_internal::*,
     value::ValueKind,
 };
-
-// =============================================================================
-// UnionTagMode
-// =============================================================================
-
-/// Mode for union tag resolution.
-///
-/// This determines how variant tags are resolved during union parsing:
-/// - `Eure`: Use `$variant` extension and untagged matching (for native Eure documents)
-/// - `Repr`: Use only `VariantRepr` patterns (for JSON/YAML imports)
-///
-/// These modes are mutually exclusive to avoid false positives.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub enum UnionTagMode {
-    /// Eure mode: Use `$variant` extension or untagged matching.
-    ///
-    /// This is the default mode for native Eure documents.
-    /// - If `$variant` extension is present, use it to determine the variant
-    /// - Otherwise, use untagged matching (try all variants)
-    /// - `VariantRepr` is ignored in this mode
-    #[default]
-    Eure,
-
-    /// Repr mode: Use only `VariantRepr` patterns.
-    ///
-    /// This mode is for documents imported from JSON/YAML.
-    /// - Extract variant tag using `VariantRepr` (External, Internal, Adjacent)
-    /// - `$variant` extension is ignored in this mode
-    /// - If repr doesn't extract a tag, error (no untagged fallback)
-    Repr,
-}
 
 // =============================================================================
 // AccessedSet
@@ -317,8 +284,6 @@ pub struct ParseContext<'doc> {
     /// If Some, this context is a flattened child - deny_unknown_* is no-op.
     /// If None, this is a root context.
     flatten_ctx: Option<FlattenContext>,
-    /// Mode for union tag resolution.
-    union_tag_mode: UnionTagMode,
     /// Tracks accessed fields and extensions.
     accessed: AccessedSet,
 }
@@ -331,23 +296,6 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             flatten_ctx: None,
-            union_tag_mode: UnionTagMode::default(),
-            accessed: AccessedSet::new(),
-        }
-    }
-
-    /// Create a new parse context with the specified union tag mode.
-    pub fn with_union_tag_mode(
-        doc: &'doc EureDocument,
-        node_id: NodeId,
-        mode: UnionTagMode,
-    ) -> Self {
-        Self {
-            doc,
-            node_id,
-            variant_path: None,
-            flatten_ctx: None,
-            union_tag_mode: mode,
             accessed: AccessedSet::new(),
         }
     }
@@ -361,7 +309,6 @@ impl<'doc> ParseContext<'doc> {
         doc: &'doc EureDocument,
         node_id: NodeId,
         flatten_ctx: FlattenContext,
-        mode: UnionTagMode,
     ) -> Self {
         // Share accessed set from flatten context
         let accessed = flatten_ctx.accessed_set().clone();
@@ -370,7 +317,6 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             flatten_ctx: Some(flatten_ctx),
-            union_tag_mode: mode,
             accessed,
         }
     }
@@ -418,7 +364,6 @@ impl<'doc> ParseContext<'doc> {
             node_id,
             variant_path: None,
             flatten_ctx: None,
-            union_tag_mode: self.union_tag_mode,
             accessed: AccessedSet::new(),
         }
     }
@@ -471,14 +416,8 @@ impl<'doc> ParseContext<'doc> {
             node_id: self.node_id,
             variant_path: self.variant_path.clone(),
             flatten_ctx: Some(flatten_ctx),
-            union_tag_mode: self.union_tag_mode,
             accessed: self.accessed.clone(),
         }
-    }
-
-    /// Get the union tag mode.
-    pub fn union_tag_mode(&self) -> UnionTagMode {
-        self.union_tag_mode
     }
 
     /// Parse the current node as type T.
@@ -504,18 +443,14 @@ impl<'doc> ParseContext<'doc> {
         parser.parse(self)
     }
 
-    /// Get a union parser for the current node with the specified variant representation.
+    /// Get a union parser for the current node.
     ///
     /// Returns error if `$variant` extension has invalid type or syntax.
-    ///
-    /// # Arguments
-    ///
-    /// * `repr` - The variant representation to use. Use `VariantRepr::default()` for Untagged.
-    pub fn parse_union<T, E>(&self, repr: VariantRepr) -> Result<UnionParser<'doc, '_, T, E>, E>
+    pub fn parse_union<T, E>(&self) -> Result<UnionParser<'doc, '_, T, E>, E>
     where
         E: From<ParseError>,
     {
-        UnionParser::new(self, repr).map_err(Into::into)
+        UnionParser::new(self).map_err(Into::into)
     }
 
     /// Parse the current node as a record.
@@ -611,7 +546,7 @@ impl<'doc> ParseContext<'doc> {
                 node_id: self.node_id,
                 kind: ParseErrorKind::MissingExtension(name.to_string()),
             })?;
-        let ctx = ParseContext::with_union_tag_mode(self.doc, *ext_node_id, self.union_tag_mode);
+        let ctx = ParseContext::new(self.doc, *ext_node_id);
         parser.parse(&ctx)
     }
 
@@ -645,8 +580,7 @@ impl<'doc> ParseContext<'doc> {
         self.mark_ext_accessed(ident.clone());
         match self.node().extensions.get(&ident) {
             Some(ext_node_id) => {
-                let ctx =
-                    ParseContext::with_union_tag_mode(self.doc, *ext_node_id, self.union_tag_mode);
+                let ctx = ParseContext::new(self.doc, *ext_node_id);
                 Ok(Some(parser.parse(&ctx)?))
             }
             None => Ok(None),
@@ -672,11 +606,7 @@ impl<'doc> ParseContext<'doc> {
                     node_id: self.node_id,
                     kind: ParseErrorKind::MissingExtension(name.to_string()),
                 })?;
-        Ok(ParseContext::with_union_tag_mode(
-            self.doc,
-            ext_node_id,
-            self.union_tag_mode,
-        ))
+        Ok(ParseContext::new(self.doc, ext_node_id))
     }
 
     /// Get the parse context for an optional extension field without parsing it.
@@ -686,9 +616,10 @@ impl<'doc> ParseContext<'doc> {
     pub fn ext_optional(&self, name: &str) -> Option<ParseContext<'doc>> {
         let ident: Identifier = name.parse().ok()?;
         self.mark_ext_accessed(ident.clone());
-        self.node().extensions.get(&ident).map(|&node_id| {
-            ParseContext::with_union_tag_mode(self.doc, node_id, self.union_tag_mode)
-        })
+        self.node()
+            .extensions
+            .get(&ident)
+            .map(|&node_id| ParseContext::new(self.doc, node_id))
     }
 
     /// Finish parsing with Deny policy (error if unknown extensions exist).
@@ -720,7 +651,6 @@ impl<'doc> ParseContext<'doc> {
         &self,
     ) -> impl Iterator<Item = (&'doc Identifier, ParseContext<'doc>)> + '_ {
         let doc = self.doc;
-        let mode = self.union_tag_mode;
         // Clone the accessed set for filtering - we need the current state
         let accessed = self.accessed.clone();
         self.node()
@@ -728,7 +658,7 @@ impl<'doc> ParseContext<'doc> {
             .iter()
             .filter_map(move |(ident, &node_id)| {
                 if !accessed.has_ext(ident) {
-                    Some((ident, ParseContext::with_union_tag_mode(doc, node_id, mode)))
+                    Some((ident, ParseContext::new(doc, node_id)))
                 } else {
                     None
                 }
@@ -770,7 +700,7 @@ impl<'doc> ParseContext<'doc> {
             None => FlattenContext::new(self.accessed.clone(), ParserScope::Extension),
         };
 
-        ParseContext::with_flatten_ctx(self.doc, self.node_id, flatten_ctx, self.union_tag_mode)
+        ParseContext::with_flatten_ctx(self.doc, self.node_id, flatten_ctx)
     }
 
     /// Check if the current node is null.
@@ -788,7 +718,6 @@ impl<'doc> ParseContext<'doc> {
             node_id: self.node_id,
             variant_path: rest,
             flatten_ctx: self.flatten_ctx.clone(),
-            union_tag_mode: self.union_tag_mode,
             accessed: self.accessed.clone(),
         }
     }
@@ -1549,7 +1478,7 @@ where
     type Error = M::Error;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Option<T>, Self::Error> {
-        ctx.parse_union::<Option<T>, M::Error>(VariantRepr::default())?
+        ctx.parse_union::<Option<T>, M::Error>()?
             .variant("some", (M::parse).map(Some))
             .variant("none", |ctx: &ParseContext<'_>| {
                 if ctx.is_null() {
@@ -1587,50 +1516,10 @@ where
     type Error = Err;
 
     fn parse(ctx: &ParseContext<'doc>) -> Result<Result<T, E>, Self::Error> {
-        ctx.parse_union::<Result<T, E>, Self::Error>(VariantRepr::default())?
+        ctx.parse_union::<Result<T, E>, Self::Error>()?
             .variant("ok", (MT::parse).map(Ok))
             .variant("err", (ME::parse).map(Err))
             .parse()
-    }
-}
-
-impl FromEure<'_> for crate::data_model::VariantRepr {
-    type Error = ParseError;
-
-    fn parse(ctx: &ParseContext<'_>) -> Result<Self, Self::Error> {
-        use crate::data_model::VariantRepr;
-
-        // Check if it's a simple string value
-        if let Ok(value) = ctx.parse::<&str>() {
-            return match value {
-                "external" => Ok(VariantRepr::External),
-                "untagged" => Ok(VariantRepr::Untagged),
-                _ => Err(ParseError {
-                    node_id: ctx.node_id(),
-                    kind: ParseErrorKind::UnknownVariant(value.to_string()),
-                }),
-            };
-        }
-
-        // Otherwise, it should be a record with tag/content fields
-        let rec = ctx.parse_record()?;
-
-        let tag = rec.parse_field_optional::<String>("tag")?;
-        let content = rec.parse_field_optional::<String>("content")?;
-
-        rec.allow_unknown_fields()?;
-
-        match (tag, content) {
-            (Some(tag), Some(content)) => Ok(VariantRepr::Adjacent { tag, content }),
-            (Some(tag), None) => Ok(VariantRepr::Internal { tag }),
-            (None, None) => Ok(VariantRepr::External),
-            (None, Some(_)) => Err(ParseError {
-                node_id: ctx.node_id(),
-                kind: ParseErrorKind::MissingField(
-                    "tag (required when content is present)".to_string(),
-                ),
-            }),
-        }
     }
 }
 

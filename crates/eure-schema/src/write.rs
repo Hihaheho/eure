@@ -1,12 +1,12 @@
 //! Write Eure documents/sources from `SchemaDocument` using generic write API composition.
 
 use crate::identifiers::{CONTENT, EXT_TYPE, OPTIONAL, TAG, VARIANT, VARIANT_REPR};
+use crate::interop::VariantRepr;
 use crate::{
     ArraySchema, BindingStyle, Bound, Description, ExtTypeSchema, FloatPrecision, FloatSchema,
     IntegerSchema, MapSchema, RecordFieldSchema, RecordSchema, SchemaDocument, SchemaMetadata,
     SchemaNodeContent, SchemaNodeId, TupleSchema, TypeReference, UnionSchema, UnknownFieldsPolicy,
 };
-use eure_document::data_model::VariantRepr;
 use eure_document::document::constructor::DocumentConstructor;
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
@@ -15,7 +15,7 @@ use eure_document::layout::{DocLayout, project_with_layout};
 use eure_document::path::PathSegment;
 use eure_document::source::SourceDocument;
 use eure_document::text::Text;
-use eure_document::value::PrimitiveValue;
+use eure_document::value::{ObjectKey, PrimitiveValue};
 use eure_document::write::{IntoEure, WriteError};
 use num_bigint::BigInt;
 use thiserror::Error;
@@ -30,6 +30,7 @@ const IDENT_DEFAULT: Identifier = Identifier::new_unchecked("default");
 const IDENT_EXAMPLES: Identifier = Identifier::new_unchecked("examples");
 const IDENT_DENY_UNTAGGED: Identifier = Identifier::new_unchecked("deny-untagged");
 const IDENT_UNAMBIGUOUS: Identifier = Identifier::new_unchecked("unambiguous");
+const IDENT_INTEROP: Identifier = Identifier::new_unchecked("interop");
 
 const KEY_VARIANTS: &str = "variants";
 
@@ -316,9 +317,7 @@ fn write_union_schema(
     c.record(|rec| {
         rec.constructor().set_variant("union")?;
 
-        if !schema.repr.is_default() || schema.repr_explicit {
-            write_variant_repr_extension(&schema.repr, rec.constructor())?;
-        }
+        write_interop_extension(&schema.interop.variant_repr, rec.constructor())?;
 
         rec.field_with(KEY_VARIANTS, |c| {
             c.record(|variants_rec| {
@@ -501,11 +500,29 @@ fn write_flatten(
     })
 }
 
-fn write_variant_repr_extension(
+fn write_interop_extension(
+    repr: &Option<VariantRepr>,
+    c: &mut DocumentConstructor,
+) -> Result<(), WriteError> {
+    let Some(repr) = repr else {
+        return Ok(());
+    };
+
+    let scope = c.begin_scope();
+    c.navigate(PathSegment::Extension(IDENT_INTEROP))?;
+    c.navigate(PathSegment::Value(ObjectKey::String(
+        VARIANT_REPR.as_ref().to_string(),
+    )))?;
+    write_variant_repr_value(repr, c)?;
+    c.end_scope(scope)?;
+    Ok(())
+}
+
+fn write_variant_repr_value(
     repr: &VariantRepr,
     c: &mut DocumentConstructor,
 ) -> Result<(), WriteError> {
-    write_extension(c, VARIANT_REPR, |c| match repr {
+    match repr {
         VariantRepr::External => c.write("external"),
         VariantRepr::Untagged => c.write("untagged"),
         VariantRepr::Internal { tag } => c.record(|rec| {
@@ -517,7 +534,7 @@ fn write_variant_repr_extension(
             rec.field(CONTENT.as_ref(), content.clone())?;
             Ok(())
         }),
-    })
+    }
 }
 
 fn write_binding_style_extension(
@@ -703,11 +720,12 @@ fn format_f64(value: &f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::interop::UnionInterop;
     use crate::{TextSchema, UnknownFieldsPolicy};
     use eure_document::document::node::NodeMap;
     use eure_document::value::ObjectKey;
 
-    fn make_union_schema(repr_explicit: bool) -> SchemaDocument {
+    fn make_union_schema(repr: Option<VariantRepr>) -> SchemaDocument {
         let mut schema = SchemaDocument::new();
         let variant_node = schema.create_node(SchemaNodeContent::Integer(IntegerSchema::default()));
         let mut variants = indexmap::IndexMap::new();
@@ -716,8 +734,7 @@ mod tests {
         schema.root = schema.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
             unambiguous: Default::default(),
-            repr: VariantRepr::Untagged,
-            repr_explicit,
+            interop: UnionInterop { variant_repr: repr },
             deny_untagged: Default::default(),
         }));
         schema
@@ -725,7 +742,7 @@ mod tests {
 
     #[test]
     fn schema_to_document_delegates_to_into_eure_path() {
-        let schema = make_union_schema(true);
+        let schema = make_union_schema(Some(VariantRepr::Untagged));
 
         let mut c = DocumentConstructor::new();
         c.write(schema.clone()).expect("into-eure write");
@@ -737,24 +754,29 @@ mod tests {
 
     #[test]
     fn emits_union_repr_when_untagged_was_explicit() {
-        let schema = make_union_schema(true);
+        let schema = make_union_schema(Some(VariantRepr::Untagged));
         let doc = schema_to_document(&schema).expect("schema emit");
 
-        let repr_id = doc
+        let interop_id = doc
             .root()
             .extensions
-            .get(&VARIANT_REPR)
-            .expect("explicit untagged repr should be emitted");
-        let repr = doc.parse::<&str>(*repr_id).expect("repr parse");
+            .get(&IDENT_INTEROP)
+            .expect("interop extension should be emitted");
+        let interop_ctx = doc.parse_context(*interop_id);
+        let interop_rec = interop_ctx.parse_record().expect("interop record");
+        let repr_ctx = interop_rec
+            .field(VARIANT_REPR.as_ref())
+            .expect("variant-repr field");
+        let repr = repr_ctx.parse::<&str>().expect("repr parse");
         assert_eq!(repr, "untagged");
     }
 
     #[test]
     fn omits_union_repr_when_untagged_is_implicit() {
-        let schema = make_union_schema(false);
+        let schema = make_union_schema(None);
         let doc = schema_to_document(&schema).expect("schema emit");
 
-        assert!(!doc.root().extensions.contains_key(&VARIANT_REPR));
+        assert!(!doc.root().extensions.contains_key(&IDENT_INTEROP));
     }
 
     #[test]

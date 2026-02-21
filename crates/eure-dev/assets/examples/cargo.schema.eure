@@ -22,7 +22,7 @@ authors.$optional = true
 /// Dependency specification - either a version string or a detailed spec
 @ $types.dependency {
   $variant: union
-  $variant-repr = "untagged"
+  $interop.variant-repr = "untagged"
 
   /// Detailed dependency specification (tried first in definition order)
   variants.detailed {

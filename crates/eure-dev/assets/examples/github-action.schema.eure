@@ -29,7 +29,7 @@ value = `text`
   @ pull_request {
     $variant: union
     $optional = true
-    $variant-repr = "untagged"
+    $interop.variant-repr = "untagged"
 
     /// Config variant (tried first in definition order)
     variants.config {
@@ -70,7 +70,7 @@ value = `text`
 /// Expression or boolean type for GitHub Actions expressions
 @ $types.expression-or-boolean {
   $variant: union
-  $variant-repr = "untagged"
+  $interop.variant-repr = "untagged"
 
   /// GitHub Actions expression like ${{ ... }} (tried first)
   variants.expression = `text`

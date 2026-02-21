@@ -139,12 +139,8 @@ impl<'a, 'doc, 's> ArrayValidator<'a, 'doc, 's> {
         for &item_id in items {
             // Fork state for trial validation
             let forked_state = self.ctx.fork_state();
-            let trial_ctx = ValidationContext::with_state_and_mode(
-                self.ctx.document,
-                self.ctx.schema,
-                forked_state,
-                self.ctx.union_tag_mode,
-            );
+            let trial_ctx =
+                ValidationContext::with_state(self.ctx.document, self.ctx.schema, forked_state);
 
             let item_parse_ctx = trial_ctx.parse_context(item_id);
             let child_validator = SchemaValidator {

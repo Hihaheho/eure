@@ -13,13 +13,13 @@
 //! - Type constraints (length, range, pattern, etc.)
 //! - Metadata (description, deprecated, default, examples)
 
-use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;
 use eure_document::eure;
 use eure_document::identifier::Identifier;
 use eure_document::parse::{ParseError, ParseErrorKind};
 use eure_document::value::ObjectKey;
 use eure_schema::convert::{ConversionError, document_to_schema};
+use eure_schema::interop::VariantRepr;
 use eure_schema::{
     ArraySchema, Bound, FloatSchema, IntegerSchema, MapSchema, SchemaDocument, SchemaMetadata,
     SchemaNodeContent, SchemaNodeId, TextSchema, UnknownFieldsPolicy,
@@ -568,11 +568,11 @@ fn assert_union4<F1, F2, F3, F4>(
 /// Assert that a node is a Union type with specific representation
 fn assert_union_repr<F>(schema: &SchemaDocument, node_id: SchemaNodeId, check: F)
 where
-    F: Fn(&VariantRepr),
+    F: Fn(Option<&VariantRepr>),
 {
     let node = schema.node(node_id);
     if let SchemaNodeContent::Union(union_schema) = &node.content {
-        check(&union_schema.repr);
+        check(union_schema.interop.variant_repr.as_ref());
     } else {
         panic!("Expected Union type, got {:?}", node.content);
     }
@@ -970,7 +970,7 @@ fn test_union_with_untagged_repr() {
     let doc = eure!({
         %types.response {
             %variant = @code("union"),
-            %"variant-repr" = "untagged",
+            %interop = { "variant-repr" => "untagged" },
             variants.success = { "data" => @code("any") },
             variants.error = { "message" => @code("text") },
         },
@@ -991,7 +991,7 @@ fn test_union_with_untagged_repr() {
     );
 
     assert_union_repr(&schema, response_id, |repr| {
-        assert!(matches!(repr, VariantRepr::Untagged));
+        assert!(matches!(repr, Some(VariantRepr::Untagged)));
     });
 }
 
@@ -1000,7 +1000,7 @@ fn test_union_with_internal_tag() {
     let doc = eure!({
         %types.message {
             %variant = @code("union"),
-            %"variant-repr" = { "tag" => "type" },
+            %interop."variant-repr".tag = "type",
             variants.text = { "content" => @code("text") },
             variants.image = { "url" => @code("text") },
         },
@@ -1010,7 +1010,7 @@ fn test_union_with_internal_tag() {
     let message_id = schema.types[&ident("message")];
 
     assert_union_repr(&schema, message_id, |repr| {
-        if let VariantRepr::Internal { tag } = repr {
+        if let Some(VariantRepr::Internal { tag }) = repr {
             assert_eq!(tag, "type");
         } else {
             panic!("Expected VariantRepr::Internal, got {:?}", repr);
@@ -1023,7 +1023,8 @@ fn test_union_with_adjacent_tag() {
     let doc = eure!({
         %types.event {
             %variant = @code("union"),
-            %"variant-repr" = { "tag" => "kind", "content" => "data" },
+            %interop."variant-repr".tag = "kind",
+            %interop."variant-repr".content = "data",
             variants.login = { "username" => @code("text") },
             variants.logout = { "reason" => @code("text") },
         },
@@ -1033,7 +1034,7 @@ fn test_union_with_adjacent_tag() {
     let event_id = schema.types[&ident("event")];
 
     assert_union_repr(&schema, event_id, |repr| {
-        if let VariantRepr::Adjacent { tag, content } = repr {
+        if let Some(VariantRepr::Adjacent { tag, content }) = repr {
             assert_eq!(tag, "kind");
             assert_eq!(content, "data");
         } else {
@@ -1055,11 +1056,11 @@ fn test_union_default_untagged() {
 
     let status_id = schema.types[&ident("status")];
 
-    // Default representation should be Untagged (not External)
+    // Default is no interop metadata.
     assert_union_repr(&schema, status_id, |repr| {
         assert!(
-            matches!(repr, VariantRepr::Untagged),
-            "Expected VariantRepr::Untagged, got {:?}",
+            repr.is_none(),
+            "Expected no variant repr metadata, got {:?}",
             repr
         );
     });
@@ -1910,7 +1911,7 @@ fn test_complex_api_schema() {
         },
         %types."api-response" {
             %variant = @code("union"),
-            %"variant-repr" = "untagged",
+            %interop = { "variant-repr" => "untagged" },
             variants.success = { "status" => @code("integer"), "data" => @code("any") },
             variants.error = { "status" => @code("integer"), "message" => @code("text") },
         },
@@ -1947,7 +1948,7 @@ fn test_complex_api_schema() {
 
     // Check repr is Untagged
     assert_union_repr(&schema, response_id, |repr| {
-        assert!(matches!(repr, VariantRepr::Untagged));
+        assert!(matches!(repr, Some(VariantRepr::Untagged)));
     });
 }
 
@@ -2344,7 +2345,7 @@ fn test_error_invalid_variant_repr() {
     let doc = eure!({
         field {
             %variant = @code("union"),
-            %"variant-repr" = "invalid_repr",
+            %interop = { "variant-repr" => "invalid_repr" },
             variants.a = @code("text"),
         },
     });
@@ -2365,18 +2366,35 @@ fn test_error_adjacent_repr_missing_tag() {
         field {
             %variant = @code("union"),
             variants.a = @code("text"),
-            %"variant-repr" {
-                content = "data",
-            },
+            %interop."variant-repr".content = "data",
         },
     });
     let result = document_to_schema(&doc);
 
-    // $variant-repr with record value (adjacent repr) missing required "tag" field
+    // $interop.variant-repr with record value (adjacent repr) missing required "tag" field
     assert!(matches!(
         result.unwrap_err(),
         ConversionError::ParseError(ParseError {
             kind: ParseErrorKind::MissingField(_),
+            ..
+        })
+    ));
+}
+
+#[test]
+fn test_error_legacy_variant_repr_extension_is_rejected() {
+    let doc = eure!({
+        field {
+            %variant = @code("union"),
+            %"variant-repr" = "untagged",
+            variants.a = @code("text"),
+        },
+    });
+    let result = document_to_schema(&doc);
+    assert!(matches!(
+        result.unwrap_err(),
+        ConversionError::ParseError(ParseError {
+            kind: ParseErrorKind::InvalidPattern { .. },
             ..
         })
     ));

@@ -5,7 +5,6 @@ mod error;
 
 pub use config::Config;
 pub use error::{EureToJsonError, JsonToEureError};
-use eure::data_model::VariantRepr;
 use eure::document::OriginMap;
 use eure::document::node::NodeValue;
 use eure::document::{EureDocument, NodeId};
@@ -14,6 +13,7 @@ use eure::report::{ErrorReport, ErrorReports, Origin, OriginHints};
 use eure::tree::{Cst, InputSpan};
 use eure::value::{ObjectKey, PrimitiveValue};
 use eure_document::text::Text;
+use eure_schema::interop::VariantRepr;
 use num_bigint::BigInt;
 use query_flow::{Db, QueryError, query};
 use serde_json::Value as JsonValue;
@@ -388,8 +388,8 @@ fn convert_json_to_node(doc: &mut EureDocument, node_id: NodeId, value: &JsonVal
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure::data_model::VariantRepr;
     use eure_document::eure;
+    use eure_schema::interop::VariantRepr;
     use serde_json::json;
 
     // ========================================================================

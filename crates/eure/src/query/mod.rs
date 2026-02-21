@@ -57,11 +57,8 @@ pub use report::{GetFileErrorReports, WithErrorReports, WithFormattedError};
 pub use reqwest;
 pub use schema::{
     DocumentToSchemaQuery, GetSchemaExtension, GetSchemaExtensionDiagnostics,
-    GetValidationErrorsFormatted, GetValidationErrorsFormattedExplicit,
-    GetValidationErrorsFormattedExplicitWithMode, GetValidationErrorsFormattedWithMode,
-    ResolveSchema, UnionTagMode, ValidateAgainstExplicitSchema,
-    ValidateAgainstExplicitSchemaWithMode, ValidateAgainstSchema, ValidateAgainstSchemaWithMode,
-    ValidatedSchema,
+    GetValidationErrorsFormatted, GetValidationErrorsFormattedExplicit, ResolveSchema,
+    ValidateAgainstExplicitSchema, ValidateAgainstSchema, ValidatedSchema,
 };
 pub use semantic_token::{
     GetSemanticTokens, SemanticToken, SemanticTokenModifier, SemanticTokenType, semantic_tokens,

@@ -5,9 +5,9 @@
 //! cannot be represented in JSON Schema and will result in conversion errors.
 
 use crate::json_schema::*;
-use eure_document::data_model::VariantRepr;
 use eure_document::document::EureDocument;
 use eure_json::Config as JsonConfig;
+use eure_schema::interop::VariantRepr;
 use eure_schema::{
     ArraySchema as EureArraySchema, Bound, Description, FloatSchema,
     IntegerSchema as EureIntegerSchema, MapSchema, RecordSchema, SchemaDocument,
@@ -644,7 +644,12 @@ fn convert_union_schema(
     eure: &UnionSchema,
     metadata: SchemaMetadata,
 ) -> Result<JsonSchema, ConversionError> {
-    match &eure.repr {
+    let repr = eure
+        .interop
+        .variant_repr
+        .as_ref()
+        .unwrap_or(&VariantRepr::External);
+    match repr {
         VariantRepr::External => convert_external_variant(ctx, eure, metadata),
         VariantRepr::Internal { tag } => convert_internal_variant(ctx, eure, tag, metadata),
         VariantRepr::Adjacent { tag, content } => {
@@ -779,7 +784,7 @@ fn convert_untagged_variant(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eure_document::data_model::VariantRepr;
+    use eure_schema::interop::{UnionInterop, VariantRepr};
     use eure_schema::{
         Bound, IntegerSchema as EureIntegerSchema, RecordFieldSchema, RecordSchema, SchemaDocument,
         SchemaNodeContent, UnknownFieldsPolicy,
@@ -884,8 +889,9 @@ mod tests {
         doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
             unambiguous: Default::default(),
-            repr: VariantRepr::Untagged,
-            repr_explicit: false,
+            interop: UnionInterop {
+                variant_repr: Some(VariantRepr::Untagged),
+            },
             deny_untagged: Default::default(),
         }));
 
@@ -912,8 +918,9 @@ mod tests {
         doc.root = doc.create_node(SchemaNodeContent::Union(UnionSchema {
             variants,
             unambiguous: Default::default(),
-            repr: VariantRepr::External,
-            repr_explicit: false,
+            interop: UnionInterop {
+                variant_repr: Some(VariantRepr::External),
+            },
             deny_untagged: Default::default(),
         }));
 

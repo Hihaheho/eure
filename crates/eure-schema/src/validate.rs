@@ -32,9 +32,6 @@ pub use context::{ValidationContext, ValidationOutput, ValidationState};
 pub use error::{ValidationError, ValidationWarning, ValidatorError};
 pub use trace::resolve_node_type_traces;
 
-// Re-export UnionTagMode for convenience
-pub use eure_document::parse::UnionTagMode;
-
 use eure_document::document::node::NodeValue;
 use eure_document::document::{EureDocument, NodeId};
 use eure_document::parse::{DocumentParser, ParseContext};
@@ -57,8 +54,6 @@ use union::UnionValidator;
 
 /// Validate a document against a schema.
 ///
-/// Uses the default `Eure` union tag mode.
-///
 /// # Example
 ///
 /// ```ignore
@@ -72,25 +67,8 @@ use union::UnionValidator;
 /// }
 /// ```
 pub fn validate(document: &EureDocument, schema: &SchemaDocument) -> ValidationOutput {
-    validate_with_mode(document, schema, UnionTagMode::default())
-}
-
-/// Validate a document against a schema with the specified union tag mode.
-///
-/// # Arguments
-///
-/// * `document` - The document to validate
-/// * `schema` - The schema to validate against
-/// * `mode` - The union tag mode to use:
-///   - `UnionTagMode::Eure`: Use `$variant` extension or untagged matching (native Eure documents)
-///   - `UnionTagMode::Repr`: Use only `VariantRepr` patterns (JSON/YAML imports)
-pub fn validate_with_mode(
-    document: &EureDocument,
-    schema: &SchemaDocument,
-    mode: UnionTagMode,
-) -> ValidationOutput {
     let root_id = document.get_root_id();
-    validate_node_with_mode(document, schema, root_id, schema.root, mode)
+    validate_node(document, schema, root_id, schema.root)
 }
 
 /// Validation output with node-level schema trace mapping.
@@ -108,18 +86,8 @@ pub fn validate_with_trace(
     schema: &SchemaDocument,
     schema_node_paths: &SchemaNodePathMap,
 ) -> ValidationTraceOutput {
-    validate_with_trace_with_mode(document, schema, schema_node_paths, UnionTagMode::default())
-}
-
-/// Validate with node-level schema trace mapping and union tag mode.
-pub fn validate_with_trace_with_mode(
-    document: &EureDocument,
-    schema: &SchemaDocument,
-    schema_node_paths: &SchemaNodePathMap,
-    mode: UnionTagMode,
-) -> ValidationTraceOutput {
-    let output = validate_with_mode(document, schema, mode);
-    let node_type_traces = resolve_node_type_traces(document, schema, schema_node_paths, mode);
+    let output = validate(document, schema);
+    let node_type_traces = resolve_node_type_traces(document, schema, schema_node_paths);
     ValidationTraceOutput {
         output,
         node_type_traces,
@@ -127,32 +95,13 @@ pub fn validate_with_trace_with_mode(
 }
 
 /// Validate a specific node against a schema node.
-///
-/// Uses the default `Eure` union tag mode.
 pub fn validate_node(
     document: &EureDocument,
     schema: &SchemaDocument,
     node_id: NodeId,
     schema_id: SchemaNodeId,
 ) -> ValidationOutput {
-    validate_node_with_mode(
-        document,
-        schema,
-        node_id,
-        schema_id,
-        UnionTagMode::default(),
-    )
-}
-
-/// Validate a specific node against a schema node with the specified union tag mode.
-pub fn validate_node_with_mode(
-    document: &EureDocument,
-    schema: &SchemaDocument,
-    node_id: NodeId,
-    schema_id: SchemaNodeId,
-    mode: UnionTagMode,
-) -> ValidationOutput {
-    let ctx = ValidationContext::with_mode(document, schema, mode);
+    let ctx = ValidationContext::new(document, schema);
     let parse_ctx = ctx.parse_context(node_id);
 
     let validator = SchemaValidator {
@@ -422,7 +371,6 @@ mod tests {
         ArraySchema, Bound, IntegerSchema, RecordFieldSchema, RecordSchema, TextSchema,
         UnionSchema, UnknownFieldsPolicy,
     };
-    use eure_document::data_model::VariantRepr;
     use eure_document::text::Text;
     use eure_document::value::{ObjectKey, PrimitiveValue};
     use indexmap::{IndexMap, IndexSet};
@@ -618,8 +566,7 @@ mod tests {
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
             unambiguous: IndexSet::new(),
-            repr: VariantRepr::Untagged,
-            repr_explicit: false,
+            interop: crate::interop::UnionInterop::default(),
             deny_untagged,
         });
 
@@ -655,8 +602,7 @@ mod tests {
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
             unambiguous: IndexSet::new(),
-            repr: VariantRepr::Untagged,
-            repr_explicit: false,
+            interop: crate::interop::UnionInterop::default(),
             deny_untagged,
         });
 
@@ -699,8 +645,7 @@ mod tests {
         schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
             variants,
             unambiguous: IndexSet::new(),
-            repr: VariantRepr::Untagged,
-            repr_explicit: false,
+            interop: crate::interop::UnionInterop::default(),
             deny_untagged,
         });
 
@@ -723,6 +668,67 @@ mod tests {
             result2.is_valid,
             "Expected valid for text match, got errors: {:?}",
             result2.errors
+        );
+    }
+
+    #[test]
+    fn test_validate_union_internal_interop_does_not_count_as_explicit_tag() {
+        use eure_document::eure;
+
+        let (mut schema, _) = create_simple_schema(SchemaNodeContent::Any);
+
+        let type_schema_id = schema.create_node(SchemaNodeContent::Text(TextSchema::default()));
+        let mut properties = IndexMap::new();
+        properties.insert(
+            "type".to_string(),
+            RecordFieldSchema {
+                schema: type_schema_id,
+                optional: false,
+                binding_style: None,
+            },
+        );
+        let success_record_id = schema.create_node(SchemaNodeContent::Record(RecordSchema {
+            properties,
+            flatten: vec![],
+            unknown_fields: UnknownFieldsPolicy::Deny,
+        }));
+
+        let mut variants = IndexMap::new();
+        variants.insert("success".to_string(), success_record_id);
+
+        let mut deny_untagged = IndexSet::new();
+        deny_untagged.insert("success".to_string());
+
+        schema.node_mut(schema.root).content = SchemaNodeContent::Union(UnionSchema {
+            variants,
+            unambiguous: IndexSet::new(),
+            interop: crate::interop::UnionInterop {
+                variant_repr: Some(crate::interop::VariantRepr::Internal {
+                    tag: "type".to_string(),
+                }),
+            },
+            deny_untagged,
+        });
+
+        // `type = "success"` is interop metadata only; without `$variant`, this is still untagged.
+        let doc = eure!({ type = "success" });
+        let result = validate(&doc, &schema);
+        assert!(!result.is_valid);
+        assert!(result.errors.iter().any(|e| matches!(
+            e,
+            ValidationError::RequiresExplicitVariant { variant, .. } if variant == "success"
+        )));
+
+        // Adding `$variant` makes it explicit and validation succeeds.
+        let tagged_doc = eure!({
+            type = "success"
+            %variant = "success"
+        });
+        let tagged_result = validate(&tagged_doc, &schema);
+        assert!(
+            tagged_result.is_valid,
+            "Expected valid with explicit $variant, got errors: {:?}",
+            tagged_result.errors
         );
     }
 

@@ -309,12 +309,7 @@ impl<'a, 'doc, 's> RecordValidator<'a, 'doc, 's> {
         schema_node_id: SchemaNodeId,
     ) -> Result<(), Vec<ValidationError>> {
         let forked = self.ctx.fork_state();
-        let trial = ValidationContext::with_state_and_mode(
-            self.ctx.document,
-            self.ctx.schema,
-            forked,
-            self.ctx.union_tag_mode,
-        );
+        let trial = ValidationContext::with_state(self.ctx.document, self.ctx.schema, forked);
         let _ = flatten_ctx.parse_with(SchemaValidator {
             ctx: &trial,
             schema_node_id,

@@ -7,44 +7,15 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::data_model::VariantRepr;
-use crate::document::node::NodeValue;
 use crate::document::{EureDocument, NodeId};
 use crate::identifier::Identifier;
 use crate::parse::{DocumentParser, FromEure};
-use crate::value::ObjectKey;
 
 use super::variant_path::VariantPath;
-use super::{
-    AccessedSnapshot, FlattenContext, ParseContext, ParseError, ParseErrorKind, ParserScope,
-    UnionTagMode,
-};
+use super::{AccessedSnapshot, FlattenContext, ParseContext, ParseError, ParseErrorKind};
 
 /// The `$variant` extension identifier.
 pub const VARIANT: Identifier = Identifier::new_unchecked("variant");
-
-// =============================================================================
-// Shared variant extraction helpers (used by both parsing and validation)
-// =============================================================================
-
-/// Extract variant name and content node from repr pattern.
-///
-/// Returns:
-/// - `Ok(Some((name, content_node_id)))` - pattern matched
-/// - `Ok(None)` - pattern did not match (not a map, wrong structure, etc.)
-/// - `Err(...)` - tag field exists but has invalid type
-pub fn extract_repr_variant(
-    doc: &EureDocument,
-    node_id: NodeId,
-    repr: &VariantRepr,
-) -> Result<Option<(String, NodeId)>, ParseError> {
-    match repr {
-        VariantRepr::Untagged => Ok(None),
-        VariantRepr::External => Ok(try_extract_external(doc, node_id)),
-        VariantRepr::Internal { tag } => try_extract_internal(doc, node_id, tag),
-        VariantRepr::Adjacent { tag, content } => try_extract_adjacent(doc, node_id, tag, content),
-    }
-}
 
 /// Extract `$variant` extension as a parsed [`VariantPath`], if present.
 pub fn extract_explicit_variant_path(
@@ -70,85 +41,8 @@ pub fn extract_explicit_variant_path(
 
 /// Returns whether this node has any explicit union tag information.
 ///
-/// Explicit tags are either:
-/// - `$variant` extension with valid variant path syntax
-/// - repr-extracted tag for the given repr
-pub fn has_explicit_variant_tag(
-    doc: &EureDocument,
-    node_id: NodeId,
-    repr: &VariantRepr,
-) -> Result<bool, ParseError> {
-    if extract_explicit_variant_path(doc, node_id)?.is_some() {
-        return Ok(true);
-    }
-    Ok(extract_repr_variant(doc, node_id, repr)?.is_some())
-}
-
-/// Try to extract External repr: `{ variant_name = content }`
-fn try_extract_external(doc: &EureDocument, node_id: NodeId) -> Option<(String, NodeId)> {
-    let node = doc.node(node_id);
-    let NodeValue::Map(map) = &node.content else {
-        return None;
-    };
-
-    if map.len() != 1 {
-        return None;
-    }
-
-    let (key, &content_node_id) = map.iter().next()?;
-    let ObjectKey::String(variant_name) = key else {
-        return None;
-    };
-    Some((variant_name.clone(), content_node_id))
-}
-
-/// Try to extract Internal repr: `{ type = "variant_name", ...fields... }`
-///
-/// Returns the same node_id as content - the tag field should be excluded during record parsing/validation.
-fn try_extract_internal(
-    doc: &EureDocument,
-    node_id: NodeId,
-    tag: &str,
-) -> Result<Option<(String, NodeId)>, ParseError> {
-    let node = doc.node(node_id);
-    let NodeValue::Map(map) = &node.content else {
-        return Ok(None);
-    };
-
-    let tag_key = ObjectKey::String(tag.to_string());
-    let Some(tag_node_id) = map.get(&tag_key) else {
-        return Ok(None);
-    };
-
-    let variant_name: &str = doc.parse(*tag_node_id)?;
-    Ok(Some((variant_name.to_string(), node_id)))
-}
-
-/// Try to extract Adjacent repr: `{ type = "variant_name", content = {...} }`
-fn try_extract_adjacent(
-    doc: &EureDocument,
-    node_id: NodeId,
-    tag: &str,
-    content: &str,
-) -> Result<Option<(String, NodeId)>, ParseError> {
-    let node = doc.node(node_id);
-    let NodeValue::Map(map) = &node.content else {
-        return Ok(None);
-    };
-
-    let tag_key = ObjectKey::String(tag.to_string());
-    let Some(tag_node_id) = map.get(&tag_key) else {
-        return Ok(None);
-    };
-
-    let variant_name: &str = doc.parse(*tag_node_id)?;
-
-    let content_key = ObjectKey::String(content.to_string());
-    let Some(content_node_id) = map.get(&content_key) else {
-        return Ok(None);
-    };
-
-    Ok(Some((variant_name.to_string(), *content_node_id)))
+pub fn has_explicit_variant_tag(doc: &EureDocument, node_id: NodeId) -> Result<bool, ParseError> {
+    Ok(extract_explicit_variant_path(doc, node_id)?.is_some())
 }
 
 // =============================================================================
@@ -161,23 +55,19 @@ fn try_extract_adjacent(
 /// - Exactly one variant must match
 /// - Multiple matches resolved by registration order (priority)
 /// - Short-circuits on first priority variant match
-/// - When `$variant` extension or repr is specified, matches by name directly
+/// - When `$variant` extension is specified, matches by name directly
 ///
 /// # Variant Resolution
 ///
-/// Variant is determined by combining `$variant` extension and `VariantRepr`:
-/// - Both agree on same name → use repr's context (with tag excluded for Internal)
-/// - `$variant` only (repr didn't extract) → use original context
-/// - Repr only → use repr's context
-/// - Conflict (different names) → `ConflictingVariantTags` error
-/// - Neither → Untagged parsing (try all variants)
+/// Variant is determined by `$variant` extension when present.
+/// Without `$variant`, the parser falls back to untagged matching.
 ///
 /// # Example
 ///
 /// ```ignore
 /// impl<'doc> FromEure<'doc> for Description {
 ///     fn parse(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-///         ctx.parse_union(VariantRepr::default())?
+///         ctx.parse_union()?
 ///             .variant("string", |ctx| {
 ///                 let text: String = ctx.parse()?;
 ///                 Ok(Description::String(text))
@@ -214,16 +104,11 @@ impl<'doc, 'ctx, T, E> UnionParser<'doc, 'ctx, T, E>
 where
     E: From<ParseError>,
 {
-    /// Create a new UnionParser for the given context and repr.
+    /// Create a new UnionParser for the given context.
     ///
-    /// Returns error if:
-    /// - `$variant` extension has invalid type or syntax
-    /// - `$variant` and repr extract conflicting variant names
-    pub(crate) fn new(
-        ctx: &'ctx ParseContext<'doc>,
-        repr: VariantRepr,
-    ) -> Result<Self, ParseError> {
-        let variant = Self::resolve_variant(ctx, &repr)?;
+    /// Returns error if `$variant` extension has invalid type or syntax.
+    pub(crate) fn new(ctx: &'ctx ParseContext<'doc>) -> Result<Self, ParseError> {
+        let variant = Self::resolve_variant(ctx)?;
 
         // Push snapshot for rollback if flatten context exists
         let flatten_ctx = ctx.flatten_ctx().cloned();
@@ -242,32 +127,13 @@ where
         })
     }
 
-    /// Resolve the unified variant from `$variant` extension and repr.
+    /// Resolve the unified variant from `$variant` extension.
     ///
     /// Returns:
     /// - `Some((name, ctx, rest))` if variant is determined
     /// - `None` for Untagged parsing
     ///
-    /// The behavior depends on `UnionTagMode`:
-    /// - `Eure`: Use `$variant` extension or untagged matching (ignore repr)
-    /// - `Repr`: Use only repr patterns (ignore `$variant`, no untagged fallback)
     fn resolve_variant(
-        ctx: &ParseContext<'doc>,
-        repr: &VariantRepr,
-    ) -> Result<Option<(String, ParseContext<'doc>, Option<VariantPath>)>, ParseError> {
-        match ctx.union_tag_mode() {
-            UnionTagMode::Eure => Self::resolve_variant_eure_mode(ctx),
-            UnionTagMode::Repr => Self::resolve_variant_repr_mode(ctx, repr),
-        }
-    }
-
-    /// Resolve variant in Eure mode: `$variant` extension or untagged matching.
-    ///
-    /// In this mode:
-    /// - If `$variant` extension is present, use it to determine the variant
-    /// - Otherwise, use untagged matching (try all variants)
-    /// - `VariantRepr` is ignored
-    fn resolve_variant_eure_mode(
         ctx: &ParseContext<'doc>,
     ) -> Result<Option<(String, ParseContext<'doc>, Option<VariantPath>)>, ParseError> {
         // Check if variant path is already set in context (from parent union)
@@ -296,72 +162,6 @@ where
             }
             // No $variant → Untagged
             None => Ok(None),
-        }
-    }
-
-    /// Resolve variant in Repr mode: use only `VariantRepr` patterns.
-    ///
-    /// In this mode:
-    /// - Extract variant tag using `VariantRepr` (External, Internal, Adjacent)
-    /// - `$variant` extension is ignored
-    /// - If repr doesn't extract a tag, return `None` (will result in NoMatchingVariant error)
-    fn resolve_variant_repr_mode(
-        ctx: &ParseContext<'doc>,
-        repr: &VariantRepr,
-    ) -> Result<Option<(String, ParseContext<'doc>, Option<VariantPath>)>, ParseError> {
-        // Extract repr_variant using shared helper
-        let repr_variant = extract_repr_variant(ctx.doc(), ctx.node_id(), repr)?;
-
-        match repr_variant {
-            // Repr extracted a tag → use repr's context
-            Some((name, content_node_id)) => {
-                let content_ctx = Self::make_content_context(ctx, repr, content_node_id);
-                Ok(Some((name, content_ctx, Some(VariantPath::empty()))))
-            }
-            // Repr didn't extract → no tag (will be handled as untagged, but in repr mode
-            // this should result in an error for non-Untagged reprs)
-            None => {
-                // For non-Untagged reprs, the structure doesn't match the expected pattern
-                // Return None to trigger untagged parsing, which will fail if no variant matches
-                Ok(None)
-            }
-        }
-    }
-
-    /// Create ParseContext for variant content based on repr type.
-    fn make_content_context(
-        ctx: &ParseContext<'doc>,
-        repr: &VariantRepr,
-        content_node_id: NodeId,
-    ) -> ParseContext<'doc> {
-        match repr {
-            // Internal repr: mark tag field as accessed in shared context
-            // This way deny_unknown_fields won't complain about the tag
-            VariantRepr::Internal { tag } => {
-                // Get or create flatten context, add tag to accessed fields
-                let flatten_ctx = match ctx.flatten_ctx() {
-                    Some(fc) => {
-                        fc.add_field(tag);
-                        fc.clone()
-                    }
-                    None => {
-                        let fc = super::FlattenContext::new(
-                            super::AccessedSet::new(),
-                            ParserScope::Record,
-                        );
-                        fc.add_field(tag);
-                        fc
-                    }
-                };
-                ParseContext::with_flatten_ctx(
-                    ctx.doc(),
-                    content_node_id,
-                    flatten_ctx,
-                    ctx.union_tag_mode(),
-                )
-            }
-            // Other reprs: just use the content node
-            _ => ctx.at(content_node_id),
         }
     }
 
@@ -599,7 +399,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: TestEnum = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("foo", |ctx: &ParseContext<'_>| {
                 let s: &str = ctx.parse()?;
@@ -637,7 +437,7 @@ mod tests {
 
         // Both variants would match, but first one wins due to priority
         let result: String = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("first", String::parse)
             .variant("second", String::parse)
@@ -654,7 +454,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: Result<TestEnum, ParseError> = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("foo", |ctx: &ParseContext<'_>| {
                 let s: &str = ctx.parse()?;
@@ -683,7 +483,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: TestEnum = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant(
                 "foo",
@@ -705,7 +505,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let err: ParseError = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("foo", AlwaysParser::new(TestEnum::Foo))
             .variant_unambiguous("baz", AlwaysParser::new(TestEnum::Bar))
@@ -727,7 +527,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let err = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("foo", AlwaysParser::new(TestEnum::Foo))
             .variant_unambiguous("baz", |ctx: &ParseContext<'_>| {
@@ -759,7 +559,7 @@ mod tests {
     }
 
     fn parse_inner(ctx: &ParseContext<'_>) -> Result<Inner, ParseError> {
-        ctx.parse_union(VariantRepr::default())
+        ctx.parse_union()
             .unwrap()
             .variant("x", AlwaysParser::new(Inner::X))
             .variant("y", AlwaysParser::new(Inner::Y))
@@ -774,7 +574,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: Outer = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("a", parse_inner.map(Outer::A))
             .variant("b", AlwaysParser::new(Outer::B(42)))
@@ -792,7 +592,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let result: Outer = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("a", parse_inner.map(Outer::A))
             .variant("b", AlwaysParser::new(Outer::B(42)))
@@ -810,7 +610,7 @@ mod tests {
         let ctx = doc.parse_context(root_id);
 
         let err = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("a", parse_inner.map(Outer::A))
             .variant("b", AlwaysParser::new(Outer::B(42)))
@@ -834,7 +634,7 @@ mod tests {
         // The simple parser Ok(Outer::B(42)) doesn't check variant path,
         // but a proper impl would use ctx.parse_primitive() which errors
         let err = ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("a", parse_inner.map(Outer::A))
             .variant("b", |ctx: &ParseContext<'_>| {
@@ -873,7 +673,7 @@ mod tests {
 
         let ctx = doc.parse_context(root_id);
 
-        let Err(err) = ctx.parse_union::<TestEnum, ParseError>(VariantRepr::default()) else {
+        let Err(err) = ctx.parse_union::<TestEnum, ParseError>() else {
             panic!("Expected error");
         };
         assert_eq!(
@@ -893,7 +693,7 @@ mod tests {
         let variant_node_id = *doc.node(root_id).extensions.get(&VARIANT).unwrap();
         let ctx = doc.parse_context(root_id);
 
-        let Err(err) = ctx.parse_union::<TestEnum, ParseError>(VariantRepr::default()) else {
+        let Err(err) = ctx.parse_union::<TestEnum, ParseError>() else {
             panic!("Expected error");
         };
         assert_eq!(
@@ -903,384 +703,6 @@ mod tests {
                 kind: ParseErrorKind::InvalidVariantPath("foo..bar".to_string()),
             }
         );
-    }
-
-    // --- VariantRepr tests ---
-
-    #[derive(Debug, PartialEq)]
-    enum ReprTestEnum {
-        A { value: i64 },
-        B { name: String },
-    }
-
-    fn parse_repr_test_enum(
-        ctx: &ParseContext<'_>,
-        repr: VariantRepr,
-    ) -> Result<ReprTestEnum, ParseError> {
-        ctx.parse_union(repr)?
-            .variant("a", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let value: i64 = rec.parse_field("value")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::A { value })
-            })
-            .variant("b", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let name: String = rec.parse_field("name")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::B { name })
-            })
-            .parse()
-    }
-
-    #[test]
-    fn test_internal_repr_success() {
-        // { type = "a", value = 42 } with Internal { tag: "type" }
-        // Using Repr mode to enable repr-based variant resolution
-        let doc = eure!({ type = "a", value = 42 });
-        let root_id = doc.get_root_id();
-        let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
-
-        let result = parse_repr_test_enum(
-            &ctx,
-            VariantRepr::Internal {
-                tag: "type".to_string(),
-            },
-        );
-        assert_eq!(result.unwrap(), ReprTestEnum::A { value: 42 });
-    }
-
-    #[test]
-    fn test_external_repr_success() {
-        // { a = { value = 42 } } with External
-        // Using Repr mode to enable repr-based variant resolution
-        let doc = eure!({ a { value = 42 } });
-        let root_id = doc.get_root_id();
-        let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
-
-        let result = parse_repr_test_enum(&ctx, VariantRepr::External);
-        assert_eq!(result.unwrap(), ReprTestEnum::A { value: 42 });
-    }
-
-    #[test]
-    fn test_adjacent_repr_success() {
-        // { type = "a", content = { value = 42 } } with Adjacent { tag: "type", content: "content" }
-        // Using Repr mode to enable repr-based variant resolution
-        let doc = eure!({ type = "a", content { value = 42 } });
-        let root_id = doc.get_root_id();
-        let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
-
-        let result = parse_repr_test_enum(
-            &ctx,
-            VariantRepr::Adjacent {
-                tag: "type".to_string(),
-                content: "content".to_string(),
-            },
-        );
-        assert_eq!(result.unwrap(), ReprTestEnum::A { value: 42 });
-    }
-
-    #[test]
-    fn test_repr_mode_ignores_variant_extension() {
-        // In Repr mode, $variant extension is ignored - only repr pattern is used
-        // $variant = "b" would conflict, but repr extracts "a" and is used
-        let doc = eure!({ %variant = "b", type = "a", value = 42 });
-        let root_id = doc.get_root_id();
-        let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
-
-        let result = parse_repr_test_enum(
-            &ctx,
-            VariantRepr::Internal {
-                tag: "type".to_string(),
-            },
-        );
-        assert_eq!(result.unwrap(), ReprTestEnum::A { value: 42 });
-    }
-
-    #[test]
-    fn test_eure_mode_ignores_repr() {
-        // In Eure mode (default), repr is ignored - only $variant or untagged matching is used
-        let doc = eure!({ type = "a", value = 42 });
-        let root_id = doc.get_root_id();
-
-        // Default mode is Eure, which ignores repr
-        let ctx = doc.parse_context(root_id);
-
-        // Since there's no $variant and repr is ignored, this becomes untagged matching
-        // Both variants will be tried, and "a" has a "value" field so it should match
-        let result = ctx
-            .parse_union::<_, ParseError>(VariantRepr::Internal {
-                tag: "type".to_string(),
-            })
-            .unwrap()
-            .variant("a", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let value: i64 = rec.parse_field("value")?;
-                rec.allow_unknown_fields()?;
-                Ok(ReprTestEnum::A { value })
-            })
-            .variant("b", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let name: String = rec.parse_field("name")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::B { name })
-            })
-            .parse();
-
-        assert_eq!(result.unwrap(), ReprTestEnum::A { value: 42 });
-    }
-
-    #[test]
-    fn test_internal_repr_unknown_variant_name() {
-        // { type = "unknown", value = 42 } - "unknown" is not a registered variant
-        // Using Repr mode to enable repr-based variant resolution
-        let doc = eure!({ type = "unknown", value = 42 });
-        let root_id = doc.get_root_id();
-        let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
-
-        let result = parse_repr_test_enum(
-            &ctx,
-            VariantRepr::Internal {
-                tag: "type".to_string(),
-            },
-        );
-
-        // Should get UnknownVariant error since repr extracts "unknown"
-        let err = result.unwrap_err();
-        assert_eq!(
-            err.kind,
-            ParseErrorKind::UnknownVariant("unknown".to_string())
-        );
-    }
-
-    #[test]
-    fn test_repr_not_extracted_falls_back_to_untagged() {
-        // Document has 2 keys, so External repr (requires exactly 1 key) won't match
-        // Falls back to Untagged parsing
-        let doc = eure!({ value = 100, extra = "ignored" });
-        let root_id = doc.get_root_id();
-        let ctx = doc.parse_context(root_id);
-
-        // External repr won't match (2 keys), so Untagged will try each variant
-        let result = ctx
-            .parse_union::<_, ParseError>(VariantRepr::External)
-            .unwrap()
-            .variant("a", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let value: i64 = rec.parse_field("value")?;
-                // Don't deny_unknown_fields - we have "extra"
-                Ok(ReprTestEnum::A { value })
-            })
-            .variant("b", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let name: String = rec.parse_field("name")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::B { name })
-            })
-            .parse();
-
-        // Untagged parsing should succeed with variant "a"
-        assert_eq!(result.unwrap(), ReprTestEnum::A { value: 100 });
-    }
-
-    #[test]
-    fn test_external_repr_single_key_extracts_variant() {
-        // Document has exactly 1 key, so External repr extracts it as variant name
-        // Using Repr mode to enable repr-based variant resolution
-        let doc = eure!({ value = 100 });
-        let root_id = doc.get_root_id();
-        let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
-
-        // External repr extracts "value" as variant name
-        // Since "value" is not a registered variant, we get UnknownVariant
-        let err: ParseError = ctx
-            .parse_union(VariantRepr::External)
-            .unwrap()
-            .variant("a", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let value: i64 = rec.parse_field("value")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::A { value })
-            })
-            .variant("b", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let name: String = rec.parse_field("name")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::B { name })
-            })
-            .parse()
-            .unwrap_err();
-
-        assert_eq!(
-            err.kind,
-            ParseErrorKind::UnknownVariant("value".to_string())
-        );
-    }
-
-    // --- Corner case tests for resolve_variant ---
-
-    #[test]
-    fn test_internal_repr_tag_is_integer_errors() {
-        // { type = 123, value = 42 } - tag field is integer, not string
-        // Using Repr mode to enable repr-based variant resolution
-        // Note: eure! macro doesn't support integer field values for tag fields,
-        // so we use manual construction to test this edge case
-        use crate::document::EureDocument;
-        use crate::document::node::NodeValue;
-        use crate::value::{ObjectKey, PrimitiveValue};
-        use num_bigint::BigInt;
-
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        doc.node_mut(root_id).content = NodeValue::Map(Default::default());
-
-        let type_node_id = doc
-            .add_map_child(ObjectKey::String("type".to_string()), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(type_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(123)));
-
-        let value_node_id = doc
-            .add_map_child(ObjectKey::String("value".to_string()), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(value_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42)));
-
-        let ctx = ParseContext::with_union_tag_mode(&doc, root_id, UnionTagMode::Repr);
-
-        // Internal repr should error because tag field is not a string
-        let Err(err) = ctx.parse_union::<ReprTestEnum, ParseError>(VariantRepr::Internal {
-            tag: "type".to_string(),
-        }) else {
-            panic!("Expected error");
-        };
-
-        // Error should point to the tag node
-        assert_eq!(err.node_id, type_node_id);
-    }
-
-    #[test]
-    fn test_adjacent_repr_missing_content_falls_back_to_untagged() {
-        // { type = "a", value = 42 } - has tag but no "content" field
-        // Adjacent repr should not match, falls back to Untagged
-        let doc = eure!({ type = "a", value = 42 });
-        let root_id = doc.get_root_id();
-        let ctx = doc.parse_context(root_id);
-
-        // Adjacent repr won't match (no "content" key), so Untagged parsing
-        let result = ctx
-            .parse_union::<_, ParseError>(VariantRepr::Adjacent {
-                tag: "type".to_string(),
-                content: "content".to_string(),
-            })
-            .unwrap()
-            .variant("a", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let value: i64 = rec.parse_field("value")?;
-                // Don't deny_unknown_fields - we have "type"
-                Ok(ReprTestEnum::A { value })
-            })
-            .variant("b", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let name: String = rec.parse_field("name")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::B { name })
-            })
-            .parse();
-
-        // Untagged parsing should succeed with variant "a"
-        assert_eq!(result.unwrap(), ReprTestEnum::A { value: 42 });
-    }
-
-    #[test]
-    fn test_external_repr_non_string_key_falls_back_to_untagged() {
-        // { 123 => { value = 42 } } - key is integer, not string
-        // Note: eure! macro doesn't support integer keys, so we use manual construction
-        use crate::document::EureDocument;
-        use crate::document::node::NodeValue;
-        use crate::value::{ObjectKey, PrimitiveValue};
-        use num_bigint::BigInt;
-
-        let mut doc = EureDocument::new();
-        let root_id = doc.get_root_id();
-        doc.node_mut(root_id).content = NodeValue::Map(Default::default());
-
-        // Add integer key
-        let variant_node_id = doc
-            .add_map_child(ObjectKey::Number(BigInt::from(123)), root_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(variant_node_id).content = NodeValue::Map(Default::default());
-
-        // Add "value" field inside
-        let value_node_id = doc
-            .add_map_child(ObjectKey::String("value".to_string()), variant_node_id)
-            .unwrap()
-            .node_id;
-        doc.node_mut(value_node_id).content =
-            NodeValue::Primitive(PrimitiveValue::Integer(BigInt::from(42)));
-
-        let ctx = doc.parse_context(root_id);
-
-        // External repr won't match (key is not string), but since it has 1 key,
-        // it will still try External extraction which fails due to non-string key,
-        // then fall back to Untagged parsing which also fails (no matching variant)
-        let err: ParseError = ctx
-            .parse_union(VariantRepr::External)
-            .unwrap()
-            .variant("a", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let value: i64 = rec.parse_field("value")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::A { value })
-            })
-            .variant("b", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let name: String = rec.parse_field("name")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::B { name })
-            })
-            .parse()
-            .unwrap_err();
-
-        // Falls back to Untagged, variant "a" tried but "value" not at root level
-        assert_eq!(err.kind, ParseErrorKind::MissingField("value".to_string()));
-    }
-
-    #[test]
-    fn test_eure_mode_uses_variant_extension_over_repr() {
-        // In Eure mode (default), $variant extension is used and repr is ignored
-        // Internal repr would extract "a", but $variant = "b" takes precedence
-        let doc = eure!({ %variant = "b", type = "a", value = 42 });
-        let root_id = doc.get_root_id();
-        let ctx = doc.parse_context(root_id);
-
-        // In Eure mode, $variant = "b" is used (repr is ignored)
-        // Since "b" expects a "name" field and doc has "value", this fails
-        let err: ParseError = ctx
-            .parse_union(VariantRepr::Internal {
-                tag: "type".to_string(),
-            })
-            .unwrap()
-            .variant("a", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let value: i64 = rec.parse_field("value")?;
-                rec.allow_unknown_fields()?;
-                Ok(ReprTestEnum::A { value })
-            })
-            .variant("b", |ctx: &ParseContext<'_>| {
-                let rec = ctx.parse_record()?;
-                let name: String = rec.parse_field("name")?;
-                rec.deny_unknown_fields()?;
-                Ok(ReprTestEnum::B { name })
-            })
-            .parse()
-            .unwrap_err();
-
-        // In Eure mode, $variant = "b" is used, which expects "name" field
-        assert_eq!(err.kind, ParseErrorKind::MissingField("name".to_string()));
     }
 
     #[test]
@@ -1296,7 +718,7 @@ mod tests {
 
         // With empty variant_path, should use Untagged parsing
         let result: String = child_ctx
-            .parse_union(VariantRepr::default())
+            .parse_union()
             .unwrap()
             .variant("first", String::parse)
             .variant("second", String::parse)
@@ -1326,7 +748,7 @@ mod tests {
     }
 
     fn parse_inner_union(ctx: &ParseContext<'_>) -> Result<InnerUnion, ParseError> {
-        ctx.parse_union(VariantRepr::default())?
+        ctx.parse_union()?
             .variant("text", |ctx: &ParseContext<'_>| {
                 let s: String = ctx.parse()?;
                 Ok(InnerUnion::Text(s))
@@ -1341,7 +763,7 @@ mod tests {
     fn parse_outer_union(ctx: &ParseContext<'_>) -> Result<OuterUnion, ParseError> {
         use crate::document::node::NodeArray;
 
-        ctx.parse_union(VariantRepr::default())?
+        ctx.parse_union()?
             .variant("normal", |ctx: &ParseContext<'_>| {
                 let inner = parse_inner_union(ctx)?;
                 Ok(OuterUnion::Normal(inner))
@@ -1446,7 +868,7 @@ mod tests {
     }
 
     fn parse_level3(ctx: &ParseContext<'_>) -> Result<Level3, ParseError> {
-        ctx.parse_union(VariantRepr::default())?
+        ctx.parse_union()?
             .variant("leaf", |ctx: &ParseContext<'_>| {
                 let s: String = ctx.parse()?;
                 Ok(Level3::Leaf(s))
@@ -1455,7 +877,7 @@ mod tests {
     }
 
     fn parse_level2(ctx: &ParseContext<'_>) -> Result<Level2Union, ParseError> {
-        ctx.parse_union(VariantRepr::default())?
+        ctx.parse_union()?
             .variant("x", |ctx: &ParseContext<'_>| {
                 let inner = parse_level3(ctx)?;
                 Ok(Level2Union::X(inner))
@@ -1468,7 +890,7 @@ mod tests {
     }
 
     fn parse_level1(ctx: &ParseContext<'_>) -> Result<Level1, ParseError> {
-        ctx.parse_union(VariantRepr::default())?
+        ctx.parse_union()?
             .variant("a", |ctx: &ParseContext<'_>| {
                 let inner = parse_level2(ctx)?;
                 Ok(Level1::A(inner))
@@ -1552,8 +974,7 @@ mod tests {
 
         // Create flatten context to track field access
         let flatten_ctx = FlattenContext::new(AccessedSet::new(), ParserScope::Record);
-        let ctx =
-            ParseContext::with_flatten_ctx(&doc, root_id, flatten_ctx.clone(), UnionTagMode::Eure);
+        let ctx = ParseContext::with_flatten_ctx(&doc, root_id, flatten_ctx.clone());
 
         // Parse a union that accesses field_a
         let record = ctx.parse_record().unwrap();

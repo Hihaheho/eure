@@ -34,7 +34,7 @@
 //!   variants.success = { data = `any` }
 //!   variants.error = { message = `text` }
 //!   variants.error.$ext-type.unambiguous = true  // optional, for catch-all variants
-//!   $variant-repr = "untagged"  // optional
+//!   $interop.variant-repr = "untagged"  // optional
 //! }
 //! ```
 //!
@@ -440,8 +440,7 @@ impl<'a> Converter<'a> {
         let ParsedUnionSchema {
             variants: parsed_variants,
             unambiguous,
-            repr,
-            repr_explicit,
+            interop,
             deny_untagged,
         } = parsed;
         let mut variants = IndexMap::new();
@@ -454,8 +453,7 @@ impl<'a> Converter<'a> {
         Ok(UnionSchema {
             variants,
             unambiguous,
-            repr,
-            repr_explicit,
+            interop,
             deny_untagged,
         })
     }
@@ -1211,6 +1209,9 @@ mod tests {
         let untagged_ext = doc.create_node(NodeValue::Primitive(PrimitiveValue::Text(
             Text::plaintext("untagged"),
         )));
+        let mut interop_map = NodeMap::default();
+        interop_map.insert(ObjectKey::String("variant-repr".to_string()), untagged_ext);
+        let interop_ext = doc.create_node(NodeValue::Map(interop_map));
 
         // Create root map with variants
         let mut root_map = NodeMap::default();
@@ -1222,7 +1223,7 @@ mod tests {
             .insert("variant".parse().unwrap(), union_ext);
         doc.node_mut(root_id)
             .extensions
-            .insert("variant-repr".parse().unwrap(), untagged_ext);
+            .insert("interop".parse().unwrap(), interop_ext);
 
         let (schema, _source_map) =
             document_to_schema(&doc).expect("Schema conversion should succeed");

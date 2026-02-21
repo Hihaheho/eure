@@ -23,11 +23,11 @@ result {
 ```
 
 // Diagnostic should point to "123", not the entire "result { ... }" block
-// The message shows the underlying error with the nearest variant info
+// The message reports the underlying nested type mismatch.
 @ diagnostics[]
 severity = "error"
 source = "editor.eure"
-message = "Type mismatch: expected text, got integer at path result.value (based on nearest variant 'ok.some' for union at path result)"
+message = "Type mismatch: expected text, got integer at path result.value"
 span = "123"
 
 @ cases.unknown-field
@@ -558,7 +558,6 @@ span = "inner {\n    $variant: invalid-tag\n    data = 123\n  }"
 // Errors NOT applicable to nested union span descent:
 // ============================================================================
 // - AmbiguousUnion: Happens when multiple variants MATCH (opposite of NoVariantMatched)
-// - ConflictingVariantTags: Requires conflicting $variant + repr, rare in nested context
 // - RequiresExplicitVariant: Per-variant $deny-untagged, doesn't propagate as best_match
 // - UndefinedTypeReference: Schema conversion error, not validation error
 // - InvalidFlattenTarget: Schema construction error

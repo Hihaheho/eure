@@ -3,7 +3,7 @@
 use crate::parse::DocumentParser;
 use crate::prelude_internal::*;
 
-use super::{FromEure, ParseContext, ParseError, ParseErrorKind, ParserScope, UnionTagMode};
+use super::{FromEure, ParseContext, ParseError, ParseErrorKind, ParserScope};
 
 /// Helper for parsing record (map with string keys) from Eure documents.
 ///
@@ -35,8 +35,6 @@ use super::{FromEure, ParseContext, ParseError, ParseErrorKind, ParserScope, Uni
 #[must_use]
 pub struct RecordParser<'doc> {
     map: &'doc NodeMap,
-    /// Union tag mode inherited from context.
-    union_tag_mode: UnionTagMode,
     /// The parse context (holds doc, node_id, accessed, flatten_ctx).
     ctx: ParseContext<'doc>,
 }
@@ -59,7 +57,6 @@ impl<'doc> RecordParser<'doc> {
         match &node.content {
             NodeValue::Map(map) => Ok(Self {
                 map,
-                union_tag_mode: ctx.union_tag_mode(),
                 ctx: ctx.clone(),
             }),
             NodeValue::Hole(_) => Err(ParseError {
@@ -113,8 +110,7 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.ctx.node_id(),
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        let ctx =
-            ParseContext::with_union_tag_mode(self.ctx.doc(), *field_node_id, self.union_tag_mode);
+        let ctx = ParseContext::new(self.ctx.doc(), *field_node_id);
         parser.parse(&ctx)
     }
 
@@ -141,11 +137,7 @@ impl<'doc> RecordParser<'doc> {
         self.mark_accessed(name);
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => {
-                let ctx = ParseContext::with_union_tag_mode(
-                    self.ctx.doc(),
-                    *field_node_id,
-                    self.union_tag_mode,
-                );
+                let ctx = ParseContext::new(self.ctx.doc(), *field_node_id);
                 Ok(Some(parser.parse(&ctx)?))
             }
             None => Ok(None),
@@ -165,11 +157,7 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.ctx.node_id(),
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        Ok(ParseContext::with_union_tag_mode(
-            self.ctx.doc(),
-            *field_node_id,
-            self.union_tag_mode,
-        ))
+        Ok(ParseContext::new(self.ctx.doc(), *field_node_id))
     }
 
     /// Get the parse context for an optional field without parsing it.
@@ -180,9 +168,7 @@ impl<'doc> RecordParser<'doc> {
         self.mark_accessed(name);
         self.map
             .get(&ObjectKey::String(name.to_string()))
-            .map(|node_id| {
-                ParseContext::with_union_tag_mode(self.ctx.doc(), *node_id, self.union_tag_mode)
-            })
+            .map(|node_id| ParseContext::new(self.ctx.doc(), *node_id))
     }
 
     /// Get a field as a nested record parser.
@@ -197,8 +183,7 @@ impl<'doc> RecordParser<'doc> {
                 node_id: self.ctx.node_id(),
                 kind: ParseErrorKind::MissingField(name.to_string()),
             })?;
-        let ctx =
-            ParseContext::with_union_tag_mode(self.ctx.doc(), *field_node_id, self.union_tag_mode);
+        let ctx = ParseContext::new(self.ctx.doc(), *field_node_id);
         RecordParser::new(&ctx)
     }
 
@@ -212,11 +197,7 @@ impl<'doc> RecordParser<'doc> {
         self.mark_accessed(name);
         match self.map.get(&ObjectKey::String(name.to_string())) {
             Some(field_node_id) => {
-                let ctx = ParseContext::with_union_tag_mode(
-                    self.ctx.doc(),
-                    *field_node_id,
-                    self.union_tag_mode,
-                );
+                let ctx = ParseContext::new(self.ctx.doc(), *field_node_id);
                 Ok(Some(RecordParser::new(&ctx)?))
             }
             None => Ok(None),
@@ -293,7 +274,6 @@ impl<'doc> RecordParser<'doc> {
         Item = Result<(&'doc str, ParseContext<'doc>), (&'doc ObjectKey, ParseContext<'doc>)>,
     > + '_ {
         let doc = self.ctx.doc();
-        let mode = self.union_tag_mode;
         // Clone the accessed set for filtering - we need the current state
         let accessed = self.ctx.accessed().clone();
         self.map
@@ -301,18 +281,12 @@ impl<'doc> RecordParser<'doc> {
             .filter_map(move |(key, &node_id)| match key {
                 ObjectKey::String(name) => {
                     if !accessed.has_field(name.as_str()) {
-                        Some(Ok((
-                            name.as_str(),
-                            ParseContext::with_union_tag_mode(doc, node_id, mode),
-                        )))
+                        Some(Ok((name.as_str(), ParseContext::new(doc, node_id))))
                     } else {
                         None // Accessed, skip
                     }
                 }
-                other => Some(Err((
-                    other,
-                    ParseContext::with_union_tag_mode(doc, node_id, mode),
-                ))),
+                other => Some(Err((other, ParseContext::new(doc, node_id)))),
             })
     }
 
@@ -328,7 +302,6 @@ impl<'doc> RecordParser<'doc> {
         &self,
     ) -> impl Iterator<Item = (&'doc ObjectKey, ParseContext<'doc>)> + '_ {
         let doc = self.ctx.doc();
-        let mode = self.union_tag_mode;
         // Clone the accessed set for filtering - we need the current state
         let accessed = self.ctx.accessed().clone();
         self.map.iter().filter_map(move |(key, &node_id)| {
@@ -336,13 +309,13 @@ impl<'doc> RecordParser<'doc> {
                 ObjectKey::String(name) => {
                     // For string keys, only return if not accessed
                     if !accessed.has_field(name.as_str()) {
-                        Some((key, ParseContext::with_union_tag_mode(doc, node_id, mode)))
+                        Some((key, ParseContext::new(doc, node_id)))
                     } else {
                         None
                     }
                 }
                 // Non-string keys are always returned (they can't be "accessed" via field methods)
-                _ => Some((key, ParseContext::with_union_tag_mode(doc, node_id, mode))),
+                _ => Some((key, ParseContext::new(doc, node_id))),
             }
         })
     }
@@ -741,7 +714,7 @@ mod tests {
             type Error = ParseError;
 
             fn parse(ctx: &ParseContext<'doc>) -> Result<Self, Self::Error> {
-                ctx.parse_union(VariantRepr::default())?
+                ctx.parse_union()?
                     .variant("A", |ctx: &ParseContext<'_>| {
                         let rec = ctx.parse_record()?;
                         let a = rec.parse_field("a")?;

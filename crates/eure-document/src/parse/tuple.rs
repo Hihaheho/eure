@@ -7,7 +7,7 @@ use alloc::format;
 use crate::document::node::NodeTuple;
 use crate::prelude_internal::*;
 
-use super::{DocumentParser, FromEure, ParseContext, ParseError, ParseErrorKind, UnionTagMode};
+use super::{DocumentParser, FromEure, ParseContext, ParseError, ParseErrorKind};
 
 /// Helper for parsing tuple types from Eure documents.
 ///
@@ -29,27 +29,18 @@ pub struct TupleParser<'doc> {
     node_id: NodeId,
     tuple: &'doc NodeTuple,
     position: usize,
-    union_tag_mode: UnionTagMode,
 }
 
 impl<'doc> TupleParser<'doc> {
     /// Create a new TupleParser for the given context.
     pub(crate) fn new(ctx: &ParseContext<'doc>) -> Result<Self, ParseError> {
-        Self::from_doc_and_node_with_mode(ctx.doc(), ctx.node_id(), ctx.union_tag_mode())
+        Self::from_doc_and_node(ctx.doc(), ctx.node_id())
     }
 
     /// Create a new TupleParser from document and node ID directly.
     pub(crate) fn from_doc_and_node(
         doc: &'doc EureDocument,
         node_id: NodeId,
-    ) -> Result<Self, ParseError> {
-        Self::from_doc_and_node_with_mode(doc, node_id, UnionTagMode::default())
-    }
-
-    fn from_doc_and_node_with_mode(
-        doc: &'doc EureDocument,
-        node_id: NodeId,
-        union_tag_mode: UnionTagMode,
     ) -> Result<Self, ParseError> {
         let node = doc.node(node_id);
         match &node.content {
@@ -58,7 +49,6 @@ impl<'doc> TupleParser<'doc> {
                 node_id,
                 tuple,
                 position: 0,
-                union_tag_mode,
             }),
             NodeValue::Hole(_) => Err(ParseError {
                 node_id,
@@ -103,7 +93,7 @@ impl<'doc> TupleParser<'doc> {
             kind: ParseErrorKind::MissingField(format!("#{}", index)),
         })?;
         self.position += 1;
-        let ctx = ParseContext::with_union_tag_mode(self.doc, element_node_id, self.union_tag_mode);
+        let ctx = ParseContext::new(self.doc, element_node_id);
         parser.parse(&ctx)
     }
 
@@ -137,7 +127,7 @@ impl<'doc> TupleParser<'doc> {
             node_id: self.node_id,
             kind: ParseErrorKind::MissingField(format!("#{}", index)),
         })?;
-        let ctx = ParseContext::with_union_tag_mode(self.doc, element_node_id, self.union_tag_mode);
+        let ctx = ParseContext::new(self.doc, element_node_id);
         parser.parse(&ctx)
     }
 

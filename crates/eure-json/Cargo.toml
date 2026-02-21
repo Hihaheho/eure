@@ -21,6 +21,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 query-flow = { workspace = true }
 eure-parol = { workspace = true }
+eure-schema = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

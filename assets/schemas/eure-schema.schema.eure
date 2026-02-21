@@ -31,7 +31,8 @@
 ///
 ///    Types defined in this schema:
 ///    - $types.type: The main type definition (union of all type variants)
-///    - $types.variant-repr: How union variants are represented in data
+///    - $types.variant-repr: Interop representation for union variants
+///    - $types.union-interop: Interop metadata for union types
 ///    - $types.unknown-fields-policy: Policy for unknown fields in records
 ///    - $types.binding-style: How document paths are represented
 ///
@@ -84,7 +85,7 @@
 /// 5. Discriminators:
 ///    Union types always have a discriminator field.
 ///    Default: externally tagged (using $variant field).
-///    Options via $ext-type.variant-repr:
+///    Options via $ext-type.interop.variant-repr:
 ///    - "untagged": no discriminator field
 ///    - { tag => "type" }: internally tagged
 ///    - { tag => "type", content => "data" }: adjacently tagged
@@ -104,7 +105,7 @@
 ///
 ///    @ $types.response {
 ///      $variant: union
-///      $variant-repr = "untagged"
+///      $interop.variant-repr = "untagged"
 ///      variants.error = { code = `integer`, message = `text` }
 ///      variants.success = { data = `any` }
 ///      variants.success.$ext-type.unambiguous = true  // check for conflicts
@@ -248,6 +249,13 @@ $ext-type.codegen-defaults.$optional = true
 
   /// Externally tagged variant (default).
   @variants.external = { = "external", $variant => "literal" }
+}
+
+/// Interop metadata for union types.
+/// Kept outside union semantics and used only for external representation mapping.
+@ $types.union-interop {
+  "variant-repr" = `$types.variant-repr`
+  "variant-repr".$optional = true
 }
 
 /// Policy for handling unknown fields in record types.
@@ -499,8 +507,8 @@ variants {
     value.$ext-type.unambiguous = `boolean`
     value.$ext-type.unambiguous.$optional = true
   }
-  $ext-type.variant-repr = `$types.variant-repr`
-  $ext-type.variant-repr.$optional = true  // Default: externally tagged
+  $ext-type.interop = `$types.union-interop`
+  $ext-type.interop.$optional = true  // Default variant-repr: external
   $ext-type.codegen = `$types.union-codegen`
   $ext-type.codegen.$optional = true
 

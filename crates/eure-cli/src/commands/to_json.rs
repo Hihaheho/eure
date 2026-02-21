@@ -1,7 +1,7 @@
-use eure::data_model::VariantRepr;
 use eure::query::{TextFile, TextFileContent, WithFormattedError, build_runtime};
 use eure::query_flow::DurabilityLevel;
 use eure_json::{Config as JsonConfig, EureToJsonFormatted};
+use eure_schema::interop::VariantRepr;
 
 use crate::util::{VariantFormat, display_path, handle_formatted_error, read_input};
 

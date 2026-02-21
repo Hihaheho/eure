@@ -276,7 +276,7 @@ Tagged union that accepts one of multiple variant types.
 result = `$types.response`
 ```
 
-**Note:** Union types always have a discriminator. Use `$variant-repr` to customize representation.
+**Note:** Union types always have a discriminator. Use `$interop.variant-repr` to customize representation.
 
 ---
 
@@ -307,7 +307,7 @@ Custom tag field name inside the content.
 ```eure
 @ $types.message {
   $variant: union
-  $variant-repr = { tag = "type" }
+  $interop.variant-repr = { tag = "type" }
   variants.text = { content = `text` }
   variants.image = { url = `text` }
 }
@@ -323,7 +323,7 @@ Separate tag and content fields.
 ```eure
 @ $types.event {
   $variant: union
-  $variant-repr = { tag = "kind", content = "data" }
+  $interop.variant-repr = { tag = "kind", content = "data" }
   variants.login = { username = `text` }
   variants.logout = { reason = `text` }
 }
@@ -339,7 +339,7 @@ No discriminator field (type is inferred from content).
 ```eure
 @ $types.value {
   $variant: union
-  $variant-repr = "untagged"
+  $interop.variant-repr = "untagged"
   variants.string = `text`
   variants.number = `integer`
 }
@@ -355,7 +355,7 @@ For untagged unions where multiple variants may match, use `priority` to specify
 ```eure
 @ $types.response {
   $variant: union
-  $variant-repr = "untagged"
+  $interop.variant-repr = "untagged"
   priority: ["error", "success"]  // error takes precedence
 
   variants.error = { code = `integer`, message = `text` }
@@ -671,7 +671,7 @@ Express nullable types using union with null:
 
 ### Discriminators
 
-Union types always have a discriminator. Customize with `$variant-repr`:
+Union types always have a discriminator. Customize with `$interop.variant-repr`:
 - `"external"` - Default, variant name wraps content
 - `"untagged"` - No discriminator
 - `{ tag = "..." }` - Internal tagging

@@ -1,0 +1,97 @@
+$schema: ../../assets/schemas/eure-adr.schema.eure
+
+id = "0014-union-variant-repr-as-interop-metadata"
+title = "Move variant-repr from Union Semantics to Interop Metadata"
+status = "accepted"
+decision-date = `2026-02-21`
+tags = ["schema", "union", "interop", "json", "serde", "breaking-change"]
+
+context = ````markdown
+Eure union semantics currently mix two concerns:
+
+1. Native Eure variant resolution semantics (`$variant` + untagged matching)
+2. External representation details (`variant-repr` for external/internal/adjacent/untagged)
+
+This coupling caused:
+
+- Inconsistent behavior between native Eure validation and interop-driven parsing
+- Additional API complexity (`UnionTagMode::Repr`, mode-specific validation/query paths)
+- Ambiguity where the same Eure document could be interpreted differently depending on
+  whether a schema was present and which `variant-repr` it declared
+
+Example:
+
+- Document: `{ type = "success", message = "ok" }`
+- Without schema: plain record value
+- With schema using internal `variant-repr`: interpreted as a tagged union variant
+
+This schema-dependent interpretation was considered ambiguous for Eure semantics.
+
+At the same time, `variant-repr` remains useful for interoperability targets
+such as JSON Schema and Serde-compatible Rust models.
+````
+
+decision = ````markdown
+Union semantics in Eure are now defined only by:
+
+- Explicit variant selection via `$variant`
+- Untagged structural matching fallback
+
+`variant-repr` is removed from union semantics and moved to interop metadata:
+
+- New schema extension path: `$interop.variant-repr`
+- New schema type surface: `UnionSchema.interop.variant_repr`
+- Legacy `$variant-repr` is rejected with an explicit conversion error
+
+Default behavior:
+
+- When interop metadata is omitted, Eure semantics are unchanged
+- JSON Schema conversion treats missing `variant-repr` as `external`
+
+This aligns the intended interoperability path:
+
+`json <-> serde <-> Rust type <-> Eure`
+
+`variant-repr` is treated as a bridge concern in this path, not a core Eure union rule.
+````
+
+consequences = ```markdown
+**Positive**
+- Clear separation between Eure semantics and interop representation
+- Simpler validation/query APIs (mode APIs removed)
+- Stable Eure interpretation independent of schema-level interop hints
+- Better foundation for future Serde/Rust codegen and serde-eure integration
+
+**Negative**
+- Breaking change for schemas using `$variant-repr`
+- Existing fixtures/examples must migrate to `$interop.variant-repr`
+- Any mode-based tooling must be removed or rewritten
+
+**Migration**
+- Replace `$variant-repr = ...` with `$interop.variant-repr = ...`
+- Remove mode-specific validation/query usage
+- Keep union matching logic based on `$variant` + untagged fallback only
+```
+
+alternatives-considered = [
+  ```markdown
+  **Keep `$variant-repr` as semantic input**
+
+  Rejected because it keeps union behavior coupled to external representation and
+  preserves API complexity and ambiguity.
+  ```,
+  ```markdown
+  **Keep compatibility by accepting both `$variant-repr` and `$interop.variant-repr`**
+
+  Rejected because dual paths prolong ambiguity and complicate migration/testing.
+  Explicit failure gives a clear migration signal.
+  ```,
+  ```markdown
+  **Delay the change until serde-eure/codegen is implemented**
+
+  Rejected because decoupling semantics now reduces complexity immediately and
+  does not block future codegen work.
+  ```,
+]
+
+related-adrs = ["0012-union-variant-resolution-semantics"]
