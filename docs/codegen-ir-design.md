@@ -12,6 +12,19 @@ Eure Schema     ──(eure-codegen)──> IR  ──(codegen)──>  Rust Dat
 (Schema, IR, EureDoc)               ──(codegen)──>  Rust literal expression
 ```
 
+Interop path (separate concern from native union semantics):
+
+```
+json <-> serde <-> Rust Data Type <-> Eure
+```
+
+Interop metadata consumption rule:
+
+- `UnionDef.interop.variant_repr` is consumed only when
+  `GenerationConfig.serde_serialize || GenerationConfig.serde_deserialize` is `true`.
+- If both serde flags are `false`, IR may keep the metadata but code emission must ignore it.
+- This does not alter native Eure union semantics.
+
 ### Effects on Architecture
 
 - **eure-macros** depends on `eure-codegen-ir`: derive attributes → IR conversion.
@@ -313,6 +326,18 @@ Tree structure is simpler and sufficient — type references between TypeDefs us
 49. **Codegen type name override**: `$codegen.type = "MyType"` → rust_name
 50. **Codegen field name override**: `$codegen.name = "my_field"` → rust_name
 51. **Codegen variant_types**: union codegen settings captured
+51a. **Union interop metadata**: `$interop.variant-repr` → `UnionDef.interop.variant_repr`
+51b. **Legacy extension rejection**: `$variant-repr` is rejected before IR construction
+51c. **Serde disabled ignores interop**: with `serde_serialize=false` and
+     `serde_deserialize=false`, `variant_repr` does not affect emitted code
+51d. **Serialize-only consumes interop**: with `serde_serialize=true`,
+     `serde_deserialize=false`, mapping is applied
+51e. **Deserialize-only consumes interop**: with `serde_serialize=false`,
+     `serde_deserialize=true`, mapping is applied
+51f. **External mapping**: `None` and `External` both emit no enum-level tag attribute
+51g. **Internal mapping**: emits `#[serde(tag = \"...\")]`
+51h. **Adjacent mapping**: emits `#[serde(tag = \"...\", content = \"...\")]`
+51i. **Untagged mapping**: emits `#[serde(untagged)]`
 
 ### Code Generation Tests
 
@@ -465,8 +490,9 @@ pub enum DefaultDef {
 ```rust
 pub struct UnionDef {
     pub variants: Vec<VariantDef>,
-    /// Variant representation strategy.
-    pub repr: VariantRepr,
+    /// Interop-only metadata (does not affect native Eure union semantics).
+    /// Consumed by codegen only when serde derive is enabled.
+    pub interop: UnionInteropDef,
 }
 
 pub struct VariantDef {
@@ -500,12 +526,21 @@ pub struct TupleElement {
     pub via: Option<String>,
 }
 
-/// How union variants are represented in Eure.
-/// Mirrors `eure_document::data_model::VariantRepr`.
+/// Interop metadata for unions.
+pub struct UnionInteropDef {
+    /// Optional external representation hint.
+    /// None means: no interop override specified and serde default behavior
+    /// (externally tagged) is used.
+    pub variant_repr: Option<VariantRepr>,
+}
+
+/// How union variants are represented for interop bridges
+/// (JSON/Serde/codegen targets).
+/// Mirrors `eure_schema::interop::VariantRepr`.
 pub enum VariantRepr {
     External,
-    Internal,
-    Adjacent,
+    Internal { tag: String },
+    Adjacent { tag: String, content: String },
     Untagged,
 }
 ```
@@ -676,6 +711,21 @@ pub struct TypeCodegenConfig {
 }
 ```
 
+### Serde Attribute Mapping for `variant_repr`
+
+Apply this mapping only when
+`GenerationConfig.serde_serialize || GenerationConfig.serde_deserialize` is `true`.
+If both serde flags are `false`, keep IR metadata but do not emit serde tagging attributes.
+
+- `None` or `Some(VariantRepr::External)`:
+  no enum-level serde tag attribute (serde default externally tagged)
+- `Some(VariantRepr::Internal { tag })`:
+  `#[serde(tag = "...")]`
+- `Some(VariantRepr::Adjacent { tag, content })`:
+  `#[serde(tag = "...", content = "...")]`
+- `Some(VariantRepr::Untagged)`:
+  `#[serde(untagged)]`
+
 ### Generic Type Parameters (derive-only)
 
 ```rust
@@ -743,6 +793,12 @@ fn schema_to_typeref(content: &SchemaNodeContent, codegen: &CodegenConfig) -> Ty
     }
 }
 ```
+
+For union definitions, schema → IR conversion also copies interop metadata from
+`UnionSchema.interop.variant_repr` into `UnionDef.interop.variant_repr`.
+This metadata is for JSON/Serde/codegen bridges only and does not alter native Eure
+union semantics. Code emitters consume it only when
+`serde_serialize || serde_deserialize` is `true`.
 
 ### TypeRef → Rust Type Path (for code emission)
 
@@ -812,9 +868,11 @@ impl TypeRef {
    would need to be passed through to `SchemaNodeContent`. This could be added as an
    optional `constraints` field on TypeRef or as metadata on TypeDef.
 
-4. **VariantRepr in derive macros**: The current derive macro always uses `VariantRepr::default()`
-   (External). The IR includes `VariantRepr` on `UnionDef` but there's no derive attribute
-   to set it yet. This is forward-compatible — the attribute can be added later.
+4. **Union interop metadata in derive macros (settled)**: Native Eure semantics do not
+   require `variant-repr`. For derive → IR, `UnionDef.interop.variant_repr` defaults to
+   `None`. This metadata is consumed only when
+   `serde_serialize || serde_deserialize` is `true`, and remains non-semantic for native
+   Eure parsing/validation.
 
 5. **Schema metadata passthrough**: `SchemaMetadata` (description, deprecated, default,
    examples) is not modeled in the IR. For schema→IR→Rust generation, descriptions could
